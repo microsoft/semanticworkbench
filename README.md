@@ -26,7 +26,7 @@ Designed to be agnostic of any agent framework, language, or platform, the Seman
 
 To develop new agents and connect existing ones, see the [Assistant Development Guide](docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
 
-The repository contains a [Canonical assistant](semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py) without any AI feature, that can be used as starting point to create custom agents.
+The repository contains a [Python Canonical Assistant](semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py) and a [.NET Agent Example](examples/dotnet-example01) that can be used as starting points to create custom agents.
 
 # Workbench setup
 
