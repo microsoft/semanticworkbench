@@ -6,6 +6,8 @@
 *.local
 *__local__*
 .data/
+.idea/
+appsettings.*.json
 
 # Dependencies and build cache
 node_modules
@@ -13,6 +15,8 @@ poetry.lock
 __pycache__
 .pytest_cache
 .cache
+bin/
+obj/
 
 # Logs
 *.log
