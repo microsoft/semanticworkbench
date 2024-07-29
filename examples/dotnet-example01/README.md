@@ -42,3 +42,11 @@ Project Structure
     * Key Points:
         * **Starts a web service** to enable communication with Semantic Workbench.
         * **Starts an instance of WorkbenchConnector** for agent communication.
+
+# Sample execution
+
+<img width="464" alt="image" src="https://github.com/user-attachments/assets/9a6999b8-a926-4b98-9264-58b3ffb66468">
+
+<img width="465" alt="image" src="https://github.com/user-attachments/assets/30112518-8e53-4210-9510-7c53b352000e">
+
+<img width="464" alt="image" src="https://github.com/user-attachments/assets/33673594-edf0-49e9-ac17-d07736a456f2">
