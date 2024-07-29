@@ -1,0 +1,8 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${USER:-${USERNAME:-postgres}}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - 5444:5432
