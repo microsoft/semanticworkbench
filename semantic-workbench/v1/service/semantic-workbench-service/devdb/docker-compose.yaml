@@ -1,0 +1,13 @@
+volumes:
+  postgres-data:
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${USER:-${USERNAME:-postgres}}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres-data:/var/lib/postgresql/data # save data between restarts
+      - ./postgresql-init.sh:/docker-entrypoint-initdb.d/1-postgresql-init.sh:delegated
+    ports:
+      - 5432:${POSTGRESQL_PORT:-5432}

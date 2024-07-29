@@ -1,0 +1,29 @@
+.typeahead-popover.mentions-menu {
+    position: absolute;
+    z-index: 1000;
+    bottom: 20px;
+    background-color: white;
+    border: 1px solid #ccc;
+}
+
+.typeahead-popover.mentions-menu ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    width: 100%;
+}
+
+.typeahead-popover.mentions-menu li {
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.typeahead-popover.mentions-menu li.selected {
+    background-color: #ccc;
+}
+
+.typeahead-popover.mentions-menu li label {
+    white-space: nowrap;
+}

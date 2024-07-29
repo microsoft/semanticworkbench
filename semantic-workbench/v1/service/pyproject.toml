@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "semantic-workbench-service-virtualenv"
+package-mode = false
+description = "installs other all semantic-workbench/v1/* packages"
+
+[tool.poetry.dependencies]
+python = "~3.11"
+semantic-workbench-api-model = { path = "./semantic-workbench-api-model", develop = true, extras=["dev"]  }
+semantic-workbench-assistant = { path = "./semantic-workbench-assistant", develop = true, extras=["dev"]  }
+semantic-workbench-service = { path = "./semantic-workbench-service", develop = true, extras=["dev"] }
+
+[build-system]
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+line_length = 120
+profile = "black"
+
+[tool.pyright]
+exclude = [".venv"]

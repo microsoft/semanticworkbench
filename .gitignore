@@ -1,0 +1,23 @@
+# Private settings
+**/certs/*.pem
+**/certs/config.json
+**/certs/mkcert
+.env
+*.local
+*__local__*
+.data/
+
+# Dependencies and build cache
+node_modules
+poetry.lock
+__pycache__
+.pytest_cache
+.cache
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
