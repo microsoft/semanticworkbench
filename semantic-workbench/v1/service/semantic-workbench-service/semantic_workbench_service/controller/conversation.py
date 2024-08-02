@@ -110,7 +110,7 @@ class ConversationController:
             assistant = (
                 await session.exec(
                     query.select_assistants_for(user_principal=user_principal).where(
-                        db.Assistant.assistant_id == str(assistant_id)
+                        db.Assistant.assistant_id == assistant_id
                     )
                 )
             ).one_or_none()
@@ -449,7 +449,7 @@ class ConversationController:
                             assistant = (
                                 await session.exec(
                                     query.select_assistants_for(user_principal=principal).where(
-                                        db.Assistant.assistant_id == participant_id
+                                        db.Assistant.assistant_id == uuid.UUID(participant_id)
                                     )
                                 )
                             ).one_or_none()
@@ -476,7 +476,7 @@ class ConversationController:
                         raise exceptions.ForbiddenError()
 
                     assistant = (
-                        await session.exec(select(db.Assistant).where(db.Assistant.assistant_id == participant_id))
+                        await session.exec(select(db.Assistant).where(db.Assistant.assistant_id == uuid.UUID(participant_id)))
                     ).one_or_none()
                     if assistant is None:
                         raise exceptions.NotFoundError()
