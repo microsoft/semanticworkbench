@@ -22,7 +22,7 @@ export const getEnvironment = (environmentId?: string): ServiceEnvironment => {
     if (environmentId) {
         const environment = Constants.service.environments.find((environment) => environment.id === environmentId);
         if (environment) {
-            return environment;
+            return transformEnvironment(environment);
         }
     }
 
@@ -30,8 +30,19 @@ export const getEnvironment = (environmentId?: string): ServiceEnvironment => {
         (environment) => environment.id === Constants.service.defaultEnvironmentId,
     );
     if (defaultEnvironment) {
-        return defaultEnvironment;
+        return transformEnvironment(defaultEnvironment);
     }
 
     throw new Error('No default environment found. Check Constants.ts file.');
+};
+
+const transformEnvironment = (environment: ServiceEnvironment) => {
+    if (window.location.hostname.includes('-4000.app.github.dev') && environment.id === 'local') {
+        return {
+            ...environment,
+            url: window.location.origin.replace('-4000.app.github.dev', '-3000.app.github.dev'),
+        };
+    }
+
+    return environment;
 };

@@ -17,7 +17,7 @@ export const Constants = {
         environments: [
             {
                 id: 'local',
-                name: 'Semantic Workbench backend service on localhost',
+                name: 'Semantic Workbench backend service on localhost or GitHub Codespaces',
                 url: 'http://localhost:3000',
                 brand: 'light',
             },

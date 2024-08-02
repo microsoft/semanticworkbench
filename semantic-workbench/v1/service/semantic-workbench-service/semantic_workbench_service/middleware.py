@@ -82,9 +82,13 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
         logger.debug("No access token found in request, using ID token")
         token = idToken
 
-    if "." not in accessToken:
+    if accessToken is not None and "." not in accessToken:
         logger.debug("Access token not JWT, using ID token")
         token = idToken
+
+    if token is None:
+        logger.debug("No token found in request")
+        return None
 
     try:
         algorithm: str = jwt.get_unverified_header(token).get("alg") or ""
