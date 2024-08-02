@@ -4,7 +4,7 @@
 	"name": "semantic-workbench",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
-	
+
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
 		"ghcr.io/devcontainers-contrib/features/poetry:2": {
@@ -16,7 +16,7 @@
 			"installYarnUsingApt": true,
 			"version": "lts",
 			"nvmVersion": "latest"
-		},
+		}
 		// "ghcr.io/devcontainers/features/azure-cli:1": {}
 	},
 
@@ -42,25 +42,25 @@
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": {
 		// Build and restore dependencies for key projects in the repo
-		"make_workbench_app": "make -C /workspaces/semantic-workbench/v1/app",
-		"make_workbench_service": "make -C /workspaces/semantic-workbench/v1/service"
+		"make_workbench_app": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/app",
+		"make_workbench_service": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/service"
 	},
 
 	// Configure tool-specific properties.
-	"customizations": {
-		"vscode": {
-            "extensions": [
-                "GitHub.copilot",
-				"aaron-bond.better-comments",
-				"aarontamasfe.even-better-toml",
-				"dbaeumer.vscode-eslint",
-				"esbenp.prettier-vscode",
-				"ms-python.black-formatter",
-				"ms-python.flake8",
-				"ms-python.python",
-            ]
-        }
-	}
+	// "customizations": {
+	// 	"vscode": {
+    //         "extensions": [
+    //             "GitHub.copilot",
+	// 			"aaron-bond.better-comments",
+	// 			"aarontamasfe.even-better-toml",
+	// 			"dbaeumer.vscode-eslint",
+	// 			"esbenp.prettier-vscode",
+	// 			"ms-python.black-formatter",
+	// 			"ms-python.flake8",
+	// 			"ms-python.python"
+    //         ]
+    //     }
+	// }
 
 	// Uncomment to run commands after the container is created.
 	// "containerEnv": {
