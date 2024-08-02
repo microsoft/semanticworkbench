@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "launch assistant",
+      "cwd": "${workspaceFolder}",
+      "module": "semantic_workbench_assistant.start",
+      "args": ["assistant.chat:app", "--port", "3003"],
+      "consoleTitle": "${workspaceFolderBasename}",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}

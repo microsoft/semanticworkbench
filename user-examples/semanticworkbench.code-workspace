@@ -8,6 +8,9 @@
     },
     {
       "path": "quickstart-assistant"
+    },
+    {
+      "path": "my-assistant"
     }
   ],
   "settings": {
