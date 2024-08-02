@@ -42,11 +42,9 @@ export const Settings: React.FC = () => {
 
     siteUtility.setDocumentTitle('Settings');
 
-    if (assistantServiceRegistrationsError) {
-        throw new Error(
-            `Error loading assistant service registrations: ${JSON.stringify(assistantServiceRegistrationsError)}`,
-        );
-    }
+    // Don't throw on assistant service registration error,
+    // instead show the error message in the UI and allow the
+    // rest of the settings page to render.
 
     const handleEnvironmentChange = React.useCallback(
         (environmentId: string) => {
@@ -111,11 +109,15 @@ export const Settings: React.FC = () => {
                     </div>
                 )} */}
             </Card>
-            <Card className={classes.card}>
-                <Field label="Assistant Service Registrations">
-                    <MyAssistantServiceRegistrations assistantServiceRegistrations={assistantServiceRegistrations} />
-                </Field>
-            </Card>
+            {!assistantServiceRegistrationsError && (
+                <Card className={classes.card}>
+                    <Field label="Assistant Service Registrations">
+                        <MyAssistantServiceRegistrations
+                            assistantServiceRegistrations={assistantServiceRegistrations}
+                        />
+                    </Field>
+                </Card>
+            )}
         </AppView>
     );
 };
