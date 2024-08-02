@@ -1,8 +1,9 @@
 # Using GitHub Codespaces with devcontainers for Semantic Workbench
 
 - Create app registration at https://portal.azure.com
-  - Manage > Authentication > Single-page application > Redirect URI's
-  - Add `https://<YOUR_CODESPACE_HOST>-4000.app.github.dev`
+  - Name: Semantic Workbench
+  - Supported account types: Accounts in any organizational directory and personal Microsoft accounts
+  - Redirect URI: Single-page application (SPA) & `https://<YOUR_CODESPACE_HOST>-4000.app.github.dev`
   - Copy the Application (client) ID from Overview
 - Update `constants.ts` with the Application (client) ID
 - Update `middleware.py` with the Application (client) ID
