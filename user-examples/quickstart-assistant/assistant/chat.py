@@ -3,7 +3,7 @@ from abc import ABC
 from typing import Any, AsyncContextManager, Callable, Generic, TypeVar
 
 from semantic_workbench_assistant import assistant_service
-from . import chat_base, openai_chat
+from openai_assistant import chat_base, openai_chat
 
 from assistant.config import AssistantConfigModel, assistant_config_ui_schema
 

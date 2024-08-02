@@ -1,4 +1,4 @@
-from . import openai_chat
+from openai_assistant import openai_chat
 
 
 class AssistantConfigModel(openai_chat.OpenAIChatConfigModel):

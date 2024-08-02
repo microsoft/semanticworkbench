@@ -5,6 +5,9 @@
     },
     {
       "path": "openai-assistant"
+    },
+    {
+      "path": "quickstart-assistant"
     }
   ],
   "settings": {
