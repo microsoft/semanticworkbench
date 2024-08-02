@@ -46,6 +46,13 @@ class FileStorage:
         file_path = self._file_path(dir, filename)
         file_path.unlink(missing_ok=True)
 
+    def read_all_files(self, dir: str) -> Iterator[BinaryIO]:
+        self._ensure_initialized()
+        namespace_path = self.root / dir
+        for file_path in namespace_path.iterdir():
+            with open(file_path, "rb") as f:
+                yield f
+
     @contextmanager
     def read_file(self, dir: str, filename: str) -> Iterator[BinaryIO]:
         file_path = self._file_path(dir, filename)
@@ -66,6 +73,21 @@ class ModelStorage(Generic[ModelT]):
         self._cls = cls
         self._file_storage = file_storage
         self._namespace = namespace
+
+    def get_all(self) -> list[ModelT]:
+        """
+        Gets all the model values in the storage.
+        """
+        values = []
+        try:
+            for file in self._file_storage.read_all_files(dir=self._namespace):
+                contents = file.read().decode("utf-8")
+                value = self._cls.model_validate_json(contents)
+                values.append(value)
+        except FileNotFoundError:
+            pass
+
+        return values
 
     def get(self, key: str, strict: bool | None = None) -> ModelT | None:
         """
