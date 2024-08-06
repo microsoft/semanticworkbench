@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { Attachment, AttachmentList } from '@fluentui-copilot/react-attachments';
 import {
     ChatInput,
     ChatInputEntityNode,
@@ -9,7 +10,17 @@ import {
     LexicalEditor,
     LexicalEditorRefPlugin,
 } from '@fluentui-copilot/react-copilot';
-import { Dropdown, Option, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import {
+    Button,
+    Dropdown,
+    Option,
+    Tooltip,
+    makeStyles,
+    mergeClasses,
+    shorthands,
+    tokens,
+} from '@fluentui/react-components';
+import { Attach20Regular, DocumentRegular } from '@fluentui/react-icons';
 import { getEncoding } from 'js-tiktoken';
 import { CLEAR_EDITOR_COMMAND } from 'lexical';
 import React from 'react';
@@ -17,11 +28,13 @@ import { Constants } from '../../Constants';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch } from '../../redux/app/hooks';
+import { addError } from '../../redux/features/app/appSlice';
 import {
     updateGetConversationMessagesQueryData,
     useCreateConversationMessageMutation,
     useGetConversationMessagesQuery,
     useGetConversationParticipantsQuery,
+    useUploadConversationFilesMutation,
 } from '../../services/workbench';
 import { ClearEditorPlugin } from './ChatInputPlugins/ClearEditorPlugin';
 import { ParticipantMentionsPlugin } from './ChatInputPlugins/ParticipantMentionsPlugin';
@@ -78,12 +91,15 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const { conversationId, additionalContent } = props;
     const classes = useClasses();
     const [createMessage] = useCreateConversationMessageMutation();
+    const [uploadConversationFiles] = useUploadConversationFilesMutation();
     const [messageTypeValue, setMessageTypeValue] = React.useState<'Chat' | 'Command'>('Chat');
     const [tokenCount, setTokenCount] = React.useState(0);
     const [directedAtId, setDirectedAtId] = React.useState<string>(directedAtDefaultKey);
     const [directedAtName, setDirectedAtName] = React.useState<string>(directedAtDefaultValue);
+    const [attachmentFiles, setAttachmentFiles] = React.useState<File[]>([]);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const editorRef = React.useRef<LexicalEditor | null>();
+    const attachmentInputRef = React.useRef<HTMLInputElement>(null);
     const dispatch = useAppDispatch();
     const localUserAccount = useLocalUserAccount();
     const userId = localUserAccount.getUserId();
@@ -177,10 +193,20 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
             editorRef.current?.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
 
+            // upload attachments
+            const filenames = attachmentFiles.length > 0 ? attachmentFiles.map((file) => file.name) : undefined;
+            const files = attachmentFiles.length > 0 ? [...attachmentFiles] : undefined;
+            // reset the attachment files so that the same files are not uploaded again
+            setAttachmentFiles([]);
+            if (files) {
+                await uploadConversationFiles({ conversationId, files });
+            }
+
             await createMessage({
                 conversationId,
                 content,
                 messageType,
+                filenames,
                 metadata,
             });
 
@@ -200,6 +226,33 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         const tokens = tokenizer.encode(newInput);
         setTokenCount(tokens.length);
     };
+
+    const onAttachment = () => {
+        attachmentInputRef.current?.click();
+    };
+
+    const onAttachmentChanged = () => {
+        const files = attachmentInputRef.current?.files;
+        if (files) {
+            const filesSet = new Set<File>(attachmentFiles);
+            for (let i = 0; i < Math.min(files.length, Constants.app.maxFileAttachmentsPerMessage); i++) {
+                filesSet.add(files[i]);
+            }
+            setAttachmentFiles(Array.from(filesSet));
+
+            if (files.length > Constants.app.maxFileAttachmentsPerMessage) {
+                // show a warning that only the first N files were attached
+                dispatch(
+                    addError({
+                        title: 'Attachment limit reached',
+                        message: `Only the first ${Constants.app.maxFileAttachmentsPerMessage} files were attached`,
+                    }),
+                );
+            }
+        }
+    };
+
+    const disableInputs = isSubmitting;
 
     return (
         <div className={classes.root}>
@@ -253,7 +306,46 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                     onSubmit={handleSend}
                     trimWhiteSpace
                     showCount
-                    disableSend={isSubmitting}
+                    disableSend={disableInputs}
+                    actions={
+                        <span style={{ display: 'flex', alignItems: 'center' }}>
+                            <span>
+                                <input
+                                    hidden
+                                    ref={attachmentInputRef}
+                                    type="file"
+                                    onChange={onAttachmentChanged}
+                                    multiple
+                                />
+                                <Button
+                                    appearance="transparent"
+                                    disabled={disableInputs}
+                                    icon={<Attach20Regular />}
+                                    onClick={onAttachment}
+                                />
+                            </span>
+                        </span>
+                    }
+                    attachments={
+                        <AttachmentList>
+                            {attachmentFiles.map((file, index) => (
+                                <Tooltip content={file.name} key={index} relationship="label">
+                                    <Attachment
+                                        id={file.name}
+                                        key={index}
+                                        media={<DocumentRegular />}
+                                        primaryAction={{ as: 'span' }}
+                                        dismissButton={{
+                                            onClick: () =>
+                                                setAttachmentFiles(attachmentFiles.filter((f) => f !== file)),
+                                        }}
+                                    >
+                                        {file.name}
+                                    </Attachment>
+                                </Tooltip>
+                            ))}
+                        </AttachmentList>
+                    }
                 >
                     <ClearEditorPlugin />
                     {participants && (
