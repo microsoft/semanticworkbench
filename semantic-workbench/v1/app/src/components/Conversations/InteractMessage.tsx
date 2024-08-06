@@ -33,6 +33,7 @@ import { useCreateConversationMessageMutation } from '../../services/workbench';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
 import { DebugInspector } from './DebugInspector';
 import { MessageDelete } from './MessageDelete';
+import { RewindConversation } from './RewindConversation';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -230,6 +231,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         <div>
             <DebugInspector debug={message.metadata?.debug} />
             <MessageDelete conversationId={conversationId} message={message} />
+            <RewindConversation conversationId={conversationId} message={message} />
         </div>
     );
 
