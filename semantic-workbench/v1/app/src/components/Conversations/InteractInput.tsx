@@ -245,7 +245,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 dispatch(
                     addError({
                         title: 'Attachment limit reached',
-                        message: 'Only the first 10 files were attached',
+                        message: `Only the first ${Constants.app.maxFileAttachmentsPerMessage} files were attached`,
                     }),
                 );
             }
