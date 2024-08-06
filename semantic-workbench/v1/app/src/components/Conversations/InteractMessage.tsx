@@ -17,6 +17,7 @@ import {
     AlertUrgent24Regular,
     AppGenericRegular,
     BotRegular,
+    Document16Regular,
     KeyCommandRegular,
     Note24Regular,
     PersonRegular,
@@ -75,6 +76,25 @@ const useClasses = makeStyles({
     innerContent: {
         maxWidth: '100%',
     },
+    renderedContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        width: 'fit-content',
+        gap: tokens.spacingVerticalM,
+    },
+    userContent: {
+        alignItems: 'end',
+    },
+    attachment: {
+        display: 'flex',
+        width: 'fit-content',
+        flexDirection: 'row',
+        gap: tokens.spacingHorizontalS,
+        alignItems: 'center',
+        ...shorthands.padding(tokens.spacingVerticalXS, tokens.spacingHorizontalS),
+        backgroundColor: tokens.colorNeutralBackground3,
+        borderRadius: tokens.borderRadiusMedium,
+    },
 });
 
 interface InteractMessageProps {
@@ -102,6 +122,16 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         return null;
     }, [message.metadata?.attribution]);
 
+    let rootClassName = classes.root;
+    let contentClassName = classes.renderedContent;
+    if (hideParticipant) {
+        rootClassName = mergeClasses(classes.root, classes.hideParticipantRoot);
+    }
+    if (isUser) {
+        rootClassName = mergeClasses(rootClassName, classes.userRoot);
+        contentClassName = mergeClasses(contentClassName, classes.userContent);
+    }
+
     const content = React.useMemo(() => {
         const onSubmit = async (data: string) => {
             if (message.metadata?.command) {
@@ -127,38 +157,33 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     }, [conversationId, createConversationMessage, message.content, message.contentType, message.metadata]);
 
     const getRenderedMessage = React.useCallback(() => {
+        let renderedContent: JSX.Element;
         if (message.messageType === 'notice') {
-            return (
+            renderedContent = (
                 <div className={classes.noticeContent}>
                     <SystemMessage className={classes.innerContent} icon={<AlertUrgent24Regular />} message={content}>
                         {content}
                     </SystemMessage>
                 </div>
             );
-        }
-
-        if (message.messageType === 'note') {
-            return (
+        } else if (message.messageType === 'note') {
+            renderedContent = (
                 <div className={classes.noteContent}>
                     <SystemMessage className={classes.innerContent} icon={<Note24Regular />} message={content}>
                         {content}
                     </SystemMessage>
                 </div>
             );
-        }
-
-        if (message.messageType === 'command') {
-            return (
+        } else if (message.messageType === 'command') {
+            renderedContent = (
                 <div className={classes.noteContent}>
                     <SystemMessage className={classes.innerContent} icon={<KeyCommandRegular />} message={content}>
                         {content}
                     </SystemMessage>
                 </div>
             );
-        }
-
-        if (message.messageType === 'command-response') {
-            return (
+        } else if (message.messageType === 'command-response') {
+            renderedContent = (
                 <div className={classes.noteContent}>
                     <SystemMessage
                         className={classes.innerContent}
@@ -169,14 +194,36 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                     </SystemMessage>
                 </div>
             );
+        } else if (isUser) {
+            renderedContent = <UserMessage>{content}</UserMessage>;
+        } else {
+            renderedContent = <CopilotMessage>{content}</CopilotMessage>;
         }
 
-        if (isUser) {
-            return <UserMessage>{content}</UserMessage>;
-        }
+        const attachments = message.filenames?.map((filename) => (
+            <div key={filename} className={classes.attachment}>
+                <Document16Regular />
+                {filename}
+            </div>
+        ));
 
-        return <CopilotMessage>{content}</CopilotMessage>;
-    }, [classes, content, isUser, message.messageType]);
+        return (
+            <div className={contentClassName}>
+                {renderedContent}
+                {attachments}
+            </div>
+        );
+    }, [
+        classes.attachment,
+        classes.innerContent,
+        classes.noteContent,
+        classes.noticeContent,
+        content,
+        contentClassName,
+        isUser,
+        message.filenames,
+        message.messageType,
+    ]);
 
     const renderedContent = getRenderedMessage();
     const actions = (
@@ -186,7 +233,6 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         </div>
     );
 
-    let rootClassName = classes.root;
     if (hideParticipant) {
         rootClassName = mergeClasses(classes.root, classes.hideParticipantRoot);
     }
