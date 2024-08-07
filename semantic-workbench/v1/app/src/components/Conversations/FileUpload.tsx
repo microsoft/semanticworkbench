@@ -18,7 +18,11 @@ export const FileUpload: React.FC<FileUploadProps> = (props) => {
     const onFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
             setUploading(true);
-            await uploadConversationFiles({ conversationId, files: event.target.files });
+            const files: File[] = [];
+            for (let i = 0; i < event.target.files.length; i++) {
+                files.push(event.target.files[i]);
+            }
+            await uploadConversationFiles({ conversationId, files });
             setUploading(false);
         }
 
