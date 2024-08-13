@@ -15,12 +15,14 @@ class FileStorageSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="allow")
 
     root: str = ".data/files"
+    ensure_safe_filenames: bool = True
 
 
 class FileStorage:
     def __init__(self, settings: FileStorageSettings):
         self.root = pathlib.Path(settings.root)
         self._initialized = False
+        self._ensure_safe_filenames = settings.ensure_safe_filenames
 
     def _ensure_initialized(self):
         if self._initialized:
@@ -34,6 +36,10 @@ class FileStorage:
         namespace_path = self.root / dir
         if mkdir:
             namespace_path.mkdir(exist_ok=True)
+
+        if not self._ensure_safe_filenames:
+            return namespace_path / filename
+
         filename_hash = hashlib.sha256(filename.encode("utf-8")).hexdigest()
         return namespace_path / filename_hash
 

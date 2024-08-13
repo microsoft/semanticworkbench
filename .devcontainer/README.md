@@ -9,6 +9,13 @@
 - Update `middleware.py` with the Application (client) ID
 - Use VS Code > Run and Debug > `Semantic Workbench` to start both the app and the service
 - After launching semantic-workbench-service, go to Ports and make 3000 public
+- In the VS Code terminal tab, find the semantic-workbench-app and click on the link to open the app
+
+## Python assistant example
+
+We have included an example Python assistant that echos the user's input and can serve as a starting point for your own assistant.
+
+See the [Python assistant example README](../examples/python-example01/README.md) for more details.
 
 ## TODO
 
