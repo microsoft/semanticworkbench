@@ -12,6 +12,17 @@ public class AgentServiceStorage : IAgentServiceStorage
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
+    private static readonly char[] s_notSafe =
+    [
+        '\0', '\n', '\r',
+        Path.PathSeparator, // ':' (nix) or ';' (win)
+        Path.DirectorySeparatorChar, // '/' (nix) or '\' (win)
+        Path.VolumeSeparatorChar, // '/' (nix) or ':' (win)
+        Path.AltDirectorySeparatorChar, // '/'
+    ];
+
+    private static readonly char[] s_notSafe2 = Path.GetInvalidPathChars();
+
     private readonly ILogger<AgentServiceStorage> _log;
     private readonly string _path;
 
@@ -133,6 +144,7 @@ public class AgentServiceStorage : IAgentServiceStorage
 
     private string GetAgentFilename(AgentBase agent)
     {
+        EnsureSafe(agent.Id);
         return Path.Join(this._path, $"{agent.Id}.agent.json");
     }
 
@@ -143,11 +155,23 @@ public class AgentServiceStorage : IAgentServiceStorage
 
     private string GetConversationFilename(string agentId, string conversationId)
     {
+        EnsureSafe(agentId);
+        EnsureSafe(conversationId);
         return Path.Join(this._path, $"{agentId}.{conversationId}.conversation.json");
     }
 
     private string GetInsightFilename(string agentId, string conversationId, string insightId)
     {
+        EnsureSafe(agentId);
+        EnsureSafe(conversationId);
+        EnsureSafe(insightId);
         return Path.Join(this._path, $"{agentId}.{conversationId}.{insightId}.insight.json");
+    }
+
+    private static void EnsureSafe(string input)
+    {
+        if (input.IndexOfAny(s_notSafe) < 0 && input.IndexOfAny(s_notSafe2) < 0) { return; }
+
+        throw new ArgumentException("The file or path value contains invalid chars");
     }
 }
