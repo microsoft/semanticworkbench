@@ -23,5 +23,5 @@ stages:
         termTypeT: 0029a9
         toolVersion: Latest
         optionsPE: '1|2|3|4'
-        optionsUEPATH: '$(Build.SourcesDirectory)/.github/policheck-exclusions.xml'
-        optionsRulesDBPath: '$(Build.SourcesDirectory)/.github/policheck-exclusions.mdb'
+        # optionsUEPATH: '$(Build.SourcesDirectory)/.github/policheck-exclusions.xml'
+        # optionsRulesDBPath: '$(Build.SourcesDirectory)/.github/policheck-exclusions.mdb'
