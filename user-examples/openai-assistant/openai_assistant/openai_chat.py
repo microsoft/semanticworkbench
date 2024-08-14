@@ -11,6 +11,7 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     NewConversationMessage,
     MessageType,
+    UpdateParticipant,
 )
 from semantic_workbench_assistant import assistant_service
 from semantic_workbench_assistant.assistant_base import (
@@ -89,8 +90,19 @@ class ChatAssistant(AssistantBase):
         match event.event:
 
             case ConversationEventType.message_created | ConversationEventType.conversation_created:
-                # replace the following with your own logic for processing a message created event
-                return await self.respond_to_conversation(assistant_instance.id, event.conversation_id)
+                # get the conversation client
+                conversation_client = self.workbench_client.for_conversation(
+                    assistant_instance.id, str(event.conversation_id)
+                )
+                # update the participant status to indicate the assistant is thinking
+                await conversation_client.update_participant_me(UpdateParticipant(status="thinking..."))
+                try:
+                    # replace the following with your own logic for processing a message created event
+                    await self.respond_to_conversation(assistant_instance.id, event.conversation_id)
+                finally:
+                    # update the participant status to indicate the assistant is done thinking
+                    await conversation_client.update_participant_me(UpdateParticipant(status=None))
+                return
 
             case _:
                 # add any additional event processing logic here

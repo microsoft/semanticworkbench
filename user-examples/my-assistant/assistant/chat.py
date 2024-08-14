@@ -1,98 +1,152 @@
 import logging
-from abc import ABC
 import re
-from typing import Any, AsyncContextManager, Callable, Generic, TypeVar
+from typing import AsyncContextManager, Callable
+from uuid import UUID
 
+import tiktoken
+import openai
 from openai.types import chat
-from pydantic import BaseModel
+from semantic_workbench_api_model.workbench_model import (
+    ConversationEvent,
+    ConversationEventType,
+    NewConversationMessage,
+    MessageType,
+    UpdateParticipant,
+)
 from semantic_workbench_assistant import assistant_service, settings
+from semantic_workbench_assistant.assistant_base import (
+    AssistantBase,
+    AssistantInstance,
+    SimpleAssistantConfigStorage,
+)
 from semantic_workbench_assistant.storage import FileStorage, FileStorageSettings
 from semantic_workbench_api_model import workbench_model
-from openai_assistant import chat_base, openai_chat
 
 from assistant.agents.attachment_agent import AttachmentAgent
-from assistant.config import AssistantConfigModel, assistant_config_ui_schema
+
+from . import config
 
 logger = logging.getLogger(__name__)
 
-# Example built on top of the OpenAI Chat Assistant
-# This example demonstrates how to extend the OpenAI Chat Assistant
-# to add additional configuration fields and UI schema for the configuration fields
-# and how to create a new Chat Assistant that uses the extended configuration model
-
-# If you are not using OpenAI Chat Assistant, you can replace the openai_chat.*
-# imports with the appropriate imports for the Chat Assistant you are using
+service_id = "my-assistant.made-exploration"
+service_name = "My Chat Assistant"
+service_description = "A sample chat assistant using the Semantic Workbench Assistant SDK."
 
 
-# Modify the config.py file to add any additional configuration fields
-ConfigT = TypeVar("ConfigT", bound=AssistantConfigModel)
-
-
-class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
+class ChatAssistant(AssistantBase):
 
     def __init__(
         self,
         register_lifespan_handler: Callable[[Callable[[], AsyncContextManager[None]]], None],
-        instance_cls: type[chat_base.AssistantInstance[ConfigT]] = chat_base.AssistantInstance[AssistantConfigModel],
-        config_cls: type[ConfigT] = AssistantConfigModel,
-        config_ui_schema: dict[str, Any] = assistant_config_ui_schema,
-        service_id="my-assistant.made-exploration",
-        service_name="My Chat Assistant",
-        service_description="A starter for building a chat assistant using the Semantic Workbench Assistant SDK.",
+        service_id=service_id,
+        service_name=service_name,
+        service_description=service_description,
     ) -> None:
 
         super().__init__(
             register_lifespan_handler=register_lifespan_handler,
-            instance_cls=instance_cls,
-            config_cls=config_cls,
-            config_ui_schema=config_ui_schema,
             service_id=service_id,
             service_name=service_name,
             service_description=service_description,
+            config_storage=SimpleAssistantConfigStorage[config.AssistantConfigModel](
+                cls=config.AssistantConfigModel,
+                default_config=config.AssistantConfigModel(),
+                ui_schema=config.ui_schema,
+            ),
         )
 
-    class ResponseHandlerParameters(BaseModel):
-        instance: chat_base.AssistantInstance[AssistantConfigModel]
-        assistant_id: str
-        conversation_id: str
-        message_list: workbench_model.ConversationMessageList
+    async def validate_config(self, assistant_id: str, conversation_id: str) -> bool:
+        assistant_config = self._config_storage.get_with_defaults_overwritten_from_env(assistant_id)
+        valid, message_content = assistant_config.service_config.validate_required_fields()
+        if valid:
+            return True
 
-    async def respond_to_conversation(self, assistant_id: str, conversation_id: str) -> None:
-        instance: chat_base.AssistantInstance[AssistantConfigModel] | None = self.assistant_instances.get(assistant_id)
-        if instance is None:
-            return
-
-        client = self.workbench_client.for_conversation(assistant_id, conversation_id)
-
-        messages_response = await client.get_messages()
-
-        if len(messages_response.messages) == 0:
-            return
-
-        response_handler_params = self.ResponseHandlerParameters(
-            instance=instance,
-            assistant_id=assistant_id,
-            conversation_id=conversation_id,
-            message_list=messages_response,
+        await self.workbench_client.for_conversation(assistant_id, conversation_id).send_messages(
+            NewConversationMessage(content=message_content, message_type=MessageType.notice)
         )
+        return False
 
-        await self.open_chat_response_handler(response_handler_params)
-
-    async def open_chat_response_handler(
+    async def on_workbench_event(
         self,
-        params: ResponseHandlerParameters,
+        assistant_instance: AssistantInstance,
+        event: ConversationEvent,
     ) -> None:
-        client = self.workbench_client.for_conversation(params.assistant_id, params.conversation_id)
+        match event.event:
+
+            case ConversationEventType.participant_created:
+                return await self.process_workbench_participant_created_event(
+                    assistant_instance.id, event.conversation_id, event
+                )
+
+            case ConversationEventType.message_created | ConversationEventType.conversation_created:
+                # get the conversation client
+                conversation_client = self.workbench_client.for_conversation(
+                    assistant_instance.id, str(event.conversation_id)
+                )
+                # update the participant status to indicate the assistant is thinking
+                await conversation_client.update_participant_me(UpdateParticipant(status="thinking..."))
+                try:
+                    # replace the following with your own logic for processing a message created event
+                    await self.respond_to_conversation(assistant_instance.id, event.conversation_id)
+                finally:
+                    # update the participant status to indicate the assistant is done thinking
+                    await conversation_client.update_participant_me(UpdateParticipant(status=None))
+                return
+
+            case (
+                ConversationEventType.file_created
+                | ConversationEventType.file_updated
+                | ConversationEventType.file_deleted
+            ):
+                # replace the following with your own logic for processing a file event
+                return await self.process_workbench_file_event(assistant_instance.id, event.conversation_id, event)
+
+            case _:
+                pass
+
+    async def respond_to_conversation(self, assistant_id: str, conversation_id: UUID) -> None:
+        # get the conversation client
+        conversation_client = self.workbench_client.for_conversation(assistant_id, str(conversation_id))
+
+        # get the assistant's messages
+        messages_response = await conversation_client.get_messages()
+        if len(messages_response.messages) == 0:
+            # unexpected, no messages in the conversation
+            return None
+
+        # get the last message
+        last_message = messages_response.messages[-1]
+
+        # check if the last message was sent by this assistant
+        if last_message.sender.participant_id == assistant_id:
+            # ignore messages from this assistant
+            return
+
+        # validate the assistant's configuration
+        if not await self.validate_config(assistant_id, str(conversation_id)):
+            return
+
+        # get the assistant's configuration, supports overwriting defaults from environment variables
+        assistant_config = self._config_storage.get_with_defaults_overwritten_from_env(assistant_id)
 
         # get the list of conversation participants
-        participants_response = await client.get_participants(include_inactive=True)
+        participants_response = await conversation_client.get_participants(include_inactive=True)
 
         # establish a token to be used by the AI model to indicate no response
         silence_token = "{{SILENCE}}"
 
-        system_message_content = (
-            f'{params.instance.config.persona_prompt}\n\nYour name is "{params.instance.assistant_name}".'
-        )
+        # get assistant instance
+        instance = self.assistant_instances.get(assistant_id)
+        if instance is None:
+            # unexpected, no instance
+            # TODO log and handle error
+            return
+
+        client = self.workbench_client.for_conversation(assistant_id, str(conversation_id))
+
+        messages = messages_response.messages
+
+        system_message_content = f'{assistant_config.persona_prompt}\n\nYour name is "{instance.assistant_name}".'
         if len(participants_response.participants) > 2:
             system_message_content += (
                 "\n\n"
@@ -101,12 +155,12 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
                 + ",".join([
                     f' "{participant.name}"'
                     for participant in participants_response.participants
-                    if participant.id != params.assistant_id
+                    if participant.id != assistant_id
                 ])
                 + "\n\nYou do not need to respond to every message. Do not respond if the last thing said was a"
                 " closing statement such as 'bye' or 'goodbye', or just a general acknowledgement like 'ok' or"
                 " 'thanks'. Do not respond as another user in the conversation, only as"
-                f' "{params.instance.assistant_name}". Sometimes the other users need to talk'
+                f' "{instance.assistant_name}". Sometimes the other users need to talk'
                 " amongst themselves and that is ok. If the conversation seems to be directed at you or the general"
                 f' audience, go ahead and respond.\n\nSay "{silence_token}" to skip your turn.'
             )
@@ -119,14 +173,14 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
         current_tokens = 0
         current_tokens += self.get_token_count(system_message_content)  # add the system message tokens
 
-        if params.instance.config.agents_config.attachment_agent.include_in_response_generation:
-            file_storage = self.get_file_storage_for_conversation(params.assistant_id, params.conversation_id)
+        if assistant_config.agents_config.attachment_agent.include_in_response_generation:
+            file_storage = self.get_file_storage_for_conversation(assistant_id, str(conversation_id))
             attachment_agent = AttachmentAgent(client, file_storage)
             attachment_messages = await attachment_agent.generate_attachment_messages()
             if len(attachment_messages) > 0:
                 completion_messages.append({
                     "role": "system",
-                    "content": params.instance.config.agents_config.attachment_agent.context_description,
+                    "content": assistant_config.agents_config.attachment_agent.context_description,
                 })
                 completion_messages.extend(attachment_messages)
 
@@ -145,17 +199,16 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
             return f"[{participant_name} - {message_datetime}]: {message.content}"
 
         history_messages: list[chat.ChatCompletionMessageParam] = []
-        for message in reversed(params.message_list.messages):
+        for message in reversed(messages):
             message_tokens = self.get_token_count(format_message(message))
             current_tokens += message_tokens
             if (
                 current_tokens
-                > params.instance.config.request_config.max_tokens
-                - params.instance.config.request_config.response_tokens
+                > assistant_config.request_config.max_tokens - assistant_config.request_config.response_tokens
             ):
                 break
 
-            if message.sender.participant_id == params.assistant_id:
+            if message.sender.participant_id == assistant_id:
                 history_messages.append({
                     "role": "assistant",
                     "content": format_message(message),
@@ -175,21 +228,21 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
         completion_messages.extend(history_messages)
         total_tokens_from_completion: None | int = None
 
-        async with self.openai_client(instance=params.instance) as openai_client:
+        async with self.get_openai_client(assistant_id) as openai_client:
             try:
                 completion = await openai_client.chat.completions.create(
                     messages=completion_messages,
-                    model=params.instance.config.service_config.openai_model,
-                    max_tokens=params.instance.config.request_config.response_tokens,
+                    model=assistant_config.service_config.openai_model,
+                    max_tokens=assistant_config.request_config.response_tokens,
                 )
                 content = completion.choices[0].message.content
                 metadata = {
                     "debug": {
                         "response_generation": {
                             "request": {
-                                "model": params.instance.config.service_config.openai_model,
+                                "model": assistant_config.service_config.openai_model,
                                 "messages": completion_messages,
-                                "max_tokens": params.instance.config.request_config.response_tokens,
+                                "max_tokens": assistant_config.request_config.response_tokens,
                             },
                             "response": completion.model_dump() if completion else "[no response from openai]",
                         },
@@ -203,7 +256,7 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
                     "debug": {
                         "response_generation": {
                             "request": {
-                                "model": params.instance.config.service_config.openai_model,
+                                "model": assistant_config.service_config.openai_model,
                                 "messages": completion_messages,
                             },
                             "error": str(e),
@@ -221,7 +274,7 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
             # model sometimes puts extra spaces in the response, so remove them
             # when checking for the silence token
             if content.replace(" ", "") == silence_token:
-                if params.instance.config.enable_debug_output:
+                if assistant_config.enable_debug_output:
                     await client.send_messages(
                         workbench_model.NewConversationMessage(
                             message_type=workbench_model.MessageType.notice,
@@ -244,53 +297,36 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
         )
 
         # check the token usage and send a warning if it is high
-        if total_tokens_from_completion is not None and params.instance.config.high_token_usage_warning.enabled:
-            token_count_for_warning = params.instance.config.request_config.max_tokens * (
-                params.instance.config.high_token_usage_warning.threshold / 100
+        if total_tokens_from_completion is not None and assistant_config.high_token_usage_warning.enabled:
+            token_count_for_warning = assistant_config.request_config.max_tokens * (
+                assistant_config.high_token_usage_warning.threshold / 100
             )
             if total_tokens_from_completion > token_count_for_warning:
                 await client.send_messages(
                     workbench_model.NewConversationMessage(
-                        content=params.instance.config.high_token_usage_warning.message,
+                        content=assistant_config.high_token_usage_warning.message,
                         message_type=workbench_model.MessageType.notice,
                     )
                 )
 
-    async def process_workbench_event(
-        self,
-        assistant_instance: chat_base.AssistantInstance[AssistantConfigModel],
-        conversation: chat_base.ConversationModel,
-        event: workbench_model.ConversationEvent,
-    ) -> None:
-        if event.event == workbench_model.ConversationEventType.participant_created:
-            return await self.process_workbench_participant_created_event(assistant_instance, conversation, event)
-
-        if (
-            event.event == workbench_model.ConversationEventType.file_created
-            or event.event == workbench_model.ConversationEventType.file_updated
-            or event.event == workbench_model.ConversationEventType.file_deleted
-        ):
-            return await self.process_workbench_file_event(assistant_instance, conversation, event)
-
-        return await super().process_workbench_event(assistant_instance, conversation, event)
-
     async def process_workbench_participant_created_event(
         self,
-        assistant_instance: chat_base.AssistantInstance[AssistantConfigModel],
-        conversation: chat_base.ConversationModel,
+        assistant_id: str,
+        conversation_id: UUID,
         event: workbench_model.ConversationEvent,
     ) -> None:
         # check if the participant is the assistant, if so send a welcome message
-        if event.data.get("participant", {}).get("id") != assistant_instance.id:
+        if event.data.get("participant", {}).get("id") != assistant_id:
             # not the assistant, so ignore
             return
 
-        client = self.workbench_client.for_conversation(assistant_instance.id, conversation.id)
+        client = self.workbench_client.for_conversation(assistant_id, str(conversation_id))
+        assistant_config = self._config_storage.get_with_defaults_overwritten_from_env(assistant_id)
 
         # send a welcome message to the conversation
         await client.send_messages(
             workbench_model.NewConversationMessage(
-                content=assistant_instance.config.welcome_message,
+                content=assistant_config.welcome_message,
                 message_type=workbench_model.MessageType.chat,
                 metadata={"debug": "welcome message from configuration"},
             )
@@ -298,12 +334,12 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
 
     async def process_workbench_file_event(
         self,
-        assistant_instance: chat_base.AssistantInstance[AssistantConfigModel],
-        conversation: chat_base.ConversationModel,
+        assistant_id: str,
+        conversation_id: UUID,
         event: workbench_model.ConversationEvent,
     ) -> None:
-        client = self.workbench_client.for_conversation(assistant_instance.id, conversation.id)
-        file_storage = self.get_file_storage_for_conversation(assistant_instance.id, conversation.id)
+        client = self.workbench_client.for_conversation(assistant_id, str(conversation_id))
+        file_storage = self.get_file_storage_for_conversation(assistant_id, str(conversation_id))
         attachment_agent = AttachmentAgent(client, file_storage)
 
         file_data = event.data.get("file")
@@ -312,34 +348,34 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
             return
         file = workbench_model.File.model_validate(file_data)
 
-        if (
-            event.event == workbench_model.ConversationEventType.file_created
-            or event.event == workbench_model.ConversationEventType.file_updated
-        ):
-            await client.update_participant_me(
-                workbench_model.UpdateParticipant(
-                    status="processing attachment(s)...",
-                )
-            )
-            try:
-                await attachment_agent.set_attachment_content_from_file(file)
-            except Exception as e:
-                logger.exception(f"exception occurred processing attachment: {e}")
-                await client.send_messages(
-                    workbench_model.NewConversationMessage(
-                        content=f"There was an error processing the attachment ({file.filename}): {e}",
-                        message_type=workbench_model.MessageType.chat,
-                        metadata={"attribution": "system"},
-                    )
-                )
-            finally:
+        match event.event:
+
+            case ConversationEventType.file_created | ConversationEventType.file_updated:
                 await client.update_participant_me(
                     workbench_model.UpdateParticipant(
-                        status=None,
+                        status="processing attachment...",
                     )
                 )
-        elif event.event == workbench_model.ConversationEventType.file_deleted:
-            attachment_agent.delete_attachment_for_file(file)
+                try:
+                    await attachment_agent.set_attachment_content_from_file(file)
+                except Exception as e:
+                    logger.exception(f"exception occurred processing attachment: {e}")
+                    await client.send_messages(
+                        workbench_model.NewConversationMessage(
+                            content=f"There was an error processing the attachment ({file.filename}): {e}",
+                            message_type=workbench_model.MessageType.chat,
+                            metadata={"attribution": "system"},
+                        )
+                    )
+                finally:
+                    await client.update_participant_me(
+                        workbench_model.UpdateParticipant(
+                            status=None,
+                        )
+                    )
+
+            case ConversationEventType.file_deleted:
+                attachment_agent.delete_attachment_for_file(file)
 
     async def get_recent_message_type_history(
         self,
@@ -367,6 +403,14 @@ class ChatAssistant(openai_chat.OpenAIChatAssistant, Generic[ConfigT], ABC):
     def get_file_storage_for_conversation(self, assistant_id: str, conversation_id: str) -> FileStorage:
         root = settings.storage.root
         return FileStorage(FileStorageSettings(root=f"{root}/files/{assistant_id}/{conversation_id}"))
+
+    def get_openai_client(self, assistant_id: str) -> openai.AsyncOpenAI:
+        assistant_config = self._config_storage.get_with_defaults_overwritten_from_env(assistant_id)
+        return assistant_config.service_config.new_client()
+
+    def get_token_count(self, string: str) -> int:
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(string))
 
 
 app = assistant_service.create_app(
