@@ -1,19 +1,18 @@
 import logging
-from typing import IO, AsyncContextManager, Callable, TypeVar
+from typing import AsyncContextManager, Callable, TypeVar
 from uuid import UUID
 
-from fastapi import HTTPException, status
-from pydantic import BaseModel, ValidationError
-from semantic_workbench_api_model.assistant_model import ConfigPutRequestModel, ConfigResponseModel, ServiceInfoModel
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationEventType,
     NewConversationMessage,
-    MessageType,
 )
 from semantic_workbench_assistant import assistant_service
-from semantic_workbench_assistant.assistant_base import AssistantBase, AssistantInstance, file_storage
-from semantic_workbench_assistant.storage import ModelStorage
+from semantic_workbench_assistant.assistant_base import (
+    AssistantBase,
+    AssistantInstance,
+    SimpleAssistantConfigStorage,
+)
 
 from assistant.config import AssistantConfigModel
 
@@ -55,87 +54,12 @@ class ChatAssistant(AssistantBase):
             service_id=service_id,
             service_name=service_name,
             service_description=service_description,
-        )
-
-        # Custom: initialize the assistant's configurations
-        self._configs = ModelStorage[config.AssistantConfigModel](
-            cls=config.AssistantConfigModel,
-            file_storage=file_storage,
-            namespace="configs",
-        )
-
-    # Custom: implement a custom method to validate the assistant's configurations
-    async def validate_config(self, assistant_id: str, conversation_id: str) -> bool:
-        assistant_config = self._get_config(assistant_id).overwrite_defaults_from_env()
-        valid, message_content = assistant_config.service_config.validate_required_fields()
-        if valid:
-            return True
-
-        await self.workbench_client.for_conversation(assistant_id, conversation_id).send_messages(
-            NewConversationMessage(content=message_content, message_type=MessageType.notice)
-        )
-        return False
-
-    # Custom: implement a custom method to store the assistant's configurations to the storage layer
-    def _set_config(self, assistant_id: str, config: config.AssistantConfigModel) -> None:
-        self._configs[assistant_id] = config
-
-    def _get_config(self, assistant_id: str) -> config.AssistantConfigModel:
-        return self._configs.get(assistant_id) or config.AssistantConfigModel()
-
-    # Required: implement the get_service_info method to provide metadata about the service
-    async def get_service_info(self) -> ServiceInfoModel:
-        return ServiceInfoModel(
-            assistant_service_id=self.service_id,
-            name=self.service_name,
-            description=self.service_description,
-            default_config=ConfigResponseModel(
-                config=config.AssistantConfigModel().model_dump(),
-                json_schema=config.AssistantConfigModel.model_json_schema(),
+            config_storage=SimpleAssistantConfigStorage[config.AssistantConfigModel](
+                cls=config.AssistantConfigModel,
+                default_config=config.AssistantConfigModel(),
                 ui_schema=config.ui_schema,
             ),
         )
-
-    # Required: Implement the export_assistant_data and restore_assistant_data methods to support exporting and
-    # restoring assistant data, this should include the assistant's configuration and any other data that is needed
-    async def export_assistant_data(
-        self, assistant_id: str
-    ) -> (
-        assistant_service.StreamingResponse
-        | assistant_service.FileResponse
-        | assistant_service.JSONResponse
-        | BaseModel
-    ):
-        """Export the assistant's data - just config for now."""
-        return self._get_config(assistant_id)
-
-    async def restore_assistant_data(self, assistant_id: str, from_export: IO[bytes]) -> None:
-        """Restore the assistant's data - just config for now."""
-        config_json = from_export.read().decode("utf-8")
-        restored_config = config.AssistantConfigModel.model_validate_json(config_json)
-        self._set_config(assistant_id, restored_config)
-
-    # Required: Implement the get_config and put_config methods to support getting and setting the assistant's
-    # configuration, see the config.py file for the configuration model and more details
-    async def get_config(self, assistant_id: str) -> ConfigResponseModel:
-        assistant_config = self._configs.get(assistant_id)
-        if assistant_config is None:
-            assistant_config = config.AssistantConfigModel()
-        return ConfigResponseModel(
-            config=assistant_config.model_dump(),
-            json_schema=assistant_config.model_json_schema(),
-            ui_schema=config.ui_schema,
-        )
-
-    async def put_config(self, assistant_id: str, updated_config: ConfigPutRequestModel) -> ConfigResponseModel:
-        try:
-            new_config = config.AssistantConfigModel.model_validate(updated_config.config)
-        except ValidationError as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.errors())
-
-        self._set_config(assistant_id, new_config)
-
-        return await self.get_config(assistant_id)
 
     # Optional: Override the on_workbench_event method to provide custom handling of conversation events for this
     # assistant
@@ -175,14 +99,9 @@ class ChatAssistant(AssistantBase):
             return
 
         # get the assistant's configuration, supports overwriting defaults from environment variables
-        assistant_config = self._get_config(assistant_id).overwrite_defaults_from_env()
+        assistant_config = self._config_storage.get_with_defaults_overwritten_from_env(assistant_id)
 
-        # uncomment to use the OpenAI client and replace the following with your own logic for responding to a
-        # conversation - please remember to practice responsible AI use
-        # async with self._get_config(assistant_id).service_config.new_client() as openai_client:
-        #     # replace the following with your own logic for responding to a conversation
-        #     pass
-
+        # add your custom logic here for generating a response to the last message
         # example: for now, just echo the last message back to the conversation
 
         # send a new message with the echo response

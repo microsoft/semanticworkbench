@@ -4,19 +4,131 @@ import logging
 import uuid
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import IO, AsyncContextManager, AsyncIterator, Callable, NoReturn, Optional
+from typing import (
+    IO,
+    Any,
+    AsyncContextManager,
+    AsyncIterator,
+    Callable,
+    Generic,
+    NoReturn,
+    Optional,
+    Protocol,
+    Self,
+    TypeVar,
+)
 
 import asgi_correlation_id
 from fastapi import HTTPException, status
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from semantic_workbench_api_model import assistant_model, workbench_model
 
 from . import assistant_service, settings, storage
 
+logger = logging.getLogger(__name__)
+
+
 file_storage = storage.FileStorage(settings=settings.storage)
 
-logger = logging.getLogger(__name__)
+
+class AssistantConfigModel(ABC, BaseModel):
+    @abstractmethod
+    def overwrite_defaults_from_env(self) -> Self: ...
+
+
+AssistantConfigT = TypeVar("AssistantConfigT", bound=AssistantConfigModel)
+
+
+class AssistantConfigStorage(Protocol, Generic[AssistantConfigT]):
+    def get(self, assistant_id: str) -> AssistantConfigT: ...
+
+    def get_with_defaults_overwritten_from_env(self, assistant_id: str) -> AssistantConfigT: ...
+
+    def set(self, assistant_id: str, config: AssistantConfigT) -> None: ...
+
+    def delete(self, assistant_id: str) -> None: ...
+
+    def default_config_response_model(self) -> assistant_model.ConfigResponseModel: ...
+
+    async def export_assistant_config(self, assistant_id: str) -> BaseModel: ...
+
+    async def restore_assistant_config(self, assistant_id: str, from_export: IO[bytes]) -> None: ...
+
+    async def get_config(self, assistant_id: str) -> assistant_model.ConfigResponseModel: ...
+
+    async def update_config(
+        self, assistant_id: str, updated_config: assistant_model.ConfigPutRequestModel
+    ) -> assistant_model.ConfigResponseModel: ...
+
+
+class SimpleAssistantConfigStorage(Generic[AssistantConfigT]):
+
+    def __init__(
+        self,
+        cls: type[AssistantConfigT],
+        ui_schema: dict[str, Any],
+        default_config: AssistantConfigT | None = None,
+        file_storage: storage.FileStorage = file_storage,
+    ) -> None:
+        self._default_config = default_config or cls()
+        self._ui_schema = ui_schema
+        self._storage = storage.ModelStorage[cls](
+            cls=cls,
+            file_storage=file_storage,
+            namespace=f"configs_{cls.__name__}",
+        )
+
+    def get(self, assistant_id: str) -> AssistantConfigT:
+        return self._storage.get(assistant_id) or self._default_config.model_copy()
+
+    def get_with_defaults_overwritten_from_env(self, assistant_id: str) -> AssistantConfigT:
+        config = self._storage.get(assistant_id) or self._default_config.model_copy()
+        config = config.overwrite_defaults_from_env()
+        return config
+
+    def set(self, assistant_id: str, config: AssistantConfigT) -> None:
+        self._storage[assistant_id] = config
+
+    def delete(self, assistant_id: str) -> None:
+        self._storage.delete(assistant_id)
+
+    def default_config_response_model(self) -> assistant_model.ConfigResponseModel:
+        return assistant_model.ConfigResponseModel(
+            config=self._default_config.model_dump(),
+            json_schema=self._default_config.model_json_schema(),
+            ui_schema=self._ui_schema,
+        )
+
+    async def export_assistant_config(self, assistant_id: str) -> BaseModel:
+        """Export the assistant's data - just config for now."""
+        return self.get(assistant_id)
+
+    async def restore_assistant_config(self, assistant_id: str, from_export: IO[bytes]) -> None:
+        """Restore the assistant's data - just config for now."""
+        config_json = from_export.read().decode("utf-8")
+        restored_config = self._default_config.model_validate_json(config_json)
+        self._storage.set(assistant_id, restored_config)
+
+    async def get_config(self, assistant_id: str) -> assistant_model.ConfigResponseModel:
+        assistant_config = self.get(assistant_id)
+        return assistant_model.ConfigResponseModel(
+            config=assistant_config.model_dump(),
+            json_schema=assistant_config.model_json_schema(),
+            ui_schema=self._ui_schema,
+        )
+
+    async def update_config(
+        self, assistant_id: str, updated_config: assistant_model.ConfigPutRequestModel
+    ) -> assistant_model.ConfigResponseModel:
+        try:
+            new_config = self._default_config.model_validate(updated_config.config)
+        except ValidationError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.errors())
+
+        self.set(assistant_id, new_config)
+
+        return await self.get_config(assistant_id)
 
 
 class AssistantInstance(BaseModel):
@@ -41,6 +153,7 @@ class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
         service_id: str,
         service_name: str,
         service_description: str,
+        config_storage: AssistantConfigStorage,
     ) -> None:
         super().__init__(
             service_id=service_id,
@@ -53,6 +166,7 @@ class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
             file_storage=file_storage,
             namespace="instances",
         )
+        self._config_storage = config_storage
         self._event_queue_lock = asyncio.Lock()
         self._conversation_event_queues: dict[tuple[str, str], asyncio.Queue[Event]] = {}
         self._conversation_event_tasks: set[asyncio.Task] = set()
@@ -87,9 +201,13 @@ class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
             task.add_done_callback(self._conversation_event_tasks.discard)
             return queue
 
-    @abstractmethod
     async def get_service_info(self) -> assistant_model.ServiceInfoModel:
-        pass
+        return assistant_model.ServiceInfoModel(
+            assistant_service_id=self.service_id,
+            name=self.service_name,
+            description=self.service_description,
+            default_config=self._config_storage.default_config_response_model(),
+        )
 
     async def put_assistant(
         self,
@@ -112,15 +230,15 @@ class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
         self.assistant_instances.set(assistant_id, instance)
         return await self.get_assistant(assistant_id=assistant_id)
 
-    @abstractmethod
     async def export_assistant_data(
         self, assistant_id: str
     ) -> StreamingResponse | FileResponse | JSONResponse | BaseModel:
-        pass
+        """Export the assistant's config."""
+        return await self._config_storage.export_assistant_config(assistant_id)
 
-    @abstractmethod
     async def restore_assistant_data(self, assistant_id: str, from_export: IO[bytes]) -> None:
-        pass
+        """Import the assistant's config."""
+        return await self._config_storage.restore_assistant_config(assistant_id, from_export)
 
     async def get_assistant(self, assistant_id: str) -> assistant_model.AssistantResponseModel:
         instance = self.assistant_instances.get(assistant_id)
@@ -131,25 +249,33 @@ class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
 
     async def delete_assistant(self, assistant_id: str) -> None:
         self.assistant_instances.delete(assistant_id)
+        self._config_storage.delete(assistant_id=assistant_id)
 
-    @abstractmethod
     async def get_config(self, assistant_id: str) -> assistant_model.ConfigResponseModel:
-        pass
+        return await self._config_storage.get_config(assistant_id=assistant_id)
 
-    @abstractmethod
     async def put_config(
         self, assistant_id: str, updated_config: assistant_model.ConfigPutRequestModel
     ) -> assistant_model.ConfigResponseModel:
-        pass
+        return await self._config_storage.update_config(assistant_id=assistant_id, updated_config=updated_config)
 
     async def get_conversation_state_descriptions(
         self, assistant_id: str, conversation_id: str
     ) -> assistant_model.StateDescriptionListResponseModel:
+        """
+        This method is used by the Semantic Workbench to create a list of
+        "state" tabs. Overwrite as desired.
+        """
         return assistant_model.StateDescriptionListResponseModel(states=[])
 
     async def get_conversation_state(
         self, assistant_id: str, conversation_id: str, state_id: str
     ) -> assistant_model.StateResponseModel:
+        """
+        This method is used by the Semantic Workbench to read the state of the
+        assistant. This is generally useful for creating tabs in the Workbench.
+        Override as desired.
+        """
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     async def put_conversation_state(
@@ -159,6 +285,11 @@ class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
         state_id: str,
         updated_state: assistant_model.StatePutRequestModel,
     ) -> assistant_model.StateResponseModel:
+        """
+        This method is used by the Semantic Workbench to put state into the
+        assistant. This is generally useful for creating interactive tabs in the
+        Workbench. Override as desired.
+        """
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     async def put_conversation(

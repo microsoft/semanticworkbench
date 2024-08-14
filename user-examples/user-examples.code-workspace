@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "openai-assistant",
+      "name": "user-examples/openai-assistant"
+    },
+    {
+      "path": "my-assistant",
+      "name": "user-examples/my-assistant"
+    },
+    {
+      "path": "../examples/python-example01",
+      "name": "examples/python-example01"
+    }
+  ]
+}
