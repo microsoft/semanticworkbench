@@ -43,7 +43,8 @@
   "postCreateCommand": {
     // Build and restore dependencies for key projects in the repo
     "make_workbench_app": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/app",
-    "make_workbench_service": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/service"
+    "make_workbench_service": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/service",
+    "make_python_examples01": "make -C /workspaces/semanticworkbench/examples/python-examples01"
   },
 
   // Configure tool-specific properties.

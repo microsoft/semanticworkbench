@@ -88,7 +88,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 _dotenv_values = dotenv.dotenv_values()
 
 
-def overwrite_defaults_from_env(model: ModelT, prefix="", separator="__", data=None) -> ModelT:
+def overwrite_defaults_from_env(model: ModelT, prefix="", separator="__") -> ModelT:
     """
     Overwrite string fields that currently have their default values. Values are
     overwritten with values from environment variables or .env file. If a field
@@ -104,10 +104,6 @@ def overwrite_defaults_from_env(model: ModelT, prefix="", separator="__", data=N
     non_defaults = model.model_dump(exclude_defaults=True).keys()
 
     updates: dict[str, str | BaseModel] = {}
-
-    # if data is not None, copy data into _dotenv_values
-    if data is not None:
-        _dotenv_values.update(data)
 
     for field, field_info in model.model_fields.items():
         value = getattr(model, field)

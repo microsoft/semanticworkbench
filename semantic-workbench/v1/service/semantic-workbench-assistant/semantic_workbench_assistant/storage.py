@@ -15,12 +15,14 @@ class FileStorageSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="allow")
 
     root: str = ".data/files"
+    ensure_safe_filenames: bool = True
 
 
 class FileStorage:
     def __init__(self, settings: FileStorageSettings):
         self.root = pathlib.Path(settings.root)
         self._initialized = False
+        self._ensure_safe_filenames = settings.ensure_safe_filenames
 
     def _ensure_initialized(self):
         if self._initialized:
@@ -34,6 +36,10 @@ class FileStorage:
         namespace_path = self.root / dir
         if mkdir:
             namespace_path.mkdir(exist_ok=True)
+
+        if not self._ensure_safe_filenames:
+            return namespace_path / filename
+
         filename_hash = hashlib.sha256(filename.encode("utf-8")).hexdigest()
         return namespace_path / filename_hash
 
@@ -45,6 +51,13 @@ class FileStorage:
     def delete_file(self, dir: str, filename: str) -> None:
         file_path = self._file_path(dir, filename)
         file_path.unlink(missing_ok=True)
+
+    def read_all_files(self, dir: str) -> Iterator[BinaryIO]:
+        self._ensure_initialized()
+        namespace_path = self.root / dir
+        for file_path in namespace_path.iterdir():
+            with open(file_path, "rb") as f:
+                yield f
 
     @contextmanager
     def read_file(self, dir: str, filename: str) -> Iterator[BinaryIO]:
@@ -66,6 +79,21 @@ class ModelStorage(Generic[ModelT]):
         self._cls = cls
         self._file_storage = file_storage
         self._namespace = namespace
+
+    def get_all(self) -> list[ModelT]:
+        """
+        Gets all the model values in the storage.
+        """
+        values = []
+        try:
+            for file in self._file_storage.read_all_files(dir=self._namespace):
+                contents = file.read().decode("utf-8")
+                value = self._cls.model_validate_json(contents)
+                values.append(value)
+        except FileNotFoundError:
+            pass
+
+        return values
 
     def get(self, key: str, strict: bool | None = None) -> ModelT | None:
         """
