@@ -2,6 +2,7 @@
 
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Web;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -110,7 +111,9 @@ public class AgentServiceStorage : IAgentServiceStorage
 
     private async Task<List<T>> GetAllAsync<T>(string prefix, string suffix, CancellationToken cancellationToken = default)
     {
-        this._log.LogTrace("Searching all files with prefix '{0}' and suffix '{1}'", prefix, suffix);
+        this._log.LogTrace("Searching all files with prefix '{0}' and suffix '{1}'",
+            prefix.HtmlEncode(), suffix.HtmlEncode());
+
         var result = new List<T>();
         string[] fileEntries = Directory.GetFiles(this._path);
         foreach (string filePath in fileEntries)

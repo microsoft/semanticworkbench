@@ -2,6 +2,7 @@
 
 using System.Text;
 using System.Text.Json;
+using System.Web;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -64,7 +65,9 @@ public static class Webservice
                     string? name = agentId;
                     Dictionary<string, string>? settings = JsonSerializer.Deserialize<Dictionary<string, string>>(data);
                     settings?.TryGetValue("assistant_name", out name);
-                    log.LogDebug("Received request to create/update agent instance '{0}', name '{1}'", agentId, name);
+
+                    log.LogDebug("Received request to create/update agent instance '{0}', name '{1}'",
+                        agentId.HtmlEncode(), name.HtmlEncode());
 
                     var agent = workbenchConnector.GetAgent(agentId);
                     if (agent == null)
@@ -91,7 +94,7 @@ public static class Webservice
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                 CancellationToken cancellationToken) =>
             {
-                log.LogDebug("Received request to deleting agent instance '{0}'", agentId);
+                log.LogDebug("Received request to deleting agent instance '{0}'", agentId.HtmlEncode());
                 await workbenchConnector.DeleteAgentAsync(agentId, cancellationToken).ConfigureAwait(false);
                 return Results.Ok();
             });
@@ -109,7 +112,7 @@ public static class Webservice
                 [FromServices] WorkbenchConnector workbenchConnector,
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log) =>
             {
-                log.LogDebug("Received request to fetch agent '{0}' configuration", agentId);
+                log.LogDebug("Received request to fetch agent '{0}' configuration", agentId.HtmlEncode());
 
                 var agent = workbenchConnector.GetAgent(agentId);
                 if (agent == null)
@@ -135,13 +138,14 @@ public static class Webservice
                     [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                     CancellationToken cancellationToken) =>
                 {
-                    log.LogDebug("Received request to update agent '{0}' configuration", agentId);
+                    log.LogDebug("Received request to update agent '{0}' configuration", agentId.HtmlEncode());
 
                     var agent = workbenchConnector.GetAgent(agentId);
                     if (agent == null) { return Results.NotFound("Agent Not Found"); }
 
                     var config = agent.ParseConfig(data["config"]);
-                    IAgentConfig newConfig = await agent.UpdateAgentConfigAsync(config, cancellationToken).ConfigureAwait(false);
+                    IAgentConfig newConfig =
+                        await agent.UpdateAgentConfigAsync(config, cancellationToken).ConfigureAwait(false);
 
                     var tmp = workbenchConnector.GetAgent(agentId);
 
@@ -165,7 +169,8 @@ public static class Webservice
                     [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                     CancellationToken cancellationToken) =>
                 {
-                    log.LogDebug("Received request to create conversation '{0}' on agent '{1}'", conversationId, agentId);
+                    log.LogDebug("Received request to create conversation '{0}' on agent '{1}'",
+                        conversationId.HtmlEncode(), agentId.HtmlEncode());
 
                     var agent = workbenchConnector.GetAgent(agentId);
                     if (agent == null) { return Results.NotFound("Agent Not Found"); }
@@ -190,7 +195,8 @@ public static class Webservice
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                 CancellationToken cancellationToken) =>
             {
-                log.LogDebug("Received request to fetch agent '{0}' conversation '{1}' states", agentId, conversationId);
+                log.LogDebug("Received request to fetch agent '{0}' conversation '{1}' states",
+                    agentId.HtmlEncode(), conversationId.HtmlEncode());
 
                 var agent = workbenchConnector.GetAgent(agentId);
                 if (agent == null) { return Results.NotFound("Conversation Not Found"); }
@@ -260,7 +266,8 @@ public static class Webservice
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                 CancellationToken cancellationToken) =>
             {
-                log.LogDebug("Received request to fetch agent '{0}' conversation '{1}' insight '{2}'", agentId, conversationId, insightId);
+                log.LogDebug("Received request to fetch agent '{0}' conversation '{1}' insight '{2}'",
+                    agentId.HtmlEncode(), conversationId.HtmlEncode(), insightId.HtmlEncode());
 
                 var agent = workbenchConnector.GetAgent(agentId);
                 if (agent == null) { return Results.NotFound("Agent Not Found"); }
@@ -323,7 +330,8 @@ public static class Webservice
                     [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                     CancellationToken cancellationToken) =>
                 {
-                    log.LogDebug("Received request to process new event for agent '{0}' on conversation '{1}'", agentId, conversationId);
+                    log.LogDebug("Received request to process new event for agent '{0}' on conversation '{1}'",
+                        agentId.HtmlEncode(), conversationId.HtmlEncode());
 
                     if (data == null || !data.TryGetValue("event", out object? eventType))
                     {
@@ -340,7 +348,8 @@ public static class Webservice
                     }
 
                     var json = JsonSerializer.Serialize(data);
-                    log.LogDebug("Agent '{0}', conversation '{1}', Event '{2}'", agentId, conversationId, eventType);
+                    log.LogDebug("Agent '{0}', conversation '{1}', Event '{2}'",
+                        agentId.HtmlEncode(), conversationId.HtmlEncode(), eventType.HtmlEncode());
                     switch (eventType.ToString())
                     {
                         case "participant.created":
@@ -401,8 +410,11 @@ public static class Webservice
                                     break;
 
                                 default:
-                                    log.LogInformation($"{message.MessageType}: {message.Content}");
-                                    log.LogWarning("Agent '{0}', conversation '{1}', Message type '{2}' ignored", agentId, conversationId, message.MessageType);
+                                    log.LogInformation("{0}: {1}", message.MessageType.HtmlEncode(),
+                                        message.Content.HtmlEncode());
+                                    log.LogWarning("Agent '{0}', conversation '{1}', Message type '{2}' ignored",
+                                        agentId.HtmlEncode(), conversationId.HtmlEncode(),
+                                        message.MessageType.HtmlEncode());
                                     break;
                             }
 
@@ -483,8 +495,8 @@ public static class Webservice
                                 }
                             }
                             */
-                            log.LogWarning("Event type '{0}' not supported", eventType);
-                            log.LogTrace(json);
+                            log.LogWarning("Event type '{0}' not supported", eventType.HtmlEncode());
+                            log.LogTrace(json.HtmlEncode());
                             break;
                     }
 
@@ -507,7 +519,8 @@ public static class Webservice
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                 CancellationToken cancellationToken) =>
             {
-                log.LogDebug("Received request to delete conversation '{0}' on agent instance '{1}'", conversationId, agentId);
+                log.LogDebug("Received request to delete conversation '{0}' on agent instance '{1}'",
+                    conversationId.HtmlEncode(), agentId.HtmlEncode());
 
                 var agent = workbenchConnector.GetAgent(agentId);
                 if (agent == null) { return Results.Ok(); }
@@ -542,13 +555,13 @@ public static class Webservice
             string requestBody = await reader.ReadToEndAsync().ConfigureAwait(false);
             context.Request.Body.Position = 0;
 
-            log.LogWarning("Unknown request: {0} Path: {1}", context.Request.Method, context.Request.Path);
+            log.LogWarning("Unknown request: {0} Path: {1}", context.Request.Method, context.Request.Path.HtmlEncode());
 
             string? query = context.Request.QueryString.Value;
-            if (!string.IsNullOrEmpty(query)) { log.LogDebug("Query: {0}", context.Request.QueryString.Value); }
+            if (!string.IsNullOrEmpty(query)) { log.LogDebug("Query: {0}", context.Request.QueryString.Value.HtmlEncode()); }
 
-            log.LogDebug("Headers: {0}", headersStringBuilder.ToString());
-            log.LogDebug("Body: {0}", requestBody);
+            log.LogDebug("Headers: {0}", headersStringBuilder.HtmlEncode());
+            log.LogDebug("Body: {0}", requestBody.HtmlEncode());
 
             return Results.NotFound("Request not supported");
         });
