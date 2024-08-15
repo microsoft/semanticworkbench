@@ -25,6 +25,13 @@ stages:
         targetArgument: '$(Build.SourcesDirectory)'
         termTypeT: 0029a9
         toolVersion: Latest
-        # optionsPE: '1|2|3|4'
+        optionsPE: '1|2|3|4'
         # optionsUEPATH: '$(Build.SourcesDirectory)/.github/policheck-exclusions.xml'
         # optionsRulesDBPath: '$(Build.SourcesDirectory)/.github/policheck-exclusions.mdb'
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Save PoliCheck logs'
+      inputs:
+        targetPath: '$(Pipeline.Workspace)/policheck'
+        artifact: '$(artifactName)'
+        publishLocation: 'pipeline'
