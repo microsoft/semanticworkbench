@@ -3,6 +3,9 @@ name: $(Date:yyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+pool:
+  vmImage: 'windows-latest'
+
 stages:
 - stage: Stage1
   displayName: All steps
