@@ -1,20 +1,32 @@
 # Semantic Workbench
 
-Semantic Workbench is a versatile tool designed to help prototype intelligent assistants quickly. It supports the creation of new assistants or the integration of existing ones, all within a cohesive interface. The workbench provides a user-friendly UI for creating conversations with one or more assistants, configuring settings, and exposing various behaviors.
+Semantic Workbench is a versatile tool designed to help prototype intelligent assistants quickly.
+It supports the creation of new assistants or the integration of existing ones, all within a
+cohesive interface. The workbench provides a user-friendly UI for creating conversations with one
+or more assistants, configuring settings, and exposing various behaviors.
 
 The Semantic Workbench is composed of three main components:
 
-1.	[Workbench Service](semantic-workbench/v1/service/README.md) (Python): The backend service that handles core functionalities.
-2.	[Workbench App](semantic-workbench/v1/app/README.md) (React/Typescript): The frontend web user interface for interacting with workbench and assistants.
-3.	Assistant Services: any number of assistant services that implement the service protocols/APIs, developed using any framework and programming language of your choice.
+1. [Workbench Service](semantic-workbench/v1/service/README.md) (Python): The backend service that
+   handles core functionalities.
+2. [Workbench App](semantic-workbench/v1/app/README.md) (React/Typescript): The frontend web user
+   interface for interacting with workbench and assistants.
+3. Assistant Services: any number of assistant services that implement the service protocols/APIs,
+   developed using any framework and programming language of your choice.
 
-Designed to be agnostic of any agent framework, language, or platform, the Semantic Workbench facilitates experimentation, development, testing, and measurement of agent behaviors and workflows. Agents integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability in various development environments.
+Designed to be agnostic of any agent framework, language, or platform, the Semantic Workbench
+facilitates experimentation, development, testing, and measurement of agent behaviors and workflows.
+Agents integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability
+in various development environments.
+
+![Semantic Workbench architecture](docs/architecture-animation.gif)
 
 # Quick start
 
-* Start the backend service, see [here for instructions](semantic-workbench/v1/service/README.md).
-* Start the frontend app, see [here for instructions](semantic-workbench/v1/app/README.md).
-* Start the canonical assistant, see [here for instructions](semantic-workbench/v1/service/semantic-workbench-assistant/README.md).
+- Start the backend service, see [here for instructions](semantic-workbench/v1/service/README.md).
+- Start the frontend app, see [here for instructions](semantic-workbench/v1/app/README.md).
+- Start the canonical assistant (see [here for instructions](semantic-workbench/v1/service/semantic-workbench-assistant/README.md))
+  or one of the [examples](examples).
 
 ![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/readme1.png)
 
@@ -26,7 +38,12 @@ Designed to be agnostic of any agent framework, language, or platform, the Seman
 
 To develop new agents and connect existing ones, see the [Assistant Development Guide](docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
 
-The repository contains a [Python Canonical Assistant](semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py) and some [.NET Agent Examples](examples) that can be used as starting points to create custom agents.
+The repository contains a few examples that can be used to create custom agents:
+
+- [Python Canonical Assistant](semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
+- [Python example 1](examples/python-example01/README.md): a simple assistant echoing text back.
+- [.NET example 1](examples/dotnet-example01/README.md): a simple agent with echo and support for a basic `/say` command.
+- [.NET example 2](examples/dotnet-example02/README.md): a simple agents showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
 
 ![Mermaid graph example](examples/dotnet-example02/docs/mermaid.png)
 ![ABC music example](examples/dotnet-example02/docs/abc.png)
@@ -40,10 +57,10 @@ The repository contains a [Python Canonical Assistant](semantic-workbench/v1/ser
 
 Enable long file paths on Windows.
 
-   1. Run `regedit`.
-   2. Navigate to `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem`.
-   3. Find the `LongPathsEnabled` key. If it doesn’t exist, right-click on the `FileSystem` key, select `New > DWORD (32-bit) Value`, and name it `LongPathsEnabled`.
-   4. Double-click on `LongPathsEnabled`, set its value to `1`, and click OK.
+1.  Run `regedit`.
+2.  Navigate to `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem`.
+3.  Find the `LongPathsEnabled` key. If it doesn’t exist, right-click on the `FileSystem` key, select `New > DWORD (32-bit) Value`, and name it `LongPathsEnabled`.
+4.  Double-click on `LongPathsEnabled`, set its value to `1`, and click OK.
 
 ## Open the Workbench and create an assistant instance
 

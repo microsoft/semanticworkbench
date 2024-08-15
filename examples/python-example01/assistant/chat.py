@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Comments marked with "Required", "Optional", and "Custom" indicate the type of code that follows
 # Required: code that is required to be implemented for any Assistant
 # Optional: code that is optional to implement for any Assistant, allowing for customization
-# Custom: code that was added specificially for this example
+# Custom: code that was added specifically for this example
 
 # Modify the config.py file to add any additional configuration fields
 ConfigT = TypeVar("ConfigT", bound=AssistantConfigModel)

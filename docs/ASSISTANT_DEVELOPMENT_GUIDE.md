@@ -8,7 +8,7 @@ We provide several python base classes to make this easier: [semantic-workbench-
 Example assistant services:
 
 - [Canonical assistant example](../semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
-- [Semantic Kernel assistant example](../examples/semantic-kernel-python/README.md)
+- .NET agent [example 1](../examples/dotnet-example01/README.md) and [example 2](../examples/dotnet-example02/README.md)
 
 ## Top level concepts
 

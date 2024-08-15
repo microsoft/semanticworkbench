@@ -1,0 +1,37 @@
+name: $(Date:yyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: 'windows-latest'
+
+stages:
+- stage: Stage1
+  displayName: All steps
+  jobs:
+  - job: Policheck
+    displayName: Run policheck
+
+    workspace:
+      clean: all
+
+    steps:
+
+    - task: PoliCheck@2
+      displayName: 'Run PoliCheck'
+      inputs:
+        targetType: F
+        targetArgument: '$(Build.SourcesDirectory)'
+        termTypeT: 0029a9
+        toolVersion: Latest
+        optionsPE: '1|2|3|4'
+        # optionsUEPATH: '$(Build.SourcesDirectory)/.github/policheck-exclusions.xml'
+        # optionsRulesDBPath: '$(Build.SourcesDirectory)/.github/policheck-exclusions.mdb'
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Save PoliCheck logs'
+      inputs:
+        targetPath: '$(Pipeline.Workspace)/policheck'
+        artifact: '$(artifactName)'
+        publishLocation: 'pipeline'

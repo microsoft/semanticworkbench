@@ -98,7 +98,7 @@ public abstract class WorkbenchConnector : IDisposable
         var agent = this.GetAgent(agentId);
         if (agent == null) { return; }
 
-        this.Log.LogInformation("Deleting agent '{0}'", agentId);
+        this.Log.LogInformation("Deleting agent '{0}'", agentId.HtmlEncode());
         await agent.StopAsync(cancellationToken).ConfigureAwait(false);
         this.Agents.Remove(agentId);
         await agent.StopAsync(cancellationToken).ConfigureAwait(false);
@@ -118,7 +118,7 @@ public abstract class WorkbenchConnector : IDisposable
         Insight insight,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Updating agent '{0}' '{1}' insight", agentId, insight.Id);
+        this.Log.LogDebug("Updating agent '{0}' '{1}' insight", agentId.HtmlEncode(), insight.Id.HtmlEncode());
 
         var data = new
         {
@@ -157,7 +157,8 @@ public abstract class WorkbenchConnector : IDisposable
         string status,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Setting agent status in conversation '{0}' with agent '{1}'", conversationId, agentId);
+        this.Log.LogDebug("Setting agent status in conversation '{0}' with agent '{1}'",
+            conversationId.HtmlEncode(), agentId.HtmlEncode());
 
         var data = new
         {
@@ -184,7 +185,8 @@ public abstract class WorkbenchConnector : IDisposable
         string conversationId,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Setting agent status in conversation '{0}' with agent '{1}'", conversationId, agentId);
+        this.Log.LogDebug("Setting agent status in conversation '{0}' with agent '{1}'",
+            conversationId.HtmlEncode(), agentId.HtmlEncode());
 
         string payload = """
                          {
@@ -215,7 +217,8 @@ public abstract class WorkbenchConnector : IDisposable
         Message message,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Sending message in conversation '{0}' with agent '{1}'", conversationId, agentId);
+        this.Log.LogDebug("Sending message in conversation '{0}' with agent '{1}'",
+            conversationId.HtmlEncode(), agentId.HtmlEncode());
 
         string url = Constants.SendAgentMessage.Path
             .Replace(Constants.SendAgentMessage.ConversationPlaceholder, conversationId);
@@ -234,7 +237,7 @@ public abstract class WorkbenchConnector : IDisposable
         string conversationId,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Fetching list of files in conversation '{0}'", conversationId);
+        this.Log.LogDebug("Fetching list of files in conversation '{0}'", conversationId.HtmlEncode());
 
         string url = Constants.GetConversationFiles.Path
             .Replace(Constants.GetConversationFiles.ConversationPlaceholder, conversationId);
@@ -276,7 +279,7 @@ public abstract class WorkbenchConnector : IDisposable
         string fileName,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Downloading file from conversation '{0}'", conversationId);
+        this.Log.LogDebug("Downloading file from conversation '{0}'", conversationId.HtmlEncode());
 
         string url = Constants.ConversationFile.Path
             .Replace(Constants.ConversationFile.ConversationPlaceholder, conversationId)
@@ -310,7 +313,7 @@ public abstract class WorkbenchConnector : IDisposable
         string fileName,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Deleting file {0} from a conversation '{1}'", fileName, conversationId);
+        this.Log.LogDebug("Deleting file {0} from a conversation '{1}'", fileName.HtmlEncode(), conversationId.HtmlEncode());
 
         string url = Constants.UploadConversationFile.Path
             .Replace(Constants.UploadConversationFile.ConversationPlaceholder, conversationId);
@@ -333,7 +336,7 @@ public abstract class WorkbenchConnector : IDisposable
         string fileName,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Deleting file {0} from a conversation '{1}'", fileName, conversationId);
+        this.Log.LogDebug("Deleting file {0} from a conversation '{1}'", fileName.HtmlEncode(), conversationId.HtmlEncode());
 
         string url = Constants.ConversationFile.Path
             .Replace(Constants.ConversationFile.ConversationPlaceholder, conversationId)
@@ -386,7 +389,7 @@ public abstract class WorkbenchConnector : IDisposable
     {
         try
         {
-            this.Log.LogTrace("Sending request {0} {1}", method, url);
+            this.Log.LogTrace("Sending request {0} {1}", method, url.HtmlEncode());
             HttpRequestMessage request = this.PrepareRequest(method, url, data, agentId);
             HttpResponseMessage result = await this.HttpClient
                 .SendAsync(request, cancellationToken)
@@ -396,7 +399,7 @@ public abstract class WorkbenchConnector : IDisposable
         }
         catch (HttpRequestException e)
         {
-            this.Log.LogError("HTTP request failed: {0}. Request: {1} {2}", e.Message, method, url);
+            this.Log.LogError("HTTP request failed: {0}. Request: {1} {2}", e.Message.HtmlEncode(), method, url.HtmlEncode());
             throw;
         }
         catch (Exception e)
