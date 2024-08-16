@@ -4,7 +4,7 @@ import openai
 from semantic_workbench_assistant import config, assistant_base
 
 # The semantic workbench app uses react-jsonschema-form for rendering
-# dyanmic configuration forms based on the configuration model and UI schema
+# dynamic configuration forms based on the configuration model and UI schema
 # See: https://rjsf-team.github.io/react-jsonschema-form/docs/
 # Playground / examples: https://rjsf-team.github.io/react-jsonschema-form/
 

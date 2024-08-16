@@ -1,60 +1,60 @@
 {
-    "black-formatter.args": ["--config", "./.black.toml"],
-    "editor.bracketPairColorization.enabled": true,
+  "black-formatter.args": ["--config", "./.black.toml"],
+  "editor.bracketPairColorization.enabled": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit",
+    "source.fixAll": "explicit"
+  },
+  "editor.guides.bracketPairs": "active",
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": true,
+  "editor.formatOnSave": true,
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "flake8.args": ["--config", "./.flake8"],
+  "isort.args": ["--profile", "black", "--gitignore"],
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.exclude": [
+    "**/.venv/**",
+    "**/.data/**",
+    "**/__pycache__/**"
+  ],
+  "python.analysis.fixAll": ["source.unusedImports"],
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.codeActionsOnSave": {
+      "source.unusedImports": "explicit",
       "source.organizeImports": "explicit",
-      "source.fixAll": "explicit"
-    },
-    "editor.guides.bracketPairs": "active",
-    "editor.formatOnPaste": true,
-    "editor.formatOnType": true,
-    "editor.formatOnSave": true,
-    "files.eol": "\n",
-    "files.trimTrailingWhitespace": true,
-    "flake8.args": ["--config", "./.flake8"],
-    "isort.args": ["--profile", "black", "--gitignore"],
-    "[json]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode",
-      "editor.formatOnSave": true
-    },
-    "[jsonc]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode",
-      "editor.formatOnSave": true
-    },
-    "python.analysis.autoFormatStrings": true,
-    "python.analysis.autoImportCompletions": true,
-    "python.analysis.diagnosticMode": "workspace",
-    "python.analysis.exclude": [
-      "**/.venv/**",
-      "**/.data/**",
-      "**/__pycache__/**"
-    ],
-    "python.analysis.fixAll": ["source.unusedImports"],
-    "python.analysis.inlayHints.functionReturnTypes": true,
-    "python.analysis.typeCheckingMode": "basic",
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
-    "[python]": {
-      "editor.defaultFormatter": "ms-python.black-formatter",
-      "editor.codeActionsOnSave": {
-        "source.unusedImports": "explicit",
-        "source.organizeImports": "explicit",
-        "source.fixAll": "explicit",
-        "source.formatDocument": "explicit"
-      }
-    },
-    "search.exclude": {
-      "**/.venv": true,
-      "**/.data": true,
-      "**/__pycache__": true
-    },
-    "cSpell.words": [
-      "Cmder",
-      "dotenv",
-      "fastapi",
-      "openai",
-      "pydantic",
-      "pyproject",
-      "quickstart"
-    ]
-  }
-  
+      "source.fixAll": "explicit",
+      "source.formatDocument": "explicit"
+    }
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/.data": true,
+    "**/__pycache__": true
+  },
+  // For use with optional extension: "streetsidesoftware.code-spell-checker"
+  "cSpell.words": [
+    "dotenv",
+    "fastapi",
+    "jsonschema",
+    "openai",
+    "pydantic",
+    "pyproject",
+    "tiktoken"
+  ]
+}
