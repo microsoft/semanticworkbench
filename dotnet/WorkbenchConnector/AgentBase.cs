@@ -93,7 +93,7 @@ public abstract class AgentBase
         IAgentConfig? config,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Updating agent '{0}' config", this.Id);
+        this.Log.LogDebug("Updating agent '{0}' config", this.Id.HtmlEncode());
 
         this.RawConfig ??= this.GetDefaultConfig();
         config ??= this.GetDefaultConfig();
@@ -143,7 +143,8 @@ public abstract class AgentBase
         string conversationId,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Creating conversation '{0}' on agent '{1}'", conversationId, this.Id);
+        this.Log.LogDebug("Creating conversation '{0}' on agent '{1}'",
+            conversationId.HtmlEncode(), this.Id.HtmlEncode());
 
         Conversation conversation = await this.Storage.GetConversationAsync(conversationId, this.Id, cancellationToken).ConfigureAwait(false)
                                     ?? new Conversation(conversationId, this.Id);
@@ -164,7 +165,8 @@ public abstract class AgentBase
         string conversationId,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Deleting conversation '{0}' on agent '{1}'", conversationId, this.Id);
+        this.Log.LogDebug("Deleting conversation '{0}' on agent '{1}'",
+            conversationId.HtmlEncode(), this.Id.HtmlEncode());
         return this.Storage.DeleteConversationAsync(conversationId, this.Id, cancellationToken);
     }
 
@@ -178,7 +180,8 @@ public abstract class AgentBase
         string conversationId,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Checking if conversation '{0}' on agent '{1}' exists", conversationId, this.Id);
+        this.Log.LogDebug("Checking if conversation '{0}' on agent '{1}' exists",
+            conversationId.HtmlEncode(), this.Id.HtmlEncode());
         var conversation = await this.Storage.GetConversationAsync(conversationId, this.Id, cancellationToken).ConfigureAwait(false);
         return conversation != null;
     }
@@ -194,7 +197,8 @@ public abstract class AgentBase
         Participant participant,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Adding participant to conversation '{0}' on agent '{1}'", conversationId, this.Id);
+        this.Log.LogDebug("Adding participant to conversation '{0}' on agent '{1}'",
+            conversationId.HtmlEncode(), this.Id.HtmlEncode());
 
         Conversation conversation = await this.Storage.GetConversationAsync(conversationId, this.Id, cancellationToken).ConfigureAwait(false)
                                     ?? new Conversation(conversationId, this.Id);
@@ -214,7 +218,8 @@ public abstract class AgentBase
         Participant participantUpdatedEvent,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogDebug("Removing participant from conversation '{0}' on agent '{1}'", conversationId, this.Id);
+        this.Log.LogDebug("Removing participant from conversation '{0}' on agent '{1}'",
+            conversationId.HtmlEncode(), this.Id.HtmlEncode());
 
         Conversation? conversation = await this.Storage.GetConversationAsync(conversationId, this.Id, cancellationToken).ConfigureAwait(false);
         if (conversation == null) { return; }
@@ -235,7 +240,7 @@ public abstract class AgentBase
         CancellationToken cancellationToken = default)
     {
         this.Log.LogDebug("Received {0} chat message in conversation '{1}' with agent '{2}' from '{3}' '{4}'",
-            message.ContentType, conversationId, this.Id, message.Sender.Role, message.Sender.Id);
+            message.ContentType.HtmlEncode(), conversationId.HtmlEncode(), this.Id.HtmlEncode(), message.Sender.Role.HtmlEncode(), message.Sender.Id.HtmlEncode());
 
         // Update the chat history to include the message received
         return this.AddMessageToHistoryAsync(conversationId, message, cancellationToken);
@@ -255,7 +260,7 @@ public abstract class AgentBase
         CancellationToken cancellationToken = default)
     {
         this.Log.LogDebug("Received {0} notice in conversation '{1}' with agent '{2}' from '{3}' '{4}': {5}",
-            message.ContentType, conversationId, this.Id, message.Sender.Role, message.Sender.Id, message.Content);
+            message.ContentType.HtmlEncode(), conversationId.HtmlEncode(), this.Id.HtmlEncode(), message.Sender.Role.HtmlEncode(), message.Sender.Id.HtmlEncode(), message.Content.HtmlEncode());
 
         return Task.CompletedTask;
     }
@@ -273,7 +278,7 @@ public abstract class AgentBase
         CancellationToken cancellationToken = default)
     {
         this.Log.LogDebug("Received {0} note in conversation '{1}' with agent '{2}' from '{3}' '{4}': {5}",
-            message.ContentType, conversationId, this.Id, message.Sender.Role, message.Sender.Id, message.Content);
+            message.ContentType.HtmlEncode(), conversationId.HtmlEncode(), this.Id.HtmlEncode(), message.Sender.Role.HtmlEncode(), message.Sender.Id.HtmlEncode(), message.Content.HtmlEncode());
 
         return Task.CompletedTask;
     }
@@ -290,7 +295,7 @@ public abstract class AgentBase
         CancellationToken cancellationToken = default)
     {
         this.Log.LogDebug("Received '{0}' command in conversation '{1}' with agent '{2}' from '{3}' '{4}': {5}",
-            command.CommandName, conversationId, this.Id, command.Sender.Role, command.Sender.Id, command.Content);
+            command.CommandName.HtmlEncode(), conversationId.HtmlEncode(), this.Id.HtmlEncode(), command.Sender.Role.HtmlEncode(), command.Sender.Id.HtmlEncode(), command.Content.HtmlEncode());
 
         return Task.CompletedTask;
     }
@@ -307,7 +312,7 @@ public abstract class AgentBase
         CancellationToken cancellationToken = default)
     {
         this.Log.LogDebug("Received {0} command response in conversation '{1}' with agent '{2}' from '{3}' '{4}': {5}",
-            message.ContentType, conversationId, this.Id, message.Sender.Role, message.Sender.Id, message.Content);
+            message.ContentType.HtmlEncode(), conversationId.HtmlEncode(), this.Id.HtmlEncode(), message.Sender.Role.HtmlEncode(), message.Sender.Id.HtmlEncode(), message.Content.HtmlEncode());
 
         return Task.CompletedTask;
     }
@@ -324,7 +329,7 @@ public abstract class AgentBase
         CancellationToken cancellationToken = default)
     {
         this.Log.LogDebug("Deleting message in conversation '{0}' with agent '{1}', message from '{2}' '{3}'",
-            conversationId, this.Id, message.Sender.Role, message.Sender.Id);
+            conversationId.HtmlEncode(), this.Id.HtmlEncode(), message.Sender.Role.HtmlEncode(), message.Sender.Id.HtmlEncode());
 
         // return this.DeleteMessageFromHistoryAsync(conversationId, message, cancellationToken);
         Conversation? conversation = await this.Storage.GetConversationAsync(conversationId, this.Id, cancellationToken).ConfigureAwait(false);
@@ -379,7 +384,7 @@ public abstract class AgentBase
         string content,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogWarning("Change agent '{0}' status in conversation '{1}'", this.Id, conversationId);
+        this.Log.LogWarning("Change agent '{0}' status in conversation '{1}'", this.Id.HtmlEncode(), conversationId.HtmlEncode());
         return this.WorkbenchConnector.SetAgentStatusAsync(this.Id, conversationId, content, cancellationToken);
     }
 
@@ -392,7 +397,7 @@ public abstract class AgentBase
         string conversationId,
         CancellationToken cancellationToken = default)
     {
-        this.Log.LogWarning("Reset agent '{0}' status in conversation '{1}'", this.Id, conversationId);
+        this.Log.LogWarning("Reset agent '{0}' status in conversation '{1}'", this.Id.HtmlEncode(), conversationId.HtmlEncode());
         return this.WorkbenchConnector.ResetAgentStatusAsync(this.Id, conversationId, cancellationToken);
     }
 }

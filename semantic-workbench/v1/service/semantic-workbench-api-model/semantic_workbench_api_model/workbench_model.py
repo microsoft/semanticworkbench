@@ -398,7 +398,9 @@ class ConversationEventType(StrEnum):
     assistant_state_created = "assistant.state.created"
     assistant_state_updated = "assistant.state.updated"
     assistant_state_deleted = "assistant.state.deleted"
+    conversation_created = "conversation.created"
     conversation_updated = "conversation.updated"
+    conversation_deleted = "conversation.deleted"
 
 
 class ConversationEvent(BaseModel):

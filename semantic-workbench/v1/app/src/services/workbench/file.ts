@@ -8,7 +8,7 @@ const fileApi = workbenchApi.injectEndpoints({
             providesTags: ['Conversation'],
             transformResponse: (response: any) => response.files.map(transformResponseToFile),
         }),
-        uploadConversationFiles: builder.mutation<ConversationFile, { conversationId: string; files: FileList }>({
+        uploadConversationFiles: builder.mutation<ConversationFile, { conversationId: string; files: File[] }>({
             query: ({ conversationId, files }) => {
                 return {
                     url: `/conversations/${conversationId}/files`,
@@ -48,7 +48,7 @@ const transformResponseToFile = (response: any): ConversationFile => {
     }
 };
 
-const transformConversationFilesForRequest = (files: FileList) => {
+const transformConversationFilesForRequest = (files: File[]) => {
     const formData = new FormData();
     for (var i = 0; i < files.length; i++) {
         formData.append('files', files[i]);

@@ -45,12 +45,13 @@ export const conversationApi = workbenchApi.injectEndpoints({
         }),
         createConversationMessage: builder.mutation<
             ConversationMessage,
-            { conversationId: string; content: string; messageType?: string; metadata?: Record<string, any> }
+            { conversationId: string } & Partial<ConversationMessage> &
+                Pick<ConversationMessage, 'content' | 'messageType' | 'metadata'>
         >({
-            query: ({ conversationId, content, messageType, metadata }) => ({
-                url: `/conversations/${conversationId}/messages`,
+            query: (input) => ({
+                url: `/conversations/${input.conversationId}/messages`,
                 method: 'POST',
-                body: { content, message_type: messageType ?? 'chat', metadata },
+                body: transformMessageForRequest(input),
             }),
             invalidatesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToMessage(response),
@@ -126,4 +127,24 @@ const transformResponseToMessage = (response: any): ConversationMessage => {
     } catch (error) {
         throw new Error(`Failed to transform message response: ${error}`);
     }
+};
+
+const transformMessageForRequest = (message: Partial<ConversationMessage>) => {
+    const request: Record<string, any> = {
+        timestamp: message.timestamp,
+        content: message.content,
+        message_type: message.messageType,
+        content_type: message.contentType,
+        filenames: message.filenames,
+        metadata: message.metadata,
+    };
+
+    if (message.sender) {
+        request.sender = {
+            participant_id: message.sender.participantId,
+            participant_role: message.sender.participantRole,
+        };
+    }
+
+    return request;
 };

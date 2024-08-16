@@ -222,22 +222,20 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
                                 handleSave();
                             }}
                         >
-                            <Field label="Name">
-                                <Input
-                                    disabled={submitted}
-                                    value={name}
-                                    onChange={(_event, data) => setName(data?.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
                             {!manualEntry && (
                                 <Field label="Assistant Service">
                                     <Dropdown
                                         placeholder="Select an assistant service"
                                         disabled={submitted}
-                                        onOptionSelect={(_event, data) =>
-                                            data.optionValue && setAssistantServiceId(data.optionValue as string)
-                                        }
+                                        onOptionSelect={(_event, data) => {
+                                            if (data.optionValue) {
+                                                setAssistantServiceId(data.optionValue as string);
+                                            }
+
+                                            if (data.optionText && name === '') {
+                                                setName(data.optionText);
+                                            }
+                                        }}
                                     >
                                         {options}
                                     </Dropdown>
@@ -253,6 +251,14 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
                                     />
                                 </Field>
                             )}
+                            <Field label="Name">
+                                <Input
+                                    disabled={submitted}
+                                    value={name}
+                                    onChange={(_event, data) => setName(data?.value)}
+                                    aria-autocomplete="none"
+                                />
+                            </Field>
                             <button disabled={!name || !assistantServiceId || submitted} type="submit" hidden />
                         </form>
                     </DialogContent>

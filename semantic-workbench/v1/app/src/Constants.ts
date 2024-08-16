@@ -8,6 +8,7 @@ export const Constants = {
         maxInputLength: 2000000, // 2M tokens, effectively unlimited
         minChatWidthPercent: 20,
         defaultChatWidthPercent: 33,
+        maxFileAttachmentsPerMessage: 10,
     },
     workflow: {
         maxOutlets: 5,
