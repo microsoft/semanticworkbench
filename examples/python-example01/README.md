@@ -15,3 +15,16 @@ A python chat assistant example that echos the user's input.
 - Return to the workbench app to interact with the assistant
 - Add a new assistant from the main menu of the app, choose `Python Example 01 Assistant`
 - Click the newly created assistant to configure and interact with it
+
+## Starting the example from CLI
+
+If you're not using VS Code and/or Codespaces, you can also work from the
+command line, using `poetry`:
+
+```
+cd examples/python-example01
+
+poetry install
+
+poetry run start-semantic-workbench-assistant assistant.chat:app
+```
