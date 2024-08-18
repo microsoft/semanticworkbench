@@ -64,8 +64,10 @@ class AssistantController:
         self._api_key_store = api_key_store
         self._httpx_client_factory = httpx_client_factory
 
-    def _assistant_client_builder(self, registration: db.AssistantServiceRegistration) -> AssistantServiceClientBuilder:
-        return assistant_service_client(
+    async def _assistant_client_builder(
+        self, registration: db.AssistantServiceRegistration
+    ) -> AssistantServiceClientBuilder:
+        return await assistant_service_client(
             registration=registration,
             api_key_store=self._api_key_store,
             httpx_client_factory=self._httpx_client_factory,
@@ -106,8 +108,10 @@ class AssistantController:
         return conversation
 
     async def _put_assistant(self, assistant: db.Assistant, from_export: IO[bytes] | None) -> None:
-        await self._assistant_client_builder(
-            registration=assistant.related_assistant_service_registration,
+        await (
+            await self._assistant_client_builder(
+                registration=assistant.related_assistant_service_registration,
+            )
         ).for_service().put_assistant_instance(
             assistant_id=assistant.assistant_id,
             request=AssistantPutRequestModel(assistant_name=assistant.name),
@@ -124,8 +128,10 @@ class AssistantController:
             return
 
         try:
-            await self._assistant_client_builder(
-                registration=assistant.related_assistant_service_registration,
+            await (
+                await self._assistant_client_builder(
+                    registration=assistant.related_assistant_service_registration,
+                )
             ).for_assistant_instance(assistant_id=assistant.assistant_id).post_conversation_event(event=event)
         except AssistantError:
             logger.error(
@@ -137,8 +143,10 @@ class AssistantController:
             )
 
     async def _disconnect_assistant(self, assistant: db.Assistant) -> None:
-        await self._assistant_client_builder(
-            registration=assistant.related_assistant_service_registration,
+        await (
+            await self._assistant_client_builder(
+                registration=assistant.related_assistant_service_registration,
+            )
         ).for_service().delete_assistant_instance(assistant_id=assistant.assistant_id)
 
     async def _remove_assistant_from_conversation(
@@ -182,8 +190,10 @@ class AssistantController:
         await session.flush()
 
     async def disconnect_assistant_from_conversation(self, conversation_id: uuid.UUID, assistant: db.Assistant) -> None:
-        await self._assistant_client_builder(
-            registration=assistant.related_assistant_service_registration,
+        await (
+            await self._assistant_client_builder(
+                registration=assistant.related_assistant_service_registration,
+            )
         ).for_assistant_instance(assistant_id=assistant.assistant_id).delete_conversation(
             conversation_id=conversation_id
         )
@@ -191,10 +201,13 @@ class AssistantController:
     async def connect_assistant_to_conversation(
         self, conversation: db.Conversation, assistant: db.Assistant, from_export: IO[bytes] | None
     ) -> None:
-        await self._assistant_client_builder(
-            registration=assistant.related_assistant_service_registration,
+        await (
+            await self._assistant_client_builder(
+                registration=assistant.related_assistant_service_registration,
+            )
         ).for_assistant_instance(assistant_id=assistant.assistant_id).put_conversation(
-            ConversationPutRequestModel(id=str(conversation.conversation_id)), from_export=from_export
+            ConversationPutRequestModel(id=str(conversation.conversation_id), title=conversation.title),
+            from_export=from_export,
         )
 
     async def forward_event_to_assistants(self, event: ConversationEvent) -> None:
@@ -391,8 +404,10 @@ class AssistantController:
             assistant = await self._ensure_assistant(assistant_id=assistant_id, session=session)
 
         return (
-            await self._assistant_client_builder(
-                registration=assistant.related_assistant_service_registration,
+            await (
+                await self._assistant_client_builder(
+                    registration=assistant.related_assistant_service_registration,
+                )
             )
             .for_assistant_instance(assistant_id=assistant.assistant_id)
             .get_config()
@@ -407,8 +422,10 @@ class AssistantController:
             assistant = await self._ensure_assistant(assistant_id=assistant_id, session=session)
 
         return (
-            await self._assistant_client_builder(
-                registration=assistant.related_assistant_service_registration,
+            await (
+                await self._assistant_client_builder(
+                    registration=assistant.related_assistant_service_registration,
+                )
             )
             .for_assistant_instance(assistant_id=assistant.assistant_id)
             .put_config(updated_config)
@@ -426,8 +443,10 @@ class AssistantController:
             )
 
         return (
-            await self._assistant_client_builder(
-                registration=assistant.related_assistant_service_registration,
+            await (
+                await self._assistant_client_builder(
+                    registration=assistant.related_assistant_service_registration,
+                )
             )
             .for_assistant_instance(assistant_id=assistant.assistant_id)
             .get_state_descriptions(conversation_id=conversation_id)
@@ -446,8 +465,10 @@ class AssistantController:
             )
 
         return (
-            await self._assistant_client_builder(
-                registration=assistant.related_assistant_service_registration,
+            await (
+                await self._assistant_client_builder(
+                    registration=assistant.related_assistant_service_registration,
+                )
             )
             .for_assistant_instance(assistant_id=assistant.assistant_id)
             .get_state(conversation_id=conversation_id, state_id=state_id)
@@ -467,8 +488,10 @@ class AssistantController:
             )
 
         return (
-            await self._assistant_client_builder(
-                registration=assistant.related_assistant_service_registration,
+            await (
+                await self._assistant_client_builder(
+                    registration=assistant.related_assistant_service_registration,
+                )
             )
             .for_assistant_instance(assistant_id=assistant.assistant_id)
             .put_state(conversation_id=conversation_id, state_id=state_id, updated_state=updated_state)
@@ -493,6 +516,8 @@ class AssistantController:
                     conversation_ids.append(participant.conversation_id)
 
         match state_event.event:
+            case "focus":
+                conversation_event_type = ConversationEventType.assistant_state_focus
             case "created":
                 conversation_event_type = ConversationEventType.assistant_state_created
             case "deleted":
@@ -581,8 +606,8 @@ class AssistantController:
                 ):
                     tempfile_workbench.write(file_bytes)
 
-                assistant_client = self._assistant_client_builder(
-                    registration=assistant.related_assistant_service_registration
+                assistant_client = (
+                    await self._assistant_client_builder(registration=assistant.related_assistant_service_registration)
                 ).for_assistant_instance(assistant_id=assistant.assistant_id)
                 async with assistant_client.get_exported_instance_data() as response:
                     async for chunk in response:
@@ -771,8 +796,10 @@ class AssistantController:
                 ).unique()
 
                 for assistant in assistants:
-                    assistant_client = self._assistant_client_builder(
-                        registration=assistant.related_assistant_service_registration,
+                    assistant_client = (
+                        await self._assistant_client_builder(
+                            registration=assistant.related_assistant_service_registration,
+                        )
                     ).for_assistant_instance(assistant_id=assistant.assistant_id)
 
                     with tempfile.NamedTemporaryFile(delete=False) as tempfile_assistant:
