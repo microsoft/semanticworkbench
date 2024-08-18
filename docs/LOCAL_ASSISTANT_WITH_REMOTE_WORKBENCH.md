@@ -1,6 +1,7 @@
 # Local Assistant / Remote Semantic Workbench
 
 This guide will walk you through the process of creating a local assistant that communicates with a remote Semantic Workbench instance.
+
 This guide assumes you have already set up a Semantic Workbench instance and have a basic understanding of how to create an assistant.
 
 ## Prerequisites
@@ -11,12 +12,12 @@ This guide assumes you have already set up a Semantic Workbench instance and hav
 ## Steps
 
 [Microsoft Dev Tunnel](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/) is a tool that allows you to securely expose your local development environment to the cloud. This is useful for testing your local assistant with a remote Semantic Workbench instance.
+
 The following steps will guide you through the process of setting up a tunnel to your local machine.
 
 **Note:** The tunnel will only be accessible while it is running, so you will need to keep the tunnel running while testing and may not want to share the URL with others without being explicit about the availability.
 
-**SECURITY NOTE:** Be aware that the tunnel will expose your local machine to the internet and allow anonymous access to the assistant.
-Make sure you are aware of the security implications and take appropriate precautions.
+**SECURITY NOTE:** Be aware that the tunnel will expose your local machine to the internet and allow anonymous access to the assistant. Make sure you are aware of the security implications and take appropriate precautions.
 
 - [Install](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started?tabs=windows#install)
   - `winget install Microsoft.devtunnel` (PowerShell)

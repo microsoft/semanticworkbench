@@ -88,18 +88,29 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 _dotenv_values = dotenv.dotenv_values()
 
 
+def first_env_var(*env_vars: str, include_dotenv: bool = True, include_upper_and_lower: bool = True) -> str | None:
+    def first_not_none(*vals: str | None) -> str | None:
+        for val in vals:
+            if val is not None:
+                return val
+        return None
+
+    if include_upper_and_lower:
+        env_vars = (*env_vars, *[env_var.upper() for env_var in env_vars], *[env_var.lower() for env_var in env_vars])
+
+    env_values = [os.environ.get(env_var) for env_var in env_vars]
+    if include_dotenv:
+        env_values = [*[_dotenv_values.get(env_var) for env_var in env_vars], *env_values]
+
+    return first_not_none(*env_values)
+
+
 def overwrite_defaults_from_env(model: ModelT, prefix="", separator="__") -> ModelT:
     """
     Overwrite string fields that currently have their default values. Values are
     overwritten with values from environment variables or .env file. If a field
     is a BaseModel, it will be recursively updated.
     """
-
-    def first_not_none(*vals: str | None) -> str | None:
-        for val in vals:
-            if val is not None:
-                return val
-        return None
 
     non_defaults = model.model_dump(exclude_defaults=True).keys()
 
@@ -136,17 +147,9 @@ def overwrite_defaults_from_env(model: ModelT, prefix="", separator="__") -> Mod
                                 alias_env_vars.append(f"{prefix}{separator}{alias[0]}".upper())
                                 alias_env_vars.append(str(alias[0]).upper())
 
-                for env_var in [env_var, *alias_env_vars]:
-                    env_key_lower = env_var.lower()
-                    env_value = first_not_none(
-                        os.environ.get(env_var),
-                        os.environ.get(env_key_lower),
-                        _dotenv_values.get(env_var),
-                        _dotenv_values.get(env_key_lower),
-                    )
-                    if env_value is not None:
-                        updates[field] = env_value
-                        break
+                env_value = first_env_var(env_var, *alias_env_vars)
+                if env_value is not None:
+                    updates[field] = env_value
 
             case _:
                 continue

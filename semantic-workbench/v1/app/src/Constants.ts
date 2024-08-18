@@ -32,7 +32,10 @@ export const Constants = {
     },
     assistantCategories: {
         Recommended: [''],
-        'Example Implementations': ['openai.example', 'canonical-assistant.semantic-workbench'],
+        'Example Implementations': [
+            'python-example01-assistant.python-example',
+            'canonical-assistant.semantic-workbench',
+        ],
         Experimental: [''],
     },
     msal: {
