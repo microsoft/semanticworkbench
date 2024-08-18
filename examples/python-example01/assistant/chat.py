@@ -1,5 +1,5 @@
 import logging
-from typing import AsyncContextManager, Callable, TypeVar
+from typing import AsyncContextManager, Callable
 from uuid import UUID
 
 from semantic_workbench_api_model.workbench_model import (
@@ -14,7 +14,6 @@ from semantic_workbench_assistant.assistant_base import (
     SimpleAssistantConfigStorage,
 )
 
-from assistant.config import AssistantConfigModel
 
 from . import config
 
@@ -31,14 +30,13 @@ logger = logging.getLogger(__name__)
 # Custom: code that was added specifically for this example
 
 # Modify the config.py file to add any additional configuration fields
-ConfigT = TypeVar("ConfigT", bound=AssistantConfigModel)
 
 service_id = "python-example01-assistant.python-example"
 service_name = "Python Example 01 Assistant"
 service_description = "A starter for building a chat assistant using the Semantic Workbench Assistant SDK."
 
 
-class ChatAssistant(AssistantBase):
+class ChatAssistant(AssistantBase[config.AssistantConfigModel]):
 
     # Optional: override the __init__ method to add any additional initialization logic
     def __init__(

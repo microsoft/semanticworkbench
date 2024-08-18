@@ -142,7 +142,7 @@ class Event(BaseModel):
     event: workbench_model.ConversationEvent
 
 
-class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
+class AssistantBase(assistant_service.FastAPIAssistantService, Generic[AssistantConfigT], ABC):
     """
     A simple assistant service base class
     """
@@ -153,7 +153,7 @@ class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
         service_id: str,
         service_name: str,
         service_description: str,
-        config_storage: AssistantConfigStorage,
+        config_storage: AssistantConfigStorage[AssistantConfigT],
     ) -> None:
         super().__init__(
             service_id=service_id,
