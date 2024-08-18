@@ -44,7 +44,9 @@
     // Build and restore dependencies for key projects in the repo
     "make_workbench_app": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/app",
     "make_workbench_service": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/service",
-    "make_python_examples01": "make -C /workspaces/semanticworkbench/examples/python-examples01"
+    "make_python_examples01": "make -C /workspaces/semanticworkbench/examples/python-example01",
+    // Set up git to automatically set up the remote when pushing if it doesn't exist
+    "git_config": "git config --add push.autoSetupRemote true"
   },
 
   // Configure tool-specific properties.
@@ -58,7 +60,8 @@
         "esbenp.prettier-vscode",
         "ms-python.black-formatter",
         "ms-python.flake8",
-        "ms-python.python"
+        "ms-python.python",
+        "streetsidesoftware.code-spell-checker"
       ]
     }
   }

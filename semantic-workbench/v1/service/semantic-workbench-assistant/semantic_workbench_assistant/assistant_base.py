@@ -21,7 +21,7 @@ from typing import (
 import asgi_correlation_id
 from fastapi import HTTPException, status
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 from semantic_workbench_api_model import assistant_model, workbench_model
 
 from . import assistant_service, settings, storage
@@ -33,6 +33,10 @@ file_storage = storage.FileStorage(settings=settings.storage)
 
 
 class AssistantConfigModel(ABC, BaseModel):
+    model_config = ConfigDict(
+        title="Assistant Configuration",
+    )
+
     @abstractmethod
     def overwrite_defaults_from_env(self) -> Self: ...
 
@@ -142,7 +146,7 @@ class Event(BaseModel):
     event: workbench_model.ConversationEvent
 
 
-class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
+class AssistantBase(assistant_service.FastAPIAssistantService, Generic[AssistantConfigT], ABC):
     """
     A simple assistant service base class
     """
@@ -153,7 +157,7 @@ class AssistantBase(assistant_service.FastAPIAssistantService, ABC):
         service_id: str,
         service_name: str,
         service_description: str,
-        config_storage: AssistantConfigStorage,
+        config_storage: AssistantConfigStorage[AssistantConfigT],
     ) -> None:
         super().__init__(
             service_id=service_id,

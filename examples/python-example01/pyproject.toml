@@ -10,9 +10,8 @@ packages = [{ include = "assistant" }]
 python = "~3.11"
 openai = "^1.3.9"
 
-semantic-workbench-api-model = { path = "../../semantic-workbench/v1/service/semantic-workbench-api-model", develop = true, extras=["dev"]  }
+# If you copy this file to your project, you should verify the relative path to the following:
 semantic-workbench-assistant = { path = "../../semantic-workbench/v1/service/semantic-workbench-assistant", develop = true, extras=["dev"]  }
-semantic-workbench-service = { path = "../../semantic-workbench/v1/service/semantic-workbench-service", develop = true, extras=["dev"] }
 
 black = { version = "^24.3.0", optional = true }
 flake8 = { version = "^6.1.0", optional = true }

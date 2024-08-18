@@ -2,15 +2,14 @@ import hashlib
 import logging
 import re
 import secrets as python_secrets
-import uuid
 from typing import Protocol
 
 import cachetools
 import cachetools.keys
-from azure.core.credentials import TokenCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from azure.core.exceptions import ResourceNotFoundError
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
+from azure.identity.aio import DefaultAzureCredential
+from azure.keyvault.secrets.aio import SecretClient
 
 from . import settings
 
@@ -21,11 +20,11 @@ class ApiKeyStore(Protocol):
 
     def generate_key_name(self, identifier: str) -> str: ...
 
-    def get(self, key_name: str) -> str | None: ...
+    async def get(self, key_name: str) -> str | None: ...
 
-    def reset(self, key_name: str) -> str: ...
+    async def reset(self, key_name: str) -> str: ...
 
-    def delete(self, key_name: str) -> None: ...
+    async def delete(self, key_name: str) -> None: ...
 
 
 class KeyVaultApiKeyStore(ApiKeyStore):
@@ -36,7 +35,7 @@ class KeyVaultApiKeyStore(ApiKeyStore):
     def __init__(
         self,
         key_vault_url: str,
-        identity: TokenCredential,
+        identity: AsyncTokenCredential,
     ) -> None:
         self._secret_client = SecretClient(vault_url=key_vault_url, credential=identity)
 
@@ -56,20 +55,21 @@ class KeyVaultApiKeyStore(ApiKeyStore):
         assert re.match(r"^[a-z0-9-]{1,127}$", secret_name)
         return secret_name
 
-    def get(self, key_name: str) -> str | None:
+    async def get(self, key_name: str) -> str | None:
         try:
-            return self._secret_client.get_secret(name=key_name).value
+            secret = await self._secret_client.get_secret(name=key_name)
+            return secret.value
         except ResourceNotFoundError:
             return None
 
-    def reset(self, key_name: str, tags: dict[str, str] = {}) -> str:
+    async def reset(self, key_name: str) -> str:
         new_api_key = generate_api_key()
-        self._secret_client.set_secret(name=key_name, value=new_api_key, tags=tags)
+        await self._secret_client.set_secret(name=key_name, value=new_api_key)
         return new_api_key
 
-    def delete(self, key_name: str) -> None:
+    async def delete(self, key_name: str) -> None:
         try:
-            self._secret_client.begin_delete_secret(name=key_name).wait()
+            await self._secret_client.delete_secret(name=key_name)
         except ResourceNotFoundError:
             pass
 
@@ -85,33 +85,46 @@ class FixedApiKeyStore(ApiKeyStore):
     def generate_key_name(self, identifier: str) -> str:
         return identifier
 
-    def get(self, key_name: str) -> str | None:
+    async def get(self, key_name: str) -> str | None:
         return self._api_key
 
-    def reset(self, key_name: str) -> str:
+    async def reset(self, key_name: str) -> str:
         return self._api_key
 
-    def delete(self, key_name: str) -> None:
+    async def delete(self, key_name: str) -> None:
         pass
 
 
 def cached(api_key_store: ApiKeyStore, max_cache_size: int, ttl_seconds: float) -> ApiKeyStore:
-    cache_key = cachetools.keys.hashkey
+    hash_key = cachetools.keys.hashkey
     cache = cachetools.TTLCache(maxsize=max_cache_size, ttl=ttl_seconds)
 
-    api_key_store.get = cachetools.cached(cache=cache, key=cache_key)(api_key_store.get)
-
+    original_get = api_key_store.get
     original_reset = api_key_store.reset
     original_delete = api_key_store.delete
 
-    def reset(*args, **kwargs) -> str:
-        cache.pop(cache_key(*args, **kwargs), None)
-        return original_reset(*args, **kwargs)
+    async def get(key_name: str) -> str | None:
+        cache_key = hash_key(key_name)
+        if secret := cache.get(cache_key):
+            return secret
 
-    def delete(*args, **kwargs) -> None:
-        cache.pop(cache_key(*args, **kwargs), None)
-        return original_delete(*args, **kwargs)
+        secret = await original_get(key_name)
+        if secret is not None:
+            cache[cache_key] = secret
+        return secret
 
+    async def reset(key_name: str) -> str:
+        secret = await original_reset(key_name)
+        cache_key = hash_key(key_name)
+        cache[cache_key] = secret
+        return secret
+
+    async def delete(key_name: str) -> None:
+        cache_key = hash_key(key_name)
+        cache.pop(cache_key, None)
+        return await original_delete(key_name)
+
+    api_key_store.get = get
     api_key_store.reset = reset
     api_key_store.delete = delete
 
@@ -125,9 +138,6 @@ def get_store() -> ApiKeyStore:
             key_vault_url=str(settings.service.assistant_api_key.key_vault_url),
             identity=DefaultAzureCredential(),
         )
-
-        # ensure that the key vault is accessible
-        assert key_vault_store.get(f"non-existing-key-{uuid.uuid4().hex}") is None
 
         return cached(api_key_store=key_vault_store, max_cache_size=200, ttl_seconds=10 * 60)
 

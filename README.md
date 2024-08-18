@@ -21,7 +21,13 @@ in various development environments.
 
 ![Semantic Workbench architecture](docs/architecture-animation.gif)
 
-# Quick start
+# Quick start (Recommended) - GitHub Codespaces for turn-key development environment
+
+GitHub Codespaces provides a cloud-based development environment for your repository. It allows you to develop, build, and test your code in a consistent environment, without needing to install dependencies or configure your local machine. It works with any system with a web browser and internet connection, including Windows, MacOS, Linux, Chromebooks, tablets, and mobile devices.
+
+See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for more information on how to set up and use GitHub Codespaces with Semantic Workbench.
+
+# Quick start - Local development environment
 
 - Start the backend service, see [here for instructions](semantic-workbench/v1/service/README.md).
 - Start the frontend app, see [here for instructions](semantic-workbench/v1/app/README.md).

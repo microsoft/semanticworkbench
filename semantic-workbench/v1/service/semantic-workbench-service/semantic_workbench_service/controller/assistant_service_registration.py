@@ -4,7 +4,6 @@ from typing import AsyncContextManager, Awaitable, Callable, Iterable
 import httpx
 from semantic_workbench_api_model.assistant_model import ServiceInfoModel
 from semantic_workbench_api_model.assistant_service_client import (
-    AssistantConnectionError,
     AssistantServiceClientBuilder,
 )
 from semantic_workbench_api_model.workbench_model import (
@@ -47,7 +46,7 @@ class AssistantServiceRegistrationController:
     async def api_key_source(self, assistant_service_id: str) -> str | None:
         generated_key_name = self._api_key_store.generate_key_name(assistant_service_id)
         if assistant_service_id == generated_key_name:
-            return self._api_key_store.get(generated_key_name)
+            return await self._api_key_store.get(generated_key_name)
 
         async with self._get_session() as session:
             api_key_name = (
@@ -59,10 +58,12 @@ class AssistantServiceRegistrationController:
             ).first()
         if api_key_name is None:
             return None
-        return self._api_key_store.get(api_key_name)
+        return await self._api_key_store.get(api_key_name)
 
-    def _assistant_client_builder(self, registration: db.AssistantServiceRegistration) -> AssistantServiceClientBuilder:
-        return assistant_service_client(
+    async def _assistant_client_builder(
+        self, registration: db.AssistantServiceRegistration
+    ) -> AssistantServiceClientBuilder:
+        return await assistant_service_client(
             registration=registration,
             api_key_store=self._api_key_store,
             httpx_client_factory=self._httpx_client_factory,
@@ -101,7 +102,7 @@ class AssistantServiceRegistrationController:
             await session.flush()
             await session.refresh(registration)
 
-            api_key = self._api_key_store.reset(registration.api_key_name)
+            api_key = await self._api_key_store.reset(registration.api_key_name)
 
             await session.commit()
 
@@ -143,7 +144,7 @@ class AssistantServiceRegistrationController:
             if registration is None:
                 raise exceptions.NotFoundError()
 
-            api_key = self._api_key_store.get(registration.api_key_name)
+            api_key = await self._api_key_store.get(registration.api_key_name)
             masked_api_key = self.mask_api_key(api_key)
 
             return convert.assistant_service_registration_from_db(registration, api_key=masked_api_key)
@@ -301,7 +302,7 @@ class AssistantServiceRegistrationController:
             if registration is None:
                 raise exceptions.NotFoundError()
 
-            api_key = self._api_key_store.reset(registration.api_key_name)
+            api_key = await self._api_key_store.reset(registration.api_key_name)
 
         return convert.assistant_service_registration_from_db(registration, api_key=api_key)
 
@@ -351,7 +352,7 @@ class AssistantServiceRegistrationController:
             await session.delete(registration)
             await session.commit()
 
-            self._api_key_store.delete(registration.api_key_name)
+            await self._api_key_store.delete(registration.api_key_name)
 
     async def get_service_info(self, assistant_service_id: str) -> ServiceInfoModel:
         async with self._get_session() as session:
@@ -366,18 +367,15 @@ class AssistantServiceRegistrationController:
             if registration is None:
                 raise exceptions.NotFoundError()
 
-        return await self._assistant_client_builder(registration=registration).for_service().get_service_info()
+        return await (await self._assistant_client_builder(registration=registration)).for_service().get_service_info()
 
 
-def assistant_service_client(
+async def assistant_service_client(
     registration: db.AssistantServiceRegistration,
     api_key_store: assistant_api_key.ApiKeyStore,
     httpx_client_factory: Callable[[], httpx.AsyncClient],
 ) -> AssistantServiceClientBuilder:
-    if registration.assistant_service_url is None:
-        raise AssistantConnectionError(f"assistant service {registration.assistant_service_id} is offline")
-
-    api_key = api_key_store.get(registration.api_key_name)
+    api_key = await api_key_store.get(registration.api_key_name)
     if api_key is None:
         raise RuntimeError(f"assistant service {registration.assistant_service_id} does not have API key set")
 
