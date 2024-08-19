@@ -28,8 +28,7 @@
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
       "args": ["assistant.chat:app", "--port", "3003"],
-      "consoleTitle": "${workspaceFolderBasename}",
-      "envFile": "${workspaceFolder}/.env"
+      "consoleTitle": "${workspaceFolderBasename}"
     }
   ],
   "compounds": [

@@ -89,20 +89,37 @@ _dotenv_values = dotenv.dotenv_values()
 
 
 def first_env_var(*env_vars: str, include_dotenv: bool = True, include_upper_and_lower: bool = True) -> str | None:
-    def first_not_none(*vals: str | None) -> str | None:
-        for val in vals:
-            if val is not None:
-                return val
-        return None
+    """
+    Get the first environment variable that is set. If include_dotenv is True, then
+    the dotenv values will be checked as well. If include_upper_and_lower is True,
+    then the upper and lower case versions of the env vars will also be checked.
 
+    .. warning::
+        The dotenv values may be cached in the environment, so if you have loaded
+        a .env file into the environment, you may need to 'stop' and then 'start' the
+        service to get the new values from the .env file. Using the 'restart' command
+        does not seem to work.
+    """
     if include_upper_and_lower:
         env_vars = (*env_vars, *[env_var.upper() for env_var in env_vars], *[env_var.lower() for env_var in env_vars])
 
-    env_values = [os.environ.get(env_var) for env_var in env_vars]
+    dotenv_values = {}
+    # load dotenv values if requested
     if include_dotenv:
-        env_values = [*[_dotenv_values.get(env_var) for env_var in env_vars], *env_values]
+        dotenv_values = dotenv.dotenv_values()
 
-    return first_not_none(*env_values)
+    # check for the first env var that is set
+    # prioritize the environment over dotenv values
+    for env_var in env_vars:
+        # check for the env var in the environment
+        if env_var in os.environ:
+            return os.environ[env_var]
+
+        # check for the env var in the dotenv values
+        if env_var in dotenv_values:
+            return dotenv_values[env_var]
+
+    return None
 
 
 def overwrite_defaults_from_env(model: ModelT, prefix="", separator="__") -> ModelT:
