@@ -1,10 +1,12 @@
 {
   "recommendations": [
     "aaron-bond.better-comments",
+    "aarontamasfe.even-better-toml",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
     "ms-python.black-formatter",
     "ms-python.flake8",
+    "ms-vscode.makefile-tools",
     "ms-python.python",
     "streetsidesoftware.code-spell-checker"
   ]

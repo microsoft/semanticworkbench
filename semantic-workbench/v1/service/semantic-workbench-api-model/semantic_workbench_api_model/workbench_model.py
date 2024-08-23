@@ -116,6 +116,20 @@ class ConversationMessage(BaseModel):
     filenames: list[str]
     metadata: dict[str, Any]
 
+    @property
+    def command_name(self) -> str:
+        if self.message_type != MessageType.command:
+            return ""
+
+        return self.content.split(" ", 1)[0]
+
+    @property
+    def command_args(self) -> str:
+        if self.message_type != MessageType.command:
+            return ""
+
+        return "".join(self.content.split(" ", 1)[1:])
+
 
 class ConversationMessageList(BaseModel):
     messages: list[ConversationMessage]
@@ -350,7 +364,7 @@ class UpdateAssistant(BaseModel):
 
 class AssistantStateEvent(BaseModel):
     state_id: str
-    event: Literal["created", "updated", "deleted"]
+    event: Literal["created", "updated", "deleted", "focus"]
     state: assistant_model.StateResponseModel | None
 
 
@@ -398,6 +412,7 @@ class ConversationEventType(StrEnum):
     assistant_state_created = "assistant.state.created"
     assistant_state_updated = "assistant.state.updated"
     assistant_state_deleted = "assistant.state.deleted"
+    assistant_state_focus = "assistant.state.focus"
     conversation_created = "conversation.created"
     conversation_updated = "conversation.updated"
     conversation_deleted = "conversation.deleted"

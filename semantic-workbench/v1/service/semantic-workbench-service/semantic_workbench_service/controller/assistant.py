@@ -127,6 +127,12 @@ class AssistantController:
             )
             return
 
+        logger.debug(
+            "forwarding event to assistant; assistant_id: %s, conversation_id: %s, id: %s",
+            assistant.assistant_id,
+            event.conversation_id,
+            event.id,
+        )
         try:
             await (
                 await self._assistant_client_builder(
@@ -141,6 +147,12 @@ class AssistantController:
                 event,
                 exc_info=True,
             )
+        logger.debug(
+            "forwarded event to assistant; assistant_id: %s, conversation_id: %s, id: %s",
+            assistant.assistant_id,
+            event.conversation_id,
+            event.id,
+        )
 
     async def _disconnect_assistant(self, assistant: db.Assistant) -> None:
         await (

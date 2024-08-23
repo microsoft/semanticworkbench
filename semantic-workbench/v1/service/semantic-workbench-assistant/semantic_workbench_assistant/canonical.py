@@ -83,9 +83,9 @@ class Command:
     parser: command.CommandArgumentParser
     message_generator: Callable[[argparse.Namespace], str]
 
-    def process_args(self, args: list[str]) -> str:
+    def process_args(self, command_arg_string: str) -> str:
         try:
-            parsed_args = self.parser.parse_args(args)
+            parsed_args = self.parser.parse_args(command_arg_string)
         except argparse.ArgumentError as e:
             return e.message
 
@@ -93,7 +93,7 @@ class Command:
 
 
 reverse_parser = command.CommandArgumentParser(
-    command="reverse",
+    command="/reverse",
     description="Reverse a string",
 )
 reverse_parser.add_argument("string", type=str, help="the string to reverse", nargs="+")
@@ -452,17 +452,7 @@ class CanonicalAssistant(assistant_service.FastAPIAssistantService):
                 if event.event != workbench_model.ConversationEventType.message_created:
                     continue
 
-                message = event.data.get("message")
-                if message is None:
-                    logger.error("event is missing message")
-                    continue
-
-                message_type = message.get("message_type")
-                if message_type is None:
-                    logger.error("event is missing message_type")
-                    continue
-
-                message_content: str = message.get("content", "")
+                message = workbench_model.ConversationMessage.model_validate(event.data.get("message"))
 
                 assistant_id = wrapper.assistant_id
                 conversation_id = wrapper.conversation_id
@@ -479,30 +469,26 @@ class CanonicalAssistant(assistant_service.FastAPIAssistantService):
                     )
                     continue
 
-                match message_type:
+                match message.message_type:
                     case "chat":
-                        participant_role: str = message.get("sender", {}).get("participant_role", "")
                         # only echo messages from users
-                        if participant_role != "user":
+                        if message.sender.participant_role != "user":
                             continue
 
                         await _send_message(
                             assistant_id=assistant_id,
                             conversation_id=conversation_id,
                             message_type=workbench_model.MessageType.chat,
-                            message_content=f"echo: {message_content}",
+                            message_content=f"echo: {message.content}",
                         )
 
                     case "command":
-                        command_args = message_content.split()
-                        command_name = command_args.pop(0).strip("/")
-
-                        command = commands.get(command_name)
+                        command = commands.get(message.command_name)
                         if command is None:
-                            logger.debug("ignoring unknown command: %s", command_name)
+                            logger.debug("ignoring unknown command: %s", message.command_name)
                             continue
 
-                        command_response = command.process_args(command_args)
+                        command_response = command.process_args(message.command_args)
                         await _send_message(
                             assistant_id=assistant_id,
                             conversation_id=conversation_id,
