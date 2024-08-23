@@ -3,6 +3,9 @@
     {
       "path": ".",
       "name": "examples/python-examples01"
+    },
+    {
+      "path": "../../"
     }
   ]
 }

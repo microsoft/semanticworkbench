@@ -8,10 +8,12 @@ A python chat assistant example that echos the user's input.
   - ALTERNATIVE: Local setup following the [main README](../../README.md#quick-start---local-development-environment)
 - Set up and verify that the workbench app and service are running
 - Stop the services and open the [python-examples01.code-workspace](./python-examples01.code-workspace) in VS Code
+  - You should always stop the services before switching workspaces, otherwise the services will not be able to start in the new workspace
 
 ## Steps
 
-- Use VS Code > Run and Debug > `example assistant and semantic-workbench` to start the assistant.
+- Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `semantic-workbench` to start the app and service from this workspace
+- Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `python-example01` to start the assistant.
 - If running in a devcontainer, follow the instructions in [GitHub Codespaces / devcontainer README](../../.devcontainer/README.md#start-the-app-and-service) for any additional steps.
 - Return to the workbench app to interact with the assistant
 - Add a new assistant from the main menu of the app, choose `Python Example 01 Assistant`
@@ -39,6 +41,5 @@ Copy the contents of this folder to your project.
 
 ## Suggested Development Environment
 
-- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../../.devcontainer/README.md)
+- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
 - VS Code is recommended for development
--
