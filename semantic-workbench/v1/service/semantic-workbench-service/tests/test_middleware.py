@@ -9,7 +9,7 @@ from tests.types import MockUser
 
 def api_key_source(initial_api_key: str = ""):
     async def source(assistant_service_id: str) -> str | None:
-        return assistant_api_key.FixedApiKeyStore(initial_api_key).get(assistant_service_id)
+        return await assistant_api_key.FixedApiKeyStore(initial_api_key).get(assistant_service_id)
 
     return source
 

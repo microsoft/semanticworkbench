@@ -127,8 +127,18 @@ class ConversationAPIClient:
     ) -> workbench_model.ConversationParticipant:
         return await self.update_participant(participant_id="me", participant=participant)
 
+    async def get_message(
+        self,
+        message_id: uuid.UUID,
+    ) -> workbench_model.ConversationMessage:
+        async with self._client as client:
+            http_response = await client.get(f"/conversations/{self._conversation_id}/messages/{message_id}")
+            http_response.raise_for_status()
+            return workbench_model.ConversationMessage.model_validate(http_response.json())
+
     async def get_messages(
         self,
+        before: uuid.UUID | None = None,
         after: uuid.UUID | None = None,
         message_types: list[workbench_model.MessageType] = [workbench_model.MessageType.chat],
         participant_role: workbench_model.ParticipantRole | None = None,
@@ -138,6 +148,8 @@ class ConversationAPIClient:
             params: dict[str, str | list[str]] = {}
             if message_types:
                 params["message_type"] = [mt.value for mt in message_types]
+            if before:
+                params["before"] = str(before)
             if after:
                 params["after"] = str(after)
             if participant_role:
@@ -190,14 +202,16 @@ class ConversationAPIClient:
             return list.files[0]
 
     @asynccontextmanager
-    async def read_file(self, filename: str) -> AsyncGenerator[AsyncIterator[bytes], Any]:
+    async def read_file(
+        self, filename: str, chunk_size: int | None = None
+    ) -> AsyncGenerator[AsyncIterator[bytes], Any]:
         async with self._client as client:
             request = client.build_request("GET", f"/conversations/{self._conversation_id}/files/{filename}")
             http_response = await client.send(request, stream=True)
             http_response.raise_for_status()
 
             try:
-                yield http_response.aiter_bytes(1024)
+                yield http_response.aiter_bytes(chunk_size)
             finally:
                 await http_response.aclose()
 
@@ -211,7 +225,7 @@ class ConversationAPIClient:
 
     async def file_exists(self, filename: str) -> bool:
         async with self._client as client:
-            http_response = await client.get(f"/conversations/{self._conversation_id}/files/{filename}/version")
+            http_response = await client.get(f"/conversations/{self._conversation_id}/files/{filename}/versions")
             match http_response.status_code:
                 case 200:
                     return True

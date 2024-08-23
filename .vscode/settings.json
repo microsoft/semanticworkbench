@@ -156,6 +156,7 @@
   ],
   "cSpell.words": [
     "aarontamasfe",
+    "aiter",
     "appsettings",
     "arcname",
     "asgi",
@@ -174,10 +175,12 @@
     "httpx",
     "jsonlogger",
     "jungaretti",
+    "jwks",
     "keyvault",
     "levelname",
     "levelno",
     "msal",
+    "openai",
     "pydantic",
     "pylance",
     "pyproject",
@@ -185,6 +188,7 @@
     "semanticworkbench",
     "sqlalchemy",
     "sqlmodel",
+    "starlette",
     "tracebacks",
     "webservice",
     "winget"

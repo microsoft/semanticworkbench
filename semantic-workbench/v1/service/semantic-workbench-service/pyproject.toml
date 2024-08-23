@@ -19,6 +19,7 @@ asgi-correlation-id = "^4.3.1"
 asyncpg = "~0.29.0"
 azure-keyvault-secrets = "^4.8.0"
 azure-identity = "^1.16.0"
+azure-core = { version = "*", extras = ["aio"] }
 cachetools = "^5.3.3"
 fastapi = "~0.110.0"
 greenlet = "~3.0.3"

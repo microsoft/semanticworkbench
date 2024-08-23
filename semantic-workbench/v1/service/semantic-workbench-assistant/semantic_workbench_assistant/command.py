@@ -1,4 +1,5 @@
 import argparse
+import shlex
 
 
 class CommandArgumentParser(argparse.ArgumentParser):
@@ -28,10 +29,15 @@ class CommandArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         self._error_message = message
 
-    def parse_args(self, *args, **kwargs):
+    def parse_args(self, arg_string: str):
+        try:
+            sys_args_like = shlex.split(arg_string)
+        except ValueError as e:
+            raise argparse.ArgumentError(None, f"Invalid command arguments: {e}")
+
         self._error_message = None
         try:
-            result = super().parse_args(*args, **kwargs)
+            result = super().parse_args(args=sys_args_like)
             if self._error_message:
                 raise argparse.ArgumentError(None, self._error_message)
             return result
