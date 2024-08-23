@@ -446,9 +446,9 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_con
     # spell-checker:ignore dlrow olleh
     "command,command_args,expected_response_content_regex",
     [
-        ("reverse", "hello world", re.compile("dlrow olleh")),
-        ("reverse", "-h", re.compile("usage: reverse.+", re.DOTALL)),
-        ("reverse", "", re.compile("reverse: error: .+", re.DOTALL)),
+        ("/reverse", "hello world", re.compile("dlrow olleh")),
+        ("/reverse", "-h", re.compile("usage: /reverse.+", re.DOTALL)),
+        ("/reverse", "", re.compile("/reverse: error: .+", re.DOTALL)),
     ],
 )
 async def test_flow_create_assistant_send_command_message_receive_resp(
@@ -495,7 +495,7 @@ async def test_flow_create_assistant_send_command_message_receive_resp(
         resp = await wb_client.put(f"/conversations/{conversation.id}/participants/{assistant.id}", json={})
         resp.raise_for_status()
 
-        command_content = f"/{command} {command_args}"
+        command_content = f"{command} {command_args}"
         resp = await wb_client.post(
             f"/conversations/{conversation.id}/messages",
             json={

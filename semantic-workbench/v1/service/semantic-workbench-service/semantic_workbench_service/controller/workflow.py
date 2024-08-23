@@ -2,9 +2,11 @@ import uuid
 from typing import Any, AsyncContextManager, Callable, Tuple
 
 import openai.types.chat
+from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 from openai import AsyncAzureOpenAI
 from semantic_workbench_api_model.assistant_model import ConfigPutRequestModel
 from semantic_workbench_api_model.workbench_model import (
+    AssistantList,
     Conversation,
     ConversationMessage,
     MessageType,
@@ -318,6 +320,17 @@ class WorkflowController:
             await session.refresh(workflow_run)
 
         return convert.workflow_run_from_db(model=workflow_run)
+
+    async def get_workflow_run_assistants(self, workflow_run_id: uuid.UUID) -> AssistantList:
+        workflow_run = await self.get_workflow_run(workflow_run_id=workflow_run_id)
+        assistants = []
+        for assistant_mapping in workflow_run.assistant_mappings:
+            assistant = await self._assistant_controller.get_assistant(
+                assistant_id=uuid.UUID(assistant_mapping.assistant_id)
+            )
+            if assistant is not None:
+                assistants.append(assistant)
+        return AssistantList(assistants=assistants)
 
     async def switch_workflow_run_state(
         self, workflow_run_id: uuid.UUID, target_state_id: str, metadata: dict[str, Any] | None = None
@@ -1209,8 +1222,6 @@ class WorkflowController:
                 detail=f"failed to send context transfer response as message to conversation: {e}",
             ) from e
 
-    # Helper methods
-
     async def execute_transition_evaluation_query(
         self,
         transition_evaluation_prompt: str,
@@ -1228,13 +1239,6 @@ class WorkflowController:
 
         # format message content
         format_message_content = "Answer only with 'true' or 'false'."
-
-        azure_openai_client = AsyncAzureOpenAI(
-            azure_endpoint=settings.workflow.azure_openai_endpoint,
-            azure_deployment=settings.workflow.azure_openai_deployment,
-            api_key=settings.workflow.azure_openai_api_key,
-            api_version=settings.workflow.azure_openai_api_version,
-        )
 
         model = settings.workflow.azure_openai_deployment
         messages: list[openai.types.chat.ChatCompletionMessageParam] = [
@@ -1256,11 +1260,12 @@ class WorkflowController:
         ]
 
         try:
-            completion = await azure_openai_client.chat.completions.create(
-                model=model,
-                temperature=0.0,
-                messages=messages,
-            )
+            async with azure_openai_client() as client:
+                completion = await client.chat.completions.create(
+                    model=model,
+                    temperature=0.0,
+                    messages=messages,
+                )
         except Exception as e:
             raise exceptions.RuntimeError(
                 detail=f"failed calling Azure OpenAI service while evaluating transitions: {e}",
@@ -1298,13 +1303,6 @@ class WorkflowController:
             f" <CONTEXT_TRANSFER_REQUEST>{context_transfer_request}</CONTEXT_TRANSFER_REQUEST>"
         )
 
-        azure_openai_client = AsyncAzureOpenAI(
-            azure_endpoint=settings.workflow.azure_openai_endpoint,
-            azure_deployment=settings.workflow.azure_openai_deployment,
-            api_key=settings.workflow.azure_openai_api_key,
-            api_version=settings.workflow.azure_openai_api_version,
-        )
-
         model = settings.workflow.azure_openai_deployment
         messages: list[openai.types.chat.ChatCompletionMessageParam] = [
             {
@@ -1320,11 +1318,12 @@ class WorkflowController:
         ]
 
         try:
-            completion = await azure_openai_client.chat.completions.create(
-                model=model,
-                temperature=0.0,
-                messages=messages,
-            )
+            async with azure_openai_client() as client:
+                completion = await client.chat.completions.create(
+                    model=model,
+                    temperature=0.0,
+                    messages=messages,
+                )
         except Exception as e:
             raise exceptions.RuntimeError(
                 detail=f"failed calling Azure OpenAI service while generating context transfer: {e}",
@@ -1763,3 +1762,18 @@ class WorkflowController:
             )
 
         return conversation_id
+
+
+_azure_bearer_token_provider = get_bearer_token_provider(
+    DefaultAzureCredential(),
+    "https://cognitiveservices.azure.com/.default",
+)
+
+
+def azure_openai_client() -> AsyncAzureOpenAI:
+    return AsyncAzureOpenAI(
+        azure_endpoint=settings.workflow.azure_openai_endpoint,
+        azure_deployment=settings.workflow.azure_openai_deployment,
+        api_version=settings.workflow.azure_openai_api_version,
+        azure_ad_token_provider=_azure_bearer_token_provider,
+    )

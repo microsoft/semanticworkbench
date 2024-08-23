@@ -22,6 +22,11 @@ class StateDescriptionListResponseModel(BaseModel):
 
 
 class StateResponseModel(BaseModel):
+    """
+    This model is used by the Workbench to render the state in the UI.
+    See: https://github.com/rjsf-team/react-jsonschema-form for
+    the use of data, json_schema, and ui_schema.
+    """
     id: str
     data: dict[str, Any]
     json_schema: dict[str, Any] | None
@@ -51,6 +56,7 @@ class ServiceInfoModel(BaseModel):
 
 class ConversationPutRequestModel(BaseModel):
     id: str
+    title: str
 
 
 class ConversationResponseModel(BaseModel):

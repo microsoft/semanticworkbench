@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import datetime
 import json
 import logging
 import uuid
@@ -112,12 +113,20 @@ def init(
             )
             return
 
-        await conversation_event_queue.put(queue_item)
         logger.debug(
-            "conversation event enqueued; conversation_id: %s, event: %s, id: %s",
+            "enqueuing conversation event; conversation_id: %s, event: %s, id: %s, queue_size: %s",
             queue_item.event.conversation_id,
             queue_item.event.event,
             queue_item.event.id,
+            conversation_event_queue.qsize(),
+        )
+        await conversation_event_queue.put(queue_item)
+        logger.debug(
+            "enqueued conversation event; conversation_id: %s, event: %s, id: %s, queue_size: %s",
+            queue_item.event.conversation_id,
+            queue_item.event.event,
+            queue_item.event.id,
+            conversation_event_queue.qsize(),
         )
 
     def _controller_get_session() -> AsyncContextManager[AsyncSession]:
@@ -214,14 +223,34 @@ def init(
     async def _broadcast_conversation_events() -> NoReturn:
         while True:
             try:
+                logger.debug("dequeuing event from conversation_event_queue")
                 event_queue_item = await conversation_event_queue.get()
                 event_audience = event_queue_item.event_audience
                 event = event_queue_item.event
 
-                try:
-                    asgi_correlation_id.correlation_id.set(event.correlation_id)
+                asgi_correlation_id.correlation_id.set(event.correlation_id)
 
+                start_time = datetime.datetime.utcnow()
+
+                logger.debug(
+                    "dequeued event from conversation_event_queue; id: %s, audience: %s, time since event: %s",
+                    event.id,
+                    event_audience,
+                    start_time - event.timestamp,
+                )
+
+                try:
+                    logger.debug(
+                        "acquiring conversation_sse_queues_lock for conversation event; id: %s, audience: %s",
+                        event.id,
+                        event_audience,
+                    )
                     async with conversation_sse_queues_lock, asyncio.TaskGroup() as task_group:
+                        logger.debug(
+                            "acquired conversation_sse_queues_lock for conversation event; id: %s, audience: %s",
+                            event.id,
+                            event_audience,
+                        )
                         if "assistant" in event_audience:
                             task_group.create_task(assistant_controller.forward_event_to_assistants(event=event))
                             logger.debug(
@@ -244,6 +273,13 @@ def init(
 
                 finally:
                     conversation_event_queue.task_done()
+                    end_time = datetime.datetime.utcnow()
+
+                    logger.debug(
+                        "finished broadcasting event; id: %s, duration: %s",
+                        event.id,
+                        end_time - start_time,
+                    )
 
             except Exception:
                 logger.exception("exception in _broadcast_conversation_events")
@@ -526,7 +562,7 @@ def init(
         # ensure the conversation exists
         await conversation_controller.get_conversation(conversation_id=conversation_id, principal=user_principal)
 
-        logger.info("client connected to sse; conversation_id: %s", conversation_id)
+        logger.debug("client connected to sse; conversation_id: %s", conversation_id)
         queue_id = uuid.uuid4().hex
         event_queue = asyncio.Queue[ConversationEvent]()
 
@@ -902,6 +938,14 @@ def init(
         return await workflow_controller.update_workflow_run(
             workflow_run_id=workflow_run_id,
             update_workflow_run=update_workflow_run,
+        )
+
+    @app.get("/workflow-runs/{workflow_run_id}/assistants")
+    async def get_workflow_run_assistants(
+        workflow_run_id: uuid.UUID,
+    ) -> AssistantList:
+        return await workflow_controller.get_workflow_run_assistants(
+            workflow_run_id=workflow_run_id,
         )
 
     @app.post("/workflow-runs/{workflow_run_id}/switch-state")
