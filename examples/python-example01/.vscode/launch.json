@@ -2,26 +2,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "node",
-      "request": "launch",
-      "name": "semantic-workbench-app",
-      "cwd": "${workspaceFolder}/../../semantic-workbench/v1/app",
-      "skipFiles": ["<node_internals>/**"],
-      "console": "integratedTerminal",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"]
-    },
-    {
-      "type": "debugpy",
-      "request": "launch",
-      "name": "semantic-workbench-service",
-      "cwd": "${workspaceFolder}/../../semantic-workbench/v1/service",
-      "module": "semantic_workbench_service.start",
-      "justMyCode": false,
-      "consoleTitle": "semantic-workbench-service",
-      "args": ["--host", "0.0.0.0", "--port", "3000"]
-    },
-    {
       "type": "debugpy",
       "request": "launch",
       "name": "python-example01 (assistant)",
@@ -29,20 +9,6 @@
       "module": "semantic_workbench_assistant.start",
       "args": ["assistant.chat:app", "--port", "3003"],
       "consoleTitle": "${workspaceFolderBasename}"
-    }
-  ],
-  "compounds": [
-    {
-      "name": "semantic-workbench",
-      "configurations": ["semantic-workbench-app", "semantic-workbench-service"]
-    },
-    {
-      "name": "example assistant and semantic-workbench",
-      "configurations": [
-        "semantic-workbench-app",
-        "semantic-workbench-service",
-        "python-example01 (assistant)"
-      ]
     }
   ]
 }
