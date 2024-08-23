@@ -11,6 +11,9 @@
     {
       "path": "../examples/python-example01",
       "name": "examples/python-example01"
+    },
+    {
+      "path": ".."
     }
   ]
 }
