@@ -3,6 +3,9 @@
     {
       "path": ".",
       "name": "examples/my-assistant"
+    },
+    {
+      "path": "../.."
     }
   ]
 }
