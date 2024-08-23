@@ -13,7 +13,7 @@ A python chat assistant example that echos the user's input.
 ## Steps
 
 - Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `semantic-workbench` to start the app and service from this workspace
-- Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `launch assistant` to start the assistant.
+- Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `python-example01` to start the assistant.
 - If running in a devcontainer, follow the instructions in [GitHub Codespaces / devcontainer README](../../.devcontainer/README.md#start-the-app-and-service) for any additional steps.
 - Return to the workbench app to interact with the assistant
 - Add a new assistant from the main menu of the app, choose `Python Example 01 Assistant`
