@@ -26,12 +26,10 @@
   // Use 'portsAttributes' to configure the behavior of specific port forwarding instances.
   "portsAttributes": {
     "3000": {
-      "label": "service:semantic-workbench",
-      "protocol": "http"
+      "label": "service:semantic-workbench"
     },
     "4000": {
-      "label": "app:semantic-workbench",
-      "protocol": "https"
+      "label": "app:semantic-workbench"
     }
   },
 

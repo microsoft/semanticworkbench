@@ -1,64 +1,76 @@
-# Using GitHub Codespaces with devcontainers for Semantic Workbench
+# Using GitHub Codespaces with devcontainers for development
 
-This folder contains the configuration files for using GitHub Codespaces with devcontainers for Semantic Workbench and assistant development.
+This folder contains the configuration files for using GitHub Codespaces with devcontainers for development.
 
-GitHub Codespaces is a feature of GitHub that provides a cloud-based development environment for your repository. It allows you to develop, build, and test your code in a consistent environment, without needing to install dependencies or configure your local machine.
+GitHub Codespaces is a feature of GitHub that provides a cloud-based development environment for your repository. It allows you to develop, build, and test your code in a consistent environment, without needing to install dependencies or configure a local development environment. You just need to run a local VS Code instance to connect to the Codespace.
 
 ## Why
 
 - **Consistent environment**: All developers use the same environment, regardless of their local setup.
-- **Platform agnostic**: Works on any system with a web browser and internet connection, including Chromebooks, tablets, and mobile devices.
+- **Platform agnostic**: Works on any system that can run VS Code.
 - **Isolated environment**: The devcontainer is isolated from the host machine, so you can install dependencies without affecting your local setup.
 - **Quick setup**: You can start developing in a few minutes, without needing to install dependencies or configure your environment.
 
-## How to use
+## Setup
+
+While you can use GitHub Codespaces directly from the GitHub website, it is recommended to use a local installation of VS Code to connect to the Codespace. There is currently an issue with the Codespaces browser-based editor that prevents the app from being able to connect to the service (see [this discussion comment](https://github.com/orgs/community/discussions/15351#discussioncomment-4112535)).
+
+For more details on using GitHub Codespaces in VS Code, see the [documentation](https://docs.github.com/en/codespaces/developing-in-a-codespace/using-github-codespaces-in-visual-studio-code).
 
 ### Pre-requisites
 
-#### Create a new GitHub Codespace
+- Install [Visual Studio Code](https://code.visualstudio.com/)
 
-- Open the repository in GitHub Codespaces
-  - Navigate to the [repository in GitHub](https://github.com/microsoft/semanticworkbench)
-  - Click on the `Code` button and select the `Codespaces` tab
-  - Click on the `Codespaces` > `+` button
-  - Allow the Codespace to build and start, which may take a few minutes - you may continue to the next steps while it builds
-  - Make a note of your Codespace host name, which is the part of the URL before `.github.dev`.
+### Create a new GitHub Codespace via VS Code
 
-#### Set up the workbench app and service
+- Launch VS Code and open the command palette with the `F1` key or `Ctrl/Cmd+Shift+P`
+- Type `Codespaces: Create New Codespace...` and select it
+- Type in the name of the repository you want to use, or select a repository from the list
+- Click the branch you want to develop on
+- Select the machine type you want to use
+- The Codespace will be created and you will be connected to it
+- Allow the Codespace to build, which may take a few minutes
 
-While the Codespaces environment makes it easy to start developing, the hard-coded app registration details in the app and service cannot support a wildcard redirect URI. This means you will need to create your own Azure app registration and update the app and service files with the new app registration details.
+## How to use
 
-Follow the instructions in the [Custom app registration](../docs/CUSTOM_APP_REGISTRATION.md) guide to create a new Azure app registration and update the app and service files with the new app registration details.
+### Connecting to the Codespace in the future
 
-### Using the Codespace in VS Code
+- Launch VS Code and open the command palette with the `F1` key or `Ctrl/Cmd+Shift+P`
+- Type `Codespaces: Connect to Codespace...` and select it
 
-#### Launch the Codespace
+### Start the app and service
 
-- Open the repository in VS Code
-  - Click on the `Code` button and select the Codespaces tab and choose the Codespace you created
-  - Since the Codespace is available as a Progressive Web App (PWA), you can also run the Codespace as a local app (in its own window, taskbar/dock/home icon, etc.) for quicker access. See the following links for general information on installing PWAs:
-    - [Microsoft Edge](https://learn.microsoft.com/en-us/microsoft-edge/progressive-web-apps-chromium/ux)
-    - Search the internet for `install PWA on <browser/platform>` for help with other browsers/platforms
-
-#### Start the app and service
-
-- Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `Semantic Workbench` to start both the app and the service
-- Once `semantic-workbench-service` has launched, you will need to make it `public`
-  - The app uses the service to fetch data and it must be accessible from the browser of the user logged into the app, which is why the service endpoint must be public. This also means it is accessible to anyone with the URL. To provide a minimal level of security, the app registration is required. Any calls to the service must include an access token from a user logged into the configured app registration.
-  - In VS Code go to the `ports` tab (same pane as the `terminal` where the services are running)
-  - Right-click on the `service:semantic-workbench-service` (Port 3000) and select `Port Visibility` > `Public`
-- In the VS Code `terminal` tab, find the `semantic-workbench-app` and click on the `Local` link to open the app
-  - This will automatically open the app in a new browser tab, navigating to the correct Codespace host and setting the necessary header values to privately access the app
+- Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `semantic-workbench` to start the project
+- Open your browser and navigate to `https://localhost:4000`
+  - You may receive a warning about the app not being secure; click `Advanced` and `Proceed to localhost` to continue
 - You can now interact with the app and service in the browser
-- Next steps:
-  - Launch an assistant service, using an [example assistant](../examples/) or your own assistant
-    - If launching an assistant service from within the same Codespace, it will be automatically accessible to the Semantic Workbench service
-  - Add the assistant to the workbench app by clicking the `Add Assistant` button in the app and selecting the assistant from the list
-  - Configure the assistant and interact with it in the app by clicking on the assistant in the list
-  - From the assistant configuration screen, click `New Conversation` to start a new conversation with the assistant
+
+See the [README](../README.md) for more details on how to use the Semantic Workbench app and service.
+
+### Next steps:
+
+- Launch an assistant service:
+  - Using the [canonical assistant](../semantic-workbench/v1/service/semantic-workbench-assistant/README.md)
+    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `canonical-assistant` to start the canonical assistant
+  - Using an [example assistant](../examples/)
+    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `python-example01` to start the example assistant
+  - Or create your own assistant service by following the [Assistant Development Guide](../docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
+- If launching an assistant service from within the same Codespace, it will be automatically accessible to the Semantic Workbench service
+- Add the assistant to the workbench app by clicking the `Add Assistant` button in the app and selecting the assistant from the list
+- Configure the assistant and interact with it in the app by clicking on the assistant in the list
+- From the assistant configuration screen, click `New Conversation` to start a new conversation with the assistant
 
 ## Assistant service example
 
 We have included an example Python assistant service that echos the user's input and can serve as a starting point for your own assistant service.
 
 See the [python-example01/README](../examples/python-example01/README.md) for more details.
+
+## Deleting a Codespace
+
+When you are done with a Codespace, you can delete it to free up resources.
+
+- Visit the source repository on GitHub
+- Click on the `Code` button and select the Codespaces tab
+- Click on the `...` button next to the Codespace you want to delete
+- Select `Delete`
