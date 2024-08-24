@@ -85,8 +85,6 @@ class Settings(BaseSettings):
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
-_dotenv_values = dotenv.dotenv_values()
-
 
 def first_env_var(*env_vars: str, include_dotenv: bool = True, include_upper_and_lower: bool = True) -> str | None:
     """
