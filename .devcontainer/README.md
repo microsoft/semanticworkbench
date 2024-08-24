@@ -13,7 +13,7 @@ GitHub Codespaces is a feature of GitHub that provides a cloud-based development
 
 ## Setup
 
-While you can use GitHub Codespaces directly from the GitHub website, it is recommended to use VS Code to connect to the Codespace. There is currently an issue with the Codespaces browser-based editor that prevents the app from being able to connect to the service (see [this discussion comment](https://github.com/orgs/community/discussions/15351#discussioncomment-4112535)).
+While you can use GitHub Codespaces directly from the GitHub website, it is recommended to use a local installation of VS Code to connect to the Codespace. There is currently an issue with the Codespaces browser-based editor that prevents the app from being able to connect to the service (see [this discussion comment](https://github.com/orgs/community/discussions/15351#discussioncomment-4112535)).
 
 For more details on using GitHub Codespaces in VS Code, see the [documentation](https://docs.github.com/en/codespaces/developing-in-a-codespace/using-github-codespaces-in-visual-studio-code).
 
@@ -31,19 +31,12 @@ For more details on using GitHub Codespaces in VS Code, see the [documentation](
 - The Codespace will be created and you will be connected to it
 - Allow the Codespace to build, which may take a few minutes
 
+## How to use
+
 ### Connecting to the Codespace in the future
 
 - Launch VS Code and open the command palette with the `F1` key or `Ctrl/Cmd+Shift+P`
 - Type `Codespaces: Connect to Codespace...` and select it
-
-### Deleting a Codespace
-
-- Visit the source repository on GitHub
-- Click on the `Code` button and select the Codespaces tab
-- Click on the `...` button next to the Codespace you want to delete
-- Select `Delete`
-
-## How to use
 
 ### Start the app and service
 
@@ -51,17 +44,33 @@ For more details on using GitHub Codespaces in VS Code, see the [documentation](
 - Open your browser and navigate to `https://localhost:4000`
   - You may receive a warning about the app not being secure; click `Advanced` and `Proceed to localhost` to continue
 - You can now interact with the app and service in the browser
-- Next steps:
-  - Launch an assistant service, using an [example assistant](../examples/) or your own assistant
-    - If launching an assistant service from within the same Codespace, it will be automatically accessible to the Semantic Workbench service
-  - Add the assistant to the workbench app by clicking the `Add Assistant` button in the app and selecting the assistant from the list
-  - Configure the assistant and interact with it in the app by clicking on the assistant in the list
-  - From the assistant configuration screen, click `New Conversation` to start a new conversation with the assistant
 
-See the [README](../README.md) for more details on how to use the app.
+See the [README](../README.md) for more details on how to use the Semantic Workbench app and service.
+
+### Next steps:
+
+- Launch an assistant service:
+  - Using the [canonical assistant](../semantic-workbench/v1/service/semantic-workbench-assistant/README.md)
+    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `canonical-assistant` to start the canonical assistant
+  - Using an [example assistant](../examples/)
+    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `python-example01` to start the example assistant
+  - Or create your own assistant service by following the [Assistant Development Guide](../docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
+- If launching an assistant service from within the same Codespace, it will be automatically accessible to the Semantic Workbench service
+- Add the assistant to the workbench app by clicking the `Add Assistant` button in the app and selecting the assistant from the list
+- Configure the assistant and interact with it in the app by clicking on the assistant in the list
+- From the assistant configuration screen, click `New Conversation` to start a new conversation with the assistant
 
 ## Assistant service example
 
 We have included an example Python assistant service that echos the user's input and can serve as a starting point for your own assistant service.
 
 See the [python-example01/README](../examples/python-example01/README.md) for more details.
+
+## Deleting a Codespace
+
+When you are done with a Codespace, you can delete it to free up resources.
+
+- Visit the source repository on GitHub
+- Click on the `Code` button and select the Codespaces tab
+- Click on the `...` button next to the Codespace you want to delete
+- Select `Delete`
