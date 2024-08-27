@@ -2,7 +2,7 @@
 
 using Microsoft.SemanticWorkbench.Connector;
 
-namespace AgentExample01;
+namespace AgentExample;
 
 internal static class Program
 {

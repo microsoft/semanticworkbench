@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.SemanticWorkbench.Connector;
 
-namespace AgentExample02;
+namespace AgentExample;
 
 public sealed class MyWorkbenchConnector : WorkbenchConnector
 {

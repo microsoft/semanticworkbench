@@ -7,7 +7,8 @@
 
 ## What is/are Semantic Workbench’s intended use(s)?
 
-- Semantic Workbench is designed for prototyping assistants, running conversations and testing assistants behavior.
+- Semantic Workbench is designed for prototyping assistants, running conversations and testing assistants behavior in a test environment.
+- Semantic Workbench is not intended to be run in a production environment. AI assistants and agents developed with the help of Semantic Workbench, should be deployed separately from the workbench environment, in dedicated environments with proper monitoring and safety protections.
 
 ## How was Semantic Workbench evaluated? What metrics are used to measure performance?
 
@@ -21,6 +22,10 @@ Developers can use any of preferred technology and connect their bots to Semanti
 
 - Semantic Workbench is not an assistant in itself, it only allows to connect and test existing assistants.
 
+- Semantic Workbench is not a container for Production assistants. Assistants and Agents are executed in the workbench environment only during development and test phases.
+
+- Semantic Workbench does not monitor assistants behavior, it's only designed to make it easier for developers to observe the behavior. Developers are responsible for designing assistants and understanding if these are working properly.
+
 - Intelligent assistants must be developed with usual IDEs and development tools like Semantic Kernel, Langchain, Autogen, following the best practices there recommended, for instance [Responsible AI and Semantic Kernel](https://learn.microsoft.com/semantic-kernel/when-to-use-ai/responsible-ai) and [LangSmith](https://www.langchain.com/langsmith).
 
 - The workbench is unable to automatically discover agents: once the code for an agent is ready, some extra code needs to be added in order to connect the assistant to Semantic Workbench.
@@ -31,13 +36,17 @@ Developers can use any of preferred technology and connect their bots to Semanti
 
 - Developers using Semantic Workbench can adopt a user-centric approach in designing applications, ensuring that users are well-informed and have the ability to approve any actions taken by the AI. Semantic Workbench exposes all the information provided by the connected assistants, so it's important that developers code these assistants to expose their rationale, prompts, and state.
 
-- Additionally, intelligent assistants developers should implement mechanisms to monitor and filter any automatically generated information, if deemed necessary.
+- Additionally, intelligent assistants developers should implement mechanisms to monitor and filter any automatically generated information, if deemed necessary. Some of these mechanisms include:
+  - moderating users' input and AI's output, for instance using [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety).
+  - including metaprompt guardrails, instructing LLMs how to protect users and business logic. For instance see [this page](https://learn.microsoft.com/azure/ai-services/openai/concepts/system-message) for information and examples.
 
 - By addressing responsible AI issues in this manner, developers can create assistants that are not only efficient and useful but also adhere to ethical guidelines and prioritize user trust and safety.
 
 ## What operational factors and settings allow for effective and responsible use of Semantic Workbench?
 
-- First and foremost, developers using Semantic Workbench can precisely define user interactions and how user data is managed in the source code of their intelligent assistants.
+- First and foremost, use Semantic Workbench to access your assistants only in private development environments, such as your localhost.
+
+- Developers using Semantic Workbench can precisely define user interactions and how user data is managed in the source code of their intelligent assistants.
 
 - If a prototype assistant runs a sequence of components, additional risks/failures may arise when using non-deterministic behavior. To mitigate this, developers can:
 

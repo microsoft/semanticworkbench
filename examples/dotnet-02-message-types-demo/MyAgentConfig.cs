@@ -3,7 +3,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.SemanticWorkbench.Connector;
 
-namespace AgentExample02;
+namespace AgentExample;
 
 public class MyAgentConfig : IAgentConfig
 {
@@ -69,11 +69,7 @@ public class MyAgentConfig : IAgentConfig
             { "description", "How to reply to messages, what logic to use." },
         };
 
-        // Use "list of radio buttons" instead of default "select box"
-        uiSchema[nameof(this.Behavior)] = new Dictionary<string, object>
-        {
-            { "ui:widget", "radio" }
-        };
+        ConfigUtils.UseRadioButtonsFor(nameof(this.Behavior), uiSchema);
 
         jsonSchema["type"] = "object";
         jsonSchema["title"] = "ConfigStateModel";

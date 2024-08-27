@@ -4,12 +4,13 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.SemanticWorkbench.Connector;
 
-namespace AgentExample01;
+namespace AgentExample;
 
 public sealed class MyWorkbenchConnector : WorkbenchConnector
 {
     private readonly MyAgentConfig _defaultAgentConfig = new();
     private readonly IServiceProvider _sp;
+    private readonly IConfiguration _appConfig;
 
     public MyWorkbenchConnector(
         IServiceProvider sp,
@@ -20,6 +21,7 @@ public sealed class MyWorkbenchConnector : WorkbenchConnector
     {
         appConfig.GetSection("Agent").Bind(this._defaultAgentConfig);
         this._sp = sp;
+        this._appConfig = appConfig;
     }
 
     /// <inheritdoc />
@@ -41,7 +43,13 @@ public sealed class MyWorkbenchConnector : WorkbenchConnector
         }
 
         // Instantiate using .NET Service Provider so that dependencies are automatically injected
-        var agent = ActivatorUtilities.CreateInstance<MyAgent>(this._sp, agentId, name ?? agentId, config);
+        var agent = ActivatorUtilities.CreateInstance<MyAgent>(
+            this._sp,
+            agentId, // agentId
+            name ?? agentId, // agentName
+            config, // agentConfig
+            this._appConfig // appConfig
+        );
 
         await agent.StartAsync(cancellationToken).ConfigureAwait(false);
         this.Agents.TryAdd(agentId, agent);

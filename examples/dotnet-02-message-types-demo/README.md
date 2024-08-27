@@ -6,9 +6,14 @@ The agent demonstrates also a simple **integration with [Azure AI Content Safety
 
 The example shows also how to leverage Semantic Workbench UI to **inspect agents' result, by including debugging information** readily available in the conversation.
 
+Similarly to example 01, this example is meant to show how to leverage Semantic Workbench.
+Look at example 03 for a functional agent integrated with AI LLMs.
+
 ## Project Overview
 
 The sample project utilizes the `WorkbenchConnector` library, enabling you to focus on agent development and testing.
+The connector provides a base `AgentBase` class for your agents, and takes care of connecting your agent with the
+workbench backend service.
 
 Differently from [example 1](../dotnet-example01), this agent has a configurable `behavior` to show different output types.
 All the logic starts from `MyAgent.ReceiveMessageAsync()` method as seen in the previous example.

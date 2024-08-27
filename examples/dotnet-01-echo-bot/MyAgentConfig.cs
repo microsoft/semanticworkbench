@@ -3,7 +3,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.SemanticWorkbench.Connector;
 
-namespace AgentExample01;
+namespace AgentExample;
 
 public class MyAgentConfig : IAgentConfig
 {

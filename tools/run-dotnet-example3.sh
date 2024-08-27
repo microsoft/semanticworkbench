@@ -5,6 +5,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && cd .. && pwd)"
 cd $ROOT
 # ================================================================
 
-cd examples/dotnet-02-message-types-demo
+cd examples/dotnet-03-simple-chatbot
 dotnet build
 dotnet run

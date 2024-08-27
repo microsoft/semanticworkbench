@@ -5,6 +5,10 @@ namespace Microsoft.SemanticWorkbench.Connector;
 
 public class DebugInfo : Dictionary<string, object?>
 {
+    public DebugInfo()
+    {
+    }
+
     public DebugInfo(string key, object? info)
     {
         this.Add(key, info);

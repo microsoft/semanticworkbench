@@ -4,8 +4,9 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>AgentExample01</RootNamespace>
-        <PackageId>AgentExample01</PackageId>
+        <RootNamespace>AgentExample</RootNamespace>
+        <PackageId>AgentExample</PackageId>
+        <NoWarn>$(NoWarn);SKEXP0010;</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
@@ -13,6 +14,9 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Azure.AI.ContentSafety" Version="1.0.0" />
+        <PackageReference Include="Azure.Identity" Version="1.12.0" />
+        <PackageReference Include="Microsoft.SemanticKernel" Version="1.15.1" />
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

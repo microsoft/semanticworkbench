@@ -63,4 +63,48 @@ public class Message
 
         return result;
     }
+
+    public static Message CreateNotice(
+        string agentId,
+        string content,
+        object? debug = null,
+        string contentType = "text/plain")
+    {
+        var result = CreateChatMessage(agentId: agentId, content: content, debug: debug, contentType: contentType);
+        result.MessageType = "notice";
+        return result;
+    }
+
+    public static Message CreateNote(
+        string agentId,
+        string content,
+        object? debug = null,
+        string contentType = "text/plain")
+    {
+        var result = CreateChatMessage(agentId: agentId, content: content, debug: debug, contentType: contentType);
+        result.MessageType = "note";
+        return result;
+    }
+
+    public static Message CreateCommand(
+        string agentId,
+        string content,
+        object? debug = null,
+        string contentType = "text/plain")
+    {
+        var result = CreateChatMessage(agentId: agentId, content: content, debug: debug, contentType: contentType);
+        result.MessageType = "command";
+        return result;
+    }
+
+    public static Message CreateCommandResponse(
+        string agentId,
+        string content,
+        object? debug = null,
+        string contentType = "text/plain")
+    {
+        var result = CreateChatMessage(agentId: agentId, content: content, debug: debug, contentType: contentType);
+        result.MessageType = "command-response";
+        return result;
+    }
 }
