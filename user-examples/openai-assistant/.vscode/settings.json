@@ -52,6 +52,7 @@
     "dotenv",
     "fastapi",
     "jsonschema",
+    "moderations",
     "openai",
     "pydantic",
     "pyproject",

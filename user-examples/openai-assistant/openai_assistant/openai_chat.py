@@ -86,23 +86,33 @@ class ChatAssistant(AssistantBase):
         assistant_instance: AssistantInstance,
         event: ConversationEvent,
     ) -> None:
+        async def call_respond_to_conversation():
+            # get the conversation client
+            conversation_client = self.workbench_client.for_conversation(
+                assistant_instance.id, str(event.conversation_id)
+            )
+            # update the participant status to indicate the assistant is thinking
+            await conversation_client.update_participant_me(UpdateParticipant(status="thinking..."))
+            try:
+                # replace the following with your own logic for processing a message created event
+                await self.respond_to_conversation(assistant_instance.id, event.conversation_id)
+            finally:
+                # update the participant status to indicate the assistant is done thinking
+                await conversation_client.update_participant_me(UpdateParticipant(status=None))
+            return
+
         # add any additional event processing logic here
         match event.event:
 
-            case ConversationEventType.message_created | ConversationEventType.conversation_created:
-                # get the conversation client
-                conversation_client = self.workbench_client.for_conversation(
-                    assistant_instance.id, str(event.conversation_id)
-                )
-                # update the participant status to indicate the assistant is thinking
-                await conversation_client.update_participant_me(UpdateParticipant(status="thinking..."))
-                try:
-                    # replace the following with your own logic for processing a message created event
-                    await self.respond_to_conversation(assistant_instance.id, event.conversation_id)
-                finally:
-                    # update the participant status to indicate the assistant is done thinking
-                    await conversation_client.update_participant_me(UpdateParticipant(status=None))
-                return
+            case ConversationEventType.conversation_created:
+                await call_respond_to_conversation()
+
+            case ConversationEventType.message_created:
+                # get message from event.data as ConversationMessage
+                message = ConversationMessage.model_validate(event.data.get("message"))
+                # only respond to chat messages
+                if message.message_type == MessageType.chat:
+                    await call_respond_to_conversation()
 
             case _:
                 # add any additional event processing logic here
@@ -133,6 +143,52 @@ class ChatAssistant(AssistantBase):
 
         # get the assistant's configuration, supports overwriting defaults from environment variables
         assistant_config = self._config_storage.get_with_defaults_overwritten_from_env(assistant_id)
+
+        # For OpenAI services, we should handle this ourselves
+        if assistant_config.service_config.service_type == "OpenAI":
+            content_for_moderation_review: list[str] = [message.content for message in messages_response.messages]
+
+            # Call the OpenAI moderation API to evaluate the content
+            async with self.get_openai_client(assistant_id) as openai_client:
+                try:
+                    moderation = await openai_client.moderations.create(
+                        input=content_for_moderation_review,
+                    )
+                except Exception as e:
+                    logger.exception(f"exception occurred calling openai moderation: {e}")
+                    content = "An error occurred while calling the OpenAI API."
+                    return
+
+            # Check all of the moderation results for any
+
+            if moderation:
+                # Check if any of the moderation results are inappropriate
+                moderation_results = moderation.results
+                if any(result.flagged for result in moderation_results):
+                    await conversation_client.send_messages(
+                        NewConversationMessage(
+                            content=(
+                                "Conversation flagged as inappropriate, not responding, please delete content or start"
+                                " a new conversation."
+                            ),
+                            message_type=MessageType.notice,
+                            metadata={
+                                "debug": {
+                                    "moderation": {
+                                        "request": {
+                                            "input": content_for_moderation_review,
+                                        },
+                                        "response": (
+                                            moderation.model_dump() if moderation else "[no response from openai]"
+                                        ),
+                                    },
+                                }
+                            },
+                        )
+                    )
+
+                    # return early if the conversation was flagged
+                    return
 
         # get the list of conversation participants
         participants_response = await conversation_client.get_participants(include_inactive=True)
@@ -250,6 +306,14 @@ class ChatAssistant(AssistantBase):
 
         message_type = MessageType.chat
 
+        if moderation_results:
+            metadata["debug"]["moderation"] = {
+                "request": {
+                    "input": content_for_moderation_review,
+                },
+                "response": moderation.model_dump() if moderation else "[no response from openai]",
+            }
+
         if content:
             # strip out the username from the response
             if content.startswith("["):
@@ -272,9 +336,20 @@ class ChatAssistant(AssistantBase):
             if content.startswith("/"):
                 message_type = MessageType.command_response
 
+        # handle empty content
+        if not content:
+            await conversation_client.send_messages(
+                NewConversationMessage(
+                    content="[no response from openai]",
+                    message_type=message_type,
+                    metadata=metadata,
+                )
+            )
+            return
+
         await conversation_client.send_messages(
             NewConversationMessage(
-                content=content or "[no response from openai]",
+                content=content,
                 message_type=message_type,
                 metadata=metadata,
             )
