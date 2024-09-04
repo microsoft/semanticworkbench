@@ -13,7 +13,7 @@
 
 Semantic Workbench has been built from the ground up specifically for the experimentation use-case. Other user interfaces and tools have been evaluated, but none allowed to prototype assistants decoupled from a specific underlying technology stack such as AI models or frameworks.
 
-Semantic Workbench does not mandate any specific technology or framework. 
+Semantic Workbench does not mandate any specific technology or framework.
 
 Developers can use any of preferred technology and connect their bots to Semantic Workbench to benefit from its user interface, including configuration, debugging and visualization tools.
 
@@ -25,7 +25,7 @@ Developers can use any of preferred technology and connect their bots to Semanti
 
 - The workbench is unable to automatically discover agents: once the code for an agent is ready, some extra code needs to be added in order to connect the assistant to Semantic Workbench.
 
-- Developers connecting their agents to Semantic Workbench are responsible for implementing security and safety into their agents, using, for example, [Azure AI Content Safety](https://azure.microsoft.com/eproducts/ai-services/ai-content-safety) and [Microsoft Purview](https://www.microsoft.com/security/business/microsoft-purview), and leveraging tools like [Responsible AI Toolbox](https://github.com/microsoft/responsible-ai-toolbox).
+- Developers making use of the provided sample agents or connecting their own agents to Semantic Workbench are responsible for implementing security and safety into their agents, using, for example, [Azure AI Content Safety](https://azure.microsoft.com/eproducts/ai-services/ai-content-safety) and [Microsoft Purview](https://www.microsoft.com/security/business/microsoft-purview), and leveraging tools like [Responsible AI Toolbox](https://github.com/microsoft/responsible-ai-toolbox).
 
 - When using Semantic Workbench to test an assistant, developers should carefully observe the bot’s behavior and use the debugging tools to investigate any unexpected outcomes. Although Semantic Workbench does not automatically detect harmful, inaccurate, or biased content, it enables developers to run and debug conversations, which helps identify and fix issues, improve the bot’s behavior, and edit prompts and code as necessary.
 
