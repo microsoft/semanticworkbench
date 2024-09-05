@@ -58,7 +58,7 @@ public class MyAgentConfig : IAgentConfig
 
     [JsonPropertyName(nameof(this.ModelName))]
     [JsonPropertyOrder(80)]
-    public string ModelName { get; set; } = "GPT-4o";
+    public string ModelName { get; set; } = "gpt-4o";
 
     public void Update(object? config)
     {
