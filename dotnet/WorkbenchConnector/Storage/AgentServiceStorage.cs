@@ -32,10 +32,12 @@ public class AgentServiceStorage : IAgentServiceStorage
     {
         this._log = logFactory.CreateLogger<AgentServiceStorage>();
 
-        this._path = appConfig.GetSection("Workbench").GetValue<string>(
+        var connectorId = appConfig.GetSection("Workbench").GetValue<string>("ConnectorId") ?? "undefined";
+        var tmpPath = appConfig.GetSection("Workbench").GetValue<string>(
             RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
                 ? "StoragePathWindows"
                 : "StoragePathLinux") ?? string.Empty;
+        this._path = Path.Join(tmpPath, connectorId);
 
         if (this._path.Contains("$tmp"))
         {

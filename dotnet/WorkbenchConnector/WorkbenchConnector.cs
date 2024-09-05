@@ -39,7 +39,7 @@ public abstract class WorkbenchConnector : IDisposable
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        this.Log.LogInformation("Connecting {1} {2} {3}...", this.Config.ConnectorId, this.Config.ConnectorName, this.Config.ConnectorEndpoint);
+        this.Log.LogInformation("Connecting {1} {2} {3}...", this.Config.ConnectorName, this.Config.ConnectorId, this.Config.ConnectorEndpoint);
         #pragma warning disable CS4014 // ping runs in the background without blocking
         this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, 10000);
         #pragma warning restore CS4014
@@ -58,7 +58,7 @@ public abstract class WorkbenchConnector : IDisposable
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        this.Log.LogInformation("Disconnecting {1} {2} ...", this.Config.ConnectorId, this.Config.ConnectorName);
+        this.Log.LogInformation("Disconnecting {1} {2} ...", this.Config.ConnectorName, this.Config.ConnectorId);
         this._pingTimer?.Dispose();
         this._pingTimer = null;
         return Task.CompletedTask;
@@ -140,7 +140,7 @@ public abstract class WorkbenchConnector : IDisposable
             .Replace(Constants.SendAgentConversationInsightsEvent.AgentPlaceholder, agentId)
             .Replace(Constants.SendAgentConversationInsightsEvent.ConversationPlaceholder, conversationId);
 
-        await this.SendAsync(HttpMethod.Post, url, data, agentId, cancellationToken).ConfigureAwait(false);
+        await this.SendAsync(HttpMethod.Post, url, data, agentId, "UpdateAgentConversationInsight", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -170,7 +170,7 @@ public abstract class WorkbenchConnector : IDisposable
             .Replace(Constants.SendAgentStatusMessage.ConversationPlaceholder, conversationId)
             .Replace(Constants.SendAgentStatusMessage.AgentPlaceholder, agentId);
 
-        await this.SendAsync(HttpMethod.Put, url, data, agentId, cancellationToken).ConfigureAwait(false);
+        await this.SendAsync(HttpMethod.Put, url, data, agentId, $"SetAgentStatus[{status}]", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -201,7 +201,7 @@ public abstract class WorkbenchConnector : IDisposable
             .Replace(Constants.SendAgentStatusMessage.ConversationPlaceholder, conversationId)
             .Replace(Constants.SendAgentStatusMessage.AgentPlaceholder, agentId);
 
-        await this.SendAsync(HttpMethod.Put, url, data!, agentId, cancellationToken).ConfigureAwait(false);
+        await this.SendAsync(HttpMethod.Put, url, data!, agentId, "ResetAgentStatus", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -223,7 +223,7 @@ public abstract class WorkbenchConnector : IDisposable
         string url = Constants.SendAgentMessage.Path
             .Replace(Constants.SendAgentMessage.ConversationPlaceholder, conversationId);
 
-        await this.SendAsync(HttpMethod.Post, url, message, agentId, cancellationToken).ConfigureAwait(false);
+        await this.SendAsync(HttpMethod.Post, url, message, agentId, "SendMessage", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -242,7 +242,7 @@ public abstract class WorkbenchConnector : IDisposable
         string url = Constants.GetConversationFiles.Path
             .Replace(Constants.GetConversationFiles.ConversationPlaceholder, conversationId);
 
-        HttpResponseMessage result = await this.SendAsync(HttpMethod.Get, url, null, agentId, cancellationToken).ConfigureAwait(false);
+        HttpResponseMessage result = await this.SendAsync(HttpMethod.Get, url, null, agentId, "GetFiles", cancellationToken).ConfigureAwait(false);
 
         // TODO: parse response and return list
 
@@ -285,7 +285,7 @@ public abstract class WorkbenchConnector : IDisposable
             .Replace(Constants.ConversationFile.ConversationPlaceholder, conversationId)
             .Replace(Constants.ConversationFile.FileNamePlaceholder, fileName);
 
-        HttpResponseMessage result = await this.SendAsync(HttpMethod.Get, url, null, agentId, cancellationToken).ConfigureAwait(false);
+        HttpResponseMessage result = await this.SendAsync(HttpMethod.Get, url, null, agentId, "DownloadFile", cancellationToken).ConfigureAwait(false);
 
         // TODO: parse response and return file
 
@@ -320,7 +320,7 @@ public abstract class WorkbenchConnector : IDisposable
 
         // TODO: include file using multipart/form-data
 
-        await this.SendAsync(HttpMethod.Put, url, null, agentId, cancellationToken).ConfigureAwait(false);
+        await this.SendAsync(HttpMethod.Put, url, null, agentId, "UploadFile", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -342,7 +342,7 @@ public abstract class WorkbenchConnector : IDisposable
             .Replace(Constants.ConversationFile.ConversationPlaceholder, conversationId)
             .Replace(Constants.ConversationFile.FileNamePlaceholder, fileName);
 
-        await this.SendAsync(HttpMethod.Delete, url, null, agentId, cancellationToken).ConfigureAwait(false);
+        await this.SendAsync(HttpMethod.Delete, url, null, agentId, "DeleteFile", cancellationToken).ConfigureAwait(false);
     }
 
     public virtual async Task PingSemanticWorkbenchBackendAsync(CancellationToken cancellationToken)
@@ -353,13 +353,13 @@ public abstract class WorkbenchConnector : IDisposable
 
         var data = new
         {
-            name = this.Config.ConnectorName,
+            name = $"{this.Config.ConnectorName} [{this.Config.ConnectorId}]",
             description = this.Config.ConnectorDescription,
             url = this.Config.ConnectorEndpoint,
             online_expires_in_seconds = 20
         };
 
-        await this.SendAsync(HttpMethod.Put, path, data, null, cancellationToken).ConfigureAwait(false);
+        await this.SendAsync(HttpMethod.Put, path, data, null, "PingSWBackend",cancellationToken).ConfigureAwait(false);
     }
 
 #region internals ===========================================================================
@@ -385,12 +385,14 @@ public abstract class WorkbenchConnector : IDisposable
         string url,
         object? data,
         string? agentId,
+        string description,
         CancellationToken cancellationToken)
     {
         try
         {
-            this.Log.LogTrace("Sending request {0} {1}", method, url.HtmlEncode());
+            this.Log.LogTrace("Preparing request: {2}", description);
             HttpRequestMessage request = this.PrepareRequest(method, url, data, agentId);
+            this.Log.LogTrace("Sending request {0} {1} [{2}]", method, url.HtmlEncode(), description);
             HttpResponseMessage result = await this.HttpClient
                 .SendAsync(request, cancellationToken)
                 .ConfigureAwait(false);
@@ -399,7 +401,7 @@ public abstract class WorkbenchConnector : IDisposable
         }
         catch (HttpRequestException e)
         {
-            this.Log.LogError("HTTP request failed: {0}. Request: {1} {2}", e.Message.HtmlEncode(), method, url.HtmlEncode());
+            this.Log.LogError("HTTP request failed: {0}. Request: {1} {2} [{3}]", e.Message.HtmlEncode(), method, url.HtmlEncode(), description);
             throw;
         }
         catch (Exception e)

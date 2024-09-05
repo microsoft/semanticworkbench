@@ -3,10 +3,9 @@
 using Azure;
 using Azure.AI.ContentSafety;
 using Azure.Identity;
-using Microsoft.SemanticKernel;
 using Microsoft.SemanticWorkbench.Connector;
 
-namespace AgentExample02;
+namespace AgentExample;
 
 internal static class Program
 {
@@ -15,7 +14,7 @@ internal static class Program
     internal static async Task Main(string[] args)
     {
         // Setup
-        var appBuilder = WebApplication.CreateBuilder(args);
+        WebApplicationBuilder appBuilder = WebApplication.CreateBuilder(args);
 
         // Load settings from files and env vars
         appBuilder.Configuration
@@ -29,13 +28,8 @@ internal static class Program
         // Agent service to support multiple agent instances
         appBuilder.Services.AddSingleton<WorkbenchConnector, MyWorkbenchConnector>();
 
-        // Azure AI Content Safety, used for demo
-        var azureContentSafetyAuthType = appBuilder.Configuration.GetSection("AzureContentSafety").GetValue<string>("AuthType");
-        var azureContentSafetyEndpoint = appBuilder.Configuration.GetSection("AzureContentSafety").GetValue<string>("Endpoint");
-        var azureContentSafetyApiKey = appBuilder.Configuration.GetSection("AzureContentSafety").GetValue<string>("ApiKey");
-        appBuilder.Services.AddSingleton<ContentSafetyClient>(_ => azureContentSafetyAuthType == "AzureIdentity"
-            ? new ContentSafetyClient(new Uri(azureContentSafetyEndpoint!), new DefaultAzureCredential())
-            : new ContentSafetyClient(new Uri(azureContentSafetyEndpoint!), new AzureKeyCredential(azureContentSafetyApiKey!)));
+        // Azure AI Content Safety, used to monitor I/O
+        appBuilder.Services.AddAzureAIContentSafety(appBuilder.Configuration.GetSection("AzureContentSafety"));
 
         // Misc
         appBuilder.Services.AddLogging()
@@ -52,5 +46,19 @@ internal static class Program
 
         // Start app and webservice
         await app.RunAsync().ConfigureAwait(false);
+    }
+
+    private static IServiceCollection AddAzureAIContentSafety(
+        this IServiceCollection services,
+        IConfiguration config)
+    {
+        var authType = config.GetValue<string>("AuthType");
+        var endpoint = config.GetValue<string>("Endpoint");
+        var apiKey = config.GetValue<string>("ApiKey");
+
+        return services.AddSingleton<ContentSafetyClient>(_ => authType == "AzureIdentity"
+            ? new ContentSafetyClient(new Uri(endpoint!), new DefaultAzureCredential())
+            : new ContentSafetyClient(new Uri(endpoint!),
+                new AzureKeyCredential(apiKey!)));
     }
 }

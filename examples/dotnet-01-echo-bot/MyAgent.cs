@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.SemanticWorkbench.Connector;
 
-namespace AgentExample01;
+namespace AgentExample;
 
 public class MyAgent : AgentBase
 {

@@ -6,7 +6,7 @@ using Azure.AI.ContentSafety;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.SemanticWorkbench.Connector;
 
-namespace AgentExample02;
+namespace AgentExample;
 
 public class MyAgent : AgentBase
 {

@@ -1,12 +1,17 @@
 # Using Semantic Workbench with .NET Agents
 
-This project provides an example of testing your agent within the **Semantic Workbench**.
+This project provides an example of a very basic agent connected to **Semantic Workbench**.
+
+The agent doesn't do anything real, it simply echoes back messages sent by the user. 
+The code here is only meant to **show the basics**, to **familiarize with code structure** and integration with Semantic Workbench.
 
 ## Project Overview
 
 The sample project utilizes the `WorkbenchConnector` library, enabling you to focus on agent development and testing.
+The connector provides a base `AgentBase` class for your agents, and takes care of connecting your agent with the workbench backend service.
 
-Semantic Workbench allows mixing agents from different frameworks and multiple instances of the same agent. The connector can manage multiple agent instances if needed, or you can work with a single instance if preferred.
+Semantic Workbench allows mixing agents from different frameworks and multiple instances of the same agent.
+The connector can manage multiple agent instances if needed, or you can work with a single instance if preferred.
 To integrate agents developed with other frameworks, we recommend isolating each agent type with a dedicated web service, ie a dedicated project.
 
 ## Project Structure
