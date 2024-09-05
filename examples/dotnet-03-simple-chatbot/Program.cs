@@ -20,6 +20,7 @@ internal static class Program
         appBuilder.Configuration
             .AddJsonFile("appsettings.json")
             .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddJsonFile("appsettings.development.json", optional: true)
             .AddEnvironmentVariables();
 
         appBuilder.Services
