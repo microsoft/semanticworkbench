@@ -86,7 +86,8 @@ class ChatAssistant(AssistantBase):
         assistant_instance: AssistantInstance,
         event: ConversationEvent,
     ) -> None:
-        async def call_respond_to_conversation():
+        # Helper for responding to a conversation
+        async def call_respond_to_conversation() -> None:
             # get the conversation client
             conversation_client = self.workbench_client.for_conversation(
                 assistant_instance.id, str(event.conversation_id)
