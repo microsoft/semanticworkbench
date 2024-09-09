@@ -10,7 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\dotnet\WorkbenchConnector\WorkbenchConnector.csproj" />
+        <ProjectReference Include="..\..\assistant-connector\dotnet\WorkbenchConnector\WorkbenchConnector.csproj" />
     </ItemGroup>
 
     <ItemGroup>
