@@ -52,6 +52,7 @@
     "vscode": {
       "extensions": [
         "GitHub.copilot",
+        "github.codespaces",
         "aaron-bond.better-comments",
         "aarontamasfe.even-better-toml",
         "dbaeumer.vscode-eslint",
