@@ -38,7 +38,9 @@ public class MyAgent : AgentBase
     {
         this.Id = agentId;
         this.Name = agentName;
-        this.Config = agentConfig ?? new MyAgentConfig();
+
+        // Clone object to avoid config object being shared
+        this.Config = JsonSerializer.Deserialize<MyAgentConfig>(JsonSerializer.Serialize(agentConfig)) ?? new MyAgentConfig();
     }
 
     /// <inheritdoc />
