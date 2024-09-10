@@ -52,11 +52,14 @@ public class MyAgent : AgentBase
             storage,
             loggerFactory?.CreateLogger<MyAgent>() ?? new NullLogger<MyAgent>())
     {
-        this.Id = agentId;
-        this.Name = agentName;
-        this.Config = agentConfig ?? new MyAgentConfig();
         this._appConfig = appConfig;
         this._contentSafety = contentSafety;
+
+        this.Id = agentId;
+        this.Name = agentName;
+
+        // Clone object to avoid config object being shared
+        this.Config = JsonSerializer.Deserialize<MyAgentConfig>(JsonSerializer.Serialize(agentConfig)) ?? new MyAgentConfig();
     }
 
     /// <inheritdoc />

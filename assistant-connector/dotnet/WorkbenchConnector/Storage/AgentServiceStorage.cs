@@ -136,6 +136,8 @@ public class AgentServiceStorage : IAgentServiceStorage
             if (!filename.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) { continue; }
 
             var content = await File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(content)) { continue; }
+
             result.Add(JsonSerializer.Deserialize<T>(content)!);
         }
 
