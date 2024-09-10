@@ -19,7 +19,7 @@ facilitates experimentation, development, testing, and measurement of agent beha
 Agents integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability
 in various development environments.
 
-![Semantic Workbench architecture](docs/architecture-animation.gif)
+![Semantic Workbench architecture](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/architecture-animation.gif)
 
 # Quick start (Recommended) - GitHub Codespaces for turn-key development environment
 
@@ -48,8 +48,9 @@ The repository contains a few examples that can be used to create custom agents:
 
 - [Python Canonical Assistant](semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
 - [Python example 1](examples/python-example01/README.md): a simple assistant echoing text back.
-- [.NET example 1](examples/dotnet-example01/README.md): a simple agent with echo and support for a basic `/say` command.
-- [.NET example 2](examples/dotnet-example02/README.md): a simple agents showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
+- [.NET example 1](examples/dotnet-01-echo-bot/README.md): a simple agent with echo and support for a basic `/say` command.
+- [.NET example 2](examples/dotnet-02-message-types-demo/README.md): a simple agents showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
+- [.NET example 3](examples/dotnet-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
 
 ![Mermaid graph example](examples/dotnet-example02/docs/mermaid.png)
 ![ABC music example](examples/dotnet-example02/docs/abc.png)
@@ -73,20 +74,20 @@ Enable long file paths on Windows.
 Open the app in your browser at [`https://localhost:4000`](https://localhost:4000):
 
 1. Click `Sign in`
-1. Add and Assistant:
+2. Add and Assistant:
    1. Click +Add Assistant Button
-   1. Click Instance of Assistant
-1. Give it a name.
-1. Enter the assistant service URL in the combobox, e.g. `http://127.0.0.1:3010`.
-1. Click Chat box icon.
-1. Type a message and hit send.
-1. If you see "Please set the OpenAI API key in the config."
+   2. Click Instance of Assistant
+3. Give it a name.
+4. Enter the assistant service URL in the combobox, e.g. `http://127.0.0.1:3010`.
+5. Click Chat box icon.
+6. Type a message and hit send.
+7. If you see "Please set the OpenAI API key in the config."
    1. Click Edit icon in upper right.
-   1. Paste in your OpenAI Key.
-   1. Paste in your OrgID.
-   1. Click Save.
-   1. Hit Back button in UI.
-1. Type another message and hit send.
+   2. Paste in your OpenAI Key.
+   3. Paste in your OrgID.
+   4. Click Save.
+   5. Hit Back button in UI.
+8. Type another message and hit send.
 
 Expected: You get a response from your assistant!
 

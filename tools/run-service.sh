@@ -18,4 +18,5 @@ cd semantic-workbench-service
 # Note: this creates the .data folder at
 # path         ./semantic-workbench/v1/service/semantic-workbench-service/.data
 # rather than  ./semantic-workbench/v1/service/.data
+poetry install
 poetry run start-semantic-workbench-service
