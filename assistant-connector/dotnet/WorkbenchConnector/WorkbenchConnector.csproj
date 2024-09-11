@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <Version>0.1.0</Version>
         <AssemblyName>Microsoft.SemanticWorkbench.Connector</AssemblyName>
         <RootNamespace>Microsoft.SemanticWorkbench.Connector</RootNamespace>
         <TargetFramework>net8.0</TargetFramework>
@@ -71,7 +72,6 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <Version>0.1.0</Version>
         <PackageId>Microsoft.SemanticWorkbench.Connector</PackageId>
         <Product>Connector for Agents and Assistants developed with Semantic Workbench</Product>
         <Description>The connector allow Agents and Assistants to be used within Semantic Workbench.</Description>
