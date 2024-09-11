@@ -1,7 +1,12 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -39,9 +44,9 @@ public class AgentServiceStorage : IAgentServiceStorage
                 : "StoragePathLinux") ?? string.Empty;
         this._path = Path.Join(tmpPath, connectorId);
 
-        if (this._path.Contains("$tmp"))
+        if (this._path.Contains("$tmp", StringComparison.OrdinalIgnoreCase))
         {
-            this._path = this._path.Replace("$tmp", Path.GetTempPath());
+            this._path = this._path.Replace("$tmp", Path.GetTempPath(), StringComparison.OrdinalIgnoreCase);
         }
 
         this._path = Path.Join(this._path, "agents");

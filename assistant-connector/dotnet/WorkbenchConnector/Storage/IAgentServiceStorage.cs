@@ -1,5 +1,9 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
 // ReSharper disable once CheckNamespace
 namespace Microsoft.SemanticWorkbench.Connector;
 
