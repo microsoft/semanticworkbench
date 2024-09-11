@@ -1,5 +1,7 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System.Net.Http;
+
 namespace Microsoft.SemanticWorkbench.Connector;
 
 public static class Constants

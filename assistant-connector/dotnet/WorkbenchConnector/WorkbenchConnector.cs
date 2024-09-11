@@ -1,7 +1,13 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -9,15 +15,15 @@ namespace Microsoft.SemanticWorkbench.Connector;
 
 public abstract class WorkbenchConnector : IDisposable
 {
-    protected readonly IAgentServiceStorage Storage;
-    protected readonly WorkbenchConfig Config = new();
-    protected readonly HttpClient HttpClient;
-    protected readonly ILogger Log;
-    protected readonly Dictionary<string, AgentBase> Agents;
+    protected IAgentServiceStorage Storage { get; private set; }
+    protected WorkbenchConfig Config { get; private set; } = new();
+    protected HttpClient HttpClient { get; private set; }
+    protected ILogger Log { get; private set; }
+    protected Dictionary<string, AgentBase> Agents { get; private set; }
 
     private Timer? _pingTimer;
 
-    public WorkbenchConnector(
+    protected WorkbenchConnector(
         IConfiguration appConfig,
         IAgentServiceStorage storage,
         ILogger logger)
@@ -40,9 +46,9 @@ public abstract class WorkbenchConnector : IDisposable
     public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         this.Log.LogInformation("Connecting {1} {2} {3}...", this.Config.ConnectorName, this.Config.ConnectorId, this.Config.ConnectorEndpoint);
-        #pragma warning disable CS4014 // ping runs in the background without blocking
+#pragma warning disable CS4014 // ping runs in the background without blocking
         this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, 10000);
-        #pragma warning restore CS4014
+#pragma warning restore CS4014
 
         List<AgentInfo> agents = await this.Storage.GetAllAgentsAsync(cancellationToken).ConfigureAwait(false);
         this.Log.LogInformation("Starting {0} agents", agents.Count);
@@ -56,12 +62,15 @@ public abstract class WorkbenchConnector : IDisposable
     /// Disconnect the agent service from the workbench backend
     /// </summary>
     /// <param name="cancellationToken">Async task cancellation token</param>
-    public virtual Task DisconnectAsync(CancellationToken cancellationToken = default)
+    public virtual async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         this.Log.LogInformation("Disconnecting {1} {2} ...", this.Config.ConnectorName, this.Config.ConnectorId);
-        this._pingTimer?.Dispose();
+        if (this._pingTimer != null)
+        {
+            await this._pingTimer.DisposeAsync().ConfigureAwait(false);
+        }
+
         this._pingTimer = null;
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -69,6 +78,7 @@ public abstract class WorkbenchConnector : IDisposable
     /// </summary>
     /// <param name="agentId">Agent instance ID</param>
     /// <param name="name">Agent name</param>
+    /// <param name="configData">Configuration content</param>
     /// <param name="cancellationToken">Async task cancellation token</param>
     public abstract Task CreateAgentAsync(
         string agentId,
@@ -110,7 +120,7 @@ public abstract class WorkbenchConnector : IDisposable
     /// </summary>
     /// <param name="agentId">Agent instance ID</param>
     /// <param name="conversationId">Conversation ID</param>
-    /// <param name="content">Content. Markdown and HTML are supported.</param>
+    /// <param name="insight">Insight content. Markdown and HTML are supported.</param>
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task UpdateAgentConversationInsightAsync(
         string agentId,
@@ -137,8 +147,8 @@ public abstract class WorkbenchConnector : IDisposable
         };
 
         string url = Constants.SendAgentConversationInsightsEvent.Path
-            .Replace(Constants.SendAgentConversationInsightsEvent.AgentPlaceholder, agentId)
-            .Replace(Constants.SendAgentConversationInsightsEvent.ConversationPlaceholder, conversationId);
+            .Replace(Constants.SendAgentConversationInsightsEvent.AgentPlaceholder, agentId, StringComparison.OrdinalIgnoreCase)
+            .Replace(Constants.SendAgentConversationInsightsEvent.ConversationPlaceholder, conversationId, StringComparison.OrdinalIgnoreCase);
 
         await this.SendAsync(HttpMethod.Post, url, data, agentId, "UpdateAgentConversationInsight", cancellationToken).ConfigureAwait(false);
     }
@@ -167,18 +177,17 @@ public abstract class WorkbenchConnector : IDisposable
         };
 
         string url = Constants.SendAgentStatusMessage.Path
-            .Replace(Constants.SendAgentStatusMessage.ConversationPlaceholder, conversationId)
-            .Replace(Constants.SendAgentStatusMessage.AgentPlaceholder, agentId);
+            .Replace(Constants.SendAgentStatusMessage.ConversationPlaceholder, conversationId, StringComparison.OrdinalIgnoreCase)
+            .Replace(Constants.SendAgentStatusMessage.AgentPlaceholder, agentId, StringComparison.OrdinalIgnoreCase);
 
         await this.SendAsync(HttpMethod.Put, url, data, agentId, $"SetAgentStatus[{status}]", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Set a temporary agent status within a conversation
+    /// Reset the temporary agent status within a conversation
     /// </summary>
     /// <param name="agentId">Agent instance ID</param>
     /// <param name="conversationId">Conversation ID</param>
-    /// <param name="status">Short status description</param>
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task ResetAgentStatusAsync(
         string agentId,
@@ -188,18 +197,18 @@ public abstract class WorkbenchConnector : IDisposable
         this.Log.LogDebug("Setting agent status in conversation '{0}' with agent '{1}'",
             conversationId.HtmlEncode(), agentId.HtmlEncode());
 
-        string payload = """
-                         {
-                           "status": null,
-                           "active_participant": true
-                         }
-                         """;
+        const string Payload = """
+                               {
+                                 "status": null,
+                                 "active_participant": true
+                               }
+                               """;
 
-        var data = JsonSerializer.Deserialize<object>(payload);
+        var data = JsonSerializer.Deserialize<object>(Payload);
 
         string url = Constants.SendAgentStatusMessage.Path
-            .Replace(Constants.SendAgentStatusMessage.ConversationPlaceholder, conversationId)
-            .Replace(Constants.SendAgentStatusMessage.AgentPlaceholder, agentId);
+            .Replace(Constants.SendAgentStatusMessage.ConversationPlaceholder, conversationId, StringComparison.OrdinalIgnoreCase)
+            .Replace(Constants.SendAgentStatusMessage.AgentPlaceholder, agentId, StringComparison.OrdinalIgnoreCase);
 
         await this.SendAsync(HttpMethod.Put, url, data!, agentId, "ResetAgentStatus", cancellationToken).ConfigureAwait(false);
     }
@@ -221,7 +230,7 @@ public abstract class WorkbenchConnector : IDisposable
             conversationId.HtmlEncode(), agentId.HtmlEncode());
 
         string url = Constants.SendAgentMessage.Path
-            .Replace(Constants.SendAgentMessage.ConversationPlaceholder, conversationId);
+            .Replace(Constants.SendAgentMessage.ConversationPlaceholder, conversationId, StringComparison.OrdinalIgnoreCase);
 
         await this.SendAsync(HttpMethod.Post, url, message, agentId, "SendMessage", cancellationToken).ConfigureAwait(false);
     }
@@ -240,7 +249,7 @@ public abstract class WorkbenchConnector : IDisposable
         this.Log.LogDebug("Fetching list of files in conversation '{0}'", conversationId.HtmlEncode());
 
         string url = Constants.GetConversationFiles.Path
-            .Replace(Constants.GetConversationFiles.ConversationPlaceholder, conversationId);
+            .Replace(Constants.GetConversationFiles.ConversationPlaceholder, conversationId, StringComparison.OrdinalIgnoreCase);
 
         HttpResponseMessage result = await this.SendAsync(HttpMethod.Get, url, null, agentId, "GetFiles", cancellationToken).ConfigureAwait(false);
 
@@ -282,8 +291,8 @@ public abstract class WorkbenchConnector : IDisposable
         this.Log.LogDebug("Downloading file from conversation '{0}'", conversationId.HtmlEncode());
 
         string url = Constants.ConversationFile.Path
-            .Replace(Constants.ConversationFile.ConversationPlaceholder, conversationId)
-            .Replace(Constants.ConversationFile.FileNamePlaceholder, fileName);
+            .Replace(Constants.ConversationFile.ConversationPlaceholder, conversationId, StringComparison.OrdinalIgnoreCase)
+            .Replace(Constants.ConversationFile.FileNamePlaceholder, fileName, StringComparison.OrdinalIgnoreCase);
 
         HttpResponseMessage result = await this.SendAsync(HttpMethod.Get, url, null, agentId, "DownloadFile", cancellationToken).ConfigureAwait(false);
 
@@ -316,7 +325,7 @@ public abstract class WorkbenchConnector : IDisposable
         this.Log.LogDebug("Deleting file {0} from a conversation '{1}'", fileName.HtmlEncode(), conversationId.HtmlEncode());
 
         string url = Constants.UploadConversationFile.Path
-            .Replace(Constants.UploadConversationFile.ConversationPlaceholder, conversationId);
+            .Replace(Constants.UploadConversationFile.ConversationPlaceholder, conversationId, StringComparison.OrdinalIgnoreCase);
 
         // TODO: include file using multipart/form-data
 
@@ -339,8 +348,8 @@ public abstract class WorkbenchConnector : IDisposable
         this.Log.LogDebug("Deleting file {0} from a conversation '{1}'", fileName.HtmlEncode(), conversationId.HtmlEncode());
 
         string url = Constants.ConversationFile.Path
-            .Replace(Constants.ConversationFile.ConversationPlaceholder, conversationId)
-            .Replace(Constants.ConversationFile.FileNamePlaceholder, fileName);
+            .Replace(Constants.ConversationFile.ConversationPlaceholder, conversationId, StringComparison.OrdinalIgnoreCase)
+            .Replace(Constants.ConversationFile.FileNamePlaceholder, fileName, StringComparison.OrdinalIgnoreCase);
 
         await this.SendAsync(HttpMethod.Delete, url, null, agentId, "DeleteFile", cancellationToken).ConfigureAwait(false);
     }
@@ -349,7 +358,7 @@ public abstract class WorkbenchConnector : IDisposable
     {
         this.Log.LogTrace("Pinging workbench backend");
         string path = Constants.AgentServiceRegistration.Path
-            .Replace(Constants.AgentServiceRegistration.Placeholder, this.Config.ConnectorId);
+            .Replace(Constants.AgentServiceRegistration.Placeholder, this.Config.ConnectorId, StringComparison.OrdinalIgnoreCase);
 
         var data = new
         {
@@ -359,10 +368,10 @@ public abstract class WorkbenchConnector : IDisposable
             online_expires_in_seconds = 20
         };
 
-        await this.SendAsync(HttpMethod.Put, path, data, null, "PingSWBackend",cancellationToken).ConfigureAwait(false);
+        await this.SendAsync(HttpMethod.Put, path, data, null, "PingSWBackend", cancellationToken).ConfigureAwait(false);
     }
 
-#region internals ===========================================================================
+    #region internals ===========================================================================
 
     public void Dispose()
     {
@@ -432,5 +441,5 @@ public abstract class WorkbenchConnector : IDisposable
         return request;
     }
 
-#endregion
+    #endregion
 }

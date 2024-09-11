@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+using System;
 using System.Text.Json.Serialization;
 
 // ReSharper disable once CheckNamespace
@@ -30,12 +31,19 @@ public class Message
     [JsonPropertyName("metadata")]
     public MessageMetadata Metadata { get; set; } = new();
 
+    /// <summary>
+    /// Prepare a chat message instance
     /// <note>
     /// Content types:
     /// - text/plain
     /// - text/html
     /// - application/json (requires "json_schema" metadata)
     /// </note>
+    /// </summary>
+    /// <param name="agentId">Agent ID</param>
+    /// <param name="content">Chat content</param>
+    /// <param name="debug">Optional debugging data</param>
+    /// <param name="contentType">Message content type</param>
     public static Message CreateChatMessage(
         string agentId,
         string content,

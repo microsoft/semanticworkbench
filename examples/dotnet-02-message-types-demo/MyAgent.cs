@@ -29,7 +29,6 @@ public class MyAgent : AgentBase
     /// <param name="workbenchConnector">Service containing the agent, used to communicate with Workbench backend</param>
     /// <param name="storage">Agent data storage</param>
     /// <param name="contentSafety">Azure content safety</param>
-    /// <param name="kernel">Semantic Kernel</param>
     /// <param name="loggerFactory">App logger factory</param>
     public MyAgent(
         string agentId,
@@ -44,10 +43,12 @@ public class MyAgent : AgentBase
             storage,
             loggerFactory?.CreateLogger<MyAgent>() ?? new NullLogger<MyAgent>())
     {
+        this._contentSafety = contentSafety;
         this.Id = agentId;
         this.Name = agentName;
-        this.Config = agentConfig ?? new MyAgentConfig();
-        this._contentSafety = contentSafety;
+
+        // Clone object to avoid config object being shared
+        this.Config = JsonSerializer.Deserialize<MyAgentConfig>(JsonSerializer.Serialize(agentConfig)) ?? new MyAgentConfig();
     }
 
     /// <inheritdoc />
@@ -73,7 +74,7 @@ public class MyAgent : AgentBase
             if (!this.Config.CommandsEnabled) { return; }
 
             // Support only the "say" command
-            if (command.CommandName.ToLowerInvariant() != "say") { return; }
+            if (!command.CommandName.Equals("say", StringComparison.OrdinalIgnoreCase)) { return; }
 
             // Update the chat history to include the message received
             await base.ReceiveMessageAsync(conversationId, command, cancellationToken).ConfigureAwait(false);

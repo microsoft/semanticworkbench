@@ -1,5 +1,9 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.SemanticWorkbench.Connector;
@@ -16,13 +20,13 @@ public abstract class AgentBase
     public IAgentConfig RawConfig { get; protected set; }
 
     // Simple storage layer to persist agents data
-    protected readonly IAgentServiceStorage Storage;
+    protected IAgentServiceStorage Storage { get; private set; }
 
     // Reference to agent service
-    protected readonly WorkbenchConnector WorkbenchConnector;
+    protected WorkbenchConnector WorkbenchConnector { get; private set; }
 
     // Agent logger
-    protected readonly ILogger Log;
+    protected ILogger Log { get; private set; }
 
     /// <summary>
     /// Agent instantiation
@@ -30,7 +34,7 @@ public abstract class AgentBase
     /// <param name="workbenchConnector">Semantic Workbench connector</param>
     /// <param name="storage">Agent data storage</param>
     /// <param name="log">Agent logger</param>
-    public AgentBase(
+    protected AgentBase(
         WorkbenchConnector workbenchConnector,
         IAgentServiceStorage storage,
         ILogger log)
@@ -68,6 +72,7 @@ public abstract class AgentBase
     /// <summary>
     /// Start the agent
     /// </summary>
+    /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual Task StartAsync(
         CancellationToken cancellationToken = default)
     {
@@ -77,6 +82,7 @@ public abstract class AgentBase
     /// <summary>
     /// Stop the agent
     /// </summary>
+    /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual Task StopAsync(
         CancellationToken cancellationToken = default)
     {
@@ -158,7 +164,6 @@ public abstract class AgentBase
     /// <summary>
     /// Delete a conversation
     /// </summary>
-    /// <param name="agentId">Agent instance ID</param>
     /// <param name="conversationId">Conversation ID</param>
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual Task DeleteConversationAsync(
@@ -211,11 +216,11 @@ public abstract class AgentBase
     /// Remove a participant from a conversation
     /// </summary>
     /// <param name="conversationId">Conversation ID</param>
-    /// <param name="participantCreatedEvent">Participant information</param>
+    /// <param name="participant">Participant information</param>
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task RemoveParticipantAsync(
         string conversationId,
-        Participant participantUpdatedEvent,
+        Participant participant,
         CancellationToken cancellationToken = default)
     {
         this.Log.LogDebug("Removing participant from conversation '{0}' on agent '{1}'",
@@ -224,7 +229,7 @@ public abstract class AgentBase
         Conversation? conversation = await this.Storage.GetConversationAsync(conversationId, this.Id, cancellationToken).ConfigureAwait(false);
         if (conversation == null) { return; }
 
-        conversation.RemoveParticipant(participantUpdatedEvent);
+        conversation.RemoveParticipant(participant);
         await this.Storage.SaveConversationAsync(conversation, cancellationToken).ConfigureAwait(false);
     }
 
@@ -287,7 +292,7 @@ public abstract class AgentBase
     /// Receive a command, a special type of message
     /// </summary>
     /// <param name="conversationId">Conversation ID</param>
-    /// <param name="message">Message information</param>
+    /// <param name="command">Command information</param>
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual Task ReceiveCommandAsync(
         string conversationId,
@@ -321,7 +326,7 @@ public abstract class AgentBase
     /// Remove a message from a conversation
     /// </summary>
     /// <param name="conversationId">Conversation ID</param>
-    /// <param name="messageCreatedEvent">Message information</param>
+    /// <param name="message">Message information</param>
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task DeleteMessageAsync(
         string conversationId,
