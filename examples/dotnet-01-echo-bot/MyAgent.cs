@@ -68,7 +68,7 @@ public class MyAgent : AgentBase
         if (!this.Config.ReplyToAgents && command.Sender.Role == "assistant") { return; }
 
         // Support only the "say" command
-        if (command.CommandName.ToLowerInvariant() != "say") { return; }
+        if (!command.CommandName.Equals("say", StringComparison.OrdinalIgnoreCase)) { return; }
 
         // Update the chat history to include the message received
         await base.AddMessageToHistoryAsync(conversationId, command, cancellationToken).ConfigureAwait(false);
@@ -107,7 +107,7 @@ public class MyAgent : AgentBase
             if (string.IsNullOrWhiteSpace(message.Content)) { return; }
 
             // Create the answer content
-            var answer = Message.CreateChatMessage(this.Id, "echo: "+ message.Content);
+            var answer = Message.CreateChatMessage(this.Id, "echo: " + message.Content);
 
             // Update the chat history to include the outgoing message
             await this.AddMessageToHistoryAsync(conversationId, answer, cancellationToken).ConfigureAwait(false);
