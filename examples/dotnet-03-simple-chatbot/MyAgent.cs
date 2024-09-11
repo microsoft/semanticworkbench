@@ -88,7 +88,7 @@ public class MyAgent : AgentBase
             if (!this.Config.ReplyToAgents && command.Sender.Role == "assistant") { return; }
 
             // Support only the "say" command
-            if (command.CommandName.ToLowerInvariant() != "say") { return; }
+            if (!command.CommandName.Equals("say", StringComparison.OrdinalIgnoreCase)) { return; }
 
             // Update the chat history to include the message received
             await base.AddMessageToHistoryAsync(conversationId, command, cancellationToken).ConfigureAwait(false);
@@ -345,7 +345,7 @@ public class MyAgent : AgentBase
         Conversation conversation,
         CancellationToken cancellationToken)
     {
-        Insight insight = new Insight("history", "Chat History", conversation.ToHtmlString(this.Id));
+        Insight insight = new("history", "Chat History", conversation.ToHtmlString(this.Id));
         return this.SetConversationInsightAsync(conversation.Id, insight, cancellationToken);
     }
 }

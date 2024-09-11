@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <RootNamespace>AgentExample</RootNamespace>
         <PackageId>AgentExample</PackageId>
-        <NoWarn>$(NoWarn);SKEXP0010;</NoWarn>
+        <NoWarn>$(NoWarn);SKEXP0010;CA1861;</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,11 +17,35 @@
         <PackageReference Include="Azure.AI.ContentSafety" Version="1.0.0" />
         <PackageReference Include="Azure.Identity" Version="1.12.0" />
         <PackageReference Include="Microsoft.SemanticKernel" Version="1.15.1" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
+        <EnableNETAnalyzers>true</EnableNETAnalyzers>
+        <AnalysisMode>All</AnalysisMode>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <!-- Used by IDE0005 -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.10.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeStyle" Version="4.11.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.10.0" />
+        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.11.20">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="Roslynator.Analyzers" Version="4.12.4">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

@@ -1,7 +1,13 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -295,22 +301,20 @@ public static class Webservice
 
                     return Results.NotFound($"State '{insightId}' Not Found");
                 }
-                else
-                {
-                    // TODO: support schemas
-                    var result = new
-                    {
-                        id = insightId,
-                        data = new
-                        {
-                            content = insight.Content
-                        },
-                        json_schema = (object)null!,
-                        ui_schema = (object)null!
-                    };
 
-                    return Results.Json(result);
-                }
+                // TODO: support schemas
+                var result = new
+                {
+                    id = insightId,
+                    data = new
+                    {
+                        content = insight.Content
+                    },
+                    json_schema = (object)null!,
+                    ui_schema = (object)null!
+                };
+
+                return Results.Json(result);
             });
 
         return builder;
@@ -546,7 +550,7 @@ public static class Webservice
             StringBuilder headersStringBuilder = new();
             foreach (KeyValuePair<string, StringValues> header in context.Request.Headers)
             {
-                headersStringBuilder.AppendLine($"{header.Key}: {header.Value}");
+                headersStringBuilder.AppendLine(CultureInfo.InvariantCulture, $"{header.Key}: {header.Value}");
             }
 
             // Read body
