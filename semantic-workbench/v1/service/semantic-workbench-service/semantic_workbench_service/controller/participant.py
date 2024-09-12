@@ -42,7 +42,6 @@ def participant_event(
     event_type: Literal[
         ConversationEventType.participant_created,
         ConversationEventType.participant_updated,
-        ConversationEventType.participant_deleted,
     ],
     conversation_id: uuid.UUID,
     participant: ConversationParticipant,

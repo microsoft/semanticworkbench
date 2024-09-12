@@ -1,6 +1,5 @@
-from typing import Annotated, Self
-from pydantic import Field
-from semantic_workbench_assistant import config, assistant_base
+from typing import Annotated
+from pydantic import Field, BaseModel
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dyanmic configuration forms based on the configuration model and UI schema
@@ -9,7 +8,7 @@ from semantic_workbench_assistant import config, assistant_base
 
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
-class AssistantConfigModel(assistant_base.AssistantConfigModel):
+class AssistantConfigModel(BaseModel):
     enable_debug_output: Annotated[
         bool,
         Field(
@@ -18,17 +17,13 @@ class AssistantConfigModel(assistant_base.AssistantConfigModel):
         ),
     ] = False
 
-    def overwrite_defaults_from_env(self) -> Self:
-        """
-        Overwrite string fields that currently have their default values. Values are
-        overwritten with values from environment variables or .env file. If a field
-        is a BaseModel, it will be recursively updated.
-        """
-        updated = config.overwrite_defaults_from_env(self, prefix="assistant", separator="__")
-
-        # Custom: add any additional handling for nested models
-
-        return updated
+    welcome_message: Annotated[
+        str,
+        Field(
+            title="Welcome Message",
+            description="The message to display when the conversation starts.",
+        ),
+    ] = "Hello! I am an echo example, I will repeat what you say."
 
     # add any additional configuration fields
 

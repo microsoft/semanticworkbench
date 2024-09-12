@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 verify_bearer_token_signatures = True
 allowed_algorithms = {"RS256"}
-
-# The same value is set also in "Constants.ts" in the frontend
-allowed_app_ids = {"22cb77c3-ca98-4a26-b4db-ac4dcecba690"}
+allowed_app_ids = {"15eaae69-458e-463e-9fac-0080fd5d5f64"}
 
 
 _unauthorized_assistant_exception = HTTPException(
@@ -70,29 +68,12 @@ async def _assistant_service_principal_from_request(
 
 
 async def _user_principal_from_request(request: Request) -> auth.UserPrincipal | None:
-    accessToken = await OAuth2PasswordBearer(tokenUrl="token", auto_error=False)(request)
-    idToken = request.headers.get("X-OpenIdToken")
-    token = accessToken
-
-    if accessToken is None and idToken is None:
-        logger.debug("No access token or ID token found in request")
-        return None
-
-    if accessToken is None:
-        logger.debug("No access token found in request, using ID token")
-        token = idToken
-
-    if accessToken is not None and "." not in accessToken:
-        logger.debug("Access token not JWT, using ID token")
-        token = idToken
-
+    token = await OAuth2PasswordBearer(tokenUrl="token", auto_error=False)(request)
     if token is None:
-        logger.debug("No token found in request")
         return None
 
     try:
         algorithm: str = jwt.get_unverified_header(token).get("alg") or ""
-        logger.debug("Token algorithm: %s", algorithm)
 
         match algorithm:
             case "RS256":
@@ -106,11 +87,7 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
             key=keys,
             options={"verify_signature": False, "verify_aud": False},
         )
-
         app_id: str = decoded.get("appid", "")
-        if not app_id and token == idToken:
-            app_id = decoded.get("aud", "")
-
         tid: str = decoded.get("tid", "")
         oid: str = decoded.get("oid", "")
         name: str = decoded.get("name", "")
@@ -120,14 +97,13 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired token")
 
     except Exception:
-        logger.exception("Error decoding token", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token (error decoding)")
+        logger.exception("error decoding token", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     if algorithm not in allowed_algorithms:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token algorithm")
 
     if app_id not in allowed_app_ids:
-        logger.error("Invalid app id: %s", app_id)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid app")
 
     return auth.UserPrincipal(user_id=user_id, name=name)

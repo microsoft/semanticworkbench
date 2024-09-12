@@ -2,7 +2,7 @@
   "folders": [
     {
       "path": ".",
-      "name": "examples/openai-assistant"
+      "name": "examples/python-02-simple-chatbot"
     },
     {
       "path": "../.."

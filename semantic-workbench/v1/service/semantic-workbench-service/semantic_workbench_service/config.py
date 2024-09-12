@@ -39,7 +39,6 @@ class WorkflowSettings(BaseSettings):
 
     azure_openai_endpoint: str = ""
     azure_openai_deployment: str = "gpt-4-turbo"
-    azure_openai_api_key: str = ""
     azure_openai_api_version: str = "2023-05-15"
 
 

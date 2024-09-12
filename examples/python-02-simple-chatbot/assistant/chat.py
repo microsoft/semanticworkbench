@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-# Quickstart example for building a simple chat assistant using the AssistantApp from
+# An example for building a simple chat assistant using the AssistantApp from
 # the semantic-workbench-assistant package.
 #
 # This example demonstrates how to use the AssistantApp to create a chat assistant,
@@ -54,9 +54,9 @@ logger = logging.getLogger(__name__)
 #
 
 # the service id to be registered in the workbench to identify the assistant
-service_id = "openai-example.workbench-explorer"
+service_id = "python-02-simple-chatbot.workbench-explorer"
 # the name of the assistant service, as it will appear in the workbench UI
-service_name = "OpenAI Assistant"
+service_name = "Python Example 02: Simple Chatbot"
 # a description of the assistant service, as it will appear in the workbench UI
 service_description = "A simple OpenAI chat assistant using the Semantic Workbench Assistant SDK."
 
@@ -204,8 +204,13 @@ async def respond_to_conversation(
     # establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
 
-    # create a system message to provide instructions to the assistant
-    system_message_content = f'{assistant_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    # create a system message, start by adding the guardrails prompt
+    system_message_content = assistant_config.guardrails_prompt
+
+    # add the instruction prompt and the assistant name
+    system_message_content += f'\n\n{assistant_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+
+    # if this is a multi-participant conversation, add a note about the participants
     if len(participants_response.participants) > 2:
         system_message_content += (
             "\n\n"
@@ -223,8 +228,6 @@ async def respond_to_conversation(
             f' be directed at you or the general audience, go ahead and respond.\n\nSay "{silence_token}" to skip'
             " your turn."
         )
-    # add the guardrails prompt to the system message
-    system_message_content += f"\n\n{assistant_config.guardrails_prompt}"
 
     # create the completion messages for the AI model and add the system message
     completion_messages: list[ChatCompletionMessageParam] = [{

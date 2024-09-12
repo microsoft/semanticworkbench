@@ -148,8 +148,17 @@ class ContentSafety(ContentInterceptor):
             # return the event without further processing
             return event
 
-        evaluator = await self.content_evaluator_factory(context)
-        evaluation = await evaluator.evaluate(json.dumps(event.data))
+        # evaluate the content safety of the event data
+        try:
+            evaluator = await self.content_evaluator_factory(context)
+            evaluation = await evaluator.evaluate(json.dumps(event.data))
+        except Exception as e:
+            # if there is an error, return a fail result with the error message
+            logger.exception("Content safety evaluation failed.")
+            evaluation = ContentSafetyEvaluation(
+                result=ContentSafetyEvaluationResult.Fail,
+                note=f"Content safety evaluation failed: {e}",
+            )
 
         # create an evaluated event to return
         evaluated_event: ConversationEvent | None = None
@@ -223,8 +232,17 @@ class ContentSafety(ContentInterceptor):
             # skip evaluation if no generated content is found
             return messages
 
-        evaluator = await self.content_evaluator_factory(context)
-        evaluation = await evaluator.evaluate([message.content for message in messages])
+        # evaluate the content safety of the messages
+        try:
+            evaluator = await self.content_evaluator_factory(context)
+            evaluation = await evaluator.evaluate([message.content for message in messages])
+        except Exception as e:
+            # if there is an error, return a fail result with the error message
+            logger.exception("Content safety evaluation failed.")
+            evaluation = ContentSafetyEvaluation(
+                result=ContentSafetyEvaluationResult.Fail,
+                note=f"Content safety evaluation failed: {e}",
+            )
 
         # create a list of evaluated messages to return
         evaluated_messages: list[NewConversationMessage] = []
@@ -239,8 +257,8 @@ class ContentSafety(ContentInterceptor):
                 # add a warning to each message
                 evaluated_messages = [
                     NewConversationMessage(
-                        **message.model_dump(),
-                        content=message.content + f"\n[Content safety evaluation warning: {evaluation.note}]",
+                        **message.model_dump(exclude={"content"}),
+                        content=f"{message.content}\n\n[Content safety evaluation warning: {evaluation.note}]",
                     )
                     for message in messages
                 ]

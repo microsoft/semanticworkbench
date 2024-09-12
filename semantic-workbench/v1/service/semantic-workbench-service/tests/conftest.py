@@ -9,16 +9,21 @@ import asyncpg
 import dotenv
 import httpx
 import pytest
+import semantic_workbench_assistant.assistant_app
 import semantic_workbench_assistant.assistant_service
 import semantic_workbench_assistant.canonical
 import semantic_workbench_assistant.storage
 import semantic_workbench_service
 import semantic_workbench_service.assistant_api_key
 from fastapi import FastAPI
+from semantic_workbench_api_model import (
+    assistant_service_client,
+    workbench_service_client,
+)
 from semantic_workbench_service import files, middleware
 from semantic_workbench_service import service as workbenchservice
 from semantic_workbench_service.api import FastAPILifespan
-from tests.types import IntegratedServices, MockUser
+from tests.types import MockUser
 
 
 @pytest.fixture(scope="session")
@@ -154,13 +159,30 @@ def file_storage(monkeypatch: pytest.MonkeyPatch, service_dir) -> Iterator[files
 
 
 @pytest.fixture()
-def workbench_service(db_url, file_storage) -> FastAPI:
+def workbench_service(db_url, file_storage, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+
+    api_key = uuid.uuid4().hex
+
+    # monkeypatch the api key store for the workbench service
+    monkeypatch.setattr(
+        semantic_workbench_service.assistant_api_key,
+        "get_store",
+        lambda: semantic_workbench_service.assistant_api_key.FixedApiKeyStore(api_key=api_key),
+    )
+
+    # monkeypatch the configured api key for the assistant service
+    monkeypatch.setattr(semantic_workbench_assistant.assistant_service.settings, "workbench_service_api_key", api_key)
+
     lifespan = FastAPILifespan()
     app = FastAPI(title="workbench service", lifespan=lifespan.lifespan)
     workbenchservice.init(
         app,
         register_lifespan_handler=lifespan.register_handler,
     )
+
+    # monkeypatch workbench client to use a transport that directs requests to the workbench app
+    monkeypatch.setattr(workbench_service_client, "httpx_transport", httpx.ASGITransport(app=app))
+
     return app
 
 
@@ -180,43 +202,14 @@ def assistant_file_storage(
 
 
 @pytest.fixture()
-def integrated_services(
-    db_url,
-    file_storage: files.Storage,
+def canonical_assistant_service(
     assistant_file_storage: semantic_workbench_assistant.storage.FileStorage,
     monkeypatch: pytest.MonkeyPatch,
-) -> IntegratedServices:
+) -> FastAPI:
 
-    # use a non-blank api-key to test the auth between the services
-    api_key = uuid.uuid4().hex
-    # monkeypatch the api key store for the workbench service
-    monkeypatch.setattr(
-        semantic_workbench_service.assistant_api_key,
-        "get_store",
-        lambda: semantic_workbench_service.assistant_api_key.FixedApiKeyStore(api_key=api_key),
-    )
-    # monkeypatch the configured api key for the assistant service
-    monkeypatch.setattr(semantic_workbench_assistant.assistant_service.settings, "workbench_service_api_key", api_key)
+    assistant_app = semantic_workbench_assistant.canonical.app
 
-    wb_lifespan = FastAPILifespan()
-    wb_app = FastAPI(title="workbench service", lifespan=wb_lifespan.lifespan)
+    # configure assistant client to use a specific transport that directs requests to the assistant app
+    monkeypatch.setattr(assistant_service_client, "httpx_transport", httpx.ASGITransport(app=assistant_app))
 
-    # assistants make requests to workbench app
-    a_app = semantic_workbench_assistant.assistant_service.create_app(
-        factory=lambda lifespan: semantic_workbench_assistant.canonical.CanonicalAssistant(
-            httpx_client_factory=lambda: httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=wb_app),  # type: ignore
-            ),
-            register_lifespan_handler=lifespan.register_handler,
-            file_storage=assistant_file_storage,
-        ),
-    )
-
-    # workbench app makes requests to assistant app
-    workbenchservice.init(
-        wb_app,
-        httpx_client_factory=lambda: httpx.AsyncClient(transport=httpx.ASGITransport(app=a_app)),  # type: ignore
-        register_lifespan_handler=wb_lifespan.register_handler,
-    )
-
-    return IntegratedServices(wb_app, a_app)
+    return assistant_app

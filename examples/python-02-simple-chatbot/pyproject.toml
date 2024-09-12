@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "openai-assistant"
+name = "assistant"
 version = "0.1.0"
-description = "Exploration of a Semantic Workbench OpenAI assistant."
-authors = ["Semantic Workbench Explorer"]
+description = "Exploration of a python Semantic Workbench OpenAI assistant."
+authors = ["Semantic Workbench Team"]
 readme = "README.md"
-packages = [{ include = "openai_assistant" }]
+packages = [{ include = "assistant" }]
 
 [tool.poetry.dependencies]
 python = "~3.11"

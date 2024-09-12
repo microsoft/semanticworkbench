@@ -15,7 +15,8 @@ from fastapi.testclient import TestClient
 from pydantic_core import Url
 from pytest_httpx import HTTPXMock
 from semantic_workbench_api_model import workbench_model, workbench_service_client
-from tests.types import MockUser
+
+from .types import MockUser
 
 
 def test_service_init(workbench_service: FastAPI):
@@ -1405,7 +1406,8 @@ def test_create_get_assistant_service_registration(workbench_service: FastAPI, t
         assert assistant_service.description == new_assistant_service.description
         assert assistant_service.created_by_user_id == test_user.id
         # get on single registration returns a mask API key
-        assert assistant_service.api_key == ("*" * 32)
+        assert assistant_service.api_key is not None
+        assert assistant_service.api_key.endswith("*" * 10)
 
         # get all registrations
         http_response = client.get("/assistant-service-registrations")

@@ -1,15 +1,4 @@
-from fastapi import FastAPI
 from jose import jwt
-
-
-class IntegratedServices:
-    def __init__(
-        self,
-        workbench_service_app: FastAPI,
-        canonical_assistant_service_app: FastAPI,
-    ):
-        self.workbench_service_app = workbench_service_app
-        self.canonical_assistant_service_app = canonical_assistant_service_app
 
 
 class MockUser:

@@ -47,15 +47,14 @@
     "**/.data": true,
     "**/__pycache__": true
   },
-  // For use with optional extension: "streetsidesoftware.code-spell-checker"
   "cSpell.words": [
+    "Codespaces",
     "deepmerge",
-    "dotenv",
+    "devcontainer",
+    "dyanmic",
     "endregion",
     "fastapi",
     "jsonschema",
-    "moderations",
-    "openai",
     "pydantic",
     "pyproject",
     "tiktoken"

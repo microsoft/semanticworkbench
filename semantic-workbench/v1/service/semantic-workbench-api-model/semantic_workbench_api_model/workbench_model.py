@@ -405,7 +405,6 @@ class ConversationEventType(StrEnum):
     message_deleted = "message.deleted"
     participant_created = "participant.created"
     participant_updated = "participant.updated"
-    participant_deleted = "participant.deleted"
     file_created = "file.created"
     file_updated = "file.updated"
     file_deleted = "file.deleted"
@@ -423,5 +422,5 @@ class ConversationEvent(BaseModel):
     correlation_id: str = Field(default_factory=lambda: asgi_correlation_id.correlation_id.get() or "")
     conversation_id: uuid.UUID
     event: ConversationEventType
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
     data: dict[str, Any] = {}

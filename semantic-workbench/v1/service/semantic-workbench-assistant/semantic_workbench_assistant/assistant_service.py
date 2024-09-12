@@ -67,12 +67,10 @@ class FastAPIAssistantService(ABC):
         service_name: str,
         service_description: str,
         register_lifespan_handler: Callable[[Callable[[], AsyncContextManager[None]]], None],
-        httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
     ) -> None:
         self._service_id = service_id
         self._service_name = service_name
         self._service_description = service_description
-        self._httpx_client_factory = httpx_client_factory
 
         @asynccontextmanager
         async def lifespan() -> AsyncIterator[None]:
@@ -81,38 +79,44 @@ class FastAPIAssistantService(ABC):
                 "connecting to semantic-workbench-service on startup; workbench_service_url: %s",
                 settings.workbench_service_url,
             )
-            try:
-                await self._ping_semantic_workbench()
-                logger.info(
-                    "connected to semantic-workbench-service on startup; workbench_service_url: %s",
-                    settings.workbench_service_url,
-                )
-            except httpx.HTTPError:
-                logger.warning("failed to connect workbench on startup", exc_info=True)
 
-            # start periodic pings to workbench
-            ping_task = asyncio.create_task(self._periodically_ping_semantic_workbench(), name="ping-workbench")
-
-            try:
-                yield
-
-            finally:
-                ping_task.cancel()
+            async with self.workbench_client.for_service() as service_client:
                 try:
-                    await ping_task
-                except asyncio.CancelledError:
-                    pass
+                    await self._ping_semantic_workbench(service_client)
+                    logger.info(
+                        "connected to semantic-workbench-service on startup; workbench_service_url: %s",
+                        settings.workbench_service_url,
+                    )
+                except httpx.HTTPError:
+                    logger.warning("failed to connect workbench on startup", exc_info=True)
+
+                # start periodic pings to workbench
+                ping_task = asyncio.create_task(
+                    self._periodically_ping_semantic_workbench(service_client), name="ping-workbench"
+                )
+
+                try:
+                    yield
+
+                finally:
+                    ping_task.cancel()
+                    try:
+                        await ping_task
+                    except asyncio.CancelledError:
+                        pass
 
         register_lifespan_handler(lifespan)
 
-    async def _periodically_ping_semantic_workbench(self) -> NoReturn:
+    async def _periodically_ping_semantic_workbench(
+        self, client: workbench_service_client.AssistantServiceAPIClient
+    ) -> NoReturn:
         while True:
             try:
                 jitter = random.uniform(0, settings.workbench_service_ping_interval_seconds / 2.0)
                 await asyncio.sleep(settings.workbench_service_ping_interval_seconds + jitter)
 
                 try:
-                    await self._ping_semantic_workbench()
+                    await self._ping_semantic_workbench(client)
                 except httpx.HTTPError:
                     logger.error("ping to workbench failed", exc_info=True)
 
@@ -126,9 +130,9 @@ class FastAPIAssistantService(ABC):
         logger=logger,
         on_success=_backoff_success_handler,
     )
-    async def _ping_semantic_workbench(self) -> None:
+    async def _ping_semantic_workbench(self, client: workbench_service_client.AssistantServiceAPIClient) -> None:
         try:
-            await self.workbench_client.for_service().update_registration_url(
+            await client.update_registration_url(
                 assistant_service_id=self.service_id,
                 update=workbench_model.UpdateAssistantServiceRegistrationUrl(
                     name=self.service_name,
@@ -180,7 +184,6 @@ class FastAPIAssistantService(ABC):
             base_url=str(settings.workbench_service_url),
             assistant_service_id=self.service_id,
             api_key=settings.workbench_service_api_key,
-            httpx_client_factory=self._httpx_client_factory,
         )
 
     @abstractmethod

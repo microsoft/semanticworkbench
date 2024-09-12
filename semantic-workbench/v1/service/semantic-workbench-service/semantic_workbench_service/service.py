@@ -16,7 +16,6 @@ from typing import (
 )
 
 import asgi_correlation_id
-import httpx
 import starlette.background
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import (
@@ -81,6 +80,8 @@ from semantic_workbench_api_model.workbench_model import (
     WorkflowRun,
     WorkflowRunList,
 )
+from sqlalchemy.orm import joinedload
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
@@ -93,15 +94,47 @@ logger = logging.getLogger(__name__)
 def init(
     app: FastAPI,
     register_lifespan_handler: Callable[[Callable[[], AsyncContextManager[None]]], None],
-    httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
 ) -> None:
 
     api_key_store = assistant_api_key.get_store()
     stop_signal: asyncio.Event = asyncio.Event()
 
-    conversation_event_queue: asyncio.Queue[ConversationEventQueueItem] = asyncio.Queue()
     conversation_sse_queues_lock = asyncio.Lock()
-    conversation_sse_queues: dict[uuid.UUID, dict[str, asyncio.Queue[ConversationEvent]]] = defaultdict(dict)
+    conversation_sse_queues: dict[uuid.UUID, set[asyncio.Queue[ConversationEvent]]] = defaultdict(set)
+    assistant_event_queues: dict[uuid.UUID, asyncio.Queue[ConversationEvent]] = {}
+
+    background_tasks: set[asyncio.Task] = set()
+
+    def _controller_get_session() -> AsyncContextManager[AsyncSession]:
+        return db.create_session(app.state.db_engine)
+
+    async def _forward_events_to_assistant(
+        assistant: db.Assistant, event_queue: asyncio.Queue[ConversationEvent]
+    ) -> NoReturn:
+        while True:
+            try:
+                event = await event_queue.get()
+                event_queue.task_done()
+
+                asgi_correlation_id.correlation_id.set(event.correlation_id)
+
+                start_time = datetime.datetime.now(datetime.UTC)
+
+                await assistant_controller.forward_event_to_assistant(assistant=assistant, event=event)
+
+                end_time = datetime.datetime.now(datetime.UTC)
+                logger.debug(
+                    "forwarded event to assistant; assistant_id: %s, conversation_id: %s, event_id: %s,"
+                    " duration: %s, time since event: %s",
+                    assistant.assistant_id,
+                    event.conversation_id,
+                    event.id,
+                    end_time - start_time,
+                    end_time - event.timestamp,
+                )
+
+            except Exception:
+                logger.exception("exception in _forward_events_to_assistant")
 
     async def _notify_event(queue_item: ConversationEventQueueItem) -> None:
         if stop_signal.is_set():
@@ -114,29 +147,76 @@ def init(
             return
 
         logger.debug(
-            "enqueuing conversation event; conversation_id: %s, event: %s, id: %s, queue_size: %s",
+            "received event to notify; conversation_id: %s, event: %s, event_id: %s, audience: %s",
             queue_item.event.conversation_id,
             queue_item.event.event,
             queue_item.event.id,
-            conversation_event_queue.qsize(),
-        )
-        await conversation_event_queue.put(queue_item)
-        logger.debug(
-            "enqueued conversation event; conversation_id: %s, event: %s, id: %s, queue_size: %s",
-            queue_item.event.conversation_id,
-            queue_item.event.event,
-            queue_item.event.id,
-            conversation_event_queue.qsize(),
+            queue_item.event_audience,
         )
 
-    def _controller_get_session() -> AsyncContextManager[AsyncSession]:
-        return db.create_session(app.state.db_engine)
+        if "user" in queue_item.event_audience:
+            async with conversation_sse_queues_lock:
+                for queue in conversation_sse_queues.get(queue_item.event.conversation_id, {}):
+                    await queue.put(queue_item.event)
+            logger.debug(
+                "enqueued event for SSE; conversation_id: %s, event: %s, event_id: %s",
+                queue_item.event.conversation_id,
+                queue_item.event.event,
+                queue_item.event.id,
+            )
+
+        if "assistant" in queue_item.event_audience:
+            async with _controller_get_session() as session:
+                assistant_ids = (
+                    await session.exec(
+                        select(db.Assistant.assistant_id)
+                        .join(
+                            db.AssistantParticipant,
+                            col(db.Assistant.assistant_id) == col(db.AssistantParticipant.assistant_id),
+                        )
+                        .join(db.AssistantServiceRegistration)
+                        .where(col(db.AssistantServiceRegistration.assistant_service_online).is_(True))
+                        .where(col(db.AssistantParticipant.active_participant).is_(True))
+                        .where(db.AssistantParticipant.conversation_id == queue_item.event.conversation_id)
+                    )
+                ).all()
+
+            for assistant_id in assistant_ids:
+                if assistant_id not in assistant_event_queues:
+                    async with _controller_get_session() as session:
+                        assistant = (
+                            await session.exec(
+                                select(db.Assistant)
+                                .where(db.Assistant.assistant_id == assistant_id)
+                                .options(
+                                    joinedload(db.Assistant.related_assistant_service_registration, innerjoin=True)
+                                )
+                            )
+                        ).one()
+                    queue = asyncio.Queue()
+                    assistant_event_queues[assistant_id] = queue
+                    task = asyncio.create_task(
+                        _forward_events_to_assistant(assistant, queue),
+                        name=f"forward_events_to_{assistant.assistant_id}",
+                    )
+                    background_tasks.add(task)
+
+                await assistant_event_queues[assistant_id].put(queue_item.event)
+                logger.debug(
+                    "enqueued event for assistant; conversation_id: %s, event: %s, event_id: %s, assistant_id: %s",
+                    queue_item.event.conversation_id,
+                    queue_item.event.event,
+                    queue_item.event.id,
+                    assistant_id,
+                )
+
+    assistant_client_pool = controller.AssistantServiceClientPool(api_key_store=api_key_store)
 
     assistant_service_registration_controller = controller.AssistantServiceRegistrationController(
         get_session=_controller_get_session,
         notify_event=_notify_event,
         api_key_store=api_key_store,
-        httpx_client_factory=httpx_client_factory,
+        client_pool=assistant_client_pool,
     )
 
     app.add_middleware(
@@ -159,8 +239,7 @@ def init(
     assistant_controller = controller.AssistantController(
         get_session=_controller_get_session,
         notify_event=_notify_event,
-        api_key_store=api_key_store,
-        httpx_client_factory=httpx_client_factory,
+        client_pool=assistant_client_pool,
     )
     conversation_controller = controller.ConversationController(
         get_session=_controller_get_session,
@@ -186,12 +265,11 @@ def init(
 
             app.state.db_engine = engine
 
-            tasks = [
-                asyncio.create_task(_broadcast_conversation_events(), name="broadcast_conversation_events"),
+            background_tasks.add(
                 asyncio.create_task(
                     _update_assistant_service_online_status(), name="update_assistant_service_online_status"
                 ),
-            ]
+            )
 
             try:
                 yield
@@ -199,15 +277,12 @@ def init(
             finally:
 
                 stop_signal.set()
-                await conversation_event_queue.join()
 
-                for task in tasks:
+                for task in background_tasks:
                     task.cancel()
 
-                await engine.dispose()
-
                 with contextlib.suppress(asyncio.CancelledError):
-                    await asyncio.gather(*tasks, return_exceptions=True)
+                    await asyncio.gather(*background_tasks, return_exceptions=True)
 
     register_lifespan_handler(_lifespan)
 
@@ -219,70 +294,6 @@ def init(
 
             except Exception:
                 logger.exception("exception in _update_assistant_service_online_status")
-
-    async def _broadcast_conversation_events() -> NoReturn:
-        while True:
-            try:
-                logger.debug("dequeuing event from conversation_event_queue")
-                event_queue_item = await conversation_event_queue.get()
-                event_audience = event_queue_item.event_audience
-                event = event_queue_item.event
-
-                asgi_correlation_id.correlation_id.set(event.correlation_id)
-
-                start_time = datetime.datetime.utcnow()
-
-                logger.debug(
-                    "dequeued event from conversation_event_queue; id: %s, audience: %s, time since event: %s",
-                    event.id,
-                    event_audience,
-                    start_time - event.timestamp,
-                )
-
-                try:
-                    logger.debug(
-                        "acquiring conversation_sse_queues_lock for conversation event; id: %s, audience: %s",
-                        event.id,
-                        event_audience,
-                    )
-                    async with conversation_sse_queues_lock, asyncio.TaskGroup() as task_group:
-                        logger.debug(
-                            "acquired conversation_sse_queues_lock for conversation event; id: %s, audience: %s",
-                            event.id,
-                            event_audience,
-                        )
-                        if "assistant" in event_audience:
-                            task_group.create_task(assistant_controller.forward_event_to_assistants(event=event))
-                            logger.debug(
-                                "forwarded event to assistants; conversation_id: %s, event: %s, id: %s",
-                                event.conversation_id,
-                                event.event,
-                                event.id,
-                            )
-
-                        if "user" in event_audience:
-                            for queue_id, queue in conversation_sse_queues.get(event.conversation_id, {}).items():
-                                task_group.create_task(queue.put(event))
-                                logger.debug(
-                                    "forwarded event to sse; conversation_id: %s, event: %s, id: %s, queue_id: %s",
-                                    event.conversation_id,
-                                    event.event,
-                                    event.id,
-                                    queue_id,
-                                )
-
-                finally:
-                    conversation_event_queue.task_done()
-                    end_time = datetime.datetime.utcnow()
-
-                    logger.debug(
-                        "finished broadcasting event; id: %s, duration: %s",
-                        event.id,
-                        end_time - start_time,
-                    )
-
-            except Exception:
-                logger.exception("exception in _broadcast_conversation_events")
 
     @app.get("/")
     async def root() -> Response:
@@ -562,49 +573,39 @@ def init(
         # ensure the conversation exists
         await conversation_controller.get_conversation(conversation_id=conversation_id, principal=user_principal)
 
-        logger.debug("client connected to sse; conversation_id: %s", conversation_id)
-        queue_id = uuid.uuid4().hex
+        logger.debug(
+            "client connected to sse; user_id: %s, conversation_id: %s", user_principal.user_id, conversation_id
+        )
         event_queue = asyncio.Queue[ConversationEvent]()
 
         async with conversation_sse_queues_lock:
             queues = conversation_sse_queues[conversation_id]
-            queues[queue_id] = event_queue
+            queues.add(event_queue)
 
         async def event_generator() -> AsyncIterator[ServerSentEvent]:
             try:
                 while True:
                     if stop_signal.is_set():
-                        logger.info("sse stopping due to signal; conversation_id: %s", conversation_id)
-                        break
-
-                    if queue_id not in queues:
-                        logger.info("sse stopping due to conversation ending; conversation_id: %s", conversation_id)
+                        logger.debug("sse stopping due to signal; conversation_id: %s", conversation_id)
                         break
 
                     try:
                         if await request.is_disconnected():
-                            logger.info("client disconnected from sse; conversation_id: %s", conversation_id)
+                            logger.debug("client disconnected from sse; conversation_id: %s", conversation_id)
                             break
                     except Exception:
                         logger.exception(
                             "error checking if client disconnected from sse; conversation_id: %s", conversation_id
                         )
+                        break
 
                     try:
-                        conversation_event: ConversationEvent
                         try:
                             async with asyncio.timeout(1):
                                 conversation_event = await event_queue.get()
                         except asyncio.TimeoutError:
                             continue
 
-                        logger.debug(
-                            "sending event to sse client; conversation_id: %s, event: %s, id: %s, queue_id: %s",
-                            conversation_id,
-                            conversation_event.event,
-                            conversation_event.id,
-                            queue_id,
-                        )
                         server_sent_event = ServerSentEvent(
                             id=conversation_event.id,
                             event=conversation_event.event.value,
@@ -612,15 +613,25 @@ def init(
                             retry=1000,
                         )
                         yield server_sent_event
+                        logger.debug(
+                            "sent event to sse client; user_id: %s, conversation_id: %s, event: %s, id: %s, time since"
+                            " event: %s",
+                            user_principal.user_id,
+                            conversation_id,
+                            conversation_event.event,
+                            conversation_event.id,
+                            datetime.datetime.now(datetime.UTC) - conversation_event.timestamp,
+                        )
 
                     except Exception:
                         logger.exception("error sending event to sse client; conversation_id: %s", conversation_id)
 
             finally:
-                async with conversation_sse_queues_lock:
-                    queues.pop(queue_id, None)
-                    if len(queues) == 0:
-                        conversation_sse_queues.pop(conversation_id, None)
+                queues.discard(event_queue)
+                if len(queues) == 0:
+                    async with conversation_sse_queues_lock:
+                        if len(queues) == 0:
+                            conversation_sse_queues.pop(conversation_id, None)
 
         return EventSourceResponse(event_generator(), sep="\n")
 

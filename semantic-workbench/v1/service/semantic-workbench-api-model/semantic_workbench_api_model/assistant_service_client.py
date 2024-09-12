@@ -1,6 +1,6 @@
 import uuid
 from contextlib import asynccontextmanager
-from typing import IO, Any, AsyncGenerator, AsyncIterator, Callable, Mapping
+from typing import IO, Any, AsyncGenerator, AsyncIterator, Callable, Mapping, Self
 
 import asgi_correlation_id
 import httpx
@@ -19,6 +19,11 @@ from semantic_workbench_api_model.assistant_model import (
 from semantic_workbench_api_model.workbench_model import ConversationEvent
 
 HEADER_API_KEY = "X-API-Key"
+
+
+# HTTPX transport can be overridden with an ASGI transport for testing
+# ex: httpx_transport = httpx.ASGITransport(app=app)
+httpx_transport = httpx.AsyncHTTPTransport(retries=3)
 
 
 class AuthParams(BaseModel):
@@ -72,11 +77,17 @@ class AssistantResponseError(AssistantError):
 class AssistantInstanceClient:
 
     def __init__(self, httpx_client_factory: Callable[[], httpx.AsyncClient]):
-        self._httpx_client_factory = httpx_client_factory
+        self._client = httpx_client_factory()
 
-    @property
-    def _client(self) -> httpx.AsyncClient:
-        return self._httpx_client_factory()
+    async def __aenter__(self) -> Self:
+        self._client = await self._client.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+        await self._client.__aexit__(exc_type, exc_value, traceback)
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
 
     async def put_conversation(self, request: ConversationPutRequestModel, from_export: IO[bytes] | None):
         try:
@@ -144,7 +155,12 @@ class AssistantInstanceClient:
             raise AssistantConnectionError(e) from e
 
         if not http_response.is_success:
-            raise AssistantResponseError(http_response)
+            # streamed responses must be "read" to get the body
+            try:
+                await http_response.aread()
+                raise AssistantResponseError(http_response)
+            finally:
+                await http_response.aclose()
 
         try:
             yield http_response.aiter_bytes(1024)
@@ -163,7 +179,12 @@ class AssistantInstanceClient:
             raise AssistantConnectionError(e) from e
 
         if not http_response.is_success:
-            raise AssistantResponseError(http_response)
+            # streamed responses must be "read" to get the body
+            try:
+                await http_response.aread()
+                raise AssistantResponseError(http_response)
+            finally:
+                await http_response.aclose()
 
         try:
             yield http_response.aiter_bytes(1024)
@@ -214,11 +235,17 @@ class AssistantServiceClient:
         self,
         httpx_client_factory: Callable[[], httpx.AsyncClient],
     ):
-        self._httpx_client_factory = httpx_client_factory
+        self._client = httpx_client_factory()
 
-    @property
-    def _client(self) -> httpx.AsyncClient:
-        return self._httpx_client_factory()
+    async def __aenter__(self) -> Self:
+        self._client = await self._client.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+        await self._client.__aexit__(exc_type, exc_value, traceback)
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
 
     async def put_assistant_instance(
         self, assistant_id: uuid.UUID, request: AssistantPutRequestModel, from_export: IO[bytes] | None
@@ -265,22 +292,20 @@ class AssistantServiceClientBuilder:
         self,
         base_url: str,
         api_key: str,
-        httpx_client_factory: Callable[[], httpx.AsyncClient],
     ):
         self._base_url = base_url.strip("/")
         self._api_key = api_key
-        self._httpx_client_factory = httpx_client_factory
 
     def _client(self, *additional_paths: str) -> httpx.AsyncClient:
-        base_url = "/".join([self._base_url, *additional_paths])
-        client = self._httpx_client_factory()
-        client.base_url = base_url
-        client.timeout.read = 60
-        client.headers = httpx.Headers({
-            **AuthParams(api_key=self._api_key).to_request_headers(),
-            asgi_correlation_id.CorrelationIdMiddleware.header_name: asgi_correlation_id.correlation_id.get() or "",
-        })
-        return client
+        return httpx.AsyncClient(
+            transport=httpx_transport,
+            base_url="/".join([self._base_url, *additional_paths]),
+            timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
+            headers={
+                **AuthParams(api_key=self._api_key).to_request_headers(),
+                asgi_correlation_id.CorrelationIdMiddleware.header_name: asgi_correlation_id.correlation_id.get() or "",
+            },
+        )
 
     def for_service(self) -> AssistantServiceClient:
         return AssistantServiceClient(httpx_client_factory=self._client)

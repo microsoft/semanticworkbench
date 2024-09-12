@@ -7,18 +7,12 @@ from fastapi.testclient import TestClient
 from pytest_httpx import HTTPXMock
 from semantic_workbench_api_model import assistant_model
 from semantic_workbench_api_model.workbench_model import AssistantServiceRegistration
-from semantic_workbench_assistant import assistant_service, canonical, settings, storage
+from semantic_workbench_assistant import canonical, settings
 
 
 @pytest.fixture()
-def canonical_assistant_service(monkeypatch: pytest.MonkeyPatch, file_storage: storage.FileStorage) -> FastAPI:
-    app = assistant_service.create_app(
-        factory=lambda lifespan: canonical.CanonicalAssistant(
-            register_lifespan_handler=lifespan.register_handler,
-            file_storage=file_storage,
-        )
-    )
-    return app
+def canonical_assistant_service() -> FastAPI:
+    return canonical.app
 
 
 @pytest.fixture()
@@ -76,7 +70,6 @@ def test_create_assistant_put_config(canonical_assistant_service: FastAPI, mock_
         # partially updated state
         assert original_config.model_dump(mode="json") == {
             "un_annotated_text": "",
-            "readonly_text": "read-only, informational text",
             "short_text": "",
             "long_text": "",
             "setting_int": 0,
@@ -86,7 +79,6 @@ def test_create_assistant_put_config(canonical_assistant_service: FastAPI, mock_
 
         config = assistant_model.ConfigPutRequestModel(
             config=canonical.ConfigStateModel(
-                readonly_text="test readonly text - this should not get updated",
                 short_text="test short text - this should update",
                 long_text="test long text - this should update",
                 prompt=canonical.PromptConfigModel(
@@ -103,7 +95,6 @@ def test_create_assistant_put_config(canonical_assistant_service: FastAPI, mock_
 
         assert updated_config.model_dump(mode="json") == {
             "un_annotated_text": "",
-            "readonly_text": "read-only, informational text",
             "short_text": "test short text - this should update",
             "long_text": "test long text - this should update",
             "setting_int": 0,

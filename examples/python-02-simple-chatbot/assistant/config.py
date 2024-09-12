@@ -54,7 +54,7 @@ class AzureOpenAIServiceConfig(BaseModel):
         AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
         Field(
             title="Authentication Config",
-            description="The authentication configuration to use for the Azure OpenAI API.",
+            discriminator="auth_method",
         ),
     ] = AzureOpenAIAzureIdentityAuthConfig()
 
@@ -101,8 +101,8 @@ class AzureOpenAIServiceConfig(BaseModel):
     )
 
     def new_client(self, api_version: str) -> openai.AsyncOpenAI:
-        match self.auth_config:
-            case AzureOpenAIApiKeyAuthConfig():
+        match self.auth_config.auth_method:
+            case "api-key":
                 return openai.AsyncAzureOpenAI(
                     api_key=self.auth_config.azure_openai_api_key,
                     azure_deployment=self.azure_openai_deployment,
@@ -110,7 +110,7 @@ class AzureOpenAIServiceConfig(BaseModel):
                     api_version=api_version,
                 )
 
-            case AzureOpenAIAzureIdentityAuthConfig():
+            case "azure-identity":
                 return openai.AsyncAzureOpenAI(
                     azure_ad_token_provider=AzureOpenAIServiceConfig._azure_bearer_token_provider,
                     azure_deployment=self.azure_openai_deployment,
@@ -302,6 +302,15 @@ ui_schema = {
         },
         "azure_openai_endpoint": {
             "ui:placeholder": "[optional]",
+        },
+        "auth_config": {
+            "ui:widget": "radio",
+            "ui:options": {
+                "hide_title": True,
+            },
+            "auth_method": {
+                "ui:widget": "hidden",
+            },
         },
     },
     # add UI schema for the additional configuration fields

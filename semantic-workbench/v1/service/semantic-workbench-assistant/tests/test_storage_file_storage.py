@@ -31,3 +31,8 @@ def test_write_read_delete_file(file_storage: storage.FileStorage) -> None:
     with pytest.raises(FileNotFoundError):
         with file_storage.read_file(dir=conversation_id, filename=filename) as f:
             pass
+
+
+def test_read_non_existing_dir(file_storage: storage.FileStorage) -> None:
+    results = list(file_storage.read_all_files(dir="non_existing_dir"))
+    assert results == []

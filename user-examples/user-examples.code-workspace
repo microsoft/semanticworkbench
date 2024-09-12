@@ -1,18 +1,15 @@
 {
   "folders": [
     {
-      "path": "openai-assistant",
-      "name": "user-examples/openai-assistant"
+      "name": "python-01-echo-bot",
+      "path": "../examples/python-01-echo-bot"
     },
     {
-      "path": "my-assistant",
-      "name": "user-examples/my-assistant"
+      "name": "python-02-simple-chatbot",
+      "path": "../examples/python-02-simple-chatbot"
     },
     {
-      "path": "../examples/python-example01",
-      "name": "examples/python-example01"
-    },
-    {
+      "name": "semanticworkbench",
       "path": ".."
     }
   ]
