@@ -1,0 +1,39 @@
+{
+  "folders": [
+    {
+      "name": "docs",
+      "path": "../../docs"
+    },
+    {
+      "name": "semantic-workbench/v1",
+      "path": "."
+    },
+    {
+      "name": "examples/python-01-echo-bot",
+      "path": "../../examples/python-01-echo-bot"
+    },
+    {
+      "name": "examples/python-02-simple-chatbot",
+      "path": "../../examples/python-02-simple-chatbot"
+    },
+    {
+      "name": "assistant-connector",
+      "path": "../../assistant-connector"
+    },
+    {
+      "name": "build-tools",
+      "path": "../../build-tools"
+    },
+    {
+      "name": ".github",
+      "path": "../../.github"
+    },
+    {
+      "name": ".devcontainer",
+      "path": "../../.devcontainer"
+    },
+    {
+      "path": "../../.vscode"
+    }
+  ]
+}
