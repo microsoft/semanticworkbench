@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && cd .. && pwd)"
 cd $ROOT
 # ================================================================
 
-cd examples/dotnet-01-echo-bot
+cd examples/python-02-simple-chatbot
 
-dotnet build
-dotnet run
+poetry install
+poetry run start-semantic-workbench-assistant assistant.chat:app
