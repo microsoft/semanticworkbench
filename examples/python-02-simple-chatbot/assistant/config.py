@@ -1,6 +1,7 @@
 import pathlib
 from typing import Annotated, Literal
 from pydantic import BaseModel, Field, ConfigDict
+from semantic_workbench_assistant import config
 from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 import openai
 
@@ -67,7 +68,9 @@ class AzureOpenAIServiceConfig(BaseModel):
                 " be used."
             ),
         ),
-    ] = ""
+    ] = (
+        config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
+    )
 
     azure_openai_deployment: Annotated[
         str,
