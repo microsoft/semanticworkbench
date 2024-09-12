@@ -11,13 +11,15 @@
       "version": "latest"
     },
     "ghcr.io/jungaretti/features/make:1": {},
+    "ghcr.io/jungaretti/features/vim:1": {},
     "ghcr.io/devcontainers/features/node:1": {
       "nodeGypDependencies": true,
       "installYarnUsingApt": true,
       "version": "lts",
       "nvmVersion": "latest"
-    }
-    // "ghcr.io/devcontainers/features/azure-cli:1": {}
+    },
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
 
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
@@ -56,11 +58,15 @@
         "aaron-bond.better-comments",
         "aarontamasfe.even-better-toml",
         "dbaeumer.vscode-eslint",
+        "epivision.vscode-file-header",
         "esbenp.prettier-vscode",
+        "github.vscode-github-actions",
+        "ms-azuretools.vscode-docker",
         "ms-python.black-formatter",
         "ms-python.flake8",
-        "ms-vscode.makefile-tools",
         "ms-python.python",
+        "ms-vscode.makefile-tools",
+        "ms-vscode.vscode-node-azure-pack",
         "streetsidesoftware.code-spell-checker"
       ]
     }

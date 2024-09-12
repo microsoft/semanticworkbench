@@ -49,7 +49,9 @@
   },
   // For use with optional extension: "streetsidesoftware.code-spell-checker"
   "cSpell.words": [
+    "deepmerge",
     "dotenv",
+    "endregion",
     "fastapi",
     "jsonschema",
     "moderations",

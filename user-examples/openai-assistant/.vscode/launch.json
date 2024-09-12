@@ -7,7 +7,7 @@
       "name": "launch assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["openai_assistant.openai_chat:app", "--port", "3001"],
+      "args": ["openai_assistant.chat:app", "--port", "3001"],
       "consoleTitle": "${workspaceFolderBasename}"
     }
   ]

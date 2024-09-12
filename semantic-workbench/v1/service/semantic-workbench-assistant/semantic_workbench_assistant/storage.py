@@ -1,6 +1,7 @@
 import hashlib
 import io
 import logging
+import os
 import pathlib
 from contextlib import contextmanager
 from typing import BinaryIO, Generic, Iterator, TypeVar
@@ -21,21 +22,15 @@ class FileStorageSettings(BaseSettings):
 class FileStorage:
     def __init__(self, settings: FileStorageSettings):
         self.root = pathlib.Path(settings.root)
-        self._initialized = False
         self._ensure_safe_filenames = settings.ensure_safe_filenames
 
-    def _ensure_initialized(self):
-        if self._initialized:
-            return
-        self.root.mkdir(parents=True, exist_ok=True)
-        self._initialized = True
-        logger.info("initialized file storage; root: %s", self.root.absolute())
-
-    def _file_path(self, dir: str, filename: str, mkdir=False) -> pathlib.Path:
-        self._ensure_initialized()
+    def _path_for(self, dir: str, filename: str, mkdir=False) -> pathlib.Path:
         namespace_path = self.root / dir
         if mkdir:
-            namespace_path.mkdir(exist_ok=True)
+            namespace_path.mkdir(parents=True, exist_ok=True)
+
+        if not filename:
+            return namespace_path
 
         if not self._ensure_safe_filenames:
             return namespace_path / filename
@@ -44,29 +39,66 @@ class FileStorage:
         return namespace_path / filename_hash
 
     def write_file(self, dir: str, filename: str, content: BinaryIO) -> None:
-        file_path = self._file_path(dir, filename, mkdir=True)
+        file_path = self._path_for(dir, filename, mkdir=True)
         with open(file_path, "wb") as f:
             f.write(content.read())
 
     def delete_file(self, dir: str, filename: str) -> None:
-        file_path = self._file_path(dir, filename)
+        file_path = self._path_for(dir, filename)
         file_path.unlink(missing_ok=True)
 
     def read_all_files(self, dir: str) -> Iterator[BinaryIO]:
-        self._ensure_initialized()
-        namespace_path = self.root / dir
-        for file_path in namespace_path.iterdir():
+        dir_path = self._path_for(dir, "")
+        if not dir_path.is_dir():
+            return
+
+        for file_path in dir_path.iterdir():
             with open(file_path, "rb") as f:
                 yield f
 
+    def list_files(self, dir: str) -> Iterator[str]:
+        dir_path = self._path_for(dir, "")
+        if not dir_path.is_dir():
+            return
+
+        for file_path in dir_path.iterdir():
+            yield file_path.name
+
     @contextmanager
     def read_file(self, dir: str, filename: str) -> Iterator[BinaryIO]:
-        file_path = self._file_path(dir, filename)
+        file_path = self._path_for(dir, filename)
         with open(file_path, "rb") as f:
             yield f
 
+    def file_exists(self, dir: str, filename: str) -> bool:
+        file_path = self._path_for(dir, filename)
+        return file_path.exists()
+
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
+
+
+def model_write(file_path: os.PathLike, value: BaseModel) -> None:
+    path = pathlib.Path(file_path)
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
+
+    data_json = value.model_dump_json()
+    path.write_text(data_json, encoding="utf-8")
+
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
+
+
+def model_read(file_path: os.PathLike | str, cls: type[ModelT], strict: bool | None = None) -> ModelT | None:
+    path = pathlib.Path(file_path)
+    try:
+        data_json = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+
+    value = cls.model_validate_json(data_json, strict=strict)
+    return value
 
 
 class ModelStorage(Generic[ModelT]):
