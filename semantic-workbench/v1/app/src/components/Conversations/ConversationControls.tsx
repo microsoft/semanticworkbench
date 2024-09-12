@@ -66,13 +66,16 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalM,
+        overflowY: 'auto',
         ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
     },
     drawerButton: {
         position: 'absolute',
         ...shorthands.padding(tokens.spacingVerticalS),
     },
-    card: {},
+    card: {
+        overflow: 'visible',
+    },
     resizer: {
         ...shorthands.borderLeft(tokens.strokeWidthThin, 'solid', tokens.colorNeutralBackground5),
         width: '8px',

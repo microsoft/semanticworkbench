@@ -5,9 +5,8 @@ import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Assistant } from '../../models/Assistant';
 import { Conversation } from '../../models/Conversation';
-import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useGetAssistantsQuery } from '../../services/workbench';
-import { Loading } from '../App/Loading';
+import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
+import { setInspector } from '../../redux/features/app/appSlice';
 import { InteractInspectors } from './InteractInspectors';
 
 const useClasses = makeStyles({
@@ -29,40 +28,38 @@ const useClasses = makeStyles({
 });
 
 interface InteractInspectorsListProps {
+    conversationAssistants: Assistant[];
     conversation: Conversation;
-    participants: ConversationParticipant[];
-    onOpenChange: (value: boolean) => void;
 }
 
 export const InteractInspectorsList: React.FC<InteractInspectorsListProps> = (props) => {
-    const { conversation, participants, onOpenChange } = props;
+    const { conversationAssistants, conversation } = props;
     const classes = useClasses();
-    const { data: assistants, error: assistantsError, isLoading: isLoadingAssistants } = useGetAssistantsQuery();
-    const [selectedAssistant, setSelectedAssistant] = React.useState<Assistant>();
-    const [conversationAssistants, setConversationAssistants] = React.useState<Assistant[]>([]);
-
-    if (assistantsError) {
-        const errorMessage = JSON.stringify(assistantsError);
-        throw new Error(`Error loading assistants: ${errorMessage}`);
-    }
+    const { inspector } = useAppSelector((state) => state.app);
+    const dispatch = useAppDispatch();
 
     React.useEffect(() => {
-        if (assistants && selectedAssistant === undefined) {
-            const filteredAssistants = assistants.filter((assistant) =>
-                participants.some((participant) => participant.active && participant.id === assistant.id),
-            );
-            setConversationAssistants(filteredAssistants);
-            setSelectedAssistant(conversationAssistants[0]);
+        if (conversationAssistants.length === 0) {
+            if (inspector?.assistantId) {
+                dispatch(setInspector({ assistantId: null }));
+            }
+            return;
         }
-    }, [assistants, participants, conversationAssistants, selectedAssistant]);
 
-    if (isLoadingAssistants) {
-        return <Loading />;
-    }
+        // Verify the selected assistant is still in the list
+        if (
+            inspector?.assistantId &&
+            conversationAssistants.some((assistant) => assistant.id === inspector.assistantId)
+        ) {
+            // Assistant is still in the list
+            return;
+        }
 
-    if (!assistants) {
-        throw new Error('Assistants not found');
-    }
+        // Select the first assistant in the list
+        dispatch(setInspector({ assistantId: conversationAssistants[0].id }));
+    }, [conversationAssistants, dispatch, inspector]);
+
+    const selectedAssistant = conversationAssistants.find((assistant) => assistant.id === inspector?.assistantId);
 
     return (
         <>
@@ -71,46 +68,54 @@ export const InteractInspectorsList: React.FC<InteractInspectorsListProps> = (pr
                     No assistants found.
                     <Button
                         appearance="secondary"
-                        onClick={() => onOpenChange(false)}
+                        onClick={() => dispatch(setInspector({ open: false }))}
                         icon={<BookInformation24Regular />}
                     />
                 </div>
             )}
-            {conversationAssistants.length === 1 && (
-                <InteractInspectors
-                    assistant={conversationAssistants[0]}
-                    conversationId={conversation.id}
-                    onOpenChange={onOpenChange}
-                />
+            {conversationAssistants.length === 1 && selectedAssistant && (
+                <InteractInspectors assistant={selectedAssistant} conversationId={conversation.id} />
             )}
             {conversationAssistants.length > 1 && (
                 <>
                     <div className={classes.headerContent}>
                         <TabList
                             selectedValue={selectedAssistant?.id ?? conversationAssistants[0].id}
-                            onTabSelect={(_event, selectedItem) => {
-                                setSelectedAssistant(
-                                    assistants.find((assistant) => assistant.id === selectedItem.value),
-                                );
-                            }}
+                            onTabSelect={(_event, selectedItem) =>
+                                dispatch(
+                                    setInspector({
+                                        assistantId:
+                                            conversationAssistants.find(
+                                                (assistant) => assistant.id === selectedItem.value,
+                                            )?.id ?? null,
+                                    }),
+                                )
+                            }
                             size="small"
                         >
-                            {conversationAssistants.map((assistant) => (
-                                <Tab value={assistant.id} key={assistant.id}>
-                                    {assistant.name}
-                                </Tab>
-                            ))}
+                            {conversationAssistants
+                                .slice()
+                                .sort((a, b) => a.name.localeCompare(b.name))
+                                .map((assistant) => (
+                                    <Tab value={assistant.id} key={assistant.id}>
+                                        {assistant.name}
+                                    </Tab>
+                                ))}
                         </TabList>
                         <Button
                             appearance="secondary"
                             icon={<BookInformation24Regular />}
                             onClick={() => {
-                                if (onOpenChange) onOpenChange(false);
+                                dispatch(setInspector({ open: false }));
                             }}
                         />
                     </div>
                     {selectedAssistant && (
-                        <InteractInspectors assistant={selectedAssistant} conversationId={conversation.id} />
+                        <InteractInspectors
+                            hideCloseButton
+                            assistant={selectedAssistant}
+                            conversationId={conversation.id}
+                        />
                     )}
                 </>
             )}

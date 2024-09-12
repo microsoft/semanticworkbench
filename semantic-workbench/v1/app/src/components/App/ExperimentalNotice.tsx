@@ -99,38 +99,38 @@ export const ExperimentalNotice: React.FC = () => {
     const contentItems: ContentItem[] = [
         {
             image: '/assets/experimental-feature.jpg',
-            header: 'EXPERIMENTAL FEATURES',
+            header: 'EXPERIMENTAL FEATURE',
             text: (
                 <>
                     <p>
-                        This application is a development tool for exploring ideas and concepts.
-                        It is not intended for production use.
-                        The application may contain experimental features that are not fully tested and may not be fully functional.
-                        Proceed with caution.
+                        This application is a development tool for exploring ideas and concepts. It is not intended for
+                        production use. The application may contain experimental features that are not fully tested and
+                        may not be fully functional. Use at your own risk.
                     </p>
                     <p className={classes.warning}>
-                        Workbench data is not guaranteed to be secure or private.
-                        Do not use real or sensitive data in this application.
-                        Do not use this application to collect, store, or process personal data.
-                        Any information you enter into this application may be visible to others and may be lost or corrupted.
+                        Data is not guaranteed to be secure or private. Do not use real or sensitive data in this
+                        application. Do not use this application to collect, store, or process personal data. Any
+                        information you enter into this application may be visible to others and may be lost or
+                        corrupted. Do not upload or input anything you would not put on a company-wide file share.
                     </p>
                 </>
             ),
         },
         {
             image: '/assets/workflow-designer-1.jpg',
-            header: 'UNDER DEVELOPMENT',
+            header: 'FREQUENT CHANGES',
             text: (
                 <>
                     <p>
-                        This application is under development and <em>will</em> change.
-                        Features may be added, removed, or changed at any time.
-                        The application may be unavailable or unstable during updates.
-                        Some or all local data <em>can be</em> lost or corrupted during some of these updates.
-                        Proceed with caution.
+                        This application is under active development and <em>will</em> change frequently. Features may
+                        be added, removed, or changed at any time. The application may be unavailable or unstable during
+                        updates. Some or all data <em>will be</em> lost or corrupted during some of these updates. Use
+                        at your own risk.
                     </p>
                     <p className={classes.warning}>
-                        If you need something more stable or want to leverage this work to build your own demos, consider working with a specific commit of the code.
+                        If you need something more stable or want to leverage this work to build your own demos,
+                        consider checking out a specific commit of the code and running it either locally or in your own
+                        environment.
                     </p>
                 </>
             ),
@@ -152,8 +152,8 @@ export const ExperimentalNotice: React.FC = () => {
             <DialogTrigger>
                 <MessageBar intent="warning" layout="multiline">
                     <MessageBarBody>
-                        <MessageBarTitle>Experimental App reminder.</MessageBarTitle>
-                        Use with caution. &nbsp;
+                        <MessageBarTitle>Experimental App Reminder:</MessageBarTitle>
+                        features <em>will</em> break, data <em>will</em> be lost, data <em>is not</em> secure. &nbsp;
                         <Link>[details]</Link>
                     </MessageBarBody>
                 </MessageBar>

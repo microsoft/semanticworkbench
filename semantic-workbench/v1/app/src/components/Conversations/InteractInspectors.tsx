@@ -22,11 +22,11 @@ const useClasses = makeStyles({
 interface InteractInspectorsProps {
     assistant: Assistant;
     conversationId: string;
-    onOpenChange?: (open: boolean) => void;
+    hideCloseButton?: boolean;
 }
 
 export const InteractInspectors: React.FC<InteractInspectorsProps> = (props) => {
-    const { assistant, conversationId, onOpenChange } = props;
+    const { assistant, conversationId, hideCloseButton } = props;
     const classes = useClasses();
     const [filteredStateDescriptions, setFilteredStateDescriptions] = React.useState<AssistantStateDescription[]>([]);
 
@@ -53,10 +53,9 @@ export const InteractInspectors: React.FC<InteractInspectorsProps> = (props) => 
     return (
         <div className={classes.inspectors}>
             <InspectorList
-                assistantId={assistant.id}
+                hideCloseButton={hideCloseButton}
                 conversationId={conversationId}
                 stateDescriptions={filteredStateDescriptions}
-                onOpenChange={onOpenChange}
             />
         </div>
     );

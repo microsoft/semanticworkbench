@@ -14,6 +14,8 @@ import {
 import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { AssistantStateDescription } from '../../models/AssistantStateDescription';
+import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
+import { setInspector } from '../../redux/features/app/appSlice';
 import { Inspector } from './Inspector';
 
 const useClasses = makeStyles({
@@ -46,33 +48,31 @@ const useClasses = makeStyles({
 });
 
 interface InspectorListProps {
-    assistantId: string;
     conversationId: string;
     stateDescriptions: AssistantStateDescription[];
-    onOpenChange?: (open: boolean) => void;
+    hideCloseButton?: boolean;
 }
 
 export const InspectorList: React.FC<InspectorListProps> = (props) => {
-    const { assistantId, conversationId, stateDescriptions, onOpenChange } = props;
+    const { conversationId, stateDescriptions, hideCloseButton } = props;
     const classes = useClasses();
-    const [selectedTab, setSelectedTab] = React.useState<string>(stateDescriptions[0].id);
+    const { inspector } = useAppSelector((state) => state.app);
+    const dispatch = useAppDispatch();
 
     const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
-        setSelectedTab(data.value as string);
+        dispatch(setInspector({ stateId: data.value as string }));
     };
 
+    const selectedTab = inspector?.stateId ?? stateDescriptions[0].id;
     const selectedStateDescription = stateDescriptions.find((stateDescription) => stateDescription.id === selectedTab);
+
+    if (!inspector?.assistantId) return null;
 
     return (
         <div className={classes.root}>
             <div className={classes.header}>
                 <div className={classes.headerContent}>
-                    <TabList
-                        defaultSelectedValue={selectedTab}
-                        selectedValue={selectedTab}
-                        onTabSelect={onTabSelect}
-                        size="small"
-                    >
+                    <TabList selectedValue={selectedTab} onTabSelect={onTabSelect} size="small">
                         {stateDescriptions
                             .filter((stateDescription) => stateDescription.id !== 'config')
                             .map((stateDescription) => (
@@ -81,12 +81,12 @@ export const InspectorList: React.FC<InspectorListProps> = (props) => {
                                 </Tab>
                             ))}
                     </TabList>
-                    {onOpenChange && (
+                    {!hideCloseButton && (
                         <Button
                             appearance="secondary"
                             icon={<BookInformation24Regular />}
                             onClick={() => {
-                                if (onOpenChange) onOpenChange(false);
+                                dispatch(setInspector({ open: false }));
                             }}
                         />
                     )}
@@ -95,7 +95,7 @@ export const InspectorList: React.FC<InspectorListProps> = (props) => {
             {selectedStateDescription && (
                 <div className={classes.body}>
                     <Inspector
-                        assistantId={assistantId}
+                        assistantId={inspector?.assistantId}
                         conversationId={conversationId}
                         stateDescription={selectedStateDescription}
                     />

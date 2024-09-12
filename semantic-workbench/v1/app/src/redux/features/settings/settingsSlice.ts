@@ -8,6 +8,8 @@ import { SettingsState } from './SettingsState';
 const storageKeys = {
     theme: 'theme',
     environmentId: 'environment-id',
+    speechKey: 'speech-key',
+    speechRegion: 'speech-region',
     // openAIApiKey: 'openai-api-key',
 };
 
@@ -16,6 +18,8 @@ const initialState: SettingsState = {
     environmentId:
         AppStorage.getInstance().loadObject<string>(storageKeys.environmentId) ??
         Constants.service.defaultEnvironmentId,
+    speechKey: AppStorage.getInstance().loadObject<string>(storageKeys.speechKey),
+    speechRegion: AppStorage.getInstance().loadObject<string>(storageKeys.speechRegion),
     // openAIApiKey: AppStorage.getInstance().loadObject<string>(storageKeys.openAIApiKey),
 };
 
@@ -39,6 +43,14 @@ export const settingsSlice = createSlice({
                 window.location.reload();
             }
         },
+        setSpeechKey: (state: SettingsState, action: PayloadAction<string>) => {
+            AppStorage.getInstance().saveObject(storageKeys.speechKey, action.payload);
+            state.speechKey = action.payload;
+        },
+        setSpeechRegion: (state: SettingsState, action: PayloadAction<string>) => {
+            AppStorage.getInstance().saveObject(storageKeys.speechRegion, action.payload);
+            state.speechRegion = action.payload;
+        },
         // setOpenAIApiKey: (state: SettingsState, action: PayloadAction<string>) => {
         //     AppStorage.getInstance().saveObject(storageKeys.openAIApiKey, action.payload);
         //     state.openAIApiKey = action.payload;
@@ -49,6 +61,8 @@ export const settingsSlice = createSlice({
 export const {
     setTheme,
     setEnvironmentId,
+    setSpeechKey,
+    setSpeechRegion,
     // setOpenAIApiKey
 } = settingsSlice.actions;
 

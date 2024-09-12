@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Text, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { Button, Text, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { ArrowDownloadRegular } from '@fluentui/react-icons';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import {} from '@rjsf/core';
 import Form from '@rjsf/fluentui-rc';
@@ -16,6 +17,7 @@ import { CustomizedObjectFieldTemplate } from '../App/FormWidgets/CustomizedObje
 import { InspectableWidget } from '../App/FormWidgets/InspectableWidget';
 import { Loading } from '../App/Loading';
 import { CodeContentRenderer } from './ContentRenderers/CodeContentRenderer';
+import { ContentListRenderer } from './ContentRenderers/ContentListRenderer';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
 import { DebugInspector } from './DebugInspector';
 
@@ -35,6 +37,7 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'column',
         overflow: 'auto',
+        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
     },
     form: {
         display: 'flex',
@@ -49,6 +52,11 @@ interface InspectorProps {
     stateDescription: AssistantStateDescription;
 }
 
+interface Attachment {
+    filename: string;
+    content: string;
+}
+
 export const Inspector: React.FC<InspectorProps> = (props) => {
     const { assistantId, conversationId, stateDescription } = props;
     const classes = useClasses();
@@ -57,7 +65,10 @@ export const Inspector: React.FC<InspectorProps> = (props) => {
         error: stateError,
         isLoading: isLoadingState,
         refetch: refetchState,
-    } = useGetConversationStateQuery({ assistantId, stateId: stateDescription.id, conversationId });
+    } = useGetConversationStateQuery(
+        { assistantId, stateId: stateDescription.id, conversationId },
+        { refetchOnMountOrArgChange: true },
+    );
     const [updateConversationState] = useUpdateConversationStateMutation();
     const [formData, setFormData] = React.useState<object>();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -119,8 +130,14 @@ export const Inspector: React.FC<InspectorProps> = (props) => {
         default: () => {
             // check to see if data contains a key "content" that is a string, if so, render it
             // with the default content renderer, otherwise, render the data as a json object
-            if ('content' in state.data && typeof state.data['content'] === 'string') {
-                return <ContentRenderer content={state.data['content']} />;
+            if ('content' in state.data) {
+                const content = state.data['content'];
+                if (typeof content === 'string') {
+                    return <ContentRenderer content={content} />;
+                }
+                if (Array.isArray(content)) {
+                    return <ContentListRenderer contentList={content} />;
+                }
             }
             return <CodeContentRenderer content={JSON.stringify(state.data, null, 2)} language="json" />;
         },
@@ -173,11 +190,44 @@ export const Inspector: React.FC<InspectorProps> = (props) => {
         }
     }
 
+    const attachments = ('attachments' in state.data ? state.data['attachments'] : []) as Attachment[];
+
+    const handleDownloadAttachment = async (attachment: Attachment) => {
+        // download helper function
+        const download = (filename: string, href: string) => {
+            const a = document.createElement('a');
+            a.download = filename;
+            a.href = href;
+            // document.body.appendChild(a);
+            a.click();
+        };
+
+        // if the content is a data URL, use it directly, otherwise create a blob URL
+        if (attachment.content.startsWith('data:')) {
+            download(attachment.filename, attachment.content);
+        } else {
+            const url = URL.createObjectURL(new Blob([attachment.content]));
+            download(attachment.filename, url);
+            URL.revokeObjectURL(url);
+        }
+    };
+
     return (
         <div className={classes.root}>
             <div className={classes.header}>
                 <Text>{stateDescription.description}</Text>
                 {debugInspector}
+                {attachments.map((attachment) => (
+                    <div key={attachment.filename}>
+                        <Button
+                            onClick={() => handleDownloadAttachment(attachment)}
+                            icon={<ArrowDownloadRegular />}
+                            appearance="subtle"
+                        >
+                            {attachment.filename}
+                        </Button>
+                    </div>
+                ))}
             </div>
             <div className={classes.body}>{renderer()}</div>
         </div>

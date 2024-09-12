@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
@@ -53,7 +54,9 @@ interface InteractHistoryProps {
 export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     const { conversation, participants } = props;
     const classes = useClasses();
+    const { hash } = useLocation();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
+    const [hashItemIndex, setHashItemIndex] = React.useState<number>();
     const environment = useEnvironment();
     const dispatch = useAppDispatch();
 
@@ -88,6 +91,15 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         performScrollToBottom();
     }, [performScrollToBottom]);
 
+    // if hash index is set, scroll to the hash item
+    React.useEffect(() => {
+        if (hashItemIndex !== undefined) {
+            setTimeout(() => {
+                virtuosoRef.current?.scrollToIndex({ index: hashItemIndex });
+            }, 0);
+        }
+    }, [hashItemIndex]);
+
     // scroll to the bottom when the participant status changes
     const handleParticipantStatusChange = React.useCallback(() => {
         performScrollToBottom();
@@ -108,7 +120,12 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         let generatedResponseCount = 0;
         const updatedItems = messages
             .filter((message) => message.messageType !== 'log')
-            .map((message) => {
+            .map((message, index) => {
+                // if a hash is provided, check if the message id matches the hash
+                if (hash && hashItemIndex === undefined && hash === `#${message.id}`) {
+                    setHashItemIndex(index);
+                }
+
                 const senderParticipant = participants.find(
                     (participant) => participant.id === message.sender.participantId,
                 );
@@ -159,7 +176,9 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         if (generatedResponseCount > 0) {
             updatedItems.push(
                 <div className={classes.counter} key="response-count">
-                    <ResponseCount status="success">{generatedResponseCount} generated responses</ResponseCount>
+                    <ResponseCount status="success">
+                        {generatedResponseCount} generated response{generatedResponseCount === 1 ? '' : 's'}
+                    </ResponseCount>
                 </div>,
             );
         }
@@ -175,6 +194,8 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         classes.status,
         conversation.id,
         handleParticipantStatusChange,
+        hash,
+        hashItemIndex,
         isLoadingMessages,
         messages,
         participants,
@@ -227,9 +248,6 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
             handleParticipantEvent(JSON.parse(event.data));
         };
 
-        const participantDeletedHandler = (event: EventSourceMessage) => {
-            handleParticipantEvent(JSON.parse(event.data));
-        };
         (async () => {
             // create or update the event source
             const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversation.id);
@@ -237,7 +255,6 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
             workbenchEventSource.addEventListener('message.deleted', messageHandler);
             workbenchEventSource.addEventListener('participant.created', participantCreatedHandler);
             workbenchEventSource.addEventListener('participant.updated', participantUpdatedHandler);
-            workbenchEventSource.addEventListener('participant.deleted', participantDeletedHandler);
         })();
 
         return () => {
@@ -247,7 +264,6 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                 workbenchEventSource.removeEventListener('message.deleted', messageHandler);
                 workbenchEventSource.removeEventListener('participant.created', participantCreatedHandler);
                 workbenchEventSource.removeEventListener('participant.updated', participantUpdatedHandler);
-                workbenchEventSource.removeEventListener('participant.deleted', participantDeletedHandler);
             })();
         };
     }, [conversation.id, dispatch, environment.url, isLoadingMessages, messages]);
