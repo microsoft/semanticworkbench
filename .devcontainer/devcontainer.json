@@ -44,7 +44,8 @@
     // Build and restore dependencies for key projects in the repo
     "make_workbench_app": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/app",
     "make_workbench_service": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/service",
-    "make_python_examples01": "make -C /workspaces/semanticworkbench/examples/python-example01",
+    "make_python_01_echo_bot": "make -C /workspaces/semanticworkbench/examples/python-01-echo-bot",
+    "make_python_02_simple_chatbot": "make -C /workspaces/semanticworkbench/examples/python-02-simple-chatbot",
     // Set up git to automatically set up the remote when pushing if it doesn't exist
     "git_config": "git config --add push.autoSetupRemote true"
   },
