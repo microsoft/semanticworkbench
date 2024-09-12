@@ -6,5 +6,6 @@ cd $ROOT
 # ================================================================
 
 cd examples/dotnet-02-message-types-demo
+
 dotnet build
 dotnet run
