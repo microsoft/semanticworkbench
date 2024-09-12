@@ -1,5 +1,7 @@
+import { Assistant } from '../../models/Assistant';
 import { WorkflowDefinition } from '../../models/WorkflowDefinition';
 import { WorkflowRun } from '../../models/WorkflowRun';
+import { transformResponseToAssistant } from './assistant';
 import { workbenchApi } from './workbench';
 
 export const workflowApi = workbenchApi.injectEndpoints({
@@ -84,6 +86,11 @@ export const workflowApi = workbenchApi.injectEndpoints({
             invalidatesTags: ['WorkflowRun'],
             transformResponse: (response: any) => transformResponseToWorkflowRun(response),
         }),
+        getWorkflowRunAssistants: builder.query<Assistant[], string>({
+            query: (workflowRunId) => `/workflow-runs/${workflowRunId}/assistants`,
+            providesTags: ['Assistant', 'WorkflowRun'],
+            transformResponse: (response: any) => transformResponseToWorkflowRunAssistants(response),
+        }),
         switchWorkflowRunState: builder.mutation<WorkflowRun, { workflowRunId: string; stateId: string }>({
             query: ({ workflowRunId, stateId }) => ({
                 url: `/workflow-runs/${workflowRunId}/switch-state`,
@@ -115,6 +122,7 @@ export const {
     useGetWorkflowRunsQuery,
     useCreateWorkflowRunMutation,
     useUpdateWorkflowRunMutation,
+    useGetWorkflowRunAssistantsQuery,
     useSwitchWorkflowRunStateMutation,
     useDeleteWorkflowRunMutation,
 } = workflowApi;
@@ -254,5 +262,13 @@ const transformResponseToWorkflowRun = (response: any): WorkflowRun => {
         };
     } catch (error) {
         throw new Error(`Failed to transform workflow run response: ${error}`);
+    }
+};
+
+const transformResponseToWorkflowRunAssistants = (response: any): Assistant[] => {
+    try {
+        return response.assistants.map(transformResponseToAssistant);
+    } catch (error) {
+        throw new Error(`Failed to transform workflow run assistants response: ${error}`);
     }
 };

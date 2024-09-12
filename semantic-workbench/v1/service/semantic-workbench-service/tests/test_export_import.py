@@ -3,7 +3,8 @@ import io
 import sqlmodel
 from semantic_workbench_service import db, settings
 from semantic_workbench_service.controller import export_import
-from tests.types import MockUser
+
+from .types import MockUser
 
 
 async def test_export_import_assistant(db_url, test_user: MockUser):

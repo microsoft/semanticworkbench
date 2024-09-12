@@ -2,7 +2,7 @@
   "folders": [
     {
       "path": ".",
-      "name": "examples/python-examples01"
+      "name": "examples/python-01-echo-bot"
     },
     {
       "path": "../../"

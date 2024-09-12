@@ -2,6 +2,10 @@
 
 import { Attachment, AttachmentList } from '@fluentui-copilot/react-attachments';
 import {
+    $createParagraphNode,
+    $createTextNode,
+    $getRoot,
+    $getSelection,
     ChatInput,
     ChatInputEntityNode,
     ChatInputSubmitEvents,
@@ -20,14 +24,15 @@ import {
     shorthands,
     tokens,
 } from '@fluentui/react-components';
-import { Attach20Regular, DocumentRegular } from '@fluentui/react-icons';
+import { Attach20Regular, DocumentRegular, Mic20Regular } from '@fluentui/react-icons';
 import { getEncoding } from 'js-tiktoken';
 import { CLEAR_EDITOR_COMMAND } from 'lexical';
+import * as speechSdk from 'microsoft-cognitiveservices-speech-sdk';
 import React from 'react';
 import { Constants } from '../../Constants';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useAppDispatch } from '../../redux/app/hooks';
+import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
 import { addError } from '../../redux/features/app/appSlice';
 import {
     updateGetConversationMessagesQueryData,
@@ -90,6 +95,7 @@ interface InteractInputProps {
 export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const { conversationId, additionalContent } = props;
     const classes = useClasses();
+    const { speechKey, speechRegion } = useAppSelector((state) => state.settings);
     const [createMessage] = useCreateConversationMessageMutation();
     const [uploadConversationFiles] = useUploadConversationFilesMutation();
     const [messageTypeValue, setMessageTypeValue] = React.useState<'Chat' | 'Command'>('Chat');
@@ -98,6 +104,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [directedAtName, setDirectedAtName] = React.useState<string>(directedAtDefaultValue);
     const [attachmentFiles, setAttachmentFiles] = React.useState<File[]>([]);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [isListening, setIsListening] = React.useState(false);
+    const [recognizer, setRecognizer] = React.useState<speechSdk.SpeechRecognizer>();
     const editorRef = React.useRef<LexicalEditor | null>();
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
     const dispatch = useAppDispatch();
@@ -126,6 +134,15 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         console.error(`Failed to load conversation participants: ${errorMessage}`);
     }
 
+    React.useEffect(() => {
+        if (recognizer) return;
+        if (!speechKey || !speechRegion) return;
+
+        const speechConfig = speechSdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
+        const speechRecognizer = new speechSdk.SpeechRecognizer(speechConfig);
+        setRecognizer(speechRecognizer);
+    }, [recognizer, speechKey, speechRegion]);
+
     const tokenizer = React.useMemo(() => getEncoding('cl100k_base'), []);
 
     if (isConversationMessagesLoading || isParticipantsLoading) {
@@ -133,7 +150,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     }
 
     const handleSend = (_event: ChatInputSubmitEvents, data: ChatInputValueData) => {
-        if (data.value.trim() === '' || isSubmitting) {
+        if (data.value.trim() === '' || isSubmitting || isListening) {
             return;
         }
 
@@ -202,6 +219,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 await uploadConversationFiles({ conversationId, files });
             }
 
+            // create the message
             await createMessage({
                 conversationId,
                 content,
@@ -252,7 +270,78 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         }
     };
 
-    const disableInputs = isSubmitting;
+    const onRecordSpeech = async () => {
+        if (!recognizer || isListening) return;
+
+        setIsListening(true);
+        recognizer.recognizeOnceAsync((result) => {
+            if (result.reason === speechSdk.ResultReason.Canceled) {
+                const cancellationDetails = result.errorDetails;
+                if (cancellationDetails) {
+                    console.error(`Speech recognition canceled: ${cancellationDetails}`);
+                }
+                setIsListening(false);
+                return;
+            }
+
+            if (result.reason === speechSdk.ResultReason.NoMatch) {
+                setIsListening(false);
+                return;
+            }
+
+            const text = result.text;
+
+            if (text.trim() === '') {
+                setIsListening(false);
+                return;
+            }
+
+            editorRef.current?.update(() => {
+                const root = $getRoot();
+                if (root.getTextContent().length > 0) {
+                    // there is already text, so insert a new paragraph
+                    const paragraph = $createParagraphNode();
+                    paragraph.append($createTextNode(text));
+                    root.append(paragraph);
+                } else {
+                    // no text yet, but we don't want to insert a new paragraph
+                    // so set the selection to the end of the root node and then
+                    // we can use that to insert the text directly
+                    root.selectEnd();
+                    const selection = $getSelection();
+                    if (!selection) {
+                        console.error('Failed to get selection');
+                        setIsListening(false);
+                        return;
+                    }
+                    selection.insertText(text);
+                }
+                // select the end of the root node so that the user can continue typing
+                root.selectEnd();
+            });
+
+            setIsListening(false);
+        });
+    };
+
+    const disableInputs = isSubmitting || isListening;
+
+    const innerSpeechButton = (
+        <Button
+            appearance="transparent"
+            disabled={disableInputs || !recognizer}
+            style={{ color: isListening ? 'red' : undefined }}
+            icon={<Mic20Regular />}
+            onClick={onRecordSpeech}
+        />
+    );
+    const speechButton = recognizer ? (
+        innerSpeechButton
+    ) : (
+        <Tooltip content="Enable speech in settings" relationship="label">
+            {innerSpeechButton}
+        </Tooltip>
+    );
 
     return (
         <div className={classes.root}>
@@ -282,7 +371,9 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                                     {directedAtDefaultValue}
                                 </Option>
                                 {participants
-                                    ?.filter((participant) => participant.role === 'assistant')
+                                    ?.slice()
+                                    .sort((a, b) => a.name.localeCompare(b.name))
+                                    .filter((participant) => participant.role === 'assistant')
                                     .map((participant) => (
                                         <Option key={participant.id} value={participant.id}>
                                             {participant.name}
@@ -323,6 +414,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                                     icon={<Attach20Regular />}
                                     onClick={onAttachment}
                                 />
+                                {speechButton}
                             </span>
                         </span>
                     }

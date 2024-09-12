@@ -1,3 +1,4 @@
+import asyncio
 import io
 import json
 import logging
@@ -9,21 +10,23 @@ import httpx
 import pytest
 import semantic_workbench_assistant.canonical
 from asgi_lifespan import LifespanManager
+from fastapi import FastAPI
 from semantic_workbench_api_model import assistant_model, workbench_model
-from tests.types import IntegratedServices, MockUser
+
+from .types import MockUser
 
 
 async def test_flow_create_assistant_update_config(
-    integrated_services: IntegratedServices, test_user: MockUser
+    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
 ) -> None:
     async with (
-        LifespanManager(integrated_services.workbench_service_app),
+        LifespanManager(workbench_service),
         httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=integrated_services.workbench_service_app),  # type: ignore
+            transport=httpx.ASGITransport(app=workbench_service),
             headers=test_user.authorization_headers,
             base_url="http://test",
         ) as wb_client,
-        LifespanManager(integrated_services.canonical_assistant_service_app),
+        LifespanManager(canonical_assistant_service),
     ):
         resp = await wb_client.get("/assistant-service-registrations")
         resp.raise_for_status()
@@ -51,7 +54,6 @@ async def test_flow_create_assistant_update_config(
 
         config = assistant_model.ConfigPutRequestModel(
             config=semantic_workbench_assistant.canonical.ConfigStateModel(
-                readonly_text="test readonly text - this should not get updated",
                 short_text="test short text",
                 long_text="test long text",
                 prompt=semantic_workbench_assistant.canonical.PromptConfigModel(
@@ -64,16 +66,16 @@ async def test_flow_create_assistant_update_config(
 
 
 async def test_flow_create_assistant_update_conversation_state(
-    integrated_services: IntegratedServices, test_user: MockUser
+    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
 ) -> None:
     async with (
-        LifespanManager(integrated_services.workbench_service_app),
+        LifespanManager(workbench_service),
         httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=integrated_services.workbench_service_app),  # type: ignore
+            transport=httpx.ASGITransport(app=workbench_service),
             headers=test_user.authorization_headers,
             base_url="http://test",
         ) as wb_client,
-        LifespanManager(integrated_services.canonical_assistant_service_app),
+        LifespanManager(canonical_assistant_service),
     ):
         resp = await wb_client.get("/assistant-service-registrations")
         resp.raise_for_status()
@@ -151,16 +153,16 @@ async def test_flow_create_assistant_update_conversation_state(
 
 
 async def test_flow_create_assistant_send_message_receive_resp(
-    integrated_services: IntegratedServices, test_user: MockUser
+    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
 ) -> None:
     async with (
-        LifespanManager(integrated_services.workbench_service_app),
+        LifespanManager(workbench_service),
         httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=integrated_services.workbench_service_app),  # type: ignore
+            transport=httpx.ASGITransport(app=workbench_service),
             headers=test_user.authorization_headers,
             base_url="http://test",
         ) as wb_client,
-        LifespanManager(integrated_services.canonical_assistant_service_app),
+        LifespanManager(canonical_assistant_service),
     ):
         resp = await wb_client.get("/assistant-service-registrations")
         resp.raise_for_status()
@@ -213,16 +215,16 @@ async def test_flow_create_assistant_send_message_receive_resp(
 
 
 async def test_flow_create_assistant_send_message_receive_resp_export_import_assistant(
-    integrated_services: IntegratedServices, test_user: MockUser
+    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
 ) -> None:
     async with (
-        LifespanManager(integrated_services.workbench_service_app),
+        LifespanManager(workbench_service),
         httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=integrated_services.workbench_service_app),  # type: ignore
+            transport=httpx.ASGITransport(app=workbench_service),
             headers=test_user.authorization_headers,
             base_url="http://test",
         ) as wb_client,
-        LifespanManager(integrated_services.canonical_assistant_service_app),
+        LifespanManager(canonical_assistant_service),
     ):
         resp = await wb_client.get("/assistant-service-registrations")
         resp.raise_for_status()
@@ -269,7 +271,7 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
             messages = []
             while attempts <= 10 and len(messages) < 2:
                 if attempts > 1:
-                    time.sleep(0.5)
+                    await asyncio.sleep(0.5)
 
                 attempts += 1
 
@@ -295,10 +297,10 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
 
         logging.info("response: %s", resp.content)
 
-        file_io = io.BytesIO(resp.content)
+        exported_file = io.BytesIO(resp.content)
 
         for import_number in range(1, 3):
-            resp = await wb_client.post("/assistants/import", files={"from_export": file_io})
+            resp = await wb_client.post("/assistants/import", files={"from_export": exported_file})
             logging.info("import %s response: %s", import_number, resp.json())
             resp.raise_for_status()
             new_assistant = workbench_model.Assistant.model_validate(resp.json())
@@ -327,16 +329,16 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
 
 
 async def test_flow_create_assistant_send_message_receive_resp_export_import_conversations(
-    integrated_services: IntegratedServices, test_user: MockUser
+    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
 ) -> None:
     async with (
-        LifespanManager(integrated_services.workbench_service_app),
+        LifespanManager(workbench_service),
         httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=integrated_services.workbench_service_app),  # type: ignore
+            transport=httpx.ASGITransport(app=workbench_service),
             headers=test_user.authorization_headers,
             base_url="http://test",
         ) as wb_client,
-        LifespanManager(integrated_services.canonical_assistant_service_app),
+        LifespanManager(canonical_assistant_service),
     ):
         resp = await wb_client.get("/assistant-service-registrations")
         resp.raise_for_status()
@@ -452,20 +454,21 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_con
     ],
 )
 async def test_flow_create_assistant_send_command_message_receive_resp(
-    integrated_services: IntegratedServices,
+    workbench_service: FastAPI,
+    canonical_assistant_service: FastAPI,
     test_user: MockUser,
     command,
     command_args,
     expected_response_content_regex: re.Pattern,
 ) -> None:
     async with (
-        LifespanManager(integrated_services.workbench_service_app),
+        LifespanManager(workbench_service),
         httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=integrated_services.workbench_service_app),  # type: ignore
+            transport=httpx.ASGITransport(app=workbench_service),
             headers=test_user.authorization_headers,
             base_url="http://test",
         ) as wb_client,
-        LifespanManager(integrated_services.canonical_assistant_service_app),
+        LifespanManager(canonical_assistant_service),
     ):
         resp = await wb_client.get("/assistant-service-registrations")
         resp.raise_for_status()

@@ -9,14 +9,14 @@ We provide several python base classes to make this easier: [semantic-workbench-
 Example assistant services:
 
 - [Canonical assistant example](../semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
-- Python assistant [example 1](../examples/python-example01/README.md)
+- Python assistant [example 1](../examples/python-01-echo-bot/README.md) and [example 2](../examples/python-02-simple-chatbot/README.md)
 - .NET agent [example 1](../examples/dotnet-example01/README.md) and [example 2](../examples/dotnet-example02/README.md)
 
 ## Top level concepts
 
-RECOMMENDED FOR PYTHON: Use the `semantic-workbench-assistant` base classes to create your assistant service. These classes provide a lot of the boilerplate code for you.
+RECOMMENDED FOR PYTHON: Use the `semantic-workbench-assistant` classes to create your assistant service. These classes provide a lot of the boilerplate code for you.
 
-See the [semantic-workbench-assistant.assistant_base](../service/semantic-workbench-assistant/semantic_workbench_assistant/assistant_base.py) for the base classes
+See the [semantic-workbench-assistant.assistant_app.AssistantApp](../semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/assistant_app/assistant.py) for the classes
 and the Python [example 1](../examples/python-example01/README.md) for an example of how to use them.
 
 ### assistant_service.FastAPIAssistantService

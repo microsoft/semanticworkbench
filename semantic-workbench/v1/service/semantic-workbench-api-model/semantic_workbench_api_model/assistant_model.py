@@ -27,6 +27,7 @@ class StateResponseModel(BaseModel):
     See: https://github.com/rjsf-team/react-jsonschema-form for
     the use of data, json_schema, and ui_schema.
     """
+
     id: str
     data: dict[str, Any]
     json_schema: dict[str, Any] | None

@@ -4,10 +4,10 @@
     {
       "type": "debugpy",
       "request": "launch",
-      "name": "python-example01 (assistant)",
+      "name": "launch assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["assistant.chat:app", "--port", "3003"],
+      "args": ["assistant.chat:app", "--port", "3002"],
       "consoleTitle": "${workspaceFolderBasename}"
     }
   ]

@@ -14,6 +14,11 @@ HEADER_ASSISTANT_ID = "X-Assistant-ID"
 HEADER_API_KEY = "X-API-Key"
 
 
+# HTTPX transport can be overridden with an ASGI transport for testing
+# ex: httpx_transport = httpx.ASGITransport(app=app)
+httpx_transport = httpx.AsyncHTTPTransport(retries=3)
+
+
 @dataclass
 class AssistantServiceRequestHeaders:
     assistant_service_id: str
@@ -62,7 +67,7 @@ class ConversationAPIClient:
     def __init__(
         self,
         conversation_id: str,
-        httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
+        httpx_client_factory: Callable[[], httpx.AsyncClient],
     ) -> None:
         self._conversation_id = conversation_id
         self._httpx_client_factory = httpx_client_factory
@@ -246,7 +251,7 @@ class ConversationAPIClient:
 class ConversationsAPIClient:
     def __init__(
         self,
-        httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
+        httpx_client_factory: Callable[[], httpx.AsyncClient],
     ) -> None:
         self._httpx_client_factory = httpx_client_factory
 
@@ -282,7 +287,7 @@ class ConversationsAPIClient:
 class AssistantsAPIClient:
     def __init__(
         self,
-        httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
+        httpx_client_factory: Callable[[], httpx.AsyncClient],
     ) -> None:
         self._httpx_client_factory = httpx_client_factory
 
@@ -317,7 +322,7 @@ class AssistantAPIClient:
     def __init__(
         self,
         assistant_id: str,
-        httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
+        httpx_client_factory: Callable[[], httpx.AsyncClient],
     ) -> None:
         self._assistant_id = assistant_id
         self._httpx_client_factory = httpx_client_factory
@@ -358,20 +363,28 @@ class AssistantAPIClient:
 class AssistantServiceAPIClient:
     def __init__(
         self,
-        httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
+        httpx_client_factory: Callable[[], httpx.AsyncClient],
     ) -> None:
-        self._httpx_client_factory = httpx_client_factory
+        self._client = httpx_client_factory()
+
+    async def __aenter__(self) -> "AssistantServiceAPIClient":
+        self._client = await self._client.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+        await self._client.__aexit__(exc_type, exc_value, traceback)
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
 
     async def update_registration_url(
         self, assistant_service_id: str, update: workbench_model.UpdateAssistantServiceRegistrationUrl
-    ) -> workbench_model.AssistantServiceRegistration:
-        async with self._httpx_client_factory() as client:
-            http_response = await client.put(
-                f"/assistant-service-registrations/{assistant_service_id}",
-                json=update.model_dump(mode="json", exclude_unset=True, exclude_defaults=True),
-            )
-            http_response.raise_for_status()
-            return workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
+    ) -> None:
+        http_response = await self._client.put(
+            f"/assistant-service-registrations/{assistant_service_id}",
+            json=update.model_dump(mode="json", exclude_unset=True, exclude_defaults=True),
+        )
+        http_response.raise_for_status()
 
 
 class WorkbenchServiceClientBuilder:
@@ -382,21 +395,20 @@ class WorkbenchServiceClientBuilder:
         base_url: str,
         assistant_service_id: str,
         api_key: str,
-        httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
     ) -> None:
         self._base_url = base_url
         self._assistant_service_id = assistant_service_id
         self._api_key = api_key
-        self._httpx_client_factory = httpx_client_factory
 
     def _client(self, *headers: AssistantServiceRequestHeaders | AssistantInstanceRequestHeaders) -> httpx.AsyncClient:
-        client = self._httpx_client_factory()
-        client.base_url = self._base_url
-        client.timeout.connect = 10
-        client.timeout.read = 60
-        client.headers.update({
-            asgi_correlation_id.CorrelationIdMiddleware.header_name: asgi_correlation_id.correlation_id.get() or "",
-        })
+        client = httpx.AsyncClient(
+            transport=httpx_transport,
+            base_url=self._base_url,
+            timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
+            headers={
+                asgi_correlation_id.CorrelationIdMiddleware.header_name: asgi_correlation_id.correlation_id.get() or "",
+            },
+        )
         for header in headers:
             client.headers.update(header.to_headers())
         return client
@@ -425,14 +437,12 @@ class WorkbenchServiceUserClientBuilder:
         self,
         base_url: str,
         headers: UserRequestHeaders,
-        httpx_client_factory: Callable[[], httpx.AsyncClient] = httpx.AsyncClient,
     ) -> None:
         self._base_url = base_url
         self._headers = headers
-        self._httpx_client_factory = httpx_client_factory
 
     def _client(self) -> httpx.AsyncClient:
-        client = self._httpx_client_factory()
+        client = httpx.AsyncClient(transport=httpx_transport)
         client.base_url = self._base_url
         client.timeout.connect = 10
         client.timeout.read = 60

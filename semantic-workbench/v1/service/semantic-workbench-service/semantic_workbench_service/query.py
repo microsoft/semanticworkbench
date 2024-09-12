@@ -1,10 +1,10 @@
 from typing import Any
 
 from sqlalchemy import Function, func
-from sqlmodel import String, and_, cast, col, select
+from sqlmodel import String, and_, cast, col, or_, select
 from sqlmodel.sql.expression import SelectOfScalar
 
-from . import auth, db, service_user_principals, settings
+from . import auth, db, settings
 
 
 def json_extract_path(expression, *paths: str) -> Function[Any]:
@@ -15,24 +15,24 @@ def json_extract_path(expression, *paths: str) -> Function[Any]:
 
 def select_assistants_for(user_principal: auth.UserPrincipal) -> SelectOfScalar[db.Assistant]:
     return select(db.Assistant).where(
-        col(db.Assistant.assistant_id).in_(
-            select(db.Assistant.assistant_id)
-            .join(
-                db.WorkflowRun,
-                cast(json_extract_path(db.Assistant.meta_data, "workflow_run_id"), String)
-                == cast(db.WorkflowRun.workflow_run_id, String),
-                isouter=True,
-            )
-            .join(
-                db.WorkflowUserParticipant,
-                and_(
-                    db.WorkflowUserParticipant.workflow_definition_id == db.WorkflowRun.workflow_definition_id,
-                    db.WorkflowUserParticipant.user_id == user_principal.user_id,
-                ),
-                isouter=True,
-            )
-            .where(col(db.Assistant.owner_id).in_((user_principal.user_id, service_user_principals.workflow.user_id)))
-            .distinct()
+        or_(
+            db.Assistant.owner_id == user_principal.user_id,
+            col(db.Assistant.assistant_id).in_(
+                select(db.Assistant.assistant_id)
+                .join(
+                    db.WorkflowRun,
+                    cast(json_extract_path(db.Assistant.meta_data, "workflow_run_id"), String)
+                    == cast(db.WorkflowRun.workflow_run_id, String),
+                )
+                .join(
+                    db.WorkflowUserParticipant,
+                    and_(
+                        db.WorkflowUserParticipant.workflow_definition_id == db.WorkflowRun.workflow_definition_id,
+                        db.WorkflowUserParticipant.user_id == user_principal.user_id,
+                    ),
+                )
+                .distinct()
+            ),
         )
     )
 
@@ -103,6 +103,4 @@ def select_workflow_runs_for(
     if not include_inactive:
         query = query.where(col(db.WorkflowUserParticipant.active_participant).is_(True))
 
-    return query
-    return query
     return query

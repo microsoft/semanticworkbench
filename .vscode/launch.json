@@ -1,10 +1,19 @@
 {
   "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "semantic-workbench",
+      "configurations": [
+        "app: semantic-workbench-app",
+        "service: semantic-workbench-service"
+      ]
+    }
+  ],
   "configurations": [
     {
       "type": "node",
       "request": "launch",
-      "name": "semantic-workbench-app",
+      "name": "app: semantic-workbench-app",
       "cwd": "${workspaceFolder}/semantic-workbench/v1/app",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal",
@@ -14,7 +23,7 @@
     {
       "type": "debugpy",
       "request": "launch",
-      "name": "semantic-workbench-service",
+      "name": "service: semantic-workbench-service",
       "cwd": "${workspaceFolder}/semantic-workbench/v1/service",
       "module": "semantic_workbench_service.start",
       "justMyCode": false,
@@ -29,12 +38,6 @@
       "module": "semantic_workbench_assistant.start",
       "args": ["semantic_workbench_assistant.canonical:app", "--port", "3002"],
       "consoleTitle": "canonical-assistant"
-    }
-  ],
-  "compounds": [
-    {
-      "name": "semantic-workbench",
-      "configurations": ["semantic-workbench-app", "semantic-workbench-service"]
     }
   ]
 }

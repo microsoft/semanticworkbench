@@ -1,14 +1,25 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Card, Dropdown, Field, Label, Option, makeStyles, tokens } from '@fluentui/react-components';
+import {
+    Card,
+    Divider,
+    Dropdown,
+    Field,
+    Input,
+    Label,
+    Option,
+    Text,
+    makeStyles,
+    tokens,
+} from '@fluentui/react-components';
 import React from 'react';
 import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { MyAssistantServiceRegistrations } from '../components/App/MyAssistantServiceRegistrations';
 import { useEnvironment } from '../libs/useEnvironment';
 import { useSiteUtility } from '../libs/useSiteUtility';
-import { useAppDispatch } from '../redux/app/hooks';
-import { setEnvironmentId } from '../redux/features/settings/settingsSlice';
+import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
+import { setEnvironmentId, setSpeechKey, setSpeechRegion } from '../redux/features/settings/settingsSlice';
 import { useGetAssistantServiceRegistrationsQuery } from '../services/workbench';
 
 const useClasses = makeStyles({
@@ -27,13 +38,16 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         alignItems: 'center',
     },
+    text: {
+        maxWidth: '400px',
+    },
 });
 
 export const Settings: React.FC = () => {
     const classes = useClasses();
     const environment = useEnvironment();
     // const { devMode } = useAppSelector((state) => state.app);
-    // const { openAIApiKey } = useAppSelector((state) => state.settings);
+    const { speechKey, speechRegion } = useAppSelector((state) => state.settings);
     const { data: assistantServiceRegistrations, error: assistantServiceRegistrationsError } =
         useGetAssistantServiceRegistrationsQuery({ userIds: ['me'] });
 
@@ -46,9 +60,21 @@ export const Settings: React.FC = () => {
     // instead show the error message in the UI and allow the
     // rest of the settings page to render.
 
-    const handleEnvironmentChange = React.useCallback(
-        (environmentId: string) => {
-            dispatch(setEnvironmentId(environmentId));
+    const handleSettingChange = React.useCallback(
+        (setting: string, value: string) => {
+            switch (setting) {
+                case 'environmentId':
+                    dispatch(setEnvironmentId(value));
+                    break;
+                case 'speechKey':
+                    dispatch(setSpeechKey(value));
+                    break;
+                case 'speechRegion':
+                    dispatch(setSpeechRegion(value));
+                    break;
+                default:
+                    throw new Error(`Unknown setting: ${setting}`);
+            }
         },
         [dispatch],
     );
@@ -65,7 +91,9 @@ export const Settings: React.FC = () => {
                         className={classes.input}
                         value={environment.name}
                         selectedOptions={[environment.id]}
-                        onOptionSelect={(_event, data) => handleEnvironmentChange(data.optionValue as string)}
+                        onOptionSelect={(_event, data) =>
+                            handleSettingChange('environmentId', data.optionValue as string)
+                        }
                     >
                         {Constants.service.environments.map((environmentOption) => (
                             <Option
@@ -77,6 +105,26 @@ export const Settings: React.FC = () => {
                             </Option>
                         ))}
                     </Dropdown>
+                </Field>
+                <Divider>Speech Settings</Divider>
+                <Text className={classes.text}>
+                    [Optional] If you provide a valid Azure Speech Key and Region, the app will allow you to use your
+                    microphone to input text.
+                </Text>
+                <Field label="Speech Key">
+                    <Input
+                        className={classes.input}
+                        type="password"
+                        value={speechKey}
+                        onChange={(_event, data) => handleSettingChange('speechKey', data.value)}
+                    />
+                </Field>
+                <Field label="Speech Region">
+                    <Input
+                        className={classes.input}
+                        value={speechRegion}
+                        onChange={(_event, data) => handleSettingChange('speechRegion', data.value)}
+                    />
                 </Field>
                 {/* <Field label="Enable Developer Mode">
                     <div className={classes.row}>

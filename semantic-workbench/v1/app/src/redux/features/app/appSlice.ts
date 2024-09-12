@@ -82,10 +82,38 @@ export const appSlice = createSlice({
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
+        setInspector: (
+            state: AppState,
+            action: PayloadAction<{ open?: boolean | null; assistantId?: string | null; stateId?: string | null }>,
+        ) => {
+            // Only update the properties that are provided
+            if (!state.inspector) {
+                state.inspector = {};
+            }
+
+            if (action.payload.open !== undefined) {
+                state.inspector.open = action.payload.open ?? false;
+            }
+
+            if (action.payload.assistantId !== undefined) {
+                state.inspector.assistantId = action.payload.assistantId ?? undefined;
+            }
+
+            if (action.payload.stateId !== undefined) {
+                state.inspector.stateId = action.payload.stateId ?? undefined;
+            }
+        },
     },
 });
 
-export const { toggleDevMode, addError, removeError, clearErrors, setChatWidthPercent, setCompletedFirstRun } =
-    appSlice.actions;
+export const {
+    toggleDevMode,
+    addError,
+    removeError,
+    clearErrors,
+    setChatWidthPercent,
+    setCompletedFirstRun,
+    setInspector,
+} = appSlice.actions;
 
 export default appSlice.reducer;

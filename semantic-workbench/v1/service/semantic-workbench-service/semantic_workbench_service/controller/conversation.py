@@ -290,22 +290,21 @@ class ConversationController:
                 Literal[
                     ConversationEventType.participant_created,
                     ConversationEventType.participant_updated,
-                    ConversationEventType.participant_deleted,
-                ],
+                ]
+                | None,
             ]:
                 new_participant = await db.insert_if_not_exists(
                     session,
                     db.UserParticipant(
                         conversation_id=conversation.conversation_id,
                         user_id=user.user_id,
+                        name=user.name,
+                        image=user.image,
+                        service_user=user.service_user,
                         **updates,
                     ),
                 )
-                event_type = (
-                    ConversationEventType.participant_created
-                    if new_participant
-                    else ConversationEventType.participant_updated
-                )
+                event_type = ConversationEventType.participant_created if new_participant else None
 
                 participant = (
                     await session.exec(
@@ -315,16 +314,19 @@ class ConversationController:
                         .with_for_update()
                     )
                 ).one()
+
                 for key, value in updates.items():
-                    setattr(participant, key, value)
+                    if getattr(participant, key) != value:
+                        setattr(participant, key, value)
+                        event_type = event_type or ConversationEventType.participant_updated
 
                     if key == "status":
-                        participant.status_updated_datetime = datetime.datetime.utcnow()
+                        participant.status_updated_datetime = datetime.datetime.now(datetime.UTC)
 
-                session.add(participant)
-
-                await session.commit()
-                await session.refresh(participant)
+                if event_type is not None:
+                    session.add(participant)
+                    await session.commit()
+                    await session.refresh(participant)
 
                 return convert.conversation_participant_from_db_user(participant), event_type
 
@@ -336,8 +338,8 @@ class ConversationController:
                 Literal[
                     ConversationEventType.participant_created,
                     ConversationEventType.participant_updated,
-                    ConversationEventType.participant_deleted,
-                ],
+                ]
+                | None,
             ]:
                 new_participant = await db.insert_if_not_exists(
                     session,
@@ -345,13 +347,11 @@ class ConversationController:
                         conversation_id=conversation.conversation_id,
                         assistant_id=assistant.assistant_id,
                         status=update_participant.status,
+                        name=assistant.name,
+                        image=assistant.image,
                     ),
                 )
-                event_type = (
-                    ConversationEventType.participant_created
-                    if new_participant
-                    else ConversationEventType.participant_updated
-                )
+                event_type = ConversationEventType.participant_created if new_participant else None
                 participant = (
                     await session.exec(
                         select(db.AssistantParticipant)
@@ -365,17 +365,21 @@ class ConversationController:
 
                 active_participant_changed = new_participant
                 if update_participant.active_participant is not None:
+                    event_type = event_type or ConversationEventType.participant_updated
                     active_participant_changed = active_participant_changed or (
                         participant.active_participant != update_participant.active_participant
                     )
                     participant.active_participant = update_participant.active_participant
 
-                participant.status = update_participant.status
-                participant.status_updated_datetime = datetime.datetime.utcnow()
-                session.add(participant)
+                if participant.status != update_participant.status:
+                    event_type = event_type or ConversationEventType.participant_updated
+                    participant.status = update_participant.status
+                    participant.status_updated_datetime = datetime.datetime.now(datetime.UTC)
 
-                await session.commit()
-                await session.refresh(participant)
+                if event_type is not None:
+                    session.add(participant)
+                    await session.commit()
+                    await session.refresh(participant)
 
                 if active_participant_changed and participant.active_participant:
                     try:
@@ -426,8 +430,9 @@ class ConversationController:
                     if conversation is None:
                         raise exceptions.NotFoundError()
 
+                    assistant_id: uuid.UUID | None = None
                     try:
-                        uuid.UUID(participant_id)
+                        assistant_id = uuid.UUID(participant_id)
                         participant_role = "assistant"
                     except ValueError:
                         participant_role = "user"
@@ -449,7 +454,7 @@ class ConversationController:
                             assistant = (
                                 await session.exec(
                                     query.select_assistants_for(user_principal=principal).where(
-                                        db.Assistant.assistant_id == uuid.UUID(participant_id)
+                                        db.Assistant.assistant_id == assistant_id
                                     )
                                 )
                             ).one_or_none()
@@ -476,7 +481,9 @@ class ConversationController:
                         raise exceptions.ForbiddenError()
 
                     assistant = (
-                        await session.exec(select(db.Assistant).where(db.Assistant.assistant_id == uuid.UUID(participant_id)))
+                        await session.exec(
+                            select(db.Assistant).where(db.Assistant.assistant_id == principal.assistant_id)
+                        )
                     ).one_or_none()
                     if assistant is None:
                         raise exceptions.NotFoundError()
@@ -486,20 +493,21 @@ class ConversationController:
 
                     participant, event_type = await update_assistant_participant(conversation, assistant)
 
-            participants = await participant_.get_conversation_participants(
-                session=session, conversation_id=conversation.conversation_id, include_inactive=True
-            )
-
-            await self._notify_event(
-                ConversationEventQueueItem(
-                    event=participant_.participant_event(
-                        event_type=event_type,
-                        conversation_id=conversation.conversation_id,
-                        participant=participant,
-                        participants=participants,
-                    ),
+            if event_type is not None:
+                participants = await participant_.get_conversation_participants(
+                    session=session, conversation_id=conversation.conversation_id, include_inactive=True
                 )
-            )
+
+                await self._notify_event(
+                    ConversationEventQueueItem(
+                        event=participant_.participant_event(
+                            event_type=event_type,
+                            conversation_id=conversation.conversation_id,
+                            participant=participant,
+                            participants=participants,
+                        ),
+                    )
+                )
 
             return participant
 

@@ -29,6 +29,7 @@ flake8 = { version = "^6.1.0", optional = true }
 pytest = { version = "^7.4.3", optional = true }
 pytest-asyncio = {version = "^0.23.5.post1", optional = true}
 pytest-httpx = { version = "^0.30.0", optional = true }
+deepmerge = "^2.0"
 
 [tool.poetry.extras]
 dev = ["black", "flake8", "pytest", "pytest-asyncio", "pytest-httpx"]

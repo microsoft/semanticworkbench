@@ -51,7 +51,25 @@ export const ConversationTranscript: React.FC<ConversationTranscriptProps> = (pr
                     (possible_participant) => possible_participant.id === message.sender.participantId,
                 );
                 const sender = participant ? participant.name : 'Unknown';
-                return `### [${date} ${time}] ${sender}:\n\n${message.content}\n\n---\n\n`;
+                const parts = [];
+                parts.push(`### [${date} ${time}] ${sender}:`);
+                if (message.messageType !== 'chat') {
+                    parts.push(`${message.messageType}: ${message.content}`);
+                } else {
+                    parts.push(message.content);
+                }
+                if (message.filenames && message.filenames.length > 0) {
+                    parts.push(
+                        message.filenames
+                            .map((filename) => {
+                                return `attachment: ${filename}`;
+                            })
+                            .join('\n'),
+                    );
+                }
+                parts.push('----------------------------------\n\n');
+
+                return parts.join('\n\n');
             })
             .join('\n');
 

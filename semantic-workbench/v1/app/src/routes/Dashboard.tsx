@@ -8,10 +8,8 @@ import { ExperimentalNotice } from '../components/App/ExperimentalNotice';
 import { Loading } from '../components/App/Loading';
 import { MyAssistants } from '../components/Assistants/MyAssistants';
 import { MyConversations } from '../components/Conversations/MyConversations';
-import { MyWorkflows } from '../components/Workflows/MyWorkflows';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../services/workbench';
-import { useGetWorkflowDefinitionsQuery } from '../services/workbench/workflow';
 
 const useClasses = makeStyles({
     root: {
@@ -29,11 +27,6 @@ export const Dashboard: React.FC = () => {
         error: conversationsError,
         isLoading: isLoadingConversations,
     } = useGetConversationsQuery();
-    const {
-        data: workflowDefinitions,
-        error: workflowDefinitionsError,
-        isLoading: isLoadingWorkflowDefinitions,
-    } = useGetWorkflowDefinitionsQuery();
 
     const siteUtility = useSiteUtility();
     siteUtility.setDocumentTitle('Semantic Workbench');
@@ -48,14 +41,9 @@ export const Dashboard: React.FC = () => {
         throw new Error(`Error loading conversations: ${errorMessage}`);
     }
 
-    if (workflowDefinitionsError) {
-        const errorMessage = JSON.stringify(workflowDefinitionsError);
-        throw new Error(`Error loading workflow definitions: ${errorMessage}`);
-    }
-
     const appMenuAction = <AppMenu />;
 
-    if (isLoadingAssistants || isLoadingConversations || isLoadingWorkflowDefinitions) {
+    if (isLoadingAssistants || isLoadingConversations) {
         return (
             <AppView title="Semantic Workbench" actions={{ items: [appMenuAction], replaceExisting: true }}>
                 <Loading />

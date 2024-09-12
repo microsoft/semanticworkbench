@@ -1,11 +1,7 @@
 import datetime
 from typing import AsyncContextManager, Awaitable, Callable, Iterable
 
-import httpx
 from semantic_workbench_api_model.assistant_model import ServiceInfoModel
-from semantic_workbench_api_model.assistant_service_client import (
-    AssistantServiceClientBuilder,
-)
 from semantic_workbench_api_model.workbench_model import (
     AssistantServiceRegistration,
     AssistantServiceRegistrationList,
@@ -23,6 +19,7 @@ from ..event import ConversationEventQueueItem
 from . import convert, exceptions
 from . import participant as participant_
 from . import user as user_
+from .assistant_service_client_pool import AssistantServiceClientPool
 
 
 class AssistantServiceRegistrationController:
@@ -32,12 +29,12 @@ class AssistantServiceRegistrationController:
         get_session: Callable[[], AsyncContextManager[AsyncSession]],
         notify_event: Callable[[ConversationEventQueueItem], Awaitable],
         api_key_store: assistant_api_key.ApiKeyStore,
-        httpx_client_factory: Callable[[], httpx.AsyncClient],
+        client_pool: AssistantServiceClientPool,
     ) -> None:
         self._get_session = get_session
         self._notify_event = notify_event
         self._api_key_store = api_key_store
-        self._httpx_client_factory = httpx_client_factory
+        self._client_pool = client_pool
 
     @property
     def _registration_is_secured(self) -> bool:
@@ -59,15 +56,6 @@ class AssistantServiceRegistrationController:
         if api_key_name is None:
             return None
         return await self._api_key_store.get(api_key_name)
-
-    async def _assistant_client_builder(
-        self, registration: db.AssistantServiceRegistration
-    ) -> AssistantServiceClientBuilder:
-        return await assistant_service_client(
-            registration=registration,
-            api_key_store=self._api_key_store,
-            httpx_client_factory=self._httpx_client_factory,
-        )
 
     async def create_registration(
         self,
@@ -367,20 +355,4 @@ class AssistantServiceRegistrationController:
             if registration is None:
                 raise exceptions.NotFoundError()
 
-        return await (await self._assistant_client_builder(registration=registration)).for_service().get_service_info()
-
-
-async def assistant_service_client(
-    registration: db.AssistantServiceRegistration,
-    api_key_store: assistant_api_key.ApiKeyStore,
-    httpx_client_factory: Callable[[], httpx.AsyncClient],
-) -> AssistantServiceClientBuilder:
-    api_key = await api_key_store.get(registration.api_key_name)
-    if api_key is None:
-        raise RuntimeError(f"assistant service {registration.assistant_service_id} does not have API key set")
-
-    return AssistantServiceClientBuilder(
-        base_url=str(registration.assistant_service_url),
-        api_key=api_key,
-        httpx_client_factory=httpx_client_factory,
-    )
+        return await (await self._client_pool.service_client(registration=registration)).get_service_info()

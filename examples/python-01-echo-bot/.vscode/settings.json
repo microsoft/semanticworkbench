@@ -49,10 +49,14 @@
   },
   "cSpell.words": [
     "Codespaces",
+    "deepmerge",
     "devcontainer",
     "dyanmic",
+    "endregion",
+    "fastapi",
     "jsonschema",
     "pydantic",
-    "pyproject"
+    "pyproject",
+    "tiktoken"
   ]
 }

@@ -1,7 +1,6 @@
 import os
 from typing import Annotated, Literal, TypeVar
 
-import dotenv
 from pydantic import AliasChoices, BaseModel, Field, HttpUrl
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -42,7 +41,7 @@ class Settings(BaseSettings):
             )
         ),
     ] = ""
-    workbench_service_ping_interval_seconds: float = 10.0
+    workbench_service_ping_interval_seconds: float = 20.0
 
     assistant_service_id: str | None = None
     assistant_service_name: str | None = None
@@ -86,36 +85,22 @@ class Settings(BaseSettings):
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-def first_env_var(*env_vars: str, include_dotenv: bool = True, include_upper_and_lower: bool = True) -> str | None:
+def first_env_var(*env_vars: str, include_upper_and_lower: bool = True) -> str | None:
     """
-    Get the first environment variable that is set. If include_dotenv is True, then
-    the dotenv values will be checked as well. If include_upper_and_lower is True,
+    Get the first environment variable that is set. If include_upper_and_lower is True,
     then the upper and lower case versions of the env vars will also be checked.
 
     .. warning::
-        The dotenv values may be cached in the environment, so if you have loaded
-        a .env file into the environment, you may need to 'stop' and then 'start' the
-        service to get the new values from the .env file. Using the 'restart' command
-        does not seem to work.
+        When running from VSCode, the .env values are not reloaded on a 'restart'. You
+        need to 'stop' and then 'start' the service to get the new values from the .env
+        file.
     """
     if include_upper_and_lower:
         env_vars = (*env_vars, *[env_var.upper() for env_var in env_vars], *[env_var.lower() for env_var in env_vars])
 
-    dotenv_values = {}
-    # load dotenv values if requested
-    if include_dotenv:
-        dotenv_values = dotenv.dotenv_values()
-
-    # check for the first env var that is set
-    # prioritize the environment over dotenv values
     for env_var in env_vars:
-        # check for the env var in the environment
         if env_var in os.environ:
             return os.environ[env_var]
-
-        # check for the env var in the dotenv values
-        if env_var in dotenv_values:
-            return dotenv_values[env_var]
 
     return None
 

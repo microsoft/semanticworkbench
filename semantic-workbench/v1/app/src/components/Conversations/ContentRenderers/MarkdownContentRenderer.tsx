@@ -46,7 +46,7 @@ export const MarkdownContentRenderer: React.FC<MarkdownContentRendererProps> = (
                     // TODO: determine if we should fix these eslint-disable lines
                     // eslint-disable-next-line react/prop-types
                     const { children, className, node, ...rest } = props;
-                    const match = /language-(\w+)/.exec(className || '');
+                    const match = /language-(\w+)/i.exec(className || '');
 
                     if (match) {
                         const language = match[1];

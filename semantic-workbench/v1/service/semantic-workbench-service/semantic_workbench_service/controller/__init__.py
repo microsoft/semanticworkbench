@@ -1,5 +1,6 @@
 from . import participant, user
 from .assistant import AssistantController
+from .assistant_service_client_pool import AssistantServiceClientPool
 from .assistant_service_registration import AssistantServiceRegistrationController
 from .conversation import ConversationController
 from .exceptions import (
@@ -13,9 +14,11 @@ from .file import FileController
 from .user import UserController
 from .workflow import WorkflowController
 
+
 __all__ = [
     "AssistantController",
     "AssistantServiceRegistrationController",
+    "AssistantServiceClientPool",
     "ConversationController",
     "ForbiddenError",
     "FileController",

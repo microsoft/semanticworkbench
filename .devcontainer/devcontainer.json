@@ -11,13 +11,15 @@
       "version": "latest"
     },
     "ghcr.io/jungaretti/features/make:1": {},
+    "ghcr.io/jungaretti/features/vim:1": {},
     "ghcr.io/devcontainers/features/node:1": {
       "nodeGypDependencies": true,
       "installYarnUsingApt": true,
       "version": "lts",
       "nvmVersion": "latest"
-    }
-    // "ghcr.io/devcontainers/features/azure-cli:1": {}
+    },
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
 
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
@@ -42,7 +44,8 @@
     // Build and restore dependencies for key projects in the repo
     "make_workbench_app": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/app",
     "make_workbench_service": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/service",
-    "make_python_examples01": "make -C /workspaces/semanticworkbench/examples/python-example01",
+    "make_python_01_echo_bot": "make -C /workspaces/semanticworkbench/examples/python-01-echo-bot",
+    "make_python_02_simple_chatbot": "make -C /workspaces/semanticworkbench/examples/python-02-simple-chatbot",
     // Set up git to automatically set up the remote when pushing if it doesn't exist
     "git_config": "git config --add push.autoSetupRemote true"
   },
@@ -52,14 +55,20 @@
     "vscode": {
       "extensions": [
         "GitHub.copilot",
+        "github.codespaces",
         "aaron-bond.better-comments",
         "aarontamasfe.even-better-toml",
         "dbaeumer.vscode-eslint",
+        "epivision.vscode-file-header",
         "esbenp.prettier-vscode",
+        "github.vscode-github-actions",
+        "ms-azuretools.vscode-docker",
         "ms-python.black-formatter",
+        "ms-python.debugpy",
         "ms-python.flake8",
-        "ms-vscode.makefile-tools",
         "ms-python.python",
+        "ms-vscode.makefile-tools",
+        "ms-vscode.vscode-node-azure-pack",
         "streetsidesoftware.code-spell-checker"
       ]
     }

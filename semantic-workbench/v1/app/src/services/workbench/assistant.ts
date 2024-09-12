@@ -75,7 +75,7 @@ const transformAssistantForRequest = (assistant: Partial<Assistant>) => ({
     metadata: assistant.metadata,
 });
 
-const transformResponseToAssistant = (response: any): Assistant => {
+export const transformResponseToAssistant = (response: any): Assistant => {
     try {
         return {
             id: response.id,

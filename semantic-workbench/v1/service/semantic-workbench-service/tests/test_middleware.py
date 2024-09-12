@@ -4,7 +4,8 @@ import fastapi
 from fastapi.testclient import TestClient
 from jose import jwt
 from semantic_workbench_service import assistant_api_key, middleware
-from tests.types import MockUser
+
+from .types import MockUser
 
 
 def api_key_source(initial_api_key: str = ""):

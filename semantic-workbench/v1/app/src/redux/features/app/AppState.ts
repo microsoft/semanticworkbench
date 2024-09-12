@@ -13,4 +13,9 @@ export interface AppState {
         workflow?: boolean;
     };
     chatWidthPercent: number;
+    inspector?: {
+        open?: boolean;
+        assistantId?: string;
+        stateId?: string;
+    };
 }

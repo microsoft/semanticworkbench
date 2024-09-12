@@ -159,7 +159,6 @@ class AssistantParticipant(SQLModel, table=True):
         if assistant is None:
             return
 
-        logger.info("updating assistant participant %s to match assistant %s", self, assistant)
         sqlalchemy.orm.attributes.set_attribute(self, "name", assistant.name)
         sqlalchemy.orm.attributes.set_attribute(self, "image", assistant.image)
 
@@ -407,7 +406,7 @@ async def create_engine(settings: DBSettings) -> AsyncIterator[AsyncEngine]:
 
 
 @sqlalchemy.event.listens_for(Session, "before_flush")
-def receive_before_flush(session: Session, flush_context, instances) -> None:
+def session_before_flush(session: Session, flush_context, instances) -> None:
     for obj in session.dirty:
         if not hasattr(obj, "_on_update"):
             continue

@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Card, Text, Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { Card, Divider, Text, Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
@@ -151,6 +151,18 @@ export const AssistantEditor: React.FC = () => {
                         <Text size={400} weight="semibold">
                             Assistant Configuration
                         </Text>
+                        <Text size={300} italic color="neutralSecondary">
+                            Please practice Responsible AI when configuring your assistant. See the{' '}
+                            <a
+                                href="https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                Microsoft Azure OpenAI Service: System message templates
+                            </a>{' '}
+                            page for suggestions regarding content for the prompts below.
+                        </Text>
+                        <Divider />
                         <AssistantEdit assistant={assistant} />
                     </Card>
                 </div>
