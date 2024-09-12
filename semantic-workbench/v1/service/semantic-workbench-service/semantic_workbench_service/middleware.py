@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 
 verify_bearer_token_signatures = True
 allowed_algorithms = {"RS256"}
-allowed_app_ids = {"15eaae69-458e-463e-9fac-0080fd5d5f64"}
+
+# The same value is set also in "Constants.ts" in the frontend
+allowed_app_ids = {"22cb77c3-ca98-4a26-b4db-ac4dcecba690"}
 
 
 _unauthorized_assistant_exception = HTTPException(
