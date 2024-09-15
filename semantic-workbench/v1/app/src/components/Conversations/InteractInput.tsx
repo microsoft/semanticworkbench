@@ -14,16 +14,7 @@ import {
     LexicalEditor,
     LexicalEditorRefPlugin,
 } from '@fluentui-copilot/react-copilot';
-import {
-    Button,
-    Dropdown,
-    Option,
-    Tooltip,
-    makeStyles,
-    mergeClasses,
-    shorthands,
-    tokens,
-} from '@fluentui/react-components';
+import { Button, Tooltip, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import { Attach20Regular, DocumentRegular, Mic20Regular } from '@fluentui/react-icons';
 import { getEncoding } from 'js-tiktoken';
 import { CLEAR_EDITOR_COMMAND, COMMAND_PRIORITY_LOW, DRAGOVER_COMMAND, DROP_COMMAND, PASTE_COMMAND } from 'lexical';
@@ -43,6 +34,7 @@ import {
 } from '../../services/workbench';
 import { ClearEditorPlugin } from './ChatInputPlugins/ClearEditorPlugin';
 import { ParticipantMentionsPlugin } from './ChatInputPlugins/ParticipantMentionsPlugin';
+import { InputOptionsControl } from './InputOptionsControl';
 
 const useClasses = makeStyles({
     root: {
@@ -84,9 +76,6 @@ const useClasses = makeStyles({
     },
 });
 
-const directedAtDefaultKey = 'all';
-const directedAtDefaultValue = 'All assistants';
-
 interface InteractInputProps {
     conversationId: string;
     additionalContent?: React.ReactNode;
@@ -100,8 +89,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [uploadConversationFiles] = useUploadConversationFilesMutation();
     const [messageTypeValue, setMessageTypeValue] = React.useState<'Chat' | 'Command'>('Chat');
     const [tokenCount, setTokenCount] = React.useState(0);
-    const [directedAtId, setDirectedAtId] = React.useState<string>(directedAtDefaultKey);
-    const [directedAtName, setDirectedAtName] = React.useState<string>(directedAtDefaultValue);
+    const [directedAtId, setDirectedAtId] = React.useState<string>();
     const [attachmentFiles, setAttachmentFiles] = React.useState<File[]>([]);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
@@ -282,8 +270,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         (async () => {
             setIsSubmitting(true);
             const content = data.value.trim();
-            let metadata: Record<string, any> | undefined =
-                directedAtId === directedAtDefaultKey ? undefined : { directed_at: directedAtId };
+            let metadata: Record<string, any> | undefined = directedAtId ? undefined : { directed_at: directedAtId };
 
             const messageType = messageTypeValue.toLowerCase() as 'chat' | 'command';
 
@@ -473,41 +460,11 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             <div className={classes.content}>
                 {/* // this is for injecting controls for supporting features like workflow */}
                 {additionalContent}
-                <div className={classes.row}>
-                    <div className={classes.row}>Message type: {messageTypeValue}</div>
-                    <div className={mergeClasses(classes.row, classes.rowEnd)}>
-                        <div>Directed to:</div>
-                        <div>
-                            <Dropdown
-                                disabled={
-                                    participants?.filter((participant) => participant.role === 'assistant').length ===
-                                        0 || messageTypeValue !== 'Command'
-                                }
-                                className={classes.fullWidth}
-                                placeholder="Select participant"
-                                value={directedAtName}
-                                selectedOptions={[directedAtId]}
-                                onOptionSelect={(_event, data) => {
-                                    setDirectedAtId(data.optionValue as string);
-                                    setDirectedAtName(data.optionText as string);
-                                }}
-                            >
-                                <Option key={directedAtDefaultKey} value={directedAtDefaultKey}>
-                                    {directedAtDefaultValue}
-                                </Option>
-                                {participants
-                                    ?.slice()
-                                    .sort((a, b) => a.name.localeCompare(b.name))
-                                    .filter((participant) => participant.role === 'assistant')
-                                    .map((participant) => (
-                                        <Option key={participant.id} value={participant.id}>
-                                            {participant.name}
-                                        </Option>
-                                    ))}
-                            </Dropdown>
-                        </div>
-                    </div>
-                </div>
+                <InputOptionsControl
+                    messageTypeValue={messageTypeValue}
+                    participants={participants}
+                    onDirectedAtChange={setDirectedAtId}
+                />
                 <ChatInput
                     className={mergeClasses(
                         classes.fullWidth,
