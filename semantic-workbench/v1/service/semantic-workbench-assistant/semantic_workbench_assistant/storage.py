@@ -101,6 +101,36 @@ def model_read(file_path: os.PathLike | str, cls: type[ModelT], strict: bool | N
     return value
 
 
+def model_delete(file_path: os.PathLike) -> None:
+    path = pathlib.Path(file_path)
+    path.unlink(missing_ok=True)
+
+
+def model_exists(file_path: os.PathLike) -> bool:
+    path = pathlib.Path(file_path)
+    return path.exists()
+
+
+def model_list_files(dir_path: os.PathLike) -> Iterator[str]:
+    path = pathlib.Path(dir_path)
+    if not path.is_dir():
+        return
+
+    for file_path in path.iterdir():
+        yield file_path.name
+
+
+def model_read_all_files(dir_path: os.PathLike, cls: type[ModelT]) -> Iterator[ModelT]:
+    path = pathlib.Path(dir_path)
+    if not path.is_dir():
+        return
+
+    for file_path in path.iterdir():
+        value = model_read(file_path, cls)
+        if value is not None:
+            yield value
+
+
 class ModelStorage(Generic[ModelT]):
     """
     Provides file-system storage for pydantic models as a utility for assistant service

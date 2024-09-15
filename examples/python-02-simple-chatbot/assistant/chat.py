@@ -45,7 +45,10 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .config import AssistantConfigModel, ui_schema
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
-from .responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluator, OpenAIContentSafetyEvaluatorConfigModel
+from .responsible_ai.openai_evaluator import (
+    OpenAIContentSafetyEvaluator,
+    OpenAIContentSafetyEvaluatorConfigModel,
+)
 
 logger = logging.getLogger(__name__)
 

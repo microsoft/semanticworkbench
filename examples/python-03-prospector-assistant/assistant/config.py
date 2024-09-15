@@ -1,16 +1,60 @@
 import pathlib
 from typing import Annotated, Literal
-from pydantic import BaseModel, Field, ConfigDict
-from semantic_workbench_assistant import config
-from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
-import openai
 
+import openai
+from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
+from pydantic import BaseModel, ConfigDict, Field
+from semantic_workbench_assistant import config
+
+from .agents.attachment_agent import (
+    AttachmentAgentConfigModel,
+    attachment_agent_config_ui_schema,
+)
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluatorConfigModel
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
 # See: https://rjsf-team.github.io/react-jsonschema-form/docs/
 # Playground / examples: https://rjsf-team.github.io/react-jsonschema-form/
+
+
+class AgentsConfigModel(BaseModel):
+    attachment_agent: Annotated[
+        AttachmentAgentConfigModel,
+        Field(
+            title="Attachment Agent Configuration",
+            description="Configuration for the attachment agent.",
+        ),
+    ] = AttachmentAgentConfigModel()
+
+
+class HighTokenUsageWarning(BaseModel):
+    enabled: Annotated[
+        bool,
+        Field(
+            title="Enabled",
+            description="Whether to warn when the assistant's token usage is high.",
+        ),
+    ] = True
+
+    message: Annotated[
+        str,
+        Field(
+            title="Message",
+            description="The message to display when the assistant's token usage is high.",
+        ),
+    ] = (
+        "The assistant's token usage is high. If there are attachments that are no longer needed, you can delete them"
+        " to free up tokens."
+    )
+
+    threshold: Annotated[
+        int,
+        Field(
+            title="Threshold",
+            description="The threshold percentage at which to warn about high token usage.",
+        ),
+    ] = 90
 
 
 class AzureOpenAIAzureIdentityAuthConfig(BaseModel):
@@ -33,10 +77,7 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
         str,
         Field(
             title="Azure OpenAI API Key",
-            description=(
-                "The Azure OpenAI API key for your resource instance.  If not provided, the service default will be"
-                " used."
-            ),
+            description="The Azure OpenAI API key for your resource instance.",
         ),
     ] = ""
 
@@ -55,7 +96,7 @@ class AzureOpenAIServiceConfig(BaseModel):
         AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
         Field(
             title="Authentication Config",
-            discriminator="auth_method",
+            description="The authentication configuration to use for the Azure OpenAI API.",
         ),
     ] = AzureOpenAIAzureIdentityAuthConfig()
 
@@ -104,8 +145,8 @@ class AzureOpenAIServiceConfig(BaseModel):
     )
 
     def new_client(self, api_version: str) -> openai.AsyncOpenAI:
-        match self.auth_config.auth_method:
-            case "api-key":
+        match self.auth_config:
+            case AzureOpenAIApiKeyAuthConfig():
                 return openai.AsyncAzureOpenAI(
                     api_key=self.auth_config.azure_openai_api_key,
                     azure_deployment=self.azure_openai_deployment,
@@ -113,7 +154,7 @@ class AzureOpenAIServiceConfig(BaseModel):
                     api_version=api_version,
                 )
 
-            case "azure-identity":
+            case AzureOpenAIAzureIdentityAuthConfig():
                 return openai.AsyncAzureOpenAI(
                     azure_ad_token_provider=AzureOpenAIServiceConfig._azure_bearer_token_provider,
                     azure_deployment=self.azure_openai_deployment,
@@ -212,7 +253,6 @@ def load_guardrails_prompt_from_text_file() -> str:
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
-
     enable_debug_output: Annotated[
         bool,
         Field(
@@ -238,6 +278,12 @@ class AssistantConfigModel(BaseModel):
         " to download the midi file."
     )
 
+    # "You are an AI assistant that helps teams synthesize information from conversations and documents to create"
+    #     " a shared understanding of complex topics. As you do so, there are tools observing the conversation and"
+    #     " they will automatically create an outline and a document based on the conversation, you don't need to do"
+    #     " anything special to trigger this, just have a conversation with the user. Focus on assisting the user and"
+    #     " drawing out the info needed in order to bring clarity to the topic at hand."
+
     guardrails_prompt: Annotated[
         str,
         Field(
@@ -257,7 +303,20 @@ class AssistantConfigModel(BaseModel):
             title="Welcome Message",
             description="The message to display when the conversation starts.",
         ),
-    ] = "Hello! How can I help you today?"
+    ] = (
+        'Hello! I am a "co-intelligence" assistant that can help you synthesize information from conversations and'
+        " documents to create a shared understanding of complex topics. Let's get started by having a conversation!"
+        " You can also attach .docx, text, and image files to your chat messages to help me better understand the"
+        " context of our conversation. Where would you like to start?"
+    )
+
+    high_token_usage_warning: Annotated[
+        HighTokenUsageWarning,
+        Field(
+            title="High Token Usage Warning",
+            description="Configuration for the high token usage warning.",
+        ),
+    ] = HighTokenUsageWarning()
 
     request_config: Annotated[
         RequestConfig,
@@ -274,6 +333,14 @@ class AssistantConfigModel(BaseModel):
         ),
     ] = AzureOpenAIServiceConfig()
 
+    agents_config: Annotated[
+        AgentsConfigModel,
+        Field(
+            title="Agents Configuration",
+            description="Configuration for the assistant agents.",
+        ),
+    ] = AgentsConfigModel()
+
     # add any additional configuration fields
 
 
@@ -284,6 +351,11 @@ ui_schema = {
     "guardrails_prompt": {
         "ui:widget": "textarea",
         "ui:enableMarkdownInDescription": True,
+    },
+    "high_token_usage_warning": {
+        "message": {
+            "ui:widget": "textarea",
+        },
     },
     "service_config": {
         "ui:widget": "radio",
@@ -301,20 +373,10 @@ ui_schema = {
         },
         "azure_openai_api_key": {
             "ui:widget": "password",
-            "ui:placeholder": "[optional]",
         },
-        "azure_openai_endpoint": {
-            "ui:placeholder": "[optional]",
-        },
-        "auth_config": {
-            "ui:widget": "radio",
-            "ui:options": {
-                "hide_title": True,
-            },
-            "auth_method": {
-                "ui:widget": "hidden",
-            },
-        },
+    },
+    "agents_config": {
+        "attachment_agent": attachment_agent_config_ui_schema,
     },
     # add UI schema for the additional configuration fields
     # see: https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/uiSchema
