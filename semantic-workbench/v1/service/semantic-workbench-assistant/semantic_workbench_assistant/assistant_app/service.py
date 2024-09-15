@@ -122,7 +122,7 @@ class AssistantService(FastAPIAssistantService):
 
         super().__init__(
             service_id=self.assistant_app._assistant_service_id,
-            service_name=self.assistant_app._assistant_service_id,
+            service_name=self.assistant_app._assistant_service_name,
             service_description=self.assistant_app._assistant_service_description,
             register_lifespan_handler=register_lifespan_handler,
         )

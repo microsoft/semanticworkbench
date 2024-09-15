@@ -128,7 +128,7 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
     try:
-        # replace the following with your own logic for processing a message created event
+        # respond to the conversation message
         await respond_to_conversation(
             context,
             message=message,
@@ -163,12 +163,18 @@ async def on_file_created(context: ConversationContext, event: ConversationEvent
     Handle the event triggered when a file is created in the conversation.
     """
 
-    # process the file to create an attachment
-    await create_or_update_attachment_from_file(
-        context,
-        file,
-        metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
-    )
+    # update the participant status to indicate the assistant processing the new file
+    await context.update_participant_me(UpdateParticipant(status="adding attachment..."))
+    try:
+        # process the file to create an attachment
+        await create_or_update_attachment_from_file(
+            context,
+            file,
+            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+        )
+    finally:
+        # update the participant status to indicate the assistant is done processing the new file
+        await context.update_participant_me(UpdateParticipant(status=None))
 
 
 @assistant.events.conversation.file.on_updated
@@ -177,12 +183,18 @@ async def on_file_updated(context: ConversationContext, event: ConversationEvent
     Handle the event triggered when a file is updated in the conversation.
     """
 
-    # process the file to update an attachment
-    await create_or_update_attachment_from_file(
-        context,
-        file,
-        metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
-    )
+    # update the participant status to indicate the assistant is updating the attachment
+    await context.update_participant_me(UpdateParticipant(status="updating attachment..."))
+    try:
+        # process the file to update an attachment
+        await create_or_update_attachment_from_file(
+            context,
+            file,
+            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+        )
+    finally:
+        # update the participant status to indicate the assistant is done updating the attachment
+        await context.update_participant_me(UpdateParticipant(status=None))
 
 
 @assistant.events.conversation.file.on_deleted
@@ -191,8 +203,14 @@ async def on_file_deleted(context: ConversationContext, event: ConversationEvent
     Handle the event triggered when a file is deleted in the conversation.
     """
 
-    # delete the attachment for the file
-    await delete_attachment_for_file(context, file)
+    # update the participant status to indicate the assistant is deleting the attachment
+    await context.update_participant_me(UpdateParticipant(status="deleting attachment..."))
+    try:
+        # delete the attachment for the file
+        await delete_attachment_for_file(context, file)
+    finally:
+        # update the participant status to indicate the assistant is done deleting the attachment
+        await context.update_participant_me(UpdateParticipant(status=None))
 
 
 # endregion

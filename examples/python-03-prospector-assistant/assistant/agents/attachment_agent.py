@@ -137,14 +137,20 @@ class AttachmentAgent:
                 messages.append({
                     "role": "system",
                     "content": [
-                        f"<ATTACHMENT>\n\t<FILENAME>{attachment.filename}</FILENAME>\n\t<IMAGE>",
+                        {
+                            "type": "text",
+                            "text": f"<ATTACHMENT>\n\t<FILENAME>{attachment.filename}</FILENAME>\n\t<IMAGE>",
+                        },
                         {
                             "type": "image_url",
                             "image_url": {
                                 "url": attachment.content,
                             },
                         },
-                        "</IMAGE>\n</ATTACHMENT>",
+                        {
+                            "type": "text",
+                            "text": "</IMAGE>\n</ATTACHMENT>",
+                        },
                     ],
                 })
                 continue
