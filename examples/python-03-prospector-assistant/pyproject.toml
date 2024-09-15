@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "assistant"
 version = "0.1.0"
-description = "Exploration of a python Semantic Workbench OpenAI assistant to help mine artifacts for ideas.
+description = "Exploration of a python Semantic Workbench OpenAI assistant to help mine artifacts for ideas."
 authors = ["Semantic Workbench Team"]
 readme = "README.md"
 packages = [{ include = "assistant" }]
