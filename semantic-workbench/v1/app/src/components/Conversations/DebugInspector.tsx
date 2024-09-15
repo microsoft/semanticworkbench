@@ -70,11 +70,9 @@ export const DebugInspector: React.FC<DebugInspectorProps> = (props) => {
                                     invertTheme
                                     collectionLimit={10}
                                     shouldExpandNodeInitially={(keyPath /*, data, level*/) => {
-                                        if (keyPath[0] === 'content_safety') {
-                                            return false;
-                                        }
-
-                                        return true;
+                                        // Leave any of the following keys collapsed
+                                        const keepCollapsed = ['content_safety', 'image_url'];
+                                        return !keepCollapsed.includes(String(keyPath[0]));
                                     }}
                                     theme={{
                                         base00: '#000000',
