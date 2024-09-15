@@ -17,6 +17,10 @@
       "path": "../../examples/python-02-simple-chatbot"
     },
     {
+      "name": "examples/python-03-prospector-assistant",
+      "path": "../../examples/python-03-prospector-assistant"
+    },
+    {
       "name": "assistant-connector",
       "path": "../../assistant-connector"
     },
@@ -33,6 +37,7 @@
       "path": "../../.devcontainer"
     },
     {
+      "name": ".vscode",
       "path": "../../.vscode"
     }
   ]

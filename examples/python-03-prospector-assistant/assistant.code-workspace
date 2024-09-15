@@ -1,0 +1,11 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "examples/python-03-prospector-assistant"
+    },
+    {
+      "path": "../.."
+    }
+  ]
+}
