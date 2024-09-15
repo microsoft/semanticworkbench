@@ -26,7 +26,7 @@ import {
 } from '@fluentui/react-components';
 import { Attach20Regular, DocumentRegular, Mic20Regular } from '@fluentui/react-icons';
 import { getEncoding } from 'js-tiktoken';
-import { CLEAR_EDITOR_COMMAND } from 'lexical';
+import { CLEAR_EDITOR_COMMAND, COMMAND_PRIORITY_LOW, DRAGOVER_COMMAND, DROP_COMMAND, PASTE_COMMAND } from 'lexical';
 import * as speechSdk from 'microsoft-cognitiveservices-speech-sdk';
 import React from 'react';
 import { Constants } from '../../Constants';
@@ -106,6 +106,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
     const [recognizer, setRecognizer] = React.useState<speechSdk.SpeechRecognizer>();
+    const [editorIsInitialized, setEditorIsInitialized] = React.useState(false);
     const editorRef = React.useRef<LexicalEditor | null>();
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
     const dispatch = useAppDispatch();
@@ -133,6 +134,130 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         const errorMessage = JSON.stringify(participantsError);
         console.error(`Failed to load conversation participants: ${errorMessage}`);
     }
+
+    const editorRefCallback = React.useCallback((editor: LexicalEditor) => {
+        editorRef.current = editor;
+
+        // set the editor as initialized
+        setEditorIsInitialized(true);
+    }, []);
+
+    React.useEffect(() => {
+        if (!editorIsInitialized) return;
+
+        if (!editorRef.current) {
+            console.error('Failed to get editor reference after initialization');
+            return;
+        }
+        const editor = editorRef.current;
+
+        const removePasteListener = editor.registerCommand(
+            PASTE_COMMAND,
+            (event: ClipboardEvent) => {
+                console.log('paste event', event);
+
+                const clipboardItems = event.clipboardData?.items;
+                if (!clipboardItems) return false;
+
+                for (const item of clipboardItems) {
+                    if (item.kind === 'file') {
+                        // limit the number of attachments to the maximum allowed
+                        if (attachmentFiles.length >= Constants.app.maxFileAttachmentsPerMessage) {
+                            dispatch(
+                                addError({
+                                    title: 'Attachment limit reached',
+                                    message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
+                                }),
+                            );
+                            return true;
+                        }
+
+                        const file = item.getAsFile();
+                        if (file) {
+                            // ensure the filename is unique by appending a timestamp before the extension
+                            const timestamp = new Date().getTime();
+                            const filename = `${file.name.replace(/\.[^/.]+$/, '')}_${timestamp}${file.name.match(
+                                /\.[^/.]+$/,
+                            )}`;
+
+                            // file.name is read-only, so create a new file object with the new name
+                            // make sure to use the same file contents, content type, etc.
+                            const updatedFile =
+                                filename !== file.name ? new File([file], filename, { type: file.type }) : file;
+
+                            // add the file to the list of attachments
+                            setAttachmentFiles((prevFiles) => [...prevFiles, updatedFile]);
+
+                            // Prevent default paste for file items
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            // Indicate command was handled
+                            return true;
+                        }
+                    }
+                }
+
+                // Allow default handling for non-file paste
+                return false;
+            },
+            COMMAND_PRIORITY_LOW,
+        );
+
+        const removeDragOverListener = editor.registerCommand(
+            DRAGOVER_COMMAND,
+            (event: DragEvent) => {
+                console.log('dragover event', event);
+
+                // Prevent default dragover behavior
+                event.preventDefault();
+                event.stopPropagation();
+                return true;
+            },
+            COMMAND_PRIORITY_LOW,
+        );
+
+        const removeDropListener = editor.registerCommand(
+            DROP_COMMAND,
+            (event: DragEvent) => {
+                console.log('drop event', event);
+
+                const files = event.dataTransfer?.files;
+                if (files) {
+                    const filesSet = new Set<File>(attachmentFiles);
+                    for (let i = 0; i < Math.min(files.length, Constants.app.maxFileAttachmentsPerMessage); i++) {
+                        filesSet.add(files[i]);
+                    }
+                    setAttachmentFiles(Array.from(filesSet));
+
+                    if (files.length > Constants.app.maxFileAttachmentsPerMessage) {
+                        // show a warning that only the first N files were attached
+                        dispatch(
+                            addError({
+                                title: 'Attachment limit reached',
+                                message: `Only the first ${Constants.app.maxFileAttachmentsPerMessage} files were attached`,
+                            }),
+                        );
+                    }
+                }
+
+                // Prevent default drop behavior
+                event.preventDefault();
+                event.stopPropagation();
+
+                // Indicate command was handled
+                return true;
+            },
+            COMMAND_PRIORITY_LOW,
+        );
+
+        return () => {
+            // Clean up listeners on unmount
+            removePasteListener();
+            removeDragOverListener();
+            removeDropListener();
+        };
+    }, [attachmentFiles, dispatch, editorIsInitialized, editorRef, setAttachmentFiles]);
 
     React.useEffect(() => {
         if (recognizer) return;
@@ -446,7 +571,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                             parent={document.getElementById('app')}
                         />
                     )}
-                    <LexicalEditorRefPlugin editorRef={editorRef} />
+                    <LexicalEditorRefPlugin editorRef={editorRefCallback} />
                 </ChatInput>
             </div>
         </div>
