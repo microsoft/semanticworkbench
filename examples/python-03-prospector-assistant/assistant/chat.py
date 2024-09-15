@@ -164,7 +164,7 @@ async def on_file_created(context: ConversationContext, event: ConversationEvent
     """
 
     # update the participant status to indicate the assistant processing the new file
-    await context.update_participant_me(UpdateParticipant(status="adding attachment..."))
+    await context.update_participant_me(UpdateParticipant(status=f"adding attachment '{file.filename}'..."))
     try:
         # process the file to create an attachment
         await create_or_update_attachment_from_file(
@@ -184,7 +184,7 @@ async def on_file_updated(context: ConversationContext, event: ConversationEvent
     """
 
     # update the participant status to indicate the assistant is updating the attachment
-    await context.update_participant_me(UpdateParticipant(status="updating attachment..."))
+    await context.update_participant_me(UpdateParticipant(status=f"updating attachment '{file.filename}'..."))
     try:
         # process the file to update an attachment
         await create_or_update_attachment_from_file(
@@ -204,7 +204,7 @@ async def on_file_deleted(context: ConversationContext, event: ConversationEvent
     """
 
     # update the participant status to indicate the assistant is deleting the attachment
-    await context.update_participant_me(UpdateParticipant(status="deleting attachment..."))
+    await context.update_participant_me(UpdateParticipant(status=f"deleting attachment '{file.filename}'..."))
     try:
         # delete the attachment for the file
         await delete_attachment_for_file(context, file)
