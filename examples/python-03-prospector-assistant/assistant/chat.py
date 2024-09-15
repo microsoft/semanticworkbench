@@ -321,6 +321,14 @@ async def respond_to_conversation(
                 "content": _format_message(message, participants_response.participants),
             })
         else:
+            # we are working with the messages in reverse order, so include any attachments before the message
+            if message.filenames and len(message.filenames) > 0:
+                # add a system message to indicate the attachments
+                history_messages.append({
+                    "role": "system",
+                    "content": f"Attachment(s): {', '.join(message.filenames)}",
+                })
+            # add the user message to the completion messages
             history_messages.append({
                 "role": "user",
                 "content": _format_message(message, participants_response.participants),

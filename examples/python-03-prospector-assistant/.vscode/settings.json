@@ -57,8 +57,10 @@
     "endregion",
     "fastapi",
     "jsonschema",
+    "Langchain",
     "moderations",
     "openai",
+    "pdfplumber",
     "pydantic",
     "pyproject",
     "tiktoken"
