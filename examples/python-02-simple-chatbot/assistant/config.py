@@ -1,11 +1,15 @@
 import pathlib
 from typing import Annotated, Literal
-from pydantic import BaseModel, Field, ConfigDict
-from semantic_workbench_assistant import config
-from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
-import openai
 
-from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluatorConfigModel
+import openai
+from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
+from pydantic import BaseModel, ConfigDict, Field
+from semantic_workbench_assistant import config
+
+from .responsible_ai.azure_evaluator import (
+    AzureContentSafetyEvaluatorConfigModel,
+    azure_content_safety_evaluator_ui_schema,
+)
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -68,9 +72,7 @@ class AzureOpenAIServiceConfig(BaseModel):
                 " be used."
             ),
         ),
-    ] = (
-        config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
-    )
+    ] = config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
 
     azure_openai_deployment: Annotated[
         str,
@@ -212,7 +214,6 @@ def load_guardrails_prompt_from_text_file() -> str:
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
-
     enable_debug_output: Annotated[
         bool,
         Field(
@@ -314,6 +315,9 @@ ui_schema = {
             "auth_method": {
                 "ui:widget": "hidden",
             },
+        },
+        "azure_content_safety_config": {
+            **azure_content_safety_evaluator_ui_schema,
         },
     },
     # add UI schema for the additional configuration fields

@@ -41,7 +41,7 @@ class AzureContentSafetyServiceKeyAuthConfig(BaseModel):
             title="Azure Content Safety Service Key",
             description="The Azure Content Safety service key for your resource instance.",
         ),
-    ] = config.first_env_var("azure_content_safety_service_key", "assistant__azure_content_safety_service_key") or ""
+    ] = ""
 
 
 class AzureContentSafetyEvaluatorConfigModel(BaseModel):
