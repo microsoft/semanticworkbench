@@ -17,8 +17,8 @@
       "path": "../../examples/python-02-simple-chatbot"
     },
     {
-      "name": "examples/python-03-prospector-assistant",
-      "path": "../../examples/python-03-prospector-assistant"
+      "name": "assistant/prospector-assistant",
+      "path": "../../assistant/prospector-assistant"
     },
     {
       "name": "assistant-connector",
