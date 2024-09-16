@@ -9,8 +9,9 @@ packages = [{ include = "assistant" }]
 [tool.poetry.dependencies]
 python = "~3.11"
 aiohttp = "^3.10.5"
-azure-identity = "^1.17.1"
 azure-ai-contentsafety = "^1.0.0"
+azure-core = "^1.31.0"
+azure-identity = "^1.17.1"
 deepmerge = "^2.0"
 docx2txt = "^0.8"
 html2docx = "^1.6.0"
