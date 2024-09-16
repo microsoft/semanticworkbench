@@ -13,7 +13,6 @@ class LoggingSettings(BaseSettings):
 
 
 class JSONHandler(logging.StreamHandler):
-
     def __init__(self):
         super().__init__()
         self.setFormatter(

@@ -7,12 +7,15 @@ from fastapi.testclient import TestClient
 from pytest_httpx import HTTPXMock
 from semantic_workbench_api_model import assistant_model
 from semantic_workbench_api_model.workbench_model import AssistantServiceRegistration
-from semantic_workbench_assistant import canonical, settings
+from semantic_workbench_assistant import canonical, settings, storage
 
 
-@pytest.fixture()
-def canonical_assistant_service() -> FastAPI:
-    return canonical.app
+@pytest.fixture
+def canonical_assistant_service(
+    monkeypatch: pytest.MonkeyPatch, storage_settings: storage.FileStorageSettings
+) -> FastAPI:
+    monkeypatch.setattr(settings, "storage", storage_settings)
+    return canonical.canonical_app.fastapi_app()
 
 
 @pytest.fixture()

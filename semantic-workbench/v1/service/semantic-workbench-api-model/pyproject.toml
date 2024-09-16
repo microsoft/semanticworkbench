@@ -16,19 +16,11 @@ httpx = "~0.27.0"
 pydantic = "^2.7.4"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.3.0"
-flake8 = "^6.1.0"
+ruff = "^0.6.4"
 
 [build-system]
 requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.isort]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-line_length = 120
-profile = "black"
 
 [tool.pyright]
 exclude = ["venv", ".venv"]

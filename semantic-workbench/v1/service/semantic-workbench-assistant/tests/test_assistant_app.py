@@ -21,6 +21,7 @@ from semantic_workbench_api_model import (
     workbench_model,
     workbench_service_client,
 )
+from semantic_workbench_assistant import settings, storage
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
     AssistantContext,
@@ -48,7 +49,10 @@ class AllOKTransport(httpx.AsyncBaseTransport):
         return httpx.Response(200)
 
 
-async def test_assistant_with_event_handlers(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_assistant_with_event_handlers(
+    monkeypatch: pytest.MonkeyPatch, storage_settings: storage.FileStorageSettings
+) -> None:
+    monkeypatch.setattr(settings, "storage", storage_settings)
 
     app = AssistantApp(
         assistant_service_id="assistant_id",
@@ -174,7 +178,10 @@ async def test_assistant_with_event_handlers(monkeypatch: pytest.MonkeyPatch) ->
         assert message_chat_created_calls == 1
 
 
-async def test_assistant_with_inspector(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_assistant_with_inspector(
+    monkeypatch: pytest.MonkeyPatch, storage_settings: storage.FileStorageSettings
+) -> None:
+    monkeypatch.setattr(settings, "storage", storage_settings)
 
     class TestInspectorImplementation:
         display_name = "Test"
@@ -200,7 +207,6 @@ async def test_assistant_with_inspector(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(workbench_service_client, "httpx_transport", AllOKTransport())
 
     async with LifespanManager(service):
-
         assistant_id = uuid.uuid4()
         conversation_id = uuid.uuid4()
 
@@ -241,7 +247,10 @@ async def test_assistant_with_inspector(monkeypatch: pytest.MonkeyPatch) -> None
         )
 
 
-async def test_assistant_with_state_exporter(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_assistant_with_state_exporter(
+    monkeypatch: pytest.MonkeyPatch, storage_settings: storage.FileStorageSettings
+) -> None:
+    monkeypatch.setattr(settings, "storage", storage_settings)
 
     class SimpleStateExporter:
         def __init__(self) -> None:
@@ -271,7 +280,6 @@ async def test_assistant_with_state_exporter(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(workbench_service_client, "httpx_transport", AllOKTransport())
 
     async with LifespanManager(service):
-
         assistant_id = uuid.uuid4()
         assistant_request = assistant_model.AssistantPutRequestModel(assistant_name="my assistant")
 
@@ -321,7 +329,10 @@ async def test_assistant_with_state_exporter(monkeypatch: pytest.MonkeyPatch) ->
         assert bytes_out == import_bytes
 
 
-async def test_assistant_with_config_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_assistant_with_config_provider(
+    monkeypatch: pytest.MonkeyPatch, storage_settings: storage.FileStorageSettings
+) -> None:
+    monkeypatch.setattr(settings, "storage", storage_settings)
 
     class TestConfigModel(BaseModel):
         test_key: str = "test_value"
@@ -343,7 +354,6 @@ async def test_assistant_with_config_provider(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(workbench_service_client, "httpx_transport", AllOKTransport())
 
     async with LifespanManager(service):
-
         assistant_id = uuid.uuid4()
         assistant_request = assistant_model.AssistantPutRequestModel(assistant_name="my assistant")
 
@@ -394,11 +404,9 @@ async def test_assistant_with_config_provider(monkeypatch: pytest.MonkeyPatch) -
 
 
 async def test_file_system_storage_state_data_provider_to_empty_dir():
-
     data_provider = FileStorageConversationDataExporter()
 
     with tempfile.TemporaryDirectory() as src_temp_dir, tempfile.TemporaryDirectory() as dest_temp_dir:
-
         src_dir_path = pathlib.Path(src_temp_dir)
 
         (src_dir_path / "test.txt").write_text("Hello, world")
@@ -434,7 +442,6 @@ async def test_file_system_storage_state_data_provider_to_empty_dir():
         )
 
         async with data_provider.export(src_conversation_context) as stream:
-
             await data_provider.import_(dest_conversation_context, stream)
 
         assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
@@ -443,11 +450,9 @@ async def test_file_system_storage_state_data_provider_to_empty_dir():
 
 
 async def test_file_system_storage_state_data_provider_to_non_empty_dir():
-
     data_provider = FileStorageConversationDataExporter()
 
     with tempfile.TemporaryDirectory() as src_temp_dir, tempfile.TemporaryDirectory() as dest_temp_dir:
-
         # set up contents of the non-empty destination directory
         dest_dir_path = pathlib.Path(dest_temp_dir)
 
@@ -496,7 +501,6 @@ async def test_file_system_storage_state_data_provider_to_non_empty_dir():
         )
 
         async with data_provider.export(src_conversation_context) as stream:
-
             await data_provider.import_(dest_conversation_context, stream)
 
         assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
@@ -522,7 +526,6 @@ class UnknownErrorForTest(Exception):
 async def test_translate_assistant_errors(
     raise_exception: Exception, expected_exception: type[Exception], expected_status_code: int | None
 ) -> None:
-
     @translate_assistant_errors
     def raise_err_sync() -> None:
         raise raise_exception

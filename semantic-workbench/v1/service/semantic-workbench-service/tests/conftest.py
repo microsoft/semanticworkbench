@@ -1,7 +1,6 @@
 import asyncio
-import os
 import pathlib
-import shutil
+import tempfile
 import uuid
 from typing import AsyncGenerator, Iterator
 
@@ -23,35 +22,27 @@ from semantic_workbench_api_model import (
 from semantic_workbench_service import files, middleware
 from semantic_workbench_service import service as workbenchservice
 from semantic_workbench_service.api import FastAPILifespan
+from semantic_workbench_service.config import DBSettings
+
 from tests.types import MockUser
 
 
-@pytest.fixture(scope="session")
-def service_dir(request: pytest.FixtureRequest) -> str:
-    if "service" not in os.path.split(request.config.rootpath):
-        pytest.fail("service tests must be run from the service directory or a child directory of service")
-    path = request.config.rootpath
-    while path.name != "service":
-        path = path.parent
-    return str(path)
-
-
 def create_test_user(monkeypatch: pytest.MonkeyPatch) -> MockUser:
-    id = str(uuid.uuid4())
-    name = f"test user {id}"
-    test_user = MockUser(tenant_id=id, object_id=id, name=name)
+    random_id = str(uuid.uuid4())
+    name = f"test user {random_id}"
+    test_user = MockUser(tenant_id=random_id, object_id=random_id, name=name)
     # monkeypatch the allowed_algorithms and app_ids for tests
     monkeypatch.setattr(middleware, "allowed_algorithms", {test_user.token_algo})
     monkeypatch.setattr(middleware, "allowed_app_ids", {test_user.app_id})
     return test_user
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_user(monkeypatch: pytest.MonkeyPatch) -> MockUser:
     return create_test_user(monkeypatch)
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_user_2(monkeypatch: pytest.MonkeyPatch) -> MockUser:
     return create_test_user(monkeypatch)
 
@@ -73,30 +64,25 @@ def pytest_addoption(parser: pytest.Parser):
 
 
 @pytest.fixture(scope="session")
-def docker_compose_file(service_dir) -> str:
-    return os.path.join(service_dir, "semantic-workbench-service", "tests", "docker-compose.yaml")
+def docker_compose_file() -> pathlib.Path:
+    return pathlib.Path(__file__).parent / "docker-compose.yaml"
 
 
-@pytest.fixture()
-async def db_url(
-    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest, service_dir
-) -> AsyncGenerator[str, None]:
-
-    echo = request.config.option.echosql
-    monkeypatch.setattr(semantic_workbench_service.settings.db, "echosql", echo)
+@pytest.fixture
+async def db_settings(
+    request: pytest.FixtureRequest,
+) -> AsyncGenerator[DBSettings, None]:
+    db_settings = semantic_workbench_service.settings.db.model_copy()
+    db_settings.echosql = request.config.option.echosql
 
     match request.config.option.dbtype:
         case "sqlite":
-            path = os.path.join(service_dir, ".data", f"{uuid.uuid4().hex}.db")
-            db_url = f"sqlite:///{path}"
-            monkeypatch.setattr(semantic_workbench_service.settings.db, "url", db_url)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                path = pathlib.Path(temp_dir) / f"{uuid.uuid4().hex}.db"
+                db_url = f"sqlite:///{path}"
+                db_settings.url = db_url
 
-            try:
-                yield db_url
-            finally:
-                pathlib.Path(path).unlink(missing_ok=True)
-                pathlib.Path(f"{path}-shm").unlink(missing_ok=True)
-                pathlib.Path(f"{path}-wal").unlink(missing_ok=True)
+                yield db_settings
 
         case "postgresql":
             # start docker container with postgres
@@ -108,19 +94,25 @@ async def db_url(
             admin_db_url = f"{postgresql_url}/postgres"
 
             db_url = f"{postgresql_url}/{db_name}"
-            monkeypatch.setattr(semantic_workbench_service.settings.db, "url", db_url)
-            monkeypatch.setattr(semantic_workbench_service.settings.db, "postgresql_ssl_mode", "disable")
-            monkeypatch.setattr(semantic_workbench_service.settings.db, "postgresql_pool_size", 1)
+            db_settings.url = db_url
+            db_settings.postgresql_ssl_mode = "disable"
+            db_settings.postgresql_pool_size = 1
             # disable migrations on startup for tests
-            monkeypatch.setattr(semantic_workbench_service.settings.db, "migrate_on_startup", False)
+            db_settings.migrate_on_startup = False
 
             async def db_is_up() -> bool:
                 try:
                     conn = await asyncpg.connect(dsn=admin_db_url)
                     await conn.close()
-                    return True
-                except Exception:
+                except (
+                    asyncio.TimeoutError,
+                    ConnectionResetError,
+                    asyncpg.exceptions.CannotConnectNowError,
+                    ConnectionError,
+                ):
                     return False
+                else:
+                    return True
 
             async def wait_until_responsive(timeout: float, pause: float) -> None:
                 async with asyncio.timeout(timeout):
@@ -136,10 +128,11 @@ async def db_url(
                 await admin_connection.execute(f"CREATE DATABASE {db_name}")
 
                 try:
-                    yield db_url
+                    yield db_settings
                 finally:
                     await admin_connection.execute(
-                        "select pg_terminate_backend(pid) from pg_stat_activity where datname=$1", db_name
+                        "select pg_terminate_backend(pid) from pg_stat_activity where datname=$1",
+                        db_name,
                     )
                     await admin_connection.execute(f"DROP DATABASE {db_name}")
 
@@ -147,19 +140,23 @@ async def db_url(
                 await admin_connection.close()
 
 
-@pytest.fixture()
-def file_storage(monkeypatch: pytest.MonkeyPatch, service_dir) -> Iterator[files.Storage]:
-    path = os.path.join(service_dir, ".data", f"test-{uuid.uuid4().hex}")
-    monkeypatch.setattr(semantic_workbench_service.settings.storage, "root", path)
-    storage = files.Storage(semantic_workbench_service.settings.storage)
-    try:
-        yield storage
-    finally:
-        shutil.rmtree(path, ignore_errors=True)
+@pytest.fixture
+def storage_settings() -> Iterator[files.StorageSettings]:
+    storage_settings = semantic_workbench_service.settings.storage.model_copy()
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        storage_settings.root = temp_dir
+        yield storage_settings
 
 
-@pytest.fixture()
-def workbench_service(db_url, file_storage, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
+@pytest.fixture
+def workbench_service(
+    db_settings: DBSettings,
+    storage_settings: files.StorageSettings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> FastAPI:
+    monkeypatch.setattr(semantic_workbench_service.settings, "db", db_settings)
+    monkeypatch.setattr(semantic_workbench_service.settings, "storage", storage_settings)
 
     api_key = uuid.uuid4().hex
 
@@ -186,30 +183,16 @@ def workbench_service(db_url, file_storage, monkeypatch: pytest.MonkeyPatch) -> 
     return app
 
 
-@pytest.fixture()
-def assistant_file_storage(
-    request: pytest.FixtureRequest,
-    service_dir,
-) -> Iterator[semantic_workbench_assistant.storage.FileStorage]:
-    path = os.path.join(service_dir, ".data", f"test-assistant-{uuid.uuid4().hex}")
-    storage = semantic_workbench_assistant.storage.FileStorage(
-        semantic_workbench_assistant.storage.FileStorageSettings(root=path)
-    )
-    try:
-        yield storage
-    finally:
-        shutil.rmtree(path, ignore_errors=True)
-
-
-@pytest.fixture()
+@pytest.fixture
 def canonical_assistant_service(
-    assistant_file_storage: semantic_workbench_assistant.storage.FileStorage,
     monkeypatch: pytest.MonkeyPatch,
-) -> FastAPI:
+) -> Iterator[FastAPI]:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        monkeypatch.setattr(semantic_workbench_assistant.settings.storage, "root", temp_dir)
 
-    assistant_app = semantic_workbench_assistant.canonical.app
+        assistant_app = semantic_workbench_assistant.canonical.canonical_app.fastapi_app()
 
-    # configure assistant client to use a specific transport that directs requests to the assistant app
-    monkeypatch.setattr(assistant_service_client, "httpx_transport", httpx.ASGITransport(app=assistant_app))
+        # configure assistant client to use a specific transport that directs requests to the assistant app
+        monkeypatch.setattr(assistant_service_client, "httpx_transport", httpx.ASGITransport(app=assistant_app))
 
-    return assistant_app
+        yield assistant_app

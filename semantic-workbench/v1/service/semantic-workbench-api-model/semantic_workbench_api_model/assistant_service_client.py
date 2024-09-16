@@ -75,7 +75,6 @@ class AssistantResponseError(AssistantError):
 
 
 class AssistantInstanceClient:
-
     def __init__(self, httpx_client_factory: Callable[[], httpx.AsyncClient]):
         self._client = httpx_client_factory()
 
@@ -230,7 +229,6 @@ class AssistantInstanceClient:
 
 
 class AssistantServiceClient:
-
     def __init__(
         self,
         httpx_client_factory: Callable[[], httpx.AsyncClient],
@@ -287,7 +285,6 @@ class AssistantServiceClient:
 
 
 class AssistantServiceClientBuilder:
-
     def __init__(
         self,
         base_url: str,

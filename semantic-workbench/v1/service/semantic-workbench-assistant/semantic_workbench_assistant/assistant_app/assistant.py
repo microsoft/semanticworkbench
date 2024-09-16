@@ -157,7 +157,6 @@ class FileStorageContext:
 
 
 class FileStorageContextExtender(AssistantContextExtender, ConversationContextExtender):
-
     def extend(self, context: AssistantContext | ConversationContext) -> Any:
         match context:
             case AssistantContext():
@@ -185,7 +184,6 @@ class FileStorageConversationDataExporter:
 
 
 class AssistantApp:
-
     def __init__(
         self,
         assistant_service_id: str,

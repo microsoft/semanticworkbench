@@ -1,14 +1,18 @@
-import os
+import pathlib
 
 import alembic.config
 import pytest
+import semantic_workbench_service
+from semantic_workbench_service.config import DBSettings
 
 
-def test_migration_cycle(db_url: str, service_dir: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    if not db_url.startswith("postgresql"):
-        pytest.skip(f"postgres migration test skipped for db url {db_url}")
+def test_migration_cycle(db_settings: DBSettings, monkeypatch: pytest.MonkeyPatch) -> None:
+    if not db_settings.url.startswith("postgresql"):
+        pytest.skip(f"postgres migration test skipped for db url {db_settings.url}")
 
-    monkeypatch.chdir(os.path.join(service_dir, "semantic-workbench-service"))
+    monkeypatch.setattr(semantic_workbench_service.settings, "db", db_settings)
+
+    monkeypatch.chdir(pathlib.Path(__file__).parent / "..")
 
     """Test that all migrations can upgrade and downgrade without error."""
 

@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 class ApiKeyStore(Protocol):
-
     def generate_key_name(self, identifier: str) -> str: ...
 
     async def get(self, key_name: str) -> str | None: ...

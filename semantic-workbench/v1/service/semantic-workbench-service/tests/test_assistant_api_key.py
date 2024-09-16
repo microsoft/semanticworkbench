@@ -1,11 +1,10 @@
-import time
+import asyncio
 import uuid
 
 from semantic_workbench_service.assistant_api_key import ApiKeyStore, cached
 
 
 class MockApiKeyStore(ApiKeyStore):
-
     def __init__(self) -> None:
         self._api_keys: dict[str, str] = {}
 
@@ -65,7 +64,7 @@ async def test_cached_api_key_store():
     another_updated_api_key = uuid.uuid4().hex
     mock_store.override_api_key(key_name=key_name, api_key=another_updated_api_key)
     assert (await cached_store.get(key_name=key_name)) == updated_api_key
-    time.sleep(ttl_seconds)
+    await asyncio.sleep(ttl_seconds)
 
     assert (await cached_store.get(key_name=key_name)) == another_updated_api_key
 

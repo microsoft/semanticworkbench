@@ -10,7 +10,6 @@ from .. import assistant_api_key, db
 
 
 class AssistantServiceClientPool:
-
     def __init__(self, api_key_store: assistant_api_key.ApiKeyStore) -> None:
         self._api_key_store = api_key_store
         self._service_clients: dict[str, AssistantServiceClient] = {}

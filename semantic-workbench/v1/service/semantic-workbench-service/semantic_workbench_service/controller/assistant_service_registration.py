@@ -23,7 +23,6 @@ from .assistant_service_client_pool import AssistantServiceClientPool
 
 
 class AssistantServiceRegistrationController:
-
     def __init__(
         self,
         get_session: Callable[[], AsyncContextManager[AsyncSession]],

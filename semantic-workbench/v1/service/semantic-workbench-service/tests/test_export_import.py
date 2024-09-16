@@ -1,15 +1,16 @@
 import io
 
 import sqlmodel
-from semantic_workbench_service import db, settings
+from semantic_workbench_service import db
 from semantic_workbench_service.controller import export_import
+from semantic_workbench_service.db import DBSettings
 
 from .types import MockUser
 
 
-async def test_export_import_assistant(db_url, test_user: MockUser):
-    async with db.create_engine(settings=settings.db) as engine, db.create_session(engine) as session:
-        await db.bootstrap_db(engine, settings=settings.db)
+async def test_export_import_assistant(db_settings: DBSettings, test_user: MockUser):
+    async with db.create_engine(settings=db_settings) as engine, db.create_session(engine) as session:
+        await db.bootstrap_db(engine, settings=db_settings)
 
         user = db.User(
             user_id=test_user.id,
@@ -76,9 +77,9 @@ async def test_export_import_assistant(db_url, test_user: MockUser):
         assert assistants[1].owner_id == test_user.id
 
 
-async def test_export_import_assistant_conversation(db_url, test_user: MockUser):
-    async with db.create_engine(settings=settings.db) as engine, db.create_session(engine) as session:
-        await db.bootstrap_db(engine, settings=settings.db)
+async def test_export_import_assistant_conversation(db_settings: DBSettings, test_user: MockUser):
+    async with db.create_engine(settings=db_settings) as engine, db.create_session(engine) as session:
+        await db.bootstrap_db(engine, settings=db_settings)
 
         user = db.User(
             user_id=test_user.id,
