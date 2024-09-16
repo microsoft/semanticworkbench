@@ -1,6 +1,7 @@
 import base64
 import logging
 import tempfile
+from pathlib import Path
 from typing import Annotated, Any
 
 import docx2txt
@@ -176,32 +177,39 @@ class AttachmentAgent:
 #
 
 
+def _assistant_conversation_storage_directory(context: ConversationContext) -> Path:
+    """
+    Get the storage path for the attachments.
+    """
+    return FileStorageContext.get(context.assistant).directory / context.id
+
+
 async def _get(context: ConversationContext, filename: str) -> Attachment | None:
     """
     Get the attachment with the given filename.
     """
-    return model_read(FileStorageContext.get(context.assistant).directory / filename, Attachment)
+    return model_read(_assistant_conversation_storage_directory(context) / filename, Attachment)
 
 
 async def _get_all(context: ConversationContext) -> list[Attachment]:
     """
     Get all attachments.
     """
-    return list(model_read_all_files(FileStorageContext.get(context.assistant).directory, Attachment))
+    return list(model_read_all_files(_assistant_conversation_storage_directory(context), Attachment))
 
 
 async def _set(context: ConversationContext, filename: str, attachment: Attachment) -> None:
     """
     Set the attachment with the given filename.
     """
-    model_write(FileStorageContext.get(context.assistant).directory / filename, attachment)
+    model_write(_assistant_conversation_storage_directory(context) / filename, attachment)
 
 
 async def _delete(context: ConversationContext, filename: str) -> None:
     """
     Delete the attachment with the given filename.
     """
-    model_delete(FileStorageContext.get(context.assistant).directory / filename)
+    model_delete(_assistant_conversation_storage_directory(context) / filename)
 
 
 async def _raw_content_from_file(context: ConversationContext, file: File) -> bytes:
