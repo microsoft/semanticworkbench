@@ -13,6 +13,6 @@ if [[ $NODE_VERSION != v20.* ]]; then
   exit 1
 fi
 
-echo "Starting the Semantic Workbench app, open https://localhost:4000 in your browser when ready"
+echo "Starting the Semantic Workbench app, open https://127.0.0.1:4000 in your browser when ready"
 
 npm start

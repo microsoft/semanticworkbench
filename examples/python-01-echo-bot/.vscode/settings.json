@@ -54,6 +54,7 @@
     "endregion",
     "fastapi",
     "jsonschema",
+    "Langchain",
     "pydantic",
     "pyproject",
     "tiktoken"

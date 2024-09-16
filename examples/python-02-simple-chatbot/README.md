@@ -16,15 +16,24 @@ The chatbot includes some important best practices for AI development, such as:
 - **Content moderation**, via [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety)
   or [OpenAI Content Moderation](https://platform.openai.com/docs/guides/moderation).
 
+See the [Responsible AI FAQ](../../RESPONSIBLE_AI_FAQ.md) for more information.
+
+## Suggested Development Environment
+
+- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
+- VS Code is recommended for development
+
 ## Pre-requisites
 
 - Set up your dev environment
   - SUGGESTED: Use GitHub Codespaces for a quick, easy, and consistent dev
     environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
   - ALTERNATIVE: Local setup following the [main README](../../README.md#quick-start---local-development-environment)
-- Set up and verify that the workbench app and service are running
-- Stop the services and open the [assistant.code-workspace](./assistant.code-workspace) in VS Code
-  - You should always stop the services before switching workspaces, otherwise the services will not be able to start in the new workspace
+- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench/v1/semantic-workbench.code-workspace)
+- If using Azure OpenAI, set up an Azure account and create a Content Safety resource
+  - See [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety) for more information
+  - Copy the `.env.example` to `.env` and update the `ASSISTANT__AZURE_CONTENT_SAFETY_ENDPOINT` value with the endpoint of your Azure Content Safety resource
+  - From VS Code > `Terminal`, run `az login` to authenticate with Azure prior to starting the assistant
 
 ## Steps
 
@@ -54,11 +63,6 @@ Copy the contents of this folder to your project.
 
 - The paths are already set if you put in the same repo root and relative path of `/<your_projects>/<your_assistant_name>`
 - If placed in a different location, update the references in the `pyproject.toml` to point to the appropriate locations for the `semantic-workbench-*` packages
-
-## Suggested Development Environment
-
-- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
-- VS Code is recommended for development
 
 ## From Development to Production
 

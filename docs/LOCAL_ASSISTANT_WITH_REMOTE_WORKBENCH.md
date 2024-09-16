@@ -4,6 +4,10 @@ This guide will walk you through the process of creating a local assistant that 
 
 This guide assumes you have already set up a Semantic Workbench instance and have a basic understanding of how to create an assistant.
 
+## Recommended
+
+Instead of running the assistant locally, you can run your own instance of the assistant in a GitHub Codespace. This will allow you to run the assistant in the cloud and connect to a remote Semantic Workbench instance. View the [GitHub Codespaces / devcontainer README](../.devcontainer/README.md) for more information.
+
 ## Prerequisites
 
 - A Semantic Workbench instance running on a remote server (ex: `https://contoso-semantic-workbench.azurewebsites.net`)

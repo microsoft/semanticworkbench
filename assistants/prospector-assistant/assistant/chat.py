@@ -269,10 +269,12 @@ async def respond_to_conversation(
         )
     system_message_content += f"\n\n{assistant_config.guardrails_prompt}"
 
-    completion_messages: list[ChatCompletionMessageParam] = [{
-        "role": "system",
-        "content": system_message_content,
-    }]
+    completion_messages: list[ChatCompletionMessageParam] = [
+        {
+            "role": "system",
+            "content": system_message_content,
+        }
+    ]
 
     # add the attachment agent messages to the completion messages
     if assistant_config.agents_config.attachment_agent.include_in_response_generation:
