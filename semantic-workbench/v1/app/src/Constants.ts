@@ -34,7 +34,8 @@ export const Constants = {
     assistantCategories: {
         Recommended: [''],
         'Example Implementations': [
-            'python-example01-assistant.python-example',
+            'python-01-echo-bot.workbench-explorer',
+            'python-02-simple-chatbot.workbench-explorer',
             'canonical-assistant.semantic-workbench',
         ],
         Experimental: [''],

@@ -40,8 +40,11 @@ For more details on using GitHub Codespaces in VS Code, see the [documentation](
 
 ### Start the app and service
 
+- Launch the [semantic-workbench.code-workspace](../semantic-workbench/v1/semantic-workbench.code-workspace) in VS Code
+  - Use the command palette: `Ctrl/Cmd+P` and type `semantic-workbench.code-workspace` to open the workspace file
+  - Click `Open Workspace` button in lower right corner to launch the workspace
 - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `semantic-workbench` to start the project
-- Open your browser and navigate to `https://localhost:4000`
+- Open your browser and navigate to `https://127.0.0.1:4000`
   - You may receive a warning about the app not being secure; click `Advanced` and `Proceed to localhost` to continue
 - You can now interact with the app and service in the browser
 
@@ -49,11 +52,11 @@ See the [README](../README.md) for more details on how to use the Semantic Workb
 
 ### Next steps:
 
-- Launch an assistant service:
+- Launch an example assistant service:
   - Using the [canonical assistant](../semantic-workbench/v1/service/semantic-workbench-assistant/README.md)
     - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `canonical-assistant` to start the canonical assistant
   - Using an [example assistant](../examples/)
-    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `python-example01` to start the example assistant
+    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `launch assistant (examples/python-01-echo-bot)` to start the example assistant
   - Or create your own assistant service by following the [Assistant Development Guide](../docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
 - If launching an assistant service from within the same Codespace, it will be automatically accessible to the Semantic Workbench service
 - Add the assistant to the workbench app by clicking the `Add Assistant` button in the app and selecting the assistant from the list
@@ -64,7 +67,7 @@ See the [README](../README.md) for more details on how to use the Semantic Workb
 
 We have included an example Python assistant service that echos the user's input and can serve as a starting point for your own assistant service.
 
-See the [python-example01/README](../examples/python-example01/README.md) for more details.
+See the [python-01-echo-bot/README](../examples/python-01-echo-bot/README.md) for more details.
 
 ## Deleting a Codespace
 

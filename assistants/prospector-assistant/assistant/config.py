@@ -109,9 +109,7 @@ class AzureOpenAIServiceConfig(BaseModel):
                 " be used."
             ),
         ),
-    ] = (
-        config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
-    )
+    ] = config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
 
     azure_openai_deployment: Annotated[
         str,
@@ -277,12 +275,6 @@ class AssistantConfigModel(BaseModel):
         " language.For example, ```abc C4 G4 A4 F4 E4 G4``` will render a music score and an inline player with a link"
         " to download the midi file."
     )
-
-    # "You are an AI assistant that helps teams synthesize information from conversations and documents to create"
-    #     " a shared understanding of complex topics. As you do so, there are tools observing the conversation and"
-    #     " they will automatically create an outline and a document based on the conversation, you don't need to do"
-    #     " anything special to trigger this, just have a conversation with the user. Focus on assisting the user and"
-    #     " drawing out the info needed in order to bring clarity to the topic at hand."
 
     guardrails_prompt: Annotated[
         str,

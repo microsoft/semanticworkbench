@@ -7,8 +7,6 @@ from typing import Annotated, Any, Literal
 from azure.ai.contentsafety import ContentSafetyClient
 from azure.ai.contentsafety.models import AnalyzeTextOptions
 from azure.identity import DefaultAzureCredential
-
-
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant import config
 from semantic_workbench_assistant.assistant_app import (
@@ -27,9 +25,7 @@ class AzureContentSafetyEvaluatorConfigModel(BaseModel):
             title="Azure Content Safety Service Endpoint",
             description="The endpoint to use for the Azure Content Safety service.",
         ),
-    ] = (
-        config.first_env_var("azure_content_safety_endpoint", "assistant__azure_content_safety_endpoint") or ""
-    )
+    ] = config.first_env_var("azure_content_safety_endpoint", "assistant__azure_content_safety_endpoint") or ""
 
     warn_at_severity: Annotated[
         Literal[0, 2, 4, 6],

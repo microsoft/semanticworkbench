@@ -7,16 +7,16 @@ or more assistants, configuring settings, and exposing various behaviors.
 
 The Semantic Workbench is composed of three main components:
 
-1. [Workbench Service](semantic-workbench/v1/service/README.md) (Python): The backend service that
-   handles core functionalities.
-2. [Workbench App](semantic-workbench/v1/app/README.md) (React/Typescript): The frontend web user
-   interface for interacting with workbench and assistants.
-3. Assistant Services: any number of assistant services that implement the service protocols/APIs,
-   developed using any framework and programming language of your choice.
+- [Workbench Service](semantic-workbench/v1/service/README.md) (Python): The backend service that
+  handles core functionalities.
+- [Workbench App](semantic-workbench/v1/app/README.md) (React/Typescript): The frontend web user
+  interface for interacting with workbench and assistants.
+- [Assistant Services](examples) (Python, C#, etc.): any number of assistant services that implement the service protocols/APIs,
+  developed using any framework and programming language of your choice.
 
 Designed to be agnostic of any agent framework, language, or platform, the Semantic Workbench
 facilitates experimentation, development, testing, and measurement of agent behaviors and workflows.
-Agents integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability
+Assistants integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability
 in various development environments.
 
 ![Semantic Workbench architecture](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/architecture-animation.gif)
@@ -40,54 +40,56 @@ See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for m
 
 ![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/readme3.png)
 
-# Connecting your agents
+# Connecting your assistants
 
-To develop new agents and connect existing ones, see the [Assistant Development Guide](docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
+To develop new assistants and connect existing ones, see the [Assistant Development Guide](docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
 
-The repository contains a few examples that can be used to create custom agents:
+The repository contains a few examples that can be used to create custom assistants:
 
 - [Python Canonical Assistant](semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
-- [Python example 1](examples/python-example01/README.md): a simple assistant echoing text back.
+- [Python example 1](examples/python-01-echo-bot/README.md): a simple assistant echoing text back.
+- [Python example 2](examples/python-02-simple-chatbot/README.md): a simple chatbot implementing metaprompt guardrails and content moderation.
 - [.NET example 1](examples/dotnet-01-echo-bot/README.md): a simple agent with echo and support for a basic `/say` command.
-- [.NET example 2](examples/dotnet-02-message-types-demo/README.md): a simple agents showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
+- [.NET example 2](examples/dotnet-02-message-types-demo/README.md): a simple assistants showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
 - [.NET example 3](examples/dotnet-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
 
-![Mermaid graph example](examples/dotnet-example02/docs/mermaid.png)
-![ABC music example](examples/dotnet-example02/docs/abc.png)
+![Mermaid graph example](examples/dotnet-02-message-types-demo/docs/mermaid.png)
+![ABC music example](examples/dotnet-02-message-types-demo/docs/abc.png)
 
 # Workbench setup
 
-1. Follow the [Service Setup Guide](semantic-workbench/v1/service/README.md)
-2. Follow the [App Setup Guide](semantic-workbench/v1/app/README.md)
+- Follow the [Service Setup Guide](semantic-workbench/v1/service/README.md)
+- Follow the [App Setup Guide](semantic-workbench/v1/app/README.md)
 
 ## Windows setup
 
 Enable long file paths on Windows.
 
-1.  Run `regedit`.
-2.  Navigate to `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem`.
-3.  Find the `LongPathsEnabled` key. If it doesn’t exist, right-click on the `FileSystem` key, select `New > DWORD (32-bit) Value`, and name it `LongPathsEnabled`.
-4.  Double-click on `LongPathsEnabled`, set its value to `1`, and click OK.
+- Run `regedit`.
+- Navigate to `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem`.
+- Find the `LongPathsEnabled` key. If it doesn’t exist, right-click on the `FileSystem` key, select `New > DWORD (32-bit) Value`, and name it `LongPathsEnabled`.
+- Double-click on `LongPathsEnabled`, set its value to `1`, and click OK.
 
 ## Open the Workbench and create an assistant instance
 
 Open the app in your browser at [`https://localhost:4000`](https://localhost:4000):
 
-1. Click `Sign in`
-2. Add and Assistant:
-   1. Click +Add Assistant Button
-   2. Click Instance of Assistant
-3. Give it a name.
-4. Enter the assistant service URL in the combobox, e.g. `http://127.0.0.1:3010`.
-5. Click Chat box icon.
-6. Type a message and hit send.
-7. If you see "Please set the OpenAI API key in the config."
-   1. Click Edit icon in upper right.
-   2. Paste in your OpenAI Key.
-   3. Paste in your OrgID.
-   4. Click Save.
-   5. Hit Back button in UI.
-8. Type another message and hit send.
+- Click `Sign in`
+- Add and Assistant:
+  - Click +Add Assistant Button
+  - Click Instance of Assistant
+- Give it a name.
+- Enter the assistant service URL in the combobox, e.g. `http://127.0.0.1:3010`.
+- Click the assistant name to configure the instance.
+- Create a new conversation from the assistant configuration screen, then click the conversation name to interact with the assistant.
+- Type a message and hit send.
+- If you see "Please set the OpenAI API key in the config."
+  - Click Edit icon in upper right.
+  - Paste in your OpenAI Key.
+  - Paste in your OrgID.
+  - Click Save.
+  - Hit Back button in UI.
+- Type another message and hit send.
 
 Expected: You get a response from your assistant!
 
