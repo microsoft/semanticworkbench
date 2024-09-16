@@ -140,7 +140,7 @@ class SimpleStateInspector:
         self._data = data
 
 
-app = assistant_app.AssistantApp(
+canonical_app = assistant_app.AssistantApp(
     assistant_service_id="canonical-assistant.semantic-workbench",
     assistant_service_name="Canonical Assistant",
     assistant_service_description="Canonical implementation of a workbench assistant service.",
@@ -149,7 +149,7 @@ app = assistant_app.AssistantApp(
 )
 
 
-@app.events.conversation.message.chat.on_created
+@canonical_app.events.conversation.message.chat.on_created
 async def on_chat_message_created(
     conversation_context: assistant_app.ConversationContext,
     _: workbench_model.ConversationEvent,
@@ -161,7 +161,7 @@ async def on_chat_message_created(
     await conversation_context.send_messages(workbench_model.NewConversationMessage(content=f"echo: {message.content}"))
 
 
-@app.events.conversation.message.command.on_created
+@canonical_app.events.conversation.message.command.on_created
 async def on_command_message_created(
     conversation_context: assistant_app.ConversationContext,
     _: workbench_model.ConversationEvent,
@@ -183,4 +183,4 @@ async def on_command_message_created(
     )
 
 
-app = app.fastapi_app()
+app = canonical_app.fastapi_app()

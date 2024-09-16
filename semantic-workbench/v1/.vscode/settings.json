@@ -1,5 +1,4 @@
 {
-  "black-formatter.args": ["--config", "service/.black.toml"],
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit",
     "source.fixAll": "explicit"
@@ -7,8 +6,6 @@
   "editor.formatOnSave": true,
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,
-  "flake8.args": ["--config", "service/.flake8"],
-  "isort.args": ["--profile", "black", "--gitignore"],
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
@@ -35,14 +32,16 @@
   "python.testing.cwd": "${workspaceFolder}/service",
   "python.testing.pytestArgs": [],
   "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
       "source.unusedImports": "explicit",
       "source.organizeImports": "explicit",
-      "source.fixAll": "explicit",
       "source.formatDocument": "explicit"
     }
   },
+  "ruff.nativeServer": "on",
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.codeActionsOnSave": {
@@ -161,6 +160,7 @@
     "aiter",
     "appsettings",
     "arcname",
+    "aread",
     "asgi",
     "asyncpg",
     "azurewebsites",
@@ -187,6 +187,7 @@
     "hashkey",
     "httpx",
     "Inspectable",
+    "jsonable",
     "jsonlogger",
     "jungaretti",
     "jwks",
@@ -202,6 +203,7 @@
     "pylance",
     "pyproject",
     "pythonjsonlogger",
+    "raiseerr",
     "reactflow",
     "reduxjs",
     "rehype",

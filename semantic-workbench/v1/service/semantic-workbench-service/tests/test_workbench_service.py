@@ -1,9 +1,9 @@
+import asyncio
 import datetime
 import io
 import json
 import logging
 import re
-import time
 import uuid
 
 import httpx
@@ -151,7 +151,7 @@ def test_create_update_conversation(workbench_service: FastAPI, test_user: MockU
         http_response = client.patch(
             f"/conversations/{conversation_response.id}",
             json=workbench_model.UpdateConversation(title=updated_title, metadata=updated_metadata).model_dump(
-                mode="json"
+                mode="json",
             ),
         )
         http_response.raise_for_status()
@@ -196,7 +196,8 @@ def test_create_assistant_add_to_conversation(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=registration.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
@@ -254,7 +255,8 @@ def test_create_assistant_add_to_conversation_delete_assistant_retains_participa
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=registration.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
@@ -275,7 +277,7 @@ def test_create_assistant_add_to_conversation_delete_assistant_retains_participa
         participants = workbench_model.ConversationParticipantList.model_validate(http_response.json())
 
         assert len(participants.participants) == 2
-        assert set(p.id for p in participants.participants) == {test_user.id, str(assistant.id)}
+        assert {p.id for p in participants.participants} == {test_user.id, str(assistant.id)}
 
         assistant_participant = next(p for p in participants.participants if p.id == str(assistant.id))
         assert assistant_participant.name == assistant.name
@@ -300,7 +302,7 @@ def test_create_assistant_add_to_conversation_delete_assistant_retains_participa
         participants = workbench_model.ConversationParticipantList.model_validate(http_response.json())
 
         assert len(participants.participants) == 2
-        assert set(p.id for p in participants.participants) == {test_user.id, str(assistant.id)}
+        assert {p.id for p in participants.participants} == {test_user.id, str(assistant.id)}
 
         assistant_participant = next(p for p in participants.participants if p.id == str(assistant.id))
         assert assistant_participant.name == assistant.name
@@ -318,7 +320,7 @@ def test_create_assistant_add_to_conversation_delete_assistant_retains_participa
         participants = workbench_model.ConversationParticipantList.model_validate(http_response.json())
 
         assert len(participants.participants) == 2
-        assert set(p.id for p in participants.participants) == {test_user.id, str(assistant.id)}
+        assert {p.id for p in participants.participants} == {test_user.id, str(assistant.id)}
 
         assistant_participant = next(p for p in participants.participants if p.id == str(assistant.id))
         assert assistant_participant.name == assistant.name
@@ -347,16 +349,17 @@ def test_create_get_assistant(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=registration.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
         assistant_response = http_response.json()
         logging.info("response: %s", assistant_response)
         assert "id" in assistant_response
-        id = assistant_response["id"]
+        assistant_id = assistant_response["id"]
 
-        http_response = client.get(f"/assistants/{id}")
+        http_response = client.get(f"/assistants/{assistant_id}")
         http_response.raise_for_status()
         assert http_response.json() == assistant_response
 
@@ -396,17 +399,17 @@ def test_create_update_assistant(
         assistant_response = http_response.json()
         logging.info("response: %s", assistant_response)
         assert "id" in assistant_response
-        id = assistant_response["id"]
+        assistant_id = assistant_response["id"]
 
         updated_name = f"new-name{uuid.uuid4()}"
         updated_metadata = {"test": uuid.uuid4().hex}
         http_response = client.patch(
-            f"/assistants/{id}",
+            f"/assistants/{assistant_id}",
             json=workbench_model.UpdateAssistant(name=updated_name, metadata=updated_metadata).model_dump(mode="json"),
         )
         http_response.raise_for_status()
 
-        http_response = client.get(f"/assistants/{id}")
+        http_response = client.get(f"/assistants/{assistant_id}")
         http_response.raise_for_status()
         assistants_response = workbench_model.Assistant.model_validate(http_response.json())
         assert assistants_response.name == updated_name
@@ -453,7 +456,8 @@ def test_create_delete_assistant(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=registration.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
@@ -514,7 +518,8 @@ def test_create_assistant_update_participant(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=registration.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
@@ -538,7 +543,7 @@ def test_create_assistant_update_participant(
         assert len(participants) == 2
 
         expected_participant_ids = {test_user.id, assistant_id}
-        participant_ids = set((p["id"] for p in participants))
+        participant_ids = {p["id"] for p in participants}
         assert participant_ids == expected_participant_ids
 
         http_response = client.get(f"/conversations/{conversation_id}/participants/{test_user.id}")
@@ -582,7 +587,9 @@ def test_create_assistant_update_participant(
 
 @pytest.mark.parametrize("message_type", ["command", "log", "note", "notice"])
 def test_create_conversation_send_nonchat_message(
-    workbench_service: FastAPI, httpx_mock: HTTPXMock, test_user: MockUser, message_type: str
+    workbench_service: FastAPI,
+    test_user: MockUser,
+    message_type: str,
 ):
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         http_response = client.post("/conversations", json={"title": "test-conversation"})
@@ -728,7 +735,8 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
         assert len(messages) == 1
 
         http_response = client.get(
-            f"/conversations/{conversation_id}/messages", params={"message_type": ["chat", "log"]}
+            f"/conversations/{conversation_id}/messages",
+            params={"message_type": ["chat", "log"]},
         )
         http_response.raise_for_status()
         messages_response = http_response.json()
@@ -769,7 +777,8 @@ def test_create_assistant_send_assistant_message(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=registration.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
@@ -796,7 +805,9 @@ def test_create_assistant_send_assistant_message(
             ).to_headers(),
         }
         http_response = client.post(
-            f"/conversations/{conversation_id}/messages", json=payload, headers=assistant_headers
+            f"/conversations/{conversation_id}/messages",
+            json=payload,
+            headers=assistant_headers,
         )
         http_response.raise_for_status()
 
@@ -812,7 +823,10 @@ def test_create_assistant_send_assistant_message(
         assert message["metadata"] == {"assistant_id": assistant_id, "generated_by": "test"}
 
 
-def test_create_conversation_write_read_delete_file(workbench_service: FastAPI, httpx_mock, test_user: MockUser):
+def test_create_conversation_write_read_delete_file(
+    workbench_service: FastAPI,
+    test_user: MockUser,
+):
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         http_response = client.post("/conversations", json={"title": "test-conversation"})
         http_response.raise_for_status()
@@ -952,7 +966,8 @@ def test_create_assistant_export_import_data(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=registration.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         logging.info("response: %s", http_response.json())
@@ -1010,7 +1025,7 @@ def test_create_assistant_conversations_export_import_conversations(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
     test_user: MockUser,
-):
+) -> None:
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
     )
@@ -1193,7 +1208,8 @@ def test_create_conversations_get_participants(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant-1", assistant_service_id=registration.assistant_service_id
+                name="test-assistant-1",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
@@ -1203,7 +1219,8 @@ def test_create_conversations_get_participants(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant-2", assistant_service_id=registration.assistant_service_id
+                name="test-assistant-2",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
@@ -1255,7 +1272,7 @@ def test_conversation_adds_user_participant_on_conversation_gets(
     test_user: MockUser,
     test_user_2: MockUser,
     httpx_mock: HTTPXMock,
-    url_template,
+    url_template: str,
 ):
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
@@ -1277,7 +1294,8 @@ def test_conversation_adds_user_participant_on_conversation_gets(
         http_response = client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=registration.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
         http_response.raise_for_status()
@@ -1285,7 +1303,8 @@ def test_conversation_adds_user_participant_on_conversation_gets(
 
         # ensure user 2 can make get request without failure
         http_response = client.get(
-            url_template.format(conversation_id=conversation_id), headers=test_user_2.authorization_headers
+            url_template.format(conversation_id=conversation_id),
+            headers=test_user_2.authorization_headers,
         )
         http_response.raise_for_status()
 
@@ -1309,7 +1328,7 @@ def test_conversation_adds_user_participant_on_conversation_gets(
         assert {p.id for p in participants_response.participants} == {test_user.id, test_user_2.id}
 
 
-def test_create_update_workflow(workbench_service: FastAPI, test_user: MockUser, test_user_2: MockUser) -> None:
+def test_create_update_workflow(workbench_service: FastAPI, test_user: MockUser) -> None:
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         new_workflow = workbench_model.NewWorkflowDefinition(
             label="",
@@ -1350,7 +1369,8 @@ def test_create_update_workflow(workbench_service: FastAPI, test_user: MockUser,
             context_transfer_instruction="",
         )
         http_response = client.patch(
-            f"/workflow-definitions/{created_workflow.id}", json=updated_workflow.model_dump(mode="json")
+            f"/workflow-definitions/{created_workflow.id}",
+            json=updated_workflow.model_dump(mode="json"),
         )
 
         http_response = client.get(f"/workflow-definitions/{created_workflow.id}")
@@ -1358,7 +1378,6 @@ def test_create_update_workflow(workbench_service: FastAPI, test_user: MockUser,
 
         retrieved_workflow = workbench_model.WorkflowDefinition.model_validate(http_response.json())
 
-        assert retrieved_workflow.label == "updated"
         assert retrieved_workflow.label == "updated"
 
 
@@ -1371,7 +1390,8 @@ def test_create_assistant_service_registration(workbench_service: FastAPI, test_
         )
 
         http_response = client.post(
-            "/assistant-service-registrations", json=new_assistant_service.model_dump(mode="json")
+            "/assistant-service-registrations",
+            json=new_assistant_service.model_dump(mode="json"),
         )
         http_response.raise_for_status()
 
@@ -1392,7 +1412,8 @@ def test_create_get_assistant_service_registration(workbench_service: FastAPI, t
         )
 
         http_response = client.post(
-            "/assistant-service-registrations", json=new_assistant_service.model_dump(mode="json")
+            "/assistant-service-registrations",
+            json=new_assistant_service.model_dump(mode="json"),
         )
         http_response.raise_for_status()
 
@@ -1414,7 +1435,7 @@ def test_create_get_assistant_service_registration(workbench_service: FastAPI, t
         http_response.raise_for_status()
 
         retrieved_assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(
-            http_response.json()
+            http_response.json(),
         )
 
         assert len(retrieved_assistant_services.assistant_service_registrations) == 1
@@ -1430,7 +1451,7 @@ def test_create_get_assistant_service_registration(workbench_service: FastAPI, t
         http_response.raise_for_status()
 
         retrieved_assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(
-            http_response.json()
+            http_response.json(),
         )
 
         assert len(retrieved_assistant_services.assistant_service_registrations) == 1
@@ -1450,7 +1471,8 @@ def test_create_update_assistant_service_registration(workbench_service: FastAPI
             description="test description",
         )
         http_response = client.post(
-            "/assistant-service-registrations", json=new_assistant_service.model_dump(mode="json")
+            "/assistant-service-registrations",
+            json=new_assistant_service.model_dump(mode="json"),
         )
         http_response.raise_for_status()
         assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
@@ -1481,7 +1503,8 @@ def test_create_assistant_service_registration_reset_api_key(workbench_service: 
         )
 
         http_response = client.post(
-            "/assistant-service-registrations", json=new_assistant_service.model_dump(mode="json")
+            "/assistant-service-registrations",
+            json=new_assistant_service.model_dump(mode="json"),
         )
         http_response.raise_for_status()
 
@@ -1490,7 +1513,7 @@ def test_create_assistant_service_registration_reset_api_key(workbench_service: 
         assert created_assistant_service.api_key is not None
 
         http_response = client.post(
-            f"/assistant-service-registrations/{created_assistant_service.assistant_service_id}/api-key"
+            f"/assistant-service-registrations/{created_assistant_service.assistant_service_id}/api-key",
         )
         http_response.raise_for_status()
 
@@ -1509,14 +1532,15 @@ def test_create_delete_assistant_service_registration(workbench_service: FastAPI
         )
 
         http_response = client.post(
-            "/assistant-service-registrations", json=new_assistant_service.model_dump(mode="json")
+            "/assistant-service-registrations",
+            json=new_assistant_service.model_dump(mode="json"),
         )
         http_response.raise_for_status()
 
         created_assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
         http_response = client.delete(
-            f"/assistant-service-registrations/{created_assistant_service.assistant_service_id}"
+            f"/assistant-service-registrations/{created_assistant_service.assistant_service_id}",
         )
         http_response.raise_for_status()
 
@@ -1524,18 +1548,22 @@ def test_create_delete_assistant_service_registration(workbench_service: FastAPI
         http_response.raise_for_status()
 
         retrieved_assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(
-            http_response.json()
+            http_response.json(),
         )
 
         assert len(retrieved_assistant_services.assistant_service_registrations) == 0
 
 
-def test_create_update_assistant_service_registration_url(
-    workbench_service: FastAPI, test_user: MockUser, monkeypatch: pytest.MonkeyPatch
+async def test_create_update_assistant_service_registration_url(
+    workbench_service: FastAPI,
+    test_user: MockUser,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # force continuous checks for assistants going offline
     monkeypatch.setattr(
-        semantic_workbench_service.settings.service, "assistant_service_online_check_interval_seconds", 0.1
+        semantic_workbench_service.settings.service,
+        "assistant_service_online_check_interval_seconds",
+        0.1,
     )
 
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
@@ -1545,7 +1573,8 @@ def test_create_update_assistant_service_registration_url(
             description="test description",
         )
         http_response = client.post(
-            "/assistant-service-registrations", json=new_assistant_service.model_dump(mode="json")
+            "/assistant-service-registrations",
+            json=new_assistant_service.model_dump(mode="json"),
         )
         http_response.raise_for_status()
         assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
@@ -1573,7 +1602,7 @@ def test_create_update_assistant_service_registration_url(
         assert updated_assistant_service.assistant_service_online is True
 
         # give time for the assistant service online check to run
-        time.sleep(1.0)
+        await asyncio.sleep(1.0)
 
         # verify that when the url expires, the assistant service is reported as offline
         http_response = client.get(f"/assistant-service-registrations/{assistant_service.assistant_service_id}")

@@ -95,7 +95,6 @@ def init(
     app: FastAPI,
     register_lifespan_handler: Callable[[Callable[[], AsyncContextManager[None]]], None],
 ) -> None:
-
     api_key_store = assistant_api_key.get_store()
     stop_signal: asyncio.Event = asyncio.Event()
 
@@ -275,7 +274,6 @@ def init(
                 yield
 
             finally:
-
                 stop_signal.set()
 
                 for task in background_tasks:

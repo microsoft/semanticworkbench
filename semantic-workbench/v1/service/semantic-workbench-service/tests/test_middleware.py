@@ -1,6 +1,7 @@
 import uuid
 
 import fastapi
+import pytest
 from fastapi.testclient import TestClient
 from jose import jwt
 from semantic_workbench_service import assistant_api_key, middleware
@@ -35,7 +36,7 @@ async def test_auth_middleware_rejects_disallowed_algo():
         assert http_response.json()["detail"].lower() == "invalid token algorithm"
 
 
-def test_auth_middleware_rejects_disallowed_app_id(monkeypatch):
+def test_auth_middleware_rejects_disallowed_app_id(monkeypatch: pytest.MonkeyPatch) -> None:
     algo = "HS256"
 
     monkeypatch.setattr(middleware, "allowed_app_ids", {})
@@ -164,7 +165,7 @@ def test_auth_middleware_allows_anonymous_excluded_paths():
     test_api_key = uuid.uuid4().hex
 
     app = fastapi.FastAPI()
-    app.add_route("/", route=lambda r: fastapi.Response(status_code=200))
+    app.add_route("/", route=lambda _: fastapi.Response(status_code=200))
     app.add_middleware(
         middleware.AuthMiddleware,
         api_key_source=api_key_source(test_api_key),

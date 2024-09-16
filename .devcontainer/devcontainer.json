@@ -4,7 +4,6 @@
   "name": "semantic-workbench",
   // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
   "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
-
   // Features to add to the dev container. More info: https://containers.dev/features.
   "features": {
     "ghcr.io/devcontainers-contrib/features/poetry:2": {
@@ -21,10 +20,11 @@
     "ghcr.io/devcontainers/features/azure-cli:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
-  "forwardPorts": [3000, 4000],
-
+  "forwardPorts": [
+    3000,
+    4000
+  ],
   // Use 'portsAttributes' to configure the behavior of specific port forwarding instances.
   "portsAttributes": {
     "3000": {
@@ -34,11 +34,9 @@
       "label": "app:semantic-workbench"
     }
   },
-
   // Use 'otherPortsAttributes' to set the defaults that are applied to all ports, unless overridden
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
-
   // Use 'postCreateCommand' to run commands after the container is created.
   "postCreateCommand": {
     // Build and restore dependencies for key projects in the repo
@@ -50,7 +48,6 @@
     // Set up git to automatically set up the remote when pushing if it doesn't exist
     "git_config": "git config --add push.autoSetupRemote true"
   },
-
   // Configure tool-specific properties.
   "customizations": {
     "vscode": {
@@ -59,14 +56,13 @@
         "github.codespaces",
         "aaron-bond.better-comments",
         "aarontamasfe.even-better-toml",
+        "charliermarsh.ruff",
         "dbaeumer.vscode-eslint",
         "epivision.vscode-file-header",
         "esbenp.prettier-vscode",
         "github.vscode-github-actions",
         "ms-azuretools.vscode-docker",
-        "ms-python.black-formatter",
         "ms-python.debugpy",
-        "ms-python.flake8",
         "ms-python.python",
         "ms-vscode.makefile-tools",
         "ms-vscode.vscode-node-azure-pack",
@@ -74,7 +70,6 @@
       ]
     }
   }
-
   // Uncomment to run commands after the container is created.
   // "containerEnv": {
   //  Disabled because it is being applied twice for the app because something else is setting it
@@ -83,7 +78,6 @@
   //  to use a higher capacity container and/or fewer open projects in the workspace.
   // 	"NODE_OPTIONS": "--max-old-space-size=8192"
   // }
-
   // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
   // "remoteUser": "root"
 }

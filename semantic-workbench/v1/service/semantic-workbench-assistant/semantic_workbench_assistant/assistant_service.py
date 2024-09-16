@@ -353,11 +353,7 @@ def assistant_service_api(
     async def export_assistant_data(assistant_id: str) -> Response:
         response = await service.export_assistant_data(assistant_id)
         match response:
-            case StreamingResponse():
-                return response
-            case FileResponse():
-                return response
-            case JSONResponse():
+            case StreamingResponse() | FileResponse() | JSONResponse():
                 return response
             case BaseModel():
                 return JSONResponse(jsonable_encoder(response))

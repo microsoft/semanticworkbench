@@ -33,22 +33,19 @@ python-json-logger = "^2.0.7"
 python-multipart = "~0.0.6"
 rich = "^13.7.0"
 semantic-workbench-api-model = { path = "../semantic-workbench-api-model", develop = true }
-# semantic-workbench-assistant is used for integration tests
-semantic-workbench-assistant = { path = "../semantic-workbench-assistant", develop = true, optional = true }
 sqlmodel = "~0.0.14"
 sse-starlette = "~1.8.2"
 uvicorn = { version = "*", extras = ["standard"] }
 
-asgi-lifespan = { version = "^2.1.0", optional = true }
-black = { version = "^24.3.0", optional = true }
-flake8 = { version = "^6.1.0", optional = true }
-pytest = { version = "^7.4.3", optional = true }
-pytest-asyncio = {version = "^0.23.5.post1", optional = true}
-pytest-docker = { version = "^3.1.1", optional = true }
-pytest-httpx = { version = "^0.30.0", optional = true }
-
-[tool.poetry.extras]
-dev = ["asgi-lifespan", "black", "flake8", "pytest", "pytest-asyncio", "pytest-docker", "pytest-httpx", "semantic-workbench-assistant"]
+[tool.poetry.group.dev.dependencies]
+# semantic-workbench-assistant is used for integration tests
+semantic-workbench-assistant = { path = "../semantic-workbench-assistant", develop = true }
+asgi-lifespan = "^2.1.0"
+pytest = "^7.4.3"
+pytest-asyncio = "^0.23.5.post1"
+pytest-docker = "^3.1.1"
+pytest-httpx = "^0.30.0"
+ruff = "^0.6.4"
 
 [tool.poetry.scripts]
 start-semantic-workbench-service = "semantic_workbench_service.start:main"
@@ -56,13 +53,6 @@ start-semantic-workbench-service = "semantic_workbench_service.start:main"
 [build-system]
 requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.isort]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-line_length = 120
-profile = "black"
 
 [tool.pyright]
 exclude = ["venv", ".venv"]

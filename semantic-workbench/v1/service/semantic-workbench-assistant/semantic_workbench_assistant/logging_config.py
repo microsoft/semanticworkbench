@@ -18,7 +18,6 @@ class LoggingSettings(BaseSettings):
 
 
 class CustomJSONFormatter(jsonlogger.JsonFormatter):
-
     def __init__(self, *args, **kwargs):
         self.max_message_length = kwargs.pop("max_message_length", 15_000)
         super().__init__(*args, **kwargs)
@@ -36,13 +35,12 @@ class CustomJSONFormatter(jsonlogger.JsonFormatter):
             return log_record
 
         log_record["message"] = (
-            f"{message[:self.max_message_length // 2]}... truncated ...{message[-self.max_message_length // 2:]}"
+            f"{message[: self.max_message_length // 2]}... truncated ...{message[-self.max_message_length // 2 :]}"
         )
         return log_record
 
 
 class JSONHandler(logging.StreamHandler):
-
     def __init__(self, max_message_length: int):
         super().__init__()
         self.setFormatter(

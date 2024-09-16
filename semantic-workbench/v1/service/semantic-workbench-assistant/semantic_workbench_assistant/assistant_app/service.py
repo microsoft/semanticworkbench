@@ -65,7 +65,6 @@ class _Event(BaseModel):
 
 
 def translate_assistant_errors(func):
-
     @contextmanager
     def wrapping_logic():
         try:
@@ -216,7 +215,6 @@ class AssistantService(FastAPIAssistantService):
 
         content_interceptor = self.assistant_app.content_interceptor
         if content_interceptor is not None:
-
             original_send_messages = context.send_messages
 
             async def override(
@@ -468,7 +466,6 @@ class AssistantService(FastAPIAssistantService):
     async def _forward_event(
         self, conversation_context: ConversationContext, event: workbench_model.ConversationEvent
     ) -> None:
-
         updated_event = event
         if self.assistant_app.content_interceptor is not None:
             try:

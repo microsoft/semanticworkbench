@@ -49,7 +49,6 @@ default_context_transfer_instruction = (
 
 
 class WorkflowController:
-
     def __init__(
         self,
         get_session: Callable[[], AsyncContextManager[AsyncSession]],
@@ -65,7 +64,6 @@ class WorkflowController:
     #
 
     async def preview_message(self, message_preview: MessagePreview) -> None:
-
         if (
             # ignore non-chat messages
             message_preview.message.message_type != MessageType.chat
@@ -1016,7 +1014,6 @@ class WorkflowController:
         self,
         workflow_run_id: uuid.UUID,
     ) -> None:
-
         # get workflow run and definition
         workflow_run = await self.get_workflow_run(workflow_run_id=workflow_run_id)
         workflow_definition = await self.get_workflow_definition(
@@ -1227,7 +1224,6 @@ class WorkflowController:
         transition_evaluation_prompt: str,
         chat_history: list[str],
     ) -> Tuple[bool, dict[str, Any]]:
-
         # history message content
         history_message_content = "<CHAT_HISTORY>" + "\n".join(chat_history) + "</CHAT_HISTORY>"
 
@@ -1292,7 +1288,6 @@ class WorkflowController:
         context_transfer_request: str,
         chat_history: list[str],
     ) -> Tuple[str, dict[str, Any]]:
-
         # history message content
         history_message_content = "<CHAT_HISTORY>" + "\n".join(chat_history) + "</CHAT_HISTORY>"
 

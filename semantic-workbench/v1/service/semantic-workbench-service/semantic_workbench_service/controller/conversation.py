@@ -285,7 +285,9 @@ class ConversationController:
 
         async with self._get_session() as session:
 
-            async def update_user_participant(conversation: db.Conversation, user: db.User) -> tuple[
+            async def update_user_participant(
+                conversation: db.Conversation, user: db.User
+            ) -> tuple[
                 ConversationParticipant,
                 Literal[
                     ConversationEventType.participant_created,

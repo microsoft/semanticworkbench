@@ -14,6 +14,7 @@ node_modules
 poetry.lock
 __pycache__
 .pytest_cache
+.ruff_cache
 .cache
 bin/
 obj/

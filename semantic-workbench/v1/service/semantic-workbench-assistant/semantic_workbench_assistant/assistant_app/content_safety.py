@@ -174,7 +174,6 @@ class ContentSafety(ContentInterceptor):
         evaluated_event: ConversationEvent | None = None
 
         match evaluation.result:
-
             case ContentSafetyEvaluationResult.Pass | ContentSafetyEvaluationResult.Warn:
                 # return the original event
                 evaluated_event = event
@@ -258,7 +257,6 @@ class ContentSafety(ContentInterceptor):
         evaluated_messages: list[NewConversationMessage] = []
 
         match evaluation.result:
-
             case ContentSafetyEvaluationResult.Pass:
                 # return the original messages
                 evaluated_messages = messages
@@ -290,7 +288,6 @@ class ContentSafety(ContentInterceptor):
 
         # update the results with the data from this interceptor
         for message in evaluated_messages:
-
             # tag the message with the assistant id to avoid infinite loops
             message = self._tag_message(message, context.assistant.id)
 

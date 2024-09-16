@@ -95,7 +95,6 @@ EventHandlerT = TypeVar("EventHandlerT")
 
 
 class EventHandlerList(Generic[EventHandlerT], list[EventHandlerT]):
-
     async def __call__(self, *args, **kwargs):
         for handler in self:
             try:
@@ -113,7 +112,6 @@ class EventHandlerList(Generic[EventHandlerT], list[EventHandlerT]):
 
 
 class EventHandlers(Generic[EventHandlerT]):
-
     def __init__(self, on_created=True, on_updated=True, on_deleted=True) -> None:
         if on_created:
             self._on_created_handlers = EventHandlerList[EventHandlerT]()
@@ -196,7 +194,6 @@ class MessageEvents(EventHandlers[ConversationMessageEventHandler]):
 
 
 class ConversationEvents(EventHandlers[ConversationEventHandler]):
-
     def __init__(self) -> None:
         super().__init__()
 
@@ -206,7 +203,6 @@ class ConversationEvents(EventHandlers[ConversationEventHandler]):
 
 
 class Events:
-
     def __init__(self) -> None:
         self.assistant = EventHandlers[AssistantEventHandler]()
         self.conversation = ConversationEvents()

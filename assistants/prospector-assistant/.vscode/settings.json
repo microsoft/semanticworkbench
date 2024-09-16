@@ -1,5 +1,4 @@
 {
-  "black-formatter.args": ["--config", "./.black.toml"],
   "editor.bracketPairColorization.enabled": true,
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit",
@@ -11,8 +10,6 @@
   "editor.formatOnSave": true,
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,
-  "flake8.args": ["--config", "./.flake8"],
-  "isort.args": ["--profile", "black", "--gitignore"],
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
@@ -34,14 +31,16 @@
   "python.analysis.typeCheckingMode": "basic",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
   "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
       "source.unusedImports": "explicit",
       "source.organizeImports": "explicit",
-      "source.fixAll": "explicit",
       "source.formatDocument": "explicit"
     }
   },
+  "ruff.nativeServer": "on",
   "search.exclude": {
     "**/.venv": true,
     "**/.data": true,

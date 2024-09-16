@@ -3,7 +3,6 @@ import io
 import json
 import logging
 import re
-import time
 import uuid
 
 import httpx
@@ -17,7 +16,9 @@ from .types import MockUser
 
 
 async def test_flow_create_assistant_update_config(
-    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
+    workbench_service: FastAPI,
+    canonical_assistant_service: FastAPI,
+    test_user: MockUser,
 ) -> None:
     async with (
         LifespanManager(workbench_service),
@@ -37,7 +38,8 @@ async def test_flow_create_assistant_update_config(
         resp = await wb_client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=assistant_service.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=assistant_service.assistant_service_id,
             ).model_dump(mode="json"),
         )
         logging.info("POST wb/assistants resp: %s", resp.json())
@@ -57,16 +59,19 @@ async def test_flow_create_assistant_update_config(
                 short_text="test short text",
                 long_text="test long text",
                 prompt=semantic_workbench_assistant.canonical.PromptConfigModel(
-                    custom_prompt="test custom prompt", temperature=0.999999
+                    custom_prompt="test custom prompt",
+                    temperature=0.999999,
                 ),
-            ).model_dump()
+            ).model_dump(),
         )
         resp = await wb_client.put(f"/assistants/{assistant.id}/config", json=config.model_dump(mode="json"))
         resp.raise_for_status()
 
 
 async def test_flow_create_assistant_update_conversation_state(
-    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
+    workbench_service: FastAPI,
+    canonical_assistant_service: FastAPI,
+    test_user: MockUser,
 ) -> None:
     async with (
         LifespanManager(workbench_service),
@@ -86,7 +91,8 @@ async def test_flow_create_assistant_update_conversation_state(
         resp = await wb_client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=assistant_service.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=assistant_service.assistant_service_id,
             ).model_dump(mode="json"),
         )
         resp.raise_for_status()
@@ -133,7 +139,7 @@ async def test_flow_create_assistant_update_conversation_state(
         state_update = assistant_model.StatePutRequestModel(
             data=semantic_workbench_assistant.canonical.ConversationState(
                 message=updated_message,
-            ).model_dump()
+            ).model_dump(),
         )
         resp = await wb_client.put(
             f"/assistants/{assistant.id}/conversations/{conversation.id}/states/simple_state",
@@ -153,7 +159,9 @@ async def test_flow_create_assistant_update_conversation_state(
 
 
 async def test_flow_create_assistant_send_message_receive_resp(
-    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
+    workbench_service: FastAPI,
+    canonical_assistant_service: FastAPI,
+    test_user: MockUser,
 ) -> None:
     async with (
         LifespanManager(workbench_service),
@@ -173,7 +181,8 @@ async def test_flow_create_assistant_send_message_receive_resp(
         resp = await wb_client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=assistant_service.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=assistant_service.assistant_service_id,
             ).model_dump(mode="json"),
         )
         resp.raise_for_status()
@@ -193,18 +202,18 @@ async def test_flow_create_assistant_send_message_receive_resp(
             json={"content": "hello"},
         )
         resp.raise_for_status()
-        logging.info(f"POST wb/conversations/{conversation.id}/messages resp: %s", resp.json())
+        logging.info("POST wb/conversations/%s/messages resp: %s", conversation.id, resp.json())
 
         attempts = 1
         messages = []
         while attempts <= 10 and len(messages) < 2:
             if attempts > 1:
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
             attempts += 1
 
             resp = await wb_client.get(f"/conversations/{conversation.id}/messages")
             resp.raise_for_status()
-            logging.info(f"GET wb/conversations/{conversation.id}/messages resp: %s", resp.json())
+            logging.info("GET wb/conversations/%s/messages resp: %s", conversation.id, resp.json())
 
             messages_resp = resp.json()
 
@@ -215,7 +224,9 @@ async def test_flow_create_assistant_send_message_receive_resp(
 
 
 async def test_flow_create_assistant_send_message_receive_resp_export_import_assistant(
-    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
+    workbench_service: FastAPI,
+    canonical_assistant_service: FastAPI,
+    test_user: MockUser,
 ) -> None:
     async with (
         LifespanManager(workbench_service),
@@ -235,7 +246,8 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
         resp = await wb_client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=assistant_service.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=assistant_service.assistant_service_id,
             ).model_dump(mode="json"),
         )
         resp.raise_for_status()
@@ -255,13 +267,13 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
             resp.raise_for_status()
             existing_messages = workbench_model.ConversationMessageList.model_validate(resp.json())
 
-            logging.info(f"POST wb/conversations/{conversation.id}/messages resp: %s", resp.json())
+            logging.info("POST wb/conversations/%s/messages resp: %s", conversation.id, resp.json())
             resp = await wb_client.post(
                 f"/conversations/{conversation.id}/messages",
                 json={"content": "hello"},
             )
             resp.raise_for_status()
-            logging.info(f"POST wb/conversations/{conversation.id}/messages resp: %s", resp.json())
+            logging.info("POST wb/conversations/%s/messages resp: %s", conversation.id, resp.json())
 
             url = f"/conversations/{conversation.id}/messages"
             params = {}
@@ -277,7 +289,7 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
 
                 resp = await wb_client.get(url, params=params)
                 resp.raise_for_status()
-                logging.info(f"GET {url} resp: %s", resp.json())
+                logging.info("GET %s resp: %s", url, resp.json())
 
                 messages_response = workbench_model.ConversationMessageList.model_validate(resp.json())
                 messages = messages_response.messages
@@ -329,7 +341,9 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
 
 
 async def test_flow_create_assistant_send_message_receive_resp_export_import_conversations(
-    workbench_service: FastAPI, canonical_assistant_service: FastAPI, test_user: MockUser
+    workbench_service: FastAPI,
+    canonical_assistant_service: FastAPI,
+    test_user: MockUser,
 ) -> None:
     async with (
         LifespanManager(workbench_service),
@@ -349,7 +363,8 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_con
         resp = await wb_client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=assistant_service.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=assistant_service.assistant_service_id,
             ).model_dump(mode="json"),
         )
         resp.raise_for_status()
@@ -374,7 +389,7 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_con
                 json={"content": "hello"},
             )
             resp.raise_for_status()
-            logging.info(f"POST wb/conversations/{conversation.id}/messages resp: %s", resp.json())
+            logging.info("POST wb/conversations/%s/messages resp: %s", conversation.id, resp.json())
 
             url = f"/conversations/{conversation.id}/messages"
             params = {}
@@ -384,13 +399,13 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_con
             messages = []
             while attempts <= 10 and len(messages) < 2:
                 if attempts > 1:
-                    time.sleep(0.5)
+                    await asyncio.sleep(0.5)
 
                 attempts += 1
 
                 resp = await wb_client.get(url, params=params)
                 resp.raise_for_status()
-                logging.info(f"GET wb/conversations/{conversation.id}/messages resp: %s", resp.json())
+                logging.info("GET wb/conversations/%s/messages resp: %s", conversation.id, resp.json())
 
                 messages_response = workbench_model.ConversationMessageList.model_validate(resp.json())
                 messages = messages_response.messages
@@ -446,7 +461,7 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_con
 
 @pytest.mark.parametrize(
     # spell-checker:ignore dlrow olleh
-    "command,command_args,expected_response_content_regex",
+    ("command", "command_args", "expected_response_content_regex"),
     [
         ("/reverse", "hello world", re.compile("dlrow olleh")),
         ("/reverse", "-h", re.compile("usage: /reverse.+", re.DOTALL)),
@@ -457,8 +472,8 @@ async def test_flow_create_assistant_send_command_message_receive_resp(
     workbench_service: FastAPI,
     canonical_assistant_service: FastAPI,
     test_user: MockUser,
-    command,
-    command_args,
+    command: str,
+    command_args: str,
     expected_response_content_regex: re.Pattern,
 ) -> None:
     async with (
@@ -479,7 +494,8 @@ async def test_flow_create_assistant_send_command_message_receive_resp(
         resp = await wb_client.post(
             "/assistants",
             json=workbench_model.NewAssistant(
-                name="test-assistant", assistant_service_id=assistant_service.assistant_service_id
+                name="test-assistant",
+                assistant_service_id=assistant_service.assistant_service_id,
             ).model_dump(mode="json"),
         )
         resp.raise_for_status()
@@ -508,18 +524,18 @@ async def test_flow_create_assistant_send_command_message_receive_resp(
             },
         )
         resp.raise_for_status()
-        logging.info(f"POST wb/conversations/{conversation.id}/messages resp: %s", resp.json())
+        logging.info("POST wb/conversations/%s/messages resp: %s", conversation.id, resp.json())
 
         attempts = 1
         messages = []
         while attempts <= 10 and len(messages) < 2:
             if attempts > 1:
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
             attempts += 1
 
             resp = await wb_client.get(f"/conversations/{conversation.id}/messages")
             resp.raise_for_status()
-            logging.info(f"GET wb/conversations/{conversation.id}/messages resp: %s", resp.json())
+            logging.info("GET wb/conversations/%s/messages resp: %s", conversation.id, resp.json())
 
             messages_resp = resp.json()
 
