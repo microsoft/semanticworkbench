@@ -1,25 +1,9 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-# An example for building a simple chat assistant using the AssistantApp from
-# the semantic-workbench-assistant package.
+# Prospector Assistant
 #
-# This example demonstrates how to use the AssistantApp to create a chat assistant,
-# to add additional configuration fields and UI schema for the configuration fields,
-# and to handle conversation events to respond to messages in the conversation.
-
-# region Required
+# This assistant helps you mine ideas from artifacts.
 #
-# The code in this region demonstrates the minimal code required to create a chat assistant
-# using the AssistantApp class from the semantic-workbench-assistant package. This code
-# demonstrates how to create an AssistantApp instance, define the service ID, name, and
-# description, and create the FastAPI app instance. Start here to build your own chat
-# assistant using the AssistantApp class.
-#
-# The code that follows this region is optional and demonstrates how to add event handlers
-# to respond to conversation events. You can use this code as a starting point for building
-# your own chat assistant with additional functionality.
-#
-
 
 import logging
 import re
@@ -31,6 +15,8 @@ from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
+    ConversationParticipant,
+    File,
     MessageType,
     NewConversationMessage,
     UpdateParticipant,
@@ -43,6 +29,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from .agents.attachment_agent import AttachmentAgent
 from .config import AssistantConfigModel, ui_schema
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
 from .responsible_ai.openai_evaluator import (
@@ -53,15 +40,15 @@ from .responsible_ai.openai_evaluator import (
 logger = logging.getLogger(__name__)
 
 #
-# define the service ID, name, and description
+# region Setup
 #
 
 # the service id to be registered in the workbench to identify the assistant
-service_id = "python-02-simple-chatbot.workbench-explorer"
+service_id = "prospector-assistant.made-exploration"
 # the name of the assistant service, as it will appear in the workbench UI
-service_name = "Python Example 02: Simple Chatbot"
+service_name = "Prospector Assistant"
 # a description of the assistant service, as it will appear in the workbench UI
-service_description = "A simple OpenAI chat assistant using the Semantic Workbench Assistant SDK."
+service_description = "An assistant that helps you mine ideas from artifacts."
 
 #
 # create the configuration provider, using the extended configuration model
@@ -101,9 +88,8 @@ app = assistant.fastapi_app()
 # endregion
 
 
-# region Optional
 #
-# Note: The code in this region is specific to this example and is not required for a basic assistant.
+# region Event Handlers
 #
 # The AssistantApp class provides a set of decorators for adding event handlers to respond to conversation
 # events. In VS Code, typing "@assistant." (or the name of your AssistantApp instance) will show available
@@ -134,6 +120,7 @@ async def on_message_created(
     - To handle all message types, you can use the root event handler for all message types:
       - @assistant.events.conversation.message.on_created
     """
+
     # ignore messages from this assistant
     if message.sender.participant_id == context.assistant.id:
         return
@@ -141,7 +128,7 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
     try:
-        # replace the following with your own logic for processing a message created event
+        # respond to the conversation message
         await respond_to_conversation(
             context,
             message=message,
@@ -152,21 +139,15 @@ async def on_message_created(
         await context.update_participant_me(UpdateParticipant(status=None))
 
 
-# Handle the event triggered when the assistant is added to a conversation.
 @assistant.events.conversation.on_created
 async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
     """
-    # replace the following with your own logic for processing a conversation created event
 
-    # get the assistant's configuration
+    # send a welcome message to the conversation
     assistant_config = await config_provider.get_typed(context.assistant)
-
-    # get the welcome message from the assistant's configuration
     welcome_message = assistant_config.welcome_message
-
-    # send the welcome message to the conversation
     await context.send_messages(
         NewConversationMessage(
             content=welcome_message,
@@ -176,14 +157,67 @@ async def on_conversation_created(context: ConversationContext) -> None:
     )
 
 
+@assistant.events.conversation.file.on_created
+async def on_file_created(context: ConversationContext, event: ConversationEvent, file: File) -> None:
+    """
+    Handle the event triggered when a file is created in the conversation.
+    """
+
+    # update the participant status to indicate the assistant processing the new file
+    await context.update_participant_me(UpdateParticipant(status=f"adding attachment '{file.filename}'..."))
+    try:
+        # process the file to create an attachment
+        await create_or_update_attachment_from_file(
+            context,
+            file,
+            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+        )
+    finally:
+        # update the participant status to indicate the assistant is done processing the new file
+        await context.update_participant_me(UpdateParticipant(status=None))
+
+
+@assistant.events.conversation.file.on_updated
+async def on_file_updated(context: ConversationContext, event: ConversationEvent, file: File) -> None:
+    """
+    Handle the event triggered when a file is updated in the conversation.
+    """
+
+    # update the participant status to indicate the assistant is updating the attachment
+    await context.update_participant_me(UpdateParticipant(status=f"updating attachment '{file.filename}'..."))
+    try:
+        # process the file to update an attachment
+        await create_or_update_attachment_from_file(
+            context,
+            file,
+            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+        )
+    finally:
+        # update the participant status to indicate the assistant is done updating the attachment
+        await context.update_participant_me(UpdateParticipant(status=None))
+
+
+@assistant.events.conversation.file.on_deleted
+async def on_file_deleted(context: ConversationContext, event: ConversationEvent, file: File) -> None:
+    """
+    Handle the event triggered when a file is deleted in the conversation.
+    """
+
+    # update the participant status to indicate the assistant is deleting the attachment
+    await context.update_participant_me(UpdateParticipant(status=f"deleting attachment '{file.filename}'..."))
+    try:
+        # delete the attachment for the file
+        await delete_attachment_for_file(context, file)
+    finally:
+        # update the participant status to indicate the assistant is done deleting the attachment
+        await context.update_participant_me(UpdateParticipant(status=None))
+
+
 # endregion
 
 
-# region Custom
 #
-# This code was added specifically for this example to demonstrate how to respond to conversation
-# messages using the OpenAI API. For your own assistant, you could replace this code with your own
-# logic for responding to conversation messages and add any additional functionality as needed.
+# region Response
 #
 
 
@@ -193,6 +227,14 @@ async def respond_to_conversation(
 ) -> None:
     """
     Respond to a conversation message.
+
+    This method uses the OpenAI API to generate a response to the message.
+
+    It includes any attachments as individual system messages before the chat history, along with references
+    to the attachments in the point in the conversation where they were mentioned. This allows the model to
+    consider the full contents of the attachments separate from the conversation, but with the context of
+    where they were mentioned and any relevant surrounding context such as how to interpret the attachment
+    or why it was shared or what to do with it.
     """
 
     # define the metadata key for any metadata created within this method
@@ -207,13 +249,7 @@ async def respond_to_conversation(
     # establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
 
-    # create a system message, start by adding the guardrails prompt
-    system_message_content = assistant_config.guardrails_prompt
-
-    # add the instruction prompt and the assistant name
-    system_message_content += f'\n\n{assistant_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
-
-    # if this is a multi-participant conversation, add a note about the participants
+    system_message_content = f'{assistant_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
     if len(participants_response.participants) > 2:
         system_message_content += (
             "\n\n"
@@ -231,125 +267,95 @@ async def respond_to_conversation(
             f' be directed at you or the general audience, go ahead and respond.\n\nSay "{silence_token}" to skip'
             " your turn."
         )
+    system_message_content += f"\n\n{assistant_config.guardrails_prompt}"
 
-    # create the completion messages for the AI model and add the system message
     completion_messages: list[ChatCompletionMessageParam] = [{
         "role": "system",
         "content": system_message_content,
     }]
 
-    # get the current token count and track the tokens used as messages are added
-    current_tokens = 0
-    # add the token count for the system message
-    current_tokens += get_token_count(system_message_content)
+    # add the attachment agent messages to the completion messages
+    if assistant_config.agents_config.attachment_agent.include_in_response_generation:
+        # generate the attachment messages from the attachment agent
+        attachment_agent = AttachmentAgent()
+        attachment_messages = await attachment_agent.generate_attachment_messages(context)
 
-    # consistent formatter that includes the participant name for multi-participant and name references
-    def format_message(message: ConversationMessage) -> str:
-        # get the participant name for the message sender
-        conversation_participant = next(
-            (
-                participant
-                for participant in participants_response.participants
-                if participant.id == message.sender.participant_id
-            ),
-            None,
-        )
-        participant_name = conversation_participant.name if conversation_participant else "unknown"
-
-        # format the message content with the participant name and message timestamp
-        message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-        return f"[{participant_name} - {message_datetime}]: {message.content}"
+        # add the attachment messages to the completion messages
+        if len(attachment_messages) > 0:
+            completion_messages.append({
+                "role": "system",
+                "content": assistant_config.agents_config.attachment_agent.context_description,
+            })
+            completion_messages.extend(attachment_messages)
 
     # get messages before the current message
     messages_response = await context.get_messages(before=message.id)
     messages = messages_response.messages + [message]
 
-    # create a list of the recent chat history messages to send to the AI model
+    # calculate the token count for the messages so far
+    token_count = 0
+    for completion_message in completion_messages:
+        content = completion_message.get("content")
+        if isinstance(content, str):
+            token_count += _get_token_count_for_str(content)
+
+    # calculate the total available tokens for the response generation
+    available_tokens = assistant_config.request_config.max_tokens - assistant_config.request_config.response_tokens
+
+    # build the completion messages from the conversation history
     history_messages: list[ChatCompletionMessageParam] = []
-    # iterate over the messages in reverse order to get the most recent messages first
+
+    # add the messages in reverse order to get the most recent messages first
     for message in reversed(messages):
-        # add the token count for the message and check if the token limit has been reached
-        message_tokens = get_token_count(format_message(message))
-        current_tokens += message_tokens
-        if (
-            current_tokens
-            > assistant_config.request_config.max_tokens - assistant_config.request_config.response_tokens
-        ):
-            # if the token limit has been reached, stop adding messages
+        # calculate the token count for the message and check if it exceeds the available tokens
+        token_count += _get_token_count_for_str(_format_message(message, participants_response.participants))
+        if token_count > available_tokens:
+            # stop processing messages if the token count exceeds the available tokens
             break
 
-        # add the message to the history messages
+        # add the message to the completion messages, treating any message from a source other than the assistant
+        # as a user message
         if message.sender.participant_id == context.assistant.id:
-            # this is an assistant message
             history_messages.append({
                 "role": "assistant",
-                "content": format_message(message),
+                "content": _format_message(message, participants_response.participants),
             })
         else:
-            # this is a user message
+            # we are working with the messages in reverse order, so include any attachments before the message
+            if message.filenames and len(message.filenames) > 0:
+                # add a system message to indicate the attachments
+                history_messages.append({
+                    "role": "system",
+                    "content": f"Attachment(s): {', '.join(message.filenames)}",
+                })
+            # add the user message to the completion messages
             history_messages.append({
                 "role": "user",
-                "content": format_message(message),
+                "content": _format_message(message, participants_response.participants),
             })
 
-    # reverse the history messages to send the most recent messages first
+    # reverse the history messages to get them back in the correct order
     history_messages.reverse()
 
     # add the history messages to the completion messages
     completion_messages.extend(history_messages)
 
-    # evaluate the content for safety
-    # disabled because the OpenAI and Azure OpenAI services already have content safety checks
-    # and we are more interested in running the generated responses through the content safety checks
-    # which are being handled by the content safety interceptor on the assistant
-    # this code is therefore included here for reference on how to call the content safety evaluator
-    # from within the assistant code
-
-    # content_evaluator = await content_evaluator_factory(context)
-    # evaluation = await content_evaluator.evaluate([message.content for message in messages])
-
-    # deepmerge.always_merger.merge(
-    #     metadata,
-    #     {
-    #         "debug": {
-    #             f"{assistant.content_interceptor.metadata_key}": {
-    #                 f"{method_metadata_key}": {
-    #                     "evaluation": evaluation.model_dump(),
-    #                 },
-    #             },
-    #         },
-    #     },
-    # )
-
-    # if evaluation.result == ContentSafetyEvaluationResult.Fail:
-    #     # send a notice to the user that the content safety evaluation failed
-    #     deepmerge.always_merger.merge(
-    #         metadata,
-    #         {"generated_content": False},
-    #     )
-    #     await context.send_messages(
-    #         NewConversationMessage(
-    #             content=evaluation.note or "Content safety evaluation failed.",
-    #             message_type=MessageType.notice,
-    #             metadata=metadata,
-    #         )
-    #     )
-    #     return
-
     # generate a response from the AI model
+    completion_total_tokens: int | None = None
     async with assistant_config.service_config.new_client(api_version="2024-06-01") as openai_client:
         try:
-            # call the OpenAI chat completion endpoint to get a response
+            # call the OpenAI API to generate a completion
             completion = await openai_client.chat.completions.create(
                 messages=completion_messages,
                 model=assistant_config.service_config.openai_model,
                 max_tokens=assistant_config.request_config.response_tokens,
             )
-
-            # get the content from the completion response
             content = completion.choices[0].message.content
 
-            # merge the completion response into the passed in metadata
+            # get the total tokens used for the completion
+            completion_total_tokens = completion.usage.total_tokens if completion.usage else None
+
+            # add the completion to the metadata for debugging
             deepmerge.always_merger.merge(
                 metadata,
                 {
@@ -367,10 +373,10 @@ async def respond_to_conversation(
             )
         except Exception as e:
             logger.exception(f"exception occurred calling openai chat completion: {e}")
-            # if there is an error, set the content to an error message
-            content = "An error occurred while calling the OpenAI API. Is it configured correctly?"
-
-            # merge the error into the passed in metadata
+            content = (
+                "An error occurred while calling the OpenAI API. Is it configured correctly?"
+                "View the debug inspector for more information."
+            )
             deepmerge.always_merger.merge(
                 metadata,
                 {
@@ -389,21 +395,17 @@ async def respond_to_conversation(
     # set the message type based on the content
     message_type = MessageType.chat
 
-    # various behaviors based on the content
     if content:
-
         # strip out the username from the response
         if content.startswith("["):
             content = re.sub(r"\[.*\]:\s", "", content)
 
-        # check for the silence token, in case the model chooses not to respond
         # model sometimes puts extra spaces in the response, so remove them
         # when checking for the silence token
         if content.replace(" ", "") == silence_token:
-            # normal behavior is to not respond if the model chooses to remain silent
-            # but we can override this behavior for debugging purposes via the assistant config
+            # if debug output is enabled, notify the conversation that the assistant chose to remain silent
             if assistant_config.enable_debug_output:
-                # update the metadata to indicate the assistant chose to remain silent
+                # add debug metadata to indicate the assistant chose to remain silent
                 deepmerge.always_merger.merge(
                     metadata,
                     {
@@ -416,7 +418,7 @@ async def respond_to_conversation(
                         "generated_content": False,
                     },
                 )
-                # send a notice to the user that the assistant chose to remain silent
+                # send a notice message to the conversation
                 await context.send_messages(
                     NewConversationMessage(
                         message_type=MessageType.notice,
@@ -426,7 +428,7 @@ async def respond_to_conversation(
                 )
             return
 
-        # override message type if content starts with "/", indicating a command response
+        # override message type if content starts with /
         if content.startswith("/"):
             message_type = MessageType.command_response
 
@@ -439,12 +441,116 @@ async def respond_to_conversation(
         )
     )
 
+    # check the token usage and send a warning if it is high
+    if completion_total_tokens is not None and assistant_config.high_token_usage_warning.enabled:
+        # calculate the token count for the warning threshold
+        token_count_for_warning = assistant_config.request_config.max_tokens * (
+            assistant_config.high_token_usage_warning.threshold / 100
+        )
 
-# this method is used to get the token count of a string.
-def get_token_count(string: str) -> int:
+        # check if the completion total tokens exceed the warning threshold
+        if completion_total_tokens > token_count_for_warning:
+            content = (
+                f"{assistant_config.high_token_usage_warning.message}\n\nTotal tokens used: {completion_total_tokens}"
+            )
+
+            # send a notice message to the conversation that the token usage is high
+            await context.send_messages(
+                NewConversationMessage(
+                    content=content,
+                    message_type=MessageType.notice,
+                    metadata={
+                        "debug": {
+                            "high_token_usage_warning": {
+                                "completion_total_tokens": completion_total_tokens,
+                                "threshold": assistant_config.high_token_usage_warning.threshold,
+                                "token_count_for_warning": token_count_for_warning,
+                            }
+                        },
+                        "attribution": "system",
+                    },
+                )
+            )
+
+
+# endregion
+
+
+#
+# region Attachments
+#
+
+
+async def create_or_update_attachment_from_file(
+    context: ConversationContext, file: File, metadata: dict[str, Any] = {}
+) -> None:
     """
-    Get the token count of a string.
+    Create or update an attachment from a conversation file.
     """
+
+    attachment_agent = AttachmentAgent()
+
+    try:
+        await attachment_agent.create_or_update_attachment_from_file(context, file, metadata)
+    except Exception as e:
+        logger.exception(f"exception occurred processing attachment: {e}")
+        await context.send_messages(
+            NewConversationMessage(
+                content=f"There was an error processing the attachment ({file.filename}): {e}",
+                message_type=MessageType.chat,
+                metadata={**metadata, "attribution": "system"},
+            )
+        )
+
+
+async def delete_attachment_for_file(context: ConversationContext, file: File, metadata: dict[str, Any] = {}) -> None:
+    """
+    Delete an attachment for a conversation file.
+    """
+
+    attachment_agent = AttachmentAgent()
+
+    try:
+        await attachment_agent.delete_attachment_for_file(context, file)
+    except Exception as e:
+        logger.exception(f"exception occurred deleting attachment: {e}")
+        await context.send_messages(
+            NewConversationMessage(
+                content=f"There was an error deleting the attachment ({file.filename}): {e}",
+                message_type=MessageType.chat,
+                metadata={**metadata, "attribution": "system"},
+            )
+        )
+
+
+# endregion
+
+
+#
+# region Helpers
+#
+
+
+def _format_message(message: ConversationMessage, participants: list[ConversationParticipant]) -> str:
+    """
+    Format a conversation message for display.
+    """
+    conversation_participant = next(
+        (participant for participant in participants if participant.id == message.sender.participant_id),
+        None,
+    )
+    participant_name = conversation_participant.name if conversation_participant else "unknown"
+    message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    return f"[{participant_name} - {message_datetime}]: {message.content}"
+
+
+def _get_token_count_for_str(string: str | list[str]) -> int:
+    """
+    Get the token count for a string or list of strings.
+    """
+    if isinstance(string, list):
+        string = " ".join(string)
+
     encoding = tiktoken.get_encoding("cl100k_base")
     return len(encoding.encode(string))
 

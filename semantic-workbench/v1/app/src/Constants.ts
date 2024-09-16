@@ -9,6 +9,7 @@ export const Constants = {
         minChatWidthPercent: 20,
         defaultChatWidthPercent: 33,
         maxFileAttachmentsPerMessage: 10,
+        speechIdleTimeoutMs: 2000,
     },
     workflow: {
         maxOutlets: 5,

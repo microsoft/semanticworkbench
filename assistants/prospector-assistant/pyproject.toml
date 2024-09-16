@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "assistant"
 version = "0.1.0"
-description = "Exploration of a python Semantic Workbench OpenAI assistant."
+description = "Exploration of a python Semantic Workbench OpenAI assistant to help mine artifacts for ideas."
 authors = ["Semantic Workbench Team"]
 readme = "README.md"
 packages = [{ include = "assistant" }]
@@ -11,7 +11,12 @@ python = "~3.11"
 aiohttp = "^3.10.5"
 azure-identity = "^1.17.1"
 azure-ai-contentsafety = "^1.0.0"
+deepmerge = "^2.0"
+docx2txt = "^0.8"
+html2docx = "^1.6.0"
+markdown = "^3.6"
 openai = "^1.3.9"
+pdfplumber = "^0.11.2"
 tiktoken = "^0.7.0"
 
 # If you copy this file to your project, you should verify the relative path to the following:

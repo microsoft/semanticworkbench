@@ -12,6 +12,7 @@ from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
+
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
 from semantic_workbench_assistant.assistant_app.protocol import ContentInterceptor
 
@@ -146,6 +147,15 @@ class ContentSafety(ContentInterceptor):
         # avoid infinite loops by checking if the event was sent by the assistant
         if self._check_event_tag(event, context.assistant.id):
             # return the event without further processing
+            return event
+
+        # list of event types that should be evaluated
+        if event.event not in [
+            ConversationEventType.message_created,
+            ConversationEventType.file_created,
+            ConversationEventType.file_updated,
+        ]:
+            # skip evaluation for other event types
             return event
 
         # evaluate the content safety of the event data

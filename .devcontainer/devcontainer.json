@@ -46,6 +46,7 @@
     "make_workbench_service": "make -C /workspaces/semanticworkbench/semantic-workbench/v1/service",
     "make_python_01_echo_bot": "make -C /workspaces/semanticworkbench/examples/python-01-echo-bot",
     "make_python_02_simple_chatbot": "make -C /workspaces/semanticworkbench/examples/python-02-simple-chatbot",
+    "make_prospector_assistant": "make -C /workspaces/semanticworkbench/assistants/prospector-assistant",
     // Set up git to automatically set up the remote when pushing if it doesn't exist
     "git_config": "git config --add push.autoSetupRemote true"
   },
