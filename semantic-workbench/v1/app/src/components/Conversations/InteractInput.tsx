@@ -2,28 +2,35 @@
 
 import { Attachment, AttachmentList } from '@fluentui-copilot/react-attachments';
 import {
-    $createParagraphNode,
     $createTextNode,
     $getRoot,
-    $getSelection,
     ChatInput,
     ChatInputEntityNode,
     ChatInputSubmitEvents,
     ChatInputTokenNode,
     ChatInputValueData,
+    EditorState,
     LexicalEditor,
     LexicalEditorRefPlugin,
+    TextNode,
 } from '@fluentui-copilot/react-copilot';
 import { Button, Tooltip, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
-import { Attach20Regular, DocumentRegular, Mic20Regular } from '@fluentui/react-icons';
+import { Attach20Regular, DocumentRegular } from '@fluentui/react-icons';
 import { getEncoding } from 'js-tiktoken';
-import { CLEAR_EDITOR_COMMAND, COMMAND_PRIORITY_LOW, DRAGOVER_COMMAND, DROP_COMMAND, PASTE_COMMAND } from 'lexical';
-import * as speechSdk from 'microsoft-cognitiveservices-speech-sdk';
+import {
+    $createLineBreakNode,
+    CLEAR_EDITOR_COMMAND,
+    COMMAND_PRIORITY_LOW,
+    DRAGOVER_COMMAND,
+    DROP_COMMAND,
+    LineBreakNode,
+    PASTE_COMMAND,
+} from 'lexical';
 import React from 'react';
 import { Constants } from '../../Constants';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
+import { useAppDispatch } from '../../redux/app/hooks';
 import { addError } from '../../redux/features/app/appSlice';
 import {
     updateGetConversationMessagesQueryData,
@@ -35,6 +42,7 @@ import {
 import { ClearEditorPlugin } from './ChatInputPlugins/ClearEditorPlugin';
 import { ParticipantMentionsPlugin } from './ChatInputPlugins/ParticipantMentionsPlugin';
 import { InputOptionsControl } from './InputOptionsControl';
+import { SpeechButton } from './SpeechButton';
 
 const useClasses = makeStyles({
     root: {
@@ -81,10 +89,19 @@ interface InteractInputProps {
     additionalContent?: React.ReactNode;
 }
 
+class TemporaryTextNode extends TextNode {
+    static getType() {
+        return 'temporary';
+    }
+
+    static clone(node: TemporaryTextNode) {
+        return new TemporaryTextNode(node.__text, node.__key);
+    }
+}
+
 export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const { conversationId, additionalContent } = props;
     const classes = useClasses();
-    const { speechKey, speechRegion } = useAppSelector((state) => state.settings);
     const [createMessage] = useCreateConversationMessageMutation();
     const [uploadConversationFiles] = useUploadConversationFilesMutation();
     const [messageTypeValue, setMessageTypeValue] = React.useState<'Chat' | 'Command'>('Chat');
@@ -93,7 +110,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [attachmentFiles, setAttachmentFiles] = React.useState<File[]>([]);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
-    const [recognizer, setRecognizer] = React.useState<speechSdk.SpeechRecognizer>();
     const [editorIsInitialized, setEditorIsInitialized] = React.useState(false);
     const editorRef = React.useRef<LexicalEditor | null>();
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
@@ -247,15 +263,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         };
     }, [attachmentFiles, dispatch, editorIsInitialized, editorRef, setAttachmentFiles]);
 
-    React.useEffect(() => {
-        if (recognizer) return;
-        if (!speechKey || !speechRegion) return;
-
-        const speechConfig = speechSdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
-        const speechRecognizer = new speechSdk.SpeechRecognizer(speechConfig);
-        setRecognizer(speechRecognizer);
-    }, [recognizer, speechKey, speechRegion]);
-
     const tokenizer = React.useMemo(() => getEncoding('cl100k_base'), []);
 
     if (isConversationMessagesLoading || isParticipantsLoading) {
@@ -382,78 +389,97 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         }
     };
 
-    const onRecordSpeech = async () => {
-        if (!recognizer || isListening) return;
+    // update the listening state when the speech recognizer starts or stops
+    // so that we can disable the input send while listening
+    const handleListeningChange = (listening: boolean) => {
+        setIsListening(listening);
+    };
 
-        setIsListening(true);
-        recognizer.recognizeOnceAsync((result) => {
-            if (result.reason === speechSdk.ResultReason.Canceled) {
-                const cancellationDetails = result.errorDetails;
-                if (cancellationDetails) {
-                    console.error(`Speech recognition canceled: ${cancellationDetails}`);
+    // update the editor with the in-progress recognized text while the speech recognizer is recognizing,
+    // which is not the final text yet, but it will give the user an idea of what is being recognized
+    const handleSpeechRecognizing = (text: string) => {
+        const editor = editorRef.current;
+        if (!editor) {
+            console.error('Failed to get editor reference');
+            return;
+        }
+
+        editor.update(() => {
+            // get the editor state
+            const editorState: EditorState = editor.getEditorState();
+
+            // check if there is a temporary text node in the editor
+            // if found, update the text content of the temporary text node
+            let foundTemporaryNode = false;
+            editorState._nodeMap.forEach((node) => {
+                if (node instanceof TemporaryTextNode) {
+                    node.setTextContent(text);
+                    foundTemporaryNode = true;
                 }
-                setIsListening(false);
-                return;
-            }
-
-            if (result.reason === speechSdk.ResultReason.NoMatch) {
-                setIsListening(false);
-                return;
-            }
-
-            const text = result.text;
-
-            if (text.trim() === '') {
-                setIsListening(false);
-                return;
-            }
-
-            editorRef.current?.update(() => {
-                const root = $getRoot();
-                if (root.getTextContent().length > 0) {
-                    // there is already text, so insert a new paragraph
-                    const paragraph = $createParagraphNode();
-                    paragraph.append($createTextNode(text));
-                    root.append(paragraph);
-                } else {
-                    // no text yet, but we don't want to insert a new paragraph
-                    // so set the selection to the end of the root node and then
-                    // we can use that to insert the text directly
-                    root.selectEnd();
-                    const selection = $getSelection();
-                    if (!selection) {
-                        console.error('Failed to get selection');
-                        setIsListening(false);
-                        return;
-                    }
-                    selection.insertText(text);
-                }
-                // select the end of the root node so that the user can continue typing
-                root.selectEnd();
             });
 
-            setIsListening(false);
+            // get the root node of the editor
+            const root = $getRoot();
+
+            // if no temporary text node was found, insert a new temporary text node at the end of the editor
+            if (!foundTemporaryNode) {
+                const selection = root.selectEnd();
+                if (!selection) {
+                    console.error('Failed to get selection');
+                    return;
+                }
+
+                // insert a line break before the temporary text node if the editor is not empty
+                if (root.getTextContentSize() > 0) {
+                    selection.insertNodes([$createLineBreakNode()]);
+                }
+
+                // insert the temporary text node at the end of the editor
+                selection.insertNodes([new TemporaryTextNode(text)]);
+            }
+
+            // select the end of the editor to ensure the temporary text node is visible
+            root.selectEnd();
+        });
+    };
+
+    // update the editor with the final recognized text when the speech recognizer has recognized the speech
+    // this will replace the in-progress recognized text in the editor
+    const handleSpeechRecognized = (text: string) => {
+        const editor = editorRef.current;
+        if (!editor) {
+            console.error('Failed to get editor reference');
+            return;
+        }
+
+        editor.update(() => {
+            // get the editor state
+            const editorState: EditorState = editor.getEditorState();
+
+            // remove any temporary text nodes from the editor
+            editorState._nodeMap.forEach((node) => {
+                if (node instanceof TemporaryTextNode) {
+                    node.remove();
+                }
+            });
+
+            // get the root node of the editor
+            const root = $getRoot();
+
+            // insert the recognized text as a text node at the end of the editor
+            const selection = root.selectEnd();
+            if (!selection) {
+                console.error('Failed to get selection');
+                return;
+            }
+            selection.insertNodes([$createTextNode(text)]);
+
+            // select the end of the editor to ensure the text node is visible
+            root.selectEnd();
         });
     };
 
     const disableInputs = isSubmitting || isListening;
-
-    const innerSpeechButton = (
-        <Button
-            appearance="transparent"
-            disabled={disableInputs || !recognizer}
-            style={{ color: isListening ? 'red' : undefined }}
-            icon={<Mic20Regular />}
-            onClick={onRecordSpeech}
-        />
-    );
-    const speechButton = recognizer ? (
-        innerSpeechButton
-    ) : (
-        <Tooltip content="Enable speech in settings" relationship="label">
-            {innerSpeechButton}
-        </Tooltip>
-    );
 
     return (
         <div className={classes.root}>
@@ -475,7 +501,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                     characterCount={tokenCount}
                     count={<span>{tokenCount} tokens</span>}
                     placeholderValue="Ask a question or request assistance or type / to enter a command."
-                    customNodes={[ChatInputTokenNode, ChatInputEntityNode]}
+                    customNodes={[ChatInputTokenNode, ChatInputEntityNode, LineBreakNode, TemporaryTextNode]}
                     onSubmit={handleSend}
                     trimWhiteSpace
                     showCount
@@ -496,7 +522,12 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                                     icon={<Attach20Regular />}
                                     onClick={onAttachment}
                                 />
-                                {speechButton}
+                                <SpeechButton
+                                    disabled={disableInputs}
+                                    onListeningChange={handleListeningChange}
+                                    onSpeechRecognizing={handleSpeechRecognizing}
+                                    onSpeechRecognized={handleSpeechRecognized}
+                                />
                             </span>
                         </span>
                     }
