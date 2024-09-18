@@ -10,7 +10,10 @@ from .agents.attachment_agent import (
     AttachmentAgentConfigModel,
     attachment_agent_config_ui_schema,
 )
-from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluatorConfigModel
+from .responsible_ai.azure_evaluator import (
+    AzureContentSafetyEvaluatorConfigModel,
+    azure_content_safety_evaluator_ui_schema,
+)
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -365,6 +368,9 @@ ui_schema = {
         },
         "azure_openai_api_key": {
             "ui:widget": "password",
+        },
+        "azure_content_safety_config": {
+            **azure_content_safety_evaluator_ui_schema,
         },
     },
     "agents_config": {
