@@ -156,6 +156,7 @@
   "cSpell.words": [
     "aarontamasfe",
     "abcjs",
+    "activedescendant",
     "addoption",
     "aiter",
     "appsettings",
@@ -195,6 +196,7 @@
     "Langchain",
     "levelname",
     "levelno",
+    "listbox",
     "msal",
     "nonchat",
     "Ofsteps",
@@ -217,6 +219,7 @@
     "tabster",
     "tiktoken",
     "tracebacks",
+    "Typeahead",
     "uvicorn",
     "webservice",
     "winget",
