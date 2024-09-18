@@ -11,23 +11,26 @@ import {
     tokens,
 } from '@fluentui/react-components';
 import { BookInformation24Regular, PanelLeftExpand24Regular } from '@fluentui/react-icons';
+import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { Constants } from '../../Constants';
 import { ConversationControls } from '../../components/Conversations/ConversationControls';
 import { InteractHistory } from '../../components/Conversations/InteractHistory';
 import { InteractInput } from '../../components/Conversations/InteractInput';
-import { InteractInspectorsList } from '../../components/Conversations/InteractInspectorsList';
+import { WorkbenchEventSource } from '../../libs/WorkbenchEventSource';
+import { useEnvironment } from '../../libs/useEnvironment';
 import { useSiteUtility } from '../../libs/useSiteUtility';
 import { WorkflowDefinition } from '../../models/WorkflowDefinition';
 import { WorkflowRun } from '../../models/WorkflowRun';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { setChatWidthPercent } from '../../redux/features/app/appSlice';
+import { setChatWidthPercent, setInspector } from '../../redux/features/app/appSlice';
 import {
-    useGetAssistantsQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
+    useGetWorkflowRunAssistantsQuery,
 } from '../../services/workbench';
 import { Loading } from '../App/Loading';
+import { ConversationCanvas } from '../Conversations/Canvas/ConversationCanvas';
 import { WorkflowControl } from './WorkflowControl';
 
 const useClasses = makeStyles({
@@ -127,11 +130,16 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
     const { conversationId, workflowRun } = props;
 
     const classes = useClasses();
-    const { chatWidthPercent } = useAppSelector((state) => state.app);
+    const { chatWidthPercent, inspector } = useAppSelector((state) => state.app);
     const dispatch = useAppDispatch();
     const animationFrame = React.useRef<number>(0);
     const resizeHandleRef = React.useRef<HTMLDivElement>(null);
 
+    const {
+        data: workflowRunAssistants,
+        isLoading: isLoadingWorkflowRunAssistants,
+        error: workflowRunAssistantsError,
+    } = useGetWorkflowRunAssistantsQuery(workflowRun.id);
     const {
         currentData: conversation,
         isLoading: isLoadingConversation,
@@ -142,13 +150,11 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoading: isLoadingParticipants,
         error: participantsError,
     } = useGetConversationParticipantsQuery(conversationId, { refetchOnMountOrArgChange: true });
-    const { data: assistants, isLoading: isLoadingAssistants, error: assistantsError } = useGetAssistantsQuery();
 
     const [drawerIsOpen, setDrawerIsOpen] = React.useState(false);
-    const [inspectorIsOpen, setInspectorIsOpen] = React.useState(false);
     const [isResizing, setIsResizing] = React.useState(false);
-    const [workflowAssistantIds, setWorkflowAssistantIds] = React.useState<string[]>([]);
     const siteUtility = useSiteUtility();
+    const environment = useEnvironment();
 
     if (conversationError) {
         const errorMessage = JSON.stringify(conversationError);
@@ -160,9 +166,9 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         throw new Error(`Error loading participants: ${errorMessage}`);
     }
 
-    if (assistantsError) {
-        const errorMessage = JSON.stringify(assistantsError);
-        throw new Error(`Error loading assistants: ${errorMessage}`);
+    if (workflowRunAssistantsError) {
+        const errorMessage = JSON.stringify(workflowRunAssistantsError);
+        throw new Error(`Error loading workflow run assistants: ${errorMessage}`);
     }
 
     React.useEffect(() => {
@@ -170,15 +176,6 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
             siteUtility.setDocumentTitle(conversation.title);
         }
     }, [conversation, siteUtility]);
-
-    React.useEffect(() => {
-        if (assistants) {
-            const ids = assistants
-                .filter((assistant) => assistant.metadata && assistant.metadata['workflow_run_id'])
-                .map((assistant) => assistant.id);
-            setWorkflowAssistantIds(ids);
-        }
-    }, [assistants]);
 
     const startResizing = React.useCallback(() => setIsResizing(true), []);
     const stopResizing = React.useCallback(() => setIsResizing(false), []);
@@ -214,22 +211,45 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         };
     }, [resize, stopResizing]);
 
+    React.useEffect(() => {
+        var workbenchEventSource: WorkbenchEventSource | undefined;
+
+        const handleFocusEvent = (event: EventSourceMessage) => {
+            const { data } = JSON.parse(event.data);
+            dispatch(setInspector({ open: true, assistantId: data['assistant_id'], stateId: data['state_id'] }));
+        };
+
+        (async () => {
+            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
+            workbenchEventSource.addEventListener('assistant.state.focus', handleFocusEvent);
+        })();
+
+        return () => {
+            workbenchEventSource?.removeEventListener('assistant.state.focus', handleFocusEvent);
+        };
+    }, [environment, conversationId, dispatch]);
+
     if (
-        isLoadingAssistants ||
+        isLoadingWorkflowRunAssistants ||
         isLoadingConversation ||
         isLoadingParticipants ||
         !conversation ||
         !participants ||
-        !assistants
+        !workflowRunAssistants
     ) {
         return <Loading />;
     }
+
+    const conversationAssistants =
+        workflowRunAssistants?.filter((assistant) =>
+            participants.some((participant) => participant.active && participant.id === assistant.id),
+        ) ?? [];
 
     return (
         <div
             className={classes.root}
             style={{
-                gridTemplateColumns: inspectorIsOpen
+                gridTemplateColumns: inspector?.open
                     ? `min(${chatWidthPercent}%, ${Constants.app.maxContentWidth}px) auto`
                     : '1fr auto',
             }}
@@ -247,13 +267,15 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                                 conversation={conversation}
                                 participants={participants}
                                 onOpenChange={setDrawerIsOpen}
-                                preventAssistantModifyOnParticipantIds={workflowAssistantIds}
+                                preventAssistantModifyOnParticipantIds={workflowRunAssistants?.map(
+                                    (assistant) => assistant.id,
+                                )}
                             />
                         )}
                     </div>
                     <div
                         className={
-                            inspectorIsOpen
+                            inspector?.open
                                 ? mergeClasses(classes.historyContent, classes.historyContentWithInspector)
                                 : classes.historyContent
                         }
@@ -278,12 +300,12 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                         }
                     />
                 </div>
-                {!inspectorIsOpen && (
+                {!inspector?.open && (
                     <div className={classes.inspectorButton}>
                         <Button
-                            appearance={inspectorIsOpen ? 'subtle' : 'secondary'}
+                            appearance={inspector?.open ? 'subtle' : 'secondary'}
                             icon={<BookInformation24Regular />}
-                            onClick={() => setInspectorIsOpen(!inspectorIsOpen)}
+                            onClick={() => dispatch(setInspector({ open: true }))}
                         />
                     </div>
                 )}
@@ -294,12 +316,8 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                     ref={resizeHandleRef}
                     onMouseDown={startResizing}
                 />
-                {inspectorIsOpen && (
-                    <InteractInspectorsList
-                        conversation={conversation}
-                        participants={participants}
-                        onOpenChange={(open) => setInspectorIsOpen(open)}
-                    />
+                {inspector?.open && (
+                    <ConversationCanvas conversationAssistants={conversationAssistants} conversation={conversation} />
                 )}
             </div>
         </div>
