@@ -1,0 +1,116 @@
+# Copyright (c) Microsoft. All rights reserved.
+# Generalizes message formatting and response generation for different model services
+
+import abc
+from typing import Any, Dict, List, Union
+
+import google.generativeai as genai
+from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
+
+
+class Message:
+    def __init__(self, role: str, content: str):
+        self.role = role
+        self.content = content
+
+class ModelAdapter(abc.ABC):
+    @abc.abstractmethod
+    def format_messages(self, messages: List[Message]) -> Any:
+        pass
+
+    @abc.abstractmethod
+    async def generate_response(self, formatted_messages: Any, config: Any) -> str:
+        pass
+
+class OpenAIAdapter(ModelAdapter):
+    def format_messages(self, messages: List[Message]) -> List[Dict[str, str]]:
+        return [{"role": msg.role, "content": msg.content} for msg in messages]
+
+    async def generate_response(self, formatted_messages: List[Dict[str, str]], config: Any) -> str:
+        async with AsyncOpenAI(api_key=config.service_config.openai_api_key) as client:
+            completion = await client.chat.completions.create(
+                messages=formatted_messages,
+                model=config.service_config.openai_model,
+                max_tokens=config.request_config.response_tokens,
+            )
+            return completion.choices[0].message.content
+
+class AnthropicAdapter(ModelAdapter):
+    def format_messages(self, messages: List[Message]) -> Dict[str, Union[str, List[Dict[str, str]]]]:
+        system_messages = [msg.content for msg in messages if msg.role == "system"]
+        chat_messages = []
+
+        last_role = None
+        for msg in messages:
+            if msg.role == "system":
+                continue
+
+            if msg.role == last_role == "user":
+                # If we have consecutive user messages, combine them
+                chat_messages[-1]["content"] += f"\n\n{msg.content}"
+            elif msg.role == last_role == "assistant":
+                # If we have consecutive assistant messages, combine them
+                chat_messages[-1]["content"] += f"\n\n{msg.content}"
+            else:
+                # Add the message normally if roles are alternating
+                chat_messages.append({"role": msg.role, "content": msg.content})
+
+            last_role = msg.role
+
+        # Ensure the conversation starts with a user message
+        if not chat_messages or chat_messages[0]["role"] != "user":
+            chat_messages.insert(0, {"role": "user", "content": "Hello"})
+
+        # Ensure the conversation ends with a user message
+        if chat_messages[-1]["role"] != "user":
+            chat_messages.append({"role": "user", "content": "Please continue."})
+
+        return {
+            "system": "\n\n".join(system_messages),
+            "messages": chat_messages
+        }
+
+    async def generate_response(self, formatted_messages: Dict[str, Union[str, List[Dict[str, str]]]], config: Any) -> str:
+        async with AsyncAnthropic(api_key=config.service_config.anthropic_api_key) as client:
+            completion = await client.messages.create(
+                model=config.service_config.anthropic_model,
+                messages=formatted_messages["messages"],
+                system=formatted_messages["system"],
+                max_tokens=config.request_config.response_tokens,
+            )
+            # Convert the content to a string if it's a TextBlock or list of TextBlocks
+            if hasattr(completion.content, 'text'):
+                return completion.content.text
+            elif isinstance(completion.content, list) and all(hasattr(item, 'text') for item in completion.content):
+                return ' '.join(item.text for item in completion.content)
+            return str(completion.content)
+
+class GeminiAdapter(ModelAdapter):
+    def format_messages(self, messages: List[Message]) -> List[Dict[str, Union[str, List[str]]]]:
+        gemini_messages = []
+        for msg in messages:
+            if msg.role == "system":
+                if gemini_messages:
+                    gemini_messages[0]["parts"][0] = msg.content + "\n\n" + gemini_messages[0]["parts"][0]
+                else:
+                    gemini_messages.append({"role": "user", "parts": [msg.content]})
+            else:
+                gemini_messages.append({"role": "user" if msg.role == "user" else "model", "parts": [msg.content]})
+        return gemini_messages
+
+    async def generate_response(self, formatted_messages: List[Dict[str, Union[str, List[str]]]], config: Any) -> str:
+        genai.configure(api_key=config.service_config.gemini_api_key)
+        model = genai.GenerativeModel(config.service_config.gemini_model)
+        chat = model.start_chat(history=formatted_messages)
+        response = await chat.send_message_async(formatted_messages[-1]["parts"][0])
+        return response.text
+
+def get_model_adapter(service_type: str) -> ModelAdapter:
+    adapters = {
+        "OpenAI": OpenAIAdapter(),
+        "Azure OpenAI": OpenAIAdapter(),
+        "Anthropic": AnthropicAdapter(),
+        "Gemini": GeminiAdapter(),
+    }
+    return adapters.get(service_type)
