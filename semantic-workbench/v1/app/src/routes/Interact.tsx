@@ -8,11 +8,11 @@ import { useParams } from 'react-router-dom';
 import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
+import { ConversationCanvas } from '../components/Conversations/Canvas/ConversationCanvas';
 import { ConversationControls } from '../components/Conversations/ConversationControls';
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
-import { InteractInspectorsList } from '../components/Conversations/InteractInspectorsList';
 import { WorkbenchEventSource } from '../libs/WorkbenchEventSource';
 import { useEnvironment } from '../libs/useEnvironment';
 import { useSiteUtility } from '../libs/useSiteUtility';
@@ -323,7 +323,7 @@ export const Interact: React.FC = () => {
                         onMouseDown={startResizing}
                     />
                     {inspector?.open && (
-                        <InteractInspectorsList
+                        <ConversationCanvas
                             conversationAssistants={conversationAssistants}
                             conversation={conversation}
                         />
