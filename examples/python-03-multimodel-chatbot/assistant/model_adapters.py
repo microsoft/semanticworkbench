@@ -7,6 +7,13 @@ from typing import Any, Dict, List, Union
 import google.generativeai as genai
 from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
+from openai.types.chat import (ChatCompletion,
+                               ChatCompletionAssistantMessageParam,
+                               ChatCompletionMessage,
+                               ChatCompletionMessageParam,
+                               ChatCompletionSystemMessageParam,
+                               ChatCompletionUserMessageParam)
+from openai.types.chat.chat_completion import Choice
 
 
 class Message:
@@ -24,17 +31,28 @@ class ModelAdapter(abc.ABC):
         pass
 
 class OpenAIAdapter(ModelAdapter):
-    def format_messages(self, messages: List[Message]) -> List[Dict[str, str]]:
-        return [{"role": msg.role, "content": msg.content} for msg in messages]
+    def format_messages(self, messages: List[Message]) -> List[ChatCompletionMessageParam]:
+        formatted_messages = []
+        for msg in messages:
+            if msg.role == "system":
+                formatted_messages.append(ChatCompletionSystemMessageParam(role=msg.role, content=msg.content))
+            elif msg.role == "user":
+                formatted_messages.append(ChatCompletionUserMessageParam(role=msg.role, content=msg.content))
+            elif msg.role == "assistant":
+                formatted_messages.append(ChatCompletionAssistantMessageParam(role=msg.role, content=msg.content))
+            # Add other roles if necessary
+        return formatted_messages
 
-    async def generate_response(self, formatted_messages: List[Dict[str, str]], config: Any) -> str:
+    async def generate_response(self, formatted_messages: List[ChatCompletionMessageParam], config: Any) -> str:
         async with AsyncOpenAI(api_key=config.service_config.openai_api_key) as client:
-            completion = await client.chat.completions.create(
+            completion: ChatCompletion = await client.chat.completions.create(
                 messages=formatted_messages,
                 model=config.service_config.openai_model,
                 max_tokens=config.request_config.response_tokens,
             )
-            return completion.choices[0].message.content
+            choice: Choice = completion.choices[0]
+            message: ChatCompletionMessage = choice.message
+            return message.content or ""
 
 class AnthropicAdapter(ModelAdapter):
     def format_messages(self, messages: List[Message]) -> Dict[str, Union[str, List[Dict[str, str]]]]:
