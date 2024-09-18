@@ -117,7 +117,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [tokenCount, setTokenCount] = React.useState(0);
     const [directedAtId, setDirectedAtId] = React.useState<string>();
     const [isDraggingOver, setIsDraggingOver] = React.useState(false);
-    const [attachmentFiles, setAttachmentFiles] = React.useState<File[]>([]);
+    const [attachmentFiles, setAttachmentFiles] = React.useState<Map<string, File>>(new Map());
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
     const [editorIsInitialized, setEditorIsInitialized] = React.useState(false);
@@ -156,6 +156,29 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         setEditorIsInitialized(true);
     }, []);
 
+    // add an attachment to the list of attachments
+    const addAttachment = React.useCallback(
+        (file: File) => {
+            // limit the number of attachments to the maximum allowed
+            if (attachmentFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
+                dispatch(
+                    addError({
+                        title: 'Attachment limit reached',
+                        message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
+                    }),
+                );
+                return;
+            }
+
+            setAttachmentFiles((prevFiles) => {
+                const updatedFiles = new Map(prevFiles);
+                updatedFiles.set(file.name, file);
+                return updatedFiles;
+            });
+        },
+        [attachmentFiles, dispatch, setAttachmentFiles],
+    );
+
     React.useEffect(() => {
         if (!editorIsInitialized) return;
 
@@ -175,17 +198,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
                 for (const item of clipboardItems) {
                     if (item.kind === 'file') {
-                        // limit the number of attachments to the maximum allowed
-                        if (attachmentFiles.length >= Constants.app.maxFileAttachmentsPerMessage) {
-                            dispatch(
-                                addError({
-                                    title: 'Attachment limit reached',
-                                    message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
-                                }),
-                            );
-                            return true;
-                        }
-
                         const file = item.getAsFile();
                         if (file) {
                             // ensure the filename is unique by appending a timestamp before the extension
@@ -200,7 +212,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                                 filename !== file.name ? new File([file], filename, { type: file.type }) : file;
 
                             // add the file to the list of attachments
-                            setAttachmentFiles((prevFiles) => [...prevFiles, updatedFile]);
+                            addAttachment(updatedFile);
 
                             // Prevent default paste for file items
                             event.preventDefault();
@@ -222,7 +234,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             // Clean up listeners on unmount
             removePasteListener();
         };
-    }, [attachmentFiles, dispatch, editorIsInitialized, editorRef, setAttachmentFiles]);
+    }, [editorIsInitialized, addAttachment]);
 
     const tokenizer = React.useMemo(() => getEncoding('cl100k_base'), []);
 
@@ -291,10 +303,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             editorRef.current?.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
 
             // upload attachments
-            const filenames = attachmentFiles.length > 0 ? attachmentFiles.map((file) => file.name) : undefined;
-            const files = attachmentFiles.length > 0 ? [...attachmentFiles] : undefined;
+            const filenames = attachmentFiles.size > 0 ? [...attachmentFiles.keys()] : undefined;
+            const files = attachmentFiles.size > 0 ? [...attachmentFiles.values()] : undefined;
             // reset the attachment files so that the same files are not uploaded again
-            setAttachmentFiles([]);
+            setAttachmentFiles(new Map());
             if (files) {
                 await uploadConversationFiles({ conversationId, files });
             }
@@ -330,24 +342,45 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     };
 
     const onAttachmentChanged = () => {
-        const files = attachmentInputRef.current?.files;
-        if (files) {
-            const filesSet = new Set<File>(attachmentFiles);
-            for (let i = 0; i < Math.min(files.length, Constants.app.maxFileAttachmentsPerMessage); i++) {
-                filesSet.add(files[i]);
-            }
-            setAttachmentFiles(Array.from(filesSet));
-
-            if (files.length > Constants.app.maxFileAttachmentsPerMessage) {
-                // show a warning that only the first N files were attached
-                dispatch(
-                    addError({
-                        title: 'Attachment limit reached',
-                        message: `Only the first ${Constants.app.maxFileAttachmentsPerMessage} files were attached`,
-                    }),
-                );
-            }
+        for (let file of attachmentInputRef.current?.files ?? []) {
+            addAttachment(file);
         }
+    };
+
+    const handleDrop = (event: React.DragEvent) => {
+        log('drop event', event);
+        event.preventDefault();
+        event.stopPropagation();
+        setIsDraggingOver(false);
+
+        for (let file of event.dataTransfer.files) {
+            addAttachment(file);
+        }
+    };
+
+    const handleDragOver = (event: React.DragEvent) => {
+        // log('dragover event', event);
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    const handleDragEnter = (event: React.DragEvent) => {
+        log('dragenter event', event);
+        setIsDraggingOver(true);
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    const handleDragLeave = (event: React.DragEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const relatedTarget = event.relatedTarget as HTMLElement;
+        if (event.currentTarget.contains(relatedTarget)) {
+            // ignore the event if the drag is still within the target element
+            return;
+        }
+        log('dragleave event', event);
+        setIsDraggingOver(false);
     };
 
     // update the listening state when the speech recognizer starts or stops
@@ -440,56 +473,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         });
     };
 
-    const handleDrop = (event: React.DragEvent) => {
-        log('drop event', event);
-        event.preventDefault();
-        event.stopPropagation();
-        setIsDraggingOver(false);
-
-        const files = event.dataTransfer.files;
-        if (files) {
-            const filesSet = new Set<File>(attachmentFiles);
-            for (let i = 0; i < Math.min(files.length, Constants.app.maxFileAttachmentsPerMessage); i++) {
-                filesSet.add(files[i]);
-            }
-            setAttachmentFiles(Array.from(filesSet));
-
-            if (files.length > Constants.app.maxFileAttachmentsPerMessage) {
-                // show a warning that only the first N files were attached
-                dispatch(
-                    addError({
-                        title: 'Attachment limit reached',
-                        message: `Only the first ${Constants.app.maxFileAttachmentsPerMessage} files were attached`,
-                    }),
-                );
-            }
-        }
-    };
-
-    const handleDragOver = (event: React.DragEvent) => {
-        // log('dragover event', event);
-        event.preventDefault();
-        event.stopPropagation();
-    };
-
-    const handleDragEnter = (event: React.DragEvent) => {
-        log('dragenter event', event);
-        setIsDraggingOver(true);
-        event.preventDefault();
-        event.stopPropagation();
-    };
-
-    const handleDragLeave = (event: React.DragEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const relatedTarget = event.relatedTarget as HTMLElement;
-        if (event.currentTarget.contains(relatedTarget)) {
-            return;
-        }
-        log('dragleave event', event);
-        setIsDraggingOver(false);
-    };
-
     const disableInputs = isSubmitting || isListening;
 
     return (
@@ -519,7 +502,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                         characterCount={tokenCount}
                         count={
                             <span>
-                                {tokenCount} tokens / {attachmentFiles.length} attachments (max{' '}
+                                {tokenCount} tokens / {attachmentFiles.size} attachments (max{' '}
                                 {Constants.app.maxFileAttachmentsPerMessage})
                             </span>
                         }
@@ -556,16 +539,19 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                         }
                         attachments={
                             <AttachmentList>
-                                {attachmentFiles.map((file, index) => (
-                                    <Tooltip content={file.name} key={index} relationship="label">
+                                {[...attachmentFiles.values()].map((file) => (
+                                    <Tooltip content={file.name} key={file.name} relationship="label">
                                         <Attachment
                                             id={file.name}
-                                            key={index}
                                             media={<DocumentRegular />}
                                             primaryAction={{ as: 'span' }}
                                             dismissButton={{
                                                 onClick: () =>
-                                                    setAttachmentFiles(attachmentFiles.filter((f) => f !== file)),
+                                                    setAttachmentFiles((prevFiles) => {
+                                                        const updatedFiles = new Map(prevFiles);
+                                                        updatedFiles.delete(file.name);
+                                                        return updatedFiles;
+                                                    }),
                                             }}
                                         >
                                             {file.name}
