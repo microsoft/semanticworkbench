@@ -16,13 +16,12 @@ import {
 } from '@fluentui-copilot/react-copilot';
 import { Button, Tooltip, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import { Attach20Regular, DocumentRegular } from '@fluentui/react-icons';
+import debug from 'debug';
 import { getEncoding } from 'js-tiktoken';
 import {
     $createLineBreakNode,
     CLEAR_EDITOR_COMMAND,
     COMMAND_PRIORITY_LOW,
-    DRAGOVER_COMMAND,
-    DROP_COMMAND,
     LineBreakNode,
     PASTE_COMMAND,
 } from 'lexical';
@@ -43,6 +42,8 @@ import { ClearEditorPlugin } from './ChatInputPlugins/ClearEditorPlugin';
 import { ParticipantMentionsPlugin } from './ChatInputPlugins/ParticipantMentionsPlugin';
 import { InputOptionsControl } from './InputOptionsControl';
 import { SpeechButton } from './SpeechButton';
+
+const log = debug(Constants.debug.root).extend('InteractInput');
 
 const useClasses = makeStyles({
     root: {
@@ -82,6 +83,14 @@ const useClasses = makeStyles({
             fontFamily: 'monospace',
         },
     },
+    dragTarget: {
+        transition: 'border 0.3s',
+        border: `2px dashed transparent`,
+    },
+    dragOver: {
+        border: `2px dashed ${tokens.colorPaletteGreenBorderActive}`,
+        borderRadius: tokens.borderRadiusLarge,
+    },
 });
 
 interface InteractInputProps {
@@ -107,7 +116,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [messageTypeValue, setMessageTypeValue] = React.useState<'Chat' | 'Command'>('Chat');
     const [tokenCount, setTokenCount] = React.useState(0);
     const [directedAtId, setDirectedAtId] = React.useState<string>();
-    const [attachmentFiles, setAttachmentFiles] = React.useState<File[]>([]);
+    const [isDraggingOver, setIsDraggingOver] = React.useState(false);
+    const [attachmentFiles, setAttachmentFiles] = React.useState<Map<string, File>>(new Map());
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
     const [editorIsInitialized, setEditorIsInitialized] = React.useState(false);
@@ -146,6 +156,29 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         setEditorIsInitialized(true);
     }, []);
 
+    // add an attachment to the list of attachments
+    const addAttachment = React.useCallback(
+        (file: File) => {
+            // limit the number of attachments to the maximum allowed
+            if (attachmentFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
+                dispatch(
+                    addError({
+                        title: 'Attachment limit reached',
+                        message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
+                    }),
+                );
+                return;
+            }
+
+            setAttachmentFiles((prevFiles) => {
+                const updatedFiles = new Map(prevFiles);
+                updatedFiles.set(file.name, file);
+                return updatedFiles;
+            });
+        },
+        [attachmentFiles, dispatch, setAttachmentFiles],
+    );
+
     React.useEffect(() => {
         if (!editorIsInitialized) return;
 
@@ -158,24 +191,13 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         const removePasteListener = editor.registerCommand(
             PASTE_COMMAND,
             (event: ClipboardEvent) => {
-                console.log('paste event', event);
+                log('paste event', event);
 
                 const clipboardItems = event.clipboardData?.items;
                 if (!clipboardItems) return false;
 
                 for (const item of clipboardItems) {
                     if (item.kind === 'file') {
-                        // limit the number of attachments to the maximum allowed
-                        if (attachmentFiles.length >= Constants.app.maxFileAttachmentsPerMessage) {
-                            dispatch(
-                                addError({
-                                    title: 'Attachment limit reached',
-                                    message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
-                                }),
-                            );
-                            return true;
-                        }
-
                         const file = item.getAsFile();
                         if (file) {
                             // ensure the filename is unique by appending a timestamp before the extension
@@ -190,7 +212,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                                 filename !== file.name ? new File([file], filename, { type: file.type }) : file;
 
                             // add the file to the list of attachments
-                            setAttachmentFiles((prevFiles) => [...prevFiles, updatedFile]);
+                            addAttachment(updatedFile);
 
                             // Prevent default paste for file items
                             event.preventDefault();
@@ -208,60 +230,11 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             COMMAND_PRIORITY_LOW,
         );
 
-        const removeDragOverListener = editor.registerCommand(
-            DRAGOVER_COMMAND,
-            (event: DragEvent) => {
-                console.log('dragover event', event);
-
-                // Prevent default dragover behavior
-                event.preventDefault();
-                event.stopPropagation();
-                return true;
-            },
-            COMMAND_PRIORITY_LOW,
-        );
-
-        const removeDropListener = editor.registerCommand(
-            DROP_COMMAND,
-            (event: DragEvent) => {
-                console.log('drop event', event);
-
-                const files = event.dataTransfer?.files;
-                if (files) {
-                    const filesSet = new Set<File>(attachmentFiles);
-                    for (let i = 0; i < Math.min(files.length, Constants.app.maxFileAttachmentsPerMessage); i++) {
-                        filesSet.add(files[i]);
-                    }
-                    setAttachmentFiles(Array.from(filesSet));
-
-                    if (files.length > Constants.app.maxFileAttachmentsPerMessage) {
-                        // show a warning that only the first N files were attached
-                        dispatch(
-                            addError({
-                                title: 'Attachment limit reached',
-                                message: `Only the first ${Constants.app.maxFileAttachmentsPerMessage} files were attached`,
-                            }),
-                        );
-                    }
-                }
-
-                // Prevent default drop behavior
-                event.preventDefault();
-                event.stopPropagation();
-
-                // Indicate command was handled
-                return true;
-            },
-            COMMAND_PRIORITY_LOW,
-        );
-
         return () => {
             // Clean up listeners on unmount
             removePasteListener();
-            removeDragOverListener();
-            removeDropListener();
         };
-    }, [attachmentFiles, dispatch, editorIsInitialized, editorRef, setAttachmentFiles]);
+    }, [editorIsInitialized, addAttachment]);
 
     const tokenizer = React.useMemo(() => getEncoding('cl100k_base'), []);
 
@@ -330,10 +303,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             editorRef.current?.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
 
             // upload attachments
-            const filenames = attachmentFiles.length > 0 ? attachmentFiles.map((file) => file.name) : undefined;
-            const files = attachmentFiles.length > 0 ? [...attachmentFiles] : undefined;
+            const filenames = attachmentFiles.size > 0 ? [...attachmentFiles.keys()] : undefined;
+            const files = attachmentFiles.size > 0 ? [...attachmentFiles.values()] : undefined;
             // reset the attachment files so that the same files are not uploaded again
-            setAttachmentFiles([]);
+            setAttachmentFiles(new Map());
             if (files) {
                 await uploadConversationFiles({ conversationId, files });
             }
@@ -369,24 +342,45 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     };
 
     const onAttachmentChanged = () => {
-        const files = attachmentInputRef.current?.files;
-        if (files) {
-            const filesSet = new Set<File>(attachmentFiles);
-            for (let i = 0; i < Math.min(files.length, Constants.app.maxFileAttachmentsPerMessage); i++) {
-                filesSet.add(files[i]);
-            }
-            setAttachmentFiles(Array.from(filesSet));
-
-            if (files.length > Constants.app.maxFileAttachmentsPerMessage) {
-                // show a warning that only the first N files were attached
-                dispatch(
-                    addError({
-                        title: 'Attachment limit reached',
-                        message: `Only the first ${Constants.app.maxFileAttachmentsPerMessage} files were attached`,
-                    }),
-                );
-            }
+        for (let file of attachmentInputRef.current?.files ?? []) {
+            addAttachment(file);
         }
+    };
+
+    const handleDrop = (event: React.DragEvent) => {
+        log('drop event', event);
+        event.preventDefault();
+        event.stopPropagation();
+        setIsDraggingOver(false);
+
+        for (let file of event.dataTransfer.files) {
+            addAttachment(file);
+        }
+    };
+
+    const handleDragOver = (event: React.DragEvent) => {
+        // log('dragover event', event);
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    const handleDragEnter = (event: React.DragEvent) => {
+        log('dragenter event', event);
+        setIsDraggingOver(true);
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    const handleDragLeave = (event: React.DragEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const relatedTarget = event.relatedTarget as HTMLElement;
+        if (event.currentTarget.contains(relatedTarget)) {
+            // ignore the event if the drag is still within the target element
+            return;
+        }
+        log('dragleave event', event);
+        setIsDraggingOver(false);
     };
 
     // update the listening state when the speech recognizer starts or stops
@@ -482,7 +476,13 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const disableInputs = isSubmitting || isListening;
 
     return (
-        <div className={classes.root}>
+        <div
+            className={classes.root}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+        >
             <div className={classes.content}>
                 {/* // this is for injecting controls for supporting features like workflow */}
                 {additionalContent}
@@ -491,76 +491,86 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                     participants={participants}
                     onDirectedAtChange={setDirectedAtId}
                 />
-                <ChatInput
-                    className={mergeClasses(
-                        classes.fullWidth,
-                        messageTypeValue === 'Command' ? classes.commandTextbox : '',
-                    )}
-                    onChange={(_event, data) => updateInput(data.value)}
-                    maxLength={Constants.app.maxInputLength}
-                    characterCount={tokenCount}
-                    count={<span>{tokenCount} tokens</span>}
-                    placeholderValue="Ask a question or request assistance or type / to enter a command."
-                    customNodes={[ChatInputTokenNode, ChatInputEntityNode, LineBreakNode, TemporaryTextNode]}
-                    onSubmit={handleSend}
-                    trimWhiteSpace
-                    showCount
-                    disableSend={disableInputs}
-                    actions={
-                        <span style={{ display: 'flex', alignItems: 'center' }}>
+                <div className={mergeClasses(classes.row, classes.dragTarget, isDraggingOver ? classes.dragOver : '')}>
+                    <ChatInput
+                        className={mergeClasses(
+                            classes.fullWidth,
+                            messageTypeValue === 'Command' ? classes.commandTextbox : '',
+                        )}
+                        onChange={(_event, data) => updateInput(data.value)}
+                        maxLength={Constants.app.maxInputLength}
+                        characterCount={tokenCount}
+                        count={
                             <span>
-                                <input
-                                    hidden
-                                    ref={attachmentInputRef}
-                                    type="file"
-                                    onChange={onAttachmentChanged}
-                                    multiple
-                                />
-                                <Button
-                                    appearance="transparent"
-                                    disabled={disableInputs}
-                                    icon={<Attach20Regular />}
-                                    onClick={onAttachment}
-                                />
-                                <SpeechButton
-                                    disabled={disableInputs}
-                                    onListeningChange={handleListeningChange}
-                                    onSpeechRecognizing={handleSpeechRecognizing}
-                                    onSpeechRecognized={handleSpeechRecognized}
-                                />
+                                {tokenCount} tokens / {attachmentFiles.size} attachments (max{' '}
+                                {Constants.app.maxFileAttachmentsPerMessage})
                             </span>
-                        </span>
-                    }
-                    attachments={
-                        <AttachmentList>
-                            {attachmentFiles.map((file, index) => (
-                                <Tooltip content={file.name} key={index} relationship="label">
-                                    <Attachment
-                                        id={file.name}
-                                        key={index}
-                                        media={<DocumentRegular />}
-                                        primaryAction={{ as: 'span' }}
-                                        dismissButton={{
-                                            onClick: () =>
-                                                setAttachmentFiles(attachmentFiles.filter((f) => f !== file)),
-                                        }}
-                                    >
-                                        {file.name}
-                                    </Attachment>
-                                </Tooltip>
-                            ))}
-                        </AttachmentList>
-                    }
-                >
-                    <ClearEditorPlugin />
-                    {participants && (
-                        <ParticipantMentionsPlugin
-                            participants={participants.filter((participant) => participant.id !== userId)}
-                            parent={document.getElementById('app')}
-                        />
-                    )}
-                    <LexicalEditorRefPlugin editorRef={editorRefCallback} />
-                </ChatInput>
+                        }
+                        placeholderValue="Ask a question or request assistance or type / to enter a command."
+                        customNodes={[ChatInputTokenNode, ChatInputEntityNode, LineBreakNode, TemporaryTextNode]}
+                        onSubmit={handleSend}
+                        trimWhiteSpace
+                        showCount
+                        disableSend={disableInputs}
+                        actions={
+                            <span style={{ display: 'flex', alignItems: 'center' }}>
+                                <span>
+                                    <input
+                                        hidden
+                                        ref={attachmentInputRef}
+                                        type="file"
+                                        onChange={onAttachmentChanged}
+                                        multiple
+                                    />
+                                    <Button
+                                        appearance="transparent"
+                                        disabled={disableInputs}
+                                        icon={<Attach20Regular />}
+                                        onClick={onAttachment}
+                                    />
+                                    <SpeechButton
+                                        disabled={disableInputs}
+                                        onListeningChange={handleListeningChange}
+                                        onSpeechRecognizing={handleSpeechRecognizing}
+                                        onSpeechRecognized={handleSpeechRecognized}
+                                    />
+                                </span>
+                            </span>
+                        }
+                        attachments={
+                            <AttachmentList>
+                                {[...attachmentFiles.values()].map((file) => (
+                                    <Tooltip content={file.name} key={file.name} relationship="label">
+                                        <Attachment
+                                            id={file.name}
+                                            media={<DocumentRegular />}
+                                            primaryAction={{ as: 'span' }}
+                                            dismissButton={{
+                                                onClick: () =>
+                                                    setAttachmentFiles((prevFiles) => {
+                                                        const updatedFiles = new Map(prevFiles);
+                                                        updatedFiles.delete(file.name);
+                                                        return updatedFiles;
+                                                    }),
+                                            }}
+                                        >
+                                            {file.name}
+                                        </Attachment>
+                                    </Tooltip>
+                                ))}
+                            </AttachmentList>
+                        }
+                    >
+                        <ClearEditorPlugin />
+                        {participants && (
+                            <ParticipantMentionsPlugin
+                                participants={participants.filter((participant) => participant.id !== userId)}
+                                parent={document.getElementById('app')}
+                            />
+                        )}
+                        <LexicalEditorRefPlugin editorRef={editorRefCallback} />
+                    </ChatInput>
+                </div>
             </div>
         </div>
     );
