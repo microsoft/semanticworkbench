@@ -131,4 +131,7 @@ def get_model_adapter(service_type: str) -> ModelAdapter:
         "Anthropic": AnthropicAdapter(),
         "Gemini": GeminiAdapter(),
     }
-    return adapters.get(service_type)
+    adapter = adapters.get(service_type)
+    if adapter is None:
+        raise ValueError(f"Unsupported service type: {service_type}")
+    return adapter
