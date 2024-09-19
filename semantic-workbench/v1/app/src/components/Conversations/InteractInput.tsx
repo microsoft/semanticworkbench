@@ -8,7 +8,7 @@ import {
     ChatInputEntityNode,
     ChatInputSubmitEvents,
     ChatInputTokenNode,
-    ChatInputValueData,
+    EditorInputValueData,
     EditorState,
     LexicalEditor,
     LexicalEditorRefPlugin,
@@ -242,7 +242,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         return null;
     }
 
-    const handleSend = (_event: ChatInputSubmitEvents, data: ChatInputValueData) => {
+    const handleSend = (_event: ChatInputSubmitEvents, data: EditorInputValueData) => {
         if (data.value.trim() === '' || isSubmitting || isListening) {
             return;
         }
@@ -500,6 +500,9 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                         onChange={(_event, data) => updateInput(data.value)}
                         maxLength={Constants.app.maxInputLength}
                         characterCount={tokenCount}
+                        charactersRemainingMessage={(charactersRemaining) =>
+                            `${charactersRemaining} characters remaining`
+                        }
                         count={
                             <span>
                                 {tokenCount} tokens / {attachmentFiles.size} attachments (max{' '}

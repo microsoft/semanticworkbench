@@ -19,7 +19,7 @@
         "@azure/ms-rest-js": "^2.7.0",
         "@azure/msal-browser": "^3.6.0",
         "@azure/msal-react": "^2.0.8",
-        "@fluentui-copilot/react-copilot": "^0.14.3",
+        "@fluentui-copilot/react-copilot": "^0.19.3",
         "@fluentui/keyboard-keys": ">=9.0.4 <10.0.0",
         "@fluentui/react-components": ">=9.37.3 <10.0.0",
         "@fluentui/react-context-selector": ">=9.1.34 <10.0.0",
