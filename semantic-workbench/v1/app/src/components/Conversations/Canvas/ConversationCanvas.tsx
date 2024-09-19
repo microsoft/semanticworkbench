@@ -5,6 +5,7 @@ import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
+import { ConversationFile } from '../../../models/ConversationFile';
 import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
 import { setInspector } from '../../../redux/features/app/appSlice';
 import { AssistantCanvas } from './AssistantCanvas';
@@ -29,6 +30,7 @@ const useClasses = makeStyles({
 
 interface ConversationCanvasProps {
     conversationAssistants: Assistant[];
+    conversationFiles: ConversationFile[];
     conversation: Conversation;
 }
 

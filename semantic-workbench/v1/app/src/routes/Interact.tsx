@@ -20,6 +20,7 @@ import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
 import { setChatWidthPercent, setInspector } from '../redux/features/app/appSlice';
 import {
     useGetAssistantsQuery,
+    useGetConversationFilesQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
 } from '../services/workbench';
@@ -146,6 +147,11 @@ export const Interact: React.FC = () => {
         error: participantsError,
         isLoading: isLoadingParticipants,
     } = useGetConversationParticipantsQuery(conversationId);
+    const {
+        data: conversationFiles,
+        error: conversationFilesError,
+        isLoading: isLoadingConversationFiles,
+    } = useGetConversationFilesQuery(conversationId);
 
     const [drawerIsOpen, setDrawerIsOpen] = React.useState(false);
     const [checkedParticipantLength, setCheckedParticipantLength] = React.useState(false);
@@ -168,6 +174,11 @@ export const Interact: React.FC = () => {
         throw new Error(`Error loading participants: ${errorMessage}`);
     }
 
+    if (conversationFilesError) {
+        const errorMessage = JSON.stringify(conversationFilesError);
+        throw new Error(`Error loading conversation files: ${errorMessage}`);
+    }
+
     if (!isLoadingAssistants && (!assistants || assistants.length === 0)) {
         throw new Error('No assistants found');
     }
@@ -179,6 +190,11 @@ export const Interact: React.FC = () => {
 
     if (!isLoadingParticipants && !participants) {
         const errorMessage = `No participants loaded for ${conversationId}`;
+        throw new Error(errorMessage);
+    }
+
+    if (!isLoadingConversationFiles && !conversationFiles) {
+        const errorMessage = `No conversation files loaded for ${conversationId}`;
         throw new Error(errorMessage);
     }
 
@@ -248,9 +264,11 @@ export const Interact: React.FC = () => {
         isLoadingAssistants ||
         isLoadingConversation ||
         isLoadingParticipants ||
+        isLoadingConversationFiles ||
         !assistants ||
         !conversation ||
-        !participants
+        !participants ||
+        !conversationFiles
     ) {
         return (
             <AppView title="Interact">
@@ -325,6 +343,7 @@ export const Interact: React.FC = () => {
                     {inspector?.open && (
                         <ConversationCanvas
                             conversationAssistants={conversationAssistants}
+                            conversationFiles={conversationFiles}
                             conversation={conversation}
                         />
                     )}
