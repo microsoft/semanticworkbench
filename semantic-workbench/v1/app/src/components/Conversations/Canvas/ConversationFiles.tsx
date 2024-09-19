@@ -2,17 +2,13 @@
 
 import { Button, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import { BookInformation24Regular } from '@fluentui/react-icons';
-import debug from 'debug';
 import React from 'react';
-import { Constants } from '../../../Constants';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
 import { useAppDispatch } from '../../../redux/app/hooks';
 import { setInspector } from '../../../redux/features/app/appSlice';
 import { ConversationFileList } from './ConversationFileList';
 import { ConversationFileViewer } from './ConversationFileViewer';
-
-const log = debug(Constants.debug.root).extend('ConversationFiles');
 
 const useClasses = makeStyles({
     noFiles: {

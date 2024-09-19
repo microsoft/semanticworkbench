@@ -112,8 +112,7 @@ def load_guardrails_prompt_from_text_file() -> str:
     file_path = directory / "responsible_ai" / "guardrails_prompt.txt"
 
     # read the guardrails prompt from the file
-    with open(file_path, "r") as file:
-        return file.read()
+    return file_path.read_text()
 
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
