@@ -32,12 +32,14 @@ from semantic_workbench_api_model.workbench_model import (
     UpdateParticipant,
 )
 from semantic_workbench_assistant.assistant_app import (
+    AlwaysWarnContentSafetyEvaluator,
     AssistantApp,
     BaseModelAssistantConfig,
+    ContentSafety,
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, ui_schema
+from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +57,18 @@ service_description = "A starter for building a chat assistant using the Semanti
 #
 # create the configuration provider, using the extended configuration model
 #
-config_provider = BaseModelAssistantConfig(AssistantConfigModel(), ui_schema=ui_schema)
+assistant_config = BaseModelAssistantConfig(
+    default=AssistantConfigModel(),
+)
+
+content_safety = ContentSafety(AlwaysWarnContentSafetyEvaluator.factory)
 
 # create the AssistantApp instance
 assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
     assistant_service_description=service_description,
-    config_provider=config_provider,
+    config_provider=assistant_config.provider,
 )
 
 #
@@ -118,7 +124,7 @@ async def on_message_created(
         await respond_to_conversation(
             context,
             message=message,
-            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+            metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
         )
     finally:
         # update the participant status to indicate the assistant is done thinking
@@ -134,10 +140,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
     # replace the following with your own logic for processing a conversation created event
 
     # get the assistant's configuration
-    assistant_config = await config_provider.get_typed(context.assistant)
+    config = await assistant_config.get(context.assistant)
 
     # get the welcome message from the assistant's configuration
-    welcome_message = assistant_config.welcome_message
+    welcome_message = config.welcome_message
 
     # send the welcome message to the conversation
     await context.send_messages(
@@ -170,7 +176,7 @@ async def respond_to_conversation(
     """
 
     # get the assistant's configuration
-    assistant_config = await config_provider.get_typed(context.assistant)
+    config = await assistant_config.get(context.assistant)
 
     # send a new message with the echo response
     await context.send_messages(
@@ -188,7 +194,7 @@ async def respond_to_conversation(
                         **metadata,
                     }
                 }
-                if assistant_config.enable_debug_output
+                if config.enable_debug_output
                 else metadata
             ),
         )
