@@ -10,11 +10,11 @@ from typing import (
     Generic,
     Mapping,
     Protocol,
-    Sequence,
     TypeVar,
     Union,
 )
 
+import typing_extensions
 from semantic_workbench_api_model import workbench_model
 
 from .context import AssistantContext, ConversationContext
@@ -23,20 +23,20 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class AssistantConversationInspectorDataModel:
+class AssistantConversationInspectorStateDataModel:
     data: dict[str, Any]
     json_schema: dict[str, Any] | None = field(default=None)
     ui_schema: dict[str, Any] | None = field(default=None)
 
 
-class ReadOnlyAssistantConversationInspector(Protocol):
+class ReadOnlyAssistantConversationInspectorStateProvider(Protocol):
     display_name: str
     description: str
 
-    async def get(self, context: ConversationContext) -> AssistantConversationInspectorDataModel: ...
+    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel: ...
 
 
-class WriteableAssistantConversationInspector(ReadOnlyAssistantConversationInspector):
+class WriteableAssistantConversationInspectorStateProvider(ReadOnlyAssistantConversationInspectorStateProvider):
     async def set(
         self,
         context: ConversationContext,
@@ -44,18 +44,13 @@ class WriteableAssistantConversationInspector(ReadOnlyAssistantConversationInspe
     ) -> None: ...
 
 
-AssistantConversationInspector = Union[
-    ReadOnlyAssistantConversationInspector,
-    WriteableAssistantConversationInspector,
-]
-
-
-class AssistantContextExtender(Protocol):
-    def extend(self, context: AssistantContext) -> Any: ...
-
-
-class ConversationContextExtender(Protocol):
-    def extend(self, context: ConversationContext) -> Any: ...
+AssistantConversationInspectorStateProvider = typing_extensions.TypeAliasType(
+    "AssistantConversationInspectorStateProvider",
+    Union[
+        ReadOnlyAssistantConversationInspectorStateProvider,
+        WriteableAssistantConversationInspectorStateProvider,
+    ],
+)
 
 
 class AssistantDataExporter(Protocol):
@@ -212,21 +207,12 @@ class ContentInterceptor(Protocol):
     """
     Protocol to support the interception of incoming and outgoing messages.
 
-    **Properties**
-    - **metadata_key(str)**
-        - Intended to be used to store evaluation results and other metadata related to the
-            interceptor actions taken and may be used elsewhere to access the data. This key
-            should be unique to the interceptor.
-
     **Methods**
     - **intercept_incoming_event(context, event) -> ConversationEvent | None**
         - Intercept incoming events before they are processed by the assistant.
     - **intercept_outgoing_messages(context, messages) -> list[NewConversationMessage]**
         - Intercept outgoing messages before they are sent to the conversation.
     """
-
-    @property
-    def metadata_key(self) -> str: ...
 
     async def intercept_incoming_event(
         self, context: ConversationContext, event: workbench_model.ConversationEvent
@@ -245,9 +231,7 @@ class AssistantAppProtocol(Protocol):
     _config_provider: AssistantConfigProvider
     _data_exporter: AssistantDataExporter
     _conversation_data_exporter: ConversationDataExporter
+    _inspector_state_providers: Mapping[str, AssistantConversationInspectorStateProvider]
+    _content_interceptor: ContentInterceptor | None
 
-    context_extenders: Sequence[AssistantContextExtender]
-    conversation_context_extenders: Sequence[ConversationContextExtender]
     events: Events
-    inspectors: Mapping[str, AssistantConversationInspector]
-    content_interceptor: ContentInterceptor | None

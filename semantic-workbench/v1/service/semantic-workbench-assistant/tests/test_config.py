@@ -1,6 +1,8 @@
+from typing import Annotated, Literal
+
 import pytest
 from pydantic import BaseModel
-from semantic_workbench_assistant import config
+from semantic_workbench_assistant.config import ConfigSecretStr, UISchema, get_ui_schema, overwrite_defaults_from_env
 
 
 def test_overwrite_defaults_from_env(monkeypatch: pytest.MonkeyPatch):
@@ -23,7 +25,7 @@ def test_overwrite_defaults_from_env(monkeypatch: pytest.MonkeyPatch):
     # booleans (non strs) should not be affected
     monkeypatch.setenv("config__flag", "TRUE")
 
-    updated = config.overwrite_defaults_from_env(model, prefix="config", separator="__")
+    updated = overwrite_defaults_from_env(model, prefix="config", separator="__")
 
     # ensure original was not mutated
     assert model == model_copy
@@ -50,8 +52,61 @@ def test_overwrite_defaults_from_env_no_effect_on_non_default_values(monkeypatch
     monkeypatch.setenv("config__field", "this value should not be applied")
     monkeypatch.setenv("CONFIG__SUB_MODEL__SUB_FIELD", "this value should not be applied")
 
-    updated = config.overwrite_defaults_from_env(model, prefix="config", separator="__")
+    updated = overwrite_defaults_from_env(model, prefix="config", separator="__")
 
     # ensure original was not mutated
     assert model == model_copy
     assert updated == model
+
+
+def test_config_secret_str() -> None:
+    class TestModel(BaseModel):
+        name: str = "default-name"
+        secret: ConfigSecretStr = ""
+
+    model = TestModel(secret="super-secret")
+
+    assert model.secret == "super-secret"
+
+    json_serialized = model.model_dump(mode="json")
+    assert json_serialized["secret"] == "**********"
+
+    python_serialized = model.model_dump(mode="python")
+    assert python_serialized["secret"] == "super-secret"
+
+    json_serialized = model.model_dump(mode="json", context={"enable_secret_masking": False})
+    assert json_serialized["secret"] == "super-secret"
+
+    python_serialized = model.model_dump(mode="json", context={"enable_secret_masking": False})
+    assert python_serialized["secret"] == "super-secret"
+
+    assert get_ui_schema(TestModel) == {"secret": {"ui:options": {"widget": "password"}}}
+
+
+def test_annotations() -> None:
+    class ChildModel(BaseModel):
+        child_name: Annotated[str, UISchema({"ui:options": {"child_name": True}})] = "default-child-name"
+
+    class OtherChildModel(BaseModel):
+        other_child_name: Annotated[str, UISchema({"ui:options": {"other_child_name": True}})] = (
+            "default-other-child-name"
+        )
+
+    class TestModel(BaseModel):
+        name: Annotated[str, UISchema({"ui:options": {"name": True}})] = "default-name"
+        child: Annotated[ChildModel, UISchema({})] = ChildModel()
+        union_type: Annotated[ChildModel | OtherChildModel, UISchema({})] = OtherChildModel()
+        un_annotated: str = "un_annotated"
+        annotated_with_others: Annotated[str, {"foo": "bar"}] = ""
+        literal: Literal["literal"]
+
+    ui_schema = get_ui_schema(TestModel)
+
+    assert ui_schema == {
+        "name": {"ui:options": {"name": True}},
+        "child": {"child_name": {"ui:options": {"child_name": True}}},
+        "union_type": {
+            "child_name": {"ui:options": {"child_name": True}},
+            "other_child_name": {"ui:options": {"other_child_name": True}},
+        },
+    }
