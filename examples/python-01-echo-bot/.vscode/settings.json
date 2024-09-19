@@ -57,6 +57,7 @@
     "Langchain",
     "pydantic",
     "pyproject",
-    "tiktoken"
+    "tiktoken",
+    "virtualenvs"
   ]
 }

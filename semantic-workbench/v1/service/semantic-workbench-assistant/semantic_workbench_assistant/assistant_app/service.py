@@ -23,10 +23,10 @@ from semantic_workbench_api_model import assistant_model, workbench_model
 
 from .. import settings
 from ..assistant_service import FastAPIAssistantService
-from ..storage import model_read, model_write
+from ..storage import read_model, write_model
 from .context import AssistantContext, ConversationContext
 from .error import BadRequestError, ConflictError, NotFoundError
-from .protocol import AssistantAppProtocol, WriteableAssistantConversationInspector
+from .protocol import AssistantAppProtocol, WriteableAssistantConversationInspectorStateProvider
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class AssistantService(FastAPIAssistantService):
 
     def read_assistant_states(self) -> _PersistedAssistantStates:
         try:
-            states = model_read(self._assistant_states_path, _PersistedAssistantStates)
+            states = read_model(self._assistant_states_path, _PersistedAssistantStates)
         except FileNotFoundError:
             pass
         except ValidationError:
@@ -161,23 +161,13 @@ class AssistantService(FastAPIAssistantService):
         return states or _PersistedAssistantStates()
 
     def write_assistant_states(self, new_states: _PersistedAssistantStates) -> None:
-        model_write(self._assistant_states_path, new_states)
+        write_model(self._assistant_states_path, new_states)
 
     def _build_assistant_context(self, assistant_id: str, assistant_name: str) -> AssistantContext:
         return AssistantContext(
             _assistant_service_id=self.service_id,
             id=assistant_id,
             name=assistant_name,
-            _extra={
-                extender.__class__.__name__: extender.extend(
-                    AssistantContext(
-                        _assistant_service_id=self.service_id,
-                        id=assistant_id,
-                        name=assistant_name,
-                    )
-                )
-                for extender in self.assistant_app.context_extenders
-            },
         )
 
     def get_assistant_context(self, assistant_id: str) -> AssistantContext | None:
@@ -201,19 +191,9 @@ class AssistantService(FastAPIAssistantService):
             assistant=assistant_context,
             id=conversation_state.conversation_id,
             title=conversation_state.title,
-            _extra={
-                extender.__class__.__name__: extender.extend(
-                    ConversationContext(
-                        assistant=assistant_context,
-                        id=conversation_state.conversation_id,
-                        title=conversation_state.title,
-                    )
-                )
-                for extender in self.assistant_app.conversation_context_extenders
-            },
         )
 
-        content_interceptor = self.assistant_app.content_interceptor
+        content_interceptor = self.assistant_app._content_interceptor
         if content_interceptor is not None:
             original_send_messages = context.send_messages
 
@@ -467,21 +447,21 @@ class AssistantService(FastAPIAssistantService):
         self, conversation_context: ConversationContext, event: workbench_model.ConversationEvent
     ) -> None:
         updated_event = event
-        if self.assistant_app.content_interceptor is not None:
+
+        content_interceptor = self.assistant_app._content_interceptor
+        if content_interceptor is not None:
             try:
-                updated_event = await self.assistant_app.content_interceptor.intercept_incoming_event(
-                    conversation_context, event
-                )
+                updated_event = await content_interceptor.intercept_incoming_event(conversation_context, event)
             except Exception:
                 logger.exception("error in content interceptor, dropping event")
 
-        if updated_event is None:
-            logger.info(
-                "event was dropped by content interceptor; event: %s, interceptor: %s",
-                event.event,
-                self.assistant_app.content_interceptor.__class__.__name__,
-            )
-            return
+            if updated_event is None:
+                logger.info(
+                    "event was dropped by content interceptor; event: %s, interceptor: %s",
+                    event.event,
+                    content_interceptor.__class__.__name__,
+                )
+                return
 
         match updated_event.event:
             case workbench_model.ConversationEventType.message_created:
@@ -595,7 +575,7 @@ class AssistantService(FastAPIAssistantService):
                     display_name=provider.display_name,
                     description=provider.description,
                 )
-                for id, provider in self.assistant_app.inspectors.items()
+                for id, provider in self.assistant_app._inspector_state_providers.items()
             ]
         )
 
@@ -605,7 +585,7 @@ class AssistantService(FastAPIAssistantService):
     ) -> assistant_model.StateResponseModel:
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
-        provider = self.assistant_app.inspectors.get(state_id)
+        provider = self.assistant_app._inspector_state_providers.get(state_id)
         if provider is None:
             raise NotFoundError(f"inspector {state_id} not found")
 
@@ -627,13 +607,15 @@ class AssistantService(FastAPIAssistantService):
     ) -> assistant_model.StateResponseModel:
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
-        provider = self.assistant_app.inspectors.get(state_id)
+        provider = self.assistant_app._inspector_state_providers.get(state_id)
         if provider is None:
             raise NotFoundError(f"inspector {state_id} not found")
 
         if getattr(provider, "set", None) is None:
             raise BadRequestError(f"inspector {state_id} is read-only")
 
-        await cast(WriteableAssistantConversationInspector, provider).set(conversation_context, updated_state.data)
+        await cast(WriteableAssistantConversationInspectorStateProvider, provider).set(
+            conversation_context, updated_state.data
+        )
 
         return await self.get_conversation_state(assistant_id, conversation_id, state_id)

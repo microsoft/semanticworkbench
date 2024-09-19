@@ -61,6 +61,7 @@
     "openai",
     "pydantic",
     "pyproject",
-    "tiktoken"
+    "tiktoken",
+    "virtualenvs"
   ]
 }

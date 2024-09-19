@@ -1,8 +1,9 @@
 import io
 import logging
+import pathlib
 import uuid
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator, AsyncIterator
 
 import semantic_workbench_api_model
@@ -20,7 +21,6 @@ class AssistantContext:
     name: str
 
     _assistant_service_id: str
-    _extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -28,8 +28,6 @@ class ConversationContext:
     id: str
     title: str
     assistant: AssistantContext
-
-    _extra: dict[str, Any] = field(default_factory=dict)
 
     @property
     def _workbench_client(self) -> semantic_workbench_api_model.workbench_service_client.ConversationAPIClient:
@@ -89,3 +87,22 @@ class ConversationContext:
 
     async def delete_file(self, filename: str) -> None:
         return await self._workbench_client.delete_file(filename)
+
+
+@dataclass
+class FileStorageContext:
+    directory: pathlib.Path
+
+    @staticmethod
+    def get(context: AssistantContext | ConversationContext, partition: str = "") -> "FileStorageContext":
+        match context:
+            case AssistantContext():
+                directory = context.id
+
+            case ConversationContext():
+                directory = f"{context.assistant.id}-{context.id}"
+
+        if partition:
+            directory = f"{directory}_{partition}"
+
+        return FileStorageContext(directory=pathlib.Path(settings.storage.root) / directory)

@@ -283,7 +283,7 @@ class FastAPIAssistantService(ABC):
         pass
 
 
-def assistant_service_api(
+def _assistant_service_api(
     app: FastAPI,
     service: FastAPIAssistantService,
     enable_auth_middleware: bool = True,
@@ -518,5 +518,5 @@ def create_app(
         # extra is used to store metadata about the service
         assistant_service_id=svc.service_id,
     )
-    assistant_service_api(app, svc, enable_auth_middleware)
+    _assistant_service_api(app, svc, enable_auth_middleware)
     return app
