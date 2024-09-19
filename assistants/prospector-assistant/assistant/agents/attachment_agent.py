@@ -1,7 +1,6 @@
 import base64
 import logging
 import tempfile
-from pathlib import Path
 from typing import Annotated, Any
 
 import docx2txt
@@ -13,11 +12,11 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
     FileStorageContext,
 )
+from semantic_workbench_assistant.config import UISchema
 from semantic_workbench_assistant.storage import (
-    model_delete,
-    model_read,
-    model_read_all_files,
-    model_write,
+    read_model,
+    read_models_in_dir,
+    write_model,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,6 +33,7 @@ class AttachmentAgentConfigModel(BaseModel):
         Field(
             description="The description of the context for general response generation.",
         ),
+        UISchema(widget="textarea"),
     ] = (
         "These attachments were provided for additional context to accompany the conversation. Consider any rationale"
         " provided for why they were included."
@@ -47,13 +47,6 @@ class AttachmentAgentConfigModel(BaseModel):
             ),
         ),
     ] = True
-
-
-attachment_agent_config_ui_schema = {
-    "context_description": {
-        "ui:widget": "textarea",
-    },
-}
 
 
 class Attachment(BaseModel):
@@ -177,39 +170,32 @@ class AttachmentAgent:
 #
 
 
-def _assistant_conversation_storage_directory(context: ConversationContext) -> Path:
-    """
-    Get the storage path for the attachments.
-    """
-    return FileStorageContext.get(context.assistant).directory / context.id
-
-
 async def _get(context: ConversationContext, filename: str) -> Attachment | None:
     """
     Get the attachment with the given filename.
     """
-    return model_read(_assistant_conversation_storage_directory(context) / filename, Attachment)
+    return read_model(FileStorageContext.get(context).directory / filename, Attachment)
 
 
 async def _get_all(context: ConversationContext) -> list[Attachment]:
     """
     Get all attachments.
     """
-    return list(model_read_all_files(_assistant_conversation_storage_directory(context), Attachment))
+    return list(read_models_in_dir(FileStorageContext.get(context).directory, Attachment))
 
 
 async def _set(context: ConversationContext, filename: str, attachment: Attachment) -> None:
     """
     Set the attachment with the given filename.
     """
-    model_write(_assistant_conversation_storage_directory(context) / filename, attachment)
+    write_model(FileStorageContext.get(context).directory / filename, attachment)
 
 
 async def _delete(context: ConversationContext, filename: str) -> None:
     """
     Delete the attachment with the given filename.
     """
-    model_delete(_assistant_conversation_storage_directory(context) / filename)
+    (FileStorageContext.get(context).directory / filename).unlink(missing_ok=True)
 
 
 async def _raw_content_from_file(context: ConversationContext, file: File) -> bytes:
