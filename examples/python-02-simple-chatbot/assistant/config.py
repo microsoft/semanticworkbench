@@ -7,8 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant import config
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
+from assistant.responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluatorConfigModel
+
 from .responsible_ai.azure_evaluator import (
     AzureContentSafetyEvaluatorConfigModel,
+    AzureContentSafetyServiceConfigModel,
 )
 
 # The semantic workbench app uses react-jsonschema-form for rendering
@@ -215,10 +218,18 @@ class AzureOpenAIServiceConfig(BaseModel):
     azure_content_safety_config: Annotated[
         AzureContentSafetyEvaluatorConfigModel,
         Field(
-            title="Azure Content Safety Configuration",
-            description="The configuration for the Azure Content Safety API.",
+            title="Azure Content Safety Evaluator Configuration",
+            description="The configuration for the Azure Content Safety evaluator.",
         ),
     ] = AzureContentSafetyEvaluatorConfigModel()
+
+    azure_content_safety_service_config: Annotated[
+        AzureContentSafetyServiceConfigModel,
+        Field(
+            title="Azure Content Safety Service Configuration",
+            description="The configuration for the Azure Content Safety service.",
+        ),
+    ] = AzureContentSafetyServiceConfigModel()
 
     # set on the class to avoid re-creating the token provider for each client, which allows
     # the token provider to cache and re-use tokens
@@ -277,6 +288,14 @@ class OpenAIServiceConfig(BaseModel):
         ),
         UISchema(placeholder="[optional]"),
     ] = ""
+
+    openai_content_safety_config: Annotated[
+        OpenAIContentSafetyEvaluatorConfigModel,
+        Field(
+            title="OpenAI Content Safety Evaluator Configuration",
+            description="The configuration for the OpenAI Content Safety evaluator.",
+        ),
+    ] = OpenAIContentSafetyEvaluatorConfigModel()
 
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
         return openai.AsyncOpenAI(

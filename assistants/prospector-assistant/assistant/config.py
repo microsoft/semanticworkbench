@@ -283,8 +283,8 @@ class AzureOpenAIServiceConfig(BaseModel):
     azure_content_safety_config: Annotated[
         AzureContentSafetyEvaluatorConfigModel,
         Field(
-            title="Azure Content Safety Configuration",
-            description="The configuration for the Azure Content Safety Evaluator.",
+            title="Azure Content Safety Evaluator Configuration",
+            description="The configuration for the Azure Content Safety evaluator.",
         ),
     ] = AzureContentSafetyEvaluatorConfigModel()
 
@@ -357,8 +357,8 @@ class OpenAIServiceConfig(BaseModel):
     openai_content_safety_config: Annotated[
         OpenAIContentSafetyEvaluatorConfigModel,
         Field(
-            title="OpenAI Content Safety Configuration",
-            description="The configuration for the OpenAI Content Safety Evaluator.",
+            title="OpenAI Content Safety Evaluator Configuration",
+            description="The configuration for the OpenAI Content Safety evaluator.",
         ),
     ] = OpenAIContentSafetyEvaluatorConfigModel()
 

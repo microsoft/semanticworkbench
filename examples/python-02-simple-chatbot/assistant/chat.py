@@ -47,7 +47,7 @@ from .config import AssistantConfigModel, AssistantServiceConfigModel
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
 from .responsible_ai.openai_evaluator import (
     OpenAIContentSafetyEvaluator,
-    OpenAIContentSafetyEvaluatorConfigModel,
+    OpenAIServiceConfigModel,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,10 +79,14 @@ async def content_evaluator_factory(context: ConversationContext) -> ContentSafe
     # return the content safety evaluator based on the service type
     match config_secrets.service_config.service_type:
         case "Azure OpenAI":
-            return AzureContentSafetyEvaluator(config_secrets.service_config.azure_content_safety_config)
+            return AzureContentSafetyEvaluator(
+                config=config_secrets.service_config.azure_content_safety_config,
+                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
+            )
         case "OpenAI":
             return OpenAIContentSafetyEvaluator(
-                OpenAIContentSafetyEvaluatorConfigModel(openai_api_key=config_secrets.service_config.openai_api_key)
+                config=config_secrets.service_config.openai_content_safety_config,
+                config_secrets=OpenAIServiceConfigModel(openai_api_key=config_secrets.service_config.openai_api_key),
             )
 
 
