@@ -37,13 +37,13 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
-    BaseModelAssistantConfig,
+    BaseModelAssistantConfigWithSecrets,
     ContentSafety,
     ContentSafetyEvaluator,
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, ui_schema
+from .config import AssistantConfigModel, AssistantServiceConfigModel
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
 from .responsible_ai.openai_evaluator import (
     OpenAIContentSafetyEvaluator,
@@ -66,21 +66,27 @@ service_description = "A simple OpenAI chat assistant using the Semantic Workben
 #
 # create the configuration provider, using the extended configuration model
 #
-config_provider = BaseModelAssistantConfig(AssistantConfigModel(), ui_schema=ui_schema)
+assistant_config = BaseModelAssistantConfigWithSecrets(
+    default=AssistantConfigModel(),
+    default_secrets=AssistantServiceConfigModel(),
+)
 
 
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
-    config = await config_provider.get_typed(context.assistant)
+    config_secrets = await assistant_config.get_secrets(context.assistant)
 
     # return the content safety evaluator based on the service type
-    match config.service_config.service_type:
+    match config_secrets.service_config.service_type:
         case "Azure OpenAI":
-            return AzureContentSafetyEvaluator(config.service_config.azure_content_safety_config)
+            return AzureContentSafetyEvaluator(config_secrets.service_config.azure_content_safety_config)
         case "OpenAI":
             return OpenAIContentSafetyEvaluator(
-                OpenAIContentSafetyEvaluatorConfigModel(openai_api_key=config.service_config.openai_api_key)
+                OpenAIContentSafetyEvaluatorConfigModel(openai_api_key=config_secrets.service_config.openai_api_key)
             )
+
+
+content_safety = ContentSafety(content_evaluator_factory)
 
 
 # create the AssistantApp instance
@@ -88,8 +94,8 @@ assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
     assistant_service_description=service_description,
-    config_provider=config_provider,
-    content_interceptor=ContentSafety(content_evaluator_factory),
+    config_provider=assistant_config.provider,
+    content_interceptor=content_safety,
 )
 
 #
@@ -145,7 +151,7 @@ async def on_message_created(
         await respond_to_conversation(
             context,
             message=message,
-            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+            metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
         )
     finally:
         # update the participant status to indicate the assistant is done thinking
@@ -161,10 +167,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
     # replace the following with your own logic for processing a conversation created event
 
     # get the assistant's configuration
-    assistant_config = await config_provider.get_typed(context.assistant)
+    config = await assistant_config.get(context.assistant)
 
     # get the welcome message from the assistant's configuration
-    welcome_message = assistant_config.welcome_message
+    welcome_message = config.welcome_message
 
     # send the welcome message to the conversation
     await context.send_messages(
@@ -199,7 +205,8 @@ async def respond_to_conversation(
     method_metadata_key = "respond_to_conversation"
 
     # get the assistant's configuration, supports overwriting defaults from environment variables
-    assistant_config = await config_provider.get_typed(context.assistant)
+    config = await assistant_config.get(context.assistant)
+    config_secrets = await assistant_config.get_secrets(context.assistant)
 
     # get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
@@ -208,10 +215,10 @@ async def respond_to_conversation(
     silence_token = "{{SILENCE}}"
 
     # create a system message, start by adding the guardrails prompt
-    system_message_content = assistant_config.guardrails_prompt
+    system_message_content = config.guardrails_prompt
 
     # add the instruction prompt and the assistant name
-    system_message_content += f'\n\n{assistant_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    system_message_content += f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
 
     # if this is a multi-participant conversation, add a note about the participants
     if len(participants_response.participants) > 2:
@@ -233,10 +240,12 @@ async def respond_to_conversation(
         )
 
     # create the completion messages for the AI model and add the system message
-    completion_messages: list[ChatCompletionMessageParam] = [{
-        "role": "system",
-        "content": system_message_content,
-    }]
+    completion_messages: list[ChatCompletionMessageParam] = [
+        {
+            "role": "system",
+            "content": system_message_content,
+        }
+    ]
 
     # get the current token count and track the tokens used as messages are added
     current_tokens = 0
@@ -271,10 +280,7 @@ async def respond_to_conversation(
         # add the token count for the message and check if the token limit has been reached
         message_tokens = get_token_count(format_message(message))
         current_tokens += message_tokens
-        if (
-            current_tokens
-            > assistant_config.request_config.max_tokens - assistant_config.request_config.response_tokens
-        ):
+        if current_tokens > config.request_config.max_tokens - config.request_config.response_tokens:
             # if the token limit has been reached, stop adding messages
             break
 
@@ -337,13 +343,13 @@ async def respond_to_conversation(
     #     return
 
     # generate a response from the AI model
-    async with assistant_config.service_config.new_client(api_version="2024-06-01") as openai_client:
+    async with config_secrets.service_config.new_client(api_version="2024-06-01") as openai_client:
         try:
             # call the OpenAI chat completion endpoint to get a response
             completion = await openai_client.chat.completions.create(
                 messages=completion_messages,
-                model=assistant_config.service_config.openai_model,
-                max_tokens=assistant_config.request_config.response_tokens,
+                model=config.request_config.openai_model,
+                max_tokens=config.request_config.response_tokens,
             )
 
             # get the content from the completion response
@@ -356,9 +362,9 @@ async def respond_to_conversation(
                     "debug": {
                         f"{method_metadata_key}": {
                             "request": {
-                                "model": assistant_config.service_config.openai_model,
+                                "model": config.request_config.openai_model,
                                 "messages": completion_messages,
-                                "max_tokens": assistant_config.request_config.response_tokens,
+                                "max_tokens": config.request_config.response_tokens,
                             },
                             "response": completion.model_dump() if completion else "[no response from openai]",
                         },
@@ -377,7 +383,7 @@ async def respond_to_conversation(
                     "debug": {
                         f"{method_metadata_key}": {
                             "request": {
-                                "model": assistant_config.service_config.openai_model,
+                                "model": config.request_config.openai_model,
                                 "messages": completion_messages,
                             },
                             "error": str(e),
@@ -391,7 +397,6 @@ async def respond_to_conversation(
 
     # various behaviors based on the content
     if content:
-
         # strip out the username from the response
         if content.startswith("["):
             content = re.sub(r"\[.*\]:\s", "", content)
@@ -402,7 +407,7 @@ async def respond_to_conversation(
         if content.replace(" ", "") == silence_token:
             # normal behavior is to not respond if the model chooses to remain silent
             # but we can override this behavior for debugging purposes via the assistant config
-            if assistant_config.enable_debug_output:
+            if config.enable_debug_output:
                 # update the metadata to indicate the assistant chose to remain silent
                 deepmerge.always_merger.merge(
                     metadata,
