@@ -23,19 +23,16 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
-    BaseModelAssistantConfig,
+    BaseModelAssistantConfigWithSecrets,
     ContentSafety,
     ContentSafetyEvaluator,
     ConversationContext,
 )
 
 from .agents.attachment_agent import AttachmentAgent
-from .config import AssistantConfigModel, ui_schema
+from .config import AssistantConfigModel, AssistantServiceConfigModel
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
-from .responsible_ai.openai_evaluator import (
-    OpenAIContentSafetyEvaluator,
-    OpenAIContentSafetyEvaluatorConfigModel,
-)
+from .responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluator, OpenAIServiceConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +50,31 @@ service_description = "An assistant that helps you mine ideas from artifacts."
 #
 # create the configuration provider, using the extended configuration model
 #
-config_provider = BaseModelAssistantConfig(AssistantConfigModel(), ui_schema=ui_schema)
+assistant_config = BaseModelAssistantConfigWithSecrets(
+    default=AssistantConfigModel(),
+    default_secrets=AssistantServiceConfigModel(),
+)
 
 
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
-    config = await config_provider.get_typed(context.assistant)
+    config_secrets = await assistant_config.get_secrets(context.assistant)
 
     # return the content safety evaluator based on the service type
-    match config.service_config.service_type:
+    match config_secrets.service_config.service_type:
         case "Azure OpenAI":
-            return AzureContentSafetyEvaluator(config.service_config.azure_content_safety_config)
+            return AzureContentSafetyEvaluator(
+                config=config_secrets.service_config.azure_content_safety_config,
+                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
+            )
         case "OpenAI":
             return OpenAIContentSafetyEvaluator(
-                OpenAIContentSafetyEvaluatorConfigModel(openai_api_key=config.service_config.openai_api_key)
+                config=config_secrets.service_config.openai_content_safety_config,
+                config_secrets=OpenAIServiceConfigModel(openai_api_key=config_secrets.service_config.openai_api_key),
             )
+
+
+content_safety = ContentSafety(content_evaluator_factory)
 
 
 # create the AssistantApp instance
@@ -75,8 +82,8 @@ assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
     assistant_service_description=service_description,
-    config_provider=config_provider,
-    content_interceptor=ContentSafety(content_evaluator_factory),
+    config_provider=assistant_config.provider,
+    content_interceptor=content_safety,
 )
 
 #
@@ -132,7 +139,7 @@ async def on_message_created(
         await respond_to_conversation(
             context,
             message=message,
-            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+            metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
         )
     finally:
         # update the participant status to indicate the assistant is done thinking
@@ -146,8 +153,8 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
 
     # send a welcome message to the conversation
-    assistant_config = await config_provider.get_typed(context.assistant)
-    welcome_message = assistant_config.welcome_message
+    config = await assistant_config.get(context.assistant)
+    welcome_message = config.welcome_message
     await context.send_messages(
         NewConversationMessage(
             content=welcome_message,
@@ -170,7 +177,7 @@ async def on_file_created(context: ConversationContext, event: ConversationEvent
         await create_or_update_attachment_from_file(
             context,
             file,
-            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+            metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
         )
     finally:
         # update the participant status to indicate the assistant is done processing the new file
@@ -190,7 +197,7 @@ async def on_file_updated(context: ConversationContext, event: ConversationEvent
         await create_or_update_attachment_from_file(
             context,
             file,
-            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+            metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
         )
     finally:
         # update the participant status to indicate the assistant is done updating the attachment
@@ -241,7 +248,8 @@ async def respond_to_conversation(
     method_metadata_key = "respond_to_conversation"
 
     # get the assistant's configuration, supports overwriting defaults from environment variables
-    assistant_config = await config_provider.get_typed(context.assistant)
+    config = await assistant_config.get(context.assistant)
+    config_secrets = await assistant_config.get_secrets(context.assistant)
 
     # get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
@@ -249,7 +257,7 @@ async def respond_to_conversation(
     # establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
 
-    system_message_content = f'{assistant_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    system_message_content = f'{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
     if len(participants_response.participants) > 2:
         system_message_content += (
             "\n\n"
@@ -267,7 +275,7 @@ async def respond_to_conversation(
             f' be directed at you or the general audience, go ahead and respond.\n\nSay "{silence_token}" to skip'
             " your turn."
         )
-    system_message_content += f"\n\n{assistant_config.guardrails_prompt}"
+    system_message_content += f"\n\n{config.guardrails_prompt}"
 
     completion_messages: list[ChatCompletionMessageParam] = [
         {
@@ -277,7 +285,7 @@ async def respond_to_conversation(
     ]
 
     # add the attachment agent messages to the completion messages
-    if assistant_config.agents_config.attachment_agent.include_in_response_generation:
+    if config.agents_config.attachment_agent.include_in_response_generation:
         # generate the attachment messages from the attachment agent
         attachment_agent = AttachmentAgent()
         attachment_messages = await attachment_agent.generate_attachment_messages(context)
@@ -286,7 +294,7 @@ async def respond_to_conversation(
         if len(attachment_messages) > 0:
             completion_messages.append({
                 "role": "system",
-                "content": assistant_config.agents_config.attachment_agent.context_description,
+                "content": config.agents_config.attachment_agent.context_description,
             })
             completion_messages.extend(attachment_messages)
 
@@ -302,7 +310,7 @@ async def respond_to_conversation(
             token_count += _get_token_count_for_str(content)
 
     # calculate the total available tokens for the response generation
-    available_tokens = assistant_config.request_config.max_tokens - assistant_config.request_config.response_tokens
+    available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
 
     # build the completion messages from the conversation history
     history_messages: list[ChatCompletionMessageParam] = []
@@ -344,13 +352,13 @@ async def respond_to_conversation(
 
     # generate a response from the AI model
     completion_total_tokens: int | None = None
-    async with assistant_config.service_config.new_client(api_version="2024-06-01") as openai_client:
+    async with config_secrets.service_config.new_client(api_version="2024-06-01") as openai_client:
         try:
             # call the OpenAI API to generate a completion
             completion = await openai_client.chat.completions.create(
                 messages=completion_messages,
-                model=assistant_config.service_config.openai_model,
-                max_tokens=assistant_config.request_config.response_tokens,
+                model=config.request_config.openai_model,
+                max_tokens=config.request_config.response_tokens,
             )
             content = completion.choices[0].message.content
 
@@ -364,9 +372,9 @@ async def respond_to_conversation(
                     "debug": {
                         f"{method_metadata_key}": {
                             "request": {
-                                "model": assistant_config.service_config.openai_model,
+                                "model": config.request_config.openai_model,
                                 "messages": completion_messages,
-                                "max_tokens": assistant_config.request_config.response_tokens,
+                                "max_tokens": config.request_config.response_tokens,
                             },
                             "response": completion.model_dump() if completion else "[no response from openai]",
                         },
@@ -385,7 +393,7 @@ async def respond_to_conversation(
                     "debug": {
                         f"{method_metadata_key}": {
                             "request": {
-                                "model": assistant_config.service_config.openai_model,
+                                "model": config.request_config.openai_model,
                                 "messages": completion_messages,
                             },
                             "error": str(e),
@@ -406,7 +414,7 @@ async def respond_to_conversation(
         # when checking for the silence token
         if content.replace(" ", "") == silence_token:
             # if debug output is enabled, notify the conversation that the assistant chose to remain silent
-            if assistant_config.enable_debug_output:
+            if config.enable_debug_output:
                 # add debug metadata to indicate the assistant chose to remain silent
                 deepmerge.always_merger.merge(
                     metadata,
@@ -444,17 +452,13 @@ async def respond_to_conversation(
     )
 
     # check the token usage and send a warning if it is high
-    if completion_total_tokens is not None and assistant_config.high_token_usage_warning.enabled:
+    if completion_total_tokens is not None and config.high_token_usage_warning.enabled:
         # calculate the token count for the warning threshold
-        token_count_for_warning = assistant_config.request_config.max_tokens * (
-            assistant_config.high_token_usage_warning.threshold / 100
-        )
+        token_count_for_warning = config.request_config.max_tokens * (config.high_token_usage_warning.threshold / 100)
 
         # check if the completion total tokens exceed the warning threshold
         if completion_total_tokens > token_count_for_warning:
-            content = (
-                f"{assistant_config.high_token_usage_warning.message}\n\nTotal tokens used: {completion_total_tokens}"
-            )
+            content = f"{config.high_token_usage_warning.message}\n\n" f"Total tokens used: {completion_total_tokens}"
 
             # send a notice message to the conversation that the token usage is high
             await context.send_messages(
@@ -465,7 +469,7 @@ async def respond_to_conversation(
                         "debug": {
                             "high_token_usage_warning": {
                                 "completion_total_tokens": completion_total_tokens,
-                                "threshold": assistant_config.high_token_usage_warning.threshold,
+                                "threshold": config.high_token_usage_warning.threshold,
                                 "token_count_for_warning": token_count_for_warning,
                             }
                         },
