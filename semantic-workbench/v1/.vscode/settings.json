@@ -221,6 +221,7 @@
     "tracebacks",
     "Typeahead",
     "uvicorn",
+    "virtualenvs",
     "webservice",
     "winget",
     "workbenchservice"

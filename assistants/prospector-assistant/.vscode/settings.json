@@ -62,6 +62,7 @@
     "pdfplumber",
     "pydantic",
     "pyproject",
-    "tiktoken"
+    "tiktoken",
+    "virtualenvs"
   ]
 }
