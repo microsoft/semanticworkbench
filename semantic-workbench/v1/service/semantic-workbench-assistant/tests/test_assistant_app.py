@@ -25,18 +25,20 @@ from semantic_workbench_assistant import settings, storage
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
     AssistantContext,
-    AssistantConversationInspectorDataModel,
+    AssistantConversationInspectorStateDataModel,
     BadRequestError,
-    BaseModelAssistantConfig,
+    BaseModelAssistantConfigWithSecrets,
     ConflictError,
     ConversationContext,
     FileStorageContext,
-    FileStorageContextExtender,
     FileStorageConversationDataExporter,
     NotFoundError,
 )
 from semantic_workbench_assistant.assistant_app.service import (
     translate_assistant_errors,
+)
+from semantic_workbench_assistant.config import (
+    ConfigSecretStr,
 )
 
 
@@ -187,8 +189,8 @@ async def test_assistant_with_inspector(
         display_name = "Test"
         description = "Test inspector"
 
-        async def get(self, context: ConversationContext) -> AssistantConversationInspectorDataModel:
-            return AssistantConversationInspectorDataModel(
+        async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
+            return AssistantConversationInspectorStateDataModel(
                 data={"test": "data"},
                 json_schema={},
                 ui_schema={},
@@ -198,7 +200,7 @@ async def test_assistant_with_inspector(
         assistant_service_id="assistant_id",
         assistant_service_name="service name",
         assistant_service_description="service description",
-        inspectors={"test": TestInspectorImplementation()},
+        inspector_state_providers={"test": TestInspectorImplementation()},
     )
 
     service = app.fastapi_app()
@@ -308,7 +310,6 @@ async def test_assistant_with_state_exporter(
             id=str(conversation_id),
             title="My conversation",
             assistant=mock.ANY,
-            _extra=mock.ANY,
         )
 
         assert state_exporter.data == import_bytes
@@ -323,7 +324,6 @@ async def test_assistant_with_state_exporter(
             id=str(conversation_id),
             title="My conversation",
             assistant=mock.ANY,
-            _extra=mock.ANY,
         )
 
         assert bytes_out == import_bytes
@@ -337,9 +337,40 @@ async def test_assistant_with_config_provider(
     class TestConfigModel(BaseModel):
         test_key: str = "test_value"
 
-    config_provider = BaseModelAssistantConfig(TestConfigModel())
+    class TestConfigSecretModel(BaseModel):
+        secret_field: ConfigSecretStr = ""
+
+    config_provider = BaseModelAssistantConfigWithSecrets(TestConfigModel(), TestConfigSecretModel()).provider
     # wrap the provider so we can check calls to it
     config_provider_wrapper = mock.Mock(wraps=config_provider)
+
+    expected_json_schema = {
+        "$defs": {
+            "ConfigSecretStr": {"format": "password", "type": "string", "writeOnly": True},
+            "TestConfigModel": {
+                "properties": {"test_key": {"default": "test_value", "title": "Test Key", "type": "string"}},
+                "title": "TestConfigModel",
+                "type": "object",
+            },
+            "TestConfigSecretModel": {
+                "properties": {"secret_field": {"$ref": "#/$defs/ConfigSecretStr", "default": ""}},
+                "title": "TestConfigSecretModel",
+                "type": "object",
+            },
+        },
+        "properties": {
+            "config": {"$ref": "#/$defs/TestConfigModel"},
+            "config_secrets": {"$ref": "#/$defs/TestConfigSecretModel"},
+        },
+        "required": ["config", "config_secrets"],
+        "title": "CombinedConfigModel",
+        "type": "object",
+    }
+
+    expected_ui_schema = {
+        "config": {"ui:options": {"hide_title": True}},
+        "config_secrets": {"ui:options": {"hide_title": True}, "secret_field": {"ui:options": {"widget": "password"}}},
+    }
 
     app = AssistantApp(
         assistant_service_id="assistant_id",
@@ -367,45 +398,49 @@ async def test_assistant_with_config_provider(
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
-            config=TestConfigModel().model_dump(mode="json"),
-            json_schema=TestConfigModel().model_json_schema(),
-            ui_schema={},
+            config={"config": {"test_key": "test_value"}, "config_secrets": {"secret_field": ""}},
+            json_schema=expected_json_schema,
+            ui_schema=expected_ui_schema,
         )
         assert config_provider_wrapper.get.called
 
         config_provider_wrapper.reset_mock()
 
         response = await instance_client.put_config(
-            assistant_model.ConfigPutRequestModel(config={"test_key": "new_value"})
+            assistant_model.ConfigPutRequestModel(
+                config={"config": {"test_key": "new_value"}, "config_secrets": {"secret_field": "new_secret"}}
+            )
         )
         assert response == assistant_model.ConfigResponseModel(
-            config=TestConfigModel(test_key="new_value").model_dump(mode="json"),
-            json_schema=TestConfigModel().model_json_schema(),
-            ui_schema={},
+            config={"config": {"test_key": "new_value"}, "config_secrets": {"secret_field": "**********"}},
+            json_schema=expected_json_schema,
+            ui_schema=expected_ui_schema,
         )
         assert config_provider_wrapper.set.called
+        assert config_provider_wrapper.set.call_args[0][1] == {
+            "config": {"test_key": "new_value"},
+            "config_secrets": {"secret_field": "new_secret"},
+        }
 
         config_provider_wrapper.reset_mock()
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
-            config=TestConfigModel(test_key="new_value").model_dump(mode="json"),
-            json_schema=TestConfigModel().model_json_schema(),
-            ui_schema={},
+            config={"config": {"test_key": "new_value"}, "config_secrets": {"secret_field": "**********"}},
+            json_schema=expected_json_schema,
+            ui_schema=expected_ui_schema,
         )
         assert config_provider_wrapper.get.called
 
         with pytest.raises(semantic_workbench_api_model.assistant_service_client.AssistantResponseError) as e:
             await instance_client.put_config(
-                assistant_model.ConfigPutRequestModel(config={"test_key": {"invalid_value": 1}})
+                assistant_model.ConfigPutRequestModel(config={"config": {"test_key": {"invalid_value": 1}}})
             )
 
         assert e.value.status_code == 400
 
 
-async def test_file_system_storage_state_data_provider_to_empty_dir():
-    data_provider = FileStorageConversationDataExporter()
-
+async def test_file_system_storage_state_data_provider_to_empty_dir(monkeypatch: pytest.MonkeyPatch) -> None:
     with tempfile.TemporaryDirectory() as src_temp_dir, tempfile.TemporaryDirectory() as dest_temp_dir:
         src_dir_path = pathlib.Path(src_temp_dir)
 
@@ -425,7 +460,6 @@ async def test_file_system_storage_state_data_provider_to_empty_dir():
                 id=str(uuid.uuid4()),
                 name="my assistant",
             ),
-            _extra={FileStorageContextExtender.__name__: FileStorageContext(src_dir_path)},
         )
 
         dest_dir_path = pathlib.Path(dest_temp_dir)
@@ -438,20 +472,28 @@ async def test_file_system_storage_state_data_provider_to_empty_dir():
                 id=str(uuid.uuid4()),
                 name="my assistant",
             ),
-            _extra={FileStorageContextExtender.__name__: FileStorageContext(dest_dir_path)},
         )
 
-        async with data_provider.export(src_conversation_context) as stream:
-            await data_provider.import_(dest_conversation_context, stream)
+        def file_storage_context_get_mock(conversation_context: ConversationContext) -> FileStorageContext:
+            if conversation_context == src_conversation_context:
+                return FileStorageContext(directory=src_dir_path)
+            return FileStorageContext(directory=dest_dir_path)
 
-        assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
+        with mock.patch(
+            "semantic_workbench_assistant.assistant_app.FileStorageContext.get",
+            side_effect=file_storage_context_get_mock,
+        ):
+            data_provider = FileStorageConversationDataExporter()
 
-        assert (dest_dir_path / "subdir" / "test.bin").read_bytes() == bytes([1, 2, 3, 4])
+            async with data_provider.export(src_conversation_context) as stream:
+                await data_provider.import_(dest_conversation_context, stream)
+
+            assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
+
+            assert (dest_dir_path / "subdir" / "test.bin").read_bytes() == bytes([1, 2, 3, 4])
 
 
 async def test_file_system_storage_state_data_provider_to_non_empty_dir():
-    data_provider = FileStorageConversationDataExporter()
-
     with tempfile.TemporaryDirectory() as src_temp_dir, tempfile.TemporaryDirectory() as dest_temp_dir:
         # set up contents of the non-empty destination directory
         dest_dir_path = pathlib.Path(dest_temp_dir)
@@ -486,7 +528,6 @@ async def test_file_system_storage_state_data_provider_to_non_empty_dir():
                 id=str(uuid.uuid4()),
                 name="my assistant",
             ),
-            _extra={FileStorageContextExtender.__name__: FileStorageContext(src_dir_path)},
         )
 
         dest_conversation_context = ConversationContext(
@@ -497,17 +538,27 @@ async def test_file_system_storage_state_data_provider_to_non_empty_dir():
                 id=str(uuid.uuid4()),
                 name="my assistant",
             ),
-            _extra={FileStorageContextExtender.__name__: FileStorageContext(dest_dir_path)},
         )
 
-        async with data_provider.export(src_conversation_context) as stream:
-            await data_provider.import_(dest_conversation_context, stream)
+        def file_storage_context_get_mock(conversation_context: ConversationContext) -> FileStorageContext:
+            if conversation_context == src_conversation_context:
+                return FileStorageContext(directory=src_dir_path)
+            return FileStorageContext(directory=dest_dir_path)
 
-        assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
+        with mock.patch(
+            "semantic_workbench_assistant.assistant_app.FileStorageContext.get",
+            side_effect=file_storage_context_get_mock,
+        ):
+            data_provider = FileStorageConversationDataExporter()
 
-        assert (dest_dir_path / "subdir" / "test.bin").read_bytes() == bytes([1, 2, 3, 4])
+            async with data_provider.export(src_conversation_context) as stream:
+                await data_provider.import_(dest_conversation_context, stream)
 
-        assert dest_sub_dir_path.exists() is False
+            assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
+
+            assert (dest_dir_path / "subdir" / "test.bin").read_bytes() == bytes([1, 2, 3, 4])
+
+            assert dest_sub_dir_path.exists() is False
 
 
 class UnknownErrorForTest(Exception):

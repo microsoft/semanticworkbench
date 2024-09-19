@@ -137,9 +137,7 @@ async def test_flow_create_assistant_update_conversation_state(
 
         updated_message = f"updated message {uuid.uuid4()}"
         state_update = assistant_model.StatePutRequestModel(
-            data=semantic_workbench_assistant.canonical.ConversationState(
-                message=updated_message,
-            ).model_dump(),
+            data={"message": updated_message},
         )
         resp = await wb_client.put(
             f"/assistants/{assistant.id}/conversations/{conversation.id}/states/simple_state",

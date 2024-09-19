@@ -15,53 +15,28 @@ from semantic_workbench_assistant.assistant_app import (
     ContentSafetyEvaluationResult,
     ContentSafetyEvaluator,
 )
+from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
 logger = logging.getLogger(__name__)
 
 
-class AzureContentSafetyServiceIdentityAuthConfig(BaseModel):
-    model_config = ConfigDict(title="Azure identity based authentication")
+# The semantic workbench app uses react-jsonschema-form for rendering
+# dynamic configuration forms based on the configuration model and UI schema
+# See: https://rjsf-team.github.io/react-jsonschema-form/docs/
+# Playground / examples: https://rjsf-team.github.io/react-jsonschema-form/
 
-    auth_method: Literal["azure-identity"] = "azure-identity"
+# The UI schema can be used to customize the appearance of the form. Use
+# the UISchema class to define the UI schema for specific fields in the
+# configuration model.
 
 
-class AzureContentSafetyServiceKeyAuthConfig(BaseModel):
-    model_config = ConfigDict(
-        title="API key based authentication",
-        json_schema_extra={
-            "required": ["azure_content_safety_service_key"],
-        },
-    )
-
-    auth_method: Literal["api-key"] = "api-key"
-
-    azure_content_safety_service_key: Annotated[
-        str,
-        Field(
-            title="Azure Content Safety Service Key",
-            description="The Azure Content Safety service key for your resource instance.",
-        ),
-    ] = ""
+#
+# region Evaluator Configuration
+#
 
 
 class AzureContentSafetyEvaluatorConfigModel(BaseModel):
-    service_type: Literal["Azure OpenAI"] = "Azure OpenAI"
-
-    auth_config: Annotated[
-        AzureContentSafetyServiceIdentityAuthConfig | AzureContentSafetyServiceKeyAuthConfig,
-        Field(
-            title="Authentication Config",
-            description="The authentication configuration to use for the Azure Content Safety service.",
-        ),
-    ] = AzureContentSafetyServiceIdentityAuthConfig()
-
-    azure_content_safety_endpoint: Annotated[
-        str,
-        Field(
-            title="Azure Content Safety Service Endpoint",
-            description="The endpoint to use for the Azure Content Safety service.",
-        ),
-    ] = config.first_env_var("azure_content_safety_endpoint", "assistant__azure_content_safety_endpoint") or ""
+    service_type: Annotated[Literal["Azure OpenAI"], UISchema(widget="hidden")] = "Azure OpenAI"
 
     warn_at_severity: Annotated[
         Literal[0, 2, 4, 6],
@@ -91,8 +66,61 @@ class AzureContentSafetyEvaluatorConfigModel(BaseModel):
         ),
     ] = 10000
 
+
+# endregion
+
+
+#
+# region Azure Content Safety Service Configuration
+#
+
+
+class AzureContentSafetyServiceIdentityAuthConfig(BaseModel):
+    model_config = ConfigDict(title="Azure identity based authentication")
+
+    auth_method: Annotated[Literal["azure-identity"], UISchema(widget="hidden")] = "azure-identity"
+
+
+class AzureContentSafetyServiceKeyAuthConfig(BaseModel):
+    model_config = ConfigDict(
+        title="API key based authentication",
+        json_schema_extra={
+            "required": ["azure_content_safety_service_key"],
+        },
+    )
+
+    auth_method: Annotated[Literal["api-key"], UISchema(widget="hidden")] = "api-key"
+
+    azure_content_safety_service_key: Annotated[
+        ConfigSecretStr,
+        Field(
+            title="Azure Content Safety Service Key",
+            description="The Azure Content Safety service key for your resource instance.",
+        ),
+        UISchema(placeholder="[optional]"),
+    ] = ""
+
+
+class AzureContentSafetyServiceConfigModel(BaseModel):
+    auth_config: Annotated[
+        AzureContentSafetyServiceIdentityAuthConfig | AzureContentSafetyServiceKeyAuthConfig,
+        Field(
+            title="Authentication Config",
+            description="The authentication configuration to use for the Azure Content Safety service.",
+        ),
+        UISchema(hide_title=True, widget="radio"),
+    ] = AzureContentSafetyServiceIdentityAuthConfig()
+
+    azure_content_safety_endpoint: Annotated[
+        str,
+        Field(
+            title="Azure Content Safety Service Endpoint",
+            description="The endpoint to use for the Azure Content Safety service.",
+        ),
+    ] = config.first_env_var("azure_content_safety_endpoint", "assistant__azure_content_safety_endpoint") or ""
+
     # set on the class to avoid re-authenticating for each request
-    def _get_azure_credentials(self):
+    def _get_azure_credentials(self) -> AzureKeyCredential | DefaultAzureCredential:
         match self.auth_config.auth_method:
             case "api-key":
                 return AzureKeyCredential(self.auth_config.azure_content_safety_service_key)
@@ -101,24 +129,12 @@ class AzureContentSafetyEvaluatorConfigModel(BaseModel):
                 return DefaultAzureCredential()
 
 
-azure_content_safety_evaluator_ui_schema = {
-    "service_type": {
-        "ui:widget": "hidden",
-    },
-    "auth_config": {
-        "ui:widget": "radio",
-        "ui:options": {
-            "hide_title": True,
-        },
-        "auth_method": {
-            "ui:widget": "hidden",
-        },
-        "azure_content_safety_service_key": {
-            "ui:widget": "password",
-            "ui:placeholder": "[optional]",
-        },
-    },
-}
+# endregion
+
+
+#
+# region Evaluator Implementation
+#
 
 
 class AzureContentSafetyEvaluator(ContentSafetyEvaluator):
@@ -126,8 +142,11 @@ class AzureContentSafetyEvaluator(ContentSafetyEvaluator):
     An evaluator that uses the Azure Content Safety service to evaluate content safety.
     """
 
-    def __init__(self, config: AzureContentSafetyEvaluatorConfigModel) -> None:
+    def __init__(
+        self, config: AzureContentSafetyEvaluatorConfigModel, config_secrets: AzureContentSafetyServiceConfigModel
+    ) -> None:
         self.config = config
+        self.config_secrets = config_secrets
 
     async def evaluate(self, content: str | list[str]) -> ContentSafetyEvaluation:
         """
@@ -192,8 +211,8 @@ class AzureContentSafetyEvaluator(ContentSafetyEvaluator):
         # send the text to the Azure Content Safety service for evaluation
         try:
             response = ContentSafetyClient(
-                endpoint=self.config.azure_content_safety_endpoint,
-                credential=self.config._get_azure_credentials(),
+                endpoint=self.config_secrets.azure_content_safety_endpoint,
+                credential=self.config_secrets._get_azure_credentials(),
             ).analyze_text(AnalyzeTextOptions(text=text))
         except Exception as e:
             # if there is an error, return a fail result with the error message
@@ -231,3 +250,6 @@ class AzureContentSafetyEvaluator(ContentSafetyEvaluator):
 
         # return the evaluation result
         return evaluation
+
+
+# endregion

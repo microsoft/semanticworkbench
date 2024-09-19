@@ -4,7 +4,7 @@ import logging
 import os
 import pathlib
 from contextlib import contextmanager
-from typing import BinaryIO, Generic, Iterator, TypeVar
+from typing import Any, BinaryIO, Generic, Iterator, TypeVar
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -75,58 +75,39 @@ class FileStorage:
         return file_path.exists()
 
 
-ModelT = TypeVar("ModelT", bound=BaseModel)
-
-
-def model_write(file_path: os.PathLike, value: BaseModel) -> None:
+def write_model(file_path: os.PathLike, value: BaseModel, serialization_context: dict[str, Any] | None = None) -> None:
+    """Write a pydantic model to a file."""
     path = pathlib.Path(file_path)
     if not path.parent.exists():
         path.parent.mkdir(parents=True)
 
-    data_json = value.model_dump_json()
+    data_json = value.model_dump_json(context=serialization_context)
     path.write_text(data_json, encoding="utf-8")
 
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-def model_read(file_path: os.PathLike | str, cls: type[ModelT], strict: bool | None = None) -> ModelT | None:
+def read_model(file_path: os.PathLike | str, cls: type[ModelT], strict: bool | None = None) -> ModelT | None:
+    """Read a pydantic model from a file."""
     path = pathlib.Path(file_path)
+
     try:
         data_json = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         return None
 
-    value = cls.model_validate_json(data_json, strict=strict)
-    return value
+    return cls.model_validate_json(data_json, strict=strict)
 
 
-def model_delete(file_path: os.PathLike) -> None:
-    path = pathlib.Path(file_path)
-    path.unlink(missing_ok=True)
-
-
-def model_exists(file_path: os.PathLike) -> bool:
-    path = pathlib.Path(file_path)
-    return path.exists()
-
-
-def model_list_files(dir_path: os.PathLike) -> Iterator[str]:
+def read_models_in_dir(dir_path: os.PathLike, cls: type[ModelT]) -> Iterator[ModelT]:
+    """Read pydantic models from all files in a directory."""
     path = pathlib.Path(dir_path)
     if not path.is_dir():
         return
 
     for file_path in path.iterdir():
-        yield file_path.name
-
-
-def model_read_all_files(dir_path: os.PathLike, cls: type[ModelT]) -> Iterator[ModelT]:
-    path = pathlib.Path(dir_path)
-    if not path.is_dir():
-        return
-
-    for file_path in path.iterdir():
-        value = model_read(file_path, cls)
+        value = read_model(file_path, cls)
         if value is not None:
             yield value
 

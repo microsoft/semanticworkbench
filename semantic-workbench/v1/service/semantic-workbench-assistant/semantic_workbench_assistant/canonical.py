@@ -4,22 +4,27 @@ from dataclasses import dataclass
 from typing import Annotated, Any, Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from semantic_workbench_api_model import assistant_model, workbench_model
+from semantic_workbench_api_model import workbench_model
 
 from . import assistant_app, command
+from .config import UISchema
 
 logger = logging.getLogger(__name__)
 
 
 class ModelConfigModel(BaseModel):
     name: Annotated[
-        Literal["gpt35", "gpt35turbo", "gpt4"], Field(title="GPT model", description="The GPT model to use")
+        Literal["gpt35", "gpt35turbo", "gpt4"],
+        Field(title="GPT model", description="The GPT model to use"),
+        UISchema(widget="radio"),
     ] = "gpt35turbo"
 
 
 class PromptConfigModel(BaseModel):
     custom_prompt: Annotated[
-        str, Field(title="Custom prompt", description="Custom prompt to use", max_length=1_000)
+        str,
+        Field(title="Custom prompt", description="Custom prompt to use", max_length=1_000),
+        UISchema(widget="textarea"),
     ] = ""
     temperature: Annotated[float, Field(title="Temperature", description="The temperature to use", ge=0, le=1.0)] = 0.7
 
@@ -32,28 +37,13 @@ class ConfigStateModel(BaseModel):
         str, Field(title="Short text setting", description="This is a short text setting", max_length=50)
     ] = ""
     long_text: Annotated[
-        str, Field(title="Long text setting", description="This is a long text setting", max_length=1_000)
+        str,
+        Field(title="Long text setting", description="This is a long text setting", max_length=1_000),
+        UISchema(widget="textarea"),
     ] = ""
     setting_int: Annotated[int, Field(title="Int", description="This is an int setting", ge=0, le=1_000_000)] = 0
     model: Annotated[ModelConfigModel, Field(title="Model config section")] = ModelConfigModel()
     prompt: Annotated[PromptConfigModel, Field(title="Prompt config section")] = PromptConfigModel()
-
-
-config_ui_schema = {
-    "long_text": {
-        "ui:widget": "textarea",
-    },
-    "model": {
-        "name": {
-            "ui:widget": "radio",
-        },
-    },
-    "prompt": {
-        "custom_prompt": {
-            "ui:widget": "textarea",
-        },
-    },
-}
 
 
 @dataclass
@@ -81,43 +71,6 @@ commands = {
 }
 
 
-class ConversationState(BaseModel):
-    message: str = "simple default state message"
-
-
-class Conversation(BaseModel):
-    id: str
-    request: assistant_model.ConversationPutRequestModel
-    state: ConversationState
-
-    def to_response(self) -> assistant_model.ConversationResponseModel:
-        return assistant_model.ConversationResponseModel(
-            id=self.id,
-        )
-
-
-class AssistantInstance(BaseModel):
-    id: str
-    assistant_name: str
-    config: ConfigStateModel = ConfigStateModel()
-    conversations: dict[str, Conversation] = {}
-    request: assistant_model.AssistantPutRequestModel
-
-
-class Event(BaseModel):
-    assistant_id: str
-    conversation_id: str
-    event: workbench_model.ConversationEvent
-
-
-class AssistantExportData(BaseModel):
-    config: ConfigStateModel
-
-
-class ConversationExportData(BaseModel):
-    state: ConversationState
-
-
 class SimpleStateInspector:
     display_name = "simple state"
     description = "Simple state inspector"
@@ -129,8 +82,8 @@ class SimpleStateInspector:
 
     async def get(
         self, context: assistant_app.ConversationContext
-    ) -> assistant_app.AssistantConversationInspectorDataModel:
-        return assistant_app.AssistantConversationInspectorDataModel(data=self._data)
+    ) -> assistant_app.AssistantConversationInspectorStateDataModel:
+        return assistant_app.AssistantConversationInspectorStateDataModel(data=self._data)
 
     async def set(
         self,
@@ -144,8 +97,8 @@ canonical_app = assistant_app.AssistantApp(
     assistant_service_id="canonical-assistant.semantic-workbench",
     assistant_service_name="Canonical Assistant",
     assistant_service_description="Canonical implementation of a workbench assistant service.",
-    config_provider=assistant_app.BaseModelAssistantConfig(ConfigStateModel, ui_schema=config_ui_schema),
-    inspectors={"simple_state": SimpleStateInspector()},
+    config_provider=assistant_app.BaseModelAssistantConfig(ConfigStateModel).provider,
+    inspector_state_providers={"simple_state": SimpleStateInspector()},
 )
 
 

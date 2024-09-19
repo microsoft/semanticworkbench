@@ -37,7 +37,7 @@ def mock_assistant_service_response(
             assistant_service_id=assistant_service_id,
             created_by_user_id="",
             created_by_user_name="",
-            created_datetime=datetime.datetime.utcnow(),
+            created_datetime=datetime.datetime.now(datetime.UTC),
             assistant_service_url=settings.callback_url,
             name="",
             description="",
