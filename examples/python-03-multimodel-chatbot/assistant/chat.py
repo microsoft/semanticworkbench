@@ -30,14 +30,14 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationEvent, ConversationMessage, MessageType,
     NewConversationMessage, UpdateParticipant)
 from semantic_workbench_assistant.assistant_app import (
-    AssistantApp, BaseModelAssistantConfig, ContentSafety,
+    AssistantApp, BaseModelAssistantConfigWithSecrets, ContentSafety,
     ContentSafetyEvaluator, ConversationContext)
 
-from .config import AssistantConfigModel, ui_schema
+from .config import AssistantConfigModel, AssistantServiceConfigModel
 from .model_adapters import Message, get_model_adapter
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
-from .responsible_ai.openai_evaluator import (
-    OpenAIContentSafetyEvaluator, OpenAIContentSafetyEvaluatorConfigModel)
+from .responsible_ai.openai_evaluator import (OpenAIContentSafetyEvaluator,
+                                              OpenAIServiceConfigModel)
 
 logger = logging.getLogger(__name__)
 
@@ -55,34 +55,48 @@ service_description = "A chat assistant supporting multiple AI models using the 
 #
 # create the configuration provider, using the extended configuration model
 #
-config_provider = BaseModelAssistantConfig(AssistantConfigModel(), ui_schema=ui_schema)
+assistant_config = BaseModelAssistantConfigWithSecrets(
+    default=AssistantConfigModel(),
+    default_secrets=AssistantServiceConfigModel(),
+)
 
 
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
-    config = await config_provider.get_typed(context.assistant)
+    config_secrets = await assistant_config.get_secrets(context.assistant)
 
     # return the content safety evaluator based on the service type
-    match config.service_config.service_type:
+    match config_secrets.service_config.service_type:
         case "Azure OpenAI":
-            return AzureContentSafetyEvaluator(config.service_config.azure_content_safety_config)
+            return AzureContentSafetyEvaluator(
+                config=config_secrets.service_config.azure_content_safety_config,
+                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
+            )
         case "OpenAI":
             return OpenAIContentSafetyEvaluator(
-                OpenAIContentSafetyEvaluatorConfigModel(openai_api_key=config.service_config.openai_api_key)
+                config=config_secrets.service_config.openai_content_safety_config,
+                config_secrets=OpenAIServiceConfigModel(openai_api_key=config_secrets.service_config.openai_api_key)
             )
         case "Anthropic":
-            return AzureContentSafetyEvaluator(config.service_config.azure_content_safety_config)
+            return AzureContentSafetyEvaluator(
+                config=config_secrets.service_config.azure_content_safety_config,
+                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
+            )
         case "Gemini":
-            return AzureContentSafetyEvaluator(config.service_config.azure_content_safety_config)
+            return AzureContentSafetyEvaluator(
+                config=config_secrets.service_config.azure_content_safety_config,
+                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
+            )
 
+content_safety = ContentSafety(content_evaluator_factory)
 
 # create the AssistantApp instance
 assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
     assistant_service_description=service_description,
-    config_provider=config_provider,
-    content_interceptor=ContentSafety(content_evaluator_factory),
+    config_provider=assistant_config.provider,
+    content_interceptor=content_safety,
 )
 
 #
@@ -138,7 +152,7 @@ async def on_message_created(
         await respond_to_conversation(
             context,
             message=message,
-            metadata={"debug": {"content_safety": event.data.get(assistant.content_interceptor.metadata_key, {})}},
+            metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
         )
     finally:
         # update the participant status to indicate the assistant is done thinking
@@ -154,10 +168,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
     # replace the following with your own logic for processing a conversation created event
 
     # get the assistant's configuration
-    assistant_config = await config_provider.get_typed(context.assistant)
+    config = await assistant_config.get(context.assistant)
 
     # get the welcome message from the assistant's configuration
-    welcome_message = assistant_config.welcome_message
+    welcome_message = config.welcome_message
 
     # send the welcome message to the conversation
     await context.send_messages(
@@ -195,7 +209,8 @@ async def respond_to_conversation(
 
     try:
         # get the assistant's configuration
-        assistant_config = await config_provider.get_typed(context.assistant)
+        config = await assistant_config.get(context.assistant)
+        config_secrets = await assistant_config.get_secrets(context.assistant)
 
         # get the list of conversation participants
         participants_response = await context.get_participants(include_inactive=True)
@@ -204,8 +219,8 @@ async def respond_to_conversation(
         silence_token = "{{SILENCE}}"
 
         # create a system message
-        system_message_content = assistant_config.guardrails_prompt
-        system_message_content += f'\n\n{assistant_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+        system_message_content = config.guardrails_prompt
+        system_message_content += f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
 
         # if this is a multi-participant conversation, add a note about the participants
         if len(participants_response.participants) > 2:
@@ -240,31 +255,32 @@ async def respond_to_conversation(
             messages.append(Message(role, content))
 
         # get the model adapter
-        adapter = get_model_adapter(assistant_config.service_config.service_type)
+        adapter = get_model_adapter(config_secrets.service_config.service_type)
         formatted_messages = adapter.format_messages(messages)
 
         try:
             # generate a response from the AI model
-            content = await adapter.generate_response(formatted_messages, assistant_config)
+            #content = await adapter.generate_response(formatted_messages, assistant_config)
+            content = await adapter.generate_response(formatted_messages, config, config_secrets)
 
             # merge the completion response into the passed in metadata
             metadata["debug"] = metadata.get("debug", {})
             metadata["debug"][method_metadata_key] = {
                 "request": {
-                    "model": getattr(assistant_config.service_config, f"{assistant_config.service_config.service_type.lower()}_model"),
+                    "model": getattr(config_secrets.service_config, f"{config_secrets.service_config.service_type.lower()}_model"),
                     "messages": formatted_messages,
                 },
                 "response": content,
             }
-            assistant_config.request_config.response_tokens
+            config.request_config.response_tokens
 
         except Exception as e:
-            logger.exception(f"exception occurred calling {assistant_config.service_config.service_type} chat completion: {e}")
-            content = f"An error occurred while calling the {assistant_config.service_config.service_type} API. Is it configured correctly?"
+            logger.exception(f"exception occurred calling {config_secrets.service_config.service_type} chat completion: {e}")
+            content = f"An error occurred while calling the {config_secrets.service_config.service_type} API. Is it configured correctly?"
             metadata["debug"] = metadata.get("debug", {})
             metadata["debug"][method_metadata_key] = {
                 "request": {
-                    "model": getattr(assistant_config.service_config, f"{assistant_config.service_config.service_type.lower()}_model"),
+                    "model": getattr(config_secrets.service_config, f"{config_secrets.service_config.service_type.lower()}_model"),
                     "messages": formatted_messages,
                 },
                 "error": str(e),
@@ -284,7 +300,7 @@ async def respond_to_conversation(
 
             # check for the silence token
             if content.replace(" ", "") == silence_token:
-                if assistant_config.enable_debug_output:
+                if config.enable_debug_output:
                     metadata["debug"][method_metadata_key]["silence_token"] = True
                     metadata["attribution"] = "debug output"
                     metadata["generated_content"] = False
@@ -304,7 +320,7 @@ async def respond_to_conversation(
         # send the response to the conversation
         await context.send_messages(
             NewConversationMessage(
-                content=content or f"[no response from {assistant_config.service_config.service_type}]",
+                content=content or f"[no response from {config_secrets.service_config.service_type}]",
                 message_type=message_type,
                 metadata=metadata,
             )

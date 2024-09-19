@@ -27,7 +27,7 @@ class ModelAdapter(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def generate_response(self, formatted_messages: Any, config: Any) -> str:
+    async def generate_response(self, formatted_messages: Any, config: Any, config_secrets: Any) -> str:
         pass
 
 class OpenAIAdapter(ModelAdapter):
@@ -43,11 +43,11 @@ class OpenAIAdapter(ModelAdapter):
             # Add other roles if necessary
         return formatted_messages
 
-    async def generate_response(self, formatted_messages: List[ChatCompletionMessageParam], config: Any) -> str:
-        async with AsyncOpenAI(api_key=config.service_config.openai_api_key) as client:
+    async def generate_response(self, formatted_messages: List[ChatCompletionMessageParam], config: Any, config_secrets: Any) -> str:
+        async with AsyncOpenAI(api_key=config_secrets.service_config.openai_api_key) as client:
             completion: ChatCompletion = await client.chat.completions.create(
                 messages=formatted_messages,
-                model=config.service_config.openai_model,
+                model=config_secrets.service_config.openai_model,
                 max_tokens=config.request_config.response_tokens,
             )
             choice: Choice = completion.choices[0]
@@ -89,10 +89,10 @@ class AnthropicAdapter(ModelAdapter):
             "messages": chat_messages
         }
 
-    async def generate_response(self, formatted_messages: Dict[str, Union[str, List[Dict[str, str]]]], config: Any) -> str:
-        async with AsyncAnthropic(api_key=config.service_config.anthropic_api_key) as client:
+    async def generate_response(self, formatted_messages: Dict[str, Union[str, List[Dict[str, str]]]], config: Any, config_secrets: Any) -> str:
+        async with AsyncAnthropic(api_key=config_secrets.service_config.anthropic_api_key) as client:
             completion = await client.messages.create(
-                model=config.service_config.anthropic_model,
+                model=config_secrets.service_config.anthropic_model,
                 messages=formatted_messages["messages"],
                 system=formatted_messages["system"],
                 max_tokens=config.request_config.response_tokens,
@@ -117,9 +117,9 @@ class GeminiAdapter(ModelAdapter):
                 gemini_messages.append({"role": "user" if msg.role == "user" else "model", "parts": [msg.content]})
         return gemini_messages
 
-    async def generate_response(self, formatted_messages: List[Dict[str, Union[str, List[str]]]], config: Any) -> str:
-        genai.configure(api_key=config.service_config.gemini_api_key)
-        model = genai.GenerativeModel(config.service_config.gemini_model)
+    async def generate_response(self, formatted_messages: List[Dict[str, Union[str, List[str]]]], config: Any, config_secrets: Any) -> str:
+        genai.configure(api_key=config_secrets.service_config.gemini_api_key)
+        model = genai.GenerativeModel(config_secrets.service_config.gemini_model)
         chat = model.start_chat(history=formatted_messages)
         response = await chat.send_message_async(formatted_messages[-1]["parts"][0])
         return response.text

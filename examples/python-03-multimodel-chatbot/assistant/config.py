@@ -4,258 +4,37 @@ from typing import Annotated, Literal
 import google.generativeai as genai
 import openai
 from anthropic import AsyncAnthropic
+from assistant.responsible_ai.openai_evaluator import \
+    OpenAIContentSafetyEvaluatorConfigModel
 from azure.identity.aio import (DefaultAzureCredential,
                                 get_bearer_token_provider)
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant import config
+from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
 from .responsible_ai.azure_evaluator import (
     AzureContentSafetyEvaluatorConfigModel,
-    azure_content_safety_evaluator_ui_schema)
+    AzureContentSafetyServiceConfigModel)
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
 # See: https://rjsf-team.github.io/react-jsonschema-form/docs/
 # Playground / examples: https://rjsf-team.github.io/react-jsonschema-form/
 
+# The UI schema can be used to customize the appearance of the form. Use
+# the UISchema class to define the UI schema for specific fields in the
+# configuration model.
 
-class AzureOpenAIAzureIdentityAuthConfig(BaseModel):
-    model_config = ConfigDict(title="Azure identity based authentication")
-
-    auth_method: Literal["azure-identity"] = "azure-identity"
-
-
-class AzureOpenAIApiKeyAuthConfig(BaseModel):
-    model_config = ConfigDict(
-        title="API key based authentication",
-        json_schema_extra={
-            "required": ["azure_openai_api_key"],
-        },
-    )
-
-    auth_method: Literal["api-key"] = "api-key"
-
-    azure_openai_api_key: Annotated[
-        str,
-        Field(
-            title="Azure OpenAI API Key",
-            description=(
-                "The Azure OpenAI API key for your resource instance.  If not provided, the service default will be"
-                " used."
-            ),
-        ),
-    ] = ""
-
-
-class AzureOpenAIServiceConfig(BaseModel):
-    model_config = ConfigDict(
-        title="Azure OpenAI",
-        json_schema_extra={
-            "required": ["azure_openai_deployment", "azure_openai_endpoint", "openai_model"],
-        },
-    )
-
-    service_type: Literal["Azure OpenAI"] = "Azure OpenAI"
-
-    auth_config: Annotated[
-        AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
-        Field(
-            title="Authentication Config",
-            discriminator="auth_method",
-        ),
-    ] = AzureOpenAIAzureIdentityAuthConfig()
-
-    azure_openai_endpoint: Annotated[
-        str,
-        Field(
-            title="Azure OpenAI Endpoint",
-            description=(
-                "The Azure OpenAI endpoint for your resource instance. If not provided, the service default will"
-                " be used."
-            ),
-        ),
-    ] = config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
-
-    azure_openai_deployment: Annotated[
-        str,
-        Field(
-            title="Azure OpenAI Deployment",
-            description="The Azure OpenAI deployment to use.",
-        ),
-    ] = "gpt-4o"
-
-    openai_model: Annotated[
-        str,
-        Field(
-            title="OpenAI Model",
-            description="The OpenAI model to use.",
-        ),
-    ] = "gpt-4o"
-
-    azure_content_safety_config: Annotated[
-        AzureContentSafetyEvaluatorConfigModel,
-        Field(
-            title="Azure Content Safety Configuration",
-            description="The configuration for the Azure Content Safety API.",
-        ),
-    ] = AzureContentSafetyEvaluatorConfigModel()
-
-    # set on the class to avoid re-creating the token provider for each client, which allows
-    # the token provider to cache and re-use tokens
-    _azure_bearer_token_provider = get_bearer_token_provider(
-        DefaultAzureCredential(),
-        "https://cognitiveservices.azure.com/.default",
-    )
-
-    def new_client(self, api_version: str) -> openai.AsyncOpenAI:
-        match self.auth_config.auth_method:
-            case "api-key":
-                return openai.AsyncAzureOpenAI(
-                    api_key=self.auth_config.azure_openai_api_key,
-                    azure_deployment=self.azure_openai_deployment,
-                    azure_endpoint=self.azure_openai_endpoint,
-                    api_version=api_version,
-                )
-
-            case "azure-identity":
-                return openai.AsyncAzureOpenAI(
-                    azure_ad_token_provider=AzureOpenAIServiceConfig._azure_bearer_token_provider,
-                    azure_deployment=self.azure_openai_deployment,
-                    azure_endpoint=self.azure_openai_endpoint,
-                    api_version=api_version,
-                )
-
-
-class OpenAIServiceConfig(BaseModel):
-    model_config = ConfigDict(
-        title="OpenAI",
-        json_schema_extra={
-            "required": ["openai_api_key", "openai_model"],
-        },
-    )
-
-    service_type: Literal["OpenAI"] = "OpenAI"
-
-    openai_api_key: Annotated[
-        str,
-        Field(
-            title="OpenAI API Key",
-            description="The API key to use for the OpenAI API.",
-        ),
-    ] = ""
-
-    openai_model: Annotated[
-        str,
-        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
-    ] = "gpt-4o"
-
-    openai_organization_id: Annotated[
-        str,
-        Field(
-            title="Organization ID [Optional]",
-            description=(
-                "The ID of the organization to use for the OpenAI API.  NOTE, this is not the same as the organization"
-                " name. If you do not specify an organization ID, the default organization will be used."
-            ),
-        ),
-    ] = ""
-
-    def validate_required_fields(self) -> tuple[bool, str]:
-        if self.openai_api_key and self.openai_model:
-            return (True, "")
-
-        return (False, "Please set the OpenAI API key and model in the config.")
-
-    def new_client(self, **kwargs) -> openai.AsyncOpenAI:
-        return openai.AsyncOpenAI(
-            api_key=self.openai_api_key,
-            organization=self.openai_organization_id or None,
-        )
-
-class AnthropicServiceConfig(BaseModel):
-    model_config = ConfigDict(
-        title="Anthropic",
-        json_schema_extra={
-            "required": ["anthropic_api_key", "anthropic_model"],
-        },
-    )
-
-    service_type: Literal["Anthropic"] = "Anthropic"
-
-    anthropic_api_key: Annotated[
-        str,
-        Field(
-            title="Anthropic API Key",
-            description="The API key to use for the Anthropic API.",
-        ),
-    ] = ""
-
-    anthropic_model: Annotated[
-        str,
-        Field(title="Anthropic Model", description="The Anthropic model to use for generating responses."),
-    ] = "claude-3-5-sonnet-20240620"
-
-    azure_content_safety_config: Annotated[
-        AzureContentSafetyEvaluatorConfigModel,
-        Field(
-            title="Azure Content Safety Configuration",
-            description="The configuration for the Azure Content Safety API.",
-        ),
-    ] = AzureContentSafetyEvaluatorConfigModel()
-
-    def validate_required_fields(self) -> tuple[bool, str]:
-        if self.anthropic_api_key and self.anthropic_model:
-            return (True, "")
-
-        return (False, "Please set the Anthropic API key and model in the config.")
-
-    def new_client(self, **kwargs) -> AsyncAnthropic:
-        return AsyncAnthropic(api_key=self.anthropic_api_key)
-
-class GeminiServiceConfig(BaseModel):
-    model_config = ConfigDict(
-        title="Gemini",
-        json_schema_extra={
-            "required": ["gemini_api_key", "gemini_model"],
-        },
-    )
-
-    service_type: Literal["Gemini"] = "Gemini"
-
-    gemini_api_key: Annotated[
-        str,
-        Field(
-            title="Gemini API Key",
-            description="The API key to use for the Gemini API.",
-        ),
-    ] = ""
-
-    gemini_model: Annotated[
-        str,
-        Field(title="Gemini Model", description="The Gemini model to use for generating responses."),
-    ] = "gemini-1.5-pro"
-
-    azure_content_safety_config: Annotated[
-        AzureContentSafetyEvaluatorConfigModel,
-        Field(
-            title="Azure Content Safety Configuration",
-            description="The configuration for the Azure Content Safety API.",
-        ),
-    ] = AzureContentSafetyEvaluatorConfigModel()
-
-    def validate_required_fields(self) -> tuple[bool, str]:
-        if self.gemini_api_key and self.gemini_model:
-            return (True, "")
-
-        return (False, "Please set the Gemini API key and model in the config.")
-
-    def new_client(self, **kwargs) -> genai.GenerativeModel:
-        genai.configure(api_key=self.gemini_api_key)
-        return genai.GenerativeModel(self.gemini_model)
+#
+# region Assistant Configuration
+#
 
 class RequestConfig(BaseModel):
     model_config = ConfigDict(
         title="Response Generation",
+        json_schema_extra={
+            "required": ["max_tokens", "response_tokens", "openai_model"],
+        },
     )
 
     max_tokens: Annotated[
@@ -279,6 +58,11 @@ class RequestConfig(BaseModel):
             ),
         ),
     ] = 4_048
+
+    openai_model: Annotated[
+        str,
+        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
+    ] = "gpt-4o"
 
 
 # helper for loading the guardrails prompt from a text file
@@ -349,65 +133,301 @@ class AssistantConfigModel(BaseModel):
         ),
     ] = RequestConfig()
 
+    # add any additional configuration fields
+
+
+# endregion
+
+#
+# region Azure OpenAI Service Configuration
+#
+
+
+class AzureOpenAIAzureIdentityAuthConfig(BaseModel):
+    model_config = ConfigDict(title="Azure identity based authentication")
+
+    auth_method: Annotated[Literal["azure-identity"], UISchema(widget="hidden")] = "azure-identity"
+
+
+class AzureOpenAIApiKeyAuthConfig(BaseModel):
+    model_config = ConfigDict(
+        title="API key based authentication",
+        json_schema_extra={
+            "required": ["azure_openai_api_key"],
+        },
+    )
+
+    auth_method: Annotated[Literal["api-key"], UISchema(widget="hidden")] = "api-key"
+
+    azure_openai_api_key: Annotated[
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
+        Field(
+            title="Azure OpenAI API Key",
+            description=(
+                "The Azure OpenAI API key for your resource instance.  If not provided, the service default will be"
+                " used."
+            ),
+        ),
+    ] = ""
+
+
+class AzureOpenAIServiceConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Azure OpenAI",
+        json_schema_extra={
+            "required": ["azure_openai_deployment", "azure_openai_endpoint"],
+        },
+    )
+
+    service_type: Annotated[Literal["Azure OpenAI"], UISchema(widget="hidden")] = "Azure OpenAI"
+
+    auth_config: Annotated[
+        AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
+        Field(
+            title="Authentication Config",
+            discriminator="auth_method",
+        ),
+        UISchema(hide_title=True, widget="radio"),
+    ] = AzureOpenAIAzureIdentityAuthConfig()
+
+    azure_openai_endpoint: Annotated[
+        str,
+        Field(
+            title="Azure OpenAI Endpoint",
+            description=(
+                "The Azure OpenAI endpoint for your resource instance. If not provided, the service default will"
+                " be used."
+            ),
+        ),
+    ] = config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
+
+    azure_openai_deployment: Annotated[
+        str,
+        Field(
+            title="Azure OpenAI Deployment",
+            description="The Azure OpenAI deployment to use.",
+        ),
+    ] = "gpt-4o"
+
+    azure_content_safety_config: Annotated[
+        AzureContentSafetyEvaluatorConfigModel,
+        Field(
+            title="Azure Content Safety Configuration",
+            description="The configuration for the Azure Content Safety API.",
+        ),
+    ] = AzureContentSafetyEvaluatorConfigModel()
+
+    azure_content_safety_service_config: Annotated[
+        AzureContentSafetyServiceConfigModel,
+        Field(
+            title="Azure Content Safety Service Configuration",
+            description="The configuration for the Azure Content Safety service.",
+        ),
+    ] = AzureContentSafetyServiceConfigModel()
+
+    # set on the class to avoid re-creating the token provider for each client, which allows
+    # the token provider to cache and re-use tokens
+    _azure_bearer_token_provider = get_bearer_token_provider(
+        DefaultAzureCredential(),
+        "https://cognitiveservices.azure.com/.default",
+    )
+
+    def new_client(self, api_version: str) -> openai.AsyncOpenAI:
+        match self.auth_config.auth_method:
+            case "api-key":
+                return openai.AsyncAzureOpenAI(
+                    api_key=self.auth_config.azure_openai_api_key,
+                    azure_deployment=self.azure_openai_deployment,
+                    azure_endpoint=self.azure_openai_endpoint,
+                    api_version=api_version,
+                )
+
+            case "azure-identity":
+                return openai.AsyncAzureOpenAI(
+                    azure_ad_token_provider=AzureOpenAIServiceConfig._azure_bearer_token_provider,
+                    azure_deployment=self.azure_openai_deployment,
+                    azure_endpoint=self.azure_openai_endpoint,
+                    api_version=api_version,
+                )
+
+
+# endregion
+
+#
+# region OpenAI Service Configuration
+#
+
+
+class OpenAIServiceConfig(BaseModel):
+    model_config = ConfigDict(
+        title="OpenAI",
+        json_schema_extra={
+            "required": ["openai_api_key", "openai_model"],
+        },
+    )
+
+    service_type: Annotated[Literal["OpenAI"], UISchema(widget="hidden")] = "OpenAI"
+
+    openai_api_key: Annotated[
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
+        Field(
+            title="OpenAI API Key",
+            description="The API key to use for the OpenAI API.",
+        ),
+    ] = ""
+
+    openai_model: Annotated[
+        str,
+        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
+    ] = "gpt-4o"
+
+    openai_organization_id: Annotated[
+        str,
+        Field(
+            title="Organization ID [Optional]",
+            description=(
+                "The ID of the organization to use for the OpenAI API.  NOTE, this is not the same as the organization"
+                " name. If you do not specify an organization ID, the default organization will be used."
+            ),
+        ),
+        UISchema(placeholder="[optional]"),
+    ] = ""
+
+    openai_content_safety_config: Annotated[
+        OpenAIContentSafetyEvaluatorConfigModel,
+        Field(
+            title="OpenAI Content Safety Evaluator Configuration",
+            description="The configuration for the OpenAI Content Safety evaluator.",
+        ),
+    ] = OpenAIContentSafetyEvaluatorConfigModel()
+
+    def new_client(self, **kwargs) -> openai.AsyncOpenAI:
+        return openai.AsyncOpenAI(
+            api_key=self.openai_api_key,
+            organization=self.openai_organization_id or None,
+        )
+
+# endregion
+
+#
+# region Anthropic Service Configuration
+#
+
+class AnthropicServiceConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Anthropic",
+        json_schema_extra={
+            "required": ["anthropic_api_key", "anthropic_model"],
+        },
+    )
+
+    service_type: Annotated[Literal["Anthropic"], UISchema(widget="hidden")] = "Anthropic"
+
+    anthropic_api_key: Annotated[
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
+        Field(
+            title="Anthropic API Key",
+            description="The API key to use for the Anthropic API.",
+        ),
+    ] = ""
+
+    anthropic_model: Annotated[
+        str,
+        Field(title="Anthropic Model", description="The Anthropic model to use for generating responses."),
+    ] = "claude-3-5-sonnet-20240620"
+
+    azure_content_safety_config: Annotated[
+        AzureContentSafetyEvaluatorConfigModel,
+        Field(
+            title="Azure Content Safety Evaluator Configuration",
+            description="The configuration for the Azure Content Safety evaluator.",
+        ),
+    ] = AzureContentSafetyEvaluatorConfigModel()
+
+    azure_content_safety_service_config: Annotated[
+        AzureContentSafetyServiceConfigModel,
+        Field(
+            title="Azure Content Safety Service Configuration",
+            description="The configuration for the Azure Content Safety service.",
+        ),
+    ] = AzureContentSafetyServiceConfigModel()
+
+    def new_client(self, **kwargs) -> AsyncAnthropic:
+        return AsyncAnthropic(api_key=self.anthropic_api_key)
+
+# endregion
+
+#
+# region Gemini Service Configuration
+#
+
+class GeminiServiceConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Gemini",
+        json_schema_extra={
+            "required": ["gemini_api_key", "gemini_model"],
+        },
+    )
+
+    service_type: Annotated[Literal["Gemini"], UISchema(widget="hidden")] = "Gemini"
+
+    gemini_api_key: Annotated[
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
+        Field(
+            title="Gemini API Key",
+            description="The API key to use for the Gemini API.",
+        ),
+    ] = ""
+
+    gemini_model: Annotated[
+        str,
+        Field(title="Gemini Model", description="The Gemini model to use for generating responses."),
+    ] = "gemini-1.5-pro"
+
+    azure_content_safety_config: Annotated[
+        AzureContentSafetyEvaluatorConfigModel,
+        Field(
+            title="Azure Content Safety Evaluator Configuration",
+            description="The configuration for the Azure Content Safety evaluator.",
+        ),
+    ] = AzureContentSafetyEvaluatorConfigModel()
+
+    azure_content_safety_service_config: Annotated[
+        AzureContentSafetyServiceConfigModel,
+        Field(
+            title="Azure Content Safety Service Configuration",
+            description="The configuration for the Azure Content Safety service.",
+        ),
+    ] = AzureContentSafetyServiceConfigModel()
+
+    def new_client(self, **kwargs) -> genai.GenerativeModel:
+        genai.configure(api_key=self.gemini_api_key)
+        return genai.GenerativeModel(self.gemini_model)
+
+# endregion
+
+#
+# region Assistant Services Configuration selection
+#
+
+# configuration with secrets, such as connection strings or API keys, should be in a separate model
+class AssistantServiceConfigModel(BaseModel):
     service_config: Annotated[
         AzureOpenAIServiceConfig | OpenAIServiceConfig | AnthropicServiceConfig | GeminiServiceConfig,
         Field(
             title="Service Configuration",
             discriminator="service_type",
         ),
+        UISchema(hide_title=True, widget="radio"),
     ] = AzureOpenAIServiceConfig()
 
-    # add any additional configuration fields
 
-
-ui_schema = {
-    "instruction_prompt": {
-        "ui:widget": "textarea",
-    },
-    "guardrails_prompt": {
-        "ui:widget": "textarea",
-        "ui:enableMarkdownInDescription": True,
-    },
-    "service_config": {
-        "ui:widget": "radio",
-        "ui:options": {
-            "hide_title": True,
-        },
-        "service_type": {
-            "ui:widget": "hidden",
-        },
-        "openai_api_key": {
-            "ui:widget": "password",
-        },
-        "openai_organization_id": {
-            "ui:placeholder": "[optional]",
-        },
-        "azure_openai_api_key": {
-            "ui:widget": "password",
-            "ui:placeholder": "[optional]",
-        },
-        "azure_openai_endpoint": {
-            "ui:placeholder": "[optional]",
-        },
-        "anthropic_api_key": {
-            "ui:widget": "password",
-        },
-        "gemini_api_key": {
-            "ui:widget": "password",
-        },
-        "auth_config": {
-            "ui:widget": "radio",
-            "ui:options": {
-                "hide_title": True,
-            },
-            "auth_method": {
-                "ui:widget": "hidden",
-            },
-        },
-        "azure_content_safety_config": {
-            **azure_content_safety_evaluator_ui_schema,
-        },
-    },
-    # add UI schema for the additional configuration fields
-    # see: https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/uiSchema
-}
+# endregion
