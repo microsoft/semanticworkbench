@@ -44,15 +44,25 @@ class OpenAIAdapter(ModelAdapter):
         return formatted_messages
 
     async def generate_response(self, formatted_messages: List[ChatCompletionMessageParam], config: Any, config_secrets: Any) -> str:
-        async with AsyncOpenAI(api_key=config_secrets.service_config.openai_api_key) as client:
-            completion: ChatCompletion = await client.chat.completions.create(
-                messages=formatted_messages,
-                model=config_secrets.service_config.openai_model,
-                max_tokens=config.request_config.response_tokens,
-            )
-            choice: Choice = completion.choices[0]
-            message: ChatCompletionMessage = choice.message
-            return message.content or ""
+        if hasattr(config_secrets.service_config, 'ollama_endpoint'):
+            async with AsyncOpenAI(api_key=config_secrets.service_config.openai_api_key,
+                                base_url=config_secrets.service_config.ollama_endpoint) as client:
+                completion: ChatCompletion = await client.chat.completions.create(
+                    messages=formatted_messages,
+                    model=config_secrets.service_config.openai_model,
+                    max_tokens=config.request_config.response_tokens,
+                )
+        else:
+            async with AsyncOpenAI(api_key=config_secrets.service_config.openai_api_key,
+                                base_url=config_secrets.service_config.base_url) as client:
+                completion: ChatCompletion = await client.chat.completions.create(
+                    messages=formatted_messages,
+                    model=config_secrets.service_config.openai_model,
+                    max_tokens=config.request_config.response_tokens,
+                )
+        choice: Choice = completion.choices[0]
+        message: ChatCompletionMessage = choice.message
+        return message.content or ""
 
 class AnthropicAdapter(ModelAdapter):
     def format_messages(self, messages: List[Message]) -> Dict[str, Union[str, List[Dict[str, str]]]]:
@@ -128,6 +138,7 @@ def get_model_adapter(service_type: str) -> ModelAdapter:
     adapters = {
         "OpenAI": OpenAIAdapter(),
         "Azure OpenAI": OpenAIAdapter(),
+        "Ollama": OpenAIAdapter(),
         "Anthropic": AnthropicAdapter(),
         "Gemini": GeminiAdapter(),
     }

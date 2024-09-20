@@ -77,6 +77,11 @@ async def content_evaluator_factory(context: ConversationContext) -> ContentSafe
                 config=config_secrets.service_config.openai_content_safety_config,
                 config_secrets=OpenAIServiceConfigModel(openai_api_key=config_secrets.service_config.openai_api_key)
             )
+        case "Ollama":
+            return AzureContentSafetyEvaluator(
+                config=config_secrets.service_config.azure_content_safety_config,
+                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
+            )
         case "Anthropic":
             return AzureContentSafetyEvaluator(
                 config=config_secrets.service_config.azure_content_safety_config,

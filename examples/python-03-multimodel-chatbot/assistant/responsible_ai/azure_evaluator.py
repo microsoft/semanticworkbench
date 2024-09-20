@@ -13,7 +13,7 @@ from semantic_workbench_assistant import config
 from semantic_workbench_assistant.assistant_app import (
     ContentSafetyEvaluation, ContentSafetyEvaluationResult,
     ContentSafetyEvaluator)
-from semantic_workbench_assistant.config import UISchema
+from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,9 @@ class AzureContentSafetyServiceKeyAuthConfig(BaseModel):
     auth_method: Annotated[Literal["api-key"], UISchema(widget="hidden")] = "api-key"
 
     azure_content_safety_service_key: Annotated[
-        str,
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
         Field(
             title="Azure Content Safety Service Key",
             description="The Azure Content Safety service key for your resource instance.",

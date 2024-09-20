@@ -415,13 +415,80 @@ class GeminiServiceConfig(BaseModel):
 # endregion
 
 #
+# region Ollama Service Configuration
+#
+
+class OllamaServiceConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Ollama",
+        json_schema_extra={
+            "required": ["ollama_endpoint", "ollama_model"],
+        },
+    )
+
+    service_type: Annotated[Literal["Ollama"], UISchema(widget="hidden")] = "Ollama"
+
+    ollama_endpoint: Annotated[
+        str,
+        Field(
+            title="Ollama Endpoint",
+            description="The endpoint for the Ollama API.",
+        ),
+    ] = "http://127.0.0.1:11434/v1/"
+
+    ollama_model: Annotated[
+        str,
+        Field(title="Ollama Model", description="The Ollama model to use for generating responses."),
+    ] = "llama3.1"
+
+    openai_model: Annotated[
+        str,
+        Field(title="OpenAI Model", description="Same as Ollama model, used in later calls to OpenAI API."),
+        UISchema(widget="hidden")
+    ] = ollama_model
+
+    openai_api_key: Annotated[
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
+        Field(
+            title=" API Key",
+            description="Required by OpenAI API but ignored by Ollama",
+        ),
+        UISchema(placeholder="[optional]"),
+    ] = "ollama"
+
+    azure_content_safety_config: Annotated[
+        AzureContentSafetyEvaluatorConfigModel,
+        Field(
+            title="Azure Content Safety Evaluator Configuration",
+            description="The configuration for the Azure Content Safety evaluator.",
+        ),
+    ] = AzureContentSafetyEvaluatorConfigModel()
+
+    azure_content_safety_service_config: Annotated[
+        AzureContentSafetyServiceConfigModel,
+        Field(
+            title="Azure Content Safety Service Configuration",
+            description="The configuration for the Azure Content Safety service.",
+        ),
+    ] = AzureContentSafetyServiceConfigModel()
+
+    def new_client(self, **kwargs) -> openai.AsyncOpenAI:
+        return openai.AsyncOpenAI(
+            base_url=f"{self.ollama_endpoint}/v1",
+        )
+
+# endregion
+
+#
 # region Assistant Services Configuration selection
 #
 
 # configuration with secrets, such as connection strings or API keys, should be in a separate model
 class AssistantServiceConfigModel(BaseModel):
     service_config: Annotated[
-        AzureOpenAIServiceConfig | OpenAIServiceConfig | AnthropicServiceConfig | GeminiServiceConfig,
+        AzureOpenAIServiceConfig | OpenAIServiceConfig | AnthropicServiceConfig | GeminiServiceConfig | OllamaServiceConfig,
         Field(
             title="Service Configuration",
             discriminator="service_type",
