@@ -281,7 +281,12 @@ async def respond_to_conversation(
             f' be directed at you or the general audience, go ahead and respond.\n\nSay "{silence_token}" to skip'
             " your turn."
         )
-    system_message_content += f"\n\n{config.agents_config.artifact_agent.instruction_prompt}"
+
+    # add the artifact agent instruction prompt to the system message content
+    if config.agents_config.artifact_agent.enable_artifacts:
+        system_message_content += f"\n\n{config.agents_config.artifact_agent.instruction_prompt}"
+
+    # add the guardrails prompt to the system message content
     system_message_content += f"\n\n{config.guardrails_prompt}"
 
     completion_messages: list[ChatCompletionMessageParam] = [
@@ -311,9 +316,9 @@ async def respond_to_conversation(
     # calculate the token count for the messages so far
     token_count = 0
     for completion_message in completion_messages:
-        content = completion_message.get("content")
-        if isinstance(content, str):
-            token_count += _get_token_count_for_str(content)
+        completion_message_content = completion_message.get("content")
+        if isinstance(completion_message_content, str):
+            token_count += _get_token_count_for_str(completion_message_content)
 
     # calculate the total available tokens for the response generation
     available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
@@ -356,103 +361,165 @@ async def respond_to_conversation(
     # add the history messages to the completion messages
     completion_messages.extend(history_messages)
 
-    class StructuredResponseFormat(BaseModel):
-        class Config:
-            extra = "forbid"
-            schema_extra = {
-                "description": (
-                    "The response format for the assistant. Use the assistant_response field for the"
-                    " response content and the artifacts_to_create_or_update field for any artifacts"
-                    " to create or update."
-                ),
-                "required": ["assistant_response", "artifacts_to_create_or_update"],
-            }
-
-        assistant_response: str
-        artifacts_to_create_or_update: list[Artifact]
-
-    # generate a response from the AI model
+    # initialize variables for the response content and total tokens used
+    content: str | None = None
     completion_total_tokens: int | None = None
-    async with config_secrets.service_config.new_client(api_version="2024-02-15-preview") as openai_client:
-        try:
-            # call the OpenAI API to generate a completion
-            completion = await openai_client.beta.chat.completions.parse(
-                messages=completion_messages,
-                model=config.request_config.openai_model,
-                max_tokens=config.request_config.response_tokens,
-                response_format=StructuredResponseFormat,
-            )
-            content = completion.choices[0].message.content
 
-            # get the prospector response from the completion
-            structured_response = completion.choices[0].message.parsed
-            # get the assistant response from the prospector response
-            content = structured_response.assistant_response if structured_response else content
-            # get the artifacts to create or update from the prospector response
-            if structured_response and structured_response.artifacts_to_create_or_update:
-                for artifact in structured_response.artifacts_to_create_or_update:
-                    ArtifactAgent.create_or_update_artifact(
-                        context,
-                        artifact,
+    # TODO: DRY up this code by moving the OpenAI API call to a shared method and calling it from both branches
+    # use structured response support to create or update artifacts, if artifacts are enabled
+    if config.agents_config.artifact_agent.enable_artifacts:
+        # define the structured response format for the AI model
+        class StructuredResponseFormat(BaseModel):
+            class Config:
+                extra = "forbid"
+                schema_extra = {
+                    "description": (
+                        "The response format for the assistant. Use the assistant_response field for the"
+                        " response content and the artifacts_to_create_or_update field for any artifacts"
+                        " to create or update."
+                    ),
+                    "required": ["assistant_response", "artifacts_to_create_or_update"],
+                }
+
+            assistant_response: str
+            artifacts_to_create_or_update: list[Artifact]
+
+        # generate a response from the AI model
+        completion_total_tokens: int | None = None
+        async with config_secrets.service_config.new_client(api_version="2024-02-15-preview") as openai_client:
+            try:
+                # call the OpenAI API to generate a completion
+                completion = await openai_client.beta.chat.completions.parse(
+                    messages=completion_messages,
+                    model=config.request_config.openai_model,
+                    max_tokens=config.request_config.response_tokens,
+                    response_format=StructuredResponseFormat,
+                )
+                content = completion.choices[0].message.content
+
+                # get the prospector response from the completion
+                structured_response = completion.choices[0].message.parsed
+                # get the assistant response from the prospector response
+                content = structured_response.assistant_response if structured_response else content
+                # get the artifacts to create or update from the prospector response
+                if structured_response and structured_response.artifacts_to_create_or_update:
+                    for artifact in structured_response.artifacts_to_create_or_update:
+                        ArtifactAgent.create_or_update_artifact(
+                            context,
+                            artifact,
+                        )
+                    # send an event to notify the artifact state was updated
+                    await context.send_conversation_state_event(
+                        AssistantStateEvent(
+                            state_id="artifacts",
+                            event="updated",
+                            state=None,
+                        )
                     )
-                # send an event to notify the artifact state was updated
-                await context.send_conversation_state_event(
-                    AssistantStateEvent(
-                        state_id="artifacts",
-                        event="updated",
-                        state=None,
+
+                    # send a focus event to notify the assistant to focus on the artifacts
+                    await context.send_conversation_state_event(
+                        AssistantStateEvent(
+                            state_id="artifacts",
+                            event="focus",
+                            state=None,
+                        )
                     )
+
+                # get the total tokens used for the completion
+                completion_total_tokens = completion.usage.total_tokens if completion.usage else None
+
+                # add the completion to the metadata for debugging
+                deepmerge.always_merger.merge(
+                    metadata,
+                    {
+                        "debug": {
+                            f"{method_metadata_key}": {
+                                "request": {
+                                    "model": config.request_config.openai_model,
+                                    "messages": completion_messages,
+                                    "max_tokens": config.request_config.response_tokens,
+                                    "response_format": StructuredResponseFormat.model_json_schema(),
+                                },
+                                "response": completion.model_dump() if completion else "[no response from openai]",
+                            },
+                        }
+                    },
+                )
+            except Exception as e:
+                logger.exception(f"exception occurred calling openai chat completion: {e}")
+                content = (
+                    "An error occurred while calling the OpenAI API. Is it configured correctly?"
+                    "View the debug inspector for more information."
+                )
+                deepmerge.always_merger.merge(
+                    metadata,
+                    {
+                        "debug": {
+                            f"{method_metadata_key}": {
+                                "request": {
+                                    "model": config.request_config.openai_model,
+                                    "messages": completion_messages,
+                                },
+                                "error": str(e),
+                            },
+                        }
+                    },
                 )
 
-                # send a focus event to notify the assistant to focus on the artifacts
-                await context.send_conversation_state_event(
-                    AssistantStateEvent(
-                        state_id="artifacts",
-                        event="focus",
-                        state=None,
-                    )
+    # fallback to prior approach to generate a response from the AI model when artifacts are not enabled
+    if not config.agents_config.artifact_agent.enable_artifacts:
+        # generate a response from the AI model
+        completion_total_tokens: int | None = None
+        async with config_secrets.service_config.new_client(api_version="2024-06-01") as openai_client:
+            try:
+                # call the OpenAI API to generate a completion
+                completion = await openai_client.chat.completions.create(
+                    messages=completion_messages,
+                    model=config.request_config.openai_model,
+                    max_tokens=config.request_config.response_tokens,
                 )
+                content = completion.choices[0].message.content
 
-            # get the total tokens used for the completion
-            completion_total_tokens = completion.usage.total_tokens if completion.usage else None
+                # get the total tokens used for the completion
+                completion_total_tokens = completion.usage.total_tokens if completion.usage else None
 
-            # add the completion to the metadata for debugging
-            deepmerge.always_merger.merge(
-                metadata,
-                {
-                    "debug": {
-                        f"{method_metadata_key}": {
-                            "request": {
-                                "model": config.request_config.openai_model,
-                                "messages": completion_messages,
-                                "max_tokens": config.request_config.response_tokens,
-                                "response_format": StructuredResponseFormat.model_json_schema(),
+                # add the completion to the metadata for debugging
+                deepmerge.always_merger.merge(
+                    metadata,
+                    {
+                        "debug": {
+                            f"{method_metadata_key}": {
+                                "request": {
+                                    "model": config.request_config.openai_model,
+                                    "messages": completion_messages,
+                                    "max_tokens": config.request_config.response_tokens,
+                                },
+                                "response": completion.model_dump() if completion else "[no response from openai]",
                             },
-                            "response": completion.model_dump() if completion else "[no response from openai]",
-                        },
-                    }
-                },
-            )
-        except Exception as e:
-            logger.exception(f"exception occurred calling openai chat completion: {e}")
-            content = (
-                "An error occurred while calling the OpenAI API. Is it configured correctly?"
-                "View the debug inspector for more information."
-            )
-            deepmerge.always_merger.merge(
-                metadata,
-                {
-                    "debug": {
-                        f"{method_metadata_key}": {
-                            "request": {
-                                "model": config.request_config.openai_model,
-                                "messages": completion_messages,
+                        }
+                    },
+                )
+            except Exception as e:
+                logger.exception(f"exception occurred calling openai chat completion: {e}")
+                content = (
+                    "An error occurred while calling the OpenAI API. Is it configured correctly?"
+                    "View the debug inspector for more information."
+                )
+                deepmerge.always_merger.merge(
+                    metadata,
+                    {
+                        "debug": {
+                            f"{method_metadata_key}": {
+                                "request": {
+                                    "model": config.request_config.openai_model,
+                                    "messages": completion_messages,
+                                },
+                                "error": str(e),
                             },
-                            "error": str(e),
-                        },
-                    }
-                },
-            )
+                        }
+                    },
+                )
 
     # set the message type based on the content
     message_type = MessageType.chat

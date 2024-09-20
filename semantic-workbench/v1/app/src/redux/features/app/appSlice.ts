@@ -95,24 +95,24 @@ export const appSlice = createSlice({
             }>,
         ) => {
             // only update the properties that are provided
-            if (!state.conversationCanvasState) {
-                state.conversationCanvasState = {};
+            if (!state.interactCanvasState) {
+                state.interactCanvasState = {};
             }
 
             if (action.payload.open !== undefined) {
-                state.conversationCanvasState.open = action.payload.open ?? false;
+                state.interactCanvasState.open = action.payload.open ?? false;
             }
 
             if (action.payload.mode !== undefined) {
-                state.conversationCanvasState.mode = action.payload.mode;
+                state.interactCanvasState.mode = action.payload.mode;
             }
 
             if (action.payload.assistantId !== undefined) {
-                state.conversationCanvasState.assistantId = action.payload.assistantId ?? undefined;
+                state.interactCanvasState.assistantId = action.payload.assistantId ?? undefined;
             }
 
             if (action.payload.assistantStateId !== undefined) {
-                state.conversationCanvasState.assistantStateId = action.payload.assistantStateId ?? undefined;
+                state.interactCanvasState.assistantStateId = action.payload.assistantStateId ?? undefined;
             }
         },
     },

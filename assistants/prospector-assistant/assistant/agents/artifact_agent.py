@@ -16,6 +16,16 @@ from semantic_workbench_assistant.storage import read_model, write_model
 
 
 class ArtifactAgentConfigModel(BaseModel):
+    enable_artifacts: Annotated[
+        bool,
+        Field(
+            description=(
+                "The artifact support is experimental and disabled by default. Enable it to poke at"
+                " the early features, but be aware that you may lose data or experience unexpected behavior."
+            ),
+        ),
+    ] = False
+
     instruction_prompt: Annotated[
         str,
         Field(
@@ -230,7 +240,7 @@ class ArtifactAgent:
 
 class ArtifactConversationInspectorStateProvider:
     display_name = "Artifacts"
-    description = "Artifacts that have been co-created by the participants in the conversation."
+    description = "Artifacts that have been co-created by the participants in the conversation. NOTE: This feature is experimental and disabled by default."
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
@@ -239,6 +249,11 @@ class ArtifactConversationInspectorStateProvider:
 
         # get the artifacts for the conversation
         artifacts = ArtifactAgent.get_all_artifacts(context)
+
+        if not artifacts:
+            return AssistantConversationInspectorStateDataModel(
+                data={"content": "No artifacts available or artifact support is disabled in assistant configuration."}
+            )
 
         # create the data model for the artifacts
         data_model = AssistantConversationInspectorStateDataModel(

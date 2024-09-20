@@ -39,7 +39,7 @@ const useClasses = makeStyles({
     },
 });
 
-interface GeneralCanvasProps {
+interface InteractCanvasProps {
     conversationAssistants: Assistant[];
     conversationParticipants: ConversationParticipant[];
     conversationFiles: ConversationFile[];
@@ -47,7 +47,7 @@ interface GeneralCanvasProps {
     preventAssistantModifyOnParticipantIds?: string[];
 }
 
-export const GeneralCanvas: React.FC<GeneralCanvasProps> = (props) => {
+export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
     const {
         conversationAssistants,
         conversationParticipants,
@@ -56,7 +56,7 @@ export const GeneralCanvas: React.FC<GeneralCanvasProps> = (props) => {
         preventAssistantModifyOnParticipantIds,
     } = props;
     const classes = useClasses();
-    const { open, mode } = useAppSelector((state) => state.app).conversationCanvasState || {};
+    const { open, mode } = useAppSelector((state) => state.app).interactCanvasState || {};
 
     return (
         <>

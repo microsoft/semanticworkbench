@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { ConversationCanvasState } from '../../../models/ConversationCanvasState';
+import { InteractCanvasState } from '../../../models/InteractCanvasState';
 
 export interface AppState {
     devMode?: boolean;
@@ -16,5 +16,5 @@ export interface AppState {
         workflow?: boolean;
     };
     chatWidthPercent: number;
-    conversationCanvasState?: ConversationCanvasState;
+    interactCanvasState?: InteractCanvasState;
 }

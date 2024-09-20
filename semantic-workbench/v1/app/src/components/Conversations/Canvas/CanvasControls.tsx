@@ -4,8 +4,8 @@ import { Button, makeStyles, shorthands, tokens, Tooltip } from '@fluentui/react
 import { Bot24Regular, Chat24Regular, Dismiss24Regular } from '@fluentui/react-icons';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
-import { useCanvasController } from '../../../libs/useCanvasController';
 import { useEnvironment } from '../../../libs/useEnvironment';
+import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
 import { WorkbenchEventSource } from '../../../libs/WorkbenchEventSource';
 import { useAppSelector } from '../../../redux/app/hooks';
 
@@ -29,16 +29,16 @@ interface CanvasControlsProps {
 export const CanvasControls: React.FC<CanvasControlsProps> = (props) => {
     const { conversationId } = props;
     const classes = useClasses();
-    const { conversationCanvasState } = useAppSelector((state) => state.app);
+    const { interactCanvasState } = useAppSelector((state) => state.app);
     const environment = useEnvironment();
-    const canvasController = useCanvasController();
+    const interactCanvasController = useInteractCanvasController();
 
     React.useEffect(() => {
         var workbenchEventSource: WorkbenchEventSource | undefined;
 
         const handleFocusEvent = async (event: EventSourceMessage) => {
             const { data } = JSON.parse(event.data);
-            canvasController.transitionToState({
+            interactCanvasController.transitionToState({
                 open: true,
                 mode: 'assistant',
                 assistantId: data['assistant_id'],
@@ -54,44 +54,44 @@ export const CanvasControls: React.FC<CanvasControlsProps> = (props) => {
         return () => {
             workbenchEventSource?.removeEventListener('assistant.state.focus', handleFocusEvent);
         };
-    }, [environment, conversationId, canvasController]);
+    }, [environment, conversationId, interactCanvasController]);
 
     const handleActivateConversation = () => {
-        canvasController.transitionToState({ open: true, mode: 'conversation' });
+        interactCanvasController.transitionToState({ open: true, mode: 'conversation' });
     };
 
     const handleActivateAssistant = () => {
-        canvasController.transitionToState({ open: true, mode: 'assistant' });
+        interactCanvasController.transitionToState({ open: true, mode: 'assistant' });
     };
 
     const handleDismiss = async () => {
-        canvasController.transitionToState({ open: false });
+        interactCanvasController.transitionToState({ open: false });
     };
 
     return (
         <div className={classes.root}>
-            {(conversationCanvasState?.mode !== 'conversation' || !conversationCanvasState?.open) && (
+            {(interactCanvasState?.mode !== 'conversation' || !interactCanvasState?.open) && (
                 <Tooltip content="Open conversation canvas" relationship="label">
                     <Button
-                        disabled={canvasController.isTransitioning}
+                        disabled={interactCanvasController.isTransitioning}
                         icon={<Chat24Regular />}
                         onClick={handleActivateConversation}
                     />
                 </Tooltip>
             )}
-            {conversationCanvasState?.open && (
+            {interactCanvasState?.open && (
                 <Tooltip content="Close canvas" relationship="label">
                     <Button
-                        disabled={canvasController.isTransitioning}
+                        disabled={interactCanvasController.isTransitioning}
                         icon={<Dismiss24Regular />}
                         onClick={handleDismiss}
                     />
                 </Tooltip>
             )}
-            {(conversationCanvasState?.mode !== 'assistant' || !conversationCanvasState?.open) && (
+            {(interactCanvasState?.mode !== 'assistant' || !interactCanvasState?.open) && (
                 <Tooltip content="Open assistant canvas" relationship="label">
                     <Button
-                        disabled={canvasController.isTransitioning}
+                        disabled={interactCanvasController.isTransitioning}
                         icon={<Bot24Regular />}
                         onClick={handleActivateAssistant}
                     />

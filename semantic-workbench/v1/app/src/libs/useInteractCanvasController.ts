@@ -1,14 +1,14 @@
 import debug from 'debug';
 import React from 'react';
 import { Constants } from '../Constants';
-import { ConversationCanvasState } from '../models/ConversationCanvasState';
+import { InteractCanvasState } from '../models/InteractCanvasState';
 import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
 import { setConversationCanvasState } from '../redux/features/app/appSlice';
 
 const log = debug(Constants.debug.root).extend('useCanvasController');
 
-export const useCanvasController = () => {
-    const { conversationCanvasState } = useAppSelector((state) => state.app);
+export const useInteractCanvasController = () => {
+    const { interactCanvasState } = useAppSelector((state) => state.app);
     const [isTransitioning, setIsTransitioning] = React.useState(false);
     const dispatch = useAppDispatch();
 
@@ -16,12 +16,12 @@ export const useCanvasController = () => {
     const enableDelayMs = 200;
 
     const transitionToState = React.useCallback(
-        async (targetCanvasState: Partial<ConversationCanvasState>, skipAnimations: boolean = false) => {
+        async (targetCanvasState: Partial<InteractCanvasState>, skipAnimations: boolean = false) => {
             // indicate that we are transitioning so that we can disable the canvas
             // controls or prevent multiple transitions
             setIsTransitioning(true);
 
-            if (!conversationCanvasState) {
+            if (!interactCanvasState) {
                 // open the canvas with the new mode
                 log('current state not set, opening canvas with new mode', targetCanvasState.mode);
                 dispatch(
@@ -33,7 +33,7 @@ export const useCanvasController = () => {
             }
 
             if (targetCanvasState.open === false) {
-                if (!conversationCanvasState.open) {
+                if (!interactCanvasState.open) {
                     return;
                 }
 
@@ -64,7 +64,7 @@ export const useCanvasController = () => {
             }
 
             if (targetCanvasState.open === true) {
-                if (conversationCanvasState.open && conversationCanvasState.mode === targetCanvasState.mode) {
+                if (interactCanvasState.open && interactCanvasState.mode === targetCanvasState.mode) {
                     log('canvas already open with mode', targetCanvasState.mode);
                     setIsTransitioning(false);
                     return;
@@ -87,7 +87,7 @@ export const useCanvasController = () => {
                     setIsTransitioning(true);
 
                     // close the canvas if it is open to avoid weird animations
-                    if (conversationCanvasState.open) {
+                    if (interactCanvasState.open) {
                         // close the canvas
                         dispatch(setConversationCanvasState({ open: false }));
 
@@ -108,8 +108,8 @@ export const useCanvasController = () => {
                 }
             }
         },
-        [dispatch, conversationCanvasState],
+        [dispatch, interactCanvasState],
     );
 
-    return { conversationCanvasState, isTransitioning, transitionToState: transitionToState };
+    return { interactCanvasState, isTransitioning, transitionToState: transitionToState };
 };

@@ -7,7 +7,7 @@ import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
 import { CanvasControls } from '../components/Conversations/Canvas/CanvasControls';
-import { GeneralCanvas } from '../components/Conversations/Canvas/GeneralCanvas';
+import { InteractCanvas } from '../components/Conversations/Canvas/InteractCanvas';
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
@@ -184,7 +184,7 @@ export const Interact: React.FC = () => {
                     <div className={classes.controls}>
                         <CanvasControls conversationId={conversation.id} />
                     </div>
-                    <GeneralCanvas
+                    <InteractCanvas
                         conversation={conversation}
                         conversationParticipants={conversationParticipants}
                         conversationFiles={conversationFiles}

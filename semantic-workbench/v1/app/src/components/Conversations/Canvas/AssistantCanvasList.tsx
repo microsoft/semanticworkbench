@@ -3,7 +3,7 @@
 import { Button, Tab, TabList, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
-import { useCanvasController } from '../../../libs/useCanvasController';
+import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { useAppSelector } from '../../../redux/app/hooks';
@@ -35,32 +35,32 @@ interface AssistantCanvasListProps {
 export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) => {
     const { conversationAssistants, conversation } = props;
     const classes = useClasses();
-    const { conversationCanvasState } = useAppSelector((state) => state.app);
-    const canvasController = useCanvasController();
+    const { interactCanvasState } = useAppSelector((state) => state.app);
+    const interactCanvasController = useInteractCanvasController();
 
     React.useEffect(() => {
         if (conversationAssistants.length === 0) {
-            if (conversationCanvasState?.assistantId) {
-                canvasController.transitionToState({ assistantId: null });
+            if (interactCanvasState?.assistantId) {
+                interactCanvasController.transitionToState({ assistantId: null });
             }
             return;
         }
 
         // Verify the selected assistant is still in the list
         if (
-            conversationCanvasState?.assistantId &&
-            conversationAssistants.some((assistant) => assistant.id === conversationCanvasState.assistantId)
+            interactCanvasState?.assistantId &&
+            conversationAssistants.some((assistant) => assistant.id === interactCanvasState.assistantId)
         ) {
             // Assistant is still in the list
             return;
         }
 
         // Select the first assistant in the list
-        canvasController.transitionToState({ assistantId: conversationAssistants[0].id });
-    }, [conversationAssistants, conversationCanvasState, canvasController]);
+        interactCanvasController.transitionToState({ assistantId: conversationAssistants[0].id });
+    }, [conversationAssistants, interactCanvasState, interactCanvasController]);
 
     const selectedAssistant = conversationAssistants.find(
-        (assistant) => assistant.id === conversationCanvasState?.assistantId,
+        (assistant) => assistant.id === interactCanvasState?.assistantId,
     );
 
     return (
@@ -70,7 +70,7 @@ export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) =
                     No assistants found.
                     <Button
                         appearance="secondary"
-                        onClick={() => canvasController.transitionToState({ open: false })}
+                        onClick={() => interactCanvasController.transitionToState({ open: false })}
                         icon={<BookInformation24Regular />}
                     />
                 </div>
@@ -84,7 +84,7 @@ export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) =
                         <TabList
                             selectedValue={selectedAssistant?.id ?? conversationAssistants[0].id}
                             onTabSelect={(_event, selectedItem) =>
-                                canvasController.transitionToState({
+                                interactCanvasController.transitionToState({
                                     assistantId:
                                         conversationAssistants.find((assistant) => assistant.id === selectedItem.value)
                                             ?.id ?? null,
@@ -104,7 +104,7 @@ export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) =
                         <Button
                             appearance="secondary"
                             icon={<BookInformation24Regular />}
-                            onClick={() => canvasController.transitionToState({ open: false })}
+                            onClick={() => interactCanvasController.transitionToState({ open: false })}
                         />
                     </div>
                     {selectedAssistant && (
