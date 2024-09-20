@@ -4,6 +4,7 @@ import { generateUuid } from '@azure/ms-rest-js';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
+import { InteractCanvasState } from '../../../models/InteractCanvasState';
 import { AppState } from './AppState';
 
 const localStorageKey = {
@@ -25,6 +26,10 @@ const initialState: AppState = {
         experimental:
             AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunExperimental) ?? false,
         workflow: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunWorkflow) ?? false,
+    },
+    interactCanvasState: {
+        open: false,
+        mode: 'conversation',
     },
 };
 
@@ -85,35 +90,9 @@ export const appSlice = createSlice({
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
-        setConversationCanvasState: (
-            state: AppState,
-            action: PayloadAction<{
-                open?: boolean | null;
-                mode?: 'conversation' | 'assistant';
-                assistantId?: string | null;
-                assistantStateId?: string | null;
-            }>,
-        ) => {
-            // only update the properties that are provided
-            if (!state.interactCanvasState) {
-                state.interactCanvasState = {};
-            }
-
-            if (action.payload.open !== undefined) {
-                state.interactCanvasState.open = action.payload.open ?? false;
-            }
-
-            if (action.payload.mode !== undefined) {
-                state.interactCanvasState.mode = action.payload.mode;
-            }
-
-            if (action.payload.assistantId !== undefined) {
-                state.interactCanvasState.assistantId = action.payload.assistantId ?? undefined;
-            }
-
-            if (action.payload.assistantStateId !== undefined) {
-                state.interactCanvasState.assistantStateId = action.payload.assistantStateId ?? undefined;
-            }
+        setInteractCanvasState: (state: AppState, action: PayloadAction<Partial<InteractCanvasState>>) => {
+            // merge with existing state
+            state.interactCanvasState = { ...state.interactCanvasState, ...action.payload };
         },
     },
 });
@@ -126,7 +105,7 @@ export const {
     clearErrors,
     setChatWidthPercent,
     setCompletedFirstRun,
-    setConversationCanvasState,
+    setInteractCanvasState,
 } = appSlice.actions;
 
 export default appSlice.reducer;

@@ -6,7 +6,6 @@ import { useParams } from 'react-router-dom';
 import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
-import { CanvasControls } from '../components/Conversations/Canvas/CanvasControls';
 import { InteractCanvas } from '../components/Conversations/Canvas/InteractCanvas';
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
@@ -54,18 +53,6 @@ const useClasses = makeStyles({
         backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
         ...shorthands.borderTop(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
         ...shorthands.borderBottom(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
-    },
-    canvas: {
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        height: '100%',
-    },
-    controls: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
     },
 });
 
@@ -180,20 +167,15 @@ export const Interact: React.FC = () => {
                         <InteractInput conversationId={conversationId} />
                     </div>
                 </div>
-                <div className={classes.canvas}>
-                    <div className={classes.controls}>
-                        <CanvasControls conversationId={conversation.id} />
-                    </div>
-                    <InteractCanvas
-                        conversation={conversation}
-                        conversationParticipants={conversationParticipants}
-                        conversationFiles={conversationFiles}
-                        conversationAssistants={conversationAssistants}
-                        preventAssistantModifyOnParticipantIds={conversationParticipants
-                            .filter((participant) => participant.active)
-                            .map((participant) => participant.id)}
-                    />
-                </div>
+                <InteractCanvas
+                    conversation={conversation}
+                    conversationParticipants={conversationParticipants}
+                    conversationFiles={conversationFiles}
+                    conversationAssistants={conversationAssistants}
+                    preventAssistantModifyOnParticipantIds={conversationParticipants
+                        .filter((participant) => participant.active)
+                        .map((participant) => participant.id)}
+                />
             </div>
         </AppView>
     );

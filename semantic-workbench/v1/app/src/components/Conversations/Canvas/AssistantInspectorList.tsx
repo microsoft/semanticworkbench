@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import {
-    Button,
     SelectTabData,
     SelectTabEvent,
     SelectTabEventHandler,
@@ -11,7 +10,6 @@ import {
     shorthands,
     tokens,
 } from '@fluentui/react-components';
-import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
@@ -50,11 +48,10 @@ const useClasses = makeStyles({
 interface AssistantInspectorListProps {
     conversationId: string;
     stateDescriptions: AssistantStateDescription[];
-    hideCloseButton?: boolean;
 }
 
 export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (props) => {
-    const { conversationId, stateDescriptions, hideCloseButton } = props;
+    const { conversationId, stateDescriptions } = props;
     const classes = useClasses();
     const { interactCanvasState } = useAppSelector((state) => state.app);
     const interactCanvasController = useInteractCanvasController();
@@ -74,13 +71,6 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
                 <div className={classes.header}>
                     <div className={classes.headerContent}>
                         <div>No assistant state inspectors available</div>
-                        {!hideCloseButton && (
-                            <Button
-                                appearance="secondary"
-                                icon={<BookInformation24Regular />}
-                                onClick={() => interactCanvasController.transitionToState({ open: false })}
-                            />
-                        )}
                     </div>
                 </div>
             </div>
@@ -100,13 +90,6 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
                                 </Tab>
                             ))}
                     </TabList>
-                    {!hideCloseButton && (
-                        <Button
-                            appearance="secondary"
-                            icon={<BookInformation24Regular />}
-                            onClick={() => interactCanvasController.transitionToState({ open: false })}
-                        />
-                    )}
                 </div>
             </div>
             {selectedStateDescription && (

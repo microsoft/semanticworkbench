@@ -3,7 +3,7 @@ import React from 'react';
 import { Constants } from '../Constants';
 import { InteractCanvasState } from '../models/InteractCanvasState';
 import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
-import { setConversationCanvasState } from '../redux/features/app/appSlice';
+import { setInteractCanvasState } from '../redux/features/app/appSlice';
 
 const log = debug(Constants.debug.root).extend('useCanvasController');
 
@@ -12,104 +12,146 @@ export const useInteractCanvasController = () => {
     const [isTransitioning, setIsTransitioning] = React.useState(false);
     const dispatch = useAppDispatch();
 
-    const waitForCloseDelayMs = 400;
-    const enableDelayMs = 200;
+    const closingTransitionDelayMs = 400;
+    const openingTransitionDelayMs = 200;
+
+    const chooseTransitionType = React.useCallback(
+        (currentCanvasState: InteractCanvasState, fullTargetCanvasState: InteractCanvasState) => {
+            if (!currentCanvasState.open && fullTargetCanvasState.open) {
+                return 'open';
+            }
+            if (currentCanvasState.open && !fullTargetCanvasState.open) {
+                return 'close';
+            }
+            if (currentCanvasState.mode !== fullTargetCanvasState.mode) {
+                return 'mode';
+            }
+            return 'none';
+        },
+        [],
+    );
+
+    const transitionOpenToClose = React.useCallback(async () => {
+        log(`canvas closing with transition of ${closingTransitionDelayMs}ms`);
+
+        // close the canvas
+        dispatch(setInteractCanvasState({ open: false }));
+
+        // wait for the canvas to close before indicating that we are no longer transitioning
+        await new Promise((resolve) => setTimeout(resolve, closingTransitionDelayMs));
+        log('canvas closed');
+    }, [dispatch]);
+
+    const transitionCloseToOpen = React.useCallback(
+        async (fullTargetCanvasState: InteractCanvasState) => {
+            log(`canvas opening with transition of ${openingTransitionDelayMs}ms`);
+
+            // open the canvas with the new mode
+            dispatch(setInteractCanvasState(fullTargetCanvasState));
+
+            // wait for the canvas to open before indicating that we are no longer transitioning
+            await new Promise((resolve) => setTimeout(resolve, openingTransitionDelayMs));
+
+            log(`canvas opened with mode ${fullTargetCanvasState.mode}`);
+
+            if (fullTargetCanvasState.mode === 'assistant') {
+                log(
+                    `assistant state: ${fullTargetCanvasState.assistantStateId} [${fullTargetCanvasState.assistantId}]`,
+                );
+            }
+        },
+        [dispatch],
+    );
+
+    const transitionOpenToNewMode = React.useCallback(
+        async (fullTargetCanvasState: InteractCanvasState) => {
+            log('canvas changing mode while open');
+            await transitionOpenToClose();
+            await transitionCloseToOpen(fullTargetCanvasState);
+        },
+        [transitionCloseToOpen, transitionOpenToClose],
+    );
+
+    const setState = React.useCallback(
+        (targetCanvasState: Partial<InteractCanvasState>) => {
+            dispatch(setInteractCanvasState({ ...interactCanvasState, ...targetCanvasState }));
+        },
+        [dispatch, interactCanvasState],
+    );
 
     const transitionToState = React.useCallback(
-        async (targetCanvasState: Partial<InteractCanvasState>, skipAnimations: boolean = false) => {
-            // indicate that we are transitioning so that we can disable the canvas
-            // controls or prevent multiple transitions
-            setIsTransitioning(true);
-
+        async (targetCanvasState: Partial<InteractCanvasState>) => {
             if (!interactCanvasState) {
-                // open the canvas with the new mode
-                log('current state not set, opening canvas with new mode', targetCanvasState.mode);
-                dispatch(
-                    setConversationCanvasState({ open: true, mode: targetCanvasState.mode, ...targetCanvasState }),
-                );
+                // this should not happen, but just in case we have no state, set it and return
+                dispatch(setInteractCanvasState({ ...targetCanvasState }));
                 // ensure that we are not claiming to be transitioning
                 setIsTransitioning(false);
                 return;
             }
 
-            if (targetCanvasState.open === false) {
-                if (!interactCanvasState.open) {
-                    return;
-                }
+            //
+            // we should always set the isTransitioning state to true before we start any transitions
+            // so that we can disable various UX elements that should not be interacted with
+            // while the canvas is transitioning
+            //
+            // possible transitions:
+            //
+            // 1. open -> close:
+            //   - update state to close the canvas
+            //   - wait for the close delay
+            //   - set isTransitioning to false
+            //
+            // 2. close -> open with mode selection
+            //   - update state to open directly to the desired mode
+            //   - wait for the open delay
+            //   - set isTransitioning to false
+            //
+            // 3. mode change while open
+            //   - close the canvas without any other state changes first
+            //   - wait for the close delay
+            //   - update state to open directly to the desired mode
+            //   - wait for the open delay
+            //   - set isTransitioning to false
+            //
 
-                if (skipAnimations) {
-                    log('canvas closing with no transition');
+            // indicate that we are transitioning so that we can disable the canvas
+            setIsTransitioning(true);
 
-                    // close the canvas
-                    dispatch(setConversationCanvasState({ open: false }));
+            // determine the type of transition that we need to perform
+            const transitionType = chooseTransitionType(interactCanvasState, {
+                ...interactCanvasState,
+                ...targetCanvasState,
+            });
 
-                    // ensure that we are not claiming to be transitioning
+            // perform the transition
+            switch (transitionType) {
+                case 'open':
+                    await transitionOpenToClose();
+                    await transitionCloseToOpen({ ...interactCanvasState, ...targetCanvasState });
+                    break;
+                case 'close':
+                    await transitionOpenToClose();
+                    break;
+                case 'mode':
+                    await transitionOpenToNewMode({ ...interactCanvasState, ...targetCanvasState });
+                    break;
+                case 'none':
                     setIsTransitioning(false);
-                } else {
-                    log(`canvas closing with transition of ${waitForCloseDelayMs}ms`);
-
-                    // indicate that we are transitioning so that we can disable the canvas
-                    setIsTransitioning(true);
-
-                    // close the canvas
-                    dispatch(setConversationCanvasState({ open: false }));
-
-                    // wait for the canvas to close before indicating that we are no longer transitioning
-                    await new Promise((resolve) => setTimeout(resolve, waitForCloseDelayMs));
-                    log('canvas closed');
-
-                    // indicate that we are no longer transitioning
-                    setIsTransitioning(false);
-                }
+                    break;
             }
 
-            if (targetCanvasState.open === true) {
-                if (interactCanvasState.open && interactCanvasState.mode === targetCanvasState.mode) {
-                    log('canvas already open with mode', targetCanvasState.mode);
-                    setIsTransitioning(false);
-                    return;
-                }
-
-                if (skipAnimations) {
-                    log('canvas opening with no transition');
-
-                    // open the canvas with the new mode
-                    dispatch(
-                        setConversationCanvasState({ open: true, mode: targetCanvasState.mode, ...targetCanvasState }),
-                    );
-
-                    // ensure that we are not claiming to be transitioning
-                    setIsTransitioning(false);
-                } else {
-                    log(`canvas opening with transition of ${enableDelayMs}ms`);
-
-                    // indicate that we are transitioning so that we can disable the canvas
-                    setIsTransitioning(true);
-
-                    // close the canvas if it is open to avoid weird animations
-                    if (interactCanvasState.open) {
-                        // close the canvas
-                        dispatch(setConversationCanvasState({ open: false }));
-
-                        // wait for the canvas to close before changing the mode
-                        await new Promise((resolve) => setTimeout(resolve, waitForCloseDelayMs));
-                    }
-
-                    // open the canvas with the new mode
-                    dispatch(
-                        setConversationCanvasState({ open: true, mode: targetCanvasState.mode, ...targetCanvasState }),
-                    );
-
-                    // wait for the canvas to open before indicating that we are no longer transitioning
-                    setTimeout(() => {
-                        setIsTransitioning(false);
-                        log('canvas opened');
-                    }, enableDelayMs);
-                }
-            }
+            // ensure that we are not claiming to be transitioning anymore
+            setIsTransitioning(false);
         },
-        [dispatch, interactCanvasState],
+        [
+            chooseTransitionType,
+            dispatch,
+            interactCanvasState,
+            transitionCloseToOpen,
+            transitionOpenToClose,
+            transitionOpenToNewMode,
+        ],
     );
 
-    return { interactCanvasState, isTransitioning, transitionToState: transitionToState };
+    return { interactCanvasState, isTransitioning, setState, transitionToState };
 };

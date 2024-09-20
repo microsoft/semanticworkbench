@@ -89,9 +89,16 @@ export const CanvasControls: React.FC<CanvasControlsProps> = (props) => {
                 </Tooltip>
             )}
             {(interactCanvasState?.mode !== 'assistant' || !interactCanvasState?.open) && (
-                <Tooltip content="Open assistant canvas" relationship="label">
+                <Tooltip
+                    content={
+                        interactCanvasState?.assistantId
+                            ? 'Open assistant canvas'
+                            : 'No assistants available in conversation'
+                    }
+                    relationship="label"
+                >
                     <Button
-                        disabled={interactCanvasController.isTransitioning}
+                        disabled={interactCanvasController.isTransitioning || !interactCanvasState?.assistantId}
                         icon={<Bot24Regular />}
                         onClick={handleActivateAssistant}
                     />
