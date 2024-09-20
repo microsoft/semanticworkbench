@@ -2,6 +2,7 @@ import { AuthenticationResult, EventType, PublicClientApplication } from '@azure
 import { AuthenticatedTemplate, MsalProvider, UnauthenticatedTemplate } from '@azure/msal-react';
 import { CopilotProvider } from '@fluentui-copilot/react-copilot';
 import { FluentProvider } from '@fluentui/react-components';
+import { initializeFileTypeIcons } from '@fluentui/react-file-type-icons';
 import debug from 'debug';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -116,6 +117,8 @@ export const getMsalInstance = async () => {
 };
 
 const customTheme = getCustomTheme('light', getEnvironment(store.getState().settings.environmentId)?.brand);
+
+initializeFileTypeIcons();
 
 let container: HTMLElement | null = null;
 document.addEventListener('DOMContentLoaded', () => {

@@ -10,7 +10,6 @@ const storageKeys = {
     environmentId: 'environment-id',
     speechKey: 'speech-key',
     speechRegion: 'speech-region',
-    // openAIApiKey: 'openai-api-key',
 };
 
 const initialState: SettingsState = {
@@ -20,7 +19,6 @@ const initialState: SettingsState = {
         Constants.service.defaultEnvironmentId,
     speechKey: AppStorage.getInstance().loadObject<string>(storageKeys.speechKey),
     speechRegion: AppStorage.getInstance().loadObject<string>(storageKeys.speechRegion),
-    // openAIApiKey: AppStorage.getInstance().loadObject<string>(storageKeys.openAIApiKey),
 };
 
 export const settingsSlice = createSlice({
@@ -51,19 +49,9 @@ export const settingsSlice = createSlice({
             AppStorage.getInstance().saveObject(storageKeys.speechRegion, action.payload);
             state.speechRegion = action.payload;
         },
-        // setOpenAIApiKey: (state: SettingsState, action: PayloadAction<string>) => {
-        //     AppStorage.getInstance().saveObject(storageKeys.openAIApiKey, action.payload);
-        //     state.openAIApiKey = action.payload;
-        // },
     },
 });
 
-export const {
-    setTheme,
-    setEnvironmentId,
-    setSpeechKey,
-    setSpeechRegion,
-    // setOpenAIApiKey
-} = settingsSlice.actions;
+export const { setTheme, setEnvironmentId, setSpeechKey, setSpeechRegion } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

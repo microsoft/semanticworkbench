@@ -4,6 +4,7 @@ import { generateUuid } from '@azure/ms-rest-js';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
+import { InteractCanvasState } from '../../../models/InteractCanvasState';
 import { AppState } from './AppState';
 
 const localStorageKey = {
@@ -26,6 +27,10 @@ const initialState: AppState = {
             AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunExperimental) ?? false,
         workflow: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunWorkflow) ?? false,
     },
+    interactCanvasState: {
+        open: false,
+        mode: 'conversation',
+    },
 };
 
 export const appSlice = createSlice({
@@ -35,6 +40,9 @@ export const appSlice = createSlice({
         toggleDevMode: (state: AppState) => {
             state.devMode = !state.devMode;
             localStorage.setItem(localStorageKey.devMode, state.devMode.toString());
+        },
+        setIsDraggingOverBody: (state: AppState, action: PayloadAction<boolean>) => {
+            state.isDraggingOverBody = action.payload;
         },
         addError: (state: AppState, action: PayloadAction<{ title?: string; message?: string }>) => {
             state.errors?.push({
@@ -82,38 +90,22 @@ export const appSlice = createSlice({
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
-        setInspector: (
-            state: AppState,
-            action: PayloadAction<{ open?: boolean | null; assistantId?: string | null; stateId?: string | null }>,
-        ) => {
-            // Only update the properties that are provided
-            if (!state.inspector) {
-                state.inspector = {};
-            }
-
-            if (action.payload.open !== undefined) {
-                state.inspector.open = action.payload.open ?? false;
-            }
-
-            if (action.payload.assistantId !== undefined) {
-                state.inspector.assistantId = action.payload.assistantId ?? undefined;
-            }
-
-            if (action.payload.stateId !== undefined) {
-                state.inspector.stateId = action.payload.stateId ?? undefined;
-            }
+        setInteractCanvasState: (state: AppState, action: PayloadAction<Partial<InteractCanvasState>>) => {
+            // merge with existing state
+            state.interactCanvasState = { ...state.interactCanvasState, ...action.payload };
         },
     },
 });
 
 export const {
     toggleDevMode,
+    setIsDraggingOverBody,
     addError,
     removeError,
     clearErrors,
     setChatWidthPercent,
     setCompletedFirstRun,
-    setInspector,
+    setInteractCanvasState,
 } = appSlice.actions;
 
 export default appSlice.reducer;

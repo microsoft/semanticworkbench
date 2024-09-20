@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import {
-    Button,
     SelectTabData,
     SelectTabEvent,
     SelectTabEventHandler,
@@ -11,11 +10,10 @@ import {
     shorthands,
     tokens,
 } from '@fluentui/react-components';
-import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
-import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
-import { setInspector } from '../../../redux/features/app/appSlice';
+import { useAppSelector } from '../../../redux/app/hooks';
 import { AssistantInspector } from './AssistantInspector';
 
 const useClasses = makeStyles({
@@ -50,23 +48,34 @@ const useClasses = makeStyles({
 interface AssistantInspectorListProps {
     conversationId: string;
     stateDescriptions: AssistantStateDescription[];
-    hideCloseButton?: boolean;
 }
 
 export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (props) => {
-    const { conversationId, stateDescriptions, hideCloseButton } = props;
+    const { conversationId, stateDescriptions } = props;
     const classes = useClasses();
-    const { inspector } = useAppSelector((state) => state.app);
-    const dispatch = useAppDispatch();
+    const { interactCanvasState } = useAppSelector((state) => state.app);
+    const interactCanvasController = useInteractCanvasController();
 
     const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
-        dispatch(setInspector({ stateId: data.value as string }));
+        interactCanvasController.transitionToState({ assistantStateId: data.value as string });
     };
 
-    const selectedTab = inspector?.stateId ?? stateDescriptions[0].id;
+    const selectedTab = interactCanvasState?.assistantStateId ?? stateDescriptions[0].id;
     const selectedStateDescription = stateDescriptions.find((stateDescription) => stateDescription.id === selectedTab);
 
-    if (!inspector?.assistantId) return null;
+    if (!interactCanvasState?.assistantId) return null;
+
+    if (stateDescriptions.length === 0) {
+        return (
+            <div className={classes.root}>
+                <div className={classes.header}>
+                    <div className={classes.headerContent}>
+                        <div>No assistant state inspectors available</div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={classes.root}>
@@ -81,21 +90,12 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
                                 </Tab>
                             ))}
                     </TabList>
-                    {!hideCloseButton && (
-                        <Button
-                            appearance="secondary"
-                            icon={<BookInformation24Regular />}
-                            onClick={() => {
-                                dispatch(setInspector({ open: false }));
-                            }}
-                        />
-                    )}
                 </div>
             </div>
             {selectedStateDescription && (
                 <div className={classes.body}>
                     <AssistantInspector
-                        assistantId={inspector?.assistantId}
+                        assistantId={interactCanvasState?.assistantId}
                         conversationId={conversationId}
                         stateDescription={selectedStateDescription}
                     />

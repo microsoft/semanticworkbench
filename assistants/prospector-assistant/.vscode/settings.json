@@ -54,6 +54,7 @@
     "devcontainer",
     "dotenv",
     "endregion",
+    "Excalidraw",
     "fastapi",
     "jsonschema",
     "Langchain",

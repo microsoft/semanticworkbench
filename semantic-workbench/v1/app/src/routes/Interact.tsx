@@ -1,34 +1,28 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
-import { BookInformation24Regular, PanelLeftExpand24Regular } from '@fluentui/react-icons';
-import { EventSourceMessage } from '@microsoft/fetch-event-source';
+import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
-import { ConversationCanvas } from '../components/Conversations/Canvas/ConversationCanvas';
-import { ConversationControls } from '../components/Conversations/ConversationControls';
+import { InteractCanvas } from '../components/Conversations/Canvas/InteractCanvas';
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
-import { WorkbenchEventSource } from '../libs/WorkbenchEventSource';
-import { useEnvironment } from '../libs/useEnvironment';
 import { useSiteUtility } from '../libs/useSiteUtility';
-import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
-import { setChatWidthPercent, setInspector } from '../redux/features/app/appSlice';
 import {
     useGetAssistantsQuery,
+    useGetConversationFilesQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
 } from '../services/workbench';
 
 const useClasses = makeStyles({
     root: {
-        display: 'grid',
-        gridTemplateColumns: '1fr auto',
-        gridTemplateRows: '1fr',
+        display: 'flex',
+        flexDirection: 'row',
+        width: '100%',
         height: '100%',
     },
     main: {
@@ -36,6 +30,7 @@ const useClasses = makeStyles({
         display: 'grid',
         gridTemplateColumns: '1fr',
         gridTemplateRows: '1fr auto',
+        width: '100%',
         height: '100%',
     },
     history: {
@@ -45,65 +40,11 @@ const useClasses = makeStyles({
         justifyContent: 'center',
         gap: tokens.spacingVerticalM,
     },
-    controls: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        bottom: 0,
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'stretch',
-        zIndex: 1000,
-    },
-    drawer: {
-        '& > .fui-DrawerBody': {
-            backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
-            backgroundSize: '100%',
-        },
-    },
-    drawerHeader: {
-        ...shorthands.borderBottom(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
-    },
-    drawerBody: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: tokens.spacingVerticalM,
-        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
-    },
-    drawerButton: {
-        position: 'absolute',
-        ...shorthands.padding(tokens.spacingVerticalS),
-    },
-    card: {},
-    resizer: {
-        ...shorthands.borderLeft(tokens.strokeWidthThin, 'solid', tokens.colorNeutralBackground5),
-        width: '8px',
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        cursor: 'col-resize',
-        resize: 'horizontal',
-        ':hover': {
-            borderLeftWidth: '4px',
-        },
-    },
-    resizerActive: {
-        borderLeftWidth: '4px',
-        borderLeftColor: tokens.colorNeutralBackground5Pressed,
-    },
-    inspectorButton: {
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        ...shorthands.padding(tokens.spacingVerticalS),
-        zIndex: 1000,
-    },
-    inspectors: {
-        position: 'relative',
-        backgroundColor: tokens.colorNeutralBackgroundAlpha,
-        height: '100%',
-        overflowY: 'auto',
+    historyContent: {
+        // do not use flexbox here, it breaks the virtuoso
+        width: '100%',
+        maxWidth: `${Constants.app.maxContentWidth}px`,
+        ...shorthands.padding(0, tokens.spacingHorizontalXS, 0, 0),
     },
     input: {
         display: 'flex',
@@ -112,15 +53,6 @@ const useClasses = makeStyles({
         backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
         ...shorthands.borderTop(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
         ...shorthands.borderBottom(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
-    },
-    historyContent: {
-        // do not use flexbox here, it breaks the virtuoso
-        width: '100%',
-        maxWidth: `${Constants.app.maxContentWidth}px`,
-        ...shorthands.padding(0, tokens.spacingHorizontalXXXL),
-    },
-    historyContentWithInspector: {
-        paddingRight: tokens.spacingHorizontalNone,
     },
 });
 
@@ -131,10 +63,6 @@ export const Interact: React.FC = () => {
     }
 
     const classes = useClasses();
-    const { chatWidthPercent, inspector } = useAppSelector((state) => state.app);
-    const dispatch = useAppDispatch();
-    const animationFrame = React.useRef<number>(0);
-    const resizeHandleRef = React.useRef<HTMLDivElement>(null);
     const { data: assistants, error: assistantsError, isLoading: isLoadingAssistants } = useGetAssistantsQuery();
     const {
         data: conversation,
@@ -142,16 +70,17 @@ export const Interact: React.FC = () => {
         isLoading: isLoadingConversation,
     } = useGetConversationQuery(conversationId);
     const {
-        data: participants,
-        error: participantsError,
-        isLoading: isLoadingParticipants,
+        data: conversationParticipants,
+        error: conversationParticipantsError,
+        isLoading: isLoadingConversationParticipants,
     } = useGetConversationParticipantsQuery(conversationId);
+    const {
+        data: conversationFiles,
+        error: conversationFilesError,
+        isLoading: isLoadingConversationFiles,
+    } = useGetConversationFilesQuery(conversationId);
 
-    const [drawerIsOpen, setDrawerIsOpen] = React.useState(false);
-    const [checkedParticipantLength, setCheckedParticipantLength] = React.useState(false);
-    const [isResizing, setIsResizing] = React.useState(false);
     const siteUtility = useSiteUtility();
-    const environment = useEnvironment();
 
     if (assistantsError) {
         const errorMessage = JSON.stringify(assistantsError);
@@ -163,9 +92,14 @@ export const Interact: React.FC = () => {
         throw new Error(`Error loading conversation: ${errorMessage}`);
     }
 
-    if (participantsError) {
-        const errorMessage = JSON.stringify(participantsError);
+    if (conversationParticipantsError) {
+        const errorMessage = JSON.stringify(conversationParticipantsError);
         throw new Error(`Error loading participants: ${errorMessage}`);
+    }
+
+    if (conversationFilesError) {
+        const errorMessage = JSON.stringify(conversationFilesError);
+        throw new Error(`Error loading conversation files: ${errorMessage}`);
     }
 
     if (!isLoadingAssistants && (!assistants || assistants.length === 0)) {
@@ -177,80 +111,31 @@ export const Interact: React.FC = () => {
         throw new Error(errorMessage);
     }
 
-    if (!isLoadingParticipants && !participants) {
+    if (!isLoadingConversationParticipants && !conversationParticipants) {
         const errorMessage = `No participants loaded for ${conversationId}`;
         throw new Error(errorMessage);
     }
 
+    if (!isLoadingConversationFiles && !conversationFiles) {
+        const errorMessage = `No conversation files loaded for ${conversationId}`;
+        throw new Error(errorMessage);
+    }
+
     React.useEffect(() => {
-        if (conversation && participants) {
+        if (conversation && conversationParticipants) {
             siteUtility.setDocumentTitle(conversation.title);
-            if (participants.length < 2 && !checkedParticipantLength) {
-                setCheckedParticipantLength(true);
-                setDrawerIsOpen(true);
-            }
         }
-    }, [checkedParticipantLength, conversation, participants, siteUtility]);
-
-    const startResizing = React.useCallback(() => setIsResizing(true), []);
-    const stopResizing = React.useCallback(() => setIsResizing(false), []);
-
-    const resize = React.useCallback(
-        (event: { clientX: number }) => {
-            animationFrame.current = requestAnimationFrame(() => {
-                if (isResizing && resizeHandleRef.current) {
-                    const desiredWidth =
-                        resizeHandleRef.current.getBoundingClientRect().left +
-                        (event.clientX - resizeHandleRef.current.getBoundingClientRect().left);
-                    const desiredWidthPercent = (desiredWidth / window.innerWidth) * 100;
-                    const minChatWidthPercent = Constants.app.minChatWidthPercent;
-                    dispatch(
-                        setChatWidthPercent(
-                            Math.max(minChatWidthPercent, Math.min(desiredWidthPercent, 100 - minChatWidthPercent)),
-                        ),
-                    );
-                }
-            });
-        },
-        [dispatch, isResizing],
-    );
-
-    React.useEffect(() => {
-        window.addEventListener('mousemove', resize);
-        window.addEventListener('mouseup', stopResizing);
-
-        return () => {
-            cancelAnimationFrame(animationFrame.current);
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
-        };
-    }, [resize, stopResizing]);
-
-    React.useEffect(() => {
-        var workbenchEventSource: WorkbenchEventSource | undefined;
-
-        const handleFocusEvent = (event: EventSourceMessage) => {
-            const { data } = JSON.parse(event.data);
-            dispatch(setInspector({ open: true, assistantId: data['assistant_id'], stateId: data['state_id'] }));
-        };
-
-        (async () => {
-            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
-            workbenchEventSource.addEventListener('assistant.state.focus', handleFocusEvent);
-        })();
-
-        return () => {
-            workbenchEventSource?.removeEventListener('assistant.state.focus', handleFocusEvent);
-        };
-    }, [environment, conversationId, dispatch]);
+    }, [conversation, conversationParticipants, siteUtility]);
 
     if (
         isLoadingAssistants ||
         isLoadingConversation ||
-        isLoadingParticipants ||
+        isLoadingConversationParticipants ||
+        isLoadingConversationFiles ||
         !assistants ||
         !conversation ||
-        !participants
+        !conversationParticipants ||
+        !conversationFiles
     ) {
         return (
             <AppView title="Interact">
@@ -264,71 +149,33 @@ export const Interact: React.FC = () => {
     };
 
     const conversationAssistants = assistants.filter((assistant) =>
-        participants.some((participant) => participant.active && participant.id === assistant.id),
+        conversationParticipants.some(
+            (conversationParticipant) => conversationParticipant.active && conversationParticipant.id === assistant.id,
+        ),
     );
 
     return (
         <AppView title={conversation.title} actions={actions} fullSizeContent>
-            <div
-                className={classes.root}
-                style={{
-                    gridTemplateColumns: inspector?.open
-                        ? `min(${chatWidthPercent}%, ${Constants.app.maxContentWidth}px) auto`
-                        : '1fr auto',
-                }}
-            >
+            <div className={classes.root}>
                 <div className={classes.main}>
                     <div className={classes.history}>
-                        <div className={classes.controls}>
-                            {!drawerIsOpen && (
-                                <div className={classes.drawerButton}>
-                                    <Button icon={<PanelLeftExpand24Regular />} onClick={() => setDrawerIsOpen(true)} />
-                                </div>
-                            )}
-                            {drawerIsOpen && (
-                                <ConversationControls
-                                    conversation={conversation}
-                                    participants={participants}
-                                    onOpenChange={(open) => setDrawerIsOpen(open)}
-                                />
-                            )}
-                        </div>
-                        <div
-                            className={
-                                inspector?.open
-                                    ? mergeClasses(classes.historyContent, classes.historyContentWithInspector)
-                                    : classes.historyContent
-                            }
-                        >
-                            <InteractHistory conversation={conversation} participants={participants} />
+                        <div className={classes.historyContent}>
+                            <InteractHistory conversation={conversation} participants={conversationParticipants} />
                         </div>
                     </div>
                     <div className={classes.input}>
                         <InteractInput conversationId={conversationId} />
                     </div>
-                    {!inspector?.open && (
-                        <div className={classes.inspectorButton}>
-                            <Button
-                                appearance={inspector?.open ? 'subtle' : 'secondary'}
-                                icon={<BookInformation24Regular />}
-                                onClick={() => dispatch(setInspector({ open: true }))}
-                            />
-                        </div>
-                    )}
                 </div>
-                <div className={classes.inspectors} onMouseDown={(event) => event.preventDefault()}>
-                    <div
-                        className={mergeClasses(classes.resizer, isResizing && classes.resizerActive)}
-                        ref={resizeHandleRef}
-                        onMouseDown={startResizing}
-                    />
-                    {inspector?.open && (
-                        <ConversationCanvas
-                            conversationAssistants={conversationAssistants}
-                            conversation={conversation}
-                        />
-                    )}
-                </div>
+                <InteractCanvas
+                    conversation={conversation}
+                    conversationParticipants={conversationParticipants}
+                    conversationFiles={conversationFiles}
+                    conversationAssistants={conversationAssistants}
+                    preventAssistantModifyOnParticipantIds={conversationParticipants
+                        .filter((participant) => participant.active)
+                        .map((participant) => participant.id)}
+                />
             </div>
         </AppView>
     );

@@ -7,10 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant import config
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
-from assistant.responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluatorConfigModel
-
+from .agents.artifact_agent import ArtifactAgentConfigModel
 from .agents.attachment_agent import AttachmentAgentConfigModel
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluatorConfigModel, AzureContentSafetyServiceConfigModel
+from .responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluatorConfigModel
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -23,11 +23,38 @@ from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluatorConfigMod
 
 
 #
+# region Helpers
+#
+
+
+# helper for loading a prompt from a text file
+def _load_prompt_from_text_file(filename) -> str:
+    # get directory relative to this module
+    directory = pathlib.Path(__file__).parent
+
+    # get the file path for the prompt file
+    file_path = directory / "prompts" / filename
+
+    # read the prompt from the file
+    return file_path.read_text()
+
+
+# endregion
+
+
+#
 # region Assistant Configuration
 #
 
 
 class AgentsConfigModel(BaseModel):
+    artifact_agent: Annotated[
+        ArtifactAgentConfigModel,
+        Field(
+            title="Artifact Agent Configuration",
+            description="Configuration for the artifact agent.",
+        ),
+    ] = ArtifactAgentConfigModel()
     attachment_agent: Annotated[
         AttachmentAgentConfigModel,
         Field(
@@ -103,19 +130,6 @@ class RequestConfig(BaseModel):
     ] = "gpt-4o"
 
 
-# helper for loading the guardrails prompt from a text file
-def load_guardrails_prompt_from_text_file() -> str:
-    # get directory relative to this module
-    directory = pathlib.Path(__file__).parent
-
-    # get the file path for the guardrails prompt
-    file_path = directory / "responsible_ai" / "guardrails_prompt.txt"
-
-    # read the guardrails prompt from the file
-    with open(file_path, "r") as file:
-        return file.read()
-
-
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
     enable_debug_output: Annotated[
@@ -162,7 +176,7 @@ class AssistantConfigModel(BaseModel):
             ),
         ),
         UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = load_guardrails_prompt_from_text_file()
+    ] = _load_prompt_from_text_file("guardrails_prompt.txt")
 
     welcome_message: Annotated[
         str,

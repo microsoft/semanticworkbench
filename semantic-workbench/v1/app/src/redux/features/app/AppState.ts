@@ -1,7 +1,10 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { InteractCanvasState } from '../../../models/InteractCanvasState';
+
 export interface AppState {
     devMode?: boolean;
+    isDraggingOverBody?: boolean;
     errors?: {
         id: string;
         title?: string;
@@ -13,9 +16,5 @@ export interface AppState {
         workflow?: boolean;
     };
     chatWidthPercent: number;
-    inspector?: {
-        open?: boolean;
-        assistantId?: string;
-        stateId?: string;
-    };
+    interactCanvasState?: InteractCanvasState;
 }

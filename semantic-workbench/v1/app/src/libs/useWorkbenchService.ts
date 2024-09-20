@@ -4,6 +4,7 @@ import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { useAccount, useMsal } from '@azure/msal-react';
 import { Assistant } from '../models/Assistant';
 import { AssistantServiceInfo } from '../models/AssistantServiceInfo';
+import { ConversationFile } from '../models/ConversationFile';
 import { useAppDispatch } from '../redux/app/hooks';
 import { addError } from '../redux/features/app/appSlice';
 import { assistantApi, workflowApi } from '../services/workbench';
@@ -71,7 +72,7 @@ export const useWorkbenchService = () => {
                 ...options,
                 headers: {
                     ...options?.headers,
-                    'Authorization': `Bearer ${accessToken}`,
+                    Authorization: `Bearer ${accessToken}`,
                     'X-OpenIdToken': idToken,
                 },
             });
@@ -86,6 +87,52 @@ export const useWorkbenchService = () => {
             dispatch(addError({ title: operationTitle, message: (error as Error).message }));
             throw error;
         }
+    };
+
+    const tryFetchStreamAsync = async (
+        operationTitle: string,
+        url: string,
+        options?: RequestInit,
+    ): Promise<Response> => {
+        const accessToken = await getAccessTokenAsync();
+        const idToken = await getIdTokenAsync();
+        try {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...options?.headers,
+                    Authorization: `Bearer ${accessToken}`,
+                    'X-OpenIdToken': idToken,
+                },
+            });
+            return response;
+        } catch (error) {
+            dispatch(addError({ title: operationTitle, message: (error as Error).message }));
+            throw error;
+        }
+    };
+
+    const tryFetchFileAsync = async (
+        operationTitle: string,
+        path: string,
+        defaultFilename: string,
+    ): Promise<{ blob: Blob; filename: string }> => {
+        const response = await tryFetchAsync(operationTitle, `${environment.url}${path}`);
+        const blob = await response.blob();
+        return {
+            blob,
+            filename:
+                response.headers.get('Content-Disposition')?.split('filename=')[1].replaceAll('"', '') ??
+                defaultFilename,
+        };
+    };
+
+    const downloadConversationFileAsync = async (
+        conversationId: string,
+        conversationFile: ConversationFile,
+    ): Promise<Response> => {
+        const path = `/conversations/${conversationId}/files/${conversationFile.name}`;
+        return await tryFetchStreamAsync('Download conversation file', `${environment.url}${path}`);
     };
 
     const exportConversationsAsync = async (conversationIds: string[]): Promise<{ blob: Blob; filename: string }> => {
@@ -130,13 +177,8 @@ export const useWorkbenchService = () => {
         blob: Blob;
         filename: string;
     }> => {
-        const response = await tryFetchAsync('Export assistant', `${environment.url}/assistants/${assistantId}/export`);
-
-        // file comes back as an attachment with the name available in the content-disposition header
-        const contentDisposition = response.headers.get('Content-Disposition');
-        const filename = contentDisposition?.split('filename=')[1].replaceAll('"', '');
-        const blob = await response.blob();
-        return { blob, filename: filename || 'assistant-export.zip' };
+        const path = `/assistants/${assistantId}/export`;
+        return await tryFetchFileAsync('Export assistant', path, 'assistant-export.zip');
     };
 
     const importAssistantAsync = async (exportData: File) => {
@@ -196,6 +238,7 @@ export const useWorkbenchService = () => {
     };
 
     return {
+        downloadConversationFileAsync,
         exportConversationsAsync,
         importConversationsAsync,
         duplicateConversationsAsync,
