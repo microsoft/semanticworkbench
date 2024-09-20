@@ -48,12 +48,14 @@
   },
   // For use with optional extension: "streetsidesoftware.code-spell-checker"
   "cSpell.words": [
+    "codepen",
     "Codespaces",
     "contentsafety",
     "deepmerge",
     "devcontainer",
     "dotenv",
     "endregion",
+    "Excalidraw",
     "fastapi",
     "jsonschema",
     "Langchain",

@@ -31,7 +31,7 @@ export const InputAttachmentList: React.FC<InputAttachmentProps> = (props) => {
 
     const attachmentList: AttachmentProps[] = attachments.map((file) => ({
         id: file.name,
-        media: <ConversationFileIcon conversationFile={file} className={classes.media} />,
+        media: <ConversationFileIcon file={file} className={classes.media} />,
         children: (
             <Tooltip content={file.name} relationship="label">
                 <span>{file.name}</span>
@@ -41,7 +41,6 @@ export const InputAttachmentList: React.FC<InputAttachmentProps> = (props) => {
 
     return (
         <AttachmentList
-            maxVisibleAttachments={10}
             onAttachmentDismiss={(_event, data) => {
                 const file = attachments.find((file) => file.name === data.id);
                 if (file) {

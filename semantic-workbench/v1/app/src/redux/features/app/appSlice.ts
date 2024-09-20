@@ -85,7 +85,7 @@ export const appSlice = createSlice({
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
-        setCanvasState: (
+        setConversationCanvasState: (
             state: AppState,
             action: PayloadAction<{
                 open?: boolean | null;
@@ -95,24 +95,24 @@ export const appSlice = createSlice({
             }>,
         ) => {
             // only update the properties that are provided
-            if (!state.canvasState) {
-                state.canvasState = {};
+            if (!state.conversationCanvasState) {
+                state.conversationCanvasState = {};
             }
 
             if (action.payload.open !== undefined) {
-                state.canvasState.open = action.payload.open ?? false;
+                state.conversationCanvasState.open = action.payload.open ?? false;
             }
 
             if (action.payload.mode !== undefined) {
-                state.canvasState.mode = action.payload.mode;
+                state.conversationCanvasState.mode = action.payload.mode;
             }
 
             if (action.payload.assistantId !== undefined) {
-                state.canvasState.assistantId = action.payload.assistantId ?? undefined;
+                state.conversationCanvasState.assistantId = action.payload.assistantId ?? undefined;
             }
 
             if (action.payload.assistantStateId !== undefined) {
-                state.canvasState.assistantStateId = action.payload.assistantStateId ?? undefined;
+                state.conversationCanvasState.assistantStateId = action.payload.assistantStateId ?? undefined;
             }
         },
     },
@@ -126,7 +126,7 @@ export const {
     clearErrors,
     setChatWidthPercent,
     setCompletedFirstRun,
-    setCanvasState,
+    setConversationCanvasState,
 } = appSlice.actions;
 
 export default appSlice.reducer;

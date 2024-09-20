@@ -23,6 +23,7 @@ import {
     COMMAND_PRIORITY_LOW,
     LineBreakNode,
     PASTE_COMMAND,
+    SerializedTextNode,
 } from 'lexical';
 import React from 'react';
 import { Constants } from '../../Constants';
@@ -104,6 +105,8 @@ interface InteractInputProps {
     additionalContent?: React.ReactNode;
 }
 
+interface SerializedTemporaryTextNode extends SerializedTextNode {}
+
 class TemporaryTextNode extends TextNode {
     static getType() {
         return 'temporary';
@@ -111,6 +114,14 @@ class TemporaryTextNode extends TextNode {
 
     static clone(node: TemporaryTextNode) {
         return new TemporaryTextNode(node.__text, node.__key);
+    }
+
+    static importJSON(serializedNode: SerializedTextNode): TextNode {
+        return super.importJSON(serializedNode) as TemporaryTextNode;
+    }
+
+    exportJSON(): SerializedTextNode {
+        return super.exportJSON() as SerializedTemporaryTextNode;
     }
 }
 

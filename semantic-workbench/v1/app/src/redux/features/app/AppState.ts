@@ -1,5 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { ConversationCanvasState } from '../../../models/ConversationCanvasState';
+
 export interface AppState {
     devMode?: boolean;
     isDraggingOverBody?: boolean;
@@ -14,10 +16,5 @@ export interface AppState {
         workflow?: boolean;
     };
     chatWidthPercent: number;
-    canvasState?: {
-        open?: boolean;
-        mode?: 'conversation' | 'assistant';
-        assistantId?: string;
-        assistantStateId?: string;
-    };
+    conversationCanvasState?: ConversationCanvasState;
 }

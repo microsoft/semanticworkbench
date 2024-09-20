@@ -216,6 +216,7 @@
     "sqlalchemy",
     "sqlmodel",
     "starlette",
+    "streamsaver",
     "tabster",
     "tiktoken",
     "tracebacks",

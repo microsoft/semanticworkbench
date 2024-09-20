@@ -13,9 +13,9 @@ import {
 } from '@fluentui/react-components';
 import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { useCanvasController } from '../../libs/useCanvasController';
 import { AssistantStateDescription } from '../../models/AssistantStateDescription';
-import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { setInspector } from '../../redux/features/app/appSlice';
+import { useAppSelector } from '../../redux/app/hooks';
 import { Inspector } from './Inspector';
 
 const useClasses = makeStyles({
@@ -56,17 +56,16 @@ interface InspectorListProps {
 export const InspectorList: React.FC<InspectorListProps> = (props) => {
     const { conversationId, stateDescriptions, hideCloseButton } = props;
     const classes = useClasses();
-    const { inspector } = useAppSelector((state) => state.app);
-    const dispatch = useAppDispatch();
+    const { conversationCanvasState } = useAppSelector((state) => state.app);
+    const canvasController = useCanvasController();
 
-    const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
-        dispatch(setInspector({ stateId: data.value as string }));
-    };
+    const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) =>
+        canvasController.transitionToState({ assistantStateId: data.value as string });
 
-    const selectedTab = inspector?.stateId ?? stateDescriptions[0].id;
+    const selectedTab = conversationCanvasState?.assistantStateId ?? stateDescriptions[0].id;
     const selectedStateDescription = stateDescriptions.find((stateDescription) => stateDescription.id === selectedTab);
 
-    if (!inspector?.assistantId) return null;
+    if (!conversationCanvasState?.assistantId) return null;
 
     return (
         <div className={classes.root}>
@@ -85,9 +84,7 @@ export const InspectorList: React.FC<InspectorListProps> = (props) => {
                         <Button
                             appearance="secondary"
                             icon={<BookInformation24Regular />}
-                            onClick={() => {
-                                dispatch(setInspector({ open: false }));
-                            }}
+                            onClick={() => canvasController.transitionToState({ open: false })}
                         />
                     )}
                 </div>
@@ -95,7 +92,7 @@ export const InspectorList: React.FC<InspectorListProps> = (props) => {
             {selectedStateDescription && (
                 <div className={classes.body}>
                     <Inspector
-                        assistantId={inspector?.assistantId}
+                        assistantId={conversationCanvasState?.assistantId}
                         conversationId={conversationId}
                         stateDescription={selectedStateDescription}
                     />

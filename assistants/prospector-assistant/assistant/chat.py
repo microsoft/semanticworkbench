@@ -14,6 +14,7 @@ import tiktoken
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 from semantic_workbench_api_model.workbench_model import (
+    AssistantStateEvent,
     ConversationEvent,
     ConversationMessage,
     ConversationParticipant,
@@ -355,10 +356,15 @@ async def respond_to_conversation(
     # add the history messages to the completion messages
     completion_messages.extend(history_messages)
 
-    class ProspectorResponseFormat(BaseModel):
+    class StructuredResponseFormat(BaseModel):
         class Config:
+            extra = "forbid"
             schema_extra = {
-                "description": "The response format for the Prospector Assistant.",
+                "description": (
+                    "The response format for the assistant. Use the assistant_response field for the"
+                    " response content and the artifacts_to_create_or_update field for any artifacts"
+                    " to create or update."
+                ),
                 "required": ["assistant_response", "artifacts_to_create_or_update"],
             }
 
@@ -374,33 +380,37 @@ async def respond_to_conversation(
                 messages=completion_messages,
                 model=config.request_config.openai_model,
                 max_tokens=config.request_config.response_tokens,
-                response_format=ProspectorResponseFormat,
+                response_format=StructuredResponseFormat,
             )
             content = completion.choices[0].message.content
 
             # get the prospector response from the completion
-            prospector_response = completion.choices[0].message.parsed
+            structured_response = completion.choices[0].message.parsed
             # get the assistant response from the prospector response
-            content = prospector_response.assistant_response if prospector_response else content
+            content = structured_response.assistant_response if structured_response else content
             # get the artifacts to create or update from the prospector response
-            if prospector_response and prospector_response.artifacts_to_create_or_update:
-                for artifact in prospector_response.artifacts_to_create_or_update:
+            if structured_response and structured_response.artifacts_to_create_or_update:
+                for artifact in structured_response.artifacts_to_create_or_update:
                     ArtifactAgent.create_or_update_artifact(
                         context,
-                        artifact.filename,
                         artifact,
-                        metadata=metadata,
                     )
-                # add the artifact to the metadata for debugging
-                deepmerge.always_merger.merge(
-                    metadata,
-                    {
-                        "debug": {
-                            f"{method_metadata_key}": {
-                                "artifacts_to_create_or_update": prospector_response.artifacts_to_create_or_update,
-                            },
-                        }
-                    },
+                # send an event to notify the artifact state was updated
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(
+                        state_id="artifacts",
+                        event="updated",
+                        state=None,
+                    )
+                )
+
+                # send a focus event to notify the assistant to focus on the artifacts
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(
+                        state_id="artifacts",
+                        event="focus",
+                        state=None,
+                    )
                 )
 
             # get the total tokens used for the completion
@@ -416,7 +426,7 @@ async def respond_to_conversation(
                                 "model": config.request_config.openai_model,
                                 "messages": completion_messages,
                                 "max_tokens": config.request_config.response_tokens,
-                                "response_format": ProspectorResponseFormat.model_json_schema(),
+                                "response_format": StructuredResponseFormat.model_json_schema(),
                             },
                             "response": completion.model_dump() if completion else "[no response from openai]",
                         },

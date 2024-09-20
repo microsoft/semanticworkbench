@@ -1,15 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    Button,
-    Caption1,
-    Card,
-    CardFooter,
-    CardHeader,
-    DialogTrigger,
-    Text,
-    makeStyles,
-} from '@fluentui/react-components';
+import { Button, Caption1, Card, CardFooter, CardHeader, DialogTrigger, Text } from '@fluentui/react-components';
 import { ArrowDownloadRegular, Delete16Regular } from '@fluentui/react-icons';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -27,15 +18,6 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.guess();
 
-const useClasses = makeStyles({
-    details: {
-        display: 'flex',
-        flexDirection: 'column',
-        // gap: tokens.spacingVerticalM,
-        marginTop: '0.5rem',
-    },
-});
-
 interface FileItemProps {
     conversation: Conversation;
     conversationFile: ConversationFile;
@@ -44,7 +26,6 @@ interface FileItemProps {
 
 export const FileItem: React.FC<FileItemProps> = (props) => {
     const { conversation, conversationFile } = props;
-    const classes = useClasses();
     const workbenchService = useWorkbenchService();
     const [deleteConversationFile] = useDeleteConversationFileMutation();
 
@@ -108,7 +89,7 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
     return (
         <Card key={conversationFile.name}>
             <CardHeader
-                image={<ConversationFileIcon conversationFile={conversationFile} size={24} />}
+                image={<ConversationFileIcon file={conversationFile} size={24} />}
                 header={<Text weight="semibold">{conversationFile.name}</Text>}
                 description={
                     <Caption1>

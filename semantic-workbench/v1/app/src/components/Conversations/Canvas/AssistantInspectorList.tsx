@@ -13,9 +13,9 @@ import {
 } from '@fluentui/react-components';
 import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { useCanvasController } from '../../../libs/useCanvasController';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
-import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
-import { setCanvasState } from '../../../redux/features/app/appSlice';
+import { useAppSelector } from '../../../redux/app/hooks';
 import { AssistantInspector } from './AssistantInspector';
 
 const useClasses = makeStyles({
@@ -56,17 +56,17 @@ interface AssistantInspectorListProps {
 export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (props) => {
     const { conversationId, stateDescriptions, hideCloseButton } = props;
     const classes = useClasses();
-    const { canvasState } = useAppSelector((state) => state.app);
-    const dispatch = useAppDispatch();
+    const { conversationCanvasState } = useAppSelector((state) => state.app);
+    const canvasController = useCanvasController();
 
     const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
-        dispatch(setCanvasState({ assistantStateId: data.value as string }));
+        canvasController.transitionToState({ assistantStateId: data.value as string });
     };
 
-    const selectedTab = canvasState?.assistantStateId ?? stateDescriptions[0].id;
+    const selectedTab = conversationCanvasState?.assistantStateId ?? stateDescriptions[0].id;
     const selectedStateDescription = stateDescriptions.find((stateDescription) => stateDescription.id === selectedTab);
 
-    if (!canvasState?.assistantId) return null;
+    if (!conversationCanvasState?.assistantId) return null;
 
     if (stateDescriptions.length === 0) {
         return (
@@ -78,9 +78,7 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
                             <Button
                                 appearance="secondary"
                                 icon={<BookInformation24Regular />}
-                                onClick={() => {
-                                    dispatch(setCanvasState({ open: false }));
-                                }}
+                                onClick={() => canvasController.transitionToState({ open: false })}
                             />
                         )}
                     </div>
@@ -106,9 +104,7 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
                         <Button
                             appearance="secondary"
                             icon={<BookInformation24Regular />}
-                            onClick={() => {
-                                dispatch(setCanvasState({ open: false }));
-                            }}
+                            onClick={() => canvasController.transitionToState({ open: false })}
                         />
                     )}
                 </div>
@@ -116,7 +112,7 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
             {selectedStateDescription && (
                 <div className={classes.body}>
                     <AssistantInspector
-                        assistantId={canvasState?.assistantId}
+                        assistantId={conversationCanvasState?.assistantId}
                         conversationId={conversationId}
                         stateDescription={selectedStateDescription}
                     />

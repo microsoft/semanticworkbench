@@ -3,10 +3,10 @@
 import { Button, Tab, TabList, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import { BookInformation24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { useCanvasController } from '../../../libs/useCanvasController';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
-import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
-import { setCanvasState } from '../../../redux/features/app/appSlice';
+import { useAppSelector } from '../../../redux/app/hooks';
 import { AssistantCanvas } from './AssistantCanvas';
 
 const useClasses = makeStyles({
@@ -35,31 +35,33 @@ interface AssistantsCanvasProps {
 export const AssistantsCanvas: React.FC<AssistantsCanvasProps> = (props) => {
     const { conversationAssistants, conversation } = props;
     const classes = useClasses();
-    const { canvasState } = useAppSelector((state) => state.app);
-    const dispatch = useAppDispatch();
+    const { conversationCanvasState } = useAppSelector((state) => state.app);
+    const canvasController = useCanvasController();
 
     React.useEffect(() => {
         if (conversationAssistants.length === 0) {
-            if (canvasState?.assistantId) {
-                dispatch(setCanvasState({ assistantId: null }));
+            if (conversationCanvasState?.assistantId) {
+                canvasController.transitionToState({ assistantId: null });
             }
             return;
         }
 
         // Verify the selected assistant is still in the list
         if (
-            canvasState?.assistantId &&
-            conversationAssistants.some((assistant) => assistant.id === canvasState.assistantId)
+            conversationCanvasState?.assistantId &&
+            conversationAssistants.some((assistant) => assistant.id === conversationCanvasState.assistantId)
         ) {
             // Assistant is still in the list
             return;
         }
 
         // Select the first assistant in the list
-        dispatch(setCanvasState({ assistantId: conversationAssistants[0].id }));
-    }, [conversationAssistants, dispatch, canvasState]);
+        canvasController.transitionToState({ assistantId: conversationAssistants[0].id });
+    }, [conversationAssistants, conversationCanvasState, canvasController]);
 
-    const selectedAssistant = conversationAssistants.find((assistant) => assistant.id === canvasState?.assistantId);
+    const selectedAssistant = conversationAssistants.find(
+        (assistant) => assistant.id === conversationCanvasState?.assistantId,
+    );
 
     return (
         <>
@@ -68,7 +70,7 @@ export const AssistantsCanvas: React.FC<AssistantsCanvasProps> = (props) => {
                     No assistants found.
                     <Button
                         appearance="secondary"
-                        onClick={() => dispatch(setCanvasState({ open: false }))}
+                        onClick={() => canvasController.transitionToState({ open: false })}
                         icon={<BookInformation24Regular />}
                     />
                 </div>
@@ -82,14 +84,11 @@ export const AssistantsCanvas: React.FC<AssistantsCanvasProps> = (props) => {
                         <TabList
                             selectedValue={selectedAssistant?.id ?? conversationAssistants[0].id}
                             onTabSelect={(_event, selectedItem) =>
-                                dispatch(
-                                    setCanvasState({
-                                        assistantId:
-                                            conversationAssistants.find(
-                                                (assistant) => assistant.id === selectedItem.value,
-                                            )?.id ?? null,
-                                    }),
-                                )
+                                canvasController.transitionToState({
+                                    assistantId:
+                                        conversationAssistants.find((assistant) => assistant.id === selectedItem.value)
+                                            ?.id ?? null,
+                                })
                             }
                             size="small"
                         >
@@ -105,9 +104,7 @@ export const AssistantsCanvas: React.FC<AssistantsCanvasProps> = (props) => {
                         <Button
                             appearance="secondary"
                             icon={<BookInformation24Regular />}
-                            onClick={() => {
-                                dispatch(setCanvasState({ open: false }));
-                            }}
+                            onClick={() => canvasController.transitionToState({ open: false })}
                         />
                     </div>
                     {selectedAssistant && (

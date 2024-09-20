@@ -5,7 +5,7 @@ import React from 'react';
 import { ConversationFile } from '../../models/ConversationFile';
 
 interface ConversationFileIconProps {
-    conversationFile: File | ConversationFile;
+    file: File | ConversationFile | string;
     className?: string;
     /**
      * The type of file type icon you need. Use this property for
@@ -17,19 +17,20 @@ interface ConversationFileIconProps {
 }
 
 export const ConversationFileIcon: React.FC<ConversationFileIconProps> = (props) => {
-    const { conversationFile, className, type, size } = props;
+    const { file, className, type, size } = props;
 
     // if it is of type File and is an image, display the image instead of the file type icon
-    if (conversationFile instanceof File && conversationFile.type.startsWith('image/')) {
-        return <Image className={className} src={URL.createObjectURL(conversationFile)} alt={conversationFile.name} />;
+    if (file instanceof File && file.type.startsWith('image/')) {
+        return <Image className={className} src={URL.createObjectURL(file)} alt={file.name} />;
     }
 
     // for all other cases, display the file type icon
+    const filename = typeof file === 'string' ? file : file.name;
     return (
         <Image
             className={className}
-            src={getFileTypeIconAsUrl({ extension: conversationFile.name.split('.').pop() ?? '', type, size })}
-            alt={conversationFile.name}
+            src={getFileTypeIconAsUrl({ extension: filename.split('.').pop() ?? '', type, size })}
+            alt={filename}
         />
     );
 };

@@ -56,7 +56,7 @@ export const GeneralCanvas: React.FC<GeneralCanvasProps> = (props) => {
         preventAssistantModifyOnParticipantIds,
     } = props;
     const classes = useClasses();
-    const { open, mode } = useAppSelector((state) => state.app).canvasState || {};
+    const { open, mode } = useAppSelector((state) => state.app).conversationCanvasState || {};
 
     return (
         <>

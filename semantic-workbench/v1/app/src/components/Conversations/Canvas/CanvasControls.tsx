@@ -2,9 +2,12 @@
 
 import { Button, makeStyles, shorthands, tokens, Tooltip } from '@fluentui/react-components';
 import { Bot24Regular, Chat24Regular, Dismiss24Regular } from '@fluentui/react-icons';
+import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
-import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
-import { setCanvasState } from '../../../redux/features/app/appSlice';
+import { useCanvasController } from '../../../libs/useCanvasController';
+import { useEnvironment } from '../../../libs/useEnvironment';
+import { WorkbenchEventSource } from '../../../libs/WorkbenchEventSource';
+import { useAppSelector } from '../../../redux/app/hooks';
 
 const useClasses = makeStyles({
     root: {
@@ -19,81 +22,79 @@ const useClasses = makeStyles({
     },
 });
 
-export const CanvasControls: React.FC = () => {
+interface CanvasControlsProps {
+    conversationId: string;
+}
+
+export const CanvasControls: React.FC<CanvasControlsProps> = (props) => {
+    const { conversationId } = props;
     const classes = useClasses();
-    const { canvasState } = useAppSelector((state) => state.app);
-    const [disabled, setDisabled] = React.useState(false);
-    const dispatch = useAppDispatch();
+    const { conversationCanvasState } = useAppSelector((state) => state.app);
+    const environment = useEnvironment();
+    const canvasController = useCanvasController();
 
-    const waitForCloseDelayMs = 400;
-    const enableDelayMs = 200;
+    React.useEffect(() => {
+        var workbenchEventSource: WorkbenchEventSource | undefined;
 
-    const setCanvasMode = async (mode: 'conversation' | 'assistant') => {
-        // Disable the canvas controls while changing the mode
-        setDisabled(true);
+        const handleFocusEvent = async (event: EventSourceMessage) => {
+            const { data } = JSON.parse(event.data);
+            canvasController.transitionToState({
+                open: true,
+                mode: 'assistant',
+                assistantId: data['assistant_id'],
+                assistantStateId: data['state_id'],
+            });
+        };
 
-        if (canvasState?.open) {
-            // Close the canvas before changing the mode
-            dispatch(setCanvasState({ open: false }));
+        (async () => {
+            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
+            workbenchEventSource.addEventListener('assistant.state.focus', handleFocusEvent);
+        })();
 
-            // Wait for the canvas to close before changing the mode
-            await new Promise((resolve) => setTimeout(resolve, waitForCloseDelayMs));
-        }
-
-        // Restore the canvas controls after a delay
-        setTimeout(() => setDisabled(false), enableDelayMs);
-
-        // Open the canvas with the new mode
-        dispatch(setCanvasState({ open: true, mode }));
-    };
+        return () => {
+            workbenchEventSource?.removeEventListener('assistant.state.focus', handleFocusEvent);
+        };
+    }, [environment, conversationId, canvasController]);
 
     const handleActivateConversation = () => {
-        if (canvasState?.mode === 'conversation' && canvasState?.open) {
-            return;
-        }
-        setCanvasMode('conversation');
+        canvasController.transitionToState({ open: true, mode: 'conversation' });
     };
 
     const handleActivateAssistant = () => {
-        if (canvasState?.mode === 'assistant' && canvasState?.open) {
-            return;
-        }
-        setCanvasMode('assistant');
+        canvasController.transitionToState({ open: true, mode: 'assistant' });
     };
 
     const handleDismiss = async () => {
-        if (!canvasState?.open) {
-            return;
-        }
-
-        // Disable the canvas controls while closing the canvas
-        setDisabled(true);
-
-        // Close the canvas
-        dispatch(setCanvasState({ open: false }));
-
-        // Wait for the canvas to close before changing the mode
-        await new Promise((resolve) => setTimeout(resolve, waitForCloseDelayMs));
-
-        // Restore the canvas controls after the delay
-        setDisabled(false);
+        canvasController.transitionToState({ open: false });
     };
 
     return (
         <div className={classes.root}>
-            {(canvasState?.mode !== 'conversation' || !canvasState?.open) && (
+            {(conversationCanvasState?.mode !== 'conversation' || !conversationCanvasState?.open) && (
                 <Tooltip content="Open conversation canvas" relationship="label">
-                    <Button disabled={disabled} icon={<Chat24Regular />} onClick={handleActivateConversation} />
+                    <Button
+                        disabled={canvasController.isTransitioning}
+                        icon={<Chat24Regular />}
+                        onClick={handleActivateConversation}
+                    />
                 </Tooltip>
             )}
-            {canvasState?.open && (
+            {conversationCanvasState?.open && (
                 <Tooltip content="Close canvas" relationship="label">
-                    <Button disabled={disabled} icon={<Dismiss24Regular />} onClick={handleDismiss} />
+                    <Button
+                        disabled={canvasController.isTransitioning}
+                        icon={<Dismiss24Regular />}
+                        onClick={handleDismiss}
+                    />
                 </Tooltip>
             )}
-            {(canvasState?.mode !== 'assistant' || !canvasState?.open) && (
+            {(conversationCanvasState?.mode !== 'assistant' || !conversationCanvasState?.open) && (
                 <Tooltip content="Open assistant canvas" relationship="label">
-                    <Button disabled={disabled} icon={<Bot24Regular />} onClick={handleActivateAssistant} />
+                    <Button
+                        disabled={canvasController.isTransitioning}
+                        icon={<Bot24Regular />}
+                        onClick={handleActivateAssistant}
+                    />
                 </Tooltip>
             )}
         </div>

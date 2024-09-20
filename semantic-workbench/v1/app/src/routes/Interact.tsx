@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
-import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { Constants } from '../Constants';
@@ -12,11 +11,7 @@ import { GeneralCanvas } from '../components/Conversations/Canvas/GeneralCanvas'
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
-import { WorkbenchEventSource } from '../libs/WorkbenchEventSource';
-import { useEnvironment } from '../libs/useEnvironment';
 import { useSiteUtility } from '../libs/useSiteUtility';
-import { useAppDispatch } from '../redux/app/hooks';
-import { setCanvasState } from '../redux/features/app/appSlice';
 import {
     useGetAssistantsQuery,
     useGetConversationFilesQuery,
@@ -81,7 +76,6 @@ export const Interact: React.FC = () => {
     }
 
     const classes = useClasses();
-    const dispatch = useAppDispatch();
     const { data: assistants, error: assistantsError, isLoading: isLoadingAssistants } = useGetAssistantsQuery();
     const {
         data: conversation,
@@ -100,7 +94,6 @@ export const Interact: React.FC = () => {
     } = useGetConversationFilesQuery(conversationId);
 
     const siteUtility = useSiteUtility();
-    const environment = useEnvironment();
 
     if (assistantsError) {
         const errorMessage = JSON.stringify(assistantsError);
@@ -147,26 +140,6 @@ export const Interact: React.FC = () => {
         }
     }, [conversation, conversationParticipants, siteUtility]);
 
-    React.useEffect(() => {
-        var workbenchEventSource: WorkbenchEventSource | undefined;
-
-        const handleFocusEvent = (event: EventSourceMessage) => {
-            const { data } = JSON.parse(event.data);
-            dispatch(
-                setCanvasState({ open: true, assistantId: data['assistant_id'], assistantStateId: data['state_id'] }),
-            );
-        };
-
-        (async () => {
-            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
-            workbenchEventSource.addEventListener('assistant.state.focus', handleFocusEvent);
-        })();
-
-        return () => {
-            workbenchEventSource?.removeEventListener('assistant.state.focus', handleFocusEvent);
-        };
-    }, [environment, conversationId, dispatch]);
-
     if (
         isLoadingAssistants ||
         isLoadingConversation ||
@@ -209,7 +182,7 @@ export const Interact: React.FC = () => {
                 </div>
                 <div className={classes.canvas}>
                     <div className={classes.controls}>
-                        <CanvasControls />
+                        <CanvasControls conversationId={conversation.id} />
                     </div>
                     <GeneralCanvas
                         conversation={conversation}

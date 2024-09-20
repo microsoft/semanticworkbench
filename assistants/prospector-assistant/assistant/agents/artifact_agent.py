@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Union
+from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.assistant_app import (
@@ -8,7 +8,7 @@ from semantic_workbench_assistant.assistant_app import (
     FileStorageContext,
 )
 from semantic_workbench_assistant.config import UISchema
-from semantic_workbench_assistant.storage import read_model, read_models_in_dir, write_model
+from semantic_workbench_assistant.storage import read_model, write_model
 
 #
 # region Models
@@ -24,12 +24,10 @@ class ArtifactAgentConfigModel(BaseModel):
         UISchema(widget="textarea"),
     ] = (
         "You are able to create artifacts that will be shared with the others in this conversation."
-        " Please include any desired new artifacts or updates to existing artifacts by providing a"
-        " filename and content for each. Artifacts are automatically versioned, so if you are making"
-        " an update to an existing artifact, please use the same filename. If this is an intentional"
-        " variant to explore another idea, go ahead and create a new filename to reflect that. Do not"
-        " include the artifacts in the assistant response, as any included in the artifacts section will"
-        " be shown to all participants in a well-formatted way."
+        " Please include any desired new artifacts or updates to existing artifacts. If this is an "
+        " intentional variant to explore another idea, create a new artifact to reflect that. Do not"
+        " include the artifacts in the assistant response, as any included artifacts will be shown"
+        " to the other conversation participant(s) in a well-formed presentation."
     )
 
     context_description: Annotated[
@@ -52,73 +50,95 @@ class ArtifactAgentConfigModel(BaseModel):
 
 class ArtifactMarkdownContent(BaseModel):
     class Config:
-        schema_extra = {"description": "The content of the artifact in markdown format.", "required": ["markdown"]}
-
-    markdown: str
-
-
-class ArtifactHtmlContent(BaseModel):
-    class Config:
+        extra = "forbid"
         schema_extra = {
-            "description": "The content of the artifact in HTML format, which will be rendered in a CodePen editor.",
-            "required": ["html"],
+            "description": (
+                "The content of the artifact in markdown format. Use this type for any general text that"
+                " does not match another, more specific type."
+            ),
+            "required": ["content_type"],
         }
 
-    html: str
-    javascript: str | None = None
-    css: str | None = None
+    content_type: Literal["markdown"] = "markdown"
 
 
 class ArtifactCodeContent(BaseModel):
     class Config:
+        extra = "forbid"
         schema_extra = {
-            "description": "The content of the artifact in code format with a specified language for syntax highlighting.",
-            "required": ["code", "language"],
+            "description": (
+                "The content of the artifact in code format with a specified language for syntax highlighting."
+            ),
+            "required": ["content_type", "language"],
         }
 
-    code: str
+    content_type: Literal["code"] = "code"
     language: str
 
 
 class ArtifactMermaidContent(BaseModel):
     class Config:
+        extra = "forbid"
         schema_extra = {
             "description": "The content of the artifact in mermaid format, which will be rendered as a diagram.",
-            "required": ["mermaid"],
+            "required": ["content_type"],
         }
 
-    mermaid: str
+    content_type: Literal["mermaid"] = "mermaid"
 
 
 class ArtifactAbcContent(BaseModel):
     class Config:
+        extra = "forbid"
         schema_extra = {
             "description": (
                 "The content of the artifact in abc format, which will be rendered as sheet music, an interactive player,"
                 " and available for download."
             ),
-            "required": ["abc"],
+            "required": ["content_type"],
         }
 
-    abc: str
+    content_type: Literal["abc"] = "abc"
 
 
-ArtifactContent = Union[
+class ArtifactExcalidrawContent(BaseModel):
+    class Config:
+        extra = "forbid"
+        schema_extra = {
+            "description": ("The content of the artifact in Excalidraw format, which will be rendered as a diagram."),
+            "required": ["content_type", "excalidraw"],
+        }
+
+    content_type: Literal["excalidraw"] = "excalidraw"
+
+
+ArtifactContentType = Union[
     ArtifactMarkdownContent,
-    ArtifactHtmlContent,
     ArtifactCodeContent,
     ArtifactMermaidContent,
     ArtifactAbcContent,
+    ArtifactExcalidrawContent,
 ]
 
 
 class Artifact(BaseModel):
-    filename: str
-    content: ArtifactContent
-    # metadata: dict[str, Any]
-
     class Config:
-        schema_extra = {"required": ["filename", "content"]}
+        extra = "forbid"
+        schema_extra = {
+            "description": (
+                "Data for the artifact, which includes a label, content, filename, type, and version. The filename"
+                " should be unique for each artifact, and the version should start at 1 and increment for each new"
+                " version of the artifact. The type should be one of the specific content types and include any"
+                " additional fields required for that type."
+            ),
+            "required": ["label", "content", "filename", "type", "version"],
+        }
+
+    label: str
+    content: str
+    filename: str
+    type: ArtifactContentType
+    version: int
 
 
 # endregion
@@ -135,45 +155,62 @@ class ArtifactAgent:
     """
 
     @staticmethod
-    def create_or_update_artifact(
-        context: ConversationContext, filename: str, artifact: Artifact, metadata: dict[str, Any]
-    ) -> None:
+    def create_or_update_artifact(context: ConversationContext, artifact: Artifact) -> None:
         """
-        Create or update an artifact with the given filename and content.
+        Create or update an artifact with the given filename and contents.
         """
-
-        # content_dict = json.loads(content)
-        # if "markdown" in content_dict:
-        #     artifact_content = ArtifactMarkdownContent(**content_dict)
-        # elif "html" in content_dict:
-        #     artifact_content = ArtifactHtmlContent(**content_dict)
-        # elif "code" in content_dict:
-        #     artifact_content = ArtifactCodeContent(**content_dict)
-        # elif "mermaid" in content_dict:
-        #     artifact_content = ArtifactMermaidContent(**content_dict)
-        # elif "abc" in content_dict:
-        #     artifact_content = ArtifactAbcContent(**content_dict)
-        # else:
-        #     raise ValueError("Invalid content type")
-
-        write_model(
-            _get_artifact_storage_path(context, filename),
-            artifact,
-        )
+        # check if there is already an artifact with the same filename and version
+        existing_artifact = ArtifactAgent.get_artifact(context, artifact.filename, artifact.version)
+        if existing_artifact:
+            # update the existing artifact
+            artifact.version = existing_artifact.version + 1
+            # try again
+            ArtifactAgent.create_or_update_artifact(context, artifact)
+        else:
+            # write the artifact to storage
+            write_model(
+                _get_artifact_storage_path(context, artifact.filename) / f"artifact.{artifact.version}.json",
+                artifact,
+            )
 
     @staticmethod
-    def get_artifact(context: ConversationContext, filename: str) -> Artifact | None:
+    def get_artifact(context: ConversationContext, filename: str, version: int | None = None) -> Artifact | None:
         """
         Read the artifact with the given filename.
         """
-        return read_model(_get_artifact_storage_path(context, filename), Artifact)
+        if version:
+            return read_model(_get_artifact_storage_path(context, filename) / f"artifact.{version}.json", Artifact)
+        else:
+            return read_model(
+                max(
+                    _get_artifact_storage_path(context, filename).glob("artifact.*.json"),
+                    key=lambda p: int(p.stem.split(".")[1]),
+                ),
+                Artifact,
+            )
 
     @staticmethod
     def get_all_artifacts(context: ConversationContext) -> list[Artifact]:
         """
-        Read all artifacts.
+        Read all artifacts, will return latest version of each artifact.
         """
-        return list(read_models_in_dir(_get_artifact_storage_path(context), Artifact))
+        artifacts: list[Artifact] = []
+        artifacts_directory = _get_artifact_storage_path(context)
+        if not artifacts_directory.exists() or not artifacts_directory.is_dir():
+            return artifacts
+
+        for path in artifacts_directory.iterdir():
+            # each should be a directory
+            if path.is_dir():
+                # get the latest version of the artifact
+                artifact = read_model(
+                    max(path.glob("artifact.*.json"), key=lambda p: int(p.stem.split(".")[1])),
+                    Artifact,
+                )
+                if artifact is not None:
+                    artifacts.append(artifact)
+
+        return artifacts
 
     @staticmethod
     def delete_artifact(context: ConversationContext, filename: str) -> None:
@@ -205,15 +242,7 @@ class ArtifactConversationInspectorStateProvider:
 
         # create the data model for the artifacts
         data_model = AssistantConversationInspectorStateDataModel(
-            data={
-                "artifacts": [
-                    {
-                        "filename": artifact.filename,
-                        "content": artifact.content.model_dump(mode="json"),
-                    }
-                    for artifact in artifacts
-                ]
-            }
+            data={"artifacts": [artifact.model_dump(mode="json") for artifact in artifacts]}
         )
 
         return data_model

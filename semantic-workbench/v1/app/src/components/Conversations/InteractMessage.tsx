@@ -2,6 +2,8 @@
 
 import {
     AiGeneratedDisclaimer,
+    Attachment,
+    AttachmentList,
     CopilotMessage,
     SystemMessage,
     Timestamp,
@@ -14,6 +16,7 @@ import {
     PopoverSurface,
     PopoverTrigger,
     Text,
+    Tooltip,
     makeStyles,
     mergeClasses,
     shorthands,
@@ -22,8 +25,8 @@ import {
 import {
     AlertUrgent24Regular,
     AppGenericRegular,
+    Attach24Regular,
     BotRegular,
-    Document16Regular,
     KeyCommandRegular,
     Note24Regular,
     PersonRegular,
@@ -36,7 +39,9 @@ import React from 'react';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useCreateConversationMessageMutation } from '../../services/workbench';
+import { CopyButton } from '../App/CopyButton';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
+import { ConversationFileIcon } from './ConversationFileIcon';
 import { DebugInspector } from './DebugInspector';
 import { MessageDelete } from './MessageDelete';
 import { MessageLink } from './MessageLink';
@@ -90,6 +95,13 @@ const useClasses = makeStyles({
         width: 'fit-content',
         gap: tokens.spacingVerticalM,
     },
+    actions: {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: tokens.spacingHorizontalS,
+        alignItems: 'center',
+        ...shorthands.padding(tokens.spacingVerticalXXS, 0, tokens.spacingVerticalXXS, tokens.spacingHorizontalS),
+    },
     userContent: {
         alignItems: 'end',
     },
@@ -109,15 +121,17 @@ const useClasses = makeStyles({
         alignItems: 'center',
         ...shorthands.padding(tokens.spacingVerticalXS, tokens.spacingHorizontalS),
     },
-    attachment: {
+    attachments: {
         display: 'flex',
-        width: 'fit-content',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalS,
+        ...shorthands.padding(tokens.spacingVerticalS, 0, 0, 0),
+    },
+    popoverContent: {
+        display: 'flex',
         flexDirection: 'row',
         gap: tokens.spacingHorizontalS,
         alignItems: 'center',
-        ...shorthands.padding(tokens.spacingVerticalXS, tokens.spacingHorizontalS),
-        backgroundColor: tokens.colorNeutralBackground3,
-        borderRadius: tokens.borderRadiusMedium,
     },
 });
 
@@ -197,14 +211,18 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         return <div className={mergeClasses(classes.notice, classes.contentSafetyNotice)}>{messageNote}</div>;
     }, [classes.contentSafetyNotice, classes.notice, message.metadata]);
 
-    const generatedContentNotice = React.useMemo(() => {
-        if (isUser || message.metadata?.['generated_content'] === false) return null;
-        return (
-            <AiGeneratedDisclaimer className={classes.generated}>
-                AI-generated content may be incorrect
-            </AiGeneratedDisclaimer>
-        );
-    }, [classes.generated, isUser, message.metadata]);
+    const actions = React.useMemo(
+        () => (
+            <>
+                <MessageLink messageId={message.id} />
+                <DebugInspector debug={message.metadata?.debug} />
+                <CopyButton data={message.content} tooltip="Copy message" size="small" appearance="transparent" />
+                <MessageDelete conversationId={conversationId} message={message} />
+                <RewindConversation conversationId={conversationId} message={message} />
+            </>
+        ),
+        [conversationId, message],
+    );
 
     const getRenderedMessage = React.useCallback(() => {
         let renderedContent: JSX.Element;
@@ -250,21 +268,43 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             renderedContent = <CopilotMessage>{content}</CopilotMessage>;
         }
 
-        const attachments = message.filenames?.map((filename) => (
-            <div key={filename} className={classes.attachment}>
-                <Document16Regular />
-                {filename}
-            </div>
-        ));
+        const attachmentList =
+            message.filenames && message.filenames.length > 0 ? (
+                <AttachmentList className={classes.attachments}>
+                    {message.filenames?.map((filename) => (
+                        <Tooltip content={filename} key={filename} relationship="label">
+                            <Attachment
+                                media={<ConversationFileIcon file={filename} />}
+                                content={filename}
+                                dismissIcon={<Attach24Regular />}
+                            />
+                        </Tooltip>
+                    ))}
+                </AttachmentList>
+            ) : null;
+
+        const aiGeneratedDisclaimer =
+            isUser || message.metadata?.['generated_content'] === false ? null : (
+                <AiGeneratedDisclaimer className={classes.generated}>
+                    AI-generated content may be incorrect
+                </AiGeneratedDisclaimer>
+            );
 
         return (
-            <div className={contentClassName}>
-                {renderedContent}
-                {attachments}
-            </div>
+            <>
+                <div className={classes.actions}>
+                    {(message.messageType !== 'notice' || (message.messageType === 'notice' && !isUser)) && actions}
+                </div>
+                <div className={contentClassName}>{renderedContent}</div>
+                {aiGeneratedDisclaimer}
+                {attachmentList}
+            </>
         );
     }, [
-        classes.attachment,
+        actions,
+        classes.actions,
+        classes.attachments,
+        classes.generated,
         classes.innerContent,
         classes.noteContent,
         classes.noticeContent,
@@ -273,16 +313,10 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         isUser,
         message.filenames,
         message.messageType,
+        message.metadata,
     ]);
 
     const renderedContent = getRenderedMessage();
-    const actions = (
-        <div>
-            <DebugInspector debug={message.metadata?.debug} />
-            <MessageDelete conversationId={conversationId} message={message} />
-            <RewindConversation conversationId={conversationId} message={message} />
-        </div>
-    );
 
     return (
         <div className={rootClassName}>
@@ -291,15 +325,18 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                     <Timestamp>{date}</Timestamp>
                 </Divider>
             )}
-            {hideParticipant ? (
+            {hideParticipant || (message.messageType === 'notice' && isUser) ? (
                 <Popover openOnHover withArrow positioning="before">
-                    <PopoverTrigger>{renderedContent}</PopoverTrigger>
-                    <PopoverSurface>{actions}</PopoverSurface>
+                    <PopoverTrigger>
+                        <div>{renderedContent}</div>
+                    </PopoverTrigger>
+                    <PopoverSurface>
+                        <div className={classes.popoverContent}>{actions}</div>
+                    </PopoverSurface>
                 </Popover>
             ) : (
                 <>
                     <div className={classes.header}>
-                        <MessageLink messageId={message.id} />
                         <Persona
                             size="extra-small"
                             name={participant.name}
@@ -316,11 +353,9 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                         <div>
                             <Timestamp>{time}</Timestamp>
                         </div>
-                        {actions}
                     </div>
                     {renderedContent}
                     {contentSafetyNotice}
-                    {generatedContentNotice}
                 </>
             )}
         </div>
