@@ -50,7 +50,7 @@ const useClasses = makeStyles({
         // do not use flexbox here, it breaks the virtuoso
         width: '100%',
         maxWidth: `${Constants.app.maxContentWidth}px`,
-        ...shorthands.padding(0, tokens.spacingHorizontalXXXL),
+        ...shorthands.padding(0, tokens.spacingHorizontalXS, 0, 0),
     },
     input: {
         display: 'flex',

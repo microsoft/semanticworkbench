@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { Button, makeStyles, shorthands, tokens, Tooltip } from '@fluentui/react-components';
 import { Bot24Regular, Chat24Regular, Dismiss24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
@@ -82,11 +82,19 @@ export const CanvasControls: React.FC = () => {
     return (
         <div className={classes.root}>
             {(canvasState?.mode !== 'conversation' || !canvasState?.open) && (
-                <Button disabled={disabled} icon={<Chat24Regular />} onClick={handleActivateConversation} />
+                <Tooltip content="Open conversation canvas" relationship="label">
+                    <Button disabled={disabled} icon={<Chat24Regular />} onClick={handleActivateConversation} />
+                </Tooltip>
             )}
-            {canvasState?.open && <Button disabled={disabled} icon={<Dismiss24Regular />} onClick={handleDismiss} />}
+            {canvasState?.open && (
+                <Tooltip content="Close canvas" relationship="label">
+                    <Button disabled={disabled} icon={<Dismiss24Regular />} onClick={handleDismiss} />
+                </Tooltip>
+            )}
             {(canvasState?.mode !== 'assistant' || !canvasState?.open) && (
-                <Button disabled={disabled} icon={<Bot24Regular />} onClick={handleActivateAssistant} />
+                <Tooltip content="Open assistant canvas" relationship="label">
+                    <Button disabled={disabled} icon={<Bot24Regular />} onClick={handleActivateAssistant} />
+                </Tooltip>
             )}
         </div>
     );

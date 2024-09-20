@@ -12,6 +12,7 @@ from typing import Any
 import deepmerge
 import tiktoken
 from openai.types.chat import ChatCompletionMessageParam
+from pydantic import BaseModel
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
@@ -29,6 +30,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.attachment_agent import AttachmentAgent
 from .config import AssistantConfigModel, AssistantServiceConfigModel
 from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
@@ -84,6 +86,9 @@ assistant = AssistantApp(
     assistant_service_description=service_description,
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
+    inspector_state_providers={
+        "artifacts": ArtifactConversationInspectorStateProvider(),
+    },
 )
 
 #
@@ -275,6 +280,7 @@ async def respond_to_conversation(
             f' be directed at you or the general audience, go ahead and respond.\n\nSay "{silence_token}" to skip'
             " your turn."
         )
+    system_message_content += f"\n\n{config.agents_config.artifact_agent.instruction_prompt}"
     system_message_content += f"\n\n{config.guardrails_prompt}"
 
     completion_messages: list[ChatCompletionMessageParam] = [
@@ -287,8 +293,7 @@ async def respond_to_conversation(
     # add the attachment agent messages to the completion messages
     if config.agents_config.attachment_agent.include_in_response_generation:
         # generate the attachment messages from the attachment agent
-        attachment_agent = AttachmentAgent()
-        attachment_messages = await attachment_agent.generate_attachment_messages(context)
+        attachment_messages = AttachmentAgent.generate_attachment_messages(context)
 
         # add the attachment messages to the completion messages
         if len(attachment_messages) > 0:
@@ -350,17 +355,53 @@ async def respond_to_conversation(
     # add the history messages to the completion messages
     completion_messages.extend(history_messages)
 
+    class ProspectorResponseFormat(BaseModel):
+        class Config:
+            schema_extra = {
+                "description": "The response format for the Prospector Assistant.",
+                "required": ["assistant_response", "artifacts_to_create_or_update"],
+            }
+
+        assistant_response: str
+        artifacts_to_create_or_update: list[Artifact]
+
     # generate a response from the AI model
     completion_total_tokens: int | None = None
-    async with config_secrets.service_config.new_client(api_version="2024-06-01") as openai_client:
+    async with config_secrets.service_config.new_client(api_version="2024-02-15-preview") as openai_client:
         try:
             # call the OpenAI API to generate a completion
-            completion = await openai_client.chat.completions.create(
+            completion = await openai_client.beta.chat.completions.parse(
                 messages=completion_messages,
                 model=config.request_config.openai_model,
                 max_tokens=config.request_config.response_tokens,
+                response_format=ProspectorResponseFormat,
             )
             content = completion.choices[0].message.content
+
+            # get the prospector response from the completion
+            prospector_response = completion.choices[0].message.parsed
+            # get the assistant response from the prospector response
+            content = prospector_response.assistant_response if prospector_response else content
+            # get the artifacts to create or update from the prospector response
+            if prospector_response and prospector_response.artifacts_to_create_or_update:
+                for artifact in prospector_response.artifacts_to_create_or_update:
+                    ArtifactAgent.create_or_update_artifact(
+                        context,
+                        artifact.filename,
+                        artifact,
+                        metadata=metadata,
+                    )
+                # add the artifact to the metadata for debugging
+                deepmerge.always_merger.merge(
+                    metadata,
+                    {
+                        "debug": {
+                            f"{method_metadata_key}": {
+                                "artifacts_to_create_or_update": prospector_response.artifacts_to_create_or_update,
+                            },
+                        }
+                    },
+                )
 
             # get the total tokens used for the completion
             completion_total_tokens = completion.usage.total_tokens if completion.usage else None
@@ -375,6 +416,7 @@ async def respond_to_conversation(
                                 "model": config.request_config.openai_model,
                                 "messages": completion_messages,
                                 "max_tokens": config.request_config.response_tokens,
+                                "response_format": ProspectorResponseFormat.model_json_schema(),
                             },
                             "response": completion.model_dump() if completion else "[no response from openai]",
                         },
@@ -494,10 +536,8 @@ async def create_or_update_attachment_from_file(
     Create or update an attachment from a conversation file.
     """
 
-    attachment_agent = AttachmentAgent()
-
     try:
-        await attachment_agent.create_or_update_attachment_from_file(context, file, metadata)
+        await AttachmentAgent.create_or_update_attachment_from_file(context, file, metadata)
     except Exception as e:
         logger.exception(f"exception occurred processing attachment: {e}")
         await context.send_messages(
@@ -514,10 +554,8 @@ async def delete_attachment_for_file(context: ConversationContext, file: File, m
     Delete an attachment for a conversation file.
     """
 
-    attachment_agent = AttachmentAgent()
-
     try:
-        await attachment_agent.delete_attachment_for_file(context, file)
+        AttachmentAgent.delete_attachment_for_file(context, file)
     except Exception as e:
         logger.exception(f"exception occurred deleting attachment: {e}")
         await context.send_messages(
