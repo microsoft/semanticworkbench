@@ -36,6 +36,9 @@ export const appSlice = createSlice({
             state.devMode = !state.devMode;
             localStorage.setItem(localStorageKey.devMode, state.devMode.toString());
         },
+        setIsDraggingOverBody: (state: AppState, action: PayloadAction<boolean>) => {
+            state.isDraggingOverBody = action.payload;
+        },
         addError: (state: AppState, action: PayloadAction<{ title?: string; message?: string }>) => {
             state.errors?.push({
                 id: generateUuid(),
@@ -82,25 +85,34 @@ export const appSlice = createSlice({
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
-        setInspector: (
+        setCanvasState: (
             state: AppState,
-            action: PayloadAction<{ open?: boolean | null; assistantId?: string | null; stateId?: string | null }>,
+            action: PayloadAction<{
+                open?: boolean | null;
+                mode?: 'conversation' | 'assistant';
+                assistantId?: string | null;
+                assistantStateId?: string | null;
+            }>,
         ) => {
-            // Only update the properties that are provided
-            if (!state.inspector) {
-                state.inspector = {};
+            // only update the properties that are provided
+            if (!state.canvasState) {
+                state.canvasState = {};
             }
 
             if (action.payload.open !== undefined) {
-                state.inspector.open = action.payload.open ?? false;
+                state.canvasState.open = action.payload.open ?? false;
+            }
+
+            if (action.payload.mode !== undefined) {
+                state.canvasState.mode = action.payload.mode;
             }
 
             if (action.payload.assistantId !== undefined) {
-                state.inspector.assistantId = action.payload.assistantId ?? undefined;
+                state.canvasState.assistantId = action.payload.assistantId ?? undefined;
             }
 
-            if (action.payload.stateId !== undefined) {
-                state.inspector.stateId = action.payload.stateId ?? undefined;
+            if (action.payload.assistantStateId !== undefined) {
+                state.canvasState.assistantStateId = action.payload.assistantStateId ?? undefined;
             }
         },
     },
@@ -108,12 +120,13 @@ export const appSlice = createSlice({
 
 export const {
     toggleDevMode,
+    setIsDraggingOverBody,
     addError,
     removeError,
     clearErrors,
     setChatWidthPercent,
     setCompletedFirstRun,
-    setInspector,
+    setCanvasState,
 } = appSlice.actions;
 
 export default appSlice.reducer;

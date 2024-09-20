@@ -10,11 +10,10 @@ import {
     shorthands,
     tokens,
 } from '@fluentui/react-components';
-import { BookInformation24Regular, PanelLeftExpand24Regular } from '@fluentui/react-icons';
+import { BookInformation24Regular } from '@fluentui/react-icons';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { Constants } from '../../Constants';
-import { ConversationControls } from '../../components/Conversations/ConversationControls';
 import { InteractHistory } from '../../components/Conversations/InteractHistory';
 import { InteractInput } from '../../components/Conversations/InteractInput';
 import { WorkbenchEventSource } from '../../libs/WorkbenchEventSource';
@@ -23,7 +22,7 @@ import { useSiteUtility } from '../../libs/useSiteUtility';
 import { WorkflowDefinition } from '../../models/WorkflowDefinition';
 import { WorkflowRun } from '../../models/WorkflowRun';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { setChatWidthPercent, setInspector } from '../../redux/features/app/appSlice';
+import { setCanvasState, setChatWidthPercent } from '../../redux/features/app/appSlice';
 import {
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
@@ -130,7 +129,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
     const { conversationId, workflowRun } = props;
 
     const classes = useClasses();
-    const { chatWidthPercent, inspector } = useAppSelector((state) => state.app);
+    const { chatWidthPercent, canvasState } = useAppSelector((state) => state.app);
     const dispatch = useAppDispatch();
     const animationFrame = React.useRef<number>(0);
     const resizeHandleRef = React.useRef<HTMLDivElement>(null);
@@ -151,7 +150,6 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         error: participantsError,
     } = useGetConversationParticipantsQuery(conversationId, { refetchOnMountOrArgChange: true });
 
-    const [drawerIsOpen, setDrawerIsOpen] = React.useState(false);
     const [isResizing, setIsResizing] = React.useState(false);
     const siteUtility = useSiteUtility();
     const environment = useEnvironment();
@@ -216,7 +214,9 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
 
         const handleFocusEvent = (event: EventSourceMessage) => {
             const { data } = JSON.parse(event.data);
-            dispatch(setInspector({ open: true, assistantId: data['assistant_id'], stateId: data['state_id'] }));
+            dispatch(
+                setCanvasState({ open: true, assistantId: data['assistant_id'], assistantStateId: data['state_id'] }),
+            );
         };
 
         (async () => {
@@ -249,33 +249,16 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         <div
             className={classes.root}
             style={{
-                gridTemplateColumns: inspector?.open
+                gridTemplateColumns: canvasState?.open
                     ? `min(${chatWidthPercent}%, ${Constants.app.maxContentWidth}px) auto`
                     : '1fr auto',
             }}
         >
             <div className={classes.main}>
                 <div className={classes.history}>
-                    <div className={classes.controls}>
-                        {!drawerIsOpen && (
-                            <div className={classes.drawerButton}>
-                                <Button icon={<PanelLeftExpand24Regular />} onClick={() => setDrawerIsOpen(true)} />
-                            </div>
-                        )}
-                        {drawerIsOpen && (
-                            <ConversationControls
-                                conversation={conversation}
-                                participants={participants}
-                                onOpenChange={setDrawerIsOpen}
-                                preventAssistantModifyOnParticipantIds={workflowRunAssistants?.map(
-                                    (assistant) => assistant.id,
-                                )}
-                            />
-                        )}
-                    </div>
                     <div
                         className={
-                            inspector?.open
+                            canvasState?.open
                                 ? mergeClasses(classes.historyContent, classes.historyContentWithInspector)
                                 : classes.historyContent
                         }
@@ -300,12 +283,12 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                         }
                     />
                 </div>
-                {!inspector?.open && (
+                {!canvasState?.open && (
                     <div className={classes.inspectorButton}>
                         <Button
-                            appearance={inspector?.open ? 'subtle' : 'secondary'}
+                            appearance={canvasState?.open ? 'subtle' : 'secondary'}
                             icon={<BookInformation24Regular />}
-                            onClick={() => dispatch(setInspector({ open: true }))}
+                            onClick={() => dispatch(setCanvasState({ open: true }))}
                         />
                     </div>
                 )}
@@ -316,8 +299,14 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                     ref={resizeHandleRef}
                     onMouseDown={startResizing}
                 />
-                {inspector?.open && (
-                    <ConversationCanvas conversationAssistants={conversationAssistants} conversation={conversation} />
+                {canvasState?.open && (
+                    <ConversationCanvas
+                        conversationAssistants={conversationAssistants}
+                        conversation={conversation}
+                        conversationFiles={[]}
+                        conversationParticipants={participants}
+                        preventAssistantModifyOnParticipantIds={workflowRunAssistants?.map((assistant) => assistant.id)}
+                    />
                 )}
             </div>
         </div>

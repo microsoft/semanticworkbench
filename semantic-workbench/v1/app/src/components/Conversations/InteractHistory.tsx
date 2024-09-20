@@ -35,6 +35,11 @@ const useClasses = makeStyles({
         width: '100%',
         maxWidth: `${Constants.app.maxContentWidth}px`,
     },
+    virtuoso: {
+        '::-webkit-scrollbar-thumb': {
+            backgroundColor: tokens.colorNeutralStencil1Alpha,
+        },
+    },
     item: {
         ...shorthands.padding(0, tokens.spacingHorizontalM),
     },
@@ -279,6 +284,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     <Virtuoso
                         ref={virtuosoRef}
                         style={{ height, width }}
+                        className={classes.virtuoso}
                         data={items}
                         itemContent={(_index, item) => item}
                         initialTopMostItemIndex={items.length}

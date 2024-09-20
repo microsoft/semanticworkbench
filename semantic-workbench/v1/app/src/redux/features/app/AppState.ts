@@ -2,6 +2,7 @@
 
 export interface AppState {
     devMode?: boolean;
+    isDraggingOverBody?: boolean;
     errors?: {
         id: string;
         title?: string;
@@ -13,9 +14,10 @@ export interface AppState {
         workflow?: boolean;
     };
     chatWidthPercent: number;
-    inspector?: {
+    canvasState?: {
         open?: boolean;
+        mode?: 'conversation' | 'assistant';
         assistantId?: string;
-        stateId?: string;
+        assistantStateId?: string;
     };
 }

@@ -1,6 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Attachment, AttachmentList } from '@fluentui-copilot/react-attachments';
 import {
     $createTextNode,
     $getRoot,
@@ -14,8 +13,8 @@ import {
     LexicalEditorRefPlugin,
     TextNode,
 } from '@fluentui-copilot/react-copilot';
-import { Button, Tooltip, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
-import { Attach20Regular, DocumentRegular } from '@fluentui/react-icons';
+import { Button, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import { Attach20Regular } from '@fluentui/react-icons';
 import debug from 'debug';
 import { getEncoding } from 'js-tiktoken';
 import {
@@ -27,9 +26,10 @@ import {
 } from 'lexical';
 import React from 'react';
 import { Constants } from '../../Constants';
+import useDragAndDrop from '../../libs/useDragAndDrop';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useAppDispatch } from '../../redux/app/hooks';
+import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
 import { addError } from '../../redux/features/app/appSlice';
 import {
     updateGetConversationMessagesQueryData,
@@ -40,6 +40,7 @@ import {
 } from '../../services/workbench';
 import { ClearEditorPlugin } from './ChatInputPlugins/ClearEditorPlugin';
 import { ParticipantMentionsPlugin } from './ChatInputPlugins/ParticipantMentionsPlugin';
+import { InputAttachmentList } from './InputAttachmentList';
 import { InputOptionsControl } from './InputOptionsControl';
 import { SpeechButton } from './SpeechButton';
 
@@ -87,7 +88,12 @@ const useClasses = makeStyles({
         transition: 'border 0.3s',
         border: `2px dashed transparent`,
     },
-    dragOver: {
+    dragOverBody: {
+        border: `2px dashed ${tokens.colorPaletteBlueBorderActive}`,
+        borderRadius: tokens.borderRadiusLarge,
+    },
+    dragOverTarget: {
+        cursor: 'copy',
         border: `2px dashed ${tokens.colorPaletteGreenBorderActive}`,
         borderRadius: tokens.borderRadiusLarge,
     },
@@ -111,12 +117,14 @@ class TemporaryTextNode extends TextNode {
 export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const { conversationId, additionalContent } = props;
     const classes = useClasses();
+    const dropTargetRef = React.useRef<HTMLDivElement>(null);
+    const isDraggingOverBody = useAppSelector((state) => state.app.isDraggingOverBody);
+    const isDraggingOverTarget = useDragAndDrop(dropTargetRef.current, log);
     const [createMessage] = useCreateConversationMessageMutation();
     const [uploadConversationFiles] = useUploadConversationFilesMutation();
     const [messageTypeValue, setMessageTypeValue] = React.useState<'Chat' | 'Command'>('Chat');
     const [tokenCount, setTokenCount] = React.useState(0);
     const [directedAtId, setDirectedAtId] = React.useState<string>();
-    const [isDraggingOver, setIsDraggingOver] = React.useState(false);
     const [attachmentFiles, setAttachmentFiles] = React.useState<Map<string, File>>(new Map());
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
@@ -349,38 +357,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
     const handleDrop = (event: React.DragEvent) => {
         log('drop event', event);
-        event.preventDefault();
-        event.stopPropagation();
-        setIsDraggingOver(false);
 
         for (let file of event.dataTransfer.files) {
             addAttachment(file);
         }
-    };
-
-    const handleDragOver = (event: React.DragEvent) => {
-        // log('dragover event', event);
-        event.preventDefault();
-        event.stopPropagation();
-    };
-
-    const handleDragEnter = (event: React.DragEvent) => {
-        log('dragenter event', event);
-        setIsDraggingOver(true);
-        event.preventDefault();
-        event.stopPropagation();
-    };
-
-    const handleDragLeave = (event: React.DragEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const relatedTarget = event.relatedTarget as HTMLElement;
-        if (event.currentTarget.contains(relatedTarget)) {
-            // ignore the event if the drag is still within the target element
-            return;
-        }
-        log('dragleave event', event);
-        setIsDraggingOver(false);
     };
 
     // update the listening state when the speech recognizer starts or stops
@@ -476,13 +456,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const disableInputs = isSubmitting || isListening;
 
     return (
-        <div
-            className={classes.root}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-        >
+        <div className={classes.root}>
             <div className={classes.content}>
                 {/* // this is for injecting controls for supporting features like workflow */}
                 {additionalContent}
@@ -491,7 +465,15 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                     participants={participants}
                     onDirectedAtChange={setDirectedAtId}
                 />
-                <div className={mergeClasses(classes.row, classes.dragTarget, isDraggingOver ? classes.dragOver : '')}>
+                <div
+                    ref={dropTargetRef}
+                    onDrop={handleDrop}
+                    className={mergeClasses(
+                        classes.row,
+                        classes.dragTarget,
+                        isDraggingOverTarget ? classes.dragOverTarget : isDraggingOverBody ? classes.dragOverBody : '',
+                    )}
+                >
                     <ChatInput
                         className={mergeClasses(
                             classes.fullWidth,
@@ -541,27 +523,16 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                             </span>
                         }
                         attachments={
-                            <AttachmentList>
-                                {[...attachmentFiles.values()].map((file) => (
-                                    <Tooltip content={file.name} key={file.name} relationship="label">
-                                        <Attachment
-                                            id={file.name}
-                                            media={<DocumentRegular />}
-                                            primaryAction={{ as: 'span' }}
-                                            dismissButton={{
-                                                onClick: () =>
-                                                    setAttachmentFiles((prevFiles) => {
-                                                        const updatedFiles = new Map(prevFiles);
-                                                        updatedFiles.delete(file.name);
-                                                        return updatedFiles;
-                                                    }),
-                                            }}
-                                        >
-                                            {file.name}
-                                        </Attachment>
-                                    </Tooltip>
-                                ))}
-                            </AttachmentList>
+                            <InputAttachmentList
+                                attachments={[...attachmentFiles.values()]}
+                                onDismissAttachment={(dismissedFile) =>
+                                    setAttachmentFiles((prevFiles) => {
+                                        const updatedFiles = new Map(prevFiles);
+                                        updatedFiles.delete(dismissedFile.name);
+                                        return updatedFiles;
+                                    })
+                                }
+                            />
                         }
                     >
                         <ClearEditorPlugin />
