@@ -141,10 +141,11 @@ interface InteractMessageProps {
     participant: ConversationParticipant;
     hideParticipant?: boolean;
     displayDate?: boolean;
+    readOnly: boolean;
 }
 
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
-    const { conversationId, message, participant, hideParticipant, displayDate } = props;
+    const { conversationId, message, participant, hideParticipant, displayDate, readOnly } = props;
     const classes = useClasses();
     const [createConversationMessage] = useCreateConversationMessageMutation();
 
@@ -214,14 +215,18 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const actions = React.useMemo(
         () => (
             <>
-                <MessageLink messageId={message.id} />
+                <MessageLink readOnly={readOnly} conversationId={conversationId} messageId={message.id} />
                 <DebugInspector debug={message.metadata?.debug} />
                 <CopyButton data={message.content} tooltip="Copy message" size="small" appearance="transparent" />
-                <MessageDelete conversationId={conversationId} message={message} />
-                <RewindConversation conversationId={conversationId} message={message} />
+                {!readOnly && (
+                    <>
+                        <MessageDelete conversationId={conversationId} message={message} />
+                        <RewindConversation conversationId={conversationId} message={message} />
+                    </>
+                )}
             </>
         ),
-        [conversationId, message],
+        [conversationId, message, readOnly],
     );
 
     const getRenderedMessage = React.useCallback(() => {

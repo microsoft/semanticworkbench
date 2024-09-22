@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import uuid
 from enum import StrEnum
@@ -62,19 +64,26 @@ class ParticipantRole(StrEnum):
 
 
 class ParticipantStatus(BaseModel):
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
     message: str | None = None
+
+
+class ConversationPermission(StrEnum):
+    read_write = "read_write"
+    read = "read"
 
 
 class ConversationParticipant(BaseModel):
     role: ParticipantRole
     id: str
+    conversation_id: uuid.UUID
     name: str
     image: str | None
     status: str | None
     status_updated_timestamp: datetime.datetime
     active_participant: bool
     online: bool | None = None
+    conversation_permission: ConversationPermission
 
 
 class ConversationParticipantList(BaseModel):
@@ -84,12 +93,45 @@ class ConversationParticipantList(BaseModel):
 class Conversation(BaseModel):
     id: uuid.UUID
     title: str
+    owner_id: str
+    imported_from_conversation_id: uuid.UUID | None
     metadata: dict[str, Any]
     created_datetime: datetime.datetime
 
 
 class ConversationList(BaseModel):
     conversations: list[Conversation]
+
+
+class ConversationShare(BaseModel):
+    id: uuid.UUID
+    owner_id: str
+    label: str
+    created_by_user: User
+    conversation_id: uuid.UUID
+    conversation_title: str
+    conversation_permission: ConversationPermission
+    is_redeemable: bool
+    created_datetime: datetime.datetime
+    metadata: dict[str, Any]
+
+
+class ConversationShareList(BaseModel):
+    conversation_shares: list[ConversationShare]
+
+
+class ConversationShareRedemption(BaseModel):
+    id: uuid.UUID
+    conversation_share_id: uuid.UUID
+    conversation_id: uuid.UUID
+    redeemed_by_user: User
+    conversation_permission: ConversationPermission
+    new_participant: bool
+    created_datetime: datetime.datetime
+
+
+class ConversationShareRedemptionList(BaseModel):
+    conversation_share_redemptions: list[ConversationShareRedemption]
 
 
 class MessageSender(BaseModel):
@@ -389,6 +431,13 @@ class NewConversationMessage(BaseModel):
     content_type: str = "text/plain"
     filenames: list[str] | None = None
     metadata: dict[str, Any] | None = None
+
+
+class NewConversationShare(BaseModel):
+    conversation_id: uuid.UUID
+    label: str
+    conversation_permission: ConversationPermission
+    metadata: dict[str, Any] = {}
 
 
 class UpdateParticipant(BaseModel):

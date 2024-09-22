@@ -8,6 +8,7 @@ import { CommandButton } from '../App/CommandButton';
 import { MiniControl } from '../App/MiniControl';
 import { MyItemsManager } from '../App/MyItemsManager';
 import { ConversationCreate } from './ConversationCreate';
+import { ConversationDuplicate } from './ConversationDuplicate';
 import { ConversationExport } from './ConversationExport';
 import { ConversationRemove } from './ConversationRemove';
 import { ConversationShare } from './ConversationShare';
@@ -51,7 +52,8 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
                         actions={
                             <>
                                 <ConversationExport conversationId={conversation.id} iconOnly />
-                                <ConversationShare conversationId={conversation.id} iconOnly />
+                                <ConversationDuplicate conversation={conversation} iconOnly />
+                                <ConversationShare conversation={conversation} iconOnly />
                                 <ConversationRemove
                                     conversation={conversation}
                                     participantId={participantId}

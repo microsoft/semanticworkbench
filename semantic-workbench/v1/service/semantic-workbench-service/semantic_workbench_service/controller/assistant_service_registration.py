@@ -212,8 +212,7 @@ class AssistantServiceRegistrationController:
                 if self._registration_is_secured:
                     raise exceptions.NotFoundError()
 
-                id = assistant_service_id.lower()
-                api_key_name = self._api_key_store.generate_key_name(id)
+                api_key_name = self._api_key_store.generate_key_name(assistant_service_id.lower())
                 registration = db.AssistantServiceRegistration(
                     assistant_service_id=assistant_service_id,
                     created_by_user_id="semantic-workbench",

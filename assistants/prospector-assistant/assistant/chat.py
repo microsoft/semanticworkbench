@@ -31,11 +31,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
-from .agents.attachment_agent import AttachmentAgent
+from .agents import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider, AttachmentAgent
 from .config import AssistantConfigModel, AssistantServiceConfigModel
-from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
-from .responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluator, OpenAIServiceConfigModel
+from .responsible_ai import AzureContentSafetyEvaluator, OpenAIContentSafetyEvaluator, OpenAIServiceConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +77,8 @@ async def content_evaluator_factory(context: ConversationContext) -> ContentSafe
 
 content_safety = ContentSafety(content_evaluator_factory)
 
+artifact_conversation_inspector_state_provider = ArtifactConversationInspectorStateProvider(assistant_config)
+
 
 # create the AssistantApp instance
 assistant = AssistantApp(
@@ -88,7 +88,7 @@ assistant = AssistantApp(
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
     inspector_state_providers={
-        "artifacts": ArtifactConversationInspectorStateProvider(),
+        "artifacts": artifact_conversation_inspector_state_provider,
     },
 )
 

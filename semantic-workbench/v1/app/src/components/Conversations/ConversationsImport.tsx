@@ -16,10 +16,15 @@ export const ConversationsImport: React.FC<ConversationsImportProps> = (props) =
     const { disabled, iconOnly, asToolbarButton, onImport, onError } = props;
     const workbenchService = useWorkbenchService();
 
+    const importFile = async (file: File) => {
+        const result = await workbenchService.importConversationsAsync(file);
+        return result.conversationIds;
+    };
+
     return (
         <ContentImport
             contentTypeLabel="conversations"
-            importFunction={workbenchService.importConversationsAsync}
+            importFunction={importFile}
             onImport={onImport}
             onError={onError}
             disabled={disabled}

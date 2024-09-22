@@ -54,6 +54,10 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationMessageList,
     ConversationParticipant,
     ConversationParticipantList,
+    ConversationShare,
+    ConversationShareList,
+    ConversationShareRedemption,
+    ConversationShareRedemptionList,
     FileList,
     FileVersions,
     MessageType,
@@ -61,6 +65,7 @@ from semantic_workbench_api_model.workbench_model import (
     NewAssistantServiceRegistration,
     NewConversation,
     NewConversationMessage,
+    NewConversationShare,
     NewWorkflowDefinition,
     NewWorkflowRun,
     ParticipantRole,
@@ -239,12 +244,18 @@ def init(
         get_session=_controller_get_session,
         notify_event=_notify_event,
         client_pool=assistant_client_pool,
+        file_storage=files.Storage(settings.storage),
     )
     conversation_controller = controller.ConversationController(
         get_session=_controller_get_session,
         notify_event=_notify_event,
         assistant_controller=assistant_controller,
     )
+    conversation_share_controller = controller.ConversationShareController(
+        get_session=_controller_get_session,
+        notify_event=_notify_event,
+    )
+
     file_controller = controller.FileController(
         get_session=_controller_get_session,
         notify_event=_notify_event,
@@ -370,7 +381,7 @@ def init(
         user_ids: Annotated[list[str], Query(alias="user_id")] = [],
         assistant_service_online: Annotated[bool | None, Query(alias="assistant_service_online")] = None,
     ) -> AssistantServiceRegistrationList:
-        user_id_set = set([user_principal.user_id if id == "me" else id for id in user_ids])
+        user_id_set = set([user_principal.user_id if user_id == "me" else user_id for user_id in user_ids])
         return await assistant_service_registration_controller.get_registrations(
             user_ids=user_id_set, assistant_service_online=assistant_service_online
         )
@@ -404,12 +415,14 @@ def init(
         )
 
     @app.get("/assistants")
-    async def list_assistants(user_principal: auth.DependsUserPrincipal) -> AssistantList:
-        return await assistant_controller.get_assistants(user_principal=user_principal)
+    async def list_assistants(
+        user_principal: auth.DependsUserPrincipal, conversation_id: uuid.UUID | None = None
+    ) -> AssistantList:
+        return await assistant_controller.get_assistants(user_principal=user_principal, conversation_id=conversation_id)
 
     @app.get("/assistants/{assistant_id}")
-    async def get_assistant(assistant_id: uuid.UUID) -> Assistant:
-        return await assistant_controller.get_assistant(assistant_id=assistant_id)
+    async def get_assistant(user_principal: auth.DependsUserPrincipal, assistant_id: uuid.UUID) -> Assistant:
+        return await assistant_controller.get_assistant(user_principal=user_principal, assistant_id=assistant_id)
 
     @app.post("/assistants", status_code=status.HTTP_201_CREATED)
     async def create_assistant(
@@ -422,16 +435,20 @@ def init(
     async def update_assistant(
         assistant_id: uuid.UUID,
         update_assistant: UpdateAssistant,
+        user_principal: auth.DependsUserPrincipal,
     ) -> Assistant:
-        return await assistant_controller.update_assistant(assistant_id=assistant_id, update_assistant=update_assistant)
+        return await assistant_controller.update_assistant(
+            user_principal=user_principal, assistant_id=assistant_id, update_assistant=update_assistant
+        )
 
     @app.get(
         "/assistants/{assistant_id}/export", description="Export an assistant's configuration and conversation data."
     )
     async def export_assistant(
+        user_principal: auth.DependsUserPrincipal,
         assistant_id: uuid.UUID,
     ) -> FileResponse:
-        result = await assistant_controller.export_assistant(assistant_id=assistant_id)
+        result = await assistant_controller.export_assistant(user_principal=user_principal, assistant_id=assistant_id)
 
         return FileResponse(
             path=result.file_path,
@@ -439,13 +456,6 @@ def init(
             filename=result.filename,
             background=starlette.background.BackgroundTask(result.cleanup),
         )
-
-    @app.post("/assistants/import")
-    async def import_assistant(
-        from_export: Annotated[UploadFile, File(alias="from_export")],
-        user_principal: auth.DependsUserPrincipal,
-    ) -> Assistant:
-        return await assistant_controller.import_assistant(user_principal=user_principal, from_export=from_export.file)
 
     @app.get(
         "/conversations/export",
@@ -455,10 +465,8 @@ def init(
         user_principal: auth.DependsUserPrincipal,
         conversation_ids: list[uuid.UUID] = Query(alias="id"),
     ) -> FileResponse:
-        conversation_ids = list(set(conversation_ids))
-
         result = await assistant_controller.export_conversations(
-            user_principal=user_principal, conversation_ids=conversation_ids
+            user_principal=user_principal, conversation_ids=set(conversation_ids)
         )
 
         return FileResponse(
@@ -479,37 +487,44 @@ def init(
 
     @app.get("/assistants/{assistant_id}/config")
     async def get_assistant_config(
+        user_principal: auth.DependsUserPrincipal,
         assistant_id: uuid.UUID,
     ) -> ConfigResponseModel:
-        return await assistant_controller.get_assistant_config(assistant_id=assistant_id)
+        return await assistant_controller.get_assistant_config(user_principal=user_principal, assistant_id=assistant_id)
 
     @app.put("/assistants/{assistant_id}/config")
     async def update_assistant_config(
+        user_principal: auth.DependsUserPrincipal,
         assistant_id: uuid.UUID,
         updated_config: ConfigPutRequestModel,
     ) -> ConfigResponseModel:
         return await assistant_controller.update_assistant_config(
+            user_principal=user_principal,
             assistant_id=assistant_id,
             updated_config=updated_config,
         )
 
     @app.get("/assistants/{assistant_id}/conversations/{conversation_id}/states")
     async def get_assistant_conversation_state_descriptions(
+        user_principal: auth.DependsUserPrincipal,
         assistant_id: uuid.UUID,
         conversation_id: uuid.UUID,
     ) -> StateDescriptionListResponseModel:
         return await assistant_controller.get_assistant_conversation_state_descriptions(
+            user_principal=user_principal,
             assistant_id=assistant_id,
             conversation_id=conversation_id,
         )
 
     @app.get("/assistants/{assistant_id}/conversations/{conversation_id}/states/{state_id}")
     async def get_assistant_conversation_state(
+        user_principal: auth.DependsUserPrincipal,
         assistant_id: uuid.UUID,
         conversation_id: uuid.UUID,
         state_id: str,
     ) -> StateResponseModel:
         return await assistant_controller.get_assistant_conversation_state(
+            user_principal=user_principal,
             assistant_id=assistant_id,
             conversation_id=conversation_id,
             state_id=state_id,
@@ -517,12 +532,14 @@ def init(
 
     @app.put("/assistants/{assistant_id}/conversations/{conversation_id}/states/{state_id}")
     async def update_assistant_conversation_state(
+        user_principal: auth.DependsUserPrincipal,
         assistant_id: uuid.UUID,
         conversation_id: uuid.UUID,
         state_id: str,
         updated_state: StatePutRequestModel,
     ) -> StateResponseModel:
         return await assistant_controller.update_assistant_conversation_state(
+            user_principal=user_principal,
             assistant_id=assistant_id,
             conversation_id=conversation_id,
             state_id=state_id,
@@ -548,9 +565,11 @@ def init(
         status_code=status.HTTP_204_NO_CONTENT,
     )
     async def delete_assistant(
+        user_principal: auth.DependsUserPrincipal,
         assistant_id: uuid.UUID,
     ) -> None:
         await assistant_controller.delete_assistant(
+            user_principal=user_principal,
             assistant_id=assistant_id,
         )
 
@@ -650,7 +669,7 @@ def init(
     ) -> ConversationList:
         return await conversation_controller.get_conversations(
             principal=principal,
-            include_inactive=include_inactive,
+            include_all_owned=include_inactive,
         )
 
     @app.get("/conversations/{conversation_id}")
@@ -783,12 +802,12 @@ def init(
     async def delete_message(
         conversation_id: uuid.UUID,
         message_id: uuid.UUID,
-        principal: auth.DependsActorPrincipal,
+        user_principal: auth.DependsUserPrincipal,
     ) -> None:
         await conversation_controller.delete_message(
             conversation_id=conversation_id,
             message_id=message_id,
-            principal=principal,
+            user_principal=user_principal,
         )
 
     @app.put("/conversations/{conversation_id}/files")
@@ -864,6 +883,76 @@ def init(
             conversation_id=conversation_id,
             filename=filename,
             principal=principal,
+        )
+
+    @app.post("/conversation-shares")
+    async def create_conversation_share(
+        user_principal: auth.DependsUserPrincipal,
+        new_conversation_share: NewConversationShare,
+    ) -> ConversationShare:
+        return await conversation_share_controller.create_conversation_share(
+            user_principal=user_principal,
+            new_conversation_share=new_conversation_share,
+        )
+
+    @app.get("/conversation-shares")
+    async def list_conversation_shares(
+        user_principal: auth.DependsUserPrincipal,
+        include_unredeemable: bool = False,
+        conversation_id: uuid.UUID | None = None,
+    ) -> ConversationShareList:
+        return await conversation_share_controller.get_conversation_shares(
+            user_principal=user_principal,
+            conversation_id=conversation_id,
+            include_unredeemable=include_unredeemable,
+        )
+
+    @app.get("/conversation-shares/{conversation_share_id}")
+    async def get_conversation_share(
+        user_principal: auth.DependsUserPrincipal,
+        conversation_share_id: uuid.UUID,
+    ) -> ConversationShare:
+        return await conversation_share_controller.get_conversation_share(
+            user_principal=user_principal,
+            conversation_share_id=conversation_share_id,
+        )
+
+    @app.delete("/conversation-shares/{conversation_share_id}", status_code=status.HTTP_204_NO_CONTENT)
+    async def delete_conversation_share(
+        user_principal: auth.DependsUserPrincipal,
+        conversation_share_id: uuid.UUID,
+    ) -> None:
+        await conversation_share_controller.delete_conversation_share(
+            user_principal=user_principal,
+            conversation_share_id=conversation_share_id,
+        )
+
+    @app.post("/conversation-shares/{conversation_share_id}/redemptions")
+    async def redeem_conversation_share(
+        user_principal: auth.DependsUserPrincipal,
+        conversation_share_id: uuid.UUID,
+    ) -> ConversationShareRedemption:
+        return await conversation_share_controller.redeem_conversation_share(
+            user_principal=user_principal,
+            conversation_share_id=conversation_share_id,
+        )
+
+    @app.get("/conversation-shares/{conversation_share_id}/redemptions")
+    async def list_conversation_share_redemptions(
+        user_principal: auth.DependsUserPrincipal,
+        conversation_share_id: uuid.UUID,
+    ) -> ConversationShareRedemptionList:
+        return await conversation_share_controller.get_redemptions_for_share(
+            user_principal=user_principal,
+            conversation_share_id=conversation_share_id,
+        )
+
+    @app.get("/conversation-share-redemptions")
+    async def list_conversation_share_redemptions_for_user(
+        user_principal: auth.DependsUserPrincipal,
+    ) -> ConversationShareRedemptionList:
+        return await conversation_share_controller.get_redemptions_for_user(
+            user_principal=user_principal,
         )
 
     @app.post("/workflow-definitions")
@@ -952,8 +1041,10 @@ def init(
     @app.get("/workflow-runs/{workflow_run_id}/assistants")
     async def get_workflow_run_assistants(
         workflow_run_id: uuid.UUID,
+        user_principal: auth.DependsUserPrincipal,
     ) -> AssistantList:
         return await workflow_controller.get_workflow_run_assistants(
+            user_principal=user_principal,
             workflow_run_id=workflow_run_id,
         )
 

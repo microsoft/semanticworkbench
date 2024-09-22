@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, DialogTrigger, Label } from '@fluentui/react-components';
+import { Button, DialogTrigger } from '@fluentui/react-components';
 import { PlugDisconnectedRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { WorkflowDefinition } from '../../models/WorkflowDefinition';
@@ -36,11 +36,7 @@ export const WorkflowRemove: React.FC<WorkflowRemoveProps> = (props) => {
             label="Remove"
             dialogContent={{
                 title: 'Remove Workflow',
-                content: (
-                    <>
-                        <Label> Are you sure you want to remove this workflow?</Label>
-                    </>
-                ),
+                content: <p> Are you sure you want to remove this workflow?</p>,
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="remove">

@@ -60,9 +60,11 @@ export const AssistantServiceRegistrationApiKeyReset: React.FC<AssistantServiceR
                     title: 'Reset API Key',
                     content: (
                         <>
-                            <Label>
-                                Are you sure you want to reset the API key for this assistant service registration?
-                            </Label>
+                            <p>
+                                <Label>
+                                    Are you sure you want to reset the API key for this assistant service registration?
+                                </Label>
+                            </p>
                             <p>
                                 Any existing assistant services using the current API key will stop working. You will
                                 need to update the API key in any assistant services that use it.

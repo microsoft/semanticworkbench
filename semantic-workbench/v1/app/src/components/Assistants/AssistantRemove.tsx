@@ -43,8 +43,13 @@ export const AssistantRemove: React.FC<AssistantRemoveProps> = (props) => {
             disabled={disabled}
             description={disabled ? `Workflow assistants cannot be removed` : 'Remove assistant from conversation'}
             dialogContent={{
-                title: `Remove ${participant.name}`,
-                content: `Are you sure you want to remove assistant ${participant.name} from this conversation?`,
+                title: `Remove "${participant.name}"`,
+                content: (
+                    <p>
+                        Are you sure you want to remove assistant <strong>{participant.name}</strong> from this
+                        conversation?
+                    </p>
+                ),
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <CommandButton

@@ -23,13 +23,14 @@ import { ErrorPage } from './routes/ErrorPage';
 import { Interact } from './routes/Interact';
 import { Login } from './routes/Login';
 import { Settings } from './routes/Settings';
+import { ShareRedeem } from './routes/ShareRedeem';
+import { Shares } from './routes/Shares';
 import { WorkflowEditor } from './routes/WorkflowEditor';
 import { WorkflowInteract } from './routes/WorkflowInteract';
 import { WorkflowRunEditor } from './routes/WorkflowRunEditor';
 
-if (!localStorage.getItem('debug')) {
-    localStorage.setItem('debug', `${Constants.debug.root}:*`);
-}
+// Enable debug logging for the app
+localStorage.setItem('debug', `${Constants.debug.root}:*`);
 
 const log = debug(Constants.debug.root).extend('main');
 
@@ -66,6 +67,10 @@ const authenticatedRouter = createBrowserRouter([
                 element: <Settings />,
             },
             {
+                path: '/shares',
+                element: <Shares />,
+            },
+            {
                 path: '/assistant/:assistantId/edit',
                 element: <AssistantEditor />,
             },
@@ -88,6 +93,10 @@ const authenticatedRouter = createBrowserRouter([
             {
                 path: '/conversation/:conversationId',
                 element: <Interact />,
+            },
+            {
+                path: '/conversation-share/:conversationShareId/redeem',
+                element: <ShareRedeem />,
             },
             {
                 path: '/terms',

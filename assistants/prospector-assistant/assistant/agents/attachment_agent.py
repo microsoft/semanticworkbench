@@ -1,6 +1,6 @@
 import base64
+import io
 import logging
-import tempfile
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -130,9 +130,10 @@ class AttachmentAgent:
                 continue
 
             # if the content is a data URI, include it as an image type within the message content
+            # NOTE: newer versions of the API only allow messages with the user role to include images
             if attachment.content.startswith("data:image/"):
                 messages.append({
-                    "role": "system",
+                    "role": "user",
                     "content": [
                         {
                             "type": "text",
@@ -200,9 +201,7 @@ def _docx_raw_content_to_str(raw_content: bytes, filename: str) -> str:
     Convert the raw content of a DOCX file to text.
     """
     try:
-        with tempfile.TemporaryFile() as temp:
-            temp.write(raw_content)
-            temp.seek(0)
+        with io.BytesIO(raw_content) as temp:
             text = docx2txt.process(temp)
         return text
     except Exception as e:
@@ -216,9 +215,7 @@ def _pdf_raw_content_to_str(raw_content: bytes, filename: str) -> str:
     Convert the raw content of a PDF file to text.
     """
     try:
-        with tempfile.TemporaryFile() as temp:
-            temp.write(raw_content)
-            temp.seek(0)
+        with io.BytesIO(raw_content) as temp:
             text = ""
             with pdfplumber.open(temp) as pdf:
                 for page in pdf.pages:

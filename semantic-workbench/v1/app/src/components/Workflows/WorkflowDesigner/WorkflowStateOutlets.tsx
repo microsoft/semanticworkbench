@@ -371,7 +371,11 @@ export const WorkflowStateOutlets: React.FC<WorkflowStateOutletsProps> = (props)
                                         disabled={stateToEdit.outlets.length <= 1}
                                         dialogContent={{
                                             title: 'Remove Outlet',
-                                            content: `Are you sure you want to remove "${outlet.label}"?`,
+                                            content: (
+                                                <p>
+                                                    Are you sure you want to remove <strong>{outlet.label}</strong>?
+                                                </p>
+                                            ),
                                             closeLabel: 'Cancel',
                                             additionalActions: [
                                                 <Button

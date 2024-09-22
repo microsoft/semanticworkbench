@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Card, Divider, Text, Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
@@ -29,9 +29,6 @@ const useClasses = makeStyles({
         gridTemplateRows: '1fr auto',
         height: '100%',
         gap: tokens.spacingVerticalM,
-    },
-    card: {
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
     },
     title: {
         color: tokens.colorNeutralForegroundOnBrand,
@@ -105,8 +102,8 @@ export const AssistantEditor: React.FC = () => {
         siteUtility.forceNavigateTo('/');
     }, [siteUtility]);
 
-    const handleDuplicate = (assistant: Assistant) => {
-        siteUtility.forceNavigateTo(`/assistant/${assistant.id}/edit`);
+    const handleDuplicate = (assistantId: string) => {
+        siteUtility.forceNavigateTo(`/assistant/${assistantId}/edit`);
     };
 
     const handleConversationCreate = async (conversation: Conversation) => {
@@ -147,24 +144,7 @@ export const AssistantEditor: React.FC = () => {
                         hideInstruction
                         onCreate={handleConversationCreate}
                     />
-                    <Card className={classes.card}>
-                        <Text size={400} weight="semibold">
-                            Assistant Configuration
-                        </Text>
-                        <Text size={300} italic color="neutralSecondary">
-                            Please practice Responsible AI when configuring your assistant. See the{' '}
-                            <a
-                                href="https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                Microsoft Azure OpenAI Service: System message templates
-                            </a>{' '}
-                            page for suggestions regarding content for the prompts below.
-                        </Text>
-                        <Divider />
-                        <AssistantEdit assistant={assistant} />
-                    </Card>
+                    <AssistantEdit assistant={assistant} />
                 </div>
                 <Toolbar className={classes.toolbar}>
                     <AssistantDelete asToolbarButton assistant={assistant} onDelete={handleDelete} />

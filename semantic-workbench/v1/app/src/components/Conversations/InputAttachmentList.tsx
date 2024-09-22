@@ -41,6 +41,7 @@ export const InputAttachmentList: React.FC<InputAttachmentProps> = (props) => {
 
     return (
         <AttachmentList
+            maxVisibleAttachments={3}
             onAttachmentDismiss={(_event, data) => {
                 const file = attachments.find((file) => file.name === data.id);
                 if (file) {

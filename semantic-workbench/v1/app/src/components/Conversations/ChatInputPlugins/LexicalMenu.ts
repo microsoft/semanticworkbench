@@ -30,8 +30,6 @@ export type MenuResolution = {
     getRect: () => DOMRect;
 };
 
-export const punctuationCharacters = '\\.,\\+\\*\\?\\$\\@\\|#{}\\(\\)\\^\\-\\[\\]\\\\/!%\'"~=<>_:;';
-
 export class MenuOption {
     key: string;
     ref?: React.MutableRefObject<HTMLElement | null>;

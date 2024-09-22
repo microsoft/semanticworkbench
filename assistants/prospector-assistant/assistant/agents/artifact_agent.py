@@ -1,14 +1,40 @@
+import pathlib
 from pathlib import Path
-from typing import Annotated, Literal, Union
+from typing import TYPE_CHECKING, Annotated, Literal, Union
 
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
+    BaseModelAssistantConfigWithSecrets,
     ConversationContext,
     FileStorageContext,
 )
 from semantic_workbench_assistant.config import UISchema
 from semantic_workbench_assistant.storage import read_model, write_model
+
+if TYPE_CHECKING:
+    from assistant import AssistantConfigModel, AssistantServiceConfigModel
+
+
+#
+# region Helpers
+#
+
+
+# helper for loading an include from a text file
+def load_text_include(filename) -> str:
+    # get directory relative to this module
+    directory = pathlib.Path(__file__).parent.parent
+
+    # get the file path for the prompt file
+    file_path = directory / "text_includes" / filename
+
+    # read the prompt from the file
+    return file_path.read_text()
+
+
+# endregion
+
 
 #
 # region Models
@@ -19,11 +45,9 @@ class ArtifactAgentConfigModel(BaseModel):
     enable_artifacts: Annotated[
         bool,
         Field(
-            description=(
-                "The artifact support is experimental and disabled by default. Enable it to poke at"
-                " the early features, but be aware that you may lose data or experience unexpected behavior."
-            ),
+            description=load_text_include("artifact_agent_enable_artifacts.md"),
         ),
+        UISchema(enable_markdown_in_description=True),
     ] = False
 
     instruction_prompt: Annotated[
@@ -34,10 +58,14 @@ class ArtifactAgentConfigModel(BaseModel):
         UISchema(widget="textarea"),
     ] = (
         "You are able to create artifacts that will be shared with the others in this conversation."
-        " Please include any desired new artifacts or updates to existing artifacts. If this is an "
+        " Please include any desired new artifacts or updates to existing artifacts. If this is an"
         " intentional variant to explore another idea, create a new artifact to reflect that. Do not"
         " include the artifacts in the assistant response, as any included artifacts will be shown"
-        " to the other conversation participant(s) in a well-formed presentation."
+        " to the other conversation participant(s) in a well-formed presentation. Do not include any"
+        " commentary or instructions in the artifacts, as they will be presented as-is. If you need"
+        " to provide context or instructions, use the conversation text. Each artifact should have be"
+        " complete and self-contained. If you are editing an existing artifact, please provide the"
+        " full updated content (not just the updated fragments) and a new version number."
     )
 
     context_description: Annotated[
@@ -61,7 +89,7 @@ class ArtifactAgentConfigModel(BaseModel):
 class ArtifactMarkdownContent(BaseModel):
     class Config:
         extra = "forbid"
-        schema_extra = {
+        json_schema_extra = {
             "description": (
                 "The content of the artifact in markdown format. Use this type for any general text that"
                 " does not match another, more specific type."
@@ -75,7 +103,7 @@ class ArtifactMarkdownContent(BaseModel):
 class ArtifactCodeContent(BaseModel):
     class Config:
         extra = "forbid"
-        schema_extra = {
+        json_schema_extra = {
             "description": (
                 "The content of the artifact in code format with a specified language for syntax highlighting."
             ),
@@ -89,7 +117,7 @@ class ArtifactCodeContent(BaseModel):
 class ArtifactMermaidContent(BaseModel):
     class Config:
         extra = "forbid"
-        schema_extra = {
+        json_schema_extra = {
             "description": "The content of the artifact in mermaid format, which will be rendered as a diagram.",
             "required": ["content_type"],
         }
@@ -100,7 +128,7 @@ class ArtifactMermaidContent(BaseModel):
 class ArtifactAbcContent(BaseModel):
     class Config:
         extra = "forbid"
-        schema_extra = {
+        json_schema_extra = {
             "description": (
                 "The content of the artifact in abc format, which will be rendered as sheet music, an interactive player,"
                 " and available for download."
@@ -114,7 +142,7 @@ class ArtifactAbcContent(BaseModel):
 class ArtifactExcalidrawContent(BaseModel):
     class Config:
         extra = "forbid"
-        schema_extra = {
+        json_schema_extra = {
             "description": ("The content of the artifact in Excalidraw format, which will be rendered as a diagram."),
             "required": ["content_type", "excalidraw"],
         }
@@ -134,7 +162,7 @@ ArtifactContentType = Union[
 class Artifact(BaseModel):
     class Config:
         extra = "forbid"
-        schema_extra = {
+        json_schema_extra = {
             "description": (
                 "Data for the artifact, which includes a label, content, filename, type, and version. The filename"
                 " should be unique for each artifact, and the version should start at 1 and increment for each new"
@@ -242,18 +270,29 @@ class ArtifactConversationInspectorStateProvider:
     display_name = "Artifacts"
     description = "Artifacts that have been co-created by the participants in the conversation. NOTE: This feature is experimental and disabled by default."
 
+    def __init__(
+        self,
+        config_provider: BaseModelAssistantConfigWithSecrets["AssistantConfigModel", "AssistantServiceConfigModel"],
+    ) -> None:
+        self.config_provider = config_provider
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
         Get the artifacts for the conversation.
         """
 
+        # get the configuration for the artifact agent
+        config = await self.config_provider.get(context.assistant)
+        if not config.agents_config.artifact_agent.enable_artifacts:
+            return AssistantConversationInspectorStateDataModel(
+                data={"content": "Artifacts are disabled in assistant configuration."}
+            )
+
         # get the artifacts for the conversation
         artifacts = ArtifactAgent.get_all_artifacts(context)
 
         if not artifacts:
-            return AssistantConversationInspectorStateDataModel(
-                data={"content": "No artifacts available or artifact support is disabled in assistant configuration."}
-            )
+            return AssistantConversationInspectorStateDataModel(data={"content": "No artifacts available."})
 
         # create the data model for the artifacts
         data_model = AssistantConversationInspectorStateDataModel(

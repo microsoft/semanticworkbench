@@ -31,6 +31,10 @@ type CommandButtonProps = ButtonProps & {
     };
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    classNames?: {
+        dialogSurface?: string;
+        dialogContent?: string;
+    };
 };
 
 export const CommandButton: React.FC<CommandButtonProps> = (props) => {
@@ -47,6 +51,7 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
         asToolbarButton,
         appearance,
         size,
+        classNames,
     } = props;
 
     let commandButton = null;
@@ -92,10 +97,10 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
     return (
         <Dialog onOpenChange={dialogContent.onOpenChange}>
             <DialogTrigger>{commandButton}</DialogTrigger>
-            <DialogSurface>
+            <DialogSurface className={classNames?.dialogSurface}>
                 <DialogBody>
                     <DialogTitle>{dialogContent?.title}</DialogTitle>
-                    <DialogContent>{dialogContent?.content}</DialogContent>
+                    <DialogContent className={classNames?.dialogContent}>{dialogContent?.content}</DialogContent>
                     <DialogActions>
                         <DialogTrigger>
                             <Button>{dialogContent.closeLabel ?? 'Close'}</Button>

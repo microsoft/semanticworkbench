@@ -3,14 +3,13 @@
 import { ArrowUpload24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
-import { Assistant } from '../../models/Assistant';
 import { CommandButton } from '../App/CommandButton';
 
 interface AssistantImportProps {
     disabled?: boolean;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
-    onImport?: (assistant: Assistant) => void;
+    onImport?: (result: { assistantIds: string[]; conversationIds: string[] }) => void;
     onError?: (error: Error) => void;
 }
 
@@ -25,8 +24,8 @@ export const AssistantImport: React.FC<AssistantImportProps> = (props) => {
             setUploading(true);
             try {
                 const file = event.target.files[0];
-                const assistant = await workbenchService.importAssistantAsync(file);
-                onImport?.(assistant);
+                const result = await workbenchService.importConversationsAsync(file);
+                onImport?.(result);
             } catch (error) {
                 onError?.(error as Error);
             }

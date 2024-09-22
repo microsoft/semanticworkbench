@@ -2,12 +2,11 @@
 
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { useAccount, useMsal } from '@azure/msal-react';
-import { Assistant } from '../models/Assistant';
 import { AssistantServiceInfo } from '../models/AssistantServiceInfo';
 import { ConversationFile } from '../models/ConversationFile';
 import { useAppDispatch } from '../redux/app/hooks';
 import { addError } from '../redux/features/app/appSlice';
-import { assistantApi, workflowApi } from '../services/workbench';
+import { assistantApi, workbenchApi, workflowApi } from '../services/workbench';
 import { AuthHelper } from './AuthHelper';
 import { Utility } from './Utility';
 import { useEnvironment } from './useEnvironment';
@@ -148,27 +147,40 @@ export const useWorkbenchService = () => {
         return { blob, filename: filename || 'conversation-export.zip' };
     };
 
-    const importConversationsAsync = async (exportData: File): Promise<string[]> => {
+    const importConversationsAsync = async (
+        exportData: File,
+    ): Promise<{ assistantIds: string[]; conversationIds: string[] }> => {
         const formData = new FormData();
         formData.append('from_export', exportData);
 
-        const response = await tryFetchAsync('Import conversations', `${environment.url}/conversations/import`, {
-            method: 'POST',
-            body: formData,
-        });
+        const response = await tryFetchAsync(
+            'Import assistants and conversations',
+            `${environment.url}/conversations/import`,
+            {
+                method: 'POST',
+                body: formData,
+            },
+        );
 
         try {
             const json = await response.json();
-            return json.conversation_ids as string[];
+            return {
+                conversationIds: json.conversation_ids as string[],
+                assistantIds: json.assistant_ids as string[],
+            };
         } catch (error) {
-            dispatch(addError({ title: 'Import conversations', message: (error as Error).message }));
+            dispatch(addError({ title: 'Import assistants and conversations', message: (error as Error).message }));
             throw error;
+        } finally {
+            // conversation imports can include assistants and conversations
+            dispatch(workbenchApi.util.invalidateTags(['Assistant', 'Conversation']));
         }
     };
 
     const duplicateConversationsAsync = async (conversationIds: string[]) => {
         const { blob, filename } = await exportConversationsAsync(conversationIds);
-        return await importConversationsAsync(new File([blob], filename));
+        const result = await importConversationsAsync(new File([blob], filename));
+        return result.conversationIds;
     };
 
     const exportAssistantAsync = async (
@@ -181,26 +193,10 @@ export const useWorkbenchService = () => {
         return await tryFetchFileAsync('Export assistant', path, 'assistant-export.zip');
     };
 
-    const importAssistantAsync = async (exportData: File) => {
-        const formData = new FormData();
-        formData.append('from_export', exportData);
-
-        const response = await tryFetchAsync('Import assistant', `${environment.url}/assistants/import`, {
-            method: 'POST',
-            body: formData,
-        });
-
-        try {
-            return (await response.json()) as Assistant;
-        } catch (error) {
-            dispatch(addError({ title: 'Import assistant', message: (error as Error).message }));
-            throw error;
-        }
-    };
-
     const duplicateAssistantAsync = async (assistantId: string) => {
         const { blob, filename } = await exportAssistantAsync(assistantId);
-        return await importAssistantAsync(new File([blob], filename));
+        const result = await importConversationsAsync(new File([blob], filename));
+        return result.assistantIds[0];
     };
 
     const getAssistantServiceInfoAsync = async (
@@ -243,7 +239,6 @@ export const useWorkbenchService = () => {
         importConversationsAsync,
         duplicateConversationsAsync,
         exportAssistantAsync,
-        importAssistantAsync,
         duplicateAssistantAsync,
         getAssistantServiceInfoAsync,
         exportWorkflowDefinitionAsync,

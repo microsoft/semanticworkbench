@@ -7,10 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant import config
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
-from .agents.artifact_agent import ArtifactAgentConfigModel
-from .agents.attachment_agent import AttachmentAgentConfigModel
-from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluatorConfigModel, AzureContentSafetyServiceConfigModel
-from .responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluatorConfigModel
+from .agents import ArtifactAgentConfigModel, AttachmentAgentConfigModel
+from .responsible_ai import (
+    AzureContentSafetyEvaluatorConfigModel,
+    AzureContentSafetyServiceConfigModel,
+    OpenAIContentSafetyEvaluatorConfigModel,
+)
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -27,13 +29,13 @@ from .responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluatorConfigM
 #
 
 
-# helper for loading a prompt from a text file
-def _load_prompt_from_text_file(filename) -> str:
+# helper for loading an include from a text file
+def load_text_include(filename) -> str:
     # get directory relative to this module
     directory = pathlib.Path(__file__).parent
 
     # get the file path for the prompt file
-    file_path = directory / "prompts" / filename
+    file_path = directory / "text_includes" / filename
 
     # read the prompt from the file
     return file_path.read_text()
@@ -108,9 +110,11 @@ class RequestConfig(BaseModel):
             title="Max Tokens",
             description=(
                 "The maximum number of tokens to use for both the prompt and response. Current max supported by OpenAI"
-                " is 128k tokens, but varies by model (https://platform.openai.com/docs/models)"
+                " is 128k tokens, but varies by model [https://platform.openai.com/docs/models]"
+                "(https://platform.openai.com/docs/models)."
             ),
         ),
+        UISchema(enable_markdown_in_description=True),
     ] = 128_000
 
     response_tokens: Annotated[
@@ -119,9 +123,11 @@ class RequestConfig(BaseModel):
             title="Response Tokens",
             description=(
                 "The number of tokens to use for the response, will reduce the number of tokens available for the"
-                " prompt. Current max supported by OpenAI is 4096 tokens (https://platform.openai.com/docs/models)"
+                " prompt. Current max supported by OpenAI is 4096 tokens [https://platform.openai.com/docs/models]"
+                "(https://platform.openai.com/docs/models)."
             ),
         ),
+        UISchema(enable_markdown_in_description=True),
     ] = 4_048
 
     openai_model: Annotated[
@@ -176,7 +182,7 @@ class AssistantConfigModel(BaseModel):
             ),
         ),
         UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = _load_prompt_from_text_file("guardrails_prompt.txt")
+    ] = load_text_include("guardrails_prompt.txt")
 
     welcome_message: Annotated[
         str,

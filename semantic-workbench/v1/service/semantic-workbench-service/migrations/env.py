@@ -5,30 +5,11 @@ import semantic_workbench_service
 from alembic import context
 from rich.logging import RichHandler
 from semantic_workbench_service.db import (
-    Assistant,
-    AssistantParticipant,
-    Conversation,
-    ConversationMessage,
-    File,
-    FileVersion,
-    User,
-    UserParticipant,
-    ensure_url_is_async,
+    ensure_async_driver_scheme,
 )
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import AsyncEngine, async_engine_from_config
 from sqlmodel import SQLModel
-
-models = [
-    Assistant,
-    AssistantParticipant,
-    Conversation,
-    ConversationMessage,
-    File,
-    FileVersion,
-    User,
-    UserParticipant,
-]
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -48,12 +29,7 @@ target_metadata = SQLModel.metadata
 
 def get_db_url() -> str:
     url = semantic_workbench_service.settings.db.url
-    if not url.startswith("postgresql"):
-        raise RuntimeError(
-            "migrations are configured for postgresql only - did you set the WORKBENCH__DB__URL env var?"
-        )
-
-    return ensure_url_is_async(url)
+    return ensure_async_driver_scheme(url)
 
 
 def run_migrations_offline() -> None:
@@ -69,7 +45,7 @@ def run_migrations_offline() -> None:
 
     """
 
-    url = get_db_url()
+    url = semantic_workbench_service.settings.db.url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -121,15 +97,18 @@ def run_migrations_online():
             datefmt="[%X]",
             handlers=[RichHandler()],
         )
+        logging.getLogger("sqlalchemy").setLevel(logging.INFO)
+
+    logging.getLogger("alembic").setLevel(logging.INFO)
 
     connectable = config.attributes.get("connection", None)
     if connectable is None:
         connectable = connect()
 
     if isinstance(connectable, AsyncEngine):
-        asyncio.run(async_run_migrations_online(connectable))
-    else:
-        run_migrations(connectable)
+        return asyncio.run(async_run_migrations_online(connectable))
+
+    run_migrations(connectable)
 
 
 if context.is_offline_mode():
