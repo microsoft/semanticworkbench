@@ -1,4 +1,6 @@
-import semantic_workbench_assistant
-import semantic_workbench_assistant.storage
+from .config import AssistantConfigModel, AssistantServiceConfigModel
 
-file_storage = semantic_workbench_assistant.storage.FileStorage(settings=semantic_workbench_assistant.settings.storage)
+__all__ = [
+    "AssistantConfigModel",
+    "AssistantServiceConfigModel",
+]

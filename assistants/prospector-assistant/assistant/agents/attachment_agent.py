@@ -130,9 +130,10 @@ class AttachmentAgent:
                 continue
 
             # if the content is a data URI, include it as an image type within the message content
+            # NOTE: newer versions of the API only allow messages with the user role to include images
             if attachment.content.startswith("data:image/"):
                 messages.append({
-                    "role": "system",
+                    "role": "user",
                     "content": [
                         {
                             "type": "text",
