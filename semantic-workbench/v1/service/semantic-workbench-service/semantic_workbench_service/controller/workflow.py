@@ -319,12 +319,14 @@ class WorkflowController:
 
         return convert.workflow_run_from_db(model=workflow_run)
 
-    async def get_workflow_run_assistants(self, workflow_run_id: uuid.UUID) -> AssistantList:
+    async def get_workflow_run_assistants(
+        self, user_principal: auth.UserPrincipal, workflow_run_id: uuid.UUID
+    ) -> AssistantList:
         workflow_run = await self.get_workflow_run(workflow_run_id=workflow_run_id)
         assistants = []
         for assistant_mapping in workflow_run.assistant_mappings:
             assistant = await self._assistant_controller.get_assistant(
-                assistant_id=uuid.UUID(assistant_mapping.assistant_id)
+                user_principal=user_principal, assistant_id=uuid.UUID(assistant_mapping.assistant_id)
             )
             if assistant is not None:
                 assistants.append(assistant)
@@ -817,6 +819,7 @@ class WorkflowController:
                 # load assistant instance
                 try:
                     assistant = await self._assistant_controller.get_assistant(
+                        user_principal=service_user_principals.workflow,
                         assistant_id=uuid.UUID(assistant_id),
                     )
                 except Exception as e:
@@ -876,6 +879,7 @@ class WorkflowController:
                 # update assistant name
                 try:
                     assistant = await self._assistant_controller.update_assistant(
+                        user_principal=service_user_principals.workflow,
                         assistant_id=assistant.id,
                         update_assistant=UpdateAssistant(
                             name=assistant_definition.name,
@@ -903,6 +907,7 @@ class WorkflowController:
             # check to see if assistant config differs from the state config
             try:
                 assistant_config = await self._assistant_controller.get_assistant_config(
+                    user_principal=service_user_principals.workflow,
                     assistant_id=assistant.id,
                 )
             except Exception as e:
@@ -913,6 +918,7 @@ class WorkflowController:
                 # update assistant config to match state config
                 try:
                     await self._assistant_controller.update_assistant_config(
+                        user_principal=service_user_principals.workflow,
                         assistant_id=assistant.id,
                         updated_config=ConfigPutRequestModel(
                             config=assistant_data.config_data,

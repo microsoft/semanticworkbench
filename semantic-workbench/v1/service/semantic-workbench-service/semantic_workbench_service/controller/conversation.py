@@ -21,7 +21,7 @@ from semantic_workbench_api_model.workbench_model import (
     UpdateConversation,
     UpdateParticipant,
 )
-from sqlmodel import col, select
+from sqlmodel import col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .. import auth, db, query
@@ -67,6 +67,7 @@ class ConversationController:
                 owner_id=user_principal.user_id,
                 title=new_conversation.title,
                 meta_data=new_conversation.metadata,
+                imported_from_conversation_id=None,
             )
 
             session.add(conversation)
@@ -75,6 +76,7 @@ class ConversationController:
                 db.UserParticipant(
                     conversation_id=conversation.conversation_id,
                     user_id=user_principal.user_id,
+                    conversation_permission="read_write",
                 )
             )
 
@@ -86,16 +88,16 @@ class ConversationController:
     async def get_conversations(
         self,
         principal: auth.ActorPrincipal,
-        include_inactive: bool = False,
+        include_all_owned: bool = False,
     ) -> ConversationList:
         async with self._get_session() as session:
-            include_inactive = include_inactive and isinstance(principal, auth.UserPrincipal)
+            include_all_owned = include_all_owned and isinstance(principal, auth.UserPrincipal)
 
             conversations = (
                 await session.exec(
-                    query.select_conversations_for(principal=principal, include_inactive=include_inactive).order_by(
-                        col(db.Conversation.created_datetime).desc()
-                    )
+                    query.select_conversations_for(
+                        principal=principal, include_all_owned=include_all_owned, include_observer=True
+                    ).order_by(col(db.Conversation.created_datetime).desc())
                 )
             ).all()
 
@@ -133,18 +135,13 @@ class ConversationController:
         principal: auth.ActorPrincipal,
     ) -> Conversation:
         async with self._get_session() as session:
-            if isinstance(principal, auth.UserPrincipal):
-                await self._add_user_participant(
-                    user_principal=principal, conversation_id=conversation_id, session=session
-                )
-
-            include_inactive = isinstance(principal, auth.UserPrincipal)
+            include_all_owned = isinstance(principal, auth.UserPrincipal)
 
             conversation = (
                 await session.exec(
-                    query.select_conversations_for(principal=principal, include_inactive=include_inactive).where(
-                        db.Conversation.conversation_id == conversation_id
-                    )
+                    query.select_conversations_for(
+                        principal=principal, include_all_owned=include_all_owned, include_observer=True
+                    ).where(db.Conversation.conversation_id == conversation_id)
                 )
             ).one_or_none()
             if conversation is None:
@@ -163,9 +160,12 @@ class ConversationController:
                 await session.exec(
                     query.select_conversations_for(
                         principal=user_principal,
-                        include_inactive=True,
+                        include_all_owned=True,
                     )
-                    .where(db.Conversation.conversation_id == conversation_id)
+                    .where(
+                        db.Conversation.conversation_id == conversation_id,
+                        db.Conversation.owner_id == user_principal.user_id,
+                    )
                     .with_for_update()
                 )
             ).one_or_none()
@@ -204,16 +204,11 @@ class ConversationController:
         include_inactive: bool = False,
     ) -> ConversationParticipantList:
         async with self._get_session() as session:
-            if isinstance(principal, auth.UserPrincipal):
-                await self._add_user_participant(
-                    user_principal=principal, conversation_id=conversation_id, session=session
-                )
-
             conversation = (
                 await session.exec(
-                    query.select_conversations_for(principal=principal).where(
-                        db.Conversation.conversation_id == conversation_id
-                    )
+                    query.select_conversations_for(
+                        principal=principal, include_all_owned=True, include_observer=True
+                    ).where(db.Conversation.conversation_id == conversation_id)
                 )
             ).one_or_none()
             if conversation is None:
@@ -232,9 +227,9 @@ class ConversationController:
         async with self._get_session() as session:
             conversation = (
                 await session.exec(
-                    query.select_conversations_for(principal=principal).where(
-                        db.Conversation.conversation_id == conversation_id
-                    )
+                    query.select_conversations_for(
+                        principal=principal, include_all_owned=True, include_observer=True
+                    ).where(db.Conversation.conversation_id == conversation_id)
                 )
             ).one_or_none()
             if conversation is None:
@@ -281,49 +276,41 @@ class ConversationController:
         if update_participant.active_participant is not None and not update_participant.active_participant:
             update_participant.status = None
 
-        updates = update_participant.model_dump(exclude_unset=True)
-
         async with self._get_session() as session:
 
             async def update_user_participant(
                 conversation: db.Conversation, user: db.User
             ) -> tuple[
                 ConversationParticipant,
-                Literal[
-                    ConversationEventType.participant_created,
-                    ConversationEventType.participant_updated,
-                ]
-                | None,
+                Literal[ConversationEventType.participant_updated,] | None,
             ]:
-                new_participant = await db.insert_if_not_exists(
-                    session,
-                    db.UserParticipant(
-                        conversation_id=conversation.conversation_id,
-                        user_id=user.user_id,
-                        name=user.name,
-                        image=user.image,
-                        service_user=user.service_user,
-                        **updates,
-                    ),
-                )
-                event_type = ConversationEventType.participant_created if new_participant else None
-
+                event_type: ConversationEventType | None = None
                 participant = (
                     await session.exec(
                         select(db.UserParticipant)
+                        .join(db.Conversation)
                         .where(db.UserParticipant.conversation_id == conversation.conversation_id)
                         .where(db.UserParticipant.user_id == user.user_id)
+                        .where(
+                            or_(
+                                col(db.UserParticipant.active_participant).is_(True),
+                                db.Conversation.owner_id == user.user_id,
+                            )
+                        )
                         .with_for_update()
                     )
-                ).one()
+                ).one_or_none()
+                if participant is None:
+                    raise exceptions.NotFoundError()
 
-                for key, value in updates.items():
-                    if getattr(participant, key) != value:
-                        setattr(participant, key, value)
-                        event_type = event_type or ConversationEventType.participant_updated
+                if update_participant.active_participant is not None:
+                    event_type = ConversationEventType.participant_updated
+                    participant.active_participant = update_participant.active_participant
 
-                    if key == "status":
-                        participant.status_updated_datetime = datetime.datetime.now(datetime.UTC)
+                if update_participant.status != participant.status:
+                    event_type = event_type or ConversationEventType.participant_updated
+                    participant.status = update_participant.status
+                    participant.status_updated_datetime = datetime.datetime.now(datetime.UTC)
 
                 if event_type is not None:
                     session.add(participant)
@@ -423,10 +410,14 @@ class ConversationController:
 
             match principal:
                 case auth.UserPrincipal():
-                    # users can update participants in any conversation
+                    await user_.add_or_update_user_from(user_principal=principal, session=session)
+
+                    # users can update participants in any conversation they own or are participants of
                     conversation = (
                         await session.exec(
-                            select(db.Conversation).where(db.Conversation.conversation_id == conversation_id)
+                            query.select_conversations_for(
+                                principal=principal, include_all_owned=True, include_observer=True
+                            ).where(db.Conversation.conversation_id == conversation_id)
                         )
                     ).one_or_none()
                     if conversation is None:
@@ -441,8 +432,10 @@ class ConversationController:
 
                     match participant_role:
                         case "user":
-                            # users can add any user to conversations
-                            await user_.add_or_update_user_from(user_principal=principal, session=session)
+                            # users can only update their own participant
+                            if participant_id != principal.user_id:
+                                raise exceptions.ForbiddenError()
+
                             user = (
                                 await session.exec(select(db.User).where(db.User.user_id == participant_id))
                             ).one_or_none()
@@ -534,7 +527,7 @@ class ConversationController:
                 new_message.id is not None
                 and (
                     await session.exec(
-                        query.select_conversation_messages_for(principal=principal)
+                        query.select(db.ConversationMessage)
                         .where(db.ConversationMessage.conversation_id == conversation_id)
                         .where(db.ConversationMessage.message_id == new_message.id)
                     )
@@ -605,38 +598,6 @@ class ConversationController:
 
         return convert.conversation_message_from_db(message)
 
-    async def _add_user_participant(
-        self, session: AsyncSession, user_principal: auth.UserPrincipal, conversation_id: uuid.UUID
-    ) -> None:
-        await user_.add_or_update_user_from(session=session, user_principal=user_principal)
-
-        conversation = (
-            await session.exec(select(db.Conversation).where(db.Conversation.conversation_id == conversation_id))
-        ).one_or_none()
-        if conversation is None:
-            return
-
-        await db.insert_if_not_exists(
-            session,
-            db.UserParticipant(
-                conversation_id=conversation_id,
-                user_id=user_principal.user_id,
-                active_participant=True,
-            ),
-        )
-
-        participant = (
-            await session.exec(
-                select(db.UserParticipant)
-                .where(db.UserParticipant.conversation_id == conversation_id)
-                .where(db.UserParticipant.user_id == user_principal.user_id)
-                .with_for_update()
-            )
-        ).one()
-        participant.active_participant = True
-        session.add(participant)
-        await session.commit()
-
     async def get_messages(
         self,
         principal: auth.ActorPrincipal,
@@ -649,14 +610,9 @@ class ConversationController:
         limit: int = 100,
     ) -> ConversationMessageList:
         async with self._get_session() as session:
-            if isinstance(principal, auth.UserPrincipal):
-                await self._add_user_participant(
-                    user_principal=principal, conversation_id=conversation_id, session=session
-                )
-
             conversation = (
                 await session.exec(
-                    query.select_conversations_for(principal=principal).where(
+                    query.select_conversations_for(principal=principal, include_observer=True).where(
                         db.Conversation.conversation_id == conversation_id
                     )
                 )
@@ -718,14 +674,19 @@ class ConversationController:
         self,
         conversation_id: uuid.UUID,
         message_id: uuid.UUID,
-        principal: auth.ActorPrincipal,
+        user_principal: auth.UserPrincipal,
     ) -> None:
         async with self._get_session() as session:
             message = (
                 await session.exec(
-                    query.select_conversation_messages_for(principal=principal)
-                    .where(db.ConversationMessage.conversation_id == conversation_id)
-                    .where(db.ConversationMessage.message_id == message_id)
+                    query.select_conversation_messages_for(principal=user_principal).where(
+                        db.ConversationMessage.conversation_id == conversation_id,
+                        db.ConversationMessage.message_id == message_id,
+                        or_(
+                            db.Conversation.owner_id == user_principal.user_id,
+                            db.ConversationMessage.sender_participant_id == user_principal.user_id,
+                        ),
+                    )
                 )
             ).one_or_none()
             if message is None:

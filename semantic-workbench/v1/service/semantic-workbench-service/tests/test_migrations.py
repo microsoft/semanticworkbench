@@ -1,32 +1,38 @@
-import pathlib
-
-import alembic.config
 import pytest
 import semantic_workbench_service
+from alembic import command
+from alembic.config import Config
+from semantic_workbench_service import db
 from semantic_workbench_service.config import DBSettings
 
 
-def test_migration_cycle(db_settings: DBSettings, monkeypatch: pytest.MonkeyPatch) -> None:
-    if not db_settings.url.startswith("postgresql"):
-        pytest.skip(f"postgres migration test skipped for db url {db_settings.url}")
+@pytest.fixture
+async def bootstrapped_db_settings(db_settings: DBSettings) -> DBSettings:
+    async with db.create_engine(db_settings) as engine:
+        await db.bootstrap_db(engine, settings=db_settings)
 
-    monkeypatch.setattr(semantic_workbench_service.settings, "db", db_settings)
+    return db_settings
 
-    monkeypatch.chdir(pathlib.Path(__file__).parent / "..")
 
-    """Test that all migrations can upgrade and downgrade without error."""
+@pytest.fixture
+def alembic_config(bootstrapped_db_settings: DBSettings, monkeypatch: pytest.MonkeyPatch) -> Config:
+    monkeypatch.setattr(semantic_workbench_service.settings, "db", bootstrapped_db_settings)
+    return Config(bootstrapped_db_settings.alembic_config_path)
 
-    # upgrade to head
-    alembic.config.main(argv=["--raiseerr", "upgrade", "head"])
 
-    # check that the current revision is head
-    alembic.config.main(argv=["--raiseerr", "check"])
+def test_migration_cycle(alembic_config: Config) -> None:
+    """Test that all migrations can downgrade and upgrade without error."""
+
+    # check that there are no schema differences from head
+    command.check(alembic_config)
 
     # downgrade to base
-    alembic.config.main(argv=["--raiseerr", "downgrade", "base"])
+    command.downgrade(alembic_config, "base")
 
     # and upgrade back to head
-    alembic.config.main(argv=["--raiseerr", "upgrade", "head"])
+    command.upgrade(alembic_config, "head")
 
     # check that the current revision is head
-    alembic.config.main(argv=["--raiseerr", "check"])
+    command.check(
+        alembic_config,
+    )

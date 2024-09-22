@@ -134,6 +134,7 @@ class UISchema:
     def __init__(
         self,
         schema: dict[str, Any] | None = None,
+        help: str | None = None,
         widget: Literal["textarea", "radio", "checkbox", "hidden"] | str | None = None,
         placeholder: str | None = None,
         hide_title: bool | None = None,
@@ -141,6 +142,8 @@ class UISchema:
     ) -> None:
         self.schema = schema or {}
         ui_options: dict[str, Any] = self.schema.get("ui:options", {})
+        if help:
+            ui_options.update({"help": help})
         if widget:
             ui_options.update({"widget": widget})
         if hide_title is not None:
