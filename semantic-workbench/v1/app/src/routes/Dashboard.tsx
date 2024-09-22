@@ -8,8 +8,11 @@ import { ExperimentalNotice } from '../components/App/ExperimentalNotice';
 import { Loading } from '../components/App/Loading';
 import { MyAssistants } from '../components/Assistants/MyAssistants';
 import { MyConversations } from '../components/Conversations/MyConversations';
+import { MyWorkflows } from '../components/Workflows/MyWorkflows';
+import { useLocalUserAccount } from '../libs/useLocalUserAccount';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../services/workbench';
+import { useGetWorkflowDefinitionsQuery } from '../services/workbench/workflow';
 
 const useClasses = makeStyles({
     root: {
@@ -27,9 +30,15 @@ export const Dashboard: React.FC = () => {
         error: conversationsError,
         isLoading: isLoadingConversations,
     } = useGetConversationsQuery();
+    const {
+        data: workflowDefinitions,
+        error: workflowDefinitionsError,
+        isLoading: isLoadingWorkflowDefinitions,
+    } = useGetWorkflowDefinitionsQuery();
+    const { getUserId } = useLocalUserAccount();
 
     const siteUtility = useSiteUtility();
-    siteUtility.setDocumentTitle('Semantic Workbench');
+    siteUtility.setDocumentTitle('Dashboard');
 
     if (assistantsError) {
         const errorMessage = JSON.stringify(assistantsError);
@@ -41,23 +50,39 @@ export const Dashboard: React.FC = () => {
         throw new Error(`Error loading conversations: ${errorMessage}`);
     }
 
+    if (workflowDefinitionsError) {
+        const errorMessage = JSON.stringify(workflowDefinitionsError);
+        throw new Error(`Error loading workflow definitions: ${errorMessage}`);
+    }
+
     const appMenuAction = <AppMenu />;
 
-    if (isLoadingAssistants || isLoadingConversations) {
+    if (isLoadingAssistants || isLoadingConversations || isLoadingWorkflowDefinitions) {
         return (
-            <AppView title="Semantic Workbench" actions={{ items: [appMenuAction], replaceExisting: true }}>
+            <AppView title="Dashboard" actions={{ items: [appMenuAction], replaceExisting: true }}>
                 <Loading />
             </AppView>
         );
     }
 
+    const userId = getUserId();
+    const myConversations = conversations?.filter((conversation) => conversation.ownerId === userId) || [];
+    const conversationsSharedWithMe = conversations?.filter((conversation) => conversation.ownerId !== userId) || [];
+
     return (
-        <AppView title="Semantic Workbench" actions={{ items: [appMenuAction], replaceExisting: true }}>
+        <AppView title="Dashboard" actions={{ items: [appMenuAction], replaceExisting: true }}>
             <div className={classes.root}>
                 <ExperimentalNotice />
                 <MyAssistants assistants={assistants} />
-                <MyConversations conversations={conversations} participantId="me" />
-                {/* <MyWorkflows workflowDefinitions={workflowDefinitions} /> */}
+                <MyConversations conversations={myConversations} participantId="me" />
+                {conversationsSharedWithMe.length > 0 && (
+                    <MyConversations
+                        title="Conversations Shared with Me"
+                        conversations={conversationsSharedWithMe}
+                        participantId="me"
+                    />
+                )}
+                <MyWorkflows workflowDefinitions={workflowDefinitions} />
             </div>
         </AppView>
     );

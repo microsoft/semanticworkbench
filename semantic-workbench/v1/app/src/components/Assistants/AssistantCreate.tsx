@@ -53,10 +53,11 @@ interface AssistantCreateProps {
     open: boolean;
     onOpenChange?: (open: boolean) => void;
     onCreate?: (assistant: Assistant) => void;
+    onImport?: (result: { assistantIds: string[]; conversationIds: string[] }) => void;
 }
 
 export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
-    const { open, onOpenChange, onCreate } = props;
+    const { open, onOpenChange, onCreate, onImport } = props;
     const classes = useClasses();
     const { refetch: refetchAssistants } = useGetAssistantsQuery();
     const {
@@ -125,10 +126,10 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
         [onOpenChange],
     );
 
-    const handleImport = async (assistant: Assistant) => {
+    const handleImport = async (result: { assistantIds: string[]; conversationIds: string[] }) => {
         // actual import already handled inside the AssistantImport component
         onOpenChange?.(false);
-        onCreate?.(assistant);
+        onImport?.(result);
     };
 
     const handleImportError = () => {
@@ -213,77 +214,83 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogSurface>
-                <DialogBody>
-                    <DialogTitle>Create New Assistant Instance</DialogTitle>
-                    <DialogContent>
-                        <form
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                handleSave();
-                            }}
-                        >
+                <form
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        handleSave();
+                    }}
+                >
+                    <DialogBody>
+                        <DialogTitle>New Instance of Assistant</DialogTitle>
+                        <DialogContent>
                             {!manualEntry && (
-                                <Field label="Assistant Service">
-                                    <Dropdown
-                                        placeholder="Select an assistant service"
-                                        disabled={submitted}
-                                        onOptionSelect={(_event, data) => {
-                                            if (data.optionValue) {
-                                                setAssistantServiceId(data.optionValue as string);
-                                            }
+                                <p>
+                                    <Field label="Assistant Service">
+                                        <Dropdown
+                                            placeholder="Select an assistant service"
+                                            disabled={submitted}
+                                            onOptionSelect={(_event, data) => {
+                                                if (data.optionValue) {
+                                                    setAssistantServiceId(data.optionValue as string);
+                                                }
 
-                                            if (data.optionText && name === '') {
-                                                setName(data.optionText);
-                                            }
-                                        }}
-                                    >
-                                        {options}
-                                    </Dropdown>
-                                </Field>
+                                                if (data.optionText && name === '') {
+                                                    setName(data.optionText);
+                                                }
+                                            }}
+                                        >
+                                            {options}
+                                        </Dropdown>
+                                    </Field>
+                                </p>
                             )}
                             {manualEntry && (
-                                <Field label="Assistant Service ID">
+                                <p>
+                                    <Field label="Assistant Service ID">
+                                        <Input
+                                            disabled={submitted}
+                                            value={assistantServiceId}
+                                            onChange={(_event, data) => setAssistantServiceId(data?.value)}
+                                            aria-autocomplete="none"
+                                        />
+                                    </Field>
+                                </p>
+                            )}
+                            <p>
+                                <Field label="Name">
                                     <Input
                                         disabled={submitted}
-                                        value={assistantServiceId}
-                                        onChange={(_event, data) => setAssistantServiceId(data?.value)}
+                                        value={name}
+                                        onChange={(_event, data) => setName(data?.value)}
                                         aria-autocomplete="none"
                                     />
                                 </Field>
-                            )}
-                            <Field label="Name">
-                                <Input
-                                    disabled={submitted}
-                                    value={name}
-                                    onChange={(_event, data) => setName(data?.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
+                            </p>
                             <button disabled={!name || !assistantServiceId || submitted} type="submit" hidden />
-                        </form>
-                    </DialogContent>
-                    <DialogActions>
-                        <Checkbox
-                            style={{ whiteSpace: 'nowrap' }}
-                            label="Enter Assistant Service ID"
-                            checked={manualEntry}
-                            onChange={(_event, data) => setManualEntry(data.checked === true)}
-                        />
-                        <AssistantImport disabled={submitted} onImport={handleImport} onError={handleImportError} />
-                        <DialogTrigger disableButtonEnhancement>
-                            <Button appearance="secondary">Cancel</Button>
-                        </DialogTrigger>
-                        <DialogTrigger>
-                            <Button
-                                disabled={!name || !assistantServiceId || submitted}
-                                appearance="primary"
-                                onClick={handleSave}
-                            >
-                                {submitted ? 'Saving...' : 'Save'}
-                            </Button>
-                        </DialogTrigger>
-                    </DialogActions>
-                </DialogBody>
+                        </DialogContent>
+                        <DialogActions>
+                            <Checkbox
+                                style={{ whiteSpace: 'nowrap' }}
+                                label="Enter Assistant Service ID"
+                                checked={manualEntry}
+                                onChange={(_event, data) => setManualEntry(data.checked === true)}
+                            />
+                            <AssistantImport disabled={submitted} onImport={handleImport} onError={handleImportError} />
+                            <DialogTrigger disableButtonEnhancement>
+                                <Button appearance="secondary">Cancel</Button>
+                            </DialogTrigger>
+                            <DialogTrigger>
+                                <Button
+                                    disabled={!name || !assistantServiceId || submitted}
+                                    appearance="primary"
+                                    onClick={handleSave}
+                                >
+                                    {submitted ? 'Saving...' : 'Save'}
+                                </Button>
+                            </DialogTrigger>
+                        </DialogActions>
+                    </DialogBody>
+                </form>
             </DialogSurface>
         </Dialog>
     );

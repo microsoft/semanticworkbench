@@ -450,7 +450,9 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = (props) => {
                 <DialogSurface>
                     <DialogBody>
                         <DialogTitle>Confirm Delete</DialogTitle>
-                        <DialogContent>Are you sure you want to delete these items?</DialogContent>
+                        <DialogContent>
+                            <p>Are you sure you want to delete these items?</p>
+                        </DialogContent>
                         <DialogActions>
                             <DialogTrigger>
                                 <Button>Cancel</Button>

@@ -54,10 +54,11 @@ const useClasses = makeStyles({
 interface InteractHistoryProps {
     conversation: Conversation;
     participants: ConversationParticipant[];
+    readOnly: boolean;
 }
 
 export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
-    const { conversation, participants } = props;
+    const { conversation, participants, readOnly } = props;
     const classes = useClasses();
     const { hash } = useLocation();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
@@ -135,8 +136,19 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     (participant) => participant.id === message.sender.participantId,
                 );
                 if (!senderParticipant) {
-                    throw new Error(
-                        `Participant not found: ${message.sender.participantId} in conversation ${conversation.id}`,
+                    // throw new Error(
+                    //     `Participant not found: ${message.sender.participantId} in conversation ${conversation.id}`,
+                    // );
+
+                    // if the sender participant is not found, do not render the message.
+                    // this can happen temporarily if the provided conversation was just
+                    // re-retrieved, but the participants have not been re-retrieved yet
+                    return (
+                        <>
+                            <div>
+                                Participant not found: {message.sender.participantId} in conversation {conversation.id}
+                            </div>
+                        </>
                     );
                 }
                 const date = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('M/D/YY');
@@ -169,6 +181,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                 return (
                     <div className={classes.item} key={message.id}>
                         <InteractMessage
+                            readOnly={readOnly}
                             conversationId={conversation.id}
                             message={message}
                             participant={senderParticipant}
@@ -204,6 +217,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         isLoadingMessages,
         messages,
         participants,
+        readOnly,
     ]);
 
     React.useEffect(() => {

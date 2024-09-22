@@ -63,6 +63,7 @@ interface InteractCanvasProps {
     conversationFiles: ConversationFile[];
     conversation: Conversation;
     preventAssistantModifyOnParticipantIds?: string[];
+    readOnly: boolean;
 }
 
 export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
@@ -72,10 +73,12 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
         conversationFiles,
         conversation,
         preventAssistantModifyOnParticipantIds,
+        readOnly,
     } = props;
     const classes = useClasses();
     const { interactCanvasState } = useAppSelector((state) => state.app);
     const interactCanvasController = useInteractCanvasController();
+    const [firstRun, setFirstRun] = React.useState(true);
     const [selectedAssistant, setSelectedAssistant] = React.useState<Assistant | null>(null);
 
     // Verify the selected assistant is in the conversation
@@ -97,21 +100,28 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
     // If no assistant is selected, select the first assistant in the list if available
     React.useEffect(() => {
         // If an assistant is selected, do not change the selection
-        if (interactCanvasState?.assistantId !== (null || undefined)) {
+        if (interactCanvasState?.assistantId) {
             return;
         }
 
         // If there are no assistants, do not select an assistant
         if (conversationAssistants.length === 0) {
             log('No assistants in the conversation');
+
+            // If this is the first run, transition to the conversation mode to add an assistant
+            if (firstRun) {
+                interactCanvasController.transitionToState({ open: true, mode: 'conversation' });
+                setFirstRun(false);
+            }
             return;
         }
 
         // Select the first assistant in the list
         log('Selecting the first assistant in the conversation');
         interactCanvasController.setState({ assistantId: conversationAssistants[0].id });
-    }, [conversationAssistants, interactCanvasState, interactCanvasController]);
+    }, [conversationAssistants, interactCanvasState, interactCanvasController, firstRun]);
 
+    // Set the selected assistant when the assistant id changes and the canvas is open and in assistant mode
     React.useEffect(() => {
         if (
             selectedAssistant?.id !== interactCanvasState?.assistantId &&
@@ -142,7 +152,7 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
         }
 
         // Open the assistant drawer if the mode is assistant and an assistant is selected
-        if (interactCanvasState?.mode === 'assistant' && interactCanvasState?.assistantId !== (null || undefined)) {
+        if (interactCanvasState?.mode === 'assistant' && interactCanvasState?.assistantId) {
             openDrawer = 'assistant';
         }
 
@@ -160,6 +170,7 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
                 </DrawerHeader>
                 <div className={classes.drawerContent}>
                     <ConversationCanvas
+                        readOnly={readOnly}
                         conversation={conversation}
                         conversationParticipants={conversationParticipants}
                         conversationFiles={conversationFiles}

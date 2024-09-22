@@ -93,6 +93,7 @@ const transformResponseToConversation = (response: any): Conversation => {
     try {
         return {
             id: response.id,
+            ownerId: response.owner_id,
             title: response.title,
             metadata: response.metadata,
         };

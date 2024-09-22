@@ -1,42 +1,41 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, DialogTrigger, Label } from '@fluentui/react-components';
+import { Button, DialogTrigger } from '@fluentui/react-components';
 import { Delete24Regular } from '@fluentui/react-icons';
 import React from 'react';
-import { Assistant } from '../../models/Assistant';
-import { useDeleteAssistantMutation } from '../../services/workbench';
+import { ConversationShare } from '../../models/ConversationShare';
+import { useDeleteShareMutation } from '../../services/workbench/share';
 import { CommandButton } from '../App/CommandButton';
 
-interface AssistantDeleteProps {
-    assistant: Assistant;
-    onDelete?: () => void;
+interface ShareRemoveProps {
+    share: ConversationShare;
+    onRemove?: () => void;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
 }
 
-export const AssistantDelete: React.FC<AssistantDeleteProps> = (props) => {
-    const { assistant, onDelete, iconOnly, asToolbarButton } = props;
-    const [deleteAssistant] = useDeleteAssistantMutation();
+export const ShareRemove: React.FC<ShareRemoveProps> = (props) => {
+    const { share, onRemove: onDelete, iconOnly, asToolbarButton } = props;
+    const [deleteShare] = useDeleteShareMutation();
+    const [isDeleting, setIsDeleting] = React.useState(false);
 
     const handleDelete = React.useCallback(async () => {
-        await deleteAssistant(assistant.id);
+        setIsDeleting(true);
+        await deleteShare(share.id);
         onDelete?.();
-    }, [assistant, onDelete, deleteAssistant]);
+    }, [share.id, onDelete, deleteShare, setIsDeleting]);
 
     return (
         <CommandButton
-            description="Delete assistant"
+            description="Delete share"
             icon={<Delete24Regular />}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
             label="Delete"
+            disabled={isDeleting}
             dialogContent={{
-                title: 'Delete Assistant',
-                content: (
-                    <p>
-                        <Label> Are you sure you want to delete this assistant?</Label>
-                    </p>
-                ),
+                title: 'Delete Share',
+                content: <p>Are you sure you want to delete this share?</p>,
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="delete">

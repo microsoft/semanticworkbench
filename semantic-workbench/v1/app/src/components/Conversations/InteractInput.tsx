@@ -103,6 +103,7 @@ const useClasses = makeStyles({
 interface InteractInputProps {
     conversationId: string;
     additionalContent?: React.ReactNode;
+    readOnly: boolean;
 }
 
 interface SerializedTemporaryTextNode extends SerializedTextNode {}
@@ -126,7 +127,7 @@ class TemporaryTextNode extends TextNode {
 }
 
 export const InteractInput: React.FC<InteractInputProps> = (props) => {
-    const { conversationId, additionalContent } = props;
+    const { conversationId, additionalContent, readOnly } = props;
     const classes = useClasses();
     const dropTargetRef = React.useRef<HTMLDivElement>(null);
     const isDraggingOverBody = useAppSelector((state) => state.app.isDraggingOverBody);
@@ -262,7 +263,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     }
 
     const handleSend = (_event: ChatInputSubmitEvents, data: EditorInputValueData) => {
-        if (data.value.trim() === '' || isSubmitting || isListening) {
+        if (data.value.trim() === '' || isSubmitting) {
             return;
         }
 
@@ -464,7 +465,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         });
     };
 
-    const disableInputs = isSubmitting || isListening;
+    const disableSend = readOnly || isSubmitting || tokenCount === 0;
+    const disableInputs = readOnly || isSubmitting || isListening;
 
     return (
         <div className={classes.root}>
@@ -498,16 +500,16 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                         }
                         count={
                             <span>
-                                {tokenCount} tokens / {attachmentFiles.size} attachments (max{' '}
+                                {tokenCount} tokens | {attachmentFiles.size} attachments (max{' '}
                                 {Constants.app.maxFileAttachmentsPerMessage})
                             </span>
                         }
                         placeholderValue="Ask a question or request assistance or type / to enter a command."
                         customNodes={[ChatInputTokenNode, ChatInputEntityNode, LineBreakNode, TemporaryTextNode]}
+                        disableSend={disableSend}
                         onSubmit={handleSend}
                         trimWhiteSpace
                         showCount
-                        disableSend={disableInputs}
                         actions={
                             <span style={{ display: 'flex', alignItems: 'center' }}>
                                 <span>

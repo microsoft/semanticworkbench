@@ -7,5 +7,6 @@ export interface ConversationParticipant {
     online?: boolean;
     status: string | null;
     statusTimestamp: string | null;
+    conversationPermission: 'read' | 'read_write';
     active: boolean;
 }

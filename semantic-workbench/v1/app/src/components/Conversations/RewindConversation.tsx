@@ -18,10 +18,11 @@ interface RewindConversationProps {
     conversationId: string;
     message: ConversationMessage;
     onRewind?: () => void;
+    disabled?: boolean;
 }
 
 export const RewindConversation: React.FC<RewindConversationProps> = (props) => {
-    const { conversationId, message, onRewind } = props;
+    const { conversationId, message, onRewind, disabled } = props;
     const {
         data: messages,
         error: getMessagesError,
@@ -72,7 +73,7 @@ export const RewindConversation: React.FC<RewindConversationProps> = (props) => 
 
     return (
         <CommandButton
-            disabled={isLoadingMessages}
+            disabled={disabled || isLoadingMessages}
             trigger={<Button appearance="subtle" icon={<RewindRegular />} size="small" />}
             description="Rewind conversation to before this message, with optional redo."
             icon={<RewindRegular />}

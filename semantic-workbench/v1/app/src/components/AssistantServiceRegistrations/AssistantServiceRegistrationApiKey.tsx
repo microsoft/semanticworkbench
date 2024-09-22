@@ -62,23 +62,25 @@ export const AssistantServiceRegistrationApiKey: React.FC<AssistantServiceRegist
                 <DialogBody>
                     <DialogTitle>Assistant Service Registration API Key</DialogTitle>
                     <DialogContent>
-                        <Field>
-                            <Input
-                                ref={inputRef}
-                                value={apiKey}
-                                readOnly
-                                contentAfter={
-                                    <div className={classes.row}>
-                                        {copiedTimeout && <Text>Copied to clipboard!</Text>}
-                                        <Button
-                                            appearance="transparent"
-                                            icon={<Copy24Regular />}
-                                            onClick={handleCopy}
-                                        />
-                                    </div>
-                                }
-                            />
-                        </Field>
+                        <p>
+                            <Field>
+                                <Input
+                                    ref={inputRef}
+                                    value={apiKey}
+                                    readOnly
+                                    contentAfter={
+                                        <div className={classes.row}>
+                                            {copiedTimeout && <Text>Copied to clipboard!</Text>}
+                                            <Button
+                                                appearance="transparent"
+                                                icon={<Copy24Regular />}
+                                                onClick={handleCopy}
+                                            />
+                                        </div>
+                                    }
+                                />
+                            </Field>
+                        </p>
                         <p>
                             <Text>
                                 Make sure to copy the API key before closing this dialog, as it will not be displayed

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { Button, makeStyles, shorthands, tokens, Tooltip } from '@fluentui/react-components';
-import { Bot24Regular, Chat24Regular, Dismiss24Regular } from '@fluentui/react-icons';
+import { AppsList24Regular, BookInformation24Regular, Dismiss24Regular } from '@fluentui/react-icons';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useEnvironment } from '../../../libs/useEnvironment';
@@ -13,6 +13,8 @@ const useClasses = makeStyles({
     root: {
         zIndex: 1000,
         position: 'absolute',
+        backgroundColor: `rgba(255, 255, 255, 0.5)`,
+        borderBottomLeftRadius: tokens.borderRadiusMedium,
         top: 0,
         right: 0,
         display: 'flex',
@@ -68,42 +70,43 @@ export const CanvasControls: React.FC<CanvasControlsProps> = (props) => {
         interactCanvasController.transitionToState({ open: false });
     };
 
+    const conversationActive = interactCanvasState?.mode === 'conversation' && interactCanvasState?.open;
+    const assistantActive = interactCanvasState?.mode === 'assistant' && interactCanvasState?.open;
+
     return (
         <div className={classes.root}>
-            {(interactCanvasState?.mode !== 'conversation' || !interactCanvasState?.open) && (
-                <Tooltip content="Open conversation canvas" relationship="label">
-                    <Button
-                        disabled={interactCanvasController.isTransitioning}
-                        icon={<Chat24Regular />}
-                        onClick={handleActivateConversation}
-                    />
-                </Tooltip>
-            )}
-            {interactCanvasState?.open && (
-                <Tooltip content="Close canvas" relationship="label">
-                    <Button
-                        disabled={interactCanvasController.isTransitioning}
-                        icon={<Dismiss24Regular />}
-                        onClick={handleDismiss}
-                    />
-                </Tooltip>
-            )}
-            {(interactCanvasState?.mode !== 'assistant' || !interactCanvasState?.open) && (
-                <Tooltip
-                    content={
-                        interactCanvasState?.assistantId
-                            ? 'Open assistant canvas'
-                            : 'No assistants available in conversation'
-                    }
-                    relationship="label"
+            <Tooltip content="Open conversation canvas" relationship="label">
+                <Button
+                    disabled={conversationActive || interactCanvasController.isTransitioning}
+                    icon={<AppsList24Regular />}
+                    onClick={handleActivateConversation}
                 >
-                    <Button
-                        disabled={interactCanvasController.isTransitioning || !interactCanvasState?.assistantId}
-                        icon={<Bot24Regular />}
-                        onClick={handleActivateAssistant}
-                    />
+                    {/* Conversation */}
+                </Button>
+            </Tooltip>
+            <Tooltip
+                content={
+                    interactCanvasState?.assistantId
+                        ? 'Open assistant canvas'
+                        : 'No assistants available in conversation'
+                }
+                relationship="label"
+            >
+                <Button
+                    disabled={
+                        assistantActive || interactCanvasController.isTransitioning || !interactCanvasState?.assistantId
+                    }
+                    icon={<BookInformation24Regular />}
+                    onClick={handleActivateAssistant}
+                >
+                    {/* Assistants */}
+                </Button>
+            </Tooltip>
+            {conversationActive || assistantActive ? (
+                <Tooltip content="Close canvas" relationship="label">
+                    <Button icon={<Dismiss24Regular />} onClick={handleDismiss} />
                 </Tooltip>
-            )}
+            ) : null}
         </div>
     );
 };

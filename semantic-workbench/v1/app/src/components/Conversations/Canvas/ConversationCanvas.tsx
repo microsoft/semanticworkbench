@@ -28,10 +28,17 @@ interface ConversationCanvasProps {
     conversationFiles: ConversationFile[];
     conversation: Conversation;
     preventAssistantModifyOnParticipantIds?: string[];
+    readOnly: boolean;
 }
 
 export const ConversationCanvas: React.FC<ConversationCanvasProps> = (props) => {
-    const { conversationParticipants, conversationFiles, conversation, preventAssistantModifyOnParticipantIds } = props;
+    const {
+        conversationParticipants,
+        conversationFiles,
+        conversation,
+        preventAssistantModifyOnParticipantIds,
+        readOnly,
+    } = props;
     const classes = useClasses();
 
     return (
@@ -44,6 +51,7 @@ export const ConversationCanvas: React.FC<ConversationCanvasProps> = (props) => 
                     conversation={conversation}
                     participants={conversationParticipants}
                     preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
+                    readOnly={readOnly}
                 />
             </Card>
             <Card className={classes.card}>

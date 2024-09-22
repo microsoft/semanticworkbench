@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, DialogTrigger, Label } from '@fluentui/react-components';
+import { Button, DialogTrigger } from '@fluentui/react-components';
 import { PlugDisconnected24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Conversation } from '../../models/Conversation';
@@ -36,11 +36,7 @@ export const ConversationRemove: React.FC<ConversationRemoveProps> = (props) => 
             label="Remove"
             dialogContent={{
                 title: 'Remove Conversation',
-                content: (
-                    <>
-                        <Label>Are you sure you want to remove this conversation from your list?</Label>
-                    </>
-                ),
+                content: <p>Are you sure you want to remove this conversation from your list?</p>,
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="delete">

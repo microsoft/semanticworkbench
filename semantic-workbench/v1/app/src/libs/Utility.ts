@@ -72,10 +72,25 @@ const getTimestampForExport = () => {
     return `${year}${formattedMonth}${day}${hours}${minutes}`;
 };
 
+const sortKeys = (obj: any): any => {
+    if (Array.isArray(obj)) {
+        return obj.map(sortKeys);
+    } else if (obj !== null && typeof obj === 'object') {
+        return Object.keys(obj)
+            .sort()
+            .reduce((result: any, key: string) => {
+                result[key] = sortKeys(obj[key]);
+                return result;
+            }, {});
+    }
+    return obj;
+};
+
 export const Utility = {
     deepEqual,
     deepCopy,
     deepMerge,
     deepDiff,
     getTimestampForExport,
+    sortKeys,
 };

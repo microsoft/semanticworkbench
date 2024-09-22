@@ -30,6 +30,12 @@ export const MyAssistants: React.FC<MyAssistantsProps> = (props) => {
         onCreate?.(assistant);
     };
 
+    const handleAssistantImport = async (result: { assistantIds: string[]; conversationIds: string[] }) => {
+        (await refetchAssistants().unwrap())
+            .filter((assistant) => result.assistantIds.includes(assistant.id))
+            .forEach((assistant) => onCreate?.(assistant));
+    };
+
     return (
         <MyItemsManager
             items={assistants
@@ -65,8 +71,9 @@ export const MyAssistants: React.FC<MyAssistantsProps> = (props) => {
                         open={assistantCreateOpen}
                         onOpenChange={(open) => setAssistantCreateOpen(open)}
                         onCreate={handleAssistantCreate}
+                        onImport={handleAssistantImport}
                     />
-                    <AssistantImport onImport={handleAssistantCreate} />
+                    <AssistantImport onImport={handleAssistantImport} />
                 </>
             }
         />

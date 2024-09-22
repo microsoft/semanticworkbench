@@ -26,10 +26,11 @@ const useClasses = makeStyles({
 interface AssistantAddProps {
     exceptAssistantIds?: string[];
     onAdd: (assistant: Assistant) => void;
+    disabled?: boolean;
 }
 
 export const AssistantAdd: React.FC<AssistantAddProps> = (props) => {
-    const { exceptAssistantIds, onAdd } = props;
+    const { exceptAssistantIds, onAdd, disabled } = props;
     const classes = useClasses();
     const { data: assistants, error: getAssistantsError, isLoading: isLoadingAssistants } = useGetAssistantsQuery();
     const [assistantCreateOpen, setAssistantCreateOpen] = React.useState(false);
@@ -68,7 +69,9 @@ export const AssistantAdd: React.FC<AssistantAddProps> = (props) => {
             />
             <Menu>
                 <MenuTrigger disableButtonEnhancement>
-                    <Button icon={<BotAddRegular />}>Add assistant</Button>
+                    <Button disabled={disabled} icon={<BotAddRegular />}>
+                        Add assistant
+                    </Button>
                 </MenuTrigger>
                 <MenuPopover className={classes.menuList}>
                     <MenuList>

@@ -14,6 +14,11 @@ export const assistantApi = workbenchApi.injectEndpoints({
             providesTags: ['Assistant'],
             transformResponse: (response: any) => response.assistants.map(transformResponseToAssistant),
         }),
+        getAssistantsInConversation: builder.query<Assistant[], string>({
+            query: (conversationId: string) => `/assistants?conversation_id=${conversationId}`,
+            providesTags: ['Assistant'],
+            transformResponse: (response: any) => response.assistants.map(transformResponseToAssistant),
+        }),
         getAssistant: builder.query<Assistant, string>({
             query: (id) => `/assistants/${id}`,
             providesTags: ['Assistant'],
@@ -45,7 +50,8 @@ export const assistantApi = workbenchApi.injectEndpoints({
                 url: `/assistants/${id}`,
                 method: 'DELETE',
             }),
-            invalidatesTags: ['Assistant'],
+            // deleting an assistant can remove it from 0 or more conversations
+            invalidatesTags: ['Assistant', 'Conversation'],
         }),
     }),
     overrideExisting: false,
@@ -54,6 +60,7 @@ export const assistantApi = workbenchApi.injectEndpoints({
 export const {
     useGetAssistantServiceInfoQuery,
     useGetAssistantsQuery,
+    useGetAssistantsInConversationQuery,
     useGetAssistantQuery,
     useCreateAssistantMutation,
     useUpdateAssistantMutation,

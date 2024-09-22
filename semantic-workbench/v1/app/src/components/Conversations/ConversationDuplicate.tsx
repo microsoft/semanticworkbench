@@ -4,25 +4,25 @@ import { Button, DialogTrigger } from '@fluentui/react-components';
 import { SaveCopy24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
-import { Assistant } from '../../models/Assistant';
+import { Conversation } from '../../models/Conversation';
 import { CommandButton } from '../App/CommandButton';
 
-interface AssistantDuplicateProps {
-    assistant: Assistant;
+interface ConversationDuplicateProps {
+    conversation: Conversation;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
-    onDuplicate?: (assistantId: string) => void;
+    onDuplicate?: (conversationId: string) => void;
     onDuplicateError?: (error: Error) => void;
 }
 
-export const AssistantDuplicate: React.FC<AssistantDuplicateProps> = (props) => {
-    const { assistant, iconOnly, asToolbarButton, onDuplicate, onDuplicateError } = props;
+export const ConversationDuplicate: React.FC<ConversationDuplicateProps> = (props) => {
+    const { conversation, iconOnly, asToolbarButton, onDuplicate, onDuplicateError } = props;
     const workbenchService = useWorkbenchService();
 
-    const duplicateAssistant = async () => {
+    const duplicateConversation = async () => {
         try {
-            const newAssistantId = await workbenchService.duplicateAssistantAsync(assistant.id);
-            onDuplicate?.(newAssistantId);
+            const duplicate = await workbenchService.duplicateConversationsAsync([conversation.id]);
+            onDuplicate?.(duplicate[0]);
         } catch (error) {
             onDuplicateError?.(error as Error);
         }
@@ -30,18 +30,18 @@ export const AssistantDuplicate: React.FC<AssistantDuplicateProps> = (props) => 
 
     return (
         <CommandButton
-            description="Duplicate assistant"
+            description="Duplicate conversation"
             icon={<SaveCopy24Regular />}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
             label="Duplicate"
             dialogContent={{
-                title: 'Duplicate assistant',
-                content: <p>Are you sure you want to duplicate this assistant?</p>,
+                title: 'Duplicate conversation',
+                content: <p>Are you sure you want to duplicate this conversation?</p>,
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="duplicate">
-                        <Button appearance="primary" onClick={duplicateAssistant}>
+                        <Button appearance="primary" onClick={duplicateConversation}>
                             Duplicate
                         </Button>
                     </DialogTrigger>,

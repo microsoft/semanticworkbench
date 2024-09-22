@@ -12,8 +12,9 @@ import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import {
-    useGetAssistantsQuery,
+    useGetAssistantsInConversationQuery,
     useGetConversationFilesQuery,
+    useGetConversationParticipantMeQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
 } from '../services/workbench';
@@ -63,7 +64,11 @@ export const Interact: React.FC = () => {
     }
 
     const classes = useClasses();
-    const { data: assistants, error: assistantsError, isLoading: isLoadingAssistants } = useGetAssistantsQuery();
+    const {
+        data: assistants,
+        error: assistantsError,
+        isLoading: isLoadingAssistants,
+    } = useGetAssistantsInConversationQuery(conversationId);
     const {
         data: conversation,
         error: conversationError,
@@ -79,6 +84,11 @@ export const Interact: React.FC = () => {
         error: conversationFilesError,
         isLoading: isLoadingConversationFiles,
     } = useGetConversationFilesQuery(conversationId);
+    const {
+        currentData: participantMe,
+        isLoading: isLoadingParticipantMe,
+        error: participantMeError,
+    } = useGetConversationParticipantMeQuery(conversationId);
 
     const siteUtility = useSiteUtility();
 
@@ -102,8 +112,9 @@ export const Interact: React.FC = () => {
         throw new Error(`Error loading conversation files: ${errorMessage}`);
     }
 
-    if (!isLoadingAssistants && (!assistants || assistants.length === 0)) {
-        throw new Error('No assistants found');
+    if (participantMeError) {
+        const errorMessage = JSON.stringify(participantMeError);
+        throw new Error(`Error loading participant: ${errorMessage}`);
     }
 
     if (!isLoadingConversation && !conversation) {
@@ -132,10 +143,12 @@ export const Interact: React.FC = () => {
         isLoadingConversation ||
         isLoadingConversationParticipants ||
         isLoadingConversationFiles ||
+        isLoadingParticipantMe ||
         !assistants ||
         !conversation ||
         !conversationParticipants ||
-        !conversationFiles
+        !conversationFiles ||
+        !participantMe
     ) {
         return (
             <AppView title="Interact">
@@ -144,15 +157,16 @@ export const Interact: React.FC = () => {
         );
     }
 
-    const actions = {
-        items: [<ConversationShare key="share" iconOnly conversationId={conversationId} />],
-    };
+    const readOnly = participantMe.conversationPermission === 'read';
 
     const conversationAssistants = assistants.filter((assistant) =>
         conversationParticipants.some(
             (conversationParticipant) => conversationParticipant.active && conversationParticipant.id === assistant.id,
         ),
     );
+    const actions = {
+        items: [<ConversationShare key="share" iconOnly conversation={conversation} />],
+    };
 
     return (
         <AppView title={conversation.title} actions={actions} fullSizeContent>
@@ -160,21 +174,23 @@ export const Interact: React.FC = () => {
                 <div className={classes.main}>
                     <div className={classes.history}>
                         <div className={classes.historyContent}>
-                            <InteractHistory conversation={conversation} participants={conversationParticipants} />
+                            <InteractHistory
+                                readOnly={readOnly}
+                                conversation={conversation}
+                                participants={conversationParticipants}
+                            />
                         </div>
                     </div>
                     <div className={classes.input}>
-                        <InteractInput conversationId={conversationId} />
+                        <InteractInput readOnly={readOnly} conversationId={conversationId} />
                     </div>
                 </div>
                 <InteractCanvas
+                    readOnly={readOnly}
                     conversation={conversation}
                     conversationParticipants={conversationParticipants}
                     conversationFiles={conversationFiles}
                     conversationAssistants={conversationAssistants}
-                    preventAssistantModifyOnParticipantIds={conversationParticipants
-                        .filter((participant) => participant.active)
-                        .map((participant) => participant.id)}
                 />
             </div>
         </AppView>

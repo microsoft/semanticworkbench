@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Caption1, Card, CardFooter, CardHeader, DialogTrigger, Text } from '@fluentui/react-components';
+import { Button, Caption1, Card, CardHeader, DialogTrigger, makeStyles, Text } from '@fluentui/react-components';
 import { ArrowDownloadRegular, Delete16Regular } from '@fluentui/react-icons';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -18,6 +18,14 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.guess();
 
+const useClasses = makeStyles({
+    actions: {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: '8px',
+    },
+});
+
 interface FileItemProps {
     conversation: Conversation;
     conversationFile: ConversationFile;
@@ -26,6 +34,7 @@ interface FileItemProps {
 
 export const FileItem: React.FC<FileItemProps> = (props) => {
     const { conversation, conversationFile } = props;
+    const classes = useClasses();
     const workbenchService = useWorkbenchService();
     const [deleteConversationFile] = useDeleteConversationFileMutation();
 
@@ -93,39 +102,39 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
                 header={<Text weight="semibold">{conversationFile.name}</Text>}
                 description={
                     <Caption1>
-                        Modified: {time} | Size: {sizeToDisplay(conversationFile.size)}
+                        {time} | {sizeToDisplay(conversationFile.size)}
                     </Caption1>
                 }
+                action={
+                    <div className={classes.actions}>
+                        <CommandButton
+                            description="Download file from conversation"
+                            icon={<ArrowDownloadRegular />}
+                            onClick={handleDownload}
+                        />
+                        <CommandButton
+                            description="Delete file from conversation"
+                            icon={<Delete16Regular />}
+                            dialogContent={{
+                                title: 'Delete file',
+                                content: (
+                                    <p>
+                                        Are you sure you want to delete <strong>{conversationFile.name}</strong>?
+                                    </p>
+                                ),
+                                closeLabel: 'Cancel',
+                                additionalActions: [
+                                    <DialogTrigger key="delete">
+                                        <Button appearance="primary" onClick={handleDelete}>
+                                            Delete
+                                        </Button>
+                                    </DialogTrigger>,
+                                ],
+                            }}
+                        />
+                    </div>
+                }
             />
-            <CardFooter>
-                <CommandButton
-                    label="Delete"
-                    description="Delete file from conversation"
-                    icon={<Delete16Regular />}
-                    dialogContent={{
-                        title: 'Delete file',
-                        content: (
-                            <>
-                                Are you sure you want to delete <strong>{conversationFile.name}</strong>?
-                            </>
-                        ),
-                        closeLabel: 'Cancel',
-                        additionalActions: [
-                            <DialogTrigger key="delete">
-                                <Button appearance="primary" onClick={handleDelete}>
-                                    Delete
-                                </Button>
-                            </DialogTrigger>,
-                        ],
-                    }}
-                />
-                <CommandButton
-                    label="Download"
-                    description="Download file from conversation"
-                    icon={<ArrowDownloadRegular />}
-                    onClick={handleDownload}
-                />
-            </CardFooter>
         </Card>
     );
 };

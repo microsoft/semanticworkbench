@@ -11,10 +11,11 @@ interface MessageDeleteProps {
     conversationId: string;
     message: ConversationMessage;
     onDelete?: (message: ConversationMessage) => void;
+    disabled?: boolean;
 }
 
 export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
-    const { conversationId, message, onDelete } = props;
+    const { conversationId, message, onDelete, disabled } = props;
     const [deleteMessage] = useDeleteConversationMessageMutation();
 
     const handleDelete = React.useCallback(async () => {
@@ -29,6 +30,7 @@ export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
             description="Delete message"
             icon={<Delete24Regular />}
             iconOnly={true}
+            disabled={disabled}
             dialogContent={{
                 title: 'Delete Message',
                 content: (

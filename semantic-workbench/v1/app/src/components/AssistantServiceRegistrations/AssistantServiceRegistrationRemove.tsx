@@ -34,7 +34,12 @@ export const AssistantServiceRegistrationRemove: React.FC<AssistantServiceRegist
             description="Delete assistant service registration"
             dialogContent={{
                 title: 'Delete Assistant Service Registration',
-                content: `Are you sure you want to delete the assistant service registration '${assistantServiceRegistration.name}'?`,
+                content: (
+                    <p>
+                        Are you sure you want to delete the assistant service registration{' '}
+                        <strong>{assistantServiceRegistration.name}</strong>?
+                    </p>
+                ),
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <CommandButton
