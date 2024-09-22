@@ -3,7 +3,7 @@
 import { Button, Field, Input, Radio, RadioGroup } from '@fluentui/react-components';
 import { Copy24Regular, Share24Regular } from '@fluentui/react-icons';
 import React from 'react';
-import { ConversationShareType, useConversationUtility } from '../../libs/useConversationShareUtility';
+import { ConversationShareType, useConversationUtility } from '../../libs/useConversationUtility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationShare } from '../../models/ConversationShare';
 import { useCreateShareMutation } from '../../services/workbench/share';

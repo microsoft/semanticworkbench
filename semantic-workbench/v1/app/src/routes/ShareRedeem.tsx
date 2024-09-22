@@ -14,7 +14,7 @@ import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
-import { ConversationShareType, useConversationUtility } from '../libs/useConversationShareUtility';
+import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useWorkbenchService } from '../libs/useWorkbenchService';
 import { useRemoveConversationParticipantMutation } from '../services/workbench';
