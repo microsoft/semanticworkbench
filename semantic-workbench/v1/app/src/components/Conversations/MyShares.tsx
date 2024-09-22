@@ -3,6 +3,7 @@
 import { Button, Field, Input, Radio, RadioGroup } from '@fluentui/react-components';
 import { Copy24Regular, Share24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { ConversationShareType, useConversationUtility } from '../../libs/useConversationShareUtility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationShare } from '../../models/ConversationShare';
 import { useCreateShareMutation } from '../../services/workbench/share';
@@ -24,27 +25,32 @@ export const MyShares: React.FC<MySharesProps> = (props) => {
     const [createShare] = useCreateShareMutation();
     const [submitted, setSubmitted] = React.useState(false);
     const [shareLabel, setShareLabel] = React.useState(conversation?.title ?? '');
-    const [shareAllowJoin, setShareAllowJoin] = React.useState(true);
+    const [shareType, setShareType] = React.useState(ConversationShareType.InvitedToParticipate);
+    const conversationUtility = useConversationUtility();
 
     const handleCreate = React.useCallback(async () => {
-        const permission = shareAllowJoin ? 'read_write' : 'read';
-        const metadata = { showDuplicateAction: true, showJoinAction: shareAllowJoin };
+        // Get the permission and metadata for the share type.
+        const { permission, metadata } = conversationUtility.getShareTypeMetadata(shareType);
+        // Create the share.
         await createShare({
             conversationId: conversation!.id,
             label: shareLabel,
             conversationPermission: permission,
             metadata: metadata,
         });
-    }, [shareAllowJoin, createShare, conversation, shareLabel]);
+    }, [createShare, conversation, shareLabel, shareType, conversationUtility]);
 
     const handleDialogOpenChange = React.useCallback(async () => {
         setSubmitted(false);
         setShareLabel(conversation?.title ?? '');
-        setShareAllowJoin(true);
+        setShareType(ConversationShareType.InvitedToParticipate);
     }, [setSubmitted, setShareLabel, conversation]);
 
     const handleFocus = (event: React.FocusEvent<HTMLInputElement>) => event.target.select();
 
+    // The create share button is internal to the MyShares component so that we're always
+    // presenting the list of current shares for the conversation in case the user wants to
+    // reuse a previously created share link.
     const actions = conversation ? (
         <>
             <CommandButton
@@ -68,17 +74,21 @@ export const MyShares: React.FC<MySharesProps> = (props) => {
                             <p>
                                 <Field label="Permissions" required={true}>
                                     <RadioGroup
-                                        defaultValue={shareAllowJoin ? 'true' : 'false'}
-                                        onChange={(_, data) => setShareAllowJoin(data.value === 'true')}
+                                        defaultValue={shareType}
+                                        onChange={(_, data) => setShareType(data.value as ConversationShareType)}
                                         required={true}
                                     >
                                         <Radio
-                                            value="true"
-                                            label="Invite to join and participate in the conversation"
+                                            value={ConversationShareType.InvitedToParticipate}
+                                            label={`${ConversationShareType.InvitedToParticipate} in the conversation (read/write)`}
                                         />
                                         <Radio
-                                            value="false"
-                                            label="Invite to create a copy of the conversation and assistant(s)"
+                                            value={ConversationShareType.InvitedToObserve}
+                                            label={`${ConversationShareType.InvitedToObserve} the conversation (read-only)`}
+                                        />
+                                        <Radio
+                                            value={ConversationShareType.InvitedToDuplicate}
+                                            label={`${ConversationShareType.InvitedToDuplicate} the conversation (read-only)`}
                                         />
                                     </RadioGroup>
                                 </Field>
@@ -105,15 +115,8 @@ export const MyShares: React.FC<MySharesProps> = (props) => {
     );
 
     const titleFor = (share: ConversationShare) => {
-        const showJoinAction = share.metadata['showJoinAction'] === false ? '' : 'join';
-        const showDuplicateAction = share.metadata['showDuplicateAction'] === false ? '' : 'duplicate';
-        const openMessageAction = share.metadata['openMessageAction'] ? 'join and open message' : '';
-        const action = [openMessageAction, showJoinAction, showDuplicateAction].filter((a) => a).join(' or ');
-
-        if (conversation) return `${share.label} ( ${action} )`;
-        const title =
-            share.label !== share.conversationTitle ? `${share.conversationTitle} : ${share.label}` : share.label;
-        return `${title} ( ${action} )`;
+        const shareType = conversationUtility.getShareType(share);
+        return `${share.label} (${shareType.toLowerCase()})`;
     };
 
     const linkFor = (share: ConversationShare) => {
