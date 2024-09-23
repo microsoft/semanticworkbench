@@ -3,8 +3,8 @@
 import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Assistant } from '../../../models/Assistant';
-import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
 import { useGetConversationStateDescriptionsQuery } from '../../../services/workbench';
+import { Loading } from '../../App/Loading';
 import { AssistantInspectorList } from './AssistantInspectorList';
 
 const useClasses = makeStyles({
@@ -22,13 +22,11 @@ const useClasses = makeStyles({
 interface AssistantCanvasProps {
     assistant: Assistant;
     conversationId: string;
-    hideCloseButton?: boolean;
 }
 
 export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
-    const { assistant, conversationId, hideCloseButton } = props;
+    const { assistant, conversationId } = props;
     const classes = useClasses();
-    const [filteredStateDescriptions, setFilteredStateDescriptions] = React.useState<AssistantStateDescription[]>([]);
 
     const {
         data: stateDescriptions,
@@ -41,22 +39,17 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
         throw new Error(`Error loading assistant state descriptions: ${errorMessage}`);
     }
 
-    React.useEffect(() => {
-        if (isLoadingStateDescriptions) return;
-        setFilteredStateDescriptions(
-            stateDescriptions?.filter((stateDescription) => stateDescription.id !== 'config') ?? [],
-        );
-    }, [isLoadingStateDescriptions, stateDescriptions]);
-
-    if (filteredStateDescriptions.length === 0) return null;
+    if (isLoadingStateDescriptions) {
+        return <Loading />;
+    }
 
     return (
         <div className={classes.inspectors}>
-            <AssistantInspectorList
-                hideCloseButton={hideCloseButton}
-                conversationId={conversationId}
-                stateDescriptions={filteredStateDescriptions}
-            />
+            {!stateDescriptions || stateDescriptions.length === 0 ? (
+                <div>No states found for this assistant</div>
+            ) : (
+                <AssistantInspectorList conversationId={conversationId} stateDescriptions={stateDescriptions} />
+            )}
         </div>
     );
 };

@@ -113,8 +113,12 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
         setIsSubmitting(false);
     };
 
-    if (isLoadingState || !state) {
+    if (isLoadingState) {
         return <Loading />;
+    }
+
+    if (!state) {
+        return <Text>No state data received from assistant</Text>;
     }
 
     const widgets: RegistryWidgetsType = {

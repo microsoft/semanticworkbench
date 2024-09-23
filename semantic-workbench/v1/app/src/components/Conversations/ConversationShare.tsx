@@ -1,91 +1,56 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, DialogOpenChangeData, DialogOpenChangeEvent, Field, Input } from '@fluentui/react-components';
-import { Copy24Regular, Share24Regular } from '@fluentui/react-icons';
+import { Share24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { Conversation } from '../../models/Conversation';
+import { useGetConversationParticipantMeQuery } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
+import { ConversationShareList } from './ConversationShareList';
 
 interface ConversationShareProps {
-    conversationId: string;
+    conversation: Conversation;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
 }
 
 export const ConversationShare: React.FC<ConversationShareProps> = (props) => {
-    const { conversationId, iconOnly, asToolbarButton } = props;
-    const linkRef = React.useRef<HTMLInputElement>(null);
-    const [copiedTimeout, setCopiedTimeout] = React.useState<NodeJS.Timeout>();
-
-    if (!conversationId) {
+    const { conversation, iconOnly, asToolbarButton } = props;
+    if (!conversation) {
         throw new Error('ConversationId is required');
     }
+    const {
+        data: participant,
+        isLoading: isLoadingParticipant,
+        error: participantError,
+    } = useGetConversationParticipantMeQuery(conversation.id);
 
-    const link = `${window.location.origin}/conversation/${conversationId}`;
+    if (participantError) {
+        const errorMessage = JSON.stringify(participantError);
+        throw new Error(`Error loading participant: ${errorMessage}`);
+    }
 
-    const handleOpenChange = React.useCallback(
-        (_event: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
-            if (!data.open) {
-                return;
-            }
+    const readOnly = isLoadingParticipant || !participant || participant.conversationPermission !== 'read_write';
 
-            // clear the copied timeout when the dialog is opened
-            if (copiedTimeout) {
-                clearTimeout(copiedTimeout);
-                setCopiedTimeout(undefined);
-            }
-
-            // wait for the dialog to open before selecting the link
-            setTimeout(() => {
-                linkRef.current?.select();
-            }, 0);
-        },
-        [copiedTimeout],
-    );
-
-    const handleCopy = React.useCallback(async () => {
-        if (copiedTimeout) {
-            clearTimeout(copiedTimeout);
-            setCopiedTimeout(undefined);
-        }
-
-        await navigator.clipboard.writeText(link);
-
-        // set a timeout to clear the copied message
-        const timeout = setTimeout(() => {
-            setCopiedTimeout(undefined);
-        }, 2000);
-        setCopiedTimeout(timeout);
-    }, [link, copiedTimeout]);
+    const dialogContent = readOnly
+        ? undefined
+        : {
+              title: 'Manage Shares for Conversation',
+              content: (
+                  <p>
+                      <ConversationShareList conversation={conversation} />
+                  </p>
+              ),
+          };
 
     return (
         <CommandButton
             icon={<Share24Regular />}
             iconOnly={iconOnly}
+            disabled={readOnly}
             asToolbarButton={asToolbarButton}
             label="Share"
-            description="Share conversation link"
-            dialogContent={{
-                title: 'Share Conversation',
-                content: (
-                    <>
-                        <Field
-                            label={`Send this link to others to share this conversation ${
-                                copiedTimeout ? ' (Copied to clipboard!)' : ''
-                            }`}
-                        >
-                            <Input
-                                ref={linkRef}
-                                value={link}
-                                readOnly
-                                contentAfter={
-                                    <Button appearance="transparent" icon={<Copy24Regular />} onClick={handleCopy} />
-                                }
-                            />
-                        </Field>
-                    </>
-                ),
-                onOpenChange: handleOpenChange,
-            }}
+            description="Share conversation"
+            dialogContent={dialogContent}
         />
     );
 };

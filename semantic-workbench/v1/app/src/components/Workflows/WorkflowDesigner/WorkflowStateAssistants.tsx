@@ -190,7 +190,13 @@ export const WorkflowStateAssistants: React.FC<WorkflowStateAssistantsProps> = (
                                             description="Remove this assistant from the state"
                                             dialogContent={{
                                                 title: `Remove ${assistantDefinition.name}`,
-                                                content: `Are you sure you want to remove "${assistantDefinition.name}" from the current state? Any config overrides will be lost.`,
+                                                content: (
+                                                    <p>
+                                                        Are you sure you want to remove{' '}
+                                                        <strong>{assistantDefinition.name}</strong> from the current
+                                                        state? Any config overrides will be lost.
+                                                    </p>
+                                                ),
                                                 closeLabel: 'Cancel',
                                                 additionalActions: [
                                                     <Button

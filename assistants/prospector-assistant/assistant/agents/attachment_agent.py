@@ -1,6 +1,7 @@
 import base64
+import io
 import logging
-import tempfile
+from pathlib import Path
 from typing import Annotated, Any
 
 import docx2txt
@@ -64,8 +65,9 @@ class Attachment(BaseModel):
 
 
 class AttachmentAgent:
+    @staticmethod
     async def create_or_update_attachment_from_file(
-        self, context: ConversationContext, file: File, metadata: dict[str, Any]
+        context: ConversationContext, file: File, metadata: dict[str, Any]
     ) -> None:
         """
         Create or update an attachment from the given file.
@@ -76,26 +78,27 @@ class AttachmentAgent:
         content = await _file_to_str(context, file)
 
         # see if there is already an attachment with this filename
-        attachment = await _get(context, filename)
+        attachment = read_model(_get_attachment_storage_path(context, filename), Attachment)
         if attachment:
             # if there is, update the content
             attachment.content = content
         else:
             # if there isn't, create a new attachment
             attachment = Attachment(filename=filename, content=content, metadata=metadata)
-        await _set(context, filename, attachment)
 
-    async def delete_attachment_for_file(self, context: ConversationContext, file: File) -> None:
+        write_model(_get_attachment_storage_path(context, filename), attachment)
+
+    @staticmethod
+    def delete_attachment_for_file(context: ConversationContext, file: File) -> None:
         """
         Delete the attachment for the given file.
         """
-        await self.delete_attachment_for_filename(context, file.filename)
 
-    async def delete_attachment_for_filename(self, context: ConversationContext, filename: str) -> None:
-        await _delete(context, filename)
+        filename = file.filename
+        _get_attachment_storage_path(context, filename).unlink(missing_ok=True)
 
-    async def generate_attachment_messages(
-        self,
+    @staticmethod
+    def generate_attachment_messages(
         context: ConversationContext,
         filenames: list[str] | None = None,
         ignore_filenames: list[str] | None = None,
@@ -111,7 +114,7 @@ class AttachmentAgent:
         """
 
         # get all attachments and exit early if there are none
-        attachments = await _get_all(context)
+        attachments = read_models_in_dir(_get_attachment_storage_path(context), Attachment)
         if not attachments:
             return []
 
@@ -127,9 +130,10 @@ class AttachmentAgent:
                 continue
 
             # if the content is a data URI, include it as an image type within the message content
+            # NOTE: newer versions of the API only allow messages with the user role to include images
             if attachment.content.startswith("data:image/"):
                 messages.append({
-                    "role": "system",
+                    "role": "user",
                     "content": [
                         {
                             "type": "text",
@@ -170,32 +174,14 @@ class AttachmentAgent:
 #
 
 
-async def _get(context: ConversationContext, filename: str) -> Attachment | None:
+def _get_attachment_storage_path(context: ConversationContext, filename: str | None = None) -> Path:
     """
-    Get the attachment with the given filename.
+    Get the path where attachments are stored.
     """
-    return read_model(FileStorageContext.get(context).directory / filename, Attachment)
-
-
-async def _get_all(context: ConversationContext) -> list[Attachment]:
-    """
-    Get all attachments.
-    """
-    return list(read_models_in_dir(FileStorageContext.get(context).directory, Attachment))
-
-
-async def _set(context: ConversationContext, filename: str, attachment: Attachment) -> None:
-    """
-    Set the attachment with the given filename.
-    """
-    write_model(FileStorageContext.get(context).directory / filename, attachment)
-
-
-async def _delete(context: ConversationContext, filename: str) -> None:
-    """
-    Delete the attachment with the given filename.
-    """
-    (FileStorageContext.get(context).directory / filename).unlink(missing_ok=True)
+    path = FileStorageContext.get(context).directory / "attachments"
+    if filename:
+        path /= filename
+    return path
 
 
 async def _raw_content_from_file(context: ConversationContext, file: File) -> bytes:
@@ -210,14 +196,12 @@ async def _raw_content_from_file(context: ConversationContext, file: File) -> by
     return content
 
 
-async def _docx_raw_content_to_str(raw_content: bytes, filename: str) -> str:
+def _docx_raw_content_to_str(raw_content: bytes, filename: str) -> str:
     """
     Convert the raw content of a DOCX file to text.
     """
     try:
-        with tempfile.TemporaryFile() as temp:
-            temp.write(raw_content)
-            temp.seek(0)
+        with io.BytesIO(raw_content) as temp:
             text = docx2txt.process(temp)
         return text
     except Exception as e:
@@ -226,14 +210,12 @@ async def _docx_raw_content_to_str(raw_content: bytes, filename: str) -> str:
         raise Exception(message)
 
 
-async def _pdf_raw_content_to_str(raw_content: bytes, filename: str) -> str:
+def _pdf_raw_content_to_str(raw_content: bytes, filename: str) -> str:
     """
     Convert the raw content of a PDF file to text.
     """
     try:
-        with tempfile.TemporaryFile() as temp:
-            temp.write(raw_content)
-            temp.seek(0)
+        with io.BytesIO(raw_content) as temp:
             text = ""
             with pdfplumber.open(temp) as pdf:
                 for page in pdf.pages:
@@ -245,7 +227,7 @@ async def _pdf_raw_content_to_str(raw_content: bytes, filename: str) -> str:
         raise Exception(message)
 
 
-async def _image_raw_content_to_str(raw_content: bytes, filename: str) -> str:
+def _image_raw_content_to_str(raw_content: bytes, filename: str) -> str:
     """
     Convert the raw content of an image file to a data URI.
     """
@@ -260,7 +242,7 @@ async def _image_raw_content_to_str(raw_content: bytes, filename: str) -> str:
         raise Exception(message)
 
 
-async def _unknown_raw_content_to_str(raw_content: bytes, filename: str) -> str:
+def _unknown_raw_content_to_str(raw_content: bytes, filename: str) -> str:
     """
     Convert the raw content of an unknown file type to a string.
     """
@@ -284,19 +266,19 @@ async def _file_to_str(context: ConversationContext, file: File) -> str:
     match filename_extension:
         # if the file has .docx extension, convert it to text
         case "docx":
-            content = await _docx_raw_content_to_str(raw_content, filename)
+            content = _docx_raw_content_to_str(raw_content, filename)
 
         # if the file has .pdf extension, convert it to text
         case "pdf":
-            content = await _pdf_raw_content_to_str(raw_content, filename)
+            content = _pdf_raw_content_to_str(raw_content, filename)
 
         # if the file has an image extension, convert it to a data URI
         case _ if filename_extension in ["png", "jpg", "jpeg", "gif", "bmp", "tiff", "tif"]:
-            content = await _image_raw_content_to_str(raw_content, filename)
+            content = _image_raw_content_to_str(raw_content, filename)
 
         # otherwise, try to convert the file to text
         case _:
-            content = await _unknown_raw_content_to_str(raw_content, filename)
+            content = _unknown_raw_content_to_str(raw_content, filename)
 
     return content
 

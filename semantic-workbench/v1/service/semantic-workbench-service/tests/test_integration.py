@@ -310,12 +310,14 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
         exported_file = io.BytesIO(resp.content)
 
         for import_number in range(1, 3):
-            resp = await wb_client.post("/assistants/import", files={"from_export": exported_file})
+            resp = await wb_client.post("/conversations/import", files={"from_export": exported_file})
             logging.info("import %s response: %s", import_number, resp.json())
             resp.raise_for_status()
-            new_assistant = workbench_model.Assistant.model_validate(resp.json())
 
-            resp = await wb_client.get(f"/assistants/{new_assistant.id}/conversations")
+            import_result = workbench_model.ConversationImportResult.model_validate(resp.json())
+            new_assistant_id = import_result.assistant_ids[0]
+
+            resp = await wb_client.get(f"/assistants/{new_assistant_id}/conversations")
             conversations = workbench_model.ConversationList.model_validate(resp.json())
             new_conversation = conversations.conversations[0]
 

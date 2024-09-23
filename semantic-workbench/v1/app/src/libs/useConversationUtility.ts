@@ -1,140 +1,58 @@
-// Copyright (c) Microsoft. All rights reserved.
+import { ConversationShare } from '../models/ConversationShare';
 
-import React from 'react';
-import { Assistant } from '../models/Assistant';
-import {
-    useGetAssistantsQuery,
-    useGetConversationParticipantsQuery,
-    useGetConversationQuery,
-} from '../services/workbench';
+// Share types to be used in the app.
+export const enum ConversationShareType {
+    NotRedeemable = 'Not redeemable',
+    InvitedToParticipate = 'Invited to participate',
+    InvitedToObserve = 'Invited to observe',
+    InvitedToDuplicate = 'Invited to copy',
+}
 
-export const useConversationUtility = (conversationId: string) => {
-    const [conversationAssistants, setConversationAssistants] = React.useState<Assistant[]>();
-    const [error, setError] = React.useState<string>();
-    const [isLoading, setIsLoading] = React.useState<boolean>(true);
+export const useConversationUtility = () => {
+    // region Conversation Shares
+    //
+    // This region contains logic for handling conversation shares, including determining the share type
+    // based on the conversation permission and metadata. It also contains logic for handling the combinations
+    // of metadata, permissions, and share types in shared location for consistency across the app.
+    //
+    const getShareTypeMetadata = (
+        shareType: ConversationShareType,
+    ): {
+        permission: 'read' | 'read_write';
+        metadata: { showDuplicateAction?: boolean };
+    } => {
+        // Default to read_write for invited to participate, read for observe or duplicate.
+        const permission = shareType === ConversationShareType.InvitedToParticipate ? 'read_write' : 'read';
+        const showDuplicateAction = shareType === ConversationShareType.InvitedToDuplicate;
+        return {
+            permission,
+            metadata: { showDuplicateAction },
+        };
+    };
 
-    // Get the conversation
-    const {
-        data: conversation,
-        error: conversationError,
-        isLoading: isLoadingConversation,
-        refetch: refetchConversation,
-    } = useGetConversationQuery(conversationId);
+    const getShareType = (conversationShare: ConversationShare) => {
+        const { isRedeemable, conversationPermission, metadata } = conversationShare;
 
-    // Get participants
-    const {
-        data: participants,
-        error: participantsError,
-        isLoading: isLoadingParticipants,
-        refetch: refetchParticipants,
-    } = useGetConversationParticipantsQuery(conversationId);
-
-    // Get all assistants
-    const {
-        data: assistants,
-        error: assistantsError,
-        isLoading: isLoadingAssistants,
-        refetch: refetchAssistants,
-    } = useGetAssistantsQuery();
-
-    const refetch = React.useCallback(async () => {
-        await refetchConversation();
-        await refetchParticipants();
-        await refetchAssistants();
-    }, [refetchAssistants, refetchParticipants, refetchConversation]);
-
-    // Set error state if there are any errors
-    React.useEffect(() => {
-        if (assistantsError) {
-            const errorMessage = JSON.stringify(assistantsError);
-            setError(`Error loading assistants: ${errorMessage}`);
+        if (!isRedeemable) {
+            return ConversationShareType.NotRedeemable;
         }
 
-        if (conversationError) {
-            const errorMessage = JSON.stringify(conversationError);
-            setError(`Error loading conversation: ${errorMessage}`);
+        // If the showDuplicateAction metadata is set, use that to determine the share type.
+        if (!metadata.showDuplicateAction) {
+            // Otherwise, use the conversation permission to determine the share type.
+            return conversationPermission !== 'read'
+                ? ConversationShareType.InvitedToParticipate
+                : ConversationShareType.InvitedToObserve;
         }
 
-        if (participantsError) {
-            const errorMessage = JSON.stringify(participantsError);
-            setError(`Error loading participants: ${errorMessage}`);
-        }
+        return ConversationShareType.InvitedToDuplicate;
+    };
+    // endregion
 
-        if (!isLoadingAssistants && !assistants) {
-            const errorMessage = `No assistants loaded`;
-            setError(errorMessage);
-        }
-
-        if (!isLoadingConversation && !conversation) {
-            const errorMessage = `No conversation loaded for ${conversationId}`;
-            setError(errorMessage);
-        }
-
-        if (!isLoadingParticipants && !participants) {
-            const errorMessage = `No participants loaded for ${conversationId}`;
-            setError(errorMessage);
-        }
-    }, [
-        assistants,
-        assistantsError,
-        conversation,
-        conversationError,
-        participants,
-        participantsError,
-        conversationId,
-        isLoadingAssistants,
-        isLoadingConversation,
-        isLoadingParticipants,
-    ]);
-
-    // Set loading state
-    React.useEffect(() => {
-        if (!isLoadingAssistants && !isLoadingConversation && !isLoadingParticipants) {
-            if (isLoading) {
-                setIsLoading(false);
-            }
-        } else {
-            if (!isLoading) {
-                setIsLoading(true);
-            }
-        }
-    }, [isLoading, isLoadingAssistants, isLoadingConversation, isLoadingParticipants]);
-
-    // Set conversation assistants
-    React.useEffect(() => {
-        if (
-            !isLoadingConversation &&
-            conversation &&
-            !isLoadingAssistants &&
-            assistants &&
-            !isLoadingParticipants &&
-            participants
-        ) {
-            const filteredAssistants = assistants.filter((assistant) =>
-                participants.find((participant) => participant.id === assistant.id),
-            );
-            setConversationAssistants(filteredAssistants);
-        } else {
-            if (conversationAssistants) {
-                setConversationAssistants(undefined);
-            }
-        }
-    }, [
-        assistants,
-        conversation,
-        participants,
-        conversationAssistants,
-        conversationId,
-        isLoadingAssistants,
-        isLoadingConversation,
-        isLoadingParticipants,
-    ]);
+    // add more conversation related utility functions here, separated by region if applicable
 
     return {
-        conversation,
-        conversationAssistants,
-        error,
-        isLoading,
-        refetch,
+        getShareTypeMetadata,
+        getShareType,
     };
 };

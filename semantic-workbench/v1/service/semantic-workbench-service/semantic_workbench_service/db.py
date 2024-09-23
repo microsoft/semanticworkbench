@@ -1,4 +1,3 @@
-import contextlib
 import datetime
 import logging
 import pathlib
@@ -25,11 +24,11 @@ from .config import DBSettings
 logger = logging.getLogger(__name__)
 
 
-def date_time_nullable():
+def _date_time_nullable() -> Any:  # noqa: ANN401
     return Field(sa_column=sqlalchemy.Column(sqlalchemy.DateTime(timezone=True), nullable=True))
 
 
-def date_time_default_to_now(index: bool | None = None):
+def date_time_default_to_now(index: bool | None = None) -> Any:  # noqa: ANN401
     return Field(
         sa_column=sqlalchemy.Column(
             sqlalchemy.DateTime(timezone=True),
@@ -48,7 +47,7 @@ class User(SQLModel, table=True):
     image: str | None = None
     service_user: bool = False
 
-    def _on_update(self, session: Session) -> None:
+    def on_update(self, session: Session) -> None:
         # update UserParticipants for this user
         participants = session.exec(select(UserParticipant).where(UserParticipant.user_id == self.user_id))
         for participant in participants:
@@ -59,7 +58,7 @@ class User(SQLModel, table=True):
 
         # update WorkflowUserParticipants for this user
         participants = session.exec(
-            select(WorkflowUserParticipant).where(WorkflowUserParticipant.user_id == self.user_id)
+            select(WorkflowUserParticipant).where(WorkflowUserParticipant.user_id == self.user_id),
         )
         for participant in participants:
             participant.name = self.name
@@ -78,7 +77,7 @@ class AssistantServiceRegistration(SQLModel, table=True):
     api_key_name: str
 
     assistant_service_url: str = ""
-    assistant_service_online_expiration_datetime: Annotated[datetime.datetime | None, date_time_nullable()] = None
+    assistant_service_online_expiration_datetime: Annotated[datetime.datetime | None, _date_time_nullable()] = None
     assistant_service_online: bool = False
 
     related_created_by_user: User = Relationship(sa_relationship_kwargs={"lazy": "selectin"})
@@ -98,6 +97,7 @@ class Assistant(SQLModel, table=True):
         ),
     )
     created_datetime: datetime.datetime = date_time_default_to_now()
+    imported_from_assistant_id: uuid.UUID | None
     name: str
     image: str | None = None
     meta_data: dict[str, Any] = Field(sa_column=sqlalchemy.Column("metadata", sqlalchemy.JSON), default={})
@@ -105,13 +105,13 @@ class Assistant(SQLModel, table=True):
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_owner: User = Relationship()
     related_assistant_service_registration: sqlalchemy.orm.Mapped[AssistantServiceRegistration] = Relationship(
-        sa_relationship_kwargs={"lazy": "selectin"}
+        sa_relationship_kwargs={"lazy": "selectin"},
     )
 
-    def _on_update(self, session: Session) -> None:
+    def on_update(self, session: Session) -> None:
         # update AssistantParticipants for this assistant
         participants = session.exec(
-            select(AssistantParticipant).where(AssistantParticipant.assistant_id == self.assistant_id)
+            select(AssistantParticipant).where(AssistantParticipant.assistant_id == self.assistant_id),
         )
         for participant in participants:
             participant.name = self.name
@@ -125,9 +125,74 @@ class Conversation(SQLModel, table=True):
     owner_id: str = Field(foreign_key="user.user_id")
     title: str
     meta_data: dict[str, Any] = Field(sa_column=sqlalchemy.Column("metadata", sqlalchemy.JSON), default={})
+    imported_from_conversation_id: uuid.UUID | None
 
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_owner: sqlalchemy.orm.Mapped[User] = Relationship()
+
+
+class ConversationShare(SQLModel, table=True):
+    conversation_share_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    conversation_id: uuid.UUID = Field(
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.ForeignKey(
+                "conversation.conversation_id",
+                name="fk_file_conversation_id_conversation",
+                ondelete="CASCADE",
+            ),
+            nullable=False,
+        ),
+    )
+    created_datetime: datetime.datetime = date_time_default_to_now()
+    owner_id: str = Field(foreign_key="user.user_id")
+    label: str
+    meta_data: dict[str, Any] = Field(sa_column=sqlalchemy.Column("metadata", sqlalchemy.JSON), default={})
+
+    conversation_permission: str
+
+    is_redeemable: bool = True
+
+    # these relationships are needed to enforce correct INSERT order by SQLModel
+    related_owner: sqlalchemy.orm.Mapped[User] = Relationship(
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
+    related_conversation: sqlalchemy.orm.Mapped[Conversation] = Relationship(
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
+
+
+class ConversationShareRedemption(SQLModel, table=True):
+    conversation_share_redemption_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    conversation_share_id: uuid.UUID = Field(
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.ForeignKey(
+                "conversationshare.conversation_share_id",
+                name="fk_conversationshareredemption_conversation_share_id",
+                ondelete="CASCADE",
+            ),
+            nullable=False,
+        ),
+    )
+    conversation_id: uuid.UUID
+    conversation_permission: str
+    new_participant: bool
+    redeemed_by_user_id: str = Field(
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.ForeignKey(
+                "user.user_id",
+                name="fk_conversationshareredemption_user_id_user",
+                ondelete="CASCADE",
+            ),
+            nullable=False,
+        ),
+    )
+    created_datetime: datetime.datetime = date_time_default_to_now()
+
+    # these relationships are needed to enforce correct INSERT order by SQLModel
+    related_conversation_share: sqlalchemy.orm.Mapped[ConversationShare] = Relationship()
+    related_redeemed_by_user: sqlalchemy.orm.Mapped[User] = Relationship(
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
 
 
 class AssistantParticipant(SQLModel, table=True):
@@ -153,7 +218,7 @@ class AssistantParticipant(SQLModel, table=True):
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_conversation: Conversation = Relationship()
 
-    def _on_update(self, session: Session) -> None:
+    def on_update(self, session: Session) -> None:
         # update this participant to match the related assistant, if one exists
         assistant = session.exec(select(Assistant).where(Assistant.assistant_id == self.assistant_id)).one_or_none()
         if assistant is None:
@@ -162,7 +227,7 @@ class AssistantParticipant(SQLModel, table=True):
         sqlalchemy.orm.attributes.set_attribute(self, "name", assistant.name)
         sqlalchemy.orm.attributes.set_attribute(self, "image", assistant.image)
 
-    def _on_insert(self, session: Session) -> None:
+    def on_insert(self, session: Session) -> None:
         # update this participant to match the related assistant, requiring one to exist
         assistant = session.exec(select(Assistant).where(Assistant.assistant_id == self.assistant_id)).one()
         sqlalchemy.orm.attributes.set_attribute(self, "name", assistant.name)
@@ -189,11 +254,12 @@ class UserParticipant(SQLModel, table=True):
     status: str | None = None
     status_updated_datetime: datetime.datetime = date_time_default_to_now()
     active_participant: bool = True
+    conversation_permission: str
 
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_conversation: Conversation = Relationship()
 
-    def _on_update(self, session: Session) -> None:
+    def on_update(self, session: Session) -> None:
         # update this participant to match the related user, if one exists
         user = session.exec(select(User).where(User.user_id == self.user_id)).one_or_none()
         if user is None:
@@ -203,7 +269,7 @@ class UserParticipant(SQLModel, table=True):
         sqlalchemy.orm.attributes.set_attribute(self, "image", user.image)
         sqlalchemy.orm.attributes.set_attribute(self, "service_user", user.service_user)
 
-    def _on_insert(self, session: Session) -> None:
+    def on_insert(self, session: Session) -> None:
         # update this participant to match the related user, requiring one to exist
         user = session.exec(select(User).where(User.user_id == self.user_id)).one()
 
@@ -262,9 +328,6 @@ class File(SQLModel, table=True):
         sqlalchemy.UniqueConstraint("conversation_id", "filename", name="uq_file_conversation_id_filename"),
     )
 
-    def storage_filename_for(self, version: int) -> str:
-        return f"{self.file_id.hex}:{self.filename}:{str(version).zfill(7)}"
-
 
 class FileVersion(SQLModel, table=True):
     file_id: uuid.UUID = Field(
@@ -285,12 +348,10 @@ class FileVersion(SQLModel, table=True):
     meta_data: dict[str, Any] = Field(sa_column=sqlalchemy.Column("metadata", sqlalchemy.JSON), default={})
     content_type: str
     file_size: int
+    storage_filename: str
 
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_file: File = Relationship()
-
-    # spell-checker: ignore fileversion
-    __table_args__ = (sqlalchemy.UniqueConstraint("file_id", "version", name="uq_fileversion_file_id_version"),)
 
 
 class WorkflowDefinition(SQLModel, table=True):
@@ -318,7 +379,7 @@ class WorkflowUserParticipant(SQLModel, table=True):
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_workflow_definition: WorkflowDefinition = Relationship()
 
-    def _on_update(self, session: Session) -> None:
+    def on_update(self, session: Session) -> None:
         """Update this participant to match the related user, if one exists."""
         user = session.exec(select(User).where(User.user_id == self.user_id)).one_or_none()
         if user is None:
@@ -328,7 +389,7 @@ class WorkflowUserParticipant(SQLModel, table=True):
         sqlalchemy.orm.attributes.set_attribute(self, "image", user.image)
         sqlalchemy.orm.attributes.set_attribute(self, "service_user", user.service_user)
 
-    def _on_insert(self, session: Session) -> None:
+    def on_insert(self, session: Session) -> None:
         """Update this participant to match the related user, requiring one to exist."""
         user = session.exec(select(User).where(User.user_id == self.user_id)).one()
 
@@ -357,7 +418,7 @@ class WorkflowRun(SQLModel, table=True):
 
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "uq": "uq_%(table_name)s_%(column_0_N_name)s",
     "ck": "ck_%(table_name)s_%(constraint_name)s",
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",
@@ -365,14 +426,25 @@ NAMING_CONVENTION = {
 SQLModel.metadata.naming_convention = NAMING_CONVENTION
 
 
-def ensure_url_is_async(url: str) -> str:
+def ensure_async_driver_scheme(url: str) -> str:
     return url.replace("sqlite://", "sqlite+aiosqlite://").replace("postgresql://", "postgresql+asyncpg://")
+
+
+@sqlalchemy.event.listens_for(sqlalchemy.Pool, "connect")
+def set_sqlite_pragma(
+    dbapi_connection: sqlalchemy.engine.interfaces.DBAPIConnection,
+    _: sqlalchemy.pool.ConnectionPoolEntry,
+) -> None:
+    if hasattr(sqlalchemy.dialects, "sqlite"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.close()
 
 
 @asynccontextmanager
 async def create_engine(settings: DBSettings) -> AsyncIterator[AsyncEngine]:
     # ensure that the database url is using the async driver
-    db_url = ensure_url_is_async(settings.url)
+    db_url = ensure_async_driver_scheme(settings.url)
     parsed_url = urlparse(db_url)
     is_sqlite = parsed_url.scheme.startswith("sqlite")
     is_postgres = parsed_url.scheme.startswith("postgresql")
@@ -406,60 +478,86 @@ async def create_engine(settings: DBSettings) -> AsyncIterator[AsyncEngine]:
 
 
 @sqlalchemy.event.listens_for(Session, "before_flush")
-def session_before_flush(session: Session, flush_context, instances) -> None:
+def _session_before_flush(session: Session, flush_context, instances) -> None:  # noqa: ANN001, ARG001
     for obj in session.dirty:
-        if not hasattr(obj, "_on_update"):
+        if not hasattr(obj, "on_update"):
             continue
-        obj._on_update(session)
+        obj.on_update(session)
 
     for obj in session.new:
-        if not hasattr(obj, "_on_insert"):
+        if not hasattr(obj, "on_insert"):
             continue
-        obj._on_insert(session)
+        obj.on_insert(session)
 
 
 async def bootstrap_db(engine: AsyncEngine, settings: DBSettings) -> None:
-    logger.info("bootstrapping database; migrate=%s", settings.migrate_on_startup)
-    if settings.migrate_on_startup:
-        await migrate_schema(engine=engine, alembic_root_path=settings.alembic_root_path)
-    else:
-        await create_schema(engine=engine)
-    await create_default_data(engine=engine)
+    logger.info("bootstrapping database")
+    await _ensure_schema(engine=engine, settings=settings)
+    await _create_default_data(engine=engine)
 
 
-async def migrate_schema(engine: AsyncEngine, alembic_root_path: str) -> None:
-    if "sqlite" in engine.dialect.name:
-        return await create_schema(engine)
+async def _ensure_schema(engine: AsyncEngine, settings: DBSettings) -> None:
+    def execute_ensure_version(connection: sqlalchemy.Connection) -> None:
+        from alembic import command, config
 
+        cfg = config.Config(settings.alembic_config_path)
+        cfg.attributes["connection"] = connection
+        command.ensure_version(cfg)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(execute_ensure_version)
+
+    alembic_version_exists = False
+    async with engine.begin() as conn:
+        row = (await conn.exec_driver_sql("SELECT count(version_num) FROM alembic_version")).one()
+        alembic_version_exists = row[0] > 0
+
+    if not alembic_version_exists:
+        return await _create_schema(engine=engine, alembic_config_path=settings.alembic_config_path)
+
+    return await _migrate_schema(engine=engine, alembic_config_path=settings.alembic_config_path)
+
+
+async def _migrate_schema(engine: AsyncEngine, alembic_config_path: str) -> None:
     from alembic import command, config
 
-    logger.info("migrating database schema; alembic_root_path=%s", alembic_root_path)
+    logger.info("migrating database schema; alembic_config_path=%s", alembic_config_path)
 
-    with contextlib.chdir(alembic_root_path):
+    def execute_upgrade(connection: sqlalchemy.Connection) -> None:
+        logger.info("running alembic upgrade to head")
+        cfg = config.Config(alembic_config_path)
+        cfg.attributes["connection"] = connection
+        command.upgrade(cfg, "head")
 
-        def execute_upgrade(connection) -> None:
-            logger.info("running alembic upgrade to head")
-            cfg = config.Config("alembic.ini")
-            cfg.attributes["connection"] = connection
-            command.upgrade(cfg, "head")
+    def execute_check(connection: sqlalchemy.Connection) -> None:
+        logger.info("running alembic check")
+        cfg = config.Config(alembic_config_path)
+        cfg.attributes["connection"] = connection
+        command.check(cfg)
 
-        def execute_check(connection) -> None:
-            logger.info("running alembic check")
-            cfg = config.Config("alembic.ini")
-            cfg.attributes["connection"] = connection
-            command.check(cfg)
+    async with engine.begin() as conn:
+        await conn.run_sync(execute_upgrade)
+        await conn.run_sync(execute_check)
 
-        async with engine.begin() as conn:
-            await conn.run_sync(execute_upgrade)
-            await conn.run_sync(execute_check)
+    return None
 
 
-async def create_schema(engine: AsyncEngine) -> None:
+async def _create_schema(engine: AsyncEngine, alembic_config_path: str) -> None:
+    logger.info("creating database schema; alembic_config_path=%s", alembic_config_path)
+
+    def execute_stamp_head(connection: sqlalchemy.Connection) -> None:
+        from alembic import command, config
+
+        cfg = config.Config(alembic_config_path)
+        cfg.attributes["connection"] = connection
+        command.stamp(cfg, "head")
+
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(execute_stamp_head)
 
 
-async def create_default_data(engine: AsyncEngine) -> None:
+async def _create_default_data(engine: AsyncEngine) -> None:
     async with create_session(engine) as session:
         workbench_user = User(
             user_id=service_user_principals.semantic_workbench.user_id,
@@ -473,7 +571,11 @@ async def create_default_data(engine: AsyncEngine) -> None:
 @asynccontextmanager
 async def create_session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
     session_maker = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
     )
     async with session_maker() as async_session:
         yield async_session

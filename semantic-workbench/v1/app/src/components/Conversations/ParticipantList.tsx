@@ -28,10 +28,11 @@ interface ParticipantListProps {
     conversation: Conversation;
     participants: ConversationParticipant[];
     preventAssistantModifyOnParticipantIds?: string[];
+    readOnly: boolean;
 }
 
 export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
-    const { conversation, participants, preventAssistantModifyOnParticipantIds = [] } = props;
+    const { conversation, participants, preventAssistantModifyOnParticipantIds = [], readOnly } = props;
     const classes = useClasses();
 
     const [addConversationParticipant] = useAddConversationParticipantMutation();
@@ -54,42 +55,46 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
         .filter((participant) => participant.active && participant.role === 'assistant')
         .map((participant) => participant.id);
 
+    const onlineParticipants = participants
+        .filter((participant) => participant.active)
+        .toSorted((a, b) => a.name.localeCompare(b.name));
+
     return (
         <div className={classes.root}>
-            <AssistantAdd exceptAssistantIds={exceptAssistantIds} onAdd={handleAssistantAdd} />
-            {participants
-                .filter((participant) => participant.active)
-                .toSorted((a, b) => a.name.localeCompare(b.name))
-                .map((participant) => (
-                    <div className={classes.participant} key={participant.id}>
-                        <Persona
-                            name={participant.name}
-                            avatar={{
-                                name: '',
-                                icon: {
-                                    user: <PersonRegular />,
-                                    assistant: <BotRegular />,
-                                    service: <AppGenericRegular />,
-                                }[participant.role],
-                            }}
-                            secondaryText={participant.role}
-                            presence={
-                                participant.online === undefined
-                                    ? null
-                                    : {
-                                          status: participant.online ? 'available' : 'offline',
-                                      }
-                            }
+            <AssistantAdd disabled={readOnly} exceptAssistantIds={exceptAssistantIds} onAdd={handleAssistantAdd} />
+            {onlineParticipants.map((participant) => (
+                <div className={classes.participant} key={participant.id}>
+                    <Persona
+                        name={participant.name}
+                        avatar={{
+                            name: '',
+                            icon: {
+                                user: <PersonRegular />,
+                                assistant: <BotRegular />,
+                                service: <AppGenericRegular />,
+                            }[participant.role],
+                        }}
+                        secondaryText={
+                            participant.role +
+                            { read: ' (observer)', read_write: '' }[participant.conversationPermission]
+                        }
+                        presence={
+                            participant.online === undefined
+                                ? undefined
+                                : {
+                                      status: participant.online ? 'available' : 'offline',
+                                  }
+                        }
+                    />
+                    {participant.role === 'assistant' && (
+                        <AssistantRemove
+                            conversation={conversation}
+                            participant={participant}
+                            disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
                         />
-                        {participant.role === 'assistant' && (
-                            <AssistantRemove
-                                conversation={conversation}
-                                participant={participant}
-                                disabled={preventAssistantModifyOnParticipantIds.includes(participant.id)}
-                            />
-                        )}
-                    </div>
-                ))}
+                    )}
+                </div>
+            ))}
         </div>
     );
 };

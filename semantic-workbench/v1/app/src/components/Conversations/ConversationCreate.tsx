@@ -66,37 +66,39 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogSurface>
-                <DialogBody>
-                    <DialogTitle>New Conversation</DialogTitle>
-                    <DialogContent>
-                        <form
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                handleSave();
-                            }}
-                        >
-                            <Field label="Title">
-                                <Input
-                                    disabled={submitted}
-                                    value={title}
-                                    onChange={(_event, data) => setTitle(data?.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
+                <form
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        handleSave();
+                    }}
+                >
+                    <DialogBody>
+                        <DialogTitle>New Conversation</DialogTitle>
+                        <DialogContent>
+                            <p>
+                                <Field label="Title">
+                                    <Input
+                                        disabled={submitted}
+                                        value={title}
+                                        onChange={(_event, data) => setTitle(data?.value)}
+                                        aria-autocomplete="none"
+                                    />
+                                </Field>
+                            </p>
                             <button disabled={submitted} type="submit" hidden />
-                        </form>
-                    </DialogContent>
-                    <DialogActions>
-                        <DialogTrigger disableButtonEnhancement>
-                            <Button appearance="secondary">Cancel</Button>
-                        </DialogTrigger>
-                        <DialogTrigger>
-                            <Button disabled={!title || submitted} appearance="primary" onClick={handleSave}>
-                                {submitted ? 'Saving...' : 'Save'}
-                            </Button>
-                        </DialogTrigger>
-                    </DialogActions>
-                </DialogBody>
+                        </DialogContent>
+                        <DialogActions>
+                            <DialogTrigger disableButtonEnhancement>
+                                <Button appearance="secondary">Cancel</Button>
+                            </DialogTrigger>
+                            <DialogTrigger>
+                                <Button disabled={!title || submitted} appearance="primary" onClick={handleSave}>
+                                    {submitted ? 'Saving...' : 'Save'}
+                                </Button>
+                            </DialogTrigger>
+                        </DialogActions>
+                    </DialogBody>
+                </form>
             </DialogSurface>
         </Dialog>
     );

@@ -69,36 +69,43 @@ def docker_compose_file() -> pathlib.Path:
 
 
 @pytest.fixture
-async def db_settings(
-    request: pytest.FixtureRequest,
-) -> AsyncGenerator[DBSettings, None]:
-    db_settings = semantic_workbench_service.settings.db.model_copy()
-    db_settings.echosql = request.config.option.echosql
+def db_type(request: pytest.FixtureRequest) -> str:
+    return request.config.option.dbtype
 
-    match request.config.option.dbtype:
+
+@pytest.fixture
+def echo_sql(request: pytest.FixtureRequest) -> bool:
+    return request.config.option.echosql
+
+
+@pytest.fixture
+async def db_settings(db_type: str, echo_sql: bool, request: pytest.FixtureRequest) -> AsyncGenerator[DBSettings, None]:
+    db_settings = semantic_workbench_service.settings.db.model_copy()
+    db_settings.echosql = echo_sql
+    db_settings.alembic_config_path = str(pathlib.Path(__file__).parent.parent / "alembic.ini")
+
+    match db_type:
         case "sqlite":
+            # use a sqlite db in an auto-deleted temporary directory
             with tempfile.TemporaryDirectory() as temp_dir:
                 path = pathlib.Path(temp_dir) / f"{uuid.uuid4().hex}.db"
-                db_url = f"sqlite:///{path}"
-                db_settings.url = db_url
+                db_settings.url = f"sqlite:///{path}"
 
                 yield db_settings
 
         case "postgresql":
-            # start docker container with postgres
+            # use a postgresql db in a docker container
             docker_services = request.getfixturevalue("docker_services")
             docker_ip = request.getfixturevalue("docker_ip")
             db_name = f"workbench_test_{uuid.uuid4().hex}"
             postgresql_port = docker_services.port_for("postgres", 5432)
             postgresql_url = f"postgresql://{docker_ip}:{postgresql_port}"
-            admin_db_url = f"{postgresql_url}/postgres"
 
-            db_url = f"{postgresql_url}/{db_name}"
-            db_settings.url = db_url
+            db_settings.url = f"{postgresql_url}/{db_name}"
             db_settings.postgresql_ssl_mode = "disable"
             db_settings.postgresql_pool_size = 1
-            # disable migrations on startup for tests
-            db_settings.migrate_on_startup = False
+
+            admin_db_url = f"{postgresql_url}/postgres"
 
             async def db_is_up() -> bool:
                 try:

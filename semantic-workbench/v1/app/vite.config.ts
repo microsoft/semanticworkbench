@@ -8,7 +8,11 @@ import mkcert from 'vite-plugin-mkcert';
 const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'));
 const dateString = new Date().toISOString().replace('T', ' @ ').replace(/\..+/, '');
 const appVersion = `${packageJson.version as string} (${dateString})`;
-const replaceOptions = { __APP_VERSION__: appVersion };
+const replaceOptions = {
+    __APP_VERSION__: appVersion,
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+    preventAssignment: true,
+};
 
 // https://vitejs.dev/config/
 export default defineConfig({
