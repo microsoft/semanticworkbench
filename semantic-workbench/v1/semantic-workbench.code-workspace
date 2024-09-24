@@ -29,16 +29,8 @@
       "path": "../../assistant-connector"
     },
     {
-      "name": "libraries/content-safety/combined-content-safety-evaluator",
-      "path": "../../libraries/content-safety/combined-content-safety-evaluator"
-    },
-    {
-      "name": "libraries/content-safety/azure-content-safety-evaluator",
-      "path": "../../libraries/content-safety/azure-content-safety-evaluator"
-    },
-    {
-      "name": "libraries/content-safety/openai-content-safety-evaluator",
-      "path": "../../libraries/content-safety/openai-content-safety-evaluator"
+      "name": "libraries/content-safety",
+      "path": "../../libraries/content-safety"
     },
     {
       "name": "build-tools",
@@ -55,9 +47,6 @@
     {
       "name": ".vscode",
       "path": "../../.vscode"
-    },
-    {
-      "path": "../../libraries/content-safety"
     }
   ]
 }
