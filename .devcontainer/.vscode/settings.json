@@ -13,6 +13,7 @@
         "jungaretti",
         "pylance",
         "robbert",
-        "semanticworkbench"
+        "semanticworkbench",
+        "tamasfe"
     ]
 }

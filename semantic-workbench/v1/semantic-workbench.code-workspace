@@ -17,12 +17,28 @@
       "path": "../../examples/python-02-simple-chatbot"
     },
     {
+      "name": "examples/python-03-multimodel-chatbot",
+      "path": "../../examples/python-03-multimodel-chatbot"
+    },
+    {
       "name": "assistants/prospector-assistant",
       "path": "../../assistants/prospector-assistant"
     },
     {
       "name": "assistant-connector",
       "path": "../../assistant-connector"
+    },
+    {
+      "name": "libraries/content-safety/combined-content-safety-evaluator",
+      "path": "../../libraries/content-safety/combined-content-safety-evaluator"
+    },
+    {
+      "name": "libraries/content-safety/azure-content-safety-evaluator",
+      "path": "../../libraries/content-safety/azure-content-safety-evaluator"
+    },
+    {
+      "name": "libraries/content-safety/openai-content-safety-evaluator",
+      "path": "../../libraries/content-safety/openai-content-safety-evaluator"
     },
     {
       "name": "build-tools",
@@ -39,6 +55,9 @@
     {
       "name": ".vscode",
       "path": "../../.vscode"
+    },
+    {
+      "path": "../../libraries/content-safety"
     }
   ]
 }

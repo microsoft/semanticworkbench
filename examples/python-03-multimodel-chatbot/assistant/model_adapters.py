@@ -2,36 +2,70 @@
 # Generalizes message formatting and response generation for different model services
 
 import abc
-from typing import Any, Dict, List, Union
+from typing import Any, Iterable, List, TypeAlias, TypedDict, Union
 
+import anthropic
+import deepmerge
 import google.generativeai as genai
-from anthropic import AsyncAnthropic
-from openai import AsyncOpenAI
-from openai.types.chat import (ChatCompletion,
-                               ChatCompletionAssistantMessageParam,
-                               ChatCompletionMessage,
-                               ChatCompletionMessageParam,
-                               ChatCompletionSystemMessageParam,
-                               ChatCompletionUserMessageParam)
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionMessage,
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
 from openai.types.chat.chat_completion import Choice
+from pydantic import BaseModel
+
+from assistant.config import (
+    AnthropicServiceConfig,
+    GeminiServiceConfig,
+    OllamaServiceConfig,
+    OpenAIServiceConfig,
+    RequestConfig,
+    ServiceType,
+)
+
+#
+# region Models
+#
 
 
 class Message:
-    def __init__(self, role: str, content: str):
+    def __init__(self, role: str, content: str) -> None:
         self.role = role
         self.content = content
 
+
+class GenerateResponseResult(BaseModel):
+    response: str | None = None
+    error: str | None = None
+    metadata: dict[str, Any]
+
+
 class ModelAdapter(abc.ABC):
     @abc.abstractmethod
-    def format_messages(self, messages: List[Message]) -> Any:
+    def _format_messages(self, messages: List[Message]) -> Any:
         pass
 
     @abc.abstractmethod
-    async def generate_response(self, formatted_messages: Any, config: Any, config_secrets: Any) -> str:
+    async def generate_response(
+        self, messages: List[Message], request_config: RequestConfig, service_config: Any
+    ) -> GenerateResponseResult:
         pass
 
+
+# endregion
+
+
+#
+# region OpenAI Adapter
+#
+
+
 class OpenAIAdapter(ModelAdapter):
-    def format_messages(self, messages: List[Message]) -> List[ChatCompletionMessageParam]:
+    def _format_messages(self, messages: List[Message]) -> List[ChatCompletionMessageParam]:
         formatted_messages = []
         for msg in messages:
             if msg.role == "system":
@@ -43,29 +77,60 @@ class OpenAIAdapter(ModelAdapter):
             # Add other roles if necessary
         return formatted_messages
 
-    async def generate_response(self, formatted_messages: List[ChatCompletionMessageParam], config: Any, config_secrets: Any) -> str:
-        if hasattr(config_secrets.service_config, 'ollama_endpoint'):
-            async with AsyncOpenAI(api_key=config_secrets.service_config.openai_api_key,
-                                base_url=config_secrets.service_config.ollama_endpoint) as client:
+    async def generate_response(
+        self,
+        messages: List[Message],
+        request_config: RequestConfig,
+        service_config: OpenAIServiceConfig | OllamaServiceConfig,
+    ) -> GenerateResponseResult:
+        formatted_messages = self._format_messages(messages)
+
+        metadata: dict[str, Any] = {
+            "debug": {
+                "request": {
+                    "messages": formatted_messages,
+                    "service_type": service_config.service_type_display_name,
+                    "model": service_config.openai_model,
+                    "max_tokens": request_config.response_tokens,
+                }
+            }
+        }
+
+        try:
+            async with service_config.new_client() as client:
                 completion: ChatCompletion = await client.chat.completions.create(
                     messages=formatted_messages,
-                    model=config_secrets.service_config.openai_model,
-                    max_tokens=config.request_config.response_tokens,
+                    model=service_config.openai_model,
+                    max_tokens=request_config.response_tokens,
                 )
-        else:
-            async with AsyncOpenAI(api_key=config_secrets.service_config.openai_api_key,
-                                base_url=config_secrets.service_config.base_url) as client:
-                completion: ChatCompletion = await client.chat.completions.create(
-                    messages=formatted_messages,
-                    model=config_secrets.service_config.openai_model,
-                    max_tokens=config.request_config.response_tokens,
-                )
-        choice: Choice = completion.choices[0]
-        message: ChatCompletionMessage = choice.message
-        return message.content or ""
+
+            choice: Choice = completion.choices[0]
+            message: ChatCompletionMessage = choice.message
+
+            deepmerge.always_merger.merge(metadata, {"debug": {"response": completion.model_dump(mode="json")}})
+
+            return GenerateResponseResult(
+                response=message.content,
+                metadata=metadata,
+            )
+        except Exception as e:
+            return exception_to_generate_response_result(e, metadata)
+
+
+# endregion
+
+
+#
+# region Anthropic Adapter
+#
+
 
 class AnthropicAdapter(ModelAdapter):
-    def format_messages(self, messages: List[Message]) -> Dict[str, Union[str, List[Dict[str, str]]]]:
+    class AnthropicFormattedMessages(TypedDict):
+        system: Union[str, Iterable[anthropic.types.TextBlockParam], anthropic.NotGiven]
+        messages: Iterable[anthropic.types.MessageParam]
+
+    def _format_messages(self, messages: List[Message]) -> AnthropicFormattedMessages:
         system_messages = [msg.content for msg in messages if msg.role == "system"]
         chat_messages = []
 
@@ -94,28 +159,73 @@ class AnthropicAdapter(ModelAdapter):
         if chat_messages[-1]["role"] != "user":
             chat_messages.append({"role": "user", "content": "Please continue."})
 
-        return {
-            "system": "\n\n".join(system_messages),
-            "messages": chat_messages
+        return {"system": "\n\n".join(system_messages), "messages": chat_messages}
+
+    async def generate_response(
+        self,
+        messages: List[Message],
+        request_config: RequestConfig,
+        service_config: AnthropicServiceConfig,
+    ) -> GenerateResponseResult:
+        formatted_messages = self._format_messages(messages)
+
+        metadata: dict[str, Any] = {
+            "debug": {
+                "request": {
+                    "messages": formatted_messages,
+                    "service_type": service_config.service_type_display_name,
+                    "model": service_config.anthropic_model,
+                    "max_tokens": request_config.response_tokens,
+                }
+            }
         }
 
-    async def generate_response(self, formatted_messages: Dict[str, Union[str, List[Dict[str, str]]]], config: Any, config_secrets: Any) -> str:
-        async with AsyncAnthropic(api_key=config_secrets.service_config.anthropic_api_key) as client:
-            completion = await client.messages.create(
-                model=config_secrets.service_config.anthropic_model,
-                messages=formatted_messages["messages"],
-                system=formatted_messages["system"],
-                max_tokens=config.request_config.response_tokens,
-            )
-            # Convert the content to a string if it's a TextBlock or list of TextBlocks
-            if hasattr(completion.content, 'text'):
-                return completion.content.text
-            elif isinstance(completion.content, list) and all(hasattr(item, 'text') for item in completion.content):
-                return ' '.join(item.text for item in completion.content)
-            return str(completion.content)
+        try:
+            async with service_config.new_client() as client:
+                completion = await client.messages.create(
+                    model=service_config.anthropic_model,
+                    messages=formatted_messages["messages"],
+                    system=formatted_messages["system"],
+                    max_tokens=request_config.response_tokens,
+                )
+
+                # content is a list of ContentBlock objects, so we need to convert it to a string
+                # ContentBlock is a union of TextBlock and ToolUseBlock, so we need to check for both
+                # we're only expecting text blocks for now, so raise an error if we get a ToolUseBlock
+                content = completion.content
+                deepmerge.always_merger.merge(metadata, {"debug": {"response": completion.model_dump(mode="json")}})
+                if isinstance(content, anthropic.types.TextBlock):
+                    return GenerateResponseResult(
+                        response=content.text,
+                        metadata=metadata,
+                    )
+                elif isinstance(content, anthropic.types.ToolUseBlock):
+                    return GenerateResponseResult(
+                        error="Received a ToolUseBlock, which is not supported",
+                        metadata=metadata,
+                    )
+                else:
+                    return GenerateResponseResult(
+                        error="Received an unexpected response",
+                        metadata=metadata,
+                    )
+
+        except Exception as e:
+            return exception_to_generate_response_result(e, metadata)
+
+
+# endregion
+
+
+#
+# region Gemini Adapter
+#
+
 
 class GeminiAdapter(ModelAdapter):
-    def format_messages(self, messages: List[Message]) -> List[Dict[str, Union[str, List[str]]]]:
+    GeminiFormattedMessages: TypeAlias = Iterable[genai.types.StrictContentType]
+
+    def _format_messages(self, messages: List[Message]) -> GeminiFormattedMessages:
         gemini_messages = []
         for msg in messages:
             if msg.role == "system":
@@ -127,22 +237,67 @@ class GeminiAdapter(ModelAdapter):
                 gemini_messages.append({"role": "user" if msg.role == "user" else "model", "parts": [msg.content]})
         return gemini_messages
 
-    async def generate_response(self, formatted_messages: List[Dict[str, Union[str, List[str]]]], config: Any, config_secrets: Any) -> str:
-        genai.configure(api_key=config_secrets.service_config.gemini_api_key)
-        model = genai.GenerativeModel(config_secrets.service_config.gemini_model)
-        chat = model.start_chat(history=formatted_messages)
-        response = await chat.send_message_async(formatted_messages[-1]["parts"][0])
-        return response.text
+    async def generate_response(
+        self,
+        messages: List[Message],
+        request_config: RequestConfig,
+        service_config: GeminiServiceConfig,
+    ) -> GenerateResponseResult:
+        formatted_messages = self._format_messages(messages)
 
-def get_model_adapter(service_type: str) -> ModelAdapter:
-    adapters = {
-        "OpenAI": OpenAIAdapter(),
-        "Azure OpenAI": OpenAIAdapter(),
-        "Ollama": OpenAIAdapter(),
-        "Anthropic": AnthropicAdapter(),
-        "Gemini": GeminiAdapter(),
-    }
-    adapter = adapters.get(service_type)
-    if adapter is None:
-        raise ValueError(f"Unsupported service type: {service_type}")
-    return adapter
+        metadata: dict[str, Any] = {
+            "debug": {
+                "request": {
+                    "messages": formatted_messages,
+                    "service_type": service_config.service_type_display_name,
+                    "model": service_config.gemini_model,
+                }
+            }
+        }
+
+        try:
+            model = service_config.new_client()
+            chat = model.start_chat(history=formatted_messages)
+            response = await chat.send_message_async(list(formatted_messages)[:1])
+            deepmerge.always_merger.merge(metadata, {"debug": {"response": response.to_dict()}})
+            return GenerateResponseResult(
+                response=response.text,
+                metadata=metadata,
+            )
+        except Exception as e:
+            return exception_to_generate_response_result(e, metadata)
+
+
+# endregion
+
+#
+# region Helpers
+#
+
+
+def get_model_adapter(service_type: ServiceType) -> ModelAdapter:
+    match service_type:
+        case ServiceType.AzureOpenAI | ServiceType.OpenAI | ServiceType.Ollama:
+            return OpenAIAdapter()
+        case ServiceType.Anthropic:
+            return AnthropicAdapter()
+        case ServiceType.Gemini:
+            return GeminiAdapter()
+
+
+def exception_to_generate_response_result(e: Exception, metadata: dict[str, Any]) -> GenerateResponseResult:
+    deepmerge.always_merger.merge(
+        metadata,
+        {
+            "error": str(e),
+            "debug": {
+                "response": {
+                    "error": str(e),
+                }
+            },
+        },
+    )
+    return GenerateResponseResult(
+        error=str(e),
+        metadata=metadata,
+    )

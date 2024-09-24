@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "combined-content-safety-evaluator"
+version = "0.1.0"
+description = "Content Safety Evaluator for Semantic Workbench Assistants that combines all available evaluators"
+authors = ["Semantic Workbench Team"]
+readme = "README.md"
+packages = [{ include = "combined_content_safety_evaluator" }]
+
+[tool.poetry.dependencies]
+python = "~3.11"
+
+# If you copy this file to your project, you should verify the relative path to the following:
+semantic-workbench-assistant = { path = "../../../semantic-workbench/v1/service/semantic-workbench-assistant", develop = true }
+azure-content-safety-evaluator = { path = "../azure-content-safety-evaluator", develop = true }
+openai-content-safety-evaluator = { path = "../openai-content-safety-evaluator", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.6.4"
+
+[build-system]
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+exclude = ["venv", ".venv"]

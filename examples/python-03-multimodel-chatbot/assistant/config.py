@@ -1,20 +1,16 @@
 import pathlib
-from typing import Annotated, Literal
+from abc import abstractmethod
+from enum import Enum, StrEnum
+from typing import Annotated, Any, Literal, Union
 
 import google.generativeai as genai
 import openai
 from anthropic import AsyncAnthropic
-from assistant.responsible_ai.openai_evaluator import \
-    OpenAIContentSafetyEvaluatorConfigModel
-from azure.identity.aio import (DefaultAzureCredential,
-                                get_bearer_token_provider)
+from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
+from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant import config
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
-
-from .responsible_ai.azure_evaluator import (
-    AzureContentSafetyEvaluatorConfigModel,
-    AzureContentSafetyServiceConfigModel)
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -29,11 +25,84 @@ from .responsible_ai.azure_evaluator import (
 # region Assistant Configuration
 #
 
+
+# mapping service type friendly names to an enum to use in the configuration model
+# to prevent errors if the service type is changed and string values are used
+class ServiceType(StrEnum):
+    AzureOpenAI = "azure_openai"
+    OpenAI = "openai"
+    Anthropic = "anthropic"
+    Gemini = "gemini"
+    Ollama = "ollama"
+
+
+def _service_type_friendly_name(service_type: ServiceType) -> str:
+    service_type_friendly_names = {
+        ServiceType.AzureOpenAI: "Azure OpenAI",
+        ServiceType.OpenAI: "OpenAI",
+        ServiceType.Anthropic: "Anthropic",
+        ServiceType.Gemini: "Gemini",
+        ServiceType.Ollama: "Ollama",
+    }
+
+    return service_type_friendly_names[service_type]
+
+
+class ContentSafetyType(Enum):
+    AzureContentSafety = "azure_content_safety"
+    OpenAIModerationsEndpoint = "openai_moderations_endpoint"
+
+
+def _content_safety_type_friendly_name(content_safety_type: ContentSafetyType) -> str:
+    content_safety_type_friendly_names = {
+        ContentSafetyType.AzureContentSafety: "Azure Content Safety",
+        ContentSafetyType.OpenAIModerationsEndpoint: "OpenAI Moderations Endpoint",
+    }
+
+    return content_safety_type_friendly_names[content_safety_type]
+
+
+class ContentSafetyConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Content Safety Configuration",
+        json_schema_extra={
+            "required": ["content_safety_type"],
+        },
+    )
+
+    content_safety_type: Annotated[ContentSafetyType, UISchema(widget="hidden")] = ContentSafetyType.AzureContentSafety
+
+    @property
+    def content_safety_type_friendly_name(self) -> str:
+        # get from the class title
+        return self.model_config.get("title") or self.content_safety_type.value
+
+
+class ServiceConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Service Configuration",
+        json_schema_extra={
+            "required": ["service_type"],
+        },
+    )
+
+    service_type: Annotated[str, UISchema(widget="hidden")] = ""
+
+    @property
+    def service_type_display_name(self) -> str:
+        # get from the class title
+        return self.model_config.get("title") or self.service_type
+
+    @abstractmethod
+    def new_client(self, **kwargs) -> Any:
+        pass
+
+
 class RequestConfig(BaseModel):
     model_config = ConfigDict(
         title="Response Generation",
         json_schema_extra={
-            "required": ["max_tokens", "response_tokens", "openai_model"],
+            "required": ["max_tokens", "response_tokens"],
         },
     )
 
@@ -58,11 +127,6 @@ class RequestConfig(BaseModel):
             ),
         ),
     ] = 4_048
-
-    openai_model: Annotated[
-        str,
-        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
-    ] = "gpt-4o"
 
 
 # helper for loading the guardrails prompt from a text file
@@ -94,6 +158,7 @@ class AssistantConfigModel(BaseModel):
             title="Instruction Prompt",
             description="The prompt used to instruct the behavior of the AI assistant.",
         ),
+        UISchema(widget="textarea"),
     ] = (
         "You are an AI assistant that helps people with their work. In addition to text, you can also produce markdown,"
         " code snippets, and other types of content. If you wrap your response in triple backticks, you can specify the"
@@ -116,6 +181,7 @@ class AssistantConfigModel(BaseModel):
                 "#define-additional-safety-and-behavioral-guardrails)"
             ),
         ),
+        UISchema(widget="textarea"),
     ] = load_guardrails_prompt_from_text_file()
 
     welcome_message: Annotated[
@@ -124,6 +190,7 @@ class AssistantConfigModel(BaseModel):
             title="Welcome Message",
             description="The message to display when the conversation starts.",
         ),
+        UISchema(widget="textarea"),
     ] = "Hello! How can I help you today?"
 
     request_config: Annotated[
@@ -173,15 +240,15 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
     ] = ""
 
 
-class AzureOpenAIServiceConfig(BaseModel):
+class AzureOpenAIServiceConfig(ServiceConfig):
     model_config = ConfigDict(
-        title="Azure OpenAI",
+        title=_service_type_friendly_name(ServiceType.AzureOpenAI),
         json_schema_extra={
             "required": ["azure_openai_deployment", "azure_openai_endpoint"],
         },
     )
 
-    service_type: Annotated[Literal["Azure OpenAI"], UISchema(widget="hidden")] = "Azure OpenAI"
+    service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(widget="hidden")] = ServiceType.AzureOpenAI
 
     auth_config: Annotated[
         AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
@@ -203,6 +270,11 @@ class AzureOpenAIServiceConfig(BaseModel):
         ),
     ] = config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
 
+    openai_model: Annotated[
+        str,
+        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
+    ] = "gpt-4o"
+
     azure_openai_deployment: Annotated[
         str,
         Field(
@@ -211,22 +283,6 @@ class AzureOpenAIServiceConfig(BaseModel):
         ),
     ] = "gpt-4o"
 
-    azure_content_safety_config: Annotated[
-        AzureContentSafetyEvaluatorConfigModel,
-        Field(
-            title="Azure Content Safety Configuration",
-            description="The configuration for the Azure Content Safety API.",
-        ),
-    ] = AzureContentSafetyEvaluatorConfigModel()
-
-    azure_content_safety_service_config: Annotated[
-        AzureContentSafetyServiceConfigModel,
-        Field(
-            title="Azure Content Safety Service Configuration",
-            description="The configuration for the Azure Content Safety service.",
-        ),
-    ] = AzureContentSafetyServiceConfigModel()
-
     # set on the class to avoid re-creating the token provider for each client, which allows
     # the token provider to cache and re-use tokens
     _azure_bearer_token_provider = get_bearer_token_provider(
@@ -234,14 +290,14 @@ class AzureOpenAIServiceConfig(BaseModel):
         "https://cognitiveservices.azure.com/.default",
     )
 
-    def new_client(self, api_version: str) -> openai.AsyncOpenAI:
+    def new_client(self, **kwargs) -> openai.AsyncOpenAI:
         match self.auth_config.auth_method:
             case "api-key":
                 return openai.AsyncAzureOpenAI(
                     api_key=self.auth_config.azure_openai_api_key,
                     azure_deployment=self.azure_openai_deployment,
                     azure_endpoint=self.azure_openai_endpoint,
-                    api_version=api_version,
+                    api_version=kwargs.get("api_version", "2023-03-15-preview"),
                 )
 
             case "azure-identity":
@@ -249,7 +305,7 @@ class AzureOpenAIServiceConfig(BaseModel):
                     azure_ad_token_provider=AzureOpenAIServiceConfig._azure_bearer_token_provider,
                     azure_deployment=self.azure_openai_deployment,
                     azure_endpoint=self.azure_openai_endpoint,
-                    api_version=api_version,
+                    api_version=kwargs.get("api_version", "2023-03-15-preview"),
                 )
 
 
@@ -260,15 +316,15 @@ class AzureOpenAIServiceConfig(BaseModel):
 #
 
 
-class OpenAIServiceConfig(BaseModel):
+class OpenAIServiceConfig(ServiceConfig):
     model_config = ConfigDict(
-        title="OpenAI",
+        title=_service_type_friendly_name(ServiceType.OpenAI),
         json_schema_extra={
             "required": ["openai_api_key", "openai_model"],
         },
     )
 
-    service_type: Annotated[Literal["OpenAI"], UISchema(widget="hidden")] = "OpenAI"
+    service_type: Annotated[Literal[ServiceType.OpenAI], UISchema(widget="hidden")] = ServiceType.OpenAI
 
     openai_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -297,19 +353,12 @@ class OpenAIServiceConfig(BaseModel):
         UISchema(placeholder="[optional]"),
     ] = ""
 
-    openai_content_safety_config: Annotated[
-        OpenAIContentSafetyEvaluatorConfigModel,
-        Field(
-            title="OpenAI Content Safety Evaluator Configuration",
-            description="The configuration for the OpenAI Content Safety evaluator.",
-        ),
-    ] = OpenAIContentSafetyEvaluatorConfigModel()
-
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
         return openai.AsyncOpenAI(
             api_key=self.openai_api_key,
             organization=self.openai_organization_id or None,
         )
+
 
 # endregion
 
@@ -317,7 +366,8 @@ class OpenAIServiceConfig(BaseModel):
 # region Anthropic Service Configuration
 #
 
-class AnthropicServiceConfig(BaseModel):
+
+class AnthropicServiceConfig(ServiceConfig):
     model_config = ConfigDict(
         title="Anthropic",
         json_schema_extra={
@@ -325,7 +375,7 @@ class AnthropicServiceConfig(BaseModel):
         },
     )
 
-    service_type: Annotated[Literal["Anthropic"], UISchema(widget="hidden")] = "Anthropic"
+    service_type: Annotated[Literal[ServiceType.Anthropic], UISchema(widget="hidden")] = ServiceType.Anthropic
 
     anthropic_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -342,24 +392,9 @@ class AnthropicServiceConfig(BaseModel):
         Field(title="Anthropic Model", description="The Anthropic model to use for generating responses."),
     ] = "claude-3-5-sonnet-20240620"
 
-    azure_content_safety_config: Annotated[
-        AzureContentSafetyEvaluatorConfigModel,
-        Field(
-            title="Azure Content Safety Evaluator Configuration",
-            description="The configuration for the Azure Content Safety evaluator.",
-        ),
-    ] = AzureContentSafetyEvaluatorConfigModel()
-
-    azure_content_safety_service_config: Annotated[
-        AzureContentSafetyServiceConfigModel,
-        Field(
-            title="Azure Content Safety Service Configuration",
-            description="The configuration for the Azure Content Safety service.",
-        ),
-    ] = AzureContentSafetyServiceConfigModel()
-
     def new_client(self, **kwargs) -> AsyncAnthropic:
         return AsyncAnthropic(api_key=self.anthropic_api_key)
+
 
 # endregion
 
@@ -367,15 +402,16 @@ class AnthropicServiceConfig(BaseModel):
 # region Gemini Service Configuration
 #
 
-class GeminiServiceConfig(BaseModel):
+
+class GeminiServiceConfig(ServiceConfig):
     model_config = ConfigDict(
-        title="Gemini",
+        title=_service_type_friendly_name(ServiceType.Gemini),
         json_schema_extra={
             "required": ["gemini_api_key", "gemini_model"],
         },
     )
 
-    service_type: Annotated[Literal["Gemini"], UISchema(widget="hidden")] = "Gemini"
+    service_type: Annotated[Literal[ServiceType.Gemini], UISchema(widget="hidden")] = ServiceType.Gemini
 
     gemini_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -392,25 +428,10 @@ class GeminiServiceConfig(BaseModel):
         Field(title="Gemini Model", description="The Gemini model to use for generating responses."),
     ] = "gemini-1.5-pro"
 
-    azure_content_safety_config: Annotated[
-        AzureContentSafetyEvaluatorConfigModel,
-        Field(
-            title="Azure Content Safety Evaluator Configuration",
-            description="The configuration for the Azure Content Safety evaluator.",
-        ),
-    ] = AzureContentSafetyEvaluatorConfigModel()
-
-    azure_content_safety_service_config: Annotated[
-        AzureContentSafetyServiceConfigModel,
-        Field(
-            title="Azure Content Safety Service Configuration",
-            description="The configuration for the Azure Content Safety service.",
-        ),
-    ] = AzureContentSafetyServiceConfigModel()
-
     def new_client(self, **kwargs) -> genai.GenerativeModel:
         genai.configure(api_key=self.gemini_api_key)
         return genai.GenerativeModel(self.gemini_model)
+
 
 # endregion
 
@@ -418,15 +439,16 @@ class GeminiServiceConfig(BaseModel):
 # region Ollama Service Configuration
 #
 
-class OllamaServiceConfig(BaseModel):
+
+class OllamaServiceConfig(ServiceConfig):
     model_config = ConfigDict(
-        title="Ollama",
+        title=_service_type_friendly_name(ServiceType.Ollama),
         json_schema_extra={
             "required": ["ollama_endpoint", "ollama_model"],
         },
     )
 
-    service_type: Annotated[Literal["Ollama"], UISchema(widget="hidden")] = "Ollama"
+    service_type: Annotated[Literal[ServiceType.Ollama], UISchema(widget="hidden")] = ServiceType.Ollama
 
     ollama_endpoint: Annotated[
         str,
@@ -444,7 +466,7 @@ class OllamaServiceConfig(BaseModel):
     openai_model: Annotated[
         str,
         Field(title="OpenAI Model", description="Same as Ollama model, used in later calls to OpenAI API."),
-        UISchema(widget="hidden")
+        UISchema(widget="hidden"),
     ] = ollama_model
 
     openai_api_key: Annotated[
@@ -458,43 +480,39 @@ class OllamaServiceConfig(BaseModel):
         UISchema(placeholder="[optional]"),
     ] = "ollama"
 
-    azure_content_safety_config: Annotated[
-        AzureContentSafetyEvaluatorConfigModel,
-        Field(
-            title="Azure Content Safety Evaluator Configuration",
-            description="The configuration for the Azure Content Safety evaluator.",
-        ),
-    ] = AzureContentSafetyEvaluatorConfigModel()
-
-    azure_content_safety_service_config: Annotated[
-        AzureContentSafetyServiceConfigModel,
-        Field(
-            title="Azure Content Safety Service Configuration",
-            description="The configuration for the Azure Content Safety service.",
-        ),
-    ] = AzureContentSafetyServiceConfigModel()
-
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
         return openai.AsyncOpenAI(
             base_url=f"{self.ollama_endpoint}/v1",
         )
 
+
 # endregion
 
-#
-# region Assistant Services Configuration selection
-#
 
 # configuration with secrets, such as connection strings or API keys, should be in a separate model
 class AssistantServiceConfigModel(BaseModel):
     service_config: Annotated[
-        AzureOpenAIServiceConfig | OpenAIServiceConfig | AnthropicServiceConfig | GeminiServiceConfig | OllamaServiceConfig,
+        Union[
+            AzureOpenAIServiceConfig,
+            OpenAIServiceConfig,
+            AnthropicServiceConfig,
+            GeminiServiceConfig,
+            OllamaServiceConfig,
+        ],
         Field(
             title="Service Configuration",
             discriminator="service_type",
         ),
         UISchema(hide_title=True, widget="radio"),
     ] = AzureOpenAIServiceConfig()
+
+    content_safety_config: Annotated[
+        CombinedContentSafetyEvaluatorConfig,
+        Field(
+            title="Content Safety Configuration",
+        ),
+        UISchema(hide_title=True, widget="radio"),
+    ] = CombinedContentSafetyEvaluatorConfig()
 
 
 # endregion
