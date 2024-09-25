@@ -2,11 +2,11 @@
 
 The Semantic Workbench service is a python web server implementing the API for the Semantic Workbench.
 
-Follow the [setup guide](../../../docs/SETUP.md) to configure your environment.
+Follow the [setup guide](../../../docs/SETUP_DEV_ENVIRONMENT.md) to configure your environment.
 
 ## Running Workbench Service from VS Code
 
-To debug in VSCode, View->Run, "semantic-workbench-service"
+To run and/or debug in VS Code, View->Run, "service: semantic-workbench-service"
 
 ## Running Workbench Service from the Command Line
 
@@ -16,11 +16,17 @@ In the [service directory](./)
 poetry run start-semantic-workbench-service
 ```
 
+For help with additional arguments:
+
+```sh
+start-semantic-workbench-service --help
+```
+
 ## Extra Information
 
 ### Notes on venv
 
-The backend service uses venvs ([how venvs work](https://docs.python.org/3.11/library/venv.html#how-venvs-work)). When using poetry it is not neccessary to activate these, but to run commands directly without poetry you will need to activate the venv first. From command line activate the python virtual environment.
+The backend service uses venvs ([how venvs work](https://docs.python.org/3.11/library/venv.html#how-venvs-work)). When using poetry it is not necessary to activate these, but to run commands directly without poetry you will need to activate the venv first. From command line activate the python virtual environment.
 
 bash or zsh:
 
@@ -42,12 +48,6 @@ Once activated you can start the workbench service without poetry.
 
 ```sh
 start-semantic-workbench-service
-```
-
-For help with additional arguments:
-
-```sh
-poetry run start-semantic-workbench-service --h
 ```
 
 ### Tests
@@ -78,4 +78,4 @@ For help with additional arguments:
 start-semantic-workbench-assistant --h
 ```
 
-To debug in VSCode, View->Run, "semantic-workbench-assistant" - it will prompt you for the assistant name.
+To run and/or debug in VS Code, View->Run and select the assistant you want to run.

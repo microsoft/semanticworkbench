@@ -29,7 +29,7 @@ See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for m
 
 # Quick start - Local development environment
 
-- Configure you dev environment, [setup guide](docs/SETUP.md).
+- Configure your dev environment, [setup guide](docs/SETUP_DEV_ENVIRONMENT.md).
 - Start the backend service, see [here for instructions](semantic-workbench/v1/service/README.md).
 - Start the frontend app, see [here for instructions](semantic-workbench/v1/app/README.md).
 - Start the [Python chatbot example](examples/python-03-simple-chatbot/README.md), or one of the other [examples](examples).
