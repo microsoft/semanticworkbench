@@ -19,7 +19,7 @@ facilitates experimentation, development, testing, and measurement of agent beha
 Assistants integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability
 in various development environments.
 
-![Semantic Workbench architecture](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/architecture-animation.gif)
+![Semantic Workbench architecture](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/architecture-animation.gif)
 
 # Quick start (Recommended) - GitHub Codespaces for turn-key development environment
 
@@ -29,16 +29,16 @@ See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for m
 
 # Quick start - Local development environment
 
-- Configure you dev environment, [setup guide](docs/SETUP.md).
+- Configure your dev environment, [setup guide](docs/SETUP_DEV_ENVIRONMENT.md).
 - Start the backend service, see [here for instructions](semantic-workbench/v1/service/README.md).
 - Start the frontend app, see [here for instructions](semantic-workbench/v1/app/README.md).
 - Start the [Python chatbot example](examples/python-03-simple-chatbot/README.md), or one of the other [examples](examples).
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/readme1.png)
+![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme1.png)
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/readme2.png)
+![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme2.png)
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/readme3.png)
+![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme3.png)
 
 # Connecting your assistants
 

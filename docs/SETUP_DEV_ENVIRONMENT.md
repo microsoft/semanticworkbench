@@ -1,18 +1,20 @@
 # Semantic Workbench Setup Guide
 
-This document covers the common setup information for the semantic workbench.
+This document covers the common setup information for the Semantic Workbench.
 
 # Codespaces
 
-We recommend using [Codespaces for developing with the Semantic Workbench](../.devcontainer/README.md). That will provide you with a preconfigured environment for using with VS Code with no additional setup.
+We recommend using [GitHub Codespaces for developing with the Semantic Workbench](../.devcontainer/README.md). This will provide a pre-configured environment with VS Code and no additional setup.
 
 # Local Development
 
 ## Prerequisites
 
-- Recommended installer for macOS: [brew](https://brew.sh/)
-- Recommended installer for Windows: [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/)
-- Recommended installer for Linux: apt or your distro's package manager
+Recommended installers:
+
+- macOS: [brew](https://brew.sh/)
+- Windows: [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/)
+- Linux: apt or your distribution's package manager
 
 ## Service Setup
 
@@ -55,13 +57,11 @@ If you haven't already, enable long file paths on Windows.
 
 ### Configure and build the backend
 
-- Copy `.env.example` file to `.env` and fill in the values. These values are used for workflows and by assistants leveraging the config library. If you don't use workflows and if your assistants already have their credentials, you can skip this file.
-
 - Within the [`v1/service`](../semantic-workbench/v1/service/) directory, create your virtual environment, and install the service packages:
 
       make
 
-  If this fails in Windows, try running a vanilla instance of `cmd` or `powershell` and not within Cmder or another shell that may have modified the environment.
+  If this fails in Windows, try running a vanilla instance of `cmd` or `powershell` and not within `Cmder` or another shell that may have modified the environment.
 
 # Frontend Setup
 
@@ -92,5 +92,5 @@ Within the [`v1/app`](../semantic-workbench/v1/app/) directory, install packages
 
 ```
 cd semantic-workbench/v1/app
-npm install
+make
 ```

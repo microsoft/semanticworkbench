@@ -2,11 +2,11 @@
 
 The Semantic Workbench app is a React/Typescript app integrated with the [Semantic Workbench](../service/README.md) backend service.
 
-Follow the [setup guide](../../../docs/SETUP.md) to configure your environment.
+Follow the [setup guide](../../../docs/SETUP_DEV_ENVIRONMENT.md) to configure your dev environment.
 
 ## Running Workbench App from VS Code
 
-To debug in VSCode, View->Run, "semantic-workbench-app"
+To run and/or debug in VS Code, View->Run, "app: semantic-workbench-app"
 
 ## Running Workbench App from the Command Line
 
