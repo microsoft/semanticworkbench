@@ -2,58 +2,43 @@
 
 The Semantic Workbench service is a python web server implementing the API for the Semantic Workbench.
 
-## Prerequisites
+Follow the [setup guide](../../../docs/SETUP.md) to configure your environment.
 
-- Recommended installer for mac: [brew](https://brew.sh/)
-- Recommended installer for windows: [scoop](https://scoop.sh/)
+## Running Workbench Service from VS Code
 
-## Setup
-
-- Install dependencies: `python 3.11`, `poetry`, `make`.
-
-  macOS:
-
-      brew install python@3.11
-      brew install poetry
-      brew install make
-
-  Windows:
-
-      scoop bucket add versions
-      scoop install python311
-      scoop install poetry
-      scoop install make
-
-- Within the [`v1/service`](./) directory, create your virtual environment, and install the service packages:
-  
-      make
-  
-  If this fails in Windows, try running a vanilla instance of `cmd` or `powershell` and not within Cmder or another shell that may have modified the environment.
-
-- Copy `.env.example` file to `.env` and fill in the values. These values are used for workflows and by assistants leveraging the config library. If you don't use workflows and if your assistants already have their credentials, you can skip this file.
+To debug in VSCode, View->Run, "semantic-workbench-service"
 
 ## Running Workbench Service from the Command Line
 
-From command line activate the python virtual environment. ([how venvs work](https://docs.python.org/3.11/library/venv.html#how-venvs-work))
+In the [service directory](./)
 
-  bash or zsh:
+```sh
+poetry run start-semantic-workbench-service
+```
+
+## Extra Information
+
+### Notes on venv
+
+The backend service uses venvs ([how venvs work](https://docs.python.org/3.11/library/venv.html#how-venvs-work)). When using poetry it is not neccessary to activate these, but to run commands directly without poetry you will need to activate the venv first. From command line activate the python virtual environment.
+
+bash or zsh:
 
     . .venv/bin/activate
 
-  fish:
+fish:
 
     . .venv/bin/activate.fish
 
-  cmd:
+cmd:
 
     .venv\Scripts\activate.bat
 
-  powershell:
-
+powershell:
 
     .venv\Scripts\Activate.ps1
 
-### Workbench Service
+Once activated you can start the workbench service without poetry.
 
 ```sh
 start-semantic-workbench-service
@@ -62,18 +47,16 @@ start-semantic-workbench-service
 For help with additional arguments:
 
 ```sh
-start-semantic-workbench-service --h
+poetry run start-semantic-workbench-service --h
 ```
 
-To debug in VSCode, View->Run, "semantic-workbench-service"
-
-## Tests
+### Tests
 
 ```sh
 pytest
 ```
 
-# Assistant Services
+### Assistant Services
 
 Note: you can develop assistants in any language and framework, so the following is **optional**.
 

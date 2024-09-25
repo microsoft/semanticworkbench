@@ -2,17 +2,21 @@
 
 The Semantic Workbench app is a React/Typescript app integrated with the [Semantic Workbench](../service/README.md) backend service.
 
-## Setup
+Follow the [setup guide](../../../docs/SETUP.md) to configure your environment.
 
-1. Install [Node 20](https://nodejs.org/en/download)
+## Running Workbench App from VS Code
 
-2. Within the [`v1/app`](./) directory, install packages.
+To debug in VSCode, View->Run, "semantic-workbench-app"
 
-        cd semantic-workbench/v1/app
-        npm install
-        npm start
+## Running Workbench App from the Command Line
 
-    Note: you might be prompted for admin credentials, for the SSL certificates used by the app.
+In the [app directory](./)
+
+```sh
+npm start
+```
+
+Note: you might be prompted for admin credentials, for the SSL certificates used by the app.
 
 ## Extra information
 
