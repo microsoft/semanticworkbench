@@ -22,7 +22,7 @@ def first_env_var(*env_vars: str, include_upper_and_lower: bool = True, include_
     then the upper and lower case versions of the env vars will also be checked.
 
     .. warning::
-        When running from VSCode, the .env values are not reloaded on a 'restart'. You
+        When running from VS Code, the .env values are not reloaded on a 'restart'. You
         need to 'stop' and then 'start' the service to get the new values from the .env
         file.
     """

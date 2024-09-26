@@ -19,7 +19,7 @@ facilitates experimentation, development, testing, and measurement of agent beha
 Assistants integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability
 in various development environments.
 
-![Semantic Workbench architecture](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/architecture-animation.gif)
+![Semantic Workbench architecture](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/architecture-animation.gif)
 
 # Quick start (Recommended) - GitHub Codespaces for turn-key development environment
 
@@ -29,16 +29,16 @@ See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for m
 
 # Quick start - Local development environment
 
+- Configure your dev environment, [setup guide](docs/SETUP_DEV_ENVIRONMENT.md).
 - Start the backend service, see [here for instructions](semantic-workbench/v1/service/README.md).
 - Start the frontend app, see [here for instructions](semantic-workbench/v1/app/README.md).
-- Start the canonical assistant (see [here for instructions](semantic-workbench/v1/service/semantic-workbench-assistant/README.md))
-  or one of the [examples](examples).
+- Start the [Python chatbot example](examples/python-03-simple-chatbot/README.md), or one of the other [examples](examples).
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/readme1.png)
+![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme1.png)
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/readme2.png)
+![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme2.png)
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/readme3.png)
+![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme3.png)
 
 # Connecting your assistants
 
@@ -49,26 +49,13 @@ The repository contains a few examples that can be used to create custom assista
 - [Python Canonical Assistant](semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
 - [Python example 1](examples/python-01-echo-bot/README.md): a simple assistant echoing text back.
 - [Python example 2](examples/python-02-simple-chatbot/README.md): a simple chatbot implementing metaprompt guardrails and content moderation.
+- [Python example 3](examples/python-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
 - [.NET example 1](examples/dotnet-01-echo-bot/README.md): a simple agent with echo and support for a basic `/say` command.
 - [.NET example 2](examples/dotnet-02-message-types-demo/README.md): a simple assistants showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
 - [.NET example 3](examples/dotnet-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
 
 ![Mermaid graph example](examples/dotnet-02-message-types-demo/docs/mermaid.png)
 ![ABC music example](examples/dotnet-02-message-types-demo/docs/abc.png)
-
-# Workbench setup
-
-- Follow the [Service Setup Guide](semantic-workbench/v1/service/README.md)
-- Follow the [App Setup Guide](semantic-workbench/v1/app/README.md)
-
-## Windows setup
-
-Enable long file paths on Windows.
-
-- Run `regedit`.
-- Navigate to `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem`.
-- Find the `LongPathsEnabled` key. If it doesn’t exist, right-click on the `FileSystem` key, select `New > DWORD (32-bit) Value`, and name it `LongPathsEnabled`.
-- Double-click on `LongPathsEnabled`, set its value to `1`, and click OK.
 
 ## Open the Workbench and create an assistant instance
 
