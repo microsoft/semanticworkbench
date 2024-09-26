@@ -114,7 +114,7 @@ export const AssistantEditor: React.FC = () => {
         if (accountName) {
             await createConversationMessage({
                 conversationId: conversation.id,
-                content: `${accountName} joined the conversation`,
+                content: `${accountName} created the conversation`,
                 messageType: 'notice',
             });
         }
