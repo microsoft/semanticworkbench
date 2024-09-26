@@ -1,6 +1,6 @@
 import pathlib
 from abc import abstractmethod
-from enum import Enum, StrEnum
+from enum import StrEnum
 from typing import Annotated, Any, Literal, Union
 
 import google.generativeai as genai
@@ -22,60 +22,38 @@ from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 # configuration model.
 
 #
+# region Helpers
+#
+
+
+# helper for loading an include from a text file
+def load_text_include(filename) -> str:
+    # get directory relative to this module
+    directory = pathlib.Path(__file__).parent
+
+    # get the file path for the prompt file
+    file_path = directory / "text_includes" / filename
+
+    # read the prompt from the file
+    return file_path.read_text()
+
+
+# endregion
+
+
+#
 # region Assistant Configuration
 #
 
 
-# mapping service type friendly names to an enum to use in the configuration model
-# to prevent errors if the service type is changed and string values are used
+# mapping service types to an enum to use as keys in the configuration model
+# to prevent errors if the service type is changed where string values were used
 class ServiceType(StrEnum):
     AzureOpenAI = "azure_openai"
     OpenAI = "openai"
     Anthropic = "anthropic"
     Gemini = "gemini"
     Ollama = "ollama"
-
-
-def _service_type_friendly_name(service_type: ServiceType) -> str:
-    service_type_friendly_names = {
-        ServiceType.AzureOpenAI: "Azure OpenAI",
-        ServiceType.OpenAI: "OpenAI",
-        ServiceType.Anthropic: "Anthropic",
-        ServiceType.Gemini: "Gemini",
-        ServiceType.Ollama: "Ollama",
-    }
-
-    return service_type_friendly_names[service_type]
-
-
-class ContentSafetyType(Enum):
-    AzureContentSafety = "azure_content_safety"
-    OpenAIModerationsEndpoint = "openai_moderations_endpoint"
-
-
-def _content_safety_type_friendly_name(content_safety_type: ContentSafetyType) -> str:
-    content_safety_type_friendly_names = {
-        ContentSafetyType.AzureContentSafety: "Azure Content Safety",
-        ContentSafetyType.OpenAIModerationsEndpoint: "OpenAI Moderations Endpoint",
-    }
-
-    return content_safety_type_friendly_names[content_safety_type]
-
-
-class ContentSafetyConfig(BaseModel):
-    model_config = ConfigDict(
-        title="Content Safety Configuration",
-        json_schema_extra={
-            "required": ["content_safety_type"],
-        },
-    )
-
-    content_safety_type: Annotated[ContentSafetyType, UISchema(widget="hidden")] = ContentSafetyType.AzureContentSafety
-
-    @property
-    def content_safety_type_friendly_name(self) -> str:
-        # get from the class title
-        return self.model_config.get("title") or self.content_safety_type.value
 
 
 class ServiceConfig(BaseModel):
@@ -129,19 +107,6 @@ class RequestConfig(BaseModel):
     ] = 4_048
 
 
-# helper for loading the guardrails prompt from a text file
-def load_guardrails_prompt_from_text_file() -> str:
-    # get directory relative to this module
-    directory = pathlib.Path(__file__).parent
-
-    # get the file path for the guardrails prompt
-    file_path = directory / "responsible_ai" / "guardrails_prompt.txt"
-
-    # read the guardrails prompt from the file
-    with open(file_path, "r") as file:
-        return file.read()
-
-
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
     enable_debug_output: Annotated[
@@ -182,7 +147,7 @@ class AssistantConfigModel(BaseModel):
             ),
         ),
         UISchema(widget="textarea"),
-    ] = load_guardrails_prompt_from_text_file()
+    ] = load_text_include("guardrails_prompt.txt")
 
     welcome_message: Annotated[
         str,
@@ -210,10 +175,17 @@ class AssistantConfigModel(BaseModel):
 #
 
 
+class AzureAuthConfigType(StrEnum):
+    Identity = "azure-identity"
+    ServiceKey = "api-key"
+
+
 class AzureOpenAIAzureIdentityAuthConfig(BaseModel):
     model_config = ConfigDict(title="Azure identity based authentication")
 
-    auth_method: Annotated[Literal["azure-identity"], UISchema(widget="hidden")] = "azure-identity"
+    auth_method: Annotated[Literal[AzureAuthConfigType.Identity], UISchema(widget="hidden")] = (
+        AzureAuthConfigType.Identity
+    )
 
 
 class AzureOpenAIApiKeyAuthConfig(BaseModel):
@@ -224,7 +196,9 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
         },
     )
 
-    auth_method: Annotated[Literal["api-key"], UISchema(widget="hidden")] = "api-key"
+    auth_method: Annotated[Literal[AzureAuthConfigType.ServiceKey], UISchema(widget="hidden")] = (
+        AzureAuthConfigType.ServiceKey
+    )
 
     azure_openai_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -242,7 +216,7 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
 
 class AzureOpenAIServiceConfig(ServiceConfig):
     model_config = ConfigDict(
-        title=_service_type_friendly_name(ServiceType.AzureOpenAI),
+        title="Azure OpenAI",
         json_schema_extra={
             "required": ["azure_openai_deployment", "azure_openai_endpoint"],
         },
@@ -291,21 +265,23 @@ class AzureOpenAIServiceConfig(ServiceConfig):
     )
 
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
+        api_version = kwargs.get("api_version", "2024-06-01")
+
         match self.auth_config.auth_method:
-            case "api-key":
+            case AzureAuthConfigType.ServiceKey:
                 return openai.AsyncAzureOpenAI(
                     api_key=self.auth_config.azure_openai_api_key,
                     azure_deployment=self.azure_openai_deployment,
                     azure_endpoint=self.azure_openai_endpoint,
-                    api_version=kwargs.get("api_version", "2023-03-15-preview"),
+                    api_version=api_version,
                 )
 
-            case "azure-identity":
+            case AzureAuthConfigType.Identity:
                 return openai.AsyncAzureOpenAI(
                     azure_ad_token_provider=AzureOpenAIServiceConfig._azure_bearer_token_provider,
                     azure_deployment=self.azure_openai_deployment,
                     azure_endpoint=self.azure_openai_endpoint,
-                    api_version=kwargs.get("api_version", "2023-03-15-preview"),
+                    api_version=api_version,
                 )
 
 
@@ -318,7 +294,7 @@ class AzureOpenAIServiceConfig(ServiceConfig):
 
 class OpenAIServiceConfig(ServiceConfig):
     model_config = ConfigDict(
-        title=_service_type_friendly_name(ServiceType.OpenAI),
+        title="OpenAI",
         json_schema_extra={
             "required": ["openai_api_key", "openai_model"],
         },
@@ -405,7 +381,7 @@ class AnthropicServiceConfig(ServiceConfig):
 
 class GeminiServiceConfig(ServiceConfig):
     model_config = ConfigDict(
-        title=_service_type_friendly_name(ServiceType.Gemini),
+        title="Gemini",
         json_schema_extra={
             "required": ["gemini_api_key", "gemini_model"],
         },
@@ -442,7 +418,7 @@ class GeminiServiceConfig(ServiceConfig):
 
 class OllamaServiceConfig(ServiceConfig):
     model_config = ConfigDict(
-        title=_service_type_friendly_name(ServiceType.Ollama),
+        title="Ollama",
         json_schema_extra={
             "required": ["ollama_endpoint", "ollama_model"],
         },

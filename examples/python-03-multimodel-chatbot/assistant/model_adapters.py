@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 # Generalizes message formatting and response generation for different model services
 
-import abc
+from abc import abstractmethod
 from typing import Any, Iterable, List, TypeAlias, TypedDict, Union
 
 import anthropic
@@ -27,10 +27,6 @@ from assistant.config import (
     ServiceType,
 )
 
-#
-# region Models
-#
-
 
 class Message:
     def __init__(self, role: str, content: str) -> None:
@@ -44,24 +40,16 @@ class GenerateResponseResult(BaseModel):
     metadata: dict[str, Any]
 
 
-class ModelAdapter(abc.ABC):
-    @abc.abstractmethod
+class ModelAdapter(BaseModel):
+    @abstractmethod
     def _format_messages(self, messages: List[Message]) -> Any:
         pass
 
-    @abc.abstractmethod
+    @abstractmethod
     async def generate_response(
         self, messages: List[Message], request_config: RequestConfig, service_config: Any
     ) -> GenerateResponseResult:
         pass
-
-
-# endregion
-
-
-#
-# region OpenAI Adapter
-#
 
 
 class OpenAIAdapter(ModelAdapter):
@@ -107,7 +95,7 @@ class OpenAIAdapter(ModelAdapter):
             choice: Choice = completion.choices[0]
             message: ChatCompletionMessage = choice.message
 
-            deepmerge.always_merger.merge(metadata, {"debug": {"response": completion.model_dump(mode="json")}})
+            deepmerge.always_merger.merge(metadata, {"debug": {"response": completion.model_dump_json()}})
 
             return GenerateResponseResult(
                 response=message.content,
@@ -115,14 +103,6 @@ class OpenAIAdapter(ModelAdapter):
             )
         except Exception as e:
             return exception_to_generate_response_result(e, metadata)
-
-
-# endregion
-
-
-#
-# region Anthropic Adapter
-#
 
 
 class AnthropicAdapter(ModelAdapter):
@@ -193,7 +173,7 @@ class AnthropicAdapter(ModelAdapter):
                 # ContentBlock is a union of TextBlock and ToolUseBlock, so we need to check for both
                 # we're only expecting text blocks for now, so raise an error if we get a ToolUseBlock
                 content = completion.content
-                deepmerge.always_merger.merge(metadata, {"debug": {"response": completion.model_dump(mode="json")}})
+                deepmerge.always_merger.merge(metadata, {"debug": {"response": completion.model_dump_json()}})
                 if isinstance(content, anthropic.types.TextBlock):
                     return GenerateResponseResult(
                         response=content.text,
@@ -212,14 +192,6 @@ class AnthropicAdapter(ModelAdapter):
 
         except Exception as e:
             return exception_to_generate_response_result(e, metadata)
-
-
-# endregion
-
-
-#
-# region Gemini Adapter
-#
 
 
 class GeminiAdapter(ModelAdapter):
@@ -266,13 +238,6 @@ class GeminiAdapter(ModelAdapter):
             )
         except Exception as e:
             return exception_to_generate_response_result(e, metadata)
-
-
-# endregion
-
-#
-# region Helpers
-#
 
 
 def get_model_adapter(service_type: ServiceType) -> ModelAdapter:

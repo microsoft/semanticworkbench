@@ -8,10 +8,6 @@ packages = [{ include = "assistant" }]
 
 [tool.poetry.dependencies]
 python = "~3.11"
-aiohttp = "^3.10.5"
-azure-ai-contentsafety = "^1.0.0"
-azure-core = "^1.31.0"
-azure-identity = "^1.17.1"
 deepmerge = "^2.0"
 docx2txt = "^0.8"
 html2docx = "^1.6.0"
@@ -22,6 +18,7 @@ tiktoken = "^0.7.0"
 
 # If you copy this file to your project, you should verify the relative path to the following:
 semantic-workbench-assistant = { path = "../../semantic-workbench/v1/service/semantic-workbench-assistant", develop = true }
+content-safety = { path = "../../libraries/content-safety/", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.4"

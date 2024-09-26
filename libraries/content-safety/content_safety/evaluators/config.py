@@ -1,4 +1,4 @@
-from typing import Annotated, Union
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import UISchema
@@ -11,7 +11,7 @@ class CombinedContentSafetyEvaluatorConfig(BaseModel):
     model_config = ConfigDict(title="Content Safety Evaluator Configuration")
 
     service_config: Annotated[
-        Union[AzureContentSafetyEvaluatorConfig, OpenAIContentSafetyEvaluatorConfig],
+        AzureContentSafetyEvaluatorConfig | OpenAIContentSafetyEvaluatorConfig,
         Field(
             title="Service Configuration",
             description="The configuration for the content safety service to use.",

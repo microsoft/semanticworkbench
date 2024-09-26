@@ -11,6 +11,7 @@ from typing import Any
 
 import deepmerge
 import tiktoken
+from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel
 from semantic_workbench_api_model.workbench_model import (
@@ -33,7 +34,6 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .agents import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider, AttachmentAgent
 from .config import AssistantConfigModel, AssistantServiceConfigModel
-from .responsible_ai import AzureContentSafetyEvaluator, OpenAIContentSafetyEvaluator, OpenAIServiceConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -60,19 +60,7 @@ assistant_config = BaseModelAssistantConfigWithSecrets(
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
     config_secrets = await assistant_config.get_secrets(context.assistant)
-
-    # return the content safety evaluator based on the service type
-    match config_secrets.service_config.service_type:
-        case "Azure OpenAI":
-            return AzureContentSafetyEvaluator(
-                config=config_secrets.service_config.azure_content_safety_config,
-                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
-            )
-        case "OpenAI":
-            return OpenAIContentSafetyEvaluator(
-                config=config_secrets.service_config.openai_content_safety_config,
-                config_secrets=OpenAIServiceConfigModel(openai_api_key=config_secrets.service_config.openai_api_key),
-            )
+    return CombinedContentSafetyEvaluator(config_secrets.content_safety_config)
 
 
 content_safety = ContentSafety(content_evaluator_factory)
@@ -471,7 +459,7 @@ async def respond_to_conversation(
     if not config.agents_config.artifact_agent.enable_artifacts:
         # generate a response from the AI model
         completion_total_tokens: int | None = None
-        async with config_secrets.service_config.new_client(api_version="2024-06-01") as openai_client:
+        async with config_secrets.service_config.new_client() as openai_client:
             try:
                 # call the OpenAI API to generate a completion
                 completion = await openai_client.chat.completions.create(
