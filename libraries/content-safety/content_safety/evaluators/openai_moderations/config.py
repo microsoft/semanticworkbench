@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class OpenAIContentSafetyEvaluatorConfig(BaseModel):
     model_config = ConfigDict(
-        title="OpenAI Content Safety Evaluator Configuration",
+        title="OpenAI Content Safety Evaluator",
     )
 
     service_type: Annotated[

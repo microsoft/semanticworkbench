@@ -78,7 +78,7 @@ class AzureServiceKeyAuthConfig(BaseModel):
 
 
 class AzureContentSafetyEvaluatorConfig(BaseModel):
-    model_config = ConfigDict(title="Azure Content Safety Evaluator Configuration")
+    model_config = ConfigDict(title="Azure Content Safety Evaluator")
 
     service_type: Annotated[Literal["azure-content-safety"], UISchema(widget="hidden")] = "azure-content-safety"
 

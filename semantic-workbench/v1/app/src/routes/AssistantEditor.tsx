@@ -107,14 +107,15 @@ export const AssistantEditor: React.FC = () => {
     };
 
     const handleConversationCreate = async (conversation: Conversation) => {
-        // add assistant to conversation
-        await addConversationParticipant({ conversationId: conversation.id, participantId: assistantId });
-
+        // send notice message first, to announce before assistant reacts to create event
         await createConversationMessage({
             conversationId: conversation.id,
             content: `${assistant?.name} added to conversation`,
             messageType: 'notice',
         });
+
+        // add assistant to conversation
+        await addConversationParticipant({ conversationId: conversation.id, participantId: assistantId });
     };
 
     if (isLoadingAssistant || isLoadingAssistantConversations || !assistant) {

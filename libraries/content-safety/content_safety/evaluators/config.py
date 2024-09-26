@@ -8,13 +8,12 @@ from .openai_moderations.config import OpenAIContentSafetyEvaluatorConfig
 
 
 class CombinedContentSafetyEvaluatorConfig(BaseModel):
-    model_config = ConfigDict(title="Content Safety Evaluator Configuration")
+    model_config = ConfigDict(title="Content Safety Evaluator")
 
     service_config: Annotated[
         AzureContentSafetyEvaluatorConfig | OpenAIContentSafetyEvaluatorConfig,
         Field(
-            title="Service Configuration",
-            description="The configuration for the content safety service to use.",
+            title="Content Safety Evaluator",
         ),
-        UISchema(widget="radio"),
+        UISchema(widget="radio", hide_title=True),
     ] = AzureContentSafetyEvaluatorConfig()

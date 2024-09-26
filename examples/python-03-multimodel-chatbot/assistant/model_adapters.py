@@ -41,6 +41,9 @@ class GenerateResponseResult(BaseModel):
 
 
 class ModelAdapter(BaseModel):
+    class Config:
+        arbitrary_types_allowed = True
+
     @abstractmethod
     def _format_messages(self, messages: List[Message]) -> Any:
         pass

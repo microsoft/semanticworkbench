@@ -229,7 +229,7 @@ class AzureOpenAIServiceConfig(ServiceConfig):
     auth_config: Annotated[
         AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
         Field(
-            title="Authentication Config",
+            title="Authentication Configuration",
             discriminator="auth_method",
         ),
         UISchema(hide_title=True, widget="radio"),
@@ -329,7 +329,7 @@ class AssistantServiceConfigModel(BaseModel):
             title="Service Configuration",
             discriminator="service_type",
         ),
-        UISchema(hide_title=True, widget="radio"),
+        UISchema(widget="radio", hide_title=True),
     ] = AzureOpenAIServiceConfig()
 
     content_safety_config: Annotated[
@@ -337,7 +337,7 @@ class AssistantServiceConfigModel(BaseModel):
         Field(
             title="Content Safety Configuration",
         ),
-        UISchema(hide_title=True, widget="radio"),
+        UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
 
 
