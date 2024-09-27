@@ -3,7 +3,9 @@ from abc import abstractmethod
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
+import google.generativeai as genai
 import openai
+from anthropic import AsyncAnthropic
 from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
@@ -18,7 +20,6 @@ from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 # The UI schema can be used to customize the appearance of the form. Use
 # the UISchema class to define the UI schema for specific fields in the
 # configuration model.
-
 
 #
 # region Helpers
@@ -50,6 +51,9 @@ def load_text_include(filename) -> str:
 class ServiceType(StrEnum):
     AzureOpenAI = "azure_openai"
     OpenAI = "openai"
+    Anthropic = "anthropic"
+    Gemini = "gemini"
+    Ollama = "ollama"
 
 
 class ServiceConfig(BaseModel):
@@ -76,7 +80,7 @@ class RequestConfig(BaseModel):
     model_config = ConfigDict(
         title="Response Generation",
         json_schema_extra={
-            "required": ["max_tokens", "response_tokens", "openai_model"],
+            "required": ["max_tokens", "response_tokens"],
         },
     )
 
@@ -101,11 +105,6 @@ class RequestConfig(BaseModel):
             ),
         ),
     ] = 4_048
-
-    openai_model: Annotated[
-        str,
-        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
-    ] = "gpt-4o"
 
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
@@ -147,7 +146,7 @@ class AssistantConfigModel(BaseModel):
                 "#define-additional-safety-and-behavioral-guardrails)"
             ),
         ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
+        UISchema(widget="textarea"),
     ] = load_text_include("guardrails_prompt.txt")
 
     welcome_message: Annotated[
@@ -171,9 +170,8 @@ class AssistantConfigModel(BaseModel):
 
 # endregion
 
-
 #
-# region Service Configuration
+# region Azure OpenAI Service Configuration
 #
 
 
@@ -246,6 +244,11 @@ class AzureOpenAIServiceConfig(ServiceConfig):
         ),
     ] = config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
 
+    openai_model: Annotated[
+        str,
+        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
+    ] = "gpt-4o"
+
     azure_openai_deployment: Annotated[
         str,
         Field(
@@ -261,7 +264,7 @@ class AzureOpenAIServiceConfig(ServiceConfig):
         "https://cognitiveservices.azure.com/.default",
     )
 
-    def new_client(self, **kwargs) -> openai.AsyncAzureOpenAI:
+    def new_client(self, **kwargs) -> openai.AsyncOpenAI:
         api_version = kwargs.get("api_version", "2024-06-01")
 
         match self.auth_config.auth_method:
@@ -282,11 +285,18 @@ class AzureOpenAIServiceConfig(ServiceConfig):
                 )
 
 
+# endregion
+
+#
+# region OpenAI Service Configuration
+#
+
+
 class OpenAIServiceConfig(ServiceConfig):
     model_config = ConfigDict(
         title="OpenAI",
         json_schema_extra={
-            "required": ["openai_api_key"],
+            "required": ["openai_api_key", "openai_model"],
         },
     )
 
@@ -301,6 +311,11 @@ class OpenAIServiceConfig(ServiceConfig):
             description="The API key to use for the OpenAI API.",
         ),
     ] = ""
+
+    openai_model: Annotated[
+        str,
+        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
+    ] = "gpt-4o"
 
     openai_organization_id: Annotated[
         str,
@@ -321,10 +336,143 @@ class OpenAIServiceConfig(ServiceConfig):
         )
 
 
+# endregion
+
+#
+# region Anthropic Service Configuration
+#
+
+
+class AnthropicServiceConfig(ServiceConfig):
+    model_config = ConfigDict(
+        title="Anthropic",
+        json_schema_extra={
+            "required": ["anthropic_api_key", "anthropic_model"],
+        },
+    )
+
+    service_type: Annotated[Literal[ServiceType.Anthropic], UISchema(widget="hidden")] = ServiceType.Anthropic
+
+    anthropic_api_key: Annotated[
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
+        Field(
+            title="Anthropic API Key",
+            description="The API key to use for the Anthropic API.",
+        ),
+    ] = ""
+
+    anthropic_model: Annotated[
+        str,
+        Field(title="Anthropic Model", description="The Anthropic model to use for generating responses."),
+    ] = "claude-3-5-sonnet-20240620"
+
+    def new_client(self, **kwargs) -> AsyncAnthropic:
+        return AsyncAnthropic(api_key=self.anthropic_api_key)
+
+
+# endregion
+
+#
+# region Gemini Service Configuration
+#
+
+
+class GeminiServiceConfig(ServiceConfig):
+    model_config = ConfigDict(
+        title="Gemini",
+        json_schema_extra={
+            "required": ["gemini_api_key", "gemini_model"],
+        },
+    )
+
+    service_type: Annotated[Literal[ServiceType.Gemini], UISchema(widget="hidden")] = ServiceType.Gemini
+
+    gemini_api_key: Annotated[
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
+        Field(
+            title="Gemini API Key",
+            description="The API key to use for the Gemini API.",
+        ),
+    ] = ""
+
+    gemini_model: Annotated[
+        str,
+        Field(title="Gemini Model", description="The Gemini model to use for generating responses."),
+    ] = "gemini-1.5-pro"
+
+    def new_client(self, **kwargs) -> genai.GenerativeModel:
+        genai.configure(api_key=self.gemini_api_key)
+        return genai.GenerativeModel(self.gemini_model)
+
+
+# endregion
+
+#
+# region Ollama Service Configuration
+#
+
+
+class OllamaServiceConfig(ServiceConfig):
+    model_config = ConfigDict(
+        title="Ollama",
+        json_schema_extra={
+            "required": ["ollama_endpoint", "ollama_model"],
+        },
+    )
+
+    service_type: Annotated[Literal[ServiceType.Ollama], UISchema(widget="hidden")] = ServiceType.Ollama
+
+    ollama_endpoint: Annotated[
+        str,
+        Field(
+            title="Ollama Endpoint",
+            description="The endpoint for the Ollama API.",
+        ),
+    ] = "http://127.0.0.1:11434/v1/"
+
+    ollama_model: Annotated[
+        str,
+        Field(title="Ollama Model", description="The Ollama model to use for generating responses."),
+    ] = "llama3.1"
+
+    openai_model: Annotated[
+        str,
+        Field(title="OpenAI Model", description="Same as Ollama model, used in later calls to OpenAI API."),
+        UISchema(widget="hidden"),
+    ] = ollama_model
+
+    openai_api_key: Annotated[
+        # ConfigSecretStr is a custom type that should be used for any secrets.
+        # It will hide the value in the UI.
+        ConfigSecretStr,
+        Field(
+            title=" API Key",
+            description="Required by OpenAI API but ignored by Ollama",
+        ),
+        UISchema(placeholder="[optional]"),
+    ] = "ollama"
+
+    def new_client(self, **kwargs) -> openai.AsyncOpenAI:
+        return openai.AsyncOpenAI(
+            base_url=f"{self.ollama_endpoint}/v1",
+        )
+
+
+# endregion
+
+
 # configuration with secrets, such as connection strings or API keys, should be in a separate model
 class AssistantServiceConfigModel(BaseModel):
     service_config: Annotated[
-        AzureOpenAIServiceConfig | OpenAIServiceConfig,
+        AzureOpenAIServiceConfig
+        | OpenAIServiceConfig
+        | AnthropicServiceConfig
+        | GeminiServiceConfig
+        | OllamaServiceConfig,
         Field(
             title="Service Configuration",
             discriminator="service_type",

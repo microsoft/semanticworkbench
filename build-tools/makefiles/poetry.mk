@@ -14,7 +14,7 @@ install_marker_path = .venv/.install-marker-$(notdir $(abspath $(1)))
 venv install: lock $(call install_marker_path,$(POETRY_PACKAGE))
 
 .PHONY: lock
-lock: 
+lock:
 	poetry --directory=$(POETRY_PACKAGE) lock
 
 $(POETRY_PACKAGE)/poetry.lock: $(POETRY_PACKAGE)/pyproject.toml
@@ -28,5 +28,5 @@ $(call install_marker_path,$(POETRY_PACKAGE)): $(POETRY_PACKAGE)/poetry.lock
 clean-venv clean:
 	poetry --directory=$(POETRY_PACKAGE) env remove --all
 
-DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+DIR = $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 include $(DIR)/shell.mk

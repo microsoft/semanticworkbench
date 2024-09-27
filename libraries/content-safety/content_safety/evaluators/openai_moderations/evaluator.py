@@ -2,78 +2,18 @@
 
 import asyncio
 import logging
-from typing import Annotated, Any
+from typing import Any
 
 import openai
-from pydantic import BaseModel, Field
 from semantic_workbench_assistant.assistant_app import (
     ContentSafetyEvaluation,
     ContentSafetyEvaluationResult,
     ContentSafetyEvaluator,
 )
-from semantic_workbench_assistant.config import ConfigSecretStr
+
+from .config import OpenAIContentSafetyEvaluatorConfig
 
 logger = logging.getLogger(__name__)
-
-
-# The semantic workbench app uses react-jsonschema-form for rendering
-# dynamic configuration forms based on the configuration model and UI schema
-# See: https://rjsf-team.github.io/react-jsonschema-form/docs/
-# Playground / examples: https://rjsf-team.github.io/react-jsonschema-form/
-
-# The UI schema can be used to customize the appearance of the form. Use
-# the UISchema class to define the UI schema for specific fields in the
-# configuration model.
-
-
-#
-# region Evaluator Configuration
-#
-
-
-class OpenAIContentSafetyEvaluatorConfigModel(BaseModel):
-    max_item_size: Annotated[
-        int,
-        Field(
-            title="Maximum Item Size",
-            description=(
-                "The maximum size of an item to send to the OpenAI moderations endpoint, this must be less than or"
-                " equal to the service's maximum (2,000 characters at the time of writing)."
-            ),
-        ),
-    ] = 2000
-
-    max_item_count: Annotated[
-        int,
-        Field(
-            title="Maximum Item Count",
-            description=(
-                "The maximum number of items to send to the OpenAI moderations endpoint at a time, this must be less or"
-                " equal to the service's maximum (32 items at the time of writing)."
-            ),
-        ),
-    ] = 32
-
-
-# endregion
-
-
-#
-# region Service Configuration
-#
-
-
-class OpenAIServiceConfigModel(BaseModel):
-    openai_api_key: Annotated[
-        ConfigSecretStr,
-        Field(
-            title="OpenAI API Key",
-            description="The API key to use for the OpenAI API.",
-        ),
-    ] = ""
-
-
-# endregion
 
 
 #
@@ -86,11 +26,8 @@ class OpenAIContentSafetyEvaluator(ContentSafetyEvaluator):
     An evaluator that uses the OpenAI moderations endpoint to evaluate content safety.
     """
 
-    def __init__(
-        self, config: OpenAIContentSafetyEvaluatorConfigModel, config_secrets: OpenAIServiceConfigModel
-    ) -> None:
+    def __init__(self, config: OpenAIContentSafetyEvaluatorConfig) -> None:
         self.config = config
-        self.config_secrets = config_secrets
 
     async def evaluate(self, content: str | list[str]) -> ContentSafetyEvaluation:
         """
@@ -164,7 +101,7 @@ class OpenAIContentSafetyEvaluator(ContentSafetyEvaluator):
         # send the content to the OpenAI moderations endpoint for evaluation
         try:
             moderation_response = await openai.AsyncOpenAI(
-                api_key=self.config_secrets.openai_api_key,
+                api_key=self.config.openai_api_key,
             ).moderations.create(
                 input=input,
             )

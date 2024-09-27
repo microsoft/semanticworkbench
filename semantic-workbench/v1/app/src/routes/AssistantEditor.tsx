@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { useAccount } from '@azure/msal-react';
 import { Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useParams } from 'react-router-dom';
@@ -67,6 +68,7 @@ export const AssistantEditor: React.FC = () => {
     const [updateAssistant] = useUpdateAssistantMutation();
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
+    const account = useAccount();
     const siteUtility = useSiteUtility();
 
     if (assistantConversationsError) {
@@ -107,14 +109,25 @@ export const AssistantEditor: React.FC = () => {
     };
 
     const handleConversationCreate = async (conversation: Conversation) => {
-        // add assistant to conversation
-        await addConversationParticipant({ conversationId: conversation.id, participantId: assistantId });
+        // send event to notify the conversation that the user has joined
+        const accountName = account?.name;
+        if (accountName) {
+            await createConversationMessage({
+                conversationId: conversation.id,
+                content: `${accountName} created the conversation`,
+                messageType: 'notice',
+            });
+        }
 
+        // send notice message first, to announce before assistant reacts to create event
         await createConversationMessage({
             conversationId: conversation.id,
             content: `${assistant?.name} added to conversation`,
             messageType: 'notice',
         });
+
+        // add assistant to conversation
+        await addConversationParticipant({ conversationId: conversation.id, participantId: assistantId });
     };
 
     if (isLoadingAssistant || isLoadingAssistantConversations || !assistant) {

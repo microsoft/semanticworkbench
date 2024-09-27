@@ -27,6 +27,7 @@ from typing import Any
 
 import deepmerge
 import tiktoken
+from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -44,11 +45,6 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from .config import AssistantConfigModel, AssistantServiceConfigModel
-from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
-from .responsible_ai.openai_evaluator import (
-    OpenAIContentSafetyEvaluator,
-    OpenAIServiceConfigModel,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -75,19 +71,7 @@ assistant_config = BaseModelAssistantConfigWithSecrets(
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
     config_secrets = await assistant_config.get_secrets(context.assistant)
-
-    # return the content safety evaluator based on the service type
-    match config_secrets.service_config.service_type:
-        case "Azure OpenAI":
-            return AzureContentSafetyEvaluator(
-                config=config_secrets.service_config.azure_content_safety_config,
-                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
-            )
-        case "OpenAI":
-            return OpenAIContentSafetyEvaluator(
-                config=config_secrets.service_config.openai_content_safety_config,
-                config_secrets=OpenAIServiceConfigModel(openai_api_key=config_secrets.service_config.openai_api_key),
-            )
+    return CombinedContentSafetyEvaluator(config_secrets.content_safety_config)
 
 
 content_safety = ContentSafety(content_evaluator_factory)

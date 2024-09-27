@@ -39,15 +39,16 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
     const [createConversationMessage] = useCreateConversationMessageMutation();
 
     const handleAssistantAdd = async (assistant: Assistant) => {
-        await addConversationParticipant({
-            conversationId: conversation.id,
-            participantId: assistant.id,
-        });
-
+        // send notice message first, to announce before assistant reacts to create event
         await createConversationMessage({
             conversationId: conversation.id,
             content: `${assistant.name} added to conversation`,
             messageType: 'notice',
+        });
+
+        await addConversationParticipant({
+            conversationId: conversation.id,
+            participantId: assistant.id,
         });
     };
 

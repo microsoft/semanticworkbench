@@ -36,6 +36,7 @@ export const Constants = {
         'Example Implementations': [
             'python-01-echo-bot.workbench-explorer',
             'python-02-simple-chatbot.workbench-explorer',
+            'python-03-multimodel-chatbot.workbench-explorer',
             'canonical-assistant.semantic-workbench',
         ],
         Experimental: [''],
