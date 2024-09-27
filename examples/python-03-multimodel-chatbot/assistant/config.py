@@ -1,7 +1,7 @@
 import pathlib
 from abc import abstractmethod
 from enum import StrEnum
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 import google.generativeai as genai
 import openai
@@ -468,13 +468,11 @@ class OllamaServiceConfig(ServiceConfig):
 # configuration with secrets, such as connection strings or API keys, should be in a separate model
 class AssistantServiceConfigModel(BaseModel):
     service_config: Annotated[
-        Union[
-            AzureOpenAIServiceConfig,
-            OpenAIServiceConfig,
-            AnthropicServiceConfig,
-            GeminiServiceConfig,
-            OllamaServiceConfig,
-        ],
+        AzureOpenAIServiceConfig
+        | OpenAIServiceConfig
+        | AnthropicServiceConfig
+        | GeminiServiceConfig
+        | OllamaServiceConfig,
         Field(
             title="Service Configuration",
             discriminator="service_type",
