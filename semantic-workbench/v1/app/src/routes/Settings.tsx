@@ -38,9 +38,6 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    text: {
-        maxWidth: '400px',
-    },
 });
 
 export const Settings: React.FC = () => {
@@ -106,16 +103,17 @@ export const Settings: React.FC = () => {
                         ))}
                     </Dropdown>
                 </Field>
-                <Divider>Speech Settings</Divider>
-                <Text className={classes.text}>
-                    [Optional] If you provide a valid Azure Speech Key and Region, the app will allow you to use your
-                    microphone to input text.
+                <Divider>Speech Settings [Optional]</Divider>
+                <Text>
+                    Providing a valid Azure Speech Key and Region will enable the option to use of your system default
+                    microphone for chat input within conversations. The use of this feature is optional.
                 </Text>
                 <Field label="Speech Key">
                     <Input
                         className={classes.input}
                         type="password"
                         value={speechKey}
+                        placeholder="[optional]"
                         onChange={(_event, data) => handleSettingChange('speechKey', data.value)}
                     />
                 </Field>
@@ -123,6 +121,7 @@ export const Settings: React.FC = () => {
                     <Input
                         className={classes.input}
                         value={speechRegion}
+                        placeholder="[optional] e.g. westus3"
                         onChange={(_event, data) => handleSettingChange('speechRegion', data.value)}
                     />
                 </Field>
@@ -141,21 +140,6 @@ export const Settings: React.FC = () => {
                         </Tooltip>
                     </div>
                 </Field> */}
-                {/* {devMode && (
-                    <div>
-                        <Divider>Developer Mode Settings</Divider>
-                        <Field label="OpenAI API Key">
-                            <Input
-                                className={classes.input}
-                                type="password"
-                                placeholder="Enter your OpenAI API key"
-                                value={atob(openAIApiKey ?? '')}
-                                onChange={(_event, data) => dispatch(setOpenAIApiKey(btoa(data.value)))}
-                                aria-autocomplete="none"
-                            />
-                        </Field>
-                    </div>
-                )} */}
             </Card>
             {!assistantServiceRegistrationsError && (
                 <Card className={classes.card}>

@@ -33,9 +33,9 @@ export const AssistantDelete: React.FC<AssistantDeleteProps> = (props) => {
             dialogContent={{
                 title: 'Delete Assistant',
                 content: (
-                    <>
+                    <p>
                         <Label> Are you sure you want to delete this assistant?</Label>
-                    </>
+                    </p>
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [

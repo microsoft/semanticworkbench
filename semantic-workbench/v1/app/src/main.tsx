@@ -2,6 +2,7 @@ import { AuthenticationResult, EventType, PublicClientApplication } from '@azure
 import { AuthenticatedTemplate, MsalProvider, UnauthenticatedTemplate } from '@azure/msal-react';
 import { CopilotProvider } from '@fluentui-copilot/react-copilot';
 import { FluentProvider } from '@fluentui/react-components';
+import { initializeFileTypeIcons } from '@fluentui/react-file-type-icons';
 import debug from 'debug';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -22,13 +23,14 @@ import { ErrorPage } from './routes/ErrorPage';
 import { Interact } from './routes/Interact';
 import { Login } from './routes/Login';
 import { Settings } from './routes/Settings';
+import { ShareRedeem } from './routes/ShareRedeem';
+import { Shares } from './routes/Shares';
 import { WorkflowEditor } from './routes/WorkflowEditor';
 import { WorkflowInteract } from './routes/WorkflowInteract';
 import { WorkflowRunEditor } from './routes/WorkflowRunEditor';
 
-if (!localStorage.getItem('debug')) {
-    localStorage.setItem('debug', `${Constants.debug.root}:*`);
-}
+// Enable debug logging for the app
+localStorage.setItem('debug', `${Constants.debug.root}:*`);
 
 const log = debug(Constants.debug.root).extend('main');
 
@@ -65,6 +67,10 @@ const authenticatedRouter = createBrowserRouter([
                 element: <Settings />,
             },
             {
+                path: '/shares',
+                element: <Shares />,
+            },
+            {
                 path: '/assistant/:assistantId/edit',
                 element: <AssistantEditor />,
             },
@@ -87,6 +93,10 @@ const authenticatedRouter = createBrowserRouter([
             {
                 path: '/conversation/:conversationId',
                 element: <Interact />,
+            },
+            {
+                path: '/conversation-share/:conversationShareId/redeem',
+                element: <ShareRedeem />,
             },
             {
                 path: '/terms',
@@ -116,6 +126,8 @@ export const getMsalInstance = async () => {
 };
 
 const customTheme = getCustomTheme('light', getEnvironment(store.getState().settings.environmentId)?.brand);
+
+initializeFileTypeIcons();
 
 let container: HTMLElement | null = null;
 document.addEventListener('DOMContentLoaded', () => {

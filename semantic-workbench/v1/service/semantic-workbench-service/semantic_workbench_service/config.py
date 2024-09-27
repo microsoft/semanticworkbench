@@ -10,8 +10,7 @@ class DBSettings(BaseSettings):
     echosql: bool = False
     postgresql_ssl_mode: str = "require"
     postgresql_pool_size: int = 10
-    migrate_on_startup: bool = True
-    alembic_root_path: str = "./"
+    alembic_config_path: str = "./semantic-workbench-service/alembic.ini"
 
 
 class ApiKeySettings(BaseSettings):

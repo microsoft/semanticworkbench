@@ -34,13 +34,15 @@ export const MyItemsManager: React.FC<MyItemsManagerProps> = (props) => {
                 {title}
             </Text>
             <div className={classes.actions}>{actions}</div>
-            {items?.length === 0 && !hideInstruction && (
+            {items?.length === 0 && (
                 <>
                     <Title3>No {itemLabel.toLowerCase()}s found.</Title3>
-                    <Text>
-                        Create a new {itemLabel.toLowerCase()} by clicking the <strong>New {itemLabel}</strong> button
-                        above.
-                    </Text>
+                    {!hideInstruction && (
+                        <Text>
+                            Create a new {itemLabel.toLowerCase()} by clicking the <strong>New {itemLabel}</strong>{' '}
+                            button above.
+                        </Text>
+                    )}
                 </>
             )}
             <PresenceMotionList items={items} />

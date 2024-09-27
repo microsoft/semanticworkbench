@@ -39,7 +39,6 @@ const dynamicBaseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryE
         }
 
         headers.set('Authorization', `Bearer ${response.accessToken}`);
-        headers.set('X-OpenIdToken', response.idToken);
         headers.set('X-Request-ID', generateUuid().replace(/-/g, '').toLowerCase());
         return headers;
     };
@@ -57,6 +56,7 @@ export const workbenchApi = createApi({
         'AssistantServiceInfo',
         'Assistant',
         'Conversation',
+        'ConversationShare',
         'Config',
         'State',
         'WorkflowDefinition',

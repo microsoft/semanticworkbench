@@ -12,6 +12,11 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationMessageList,
     ConversationParticipant,
     ConversationParticipantList,
+    ConversationPermission,
+    ConversationShare,
+    ConversationShareList,
+    ConversationShareRedemption,
+    ConversationShareRedemptionList,
     File,
     FileList,
     FileVersion,
@@ -96,11 +101,13 @@ def conversation_participant_from_db_user(model: db.UserParticipant) -> Conversa
     return ConversationParticipant(
         role=ParticipantRole.service if model.service_user else ParticipantRole.user,
         id=model.user_id,
+        conversation_id=model.conversation_id,
         name=model.name,
         image=model.image,
         status=model.status,
         status_updated_timestamp=model.status_updated_datetime,
         active_participant=model.active_participant,
+        conversation_permission=ConversationPermission(model.conversation_permission),
     )
 
 
@@ -110,12 +117,14 @@ def conversation_participant_from_db_assistant(
     return ConversationParticipant(
         role=ParticipantRole.assistant,
         id=str(model.assistant_id),
+        conversation_id=model.conversation_id,
         name=model.name,
         image=model.image,
         status=model.status,
         status_updated_timestamp=model.status_updated_datetime,
         active_participant=model.active_participant,
         online=assistant.related_assistant_service_registration.assistant_service_online if assistant else False,
+        conversation_permission=ConversationPermission.read_write,
     )
 
 
@@ -137,6 +146,8 @@ def conversation_from_db(model: db.Conversation) -> Conversation:
     return Conversation(
         id=model.conversation_id,
         title=model.title,
+        owner_id=model.owner_id,
+        imported_from_conversation_id=model.imported_from_conversation_id,
         metadata=model.meta_data,
         created_datetime=model.created_datetime,
     )
@@ -144,6 +155,45 @@ def conversation_from_db(model: db.Conversation) -> Conversation:
 
 def conversation_list_from_db(models: Iterable[db.Conversation]) -> ConversationList:
     return ConversationList(conversations=[conversation_from_db(model=m) for m in models])
+
+
+def conversation_share_from_db(model: db.ConversationShare) -> ConversationShare:
+    return ConversationShare(
+        id=model.conversation_share_id,
+        created_by_user=user_from_db(model.related_owner),
+        conversation_id=model.conversation_id,
+        conversation_title=model.related_conversation.title,
+        owner_id=model.owner_id,
+        conversation_permission=ConversationPermission(model.conversation_permission),
+        is_redeemable=model.is_redeemable,
+        created_datetime=model.created_datetime,
+        label=model.label,
+        metadata=model.meta_data,
+    )
+
+
+def conversation_share_list_from_db(models: Iterable[db.ConversationShare]) -> ConversationShareList:
+    return ConversationShareList(conversation_shares=[conversation_share_from_db(model=m) for m in models])
+
+
+def conversation_share_redemption_from_db(model: db.ConversationShareRedemption) -> ConversationShareRedemption:
+    return ConversationShareRedemption(
+        id=model.conversation_share_redemption_id,
+        redeemed_by_user=user_from_db(model.related_redeemed_by_user),
+        conversation_share_id=model.conversation_share_id,
+        conversation_permission=ConversationPermission(model.conversation_permission),
+        conversation_id=model.conversation_id,
+        created_datetime=model.created_datetime,
+        new_participant=model.new_participant,
+    )
+
+
+def conversation_share_redemption_list_from_db(
+    models: Iterable[db.ConversationShareRedemption],
+) -> ConversationShareRedemptionList:
+    return ConversationShareRedemptionList(
+        conversation_share_redemptions=[conversation_share_redemption_from_db(model=m) for m in models]
+    )
 
 
 def conversation_message_from_db(model: db.ConversationMessage) -> ConversationMessage:

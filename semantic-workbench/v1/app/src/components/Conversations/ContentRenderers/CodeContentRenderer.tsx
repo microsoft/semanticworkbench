@@ -29,7 +29,7 @@ export const CodeContentRenderer: React.FC<CodeContentRendererProps> = (props) =
     return (
         <div className={classes.root}>
             <div className={classes.copy}>
-                <CopyButton data={content} noticeOn={'left'}></CopyButton>
+                <CopyButton data={content}></CopyButton>
             </div>
             <SyntaxHighlighter
                 PreTag="div"

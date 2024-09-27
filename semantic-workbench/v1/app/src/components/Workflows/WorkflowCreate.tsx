@@ -101,37 +101,39 @@ export const WorkflowCreate: React.FC<WorkflowCreateProps> = (props) => {
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogSurface>
-                <DialogBody>
-                    <DialogTitle>New Workflow</DialogTitle>
-                    <DialogContent>
-                        <form
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                handleSave();
-                            }}
-                        >
-                            <Field label="Label">
-                                <Input
-                                    disabled={submitted}
-                                    value={label}
-                                    onChange={(_event, data) => setLabel(data.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
+                <form
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        handleSave();
+                    }}
+                >
+                    <DialogBody>
+                        <DialogTitle>New Workflow</DialogTitle>
+                        <DialogContent>
+                            <p>
+                                <Field label="Label">
+                                    <Input
+                                        disabled={submitted}
+                                        value={label}
+                                        onChange={(_event, data) => setLabel(data.value)}
+                                        aria-autocomplete="none"
+                                    />
+                                </Field>
+                            </p>
                             <button disabled={submitted} type="submit" hidden />
-                        </form>
-                    </DialogContent>
-                    <DialogActions>
-                        <DialogTrigger disableButtonEnhancement>
-                            <Button appearance="secondary">Cancel</Button>
-                        </DialogTrigger>
-                        <DialogTrigger>
-                            <Button disabled={!label || submitted} appearance="primary" onClick={handleSave}>
-                                {submitted ? 'Saving...' : 'Save'}
-                            </Button>
-                        </DialogTrigger>
-                    </DialogActions>
-                </DialogBody>
+                        </DialogContent>
+                        <DialogActions>
+                            <DialogTrigger disableButtonEnhancement>
+                                <Button appearance="secondary">Cancel</Button>
+                            </DialogTrigger>
+                            <DialogTrigger>
+                                <Button disabled={!label || submitted} appearance="primary" onClick={handleSave}>
+                                    {submitted ? 'Saving...' : 'Save'}
+                                </Button>
+                            </DialogTrigger>
+                        </DialogActions>
+                    </DialogBody>
+                </form>
             </DialogSurface>
         </Dialog>
     );

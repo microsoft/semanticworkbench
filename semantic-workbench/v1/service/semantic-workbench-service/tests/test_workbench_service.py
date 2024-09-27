@@ -34,7 +34,7 @@ def register_assistant_service(client: TestClient) -> workbench_model.AssistantS
         description="",
     )
     http_response = client.post("/assistant-service-registrations", json=new_registration.model_dump(mode="json"))
-    http_response.raise_for_status()
+    assert httpx.codes.is_success(http_response.status_code)
 
     registration = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
@@ -52,7 +52,7 @@ def register_assistant_service(client: TestClient) -> workbench_model.AssistantS
             api_key=registration.api_key or "",
         ).to_headers(),
     )
-    http_response.raise_for_status()
+    assert httpx.codes.is_success(http_response.status_code)
 
     return registration
 
@@ -80,7 +80,7 @@ def test_create_assistant(
             metadata={"test": "value"},
         )
         http_response = client.post("/assistants", json=new_assistant.model_dump(mode="json"))
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         logging.info("response: %s", http_response.json())
 
@@ -107,7 +107,7 @@ def test_create_assistant_request_failure(
         )
         http_response = client.post("/assistants", json=new_assistant.model_dump(mode="json"))
 
-        assert http_response.status_code == 424
+        assert http_response.status_code == httpx.codes.FAILED_DEPENDENCY
         response_body = http_response.json()
         assert "detail" in response_body
         assert re.match(
@@ -121,7 +121,7 @@ def test_create_conversation(workbench_service: FastAPI, test_user: MockUser):
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         new_conversation = workbench_model.NewConversation(title="test-conversation", metadata={"test": "value"})
         http_response = client.post("/conversations", json=new_conversation.model_dump(mode="json"))
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         logging.info("response: %s", http_response.json())
 
@@ -130,7 +130,7 @@ def test_create_conversation(workbench_service: FastAPI, test_user: MockUser):
         assert conversation_response.metadata == new_conversation.metadata
 
         http_response = client.get(f"/conversations/{conversation_response.id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         get_conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         assert get_conversation_response.title == new_conversation.title
@@ -141,7 +141,7 @@ def test_create_update_conversation(workbench_service: FastAPI, test_user: MockU
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         new_conversation = workbench_model.NewConversation(title="test-conversation", metadata={"test": "value"})
         http_response = client.post("/conversations", json=new_conversation.model_dump(mode="json"))
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         conversation_response = workbench_model.Conversation.model_validate(http_response.json())
 
@@ -154,10 +154,10 @@ def test_create_update_conversation(workbench_service: FastAPI, test_user: MockU
                 mode="json",
             ),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/conversations/{conversation_response.id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         get_conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         assert get_conversation_response.title == updated_title
@@ -168,6 +168,7 @@ def test_create_assistant_add_to_conversation(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
     test_user: MockUser,
+    test_user_2: MockUser,
 ):
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
@@ -200,23 +201,24 @@ def test_create_assistant_add_to_conversation(
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
-        logging.info("response: %s", http_response.json())
-        assistant_response = http_response.json()
-        assistant_id = assistant_response["id"]
+        assert httpx.codes.is_success(http_response.status_code)
+
+        assistant = workbench_model.Assistant.model_validate(http_response.json())
 
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
-        conversation_response = http_response.json()
-        conversation_id = conversation_response["id"]
+        assert httpx.codes.is_success(http_response.status_code)
 
-        http_response = client.put(f"/conversations/{conversation_id}/participants/{assistant_id}", json={})
-        http_response.raise_for_status()
+        conversation = workbench_model.Conversation.model_validate(http_response.json())
 
-        http_response = client.get(f"/assistants/{assistant_id}/conversations")
-        http_response.raise_for_status()
-        assistant_conversations_response = http_response.json()
-        assert len(assistant_conversations_response["conversations"]) == 1
+        http_response = client.put(f"/conversations/{conversation.id}/participants/{assistant.id}", json={})
+        assert httpx.codes.is_success(http_response.status_code)
+
+        http_response = client.get(f"/assistants/{assistant.id}/conversations")
+        assert httpx.codes.is_success(http_response.status_code)
+
+        assistant_conversations = workbench_model.ConversationList.model_validate(http_response.json())
+        assert len(assistant_conversations.conversations) == 1
+        assert assistant_conversations.conversations[0].id == conversation.id
 
 
 def test_create_assistant_add_to_conversation_delete_assistant_retains_participant(
@@ -259,20 +261,20 @@ def test_create_assistant_add_to_conversation_delete_assistant_retains_participa
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         assistant = workbench_model.Assistant.model_validate(http_response.json())
 
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         conversation = workbench_model.Conversation.model_validate(http_response.json())
 
         http_response = client.put(f"/conversations/{conversation.id}/participants/{assistant.id}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/conversations/{conversation.id}/participants")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         participants = workbench_model.ConversationParticipantList.model_validate(http_response.json())
 
@@ -290,14 +292,14 @@ def test_create_assistant_add_to_conversation_delete_assistant_retains_participa
             f"/assistants/{assistant.id}",
             json=workbench_model.UpdateAssistant(name="new-name", image="foo").model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         assistant = workbench_model.Assistant.model_validate(http_response.json())
         assert assistant.name == "new-name"
         assert assistant.image == "foo"
 
         http_response = client.get(f"/conversations/{conversation.id}/participants")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         participants = workbench_model.ConversationParticipantList.model_validate(http_response.json())
 
@@ -312,10 +314,10 @@ def test_create_assistant_add_to_conversation_delete_assistant_retains_participa
 
         # delete assistant and verify that the participant is still in the conversation
         http_response = client.delete(f"/assistants/{assistant.id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/conversations/{conversation.id}/participants", params={"include_inactive": True})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         participants = workbench_model.ConversationParticipantList.model_validate(http_response.json())
 
@@ -353,18 +355,18 @@ def test_create_get_assistant(
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = http_response.json()
         logging.info("response: %s", assistant_response)
         assert "id" in assistant_response
         assistant_id = assistant_response["id"]
 
         http_response = client.get(f"/assistants/{assistant_id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assert http_response.json() == assistant_response
 
         http_response = client.get("/assistants")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistants_response = http_response.json()
         assert "assistants" in assistants_response
         assert assistants_response["assistants"] == [assistant_response]
@@ -374,6 +376,7 @@ def test_create_update_assistant(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
     test_user: MockUser,
+    test_user_2: MockUser,
 ):
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
@@ -395,7 +398,7 @@ def test_create_update_assistant(
                 metadata={"test": "value"},
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = http_response.json()
         logging.info("response: %s", assistant_response)
         assert "id" in assistant_response
@@ -407,19 +410,28 @@ def test_create_update_assistant(
             f"/assistants/{assistant_id}",
             json=workbench_model.UpdateAssistant(name=updated_name, metadata=updated_metadata).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/assistants/{assistant_id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistants_response = workbench_model.Assistant.model_validate(http_response.json())
         assert assistants_response.name == updated_name
         assert assistants_response.metadata == updated_metadata
+
+        # ensure another user cannot update
+        http_response = client.patch(
+            f"/assistants/{assistant_id}",
+            json=workbench_model.UpdateAssistant(name=updated_name, metadata=updated_metadata).model_dump(mode="json"),
+            headers=test_user_2.authorization_headers,
+        )
+        assert httpx.codes.is_client_error(http_response.status_code)
 
 
 def test_create_delete_assistant(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
     test_user: MockUser,
+    test_user_2: MockUser,
 ):
     new_assistant_response = api_model.AssistantResponseModel(
         id="123",
@@ -460,29 +472,33 @@ def test_create_delete_assistant(
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = http_response.json()
         logging.info("response: %s", assistant_response)
         assert "id" in assistant_response
         assistant_id = assistant_response["id"]
 
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id = conversation_response["id"]
 
         http_response = client.put(f"/conversations/{conversation_id}/participants/{assistant_id}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         payload = {"content": "hello"}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
+
+        # ensure another user cannot delete
+        http_response = client.delete(f"/assistants/{assistant_id}", headers=test_user_2.authorization_headers)
+        assert httpx.codes.is_client_error(http_response.status_code)
 
         http_response = client.delete(f"/assistants/{assistant_id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/assistants/{assistant_id}")
-        assert http_response.status_code == 404
+        assert http_response.status_code == httpx.codes.NOT_FOUND
 
 
 def test_create_assistant_update_participant(
@@ -522,20 +538,20 @@ def test_create_assistant_update_participant(
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         logging.info("response: %s", http_response.json())
         assistant_id = http_response.json()["id"]
 
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id = conversation_response["id"]
 
         http_response = client.put(f"/conversations/{conversation_id}/participants/{assistant_id}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/conversations/{conversation_id}/participants")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         logging.info("response: %s", http_response.json())
         participants_response = http_response.json()
         assert "participants" in participants_response
@@ -547,42 +563,26 @@ def test_create_assistant_update_participant(
         assert participant_ids == expected_participant_ids
 
         http_response = client.get(f"/conversations/{conversation_id}/participants/{test_user.id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         my_id_participant = http_response.json()
 
         http_response = client.get(f"/conversations/{conversation_id}/participants/me")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         me_participant = http_response.json()
 
         assert my_id_participant == me_participant
 
         http_response = client.patch(f"/conversations/{conversation_id}/participants/me", json={"status": "testing"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/conversations/{conversation_id}/participants/me")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         updated_me_participant = http_response.json()
         assert updated_me_participant["status"] == "testing"
 
         me_timestamp = datetime.datetime.fromisoformat(me_participant["status_updated_timestamp"])
         updated_timestamp = datetime.datetime.fromisoformat(updated_me_participant["status_updated_timestamp"])
         assert updated_timestamp > me_timestamp
-
-        # add test_user_2 as participant of test_user's conversation
-        http_response = client.put(
-            f"/conversations/{conversation_id}/participants/me",
-            json={"status": "joining"},
-            headers=test_user_2.authorization_headers,
-        )
-        http_response.raise_for_status()
-
-        http_response = client.get(f"/conversations/{conversation_id}/participants")
-        logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
-        participants = http_response.json()["participants"]
-
-        ids = {p["id"] for p in participants}
-        assert ids == {assistant_id, test_user.id, test_user_2.id}
 
 
 @pytest.mark.parametrize("message_type", ["command", "log", "note", "notice"])
@@ -593,7 +593,7 @@ def test_create_conversation_send_nonchat_message(
 ):
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id = conversation_response["id"]
 
@@ -601,16 +601,16 @@ def test_create_conversation_send_nonchat_message(
         message_content = "message of type chat"
         payload = {"message_type": "chat", "content_type": "text/plain", "content": message_content}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         message_content = f"message of type {message_type}"
         payload = {"message_type": message_type, "content_type": "text/plain", "content": message_content}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"message_type": message_type})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -624,19 +624,19 @@ def test_create_conversation_send_nonchat_message(
 def test_create_conversation_send_user_message(workbench_service: FastAPI, test_user: MockUser):
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id = conversation_response["id"]
 
         payload = {"content": "hello"}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         message = http_response.json()
         message_id = message["id"]
 
         http_response = client.get(f"/conversations/{conversation_id}/messages")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -646,7 +646,7 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
         assert message["sender"]["participant_id"] == test_user.id
 
         http_response = client.get(f"/conversations/{conversation_id}/messages/{message_id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         message_response = http_response.json()
         assert message_response["content"] == "hello"
         assert message_response["sender"]["participant_id"] == test_user.id
@@ -655,7 +655,7 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
         payload = {"content": "hello again"}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         message = http_response.json()
         message_two_id = message["id"]
 
@@ -663,13 +663,13 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
         payload = {"content": "hello again", "message_type": "log"}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         message = http_response.json()
         message_log_id = message["id"]
 
         # get all messages
         http_response = client.get(f"/conversations/{conversation_id}/messages")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -689,7 +689,7 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
 
         # limit messages
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"limit": 1})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -699,7 +699,7 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
 
         # get messages before
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"before": message_two_id})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -709,7 +709,7 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
 
         # get messages after
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"after": message_id})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -721,14 +721,14 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
 
         # get messages by type
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"message_type": "chat"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
         assert len(messages) == 2
 
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"message_type": "log"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -738,7 +738,7 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
             f"/conversations/{conversation_id}/messages",
             params={"message_type": ["chat", "log"]},
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -781,18 +781,18 @@ def test_create_assistant_send_assistant_message(
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         logging.info("response: %s", http_response.json())
         assistant_response = http_response.json()
         assistant_id = assistant_response["id"]
 
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id = conversation_response["id"]
 
         http_response = client.put(f"/conversations/{conversation_id}/participants/{assistant_id}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         payload = {"content": "hello", "metadata": {"assistant_id": assistant_id, "generated_by": "test"}}
         assistant_headers = {
@@ -809,10 +809,10 @@ def test_create_assistant_send_assistant_message(
             json=payload,
             headers=assistant_headers,
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/conversations/{conversation_id}/messages")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         messages_response = http_response.json()
         assert "messages" in messages_response
         messages = messages_response["messages"]
@@ -829,12 +829,12 @@ def test_create_conversation_write_read_delete_file(
 ):
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id = conversation_response["id"]
 
         http_response = client.get(f"/conversations/{conversation_id}/files")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         logging.info("response: %s", http_response.json())
         files = http_response.json()["files"]
         assert len(files) == 0
@@ -852,33 +852,33 @@ def test_create_conversation_write_read_delete_file(
             data={"metadata": json.dumps({"path1/path2/test.bin": {"generated_by": "test"}})},
         )
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         files = http_response.json()["files"]
         assert [f["filename"] for f in files] == ["test.txt", "path1/path2/test.html", "path1/path2/test.bin"]
         assert files[2]["metadata"] == {"generated_by": "test"}
 
         # get the file listing
         http_response = client.get(f"/conversations/{conversation_id}/files")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         logging.info("response: %s", http_response.json())
         files = http_response.json()["files"]
         assert [f["filename"] for f in files] == ["path1/path2/test.bin", "path1/path2/test.html", "test.txt"]
 
         # get files by prefix
         http_response = client.get(f"/conversations/{conversation_id}/files", params={"prefix": "path1/path2"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         logging.info("response: %s", http_response.json())
         files = http_response.json()["files"]
         assert [f["filename"] for f in files] == ["path1/path2/test.bin", "path1/path2/test.html"]
 
         # download a file
         http_response = client.get(f"/conversations/{conversation_id}/files/test.txt")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assert http_response.text == "hello world\n"
 
         # download another file
         http_response = client.get(f"/conversations/{conversation_id}/files/path1/path2/test.html")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assert http_response.text == "<html><body></body></html>\n"
 
         # re-write test.txt
@@ -886,11 +886,11 @@ def test_create_conversation_write_read_delete_file(
             ("files", ("test.txt", "hello again\n", "text/plain")),
         ]
         http_response = client.put(f"/conversations/{conversation_id}/files", files=payload)
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         # get all versions
         http_response = client.get(f"/conversations/{conversation_id}/files/test.txt/versions")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         file_versions = http_response.json()
         assert len(file_versions["versions"]) == 2
         assert file_versions["versions"][0]["version"] == 1
@@ -898,30 +898,30 @@ def test_create_conversation_write_read_delete_file(
 
         # get a single version
         http_response = client.get(f"/conversations/{conversation_id}/files/test.txt/versions", params={"version": 1})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         file_versions = http_response.json()
         assert len(file_versions["versions"]) == 1
         assert file_versions["versions"][0]["version"] == 1
 
         # get the file content for the current version
         http_response = client.get(f"/conversations/{conversation_id}/files/test.txt")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assert http_response.text == "hello again\n"
 
         # get the file content for the prior version
         http_response = client.get(f"/conversations/{conversation_id}/files/test.txt", params={"version": 1})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assert http_response.text == "hello world\n"
 
         # delete a file
         http_response = client.delete(f"/conversations/{conversation_id}/files/test.txt")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/conversations/{conversation_id}/files/test.txt")
-        assert http_response.status_code == 404
+        assert http_response.status_code == httpx.codes.NOT_FOUND
 
         http_response = client.get(f"/conversations/{conversation_id}/files/test.txt/versions")
-        assert http_response.status_code == 404
+        assert http_response.status_code == httpx.codes.NOT_FOUND
 
 
 def test_create_assistant_export_import_data(
@@ -971,25 +971,25 @@ def test_create_assistant_export_import_data(
             ).model_dump(mode="json"),
         )
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = http_response.json()
         assistant_id = assistant_response["id"]
 
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id = conversation_response["id"]
 
         http_response = client.put(f"/conversations/{conversation_id}/participants/{assistant_id}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         payload = {"content": "hello"}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get(f"/assistants/{assistant_id}/export")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         assert http_response.headers["content-type"] == "application/zip"
         assert "content-length" in http_response.headers
@@ -1000,13 +1000,13 @@ def test_create_assistant_export_import_data(
         file_io = io.BytesIO(http_response.content)
 
         for import_number in range(1, 3):
-            http_response = client.post("/assistants/import", files={"from_export": file_io})
+            http_response = client.post("/conversations/import", files={"from_export": file_io})
             logging.info("response: %s", http_response.json())
-            http_response.raise_for_status()
+            assert httpx.codes.is_success(http_response.status_code)
 
             http_response = client.get("/assistants")
             logging.info("response: %s", http_response.json())
-            http_response.raise_for_status()
+            assert httpx.codes.is_success(http_response.status_code)
             assistants_response = http_response.json()
             assert "assistants" in assistants_response
             assistant_count = len(assistants_response["assistants"])
@@ -1068,7 +1068,7 @@ def test_create_assistant_conversations_export_import_conversations(
             ).model_dump(mode="json"),
         )
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = http_response.json()
         assistant_id_1 = assistant_response["id"]
 
@@ -1080,41 +1080,41 @@ def test_create_assistant_conversations_export_import_conversations(
             ).model_dump(mode="json"),
         )
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = http_response.json()
         assistant_id_2 = assistant_response["id"]
 
         http_response = client.post("/conversations", json={"title": "test-conversation-1"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id_1 = conversation_response["id"]
 
         http_response = client.post("/conversations", json={"title": "test-conversation-2"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = http_response.json()
         conversation_id_2 = conversation_response["id"]
 
         # both assistants are in conversation-1
         http_response = client.put(f"/conversations/{conversation_id_1}/participants/{assistant_id_1}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.put(f"/conversations/{conversation_id_1}/participants/{assistant_id_2}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         # only assistant-1 is in conversation-2
         http_response = client.put(f"/conversations/{conversation_id_2}/participants/{assistant_id_1}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         payload = {"content": "hello"}
         http_response = client.post(f"/conversations/{conversation_id_1}/messages", json=payload)
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.post(f"/conversations/{conversation_id_2}/messages", json=payload)
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         # export both conversations
         http_response = client.get("/conversations/export", params={"id": [conversation_id_1, conversation_id_2]})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         assert http_response.headers["content-type"] == "application/zip"
         assert "content-length" in http_response.headers
@@ -1127,11 +1127,11 @@ def test_create_assistant_conversations_export_import_conversations(
         for import_number in range(1, 3):
             http_response = client.post("/conversations/import", files={"from_export": file_io})
             logging.info("response: %s", http_response.json())
-            http_response.raise_for_status()
+            assert httpx.codes.is_success(http_response.status_code)
 
             http_response = client.get("/assistants")
             logging.info("response: %s", http_response.json())
-            http_response.raise_for_status()
+            assert httpx.codes.is_success(http_response.status_code)
             assistants_response = http_response.json()
             assert "assistants" in assistants_response
             assistant_count = len(assistants_response["assistants"])
@@ -1139,7 +1139,7 @@ def test_create_assistant_conversations_export_import_conversations(
 
         http_response = client.get("/assistants")
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         assistants = workbench_model.AssistantList.model_validate(http_response.json())
 
@@ -1153,7 +1153,7 @@ def test_create_assistant_conversations_export_import_conversations(
 
         http_response = client.get("/conversations")
         logging.info("response: %s", http_response.json())
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         conversations = workbench_model.ConversationList.model_validate(http_response.json())
         conversations.conversations.sort(key=lambda c: c.title)
@@ -1164,6 +1164,69 @@ def test_create_assistant_conversations_export_import_conversations(
         assert conversations.conversations[3].title == "test-conversation-2"
         assert conversations.conversations[4].title == "test-conversation-2 (1)"
         assert conversations.conversations[5].title == "test-conversation-2 (2)"
+
+
+def test_export_import_conversations_with_files(
+    workbench_service: FastAPI,
+    test_user: MockUser,
+) -> None:
+    with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
+        http_response = client.post("/conversations", json={"title": "test-conversation-1"})
+        assert httpx.codes.is_success(http_response.status_code)
+
+        conversation_1 = workbench_model.Conversation.model_validate(http_response.json())
+
+        http_response = client.post("/conversations", json={"title": "test-conversation-2"})
+        assert httpx.codes.is_success(http_response.status_code)
+
+        conversation_2 = workbench_model.Conversation.model_validate(http_response.json())
+
+        for conversation in [conversation_1, conversation_2]:
+            payload = [
+                ("files", ("test.txt", "hello world\n", "text/plain")),
+                ("files", ("path1/path2/test.html", "<html><body></body></html>\n", "text/html")),
+                ("files", ("path1/path2/test.bin", bytes(range(ord("a"), ord("f"))), "application/octet-stream")),
+            ]
+            http_response = client.put(f"/conversations/{conversation.id}/files", files=payload)
+            assert httpx.codes.is_success(http_response.status_code)
+
+            file_list = workbench_model.FileList.model_validate(http_response.json())
+            assert len(file_list.files) == 3
+
+        http_response = client.get(
+            "/conversations/export", params={"id": [str(conversation_1.id), str(conversation_2.id)]}
+        )
+        assert httpx.codes.is_success(http_response.status_code)
+
+        exported_data = io.BytesIO(http_response.content)
+
+        for _ in range(1, 2):
+            http_response = client.post("/conversations/import", files={"from_export": exported_data})
+            assert httpx.codes.is_success(http_response.status_code)
+
+            import_result = workbench_model.ConversationImportResult.model_validate(http_response.json())
+            assert len(import_result.conversation_ids) == 2
+
+            for conversation_id in import_result.conversation_ids:
+                http_response = client.get(f"/conversations/{conversation_id}/files")
+                assert httpx.codes.is_success(http_response.status_code)
+
+                file_list = workbench_model.FileList.model_validate(http_response.json())
+                assert len(file_list.files) == 3
+
+                for file in file_list.files:
+                    http_response = client.get(f"/conversations/{conversation_id}/files/{file.filename}")
+                    assert httpx.codes.is_success(http_response.status_code)
+
+                    match file.filename:
+                        case "test.txt":
+                            assert http_response.text == "hello world\n"
+                        case "path1/path2/test.html":
+                            assert http_response.text == "<html><body></body></html>\n"
+                        case "path1/path2/test.bin":
+                            assert http_response.content == bytes(range(ord("a"), ord("f")))
+                        case _:
+                            pytest.fail(f"unexpected file: {file.filename}")
 
 
 def test_create_conversations_get_participants(
@@ -1194,12 +1257,12 @@ def test_create_conversations_get_participants(
 
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         http_response = client.post("/conversations", json={"title": "test-conversation-1"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         conversation_id_1 = conversation_response.id
 
         http_response = client.post("/conversations", json={"title": "test-conversation-2"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         conversation_id_2 = conversation_response.id
 
@@ -1212,7 +1275,7 @@ def test_create_conversations_get_participants(
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = workbench_model.Assistant.model_validate(http_response.json())
         assistant_id_1 = assistant_response.id
 
@@ -1223,27 +1286,27 @@ def test_create_conversations_get_participants(
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = workbench_model.Assistant.model_validate(http_response.json())
         assistant_id_2 = assistant_response.id
 
         # both assistants are in conversation-1
         http_response = client.put(f"/conversations/{conversation_id_1}/participants/{assistant_id_1}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.put(f"/conversations/{conversation_id_1}/participants/{assistant_id_2}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         # only assistant-1 is in conversation-2
         http_response = client.put(f"/conversations/{conversation_id_2}/participants/{assistant_id_1}", json={})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         for conversation_id, participant_ids in {
             conversation_id_1: {str(assistant_id_1), str(assistant_id_2), test_user.id},
             conversation_id_2: {str(assistant_id_1), test_user.id},
         }.items():
             http_response = client.get(f"/conversations/{conversation_id}/participants")
-            http_response.raise_for_status()
+            assert httpx.codes.is_success(http_response.status_code)
             participants_response = workbench_model.ConversationParticipantList.model_validate(http_response.json())
 
             assert {p.id for p in participants_response.participants} == participant_ids
@@ -1253,7 +1316,7 @@ def test_create_conversations_get_participants(
             assistant_id_2: {conversation_id_1},
         }.items():
             http_response = client.get(f"/assistants/{assistant_id}/conversations")
-            http_response.raise_for_status()
+            assert httpx.codes.is_success(http_response.status_code)
             conversations_response = workbench_model.ConversationList.model_validate(http_response.json())
 
             assert {c.id for c in conversations_response.conversations} == conversation_ids
@@ -1267,7 +1330,7 @@ def test_create_conversations_get_participants(
         "/conversations/{conversation_id}/participants",
     ],
 )
-def test_conversation_adds_user_participant_on_conversation_gets(
+def test_conversation_not_visible_to_non_participants(
     workbench_service: FastAPI,
     test_user: MockUser,
     test_user_2: MockUser,
@@ -1285,7 +1348,7 @@ def test_conversation_adds_user_participant_on_conversation_gets(
 
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         http_response = client.post("/conversations", json={"title": "test-conversation"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         conversation_id = conversation_response.id
 
@@ -1298,15 +1361,15 @@ def test_conversation_adds_user_participant_on_conversation_gets(
                 assistant_service_id=registration.assistant_service_id,
             ).model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_response = workbench_model.Assistant.model_validate(http_response.json())
 
-        # ensure user 2 can make get request without failure
+        # ensure user 2 cannot make get request
         http_response = client.get(
             url_template.format(conversation_id=conversation_id),
             headers=test_user_2.authorization_headers,
         )
-        http_response.raise_for_status()
+        assert http_response.status_code == httpx.codes.NOT_FOUND
 
         # ensure assistant request always returns 404
         assistant_headers = {
@@ -1319,13 +1382,7 @@ def test_conversation_adds_user_participant_on_conversation_gets(
             ).to_headers(),
         }
         http_response = client.get(url_template.format(conversation_id=conversation_id), headers=assistant_headers)
-        assert http_response.status_code == 404
-
-        # ensure user 2 is a participant
-        http_response = client.get(f"/conversations/{conversation_id}/participants")
-        http_response.raise_for_status()
-        participants_response = workbench_model.ConversationParticipantList.model_validate(http_response.json())
-        assert {p.id for p in participants_response.participants} == {test_user.id, test_user_2.id}
+        assert http_response.status_code == httpx.codes.NOT_FOUND
 
 
 def test_create_update_workflow(workbench_service: FastAPI, test_user: MockUser) -> None:
@@ -1340,20 +1397,20 @@ def test_create_update_workflow(workbench_service: FastAPI, test_user: MockUser)
             context_transfer_instruction="",
         )
         http_response = client.post("/workflow-definitions", json=new_workflow.model_dump(mode="json"))
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         created_workflow = workbench_model.WorkflowDefinition.model_validate(http_response.json())
         assert created_workflow.label == ""
 
         http_response = client.get(f"/workflow-definitions/{created_workflow.id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         retrieved_workflow = workbench_model.WorkflowDefinition.model_validate(http_response.json())
 
         assert retrieved_workflow == created_workflow
 
         http_response = client.get("/workflow-definitions")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         retrieved_workflows = workbench_model.WorkflowDefinitionList.model_validate(http_response.json())
 
@@ -1374,7 +1431,7 @@ def test_create_update_workflow(workbench_service: FastAPI, test_user: MockUser)
         )
 
         http_response = client.get(f"/workflow-definitions/{created_workflow.id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         retrieved_workflow = workbench_model.WorkflowDefinition.model_validate(http_response.json())
 
@@ -1393,7 +1450,7 @@ def test_create_assistant_service_registration(workbench_service: FastAPI, test_
             "/assistant-service-registrations",
             json=new_assistant_service.model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         created_assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
@@ -1415,11 +1472,11 @@ def test_create_get_assistant_service_registration(workbench_service: FastAPI, t
             "/assistant-service-registrations",
             json=new_assistant_service.model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         # get single registration
         http_response = client.get(f"/assistant-service-registrations/{new_assistant_service.assistant_service_id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
@@ -1432,7 +1489,7 @@ def test_create_get_assistant_service_registration(workbench_service: FastAPI, t
 
         # get all registrations
         http_response = client.get("/assistant-service-registrations")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         retrieved_assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(
             http_response.json(),
@@ -1448,7 +1505,7 @@ def test_create_get_assistant_service_registration(workbench_service: FastAPI, t
 
         # get registrations owned by user
         http_response = client.get("/assistant-service-registrations", params={"owner_id": "me"})
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         retrieved_assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(
             http_response.json(),
@@ -1474,7 +1531,7 @@ def test_create_update_assistant_service_registration(workbench_service: FastAPI
             "/assistant-service-registrations",
             json=new_assistant_service.model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
         update_assistant_service = workbench_model.UpdateAssistantServiceRegistration(
@@ -1485,7 +1542,7 @@ def test_create_update_assistant_service_registration(workbench_service: FastAPI
             f"/assistant-service-registrations/{assistant_service.assistant_service_id}",
             json=update_assistant_service.model_dump(mode="json", exclude_unset=True),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         updated_assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
@@ -1506,7 +1563,7 @@ def test_create_assistant_service_registration_reset_api_key(workbench_service: 
             "/assistant-service-registrations",
             json=new_assistant_service.model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         created_assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
@@ -1515,7 +1572,7 @@ def test_create_assistant_service_registration_reset_api_key(workbench_service: 
         http_response = client.post(
             f"/assistant-service-registrations/{created_assistant_service.assistant_service_id}/api-key",
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         reset_assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
@@ -1535,17 +1592,17 @@ def test_create_delete_assistant_service_registration(workbench_service: FastAPI
             "/assistant-service-registrations",
             json=new_assistant_service.model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         created_assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
         http_response = client.delete(
             f"/assistant-service-registrations/{created_assistant_service.assistant_service_id}",
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         http_response = client.get("/assistant-service-registrations")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         retrieved_assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(
             http_response.json(),
@@ -1576,7 +1633,7 @@ async def test_create_update_assistant_service_registration_url(
             "/assistant-service-registrations",
             json=new_assistant_service.model_dump(mode="json"),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
         update_assistant_service = workbench_model.UpdateAssistantServiceRegistrationUrl(
@@ -1593,7 +1650,7 @@ async def test_create_update_assistant_service_registration_url(
                 api_key=assistant_service.api_key or "",
             ).to_headers(),
         )
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
 
         updated_assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
@@ -1606,7 +1663,103 @@ async def test_create_update_assistant_service_registration_url(
 
         # verify that when the url expires, the assistant service is reported as offline
         http_response = client.get(f"/assistant-service-registrations/{assistant_service.assistant_service_id}")
-        http_response.raise_for_status()
+        assert httpx.codes.is_success(http_response.status_code)
         retrieved_assistant_service = workbench_model.AssistantServiceRegistration.model_validate(http_response.json())
 
         assert retrieved_assistant_service.assistant_service_online is False
+
+
+@pytest.mark.parametrize(
+    ("permission"),
+    [
+        workbench_model.ConversationPermission.read,
+        workbench_model.ConversationPermission.read_write,
+    ],
+)
+async def test_create_redeem_delete_conversation_share(
+    workbench_service: FastAPI,
+    test_user: MockUser,
+    test_user_2: MockUser,
+    permission: workbench_model.ConversationPermission,
+) -> None:
+    with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
+        new_conversation = workbench_model.NewConversation(title="test-conversation")
+
+        http_response = client.post("/conversations", json=new_conversation.model_dump(mode="json"))
+        assert httpx.codes.is_success(http_response.status_code)
+
+        created_conversation = workbench_model.Conversation.model_validate(http_response.json())
+
+        new_conversation_share = workbench_model.NewConversationShare(
+            conversation_id=created_conversation.id,
+            label="share",
+            conversation_permission=permission,
+        )
+
+        http_response = client.post("/conversation-shares", json=new_conversation_share.model_dump(mode="json"))
+        assert httpx.codes.is_success(http_response.status_code)
+
+        created_conversation_share = workbench_model.ConversationShare.model_validate(http_response.json())
+
+        assert created_conversation_share.conversation_id == created_conversation.id
+        assert created_conversation_share.conversation_permission == permission
+
+        http_response = client.get(f"/conversation-shares/{created_conversation_share.id}")
+        assert httpx.codes.is_success(http_response.status_code)
+
+        retrieved_conversation_share = workbench_model.ConversationShare.model_validate(http_response.json())
+
+        assert retrieved_conversation_share == created_conversation_share
+
+        http_response = client.get("/conversation-shares")
+        assert httpx.codes.is_success(http_response.status_code)
+
+        retrieved_conversation_shares = workbench_model.ConversationShareList.model_validate(http_response.json())
+        assert retrieved_conversation_shares.conversation_shares == [created_conversation_share]
+
+        # redeem the conversation share with user-2
+        http_response = client.post(
+            f"/conversation-shares/{created_conversation_share.id}/redemptions",
+            headers=test_user_2.authorization_headers,
+        )
+        assert httpx.codes.is_success(http_response.status_code)
+
+        redemption = workbench_model.ConversationShareRedemption.model_validate(http_response.json())
+        assert redemption.redeemed_by_user.id == test_user_2.id
+        assert redemption.conversation_permission == permission
+
+        # ensure user-2 can retrieve the conversation
+        http_response = client.get(
+            f"/conversations/{created_conversation.id}", headers=test_user_2.authorization_headers
+        )
+        assert httpx.codes.is_success(http_response.status_code)
+
+        retrieved_conversation = workbench_model.Conversation.model_validate(http_response.json())
+        assert retrieved_conversation == created_conversation
+
+        # ensure user-2 can retrieve their participant
+        http_response = client.get(
+            f"/conversations/{created_conversation.id}/participants/me", headers=test_user_2.authorization_headers
+        )
+        participant = workbench_model.ConversationParticipant.model_validate(http_response.json())
+        assert participant.role == workbench_model.ParticipantRole.user
+        assert participant.conversation_id == created_conversation.id
+        assert participant.active_participant is True
+        assert participant.conversation_permission == permission
+
+        # delete the conversation share
+        http_response = client.delete(f"/conversation-shares/{created_conversation_share.id}")
+        assert httpx.codes.is_success(http_response.status_code)
+
+        # ensure user-2 can still retrieve the conversation
+        http_response = client.get(
+            f"/conversations/{created_conversation.id}", headers=test_user_2.authorization_headers
+        )
+        assert httpx.codes.is_success(http_response.status_code)
+
+        # ensure user 2 can no longer redeem the conversation share
+        http_response = client.post(
+            "/conversation-shares/redeem",
+            headers=test_user_2.authorization_headers,
+        )
+        assert httpx.codes.is_client_error(http_response.status_code)

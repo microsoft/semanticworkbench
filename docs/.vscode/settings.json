@@ -1,10 +1,19 @@
 {
-    "cSpell.words": [
-        "Codespace",
-        "Codespaces",
-        "devcontainer",
-        "devtunnel",
-        "msal",
-        "winget"
-    ]
+  "cSpell.words": [
+    "cffi",
+    "Cmder",
+    "Codespace",
+    "Codespaces",
+    "deadsnakes",
+    "devcontainer",
+    "devtunnel",
+    "DWORD",
+    "ensurepath",
+    "ezwinports",
+    "HKEY",
+    "msal",
+    "pipx",
+    "regedit",
+    "winget"
+]
 }

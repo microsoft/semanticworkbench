@@ -33,6 +33,14 @@ class Storage:
         filename_hash = hashlib.sha256(filename.encode("utf-8")).hexdigest()
         return namespace_path / filename_hash
 
+    def path_for(self, namespace: str, filename: str) -> pathlib.Path:
+        namespace_path = self.root / namespace
+        if not filename:
+            return namespace_path
+
+        filename_hash = hashlib.sha256(filename.encode("utf-8")).hexdigest()
+        return namespace_path / filename_hash
+
     def file_exists(self, namespace: str, filename: str) -> bool:
         file_path = self._file_path(namespace, filename)
         return file_path.exists()
@@ -40,7 +48,8 @@ class Storage:
     def write_file(self, namespace: str, filename: str, content: BinaryIO) -> None:
         file_path = self._file_path(namespace, filename, mkdir=True)
         with open(file_path, "wb") as f:
-            f.write(content.read())
+            for chunk in iter(lambda: content.read(100 * 1_024), b""):
+                f.write(chunk)
 
     def delete_file(self, namespace: str, filename: str) -> None:
         file_path = self._file_path(namespace, filename)

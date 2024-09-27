@@ -1,39 +1,44 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Caption1, Card, CardHeader, DialogTrigger, Text, makeStyles } from '@fluentui/react-components';
-import { Delete16Regular } from '@fluentui/react-icons';
+import { Button, Caption1, Card, CardHeader, DialogTrigger, makeStyles, Text } from '@fluentui/react-components';
+import { ArrowDownloadRegular, Delete16Regular } from '@fluentui/react-icons';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import React from 'react';
+import * as StreamSaver from 'streamsaver';
+import { useWorkbenchService } from '../../libs/useWorkbenchService';
+import { Conversation } from '../../models/Conversation';
 import { ConversationFile } from '../../models/ConversationFile';
 import { useDeleteConversationFileMutation } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
+import { ConversationFileIcon } from './ConversationFileIcon';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.guess();
 
 const useClasses = makeStyles({
-    details: {
+    actions: {
         display: 'flex',
-        flexDirection: 'column',
-        // gap: tokens.spacingVerticalM,
-        marginTop: '0.5rem',
+        flexDirection: 'row',
+        gap: '8px',
     },
 });
 
 interface FileItemProps {
-    conversationId: string;
-    file: ConversationFile;
+    conversation: Conversation;
+    conversationFile: ConversationFile;
+    onFileSelect?: (file: ConversationFile) => void;
 }
 
 export const FileItem: React.FC<FileItemProps> = (props) => {
-    const { conversationId, file } = props;
+    const { conversation, conversationFile } = props;
     const classes = useClasses();
+    const workbenchService = useWorkbenchService();
     const [deleteConversationFile] = useDeleteConversationFileMutation();
 
-    const time = dayjs.utc(file.updated).tz(dayjs.tz.guess()).format('M/D/YYYY h:mm A');
+    const time = dayjs.utc(conversationFile.updated).tz(dayjs.tz.guess()).format('M/D/YYYY h:mm A');
 
     const sizeToDisplay = (size: number) => {
         if (size < 1024) {
@@ -46,44 +51,87 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
     };
 
     const handleDelete = async () => {
-        await deleteConversationFile({ conversationId, filename: file.name });
+        await deleteConversationFile({ conversationId: conversation.id, filename: conversationFile.name });
+    };
+
+    const handleDownload = async () => {
+        const response: Response = await workbenchService.downloadConversationFileAsync(
+            conversation.id,
+            conversationFile,
+        );
+
+        if (!response.ok || !response.body) {
+            throw new Error('Failed to fetch file');
+        }
+
+        const contentDisposition = response.headers.get('content-disposition');
+        const fileName = contentDisposition ? contentDisposition.split('filename=')[1] : conversationFile.name;
+
+        // Create a file stream using StreamSaver
+        const fileStream = StreamSaver.createWriteStream(fileName);
+
+        const readableStream = response.body;
+
+        // Check if the browser supports pipeTo (most modern browsers do)
+        if (readableStream.pipeTo) {
+            await readableStream.pipeTo(fileStream);
+            console.log('Download complete');
+        } else {
+            // Fallback for browsers that don't support pipeTo
+            const reader = readableStream.getReader();
+            const writer = fileStream.getWriter();
+
+            const pump = () =>
+                reader.read().then(({ done, value }) => {
+                    if (done) {
+                        writer.close();
+                        return;
+                    }
+                    writer.write(value).then(pump);
+                });
+
+            await pump();
+            console.log('Download complete');
+        }
     };
 
     return (
-        <Card
-            key={file.name}
-            floatingAction={
-                <CommandButton
-                    description="Delete file"
-                    icon={<Delete16Regular />}
-                    iconOnly
-                    dialogContent={{
-                        title: 'Delete file',
-                        content: (
-                            <>
-                                Are you sure you want to delete <strong>{file.name}</strong>?
-                            </>
-                        ),
-                        closeLabel: 'Cancel',
-                        additionalActions: [
-                            <DialogTrigger key="delete">
-                                <Button appearance="primary" onClick={handleDelete}>
-                                    Delete
-                                </Button>
-                            </DialogTrigger>,
-                        ],
-                    }}
-                />
-            }
-        >
+        <Card key={conversationFile.name}>
             <CardHeader
-                header={<Text weight="semibold">{file.name}</Text>}
+                image={<ConversationFileIcon file={conversationFile} size={24} />}
+                header={<Text weight="semibold">{conversationFile.name}</Text>}
                 description={
-                    <div className={classes.details}>
-                        <Caption1>{time}</Caption1>
-                        <Caption1>
-                            {sizeToDisplay(file.size)} / {file.contentType}
-                        </Caption1>
+                    <Caption1>
+                        {time} | {sizeToDisplay(conversationFile.size)}
+                    </Caption1>
+                }
+                action={
+                    <div className={classes.actions}>
+                        <CommandButton
+                            description="Download file from conversation"
+                            icon={<ArrowDownloadRegular />}
+                            onClick={handleDownload}
+                        />
+                        <CommandButton
+                            description="Delete file from conversation"
+                            icon={<Delete16Regular />}
+                            dialogContent={{
+                                title: 'Delete file',
+                                content: (
+                                    <p>
+                                        Are you sure you want to delete <strong>{conversationFile.name}</strong>?
+                                    </p>
+                                ),
+                                closeLabel: 'Cancel',
+                                additionalActions: [
+                                    <DialogTrigger key="delete">
+                                        <Button appearance="primary" onClick={handleDelete}>
+                                            Delete
+                                        </Button>
+                                    </DialogTrigger>,
+                                ],
+                            }}
+                        />
                     </div>
                 }
             />

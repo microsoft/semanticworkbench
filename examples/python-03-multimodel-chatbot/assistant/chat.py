@@ -25,19 +25,26 @@ import logging
 import re
 from typing import Any
 
+import deepmerge
 import tiktoken
+from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
-    ConversationEvent, ConversationMessage, MessageType,
-    NewConversationMessage, UpdateParticipant)
+    ConversationEvent,
+    ConversationMessage,
+    MessageType,
+    NewConversationMessage,
+    UpdateParticipant,
+)
 from semantic_workbench_assistant.assistant_app import (
-    AssistantApp, BaseModelAssistantConfigWithSecrets, ContentSafety,
-    ContentSafetyEvaluator, ConversationContext)
+    AssistantApp,
+    BaseModelAssistantConfigWithSecrets,
+    ContentSafety,
+    ContentSafetyEvaluator,
+    ConversationContext,
+)
 
 from .config import AssistantConfigModel, AssistantServiceConfigModel
 from .model_adapters import Message, get_model_adapter
-from .responsible_ai.azure_evaluator import AzureContentSafetyEvaluator
-from .responsible_ai.openai_evaluator import (OpenAIContentSafetyEvaluator,
-                                              OpenAIServiceConfigModel)
 
 logger = logging.getLogger(__name__)
 
@@ -64,34 +71,8 @@ assistant_config = BaseModelAssistantConfigWithSecrets(
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
     config_secrets = await assistant_config.get_secrets(context.assistant)
+    return CombinedContentSafetyEvaluator(config_secrets.content_safety_config)
 
-    # return the content safety evaluator based on the service type
-    match config_secrets.service_config.service_type:
-        case "Azure OpenAI":
-            return AzureContentSafetyEvaluator(
-                config=config_secrets.service_config.azure_content_safety_config,
-                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
-            )
-        case "OpenAI":
-            return OpenAIContentSafetyEvaluator(
-                config=config_secrets.service_config.openai_content_safety_config,
-                config_secrets=OpenAIServiceConfigModel(openai_api_key=config_secrets.service_config.openai_api_key)
-            )
-        case "Ollama":
-            return AzureContentSafetyEvaluator(
-                config=config_secrets.service_config.azure_content_safety_config,
-                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
-            )
-        case "Anthropic":
-            return AzureContentSafetyEvaluator(
-                config=config_secrets.service_config.azure_content_safety_config,
-                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
-            )
-        case "Gemini":
-            return AzureContentSafetyEvaluator(
-                config=config_secrets.service_config.azure_content_safety_config,
-                config_secrets=config_secrets.service_config.azure_content_safety_service_config,
-            )
 
 content_safety = ContentSafety(content_evaluator_factory)
 
@@ -198,6 +179,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 # you could replace this code with your own logic for responding to conversation messages and add any
 # additional functionality as needed.
 
+
 # demonstrates how to respond to a conversation message using the model adapter.
 async def respond_to_conversation(
     context: ConversationContext, message: ConversationMessage, metadata: dict[str, Any] = {}
@@ -261,35 +243,17 @@ async def respond_to_conversation(
 
         # get the model adapter
         adapter = get_model_adapter(config_secrets.service_config.service_type)
-        formatted_messages = adapter.format_messages(messages)
 
-        try:
-            # generate a response from the AI model
-            #content = await adapter.generate_response(formatted_messages, assistant_config)
-            content = await adapter.generate_response(formatted_messages, config, config_secrets)
+        # generate a response from the AI model
+        result = await adapter.generate_response(messages, config.request_config, config_secrets.service_config)
+        # get the response content and metadata
+        content = result.response
+        deepmerge.always_merger.merge(metadata, result.metadata)
 
-            # merge the completion response into the passed in metadata
-            metadata["debug"] = metadata.get("debug", {})
-            metadata["debug"][method_metadata_key] = {
-                "request": {
-                    "model": getattr(config_secrets.service_config, f"{config_secrets.service_config.service_type.lower()}_model"),
-                    "messages": formatted_messages,
-                },
-                "response": content,
-            }
-            config.request_config.response_tokens
-
-        except Exception as e:
-            logger.exception(f"exception occurred calling {config_secrets.service_config.service_type} chat completion: {e}")
-            content = f"An error occurred while calling the {config_secrets.service_config.service_type} API. Is it configured correctly?"
-            metadata["debug"] = metadata.get("debug", {})
-            metadata["debug"][method_metadata_key] = {
-                "request": {
-                    "model": getattr(config_secrets.service_config, f"{config_secrets.service_config.service_type.lower()}_model"),
-                    "messages": formatted_messages,
-                },
-                "error": str(e),
-            }
+        if result.error:
+            logger.exception(
+                f"exception occurred calling {config_secrets.service_config.service_type} chat completion: {result.error}"
+            )
 
         # set the message type based on the content
         message_type = MessageType.chat
@@ -297,7 +261,7 @@ async def respond_to_conversation(
         if content:
             # If content is a list, join it into a string
             if isinstance(content, list):
-                content = ' '.join(content)
+                content = " ".join(content)
 
             # strip out the username from the response
             if content.startswith("["):
@@ -334,6 +298,7 @@ async def respond_to_conversation(
     finally:
         # update the participant status to indicate the assistant is done thinking
         await context.update_participant_me(UpdateParticipant(status=None))
+
 
 def format_message(message: ConversationMessage, participants: list) -> str:
     conversation_participant = next(

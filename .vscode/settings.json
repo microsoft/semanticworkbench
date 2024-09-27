@@ -23,9 +23,7 @@
     "**/.data/**",
     "**/__pycache__/**"
   ],
-  "python.analysis.fixAll": [
-    "source.unusedImports"
-  ],
+  "python.analysis.fixAll": ["source.unusedImports"],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "basic",
   "python.defaultInterpreterPath": "${workspaceFolder}/semantic-workbench/v1/service/.venv",
@@ -58,9 +56,7 @@
       "source.fixAll": "explicit"
     }
   },
-  "css.lint.validProperties": [
-    "composes"
-  ],
+  "css.lint.validProperties": ["composes"],
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "eslint.lintTask.enable": true,
   "editor.formatOnPaste": true,
@@ -169,6 +165,7 @@
     "asyncpg",
     "azurewebsites",
     "cachetools",
+    "charliermarsh",
     "Codespace",
     "Codespaces",
     "datname",
@@ -195,12 +192,14 @@
     "levelname",
     "levelno",
     "msal",
+    "multimodel",
     "nonchat",
     "openai",
     "pydantic",
     "pylance",
     "pyproject",
     "pythonjsonlogger",
+    "robbert",
     "rootpath",
     "semanticworkbench",
     "setenv",

@@ -1,18 +1,14 @@
 import pathlib
-from typing import Annotated, Literal
+from abc import abstractmethod
+from enum import StrEnum
+from typing import Annotated, Any, Literal
 
 import openai
 from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
+from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant import config
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
-
-from assistant.responsible_ai.openai_evaluator import OpenAIContentSafetyEvaluatorConfigModel
-
-from .responsible_ai.azure_evaluator import (
-    AzureContentSafetyEvaluatorConfigModel,
-    AzureContentSafetyServiceConfigModel,
-)
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -25,8 +21,55 @@ from .responsible_ai.azure_evaluator import (
 
 
 #
+# region Helpers
+#
+
+
+# helper for loading an include from a text file
+def load_text_include(filename) -> str:
+    # get directory relative to this module
+    directory = pathlib.Path(__file__).parent
+
+    # get the file path for the prompt file
+    file_path = directory / "text_includes" / filename
+
+    # read the prompt from the file
+    return file_path.read_text()
+
+
+# endregion
+
+
+#
 # region Assistant Configuration
 #
+
+
+# mapping service types to an enum to use as keys in the configuration model
+# to prevent errors if the service type is changed where string values were used
+class ServiceType(StrEnum):
+    AzureOpenAI = "azure_openai"
+    OpenAI = "openai"
+
+
+class ServiceConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Service Configuration",
+        json_schema_extra={
+            "required": ["service_type"],
+        },
+    )
+
+    service_type: Annotated[str, UISchema(widget="hidden")] = ""
+
+    @property
+    def service_type_display_name(self) -> str:
+        # get from the class title
+        return self.model_config.get("title") or self.service_type
+
+    @abstractmethod
+    def new_client(self, **kwargs) -> Any:
+        pass
 
 
 class RequestConfig(BaseModel):
@@ -63,19 +106,6 @@ class RequestConfig(BaseModel):
         str,
         Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
     ] = "gpt-4o"
-
-
-# helper for loading the guardrails prompt from a text file
-def load_guardrails_prompt_from_text_file() -> str:
-    # get directory relative to this module
-    directory = pathlib.Path(__file__).parent
-
-    # get the file path for the guardrails prompt
-    file_path = directory / "responsible_ai" / "guardrails_prompt.txt"
-
-    # read the guardrails prompt from the file
-    with open(file_path, "r") as file:
-        return file.read()
 
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
@@ -118,7 +148,7 @@ class AssistantConfigModel(BaseModel):
             ),
         ),
         UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = load_guardrails_prompt_from_text_file()
+    ] = load_text_include("guardrails_prompt.txt")
 
     welcome_message: Annotated[
         str,
@@ -147,10 +177,17 @@ class AssistantConfigModel(BaseModel):
 #
 
 
+class AzureAuthConfigType(StrEnum):
+    Identity = "azure-identity"
+    ServiceKey = "api-key"
+
+
 class AzureOpenAIAzureIdentityAuthConfig(BaseModel):
     model_config = ConfigDict(title="Azure identity based authentication")
 
-    auth_method: Annotated[Literal["azure-identity"], UISchema(widget="hidden")] = "azure-identity"
+    auth_method: Annotated[Literal[AzureAuthConfigType.Identity], UISchema(widget="hidden")] = (
+        AzureAuthConfigType.Identity
+    )
 
 
 class AzureOpenAIApiKeyAuthConfig(BaseModel):
@@ -161,7 +198,9 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
         },
     )
 
-    auth_method: Annotated[Literal["api-key"], UISchema(widget="hidden")] = "api-key"
+    auth_method: Annotated[Literal[AzureAuthConfigType.ServiceKey], UISchema(widget="hidden")] = (
+        AzureAuthConfigType.ServiceKey
+    )
 
     azure_openai_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -177,7 +216,7 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
     ] = ""
 
 
-class AzureOpenAIServiceConfig(BaseModel):
+class AzureOpenAIServiceConfig(ServiceConfig):
     model_config = ConfigDict(
         title="Azure OpenAI",
         json_schema_extra={
@@ -185,12 +224,12 @@ class AzureOpenAIServiceConfig(BaseModel):
         },
     )
 
-    service_type: Annotated[Literal["Azure OpenAI"], UISchema(widget="hidden")] = "Azure OpenAI"
+    service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(widget="hidden")] = ServiceType.AzureOpenAI
 
     auth_config: Annotated[
         AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
         Field(
-            title="Authentication Config",
+            title="Authentication Configuration",
             discriminator="auth_method",
         ),
         UISchema(hide_title=True, widget="radio"),
@@ -215,22 +254,6 @@ class AzureOpenAIServiceConfig(BaseModel):
         ),
     ] = "gpt-4o"
 
-    azure_content_safety_config: Annotated[
-        AzureContentSafetyEvaluatorConfigModel,
-        Field(
-            title="Azure Content Safety Evaluator Configuration",
-            description="The configuration for the Azure Content Safety evaluator.",
-        ),
-    ] = AzureContentSafetyEvaluatorConfigModel()
-
-    azure_content_safety_service_config: Annotated[
-        AzureContentSafetyServiceConfigModel,
-        Field(
-            title="Azure Content Safety Service Configuration",
-            description="The configuration for the Azure Content Safety service.",
-        ),
-    ] = AzureContentSafetyServiceConfigModel()
-
     # set on the class to avoid re-creating the token provider for each client, which allows
     # the token provider to cache and re-use tokens
     _azure_bearer_token_provider = get_bearer_token_provider(
@@ -238,9 +261,11 @@ class AzureOpenAIServiceConfig(BaseModel):
         "https://cognitiveservices.azure.com/.default",
     )
 
-    def new_client(self, api_version: str) -> openai.AsyncAzureOpenAI:
+    def new_client(self, **kwargs) -> openai.AsyncAzureOpenAI:
+        api_version = kwargs.get("api_version", "2024-06-01")
+
         match self.auth_config.auth_method:
-            case "api-key":
+            case AzureAuthConfigType.ServiceKey:
                 return openai.AsyncAzureOpenAI(
                     api_key=self.auth_config.azure_openai_api_key,
                     azure_deployment=self.azure_openai_deployment,
@@ -248,7 +273,7 @@ class AzureOpenAIServiceConfig(BaseModel):
                     api_version=api_version,
                 )
 
-            case "azure-identity":
+            case AzureAuthConfigType.Identity:
                 return openai.AsyncAzureOpenAI(
                     azure_ad_token_provider=AzureOpenAIServiceConfig._azure_bearer_token_provider,
                     azure_deployment=self.azure_openai_deployment,
@@ -257,7 +282,7 @@ class AzureOpenAIServiceConfig(BaseModel):
                 )
 
 
-class OpenAIServiceConfig(BaseModel):
+class OpenAIServiceConfig(ServiceConfig):
     model_config = ConfigDict(
         title="OpenAI",
         json_schema_extra={
@@ -265,7 +290,7 @@ class OpenAIServiceConfig(BaseModel):
         },
     )
 
-    service_type: Annotated[Literal["OpenAI"], UISchema(widget="hidden")] = "OpenAI"
+    service_type: Annotated[Literal[ServiceType.OpenAI], UISchema(widget="hidden")] = ServiceType.OpenAI
 
     openai_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -289,14 +314,6 @@ class OpenAIServiceConfig(BaseModel):
         UISchema(placeholder="[optional]"),
     ] = ""
 
-    openai_content_safety_config: Annotated[
-        OpenAIContentSafetyEvaluatorConfigModel,
-        Field(
-            title="OpenAI Content Safety Evaluator Configuration",
-            description="The configuration for the OpenAI Content Safety evaluator.",
-        ),
-    ] = OpenAIContentSafetyEvaluatorConfigModel()
-
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
         return openai.AsyncOpenAI(
             api_key=self.openai_api_key,
@@ -312,8 +329,16 @@ class AssistantServiceConfigModel(BaseModel):
             title="Service Configuration",
             discriminator="service_type",
         ),
-        UISchema(hide_title=True, widget="radio"),
+        UISchema(widget="radio", hide_title=True),
     ] = AzureOpenAIServiceConfig()
+
+    content_safety_config: Annotated[
+        CombinedContentSafetyEvaluatorConfig,
+        Field(
+            title="Content Safety Configuration",
+        ),
+        UISchema(widget="radio"),
+    ] = CombinedContentSafetyEvaluatorConfig()
 
 
 # endregion

@@ -3,6 +3,11 @@ import { workbenchApi } from './workbench';
 
 const participantApi = workbenchApi.injectEndpoints({
     endpoints: (builder) => ({
+        getConversationParticipantMe: builder.query<ConversationParticipant | undefined, string>({
+            query: (conversationId) => `/conversations/${conversationId}/participants/me?include_inactive=true`,
+            providesTags: ['Conversation'],
+            transformResponse: (response: any) => transformResponseToConversationParticipant(response),
+        }),
         getConversationParticipants: builder.query<ConversationParticipant[], string>({
             query: (conversationId) => `/conversations/${conversationId}/participants?include_inactive=true`,
             providesTags: ['Conversation'],
@@ -48,6 +53,7 @@ export const updateGetConversationParticipantsQueryData = (conversationId: strin
 
 export const {
     useGetConversationParticipantsQuery,
+    useGetConversationParticipantMeQuery,
     useAddConversationParticipantMutation,
     useUpdateConversationParticipantMutation,
     useRemoveConversationParticipantMutation,
@@ -70,6 +76,7 @@ const transformResponseToConversationParticipant = (response: any): Conversation
             online: response.online ?? undefined,
             status: response.status,
             statusTimestamp: response.status_updated_timestamp,
+            conversationPermission: response.conversation_permission,
             active: response.active_participant,
         };
     } catch (error) {

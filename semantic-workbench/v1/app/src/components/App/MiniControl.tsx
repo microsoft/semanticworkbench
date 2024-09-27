@@ -35,23 +35,32 @@ interface MiniControlProps {
     label: string;
     linkUrl: string;
     actions?: JSX.Element;
+    tooltip?: string;
 }
 
 export const MiniControl: React.FC<MiniControlProps> = (props) => {
-    const { icon, label, linkUrl, actions } = props;
+    const { icon, label, linkUrl, actions, tooltip } = props;
     const classes = useClasses();
+
+    const link = (
+        <Link className={classes.header} to={linkUrl}>
+            {icon}
+            <Label className={classes.link} size="large">
+                {label}
+            </Label>
+        </Link>
+    );
 
     return (
         <Card>
             <div className={classes.body}>
-                <Link className={classes.header} to={linkUrl}>
-                    <Tooltip content="Workflow" relationship="label">
-                        {icon}
+                {tooltip ? (
+                    <Tooltip content={tooltip} relationship="label">
+                        {link}
                     </Tooltip>
-                    <Label className={classes.link} size="large">
-                        {label}
-                    </Label>
-                </Link>
+                ) : (
+                    link
+                )}
                 <div className={classes.actions}>{actions}</div>
             </div>
         </Card>

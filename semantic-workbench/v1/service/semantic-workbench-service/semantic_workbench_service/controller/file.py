@@ -109,12 +109,13 @@ class FileController:
                     content_type=upload_file.content_type or "",
                     file_size=upload_file.size or 0,
                     meta_data=file_metadata.get(file_record.filename, {}),
+                    storage_filename=f"{file_record.file_id.hex}_{file_record.current_version}",
                 )
                 file_record_and_versions.append((file_record, new_version))
 
                 self._file_storage.write_file(
                     namespace=str(conversation_id),
-                    filename=file_record.storage_filename_for(new_version.version),
+                    filename=new_version.storage_filename,
                     content=upload_file.file,
                 )
                 session.add(file_record)
@@ -149,7 +150,9 @@ class FileController:
         async with self._get_session() as session:
             conversation = (
                 await session.exec(
-                    query.select_conversations_for(principal).where(db.Conversation.conversation_id == conversation_id)
+                    query.select_conversations_for(principal, include_all_owned=True, include_observer=True).where(
+                        db.Conversation.conversation_id == conversation_id
+                    )
                 )
             ).one_or_none()
             if conversation is None:
@@ -178,7 +181,9 @@ class FileController:
         async with self._get_session() as session:
             conversation = (
                 await session.exec(
-                    query.select_conversations_for(principal).where(db.Conversation.conversation_id == conversation_id)
+                    query.select_conversations_for(principal, include_all_owned=True, include_observer=True).where(
+                        db.Conversation.conversation_id == conversation_id
+                    )
                 )
             ).one_or_none()
             if conversation is None:
@@ -213,7 +218,9 @@ class FileController:
         async with self._get_session() as session:
             conversation = (
                 await session.exec(
-                    query.select_conversations_for(principal).where(db.Conversation.conversation_id == conversation_id)
+                    query.select_conversations_for(principal, include_all_owned=True, include_observer=True).where(
+                        db.Conversation.conversation_id == conversation_id
+                    )
                 )
             ).one_or_none()
             if conversation is None:
@@ -238,9 +245,11 @@ class FileController:
 
         def generator_wrapper() -> Generator[bytes, Any, None]:
             with self._file_storage.read_file(
-                namespace=str(conversation_id), filename=file_record.storage_filename_for(version_record.version)
+                namespace=str(conversation_id),
+                filename=version_record.storage_filename,
             ) as file:
-                yield from file
+                for chunk in iter(lambda: file.read(100 * 1_024), b""):
+                    yield chunk
 
         filename = file_record.filename.split("/")[-1]
 
@@ -290,7 +299,7 @@ class FileController:
             for version_record in version_records:
                 self._file_storage.delete_file(
                     namespace=str(conversation_id),
-                    filename=file_record.storage_filename_for(version=version_record.version),
+                    filename=version_record.storage_filename,
                 )
                 await session.delete(version_record)
             await session.commit()
