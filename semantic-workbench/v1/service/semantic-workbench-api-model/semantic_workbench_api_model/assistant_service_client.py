@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import types
 import uuid
 from contextlib import asynccontextmanager
 from typing import IO, Any, AsyncGenerator, AsyncIterator, Callable, Mapping, Self
@@ -6,6 +9,7 @@ import asgi_correlation_id
 import httpx
 from fastapi import HTTPException
 from pydantic import BaseModel
+
 from semantic_workbench_api_model.assistant_model import (
     AssistantPutRequestModel,
     ConfigPutRequestModel,
@@ -21,9 +25,9 @@ from semantic_workbench_api_model.workbench_model import ConversationEvent
 HEADER_API_KEY = "X-API-Key"
 
 
-# HTTPX transport can be overridden with an ASGI transport for testing
-# ex: httpx_transport = httpx.ASGITransport(app=app)
-httpx_transport = httpx.AsyncHTTPTransport(retries=3)
+# HTTPX transport factory can be overridden to return an ASGI transport for testing
+def httpx_transport_factory() -> httpx.AsyncHTTPTransport:
+    return httpx.AsyncHTTPTransport(retries=3)
 
 
 class AuthParams(BaseModel):
@@ -33,7 +37,7 @@ class AuthParams(BaseModel):
         return {HEADER_API_KEY: self.api_key}
 
     @staticmethod
-    def from_request_headers(headers: Mapping[str, str]) -> "AuthParams":
+    def from_request_headers(headers: Mapping[str, str]) -> AuthParams:
         return AuthParams(api_key=headers.get(HEADER_API_KEY) or "")
 
 
@@ -58,7 +62,7 @@ class AssistantConnectionError(AssistantError):
                     status_code=status_code,
                     detail=(
                         f"Failed to connect to assistant at url {error.request.url}; {error.__class__.__name__}:"
-                        f" {str(error)}"
+                        f" {error!s}"
                     ),
                 )
 
@@ -75,20 +79,25 @@ class AssistantResponseError(AssistantError):
 
 
 class AssistantInstanceClient:
-    def __init__(self, httpx_client_factory: Callable[[], httpx.AsyncClient]):
+    def __init__(self, httpx_client_factory: Callable[[], httpx.AsyncClient]) -> None:
         self._client = httpx_client_factory()
 
     async def __aenter__(self) -> Self:
         self._client = await self._client.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: types.TracebackType | None = None,
+    ) -> None:
         await self._client.__aexit__(exc_type, exc_value, traceback)
 
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def put_conversation(self, request: ConversationPutRequestModel, from_export: IO[bytes] | None):
+    async def put_conversation(self, request: ConversationPutRequestModel, from_export: IO[bytes] | None) -> None:
         try:
             http_response = await self._client.put(
                 f"/conversations/{request.id}",
@@ -101,10 +110,10 @@ class AssistantInstanceClient:
         if not http_response.is_success:
             raise AssistantResponseError(http_response)
 
-    async def delete_conversation(self, conversation_id: uuid.UUID):
+    async def delete_conversation(self, conversation_id: uuid.UUID) -> None:
         try:
             http_response = await self._client.delete(f"/conversations/{conversation_id}")
-            if http_response.status_code == 404:
+            if http_response.status_code == httpx.codes.NOT_FOUND:
                 return
 
         except httpx.RequestError as e:
@@ -113,10 +122,11 @@ class AssistantInstanceClient:
         if not http_response.is_success:
             raise AssistantResponseError(http_response)
 
-    async def post_conversation_event(self, event: ConversationEvent):
+    async def post_conversation_event(self, event: ConversationEvent) -> None:
         try:
             http_response = await self._client.post(
-                f"/conversations/{event.conversation_id}/events", json=event.model_dump(mode="json")
+                f"/conversations/{event.conversation_id}/events",
+                json=event.model_dump(mode="json"),
             )
         except httpx.RequestError as e:
             raise AssistantConnectionError(e) from e
@@ -168,11 +178,13 @@ class AssistantInstanceClient:
 
     @asynccontextmanager
     async def get_exported_conversation_data(
-        self, conversation_id: uuid.UUID
+        self,
+        conversation_id: uuid.UUID,
     ) -> AsyncGenerator[AsyncIterator[bytes], Any]:
         try:
             http_response = await self._client.send(
-                self._client.build_request("GET", f"/conversations/{conversation_id}/export-data"), stream=True
+                self._client.build_request("GET", f"/conversations/{conversation_id}/export-data"),
+                stream=True,
             )
         except httpx.RequestError as e:
             raise AssistantConnectionError(e) from e
@@ -213,11 +225,15 @@ class AssistantInstanceClient:
         return StateResponseModel.model_validate(http_response.json())
 
     async def put_state(
-        self, conversation_id: uuid.UUID, state_id: str, updated_state: StatePutRequestModel
+        self,
+        conversation_id: uuid.UUID,
+        state_id: str,
+        updated_state: StatePutRequestModel,
     ) -> StateResponseModel:
         try:
             http_response = await self._client.put(
-                f"/conversations/{conversation_id}/states/{state_id}", json=updated_state.model_dump(mode="json")
+                f"/conversations/{conversation_id}/states/{state_id}",
+                json=updated_state.model_dump(mode="json"),
             )
         except httpx.RequestError as e:
             raise AssistantConnectionError(e) from e
@@ -232,21 +248,29 @@ class AssistantServiceClient:
     def __init__(
         self,
         httpx_client_factory: Callable[[], httpx.AsyncClient],
-    ):
+    ) -> None:
         self._client = httpx_client_factory()
 
     async def __aenter__(self) -> Self:
         self._client = await self._client.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: types.TracebackType | None = None,
+    ) -> None:
         await self._client.__aexit__(exc_type, exc_value, traceback)
 
     async def aclose(self) -> None:
         await self._client.aclose()
 
     async def put_assistant_instance(
-        self, assistant_id: uuid.UUID, request: AssistantPutRequestModel, from_export: IO[bytes] | None
+        self,
+        assistant_id: uuid.UUID,
+        request: AssistantPutRequestModel,
+        from_export: IO[bytes] | None,
     ) -> None:
         try:
             response = await self._client.put(
@@ -263,7 +287,7 @@ class AssistantServiceClient:
     async def delete_assistant_instance(self, assistant_id: uuid.UUID) -> None:
         try:
             response = await self._client.delete(f"/{assistant_id}")
-            if response.status_code == 404:
+            if response.status_code == httpx.codes.NOT_FOUND:
                 return
 
         except httpx.RequestError as e:
@@ -289,13 +313,13 @@ class AssistantServiceClientBuilder:
         self,
         base_url: str,
         api_key: str,
-    ):
+    ) -> None:
         self._base_url = base_url.strip("/")
         self._api_key = api_key
 
     def _client(self, *additional_paths: str) -> httpx.AsyncClient:
         return httpx.AsyncClient(
-            transport=httpx_transport,
+            transport=httpx_transport_factory(),
             base_url="/".join([self._base_url, *additional_paths]),
             timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
             headers={

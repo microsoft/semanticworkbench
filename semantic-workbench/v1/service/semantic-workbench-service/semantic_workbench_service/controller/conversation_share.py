@@ -157,8 +157,9 @@ class ConversationShareController:
                     .with_for_update()
                 )
             ).one_or_none()
+            new_participant = participant is None or not participant.active_participant
+
             if participant is None:
-                new_participant = True
                 participant = db.UserParticipant(
                     conversation_id=conversation_share.conversation_id,
                     user_id=user_principal.user_id,
@@ -169,17 +170,20 @@ class ConversationShareController:
                 participant.active_participant = True
 
             if (
-                # only re-assign role if it's a promotion
-                participant.conversation_permission == "read" and conversation_share.conversation_permission != "read"
+                new_participant
+                or
+                # only re-assign permission for existing participants if it's a promotion
+                (participant.conversation_permission == "read" and conversation_share.conversation_permission != "read")
             ):
                 participant.conversation_permission = conversation_share.conversation_permission
+
             session.add(participant)
 
             redemption = db.ConversationShareRedemption(
                 conversation_share_id=conversation_share_id,
                 conversation_id=conversation_share.conversation_id,
                 redeemed_by_user_id=user_principal.user_id,
-                conversation_permission=conversation_share.conversation_permission,
+                conversation_permission=participant.conversation_permission,
                 new_participant=new_participant,
             )
             session.add(redemption)

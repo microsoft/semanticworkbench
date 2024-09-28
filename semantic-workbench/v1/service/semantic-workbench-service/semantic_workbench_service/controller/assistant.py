@@ -9,6 +9,7 @@ import uuid
 import zipfile
 from typing import IO, AsyncContextManager, Awaitable, BinaryIO, Callable, NamedTuple
 
+import httpx
 from semantic_workbench_api_model.assistant_model import (
     AssistantPutRequestModel,
     ConfigPutRequestModel,
@@ -127,19 +128,14 @@ class AssistantController:
     async def forward_event_to_assistant(self, assistant: db.Assistant, event: ConversationEvent) -> None:
         try:
             await (await self._client_pool.assistant_instance_client(assistant)).post_conversation_event(event=event)
-        except AssistantError:
-            logger.error(
-                "error forwarding event to assistant; assistant_id: %s, conversation_id: %s, event: %s",
-                assistant.assistant_id,
-                event.conversation_id,
-                event,
-                exc_info=True,
-            )
-
-    async def _disconnect_assistant(self, assistant: db.Assistant) -> None:
-        await (
-            await self._client_pool.service_client(assistant.related_assistant_service_registration)
-        ).delete_assistant_instance(assistant_id=assistant.assistant_id)
+        except AssistantError as e:
+            if e.status_code != httpx.codes.NOT_FOUND:
+                logger.exception(
+                    "error forwarding event to assistant; assistant_id: %s, conversation_id: %s, event: %s",
+                    assistant.assistant_id,
+                    event.conversation_id,
+                    event,
+                )
 
     async def _remove_assistant_from_conversation(
         self,
@@ -334,10 +330,12 @@ class AssistantController:
                 )
 
             try:
-                await self._disconnect_assistant(assistant=assistant)
+                await (
+                    await self._client_pool.service_client(assistant.related_assistant_service_registration)
+                ).delete_assistant_instance(assistant_id=assistant.assistant_id)
 
             except AssistantError:
-                logger.error("error disconnecting assistant", exc_info=True)
+                logger.exception("error disconnecting assistant")
 
             await session.delete(assistant)
             await session.commit()

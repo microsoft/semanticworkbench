@@ -57,11 +57,17 @@ class ConversationContext:
         before: uuid.UUID | None = None,
         after: uuid.UUID | None = None,
         message_types: list[workbench_model.MessageType] = [workbench_model.MessageType.chat],
+        participant_ids: list[str] | None = None,
         participant_role: workbench_model.ParticipantRole | None = None,
         limit: int | None = None,
     ) -> workbench_model.ConversationMessageList:
         return await self._workbench_client.get_messages(
-            before=before, after=after, message_types=message_types, participant_role=participant_role, limit=limit
+            before=before,
+            after=after,
+            message_types=message_types,
+            participant_ids=participant_ids,
+            participant_role=participant_role,
+            limit=limit,
         )
 
     async def send_conversation_state_event(self, state_event: workbench_model.AssistantStateEvent) -> None:

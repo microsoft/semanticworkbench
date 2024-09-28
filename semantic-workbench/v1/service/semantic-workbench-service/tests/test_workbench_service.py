@@ -1735,7 +1735,7 @@ async def test_create_redeem_delete_conversation_share(
         assert httpx.codes.is_success(http_response.status_code)
 
         retrieved_conversation = workbench_model.Conversation.model_validate(http_response.json())
-        assert retrieved_conversation == created_conversation
+        assert retrieved_conversation.id == created_conversation.id
 
         # ensure user-2 can retrieve their participant
         http_response = client.get(

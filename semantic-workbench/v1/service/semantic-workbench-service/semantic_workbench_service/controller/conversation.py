@@ -101,7 +101,26 @@ class ConversationController:
                 )
             ).all()
 
-        return convert.conversation_list_from_db(models=conversations)
+            match principal:
+                case auth.UserPrincipal():
+                    user_permissions = (
+                        await session.exec(
+                            select(
+                                db.UserParticipant.conversation_id, db.UserParticipant.conversation_permission
+                            ).where(
+                                db.UserParticipant.user_id == principal.user_id,
+                                col(db.UserParticipant.conversation_id).in_([c.conversation_id for c in conversations]),
+                            )
+                        )
+                    ).all()
+                    permissions = {conversation_id: permission for conversation_id, permission in user_permissions}
+
+                    return convert.conversation_list_from_db(models=conversations, permissions=permissions)
+
+                case auth.AssistantPrincipal():
+                    return convert.conversation_list_from_db(
+                        models=conversations, permissions={c.conversation_id: "read_write" for c in conversations}
+                    )
 
     async def get_assistant_conversations(
         self,
@@ -119,15 +138,27 @@ class ConversationController:
             if assistant is None:
                 raise exceptions.NotFoundError()
 
-            conversations = await session.exec(
-                query.select_conversations_for(
-                    principal=auth.AssistantPrincipal(
-                        assistant_service_id=assistant.assistant_service_id, assistant_id=assistant_id
-                    ),
+            conversations = (
+                await session.exec(
+                    query.select_conversations_for(
+                        principal=auth.AssistantPrincipal(
+                            assistant_service_id=assistant.assistant_service_id, assistant_id=assistant_id
+                        ),
+                    )
                 )
-            )
+            ).all()
 
-            return convert.conversation_list_from_db(models=conversations)
+            user_permissions = (
+                await session.exec(
+                    select(db.UserParticipant.conversation_id, db.UserParticipant.conversation_permission).where(
+                        db.UserParticipant.user_id == user_principal.user_id,
+                        col(db.UserParticipant.conversation_id).in_([c.conversation_id for c in conversations]),
+                    )
+                )
+            ).all()
+            permissions = {conversation_id: permission for conversation_id, permission in user_permissions}
+
+            return convert.conversation_list_from_db(models=conversations, permissions=permissions)
 
     async def get_conversation(
         self,
@@ -147,7 +178,21 @@ class ConversationController:
             if conversation is None:
                 raise exceptions.NotFoundError()
 
-            return convert.conversation_from_db(model=conversation)
+            match principal:
+                case auth.UserPrincipal():
+                    permission = (
+                        await session.exec(
+                            select(db.UserParticipant.conversation_permission).where(
+                                db.UserParticipant.user_id == principal.user_id,
+                                db.UserParticipant.conversation_id == conversation.conversation_id,
+                            )
+                        )
+                    ).one()
+
+                    return convert.conversation_from_db(model=conversation, permission=permission)
+
+                case auth.AssistantPrincipal():
+                    return convert.conversation_from_db(model=conversation, permission="read_write")
 
     async def update_conversation(
         self,
@@ -183,19 +228,23 @@ class ConversationController:
             await session.commit()
             await session.refresh(conversation)
 
+        conversation_model = await self.get_conversation(
+            conversation_id=conversation.conversation_id, principal=user_principal
+        )
+
         await self._notify_event(
             ConversationEventQueueItem(
                 event=ConversationEvent(
                     conversation_id=conversation.conversation_id,
                     event=ConversationEventType.conversation_updated,
                     data={
-                        "conversation": convert.conversation_from_db(conversation).model_dump(),
+                        "conversation": conversation_model.model_dump(),
                     },
                 )
             )
         )
 
-        return await self.get_conversation(conversation_id=conversation.conversation_id, principal=user_principal)
+        return conversation_model
 
     async def get_conversation_participants(
         self,

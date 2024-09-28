@@ -1696,10 +1696,8 @@ class WorkflowController:
             if possible_conversation is None:
                 return None
 
-            conversation = convert.conversation_from_db(model=possible_conversation)
-
-            if conversation.metadata is not None and "workflow_run_id" in conversation.metadata:
-                return conversation.metadata["workflow_run_id"]
+            if "workflow_run_id" in possible_conversation.meta_data:
+                return possible_conversation.meta_data["workflow_run_id"]
 
     async def update_workflow_run_mappings(
         self,

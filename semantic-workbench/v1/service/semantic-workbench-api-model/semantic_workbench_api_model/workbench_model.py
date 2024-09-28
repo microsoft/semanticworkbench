@@ -97,6 +97,7 @@ class Conversation(BaseModel):
     imported_from_conversation_id: uuid.UUID | None
     metadata: dict[str, Any]
     created_datetime: datetime.datetime
+    conversation_permission: ConversationPermission
 
 
 class ConversationList(BaseModel):

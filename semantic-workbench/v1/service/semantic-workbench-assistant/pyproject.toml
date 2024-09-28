@@ -4,25 +4,17 @@ version = "0.1.0"
 description = "Library for facilitating the implementation of FastAPI-based Semantic Workbench assistants."
 authors = ["Semantic Workbench Team"]
 readme = "README.md"
-packages= [
-    { include = "semantic_workbench_assistant" },
-]
+packages = [{ include = "semantic_workbench_assistant" }]
 
 [tool.poetry.dependencies]
 python = "~3.11"
 asgi-correlation-id = "^4.3.1"
-# anyio is pinned to 4.3.0 because of a change in 4.4.0 (Emit a ResourceWarning for MemoryObjectReceiveStream and MemoryObjectSendStream that were garbage collected without being closed (PR by Andrey Kazantcev))
-# that causes a warning in the tests. hopefully this will be fixed in the next version starlette TestClient.
-anyio = "4.3.0"
 backoff = "^2.2.1"
-fastapi = "~0.110.0"
-httpx = "~0.27.0"
-pydantic-settings = "~2.3.3"
+fastapi = { version = "~0.115.0", extras = ["standard"] }
+pydantic-settings = "^2.2.0"
 python-json-logger = "^2.0.7"
-python-multipart = "~0.0.6"
 rich = "^13.7.0"
 semantic-workbench-api-model = { path = "../semantic-workbench-api-model", develop = true }
-uvicorn = { version = "*", extras = ["standard"] }
 deepmerge = "^2.0"
 
 [tool.poetry.group.dev.dependencies]

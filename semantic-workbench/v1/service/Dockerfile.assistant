@@ -9,8 +9,6 @@ RUN pip3 install --no-cache-dir --upgrade pip
 
 COPY ./semantic-workbench-api-model /packages/semantic-workbench-api-model
 COPY ./semantic-workbench-assistant /packages/semantic-workbench-assistant
-COPY ./semantic-workbench-assistant-examples /packages/semantic-workbench-assistant-examples
-RUN pip3 install --no-cache-dir /packages/semantic-workbench-assistant-examples
 
 FROM ${python_image}
 

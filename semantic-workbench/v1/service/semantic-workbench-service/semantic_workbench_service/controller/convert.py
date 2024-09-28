@@ -142,7 +142,10 @@ def conversation_participant_list_from_db(
     )
 
 
-def conversation_from_db(model: db.Conversation) -> Conversation:
+def conversation_from_db(
+    model: db.Conversation,
+    permission: str,
+) -> Conversation:
     return Conversation(
         id=model.conversation_id,
         title=model.title,
@@ -150,11 +153,16 @@ def conversation_from_db(model: db.Conversation) -> Conversation:
         imported_from_conversation_id=model.imported_from_conversation_id,
         metadata=model.meta_data,
         created_datetime=model.created_datetime,
+        conversation_permission=ConversationPermission(permission),
     )
 
 
-def conversation_list_from_db(models: Iterable[db.Conversation]) -> ConversationList:
-    return ConversationList(conversations=[conversation_from_db(model=m) for m in models])
+def conversation_list_from_db(
+    models: Iterable[db.Conversation], permissions: Mapping[uuid.UUID, str]
+) -> ConversationList:
+    return ConversationList(
+        conversations=[conversation_from_db(model=m, permission=permissions[m.conversation_id]) for m in models]
+    )
 
 
 def conversation_share_from_db(model: db.ConversationShare) -> ConversationShare:

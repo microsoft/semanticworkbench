@@ -2,7 +2,14 @@ from typing import Annotated, Literal
 
 import pytest
 from pydantic import BaseModel
-from semantic_workbench_assistant.config import ConfigSecretStr, UISchema, get_ui_schema, overwrite_defaults_from_env
+from semantic_workbench_assistant.config import (
+    ConfigSecretStr,
+    ConfigSecretStrJsonSerializationMode,
+    UISchema,
+    config_secret_str_context,
+    get_ui_schema,
+    overwrite_defaults_from_env,
+)
 
 
 def test_overwrite_defaults_from_env(monkeypatch: pytest.MonkeyPatch):
@@ -59,26 +66,70 @@ def test_overwrite_defaults_from_env_no_effect_on_non_default_values(monkeypatch
     assert updated == model
 
 
-def test_config_secret_str() -> None:
+@pytest.mark.parametrize(
+    ("model_dump_mode", "serialization_mode", "secret_value", "expected_value"),
+    [
+        # python serialization should always return the actual value
+        ("dict_python", None, "super-secret", "super-secret"),
+        ("dict_python", None, "", ""),
+        ("dict_python", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "super-secret", "super-secret"),
+        ("dict_python", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "", ""),
+        ("dict_python", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "super-secret", "super-secret"),
+        ("dict_python", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "", ""),
+        ("dict_python", ConfigSecretStrJsonSerializationMode.serialize_value, "super-secret", "super-secret"),
+        ("dict_python", ConfigSecretStrJsonSerializationMode.serialize_value, "", ""),
+        # json serialization should return the expected value based on the serialization mode
+        ("dict_json", None, "super-secret", "**********"),
+        ("dict_json", None, "", ""),
+        ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "super-secret", ""),
+        ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "", ""),
+        ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "super-secret", "**********"),
+        ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "", ""),
+        ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_value, "super-secret", "super-secret"),
+        ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_value, "", ""),
+        ("str_json", None, "super-secret", "**********"),
+        ("str_json", None, "", ""),
+        ("str_json", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "super-secret", ""),
+        ("str_json", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "", ""),
+        ("str_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "super-secret", "**********"),
+        ("str_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "", ""),
+        ("str_json", ConfigSecretStrJsonSerializationMode.serialize_value, "super-secret", "super-secret"),
+        ("str_json", ConfigSecretStrJsonSerializationMode.serialize_value, "", ""),
+    ],
+)
+def test_config_secret_str(
+    model_dump_mode: Literal["dict_python", "dict_json", "str_json"],
+    serialization_mode: ConfigSecretStrJsonSerializationMode | None,
+    secret_value: str,
+    expected_value: str,
+) -> None:
     class TestModel(BaseModel):
-        name: str = "default-name"
-        secret: ConfigSecretStr = ""
+        secret: ConfigSecretStr
 
-    model = TestModel(secret="super-secret")
+    model = TestModel(secret=secret_value)
+    assert model.secret == secret_value
 
-    assert model.secret == "super-secret"
+    match serialization_mode:
+        case None:
+            context = None
+        case _:
+            context = config_secret_str_context(serialization_mode)
 
-    json_serialized = model.model_dump(mode="json")
-    assert json_serialized["secret"] == "**********"
+    match model_dump_mode:
+        case "dict_python":
+            dump = model.model_dump(mode="python", context=context)
+            assert dump["secret"] == expected_value
+        case "dict_json":
+            dump = model.model_dump(mode="json", context=context)
+            assert dump["secret"] == expected_value
+        case "str_json":
+            dump = model.model_dump_json(context=context)
+            assert dump == f'{{"secret":"{expected_value}"}}'
 
-    python_serialized = model.model_dump(mode="python")
-    assert python_serialized["secret"] == "super-secret"
 
-    json_serialized = model.model_dump(mode="json", context={"enable_secret_masking": False})
-    assert json_serialized["secret"] == "super-secret"
-
-    python_serialized = model.model_dump(mode="json", context={"enable_secret_masking": False})
-    assert python_serialized["secret"] == "super-secret"
+def test_config_secret_str_ui_schema() -> None:
+    class TestModel(BaseModel):
+        secret: ConfigSecretStr
 
     assert get_ui_schema(TestModel) == {"secret": {"ui:options": {"widget": "password"}}}
 

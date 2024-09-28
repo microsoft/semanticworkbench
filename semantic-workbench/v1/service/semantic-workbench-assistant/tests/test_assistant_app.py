@@ -1,7 +1,9 @@
+import asyncio
 import datetime
 import io
 import pathlib
 import random
+import shutil
 import tempfile
 import uuid
 from contextlib import asynccontextmanager
@@ -27,7 +29,7 @@ from semantic_workbench_assistant.assistant_app import (
     AssistantContext,
     AssistantConversationInspectorStateDataModel,
     BadRequestError,
-    BaseModelAssistantConfigWithSecrets,
+    BaseModelAssistantConfig,
     ConflictError,
     ConversationContext,
     FileStorageContext,
@@ -97,8 +99,8 @@ async def test_assistant_with_event_handlers(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport", httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport", AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda: AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -205,8 +207,8 @@ async def test_assistant_with_inspector(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport", httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport", AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -278,8 +280,8 @@ async def test_assistant_with_state_exporter(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport", httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport", AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -336,41 +338,13 @@ async def test_assistant_with_config_provider(
 
     class TestConfigModel(BaseModel):
         test_key: str = "test_value"
+        secret_field: ConfigSecretStr = "secret_default"
 
-    class TestConfigSecretModel(BaseModel):
-        secret_field: ConfigSecretStr = ""
-
-    config_provider = BaseModelAssistantConfigWithSecrets(TestConfigModel(), TestConfigSecretModel()).provider
+    config_provider = BaseModelAssistantConfig(TestConfigModel()).provider
     # wrap the provider so we can check calls to it
     config_provider_wrapper = mock.Mock(wraps=config_provider)
 
-    expected_json_schema = {
-        "$defs": {
-            "ConfigSecretStr": {"format": "password", "type": "string", "writeOnly": True},
-            "TestConfigModel": {
-                "properties": {"test_key": {"default": "test_value", "title": "Test Key", "type": "string"}},
-                "title": "TestConfigModel",
-                "type": "object",
-            },
-            "TestConfigSecretModel": {
-                "properties": {"secret_field": {"$ref": "#/$defs/ConfigSecretStr", "default": ""}},
-                "title": "TestConfigSecretModel",
-                "type": "object",
-            },
-        },
-        "properties": {
-            "config": {"$ref": "#/$defs/TestConfigModel"},
-            "config_secrets": {"$ref": "#/$defs/TestConfigSecretModel"},
-        },
-        "required": ["config", "config_secrets"],
-        "title": "CombinedConfigModel",
-        "type": "object",
-    }
-
-    expected_ui_schema = {
-        "config": {"ui:options": {"hide_title": True}},
-        "config_secrets": {"ui:options": {"hide_title": True}, "secret_field": {"ui:options": {"widget": "password"}}},
-    }
+    expected_ui_schema = {"secret_field": {"ui:options": {"widget": "password"}}}
 
     app = AssistantApp(
         assistant_service_id="assistant_id",
@@ -381,8 +355,8 @@ async def test_assistant_with_config_provider(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport", httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport", AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -398,8 +372,8 @@ async def test_assistant_with_config_provider(
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
-            config={"config": {"test_key": "test_value"}, "config_secrets": {"secret_field": ""}},
-            json_schema=expected_json_schema,
+            config={"test_key": "test_value", "secret_field": "**********"},
+            json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
         )
         assert config_provider_wrapper.get.called
@@ -407,34 +381,71 @@ async def test_assistant_with_config_provider(
         config_provider_wrapper.reset_mock()
 
         response = await instance_client.put_config(
-            assistant_model.ConfigPutRequestModel(
-                config={"config": {"test_key": "new_value"}, "config_secrets": {"secret_field": "new_secret"}}
-            )
+            assistant_model.ConfigPutRequestModel(config={"test_key": "new_value", "secret_field": "new_secret"})
         )
         assert response == assistant_model.ConfigResponseModel(
-            config={"config": {"test_key": "new_value"}, "config_secrets": {"secret_field": "**********"}},
-            json_schema=expected_json_schema,
+            config={"test_key": "new_value", "secret_field": "**********"},
+            json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
         )
         assert config_provider_wrapper.set.called
         assert config_provider_wrapper.set.call_args[0][1] == {
-            "config": {"test_key": "new_value"},
-            "config_secrets": {"secret_field": "new_secret"},
+            "test_key": "new_value",
+            "secret_field": "new_secret",
         }
 
         config_provider_wrapper.reset_mock()
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
-            config={"config": {"test_key": "new_value"}, "config_secrets": {"secret_field": "**********"}},
-            json_schema=expected_json_schema,
+            config={"test_key": "new_value", "secret_field": "**********"},
+            json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
         )
         assert config_provider_wrapper.get.called
 
+        # ensure that the secret field is serialized as an empty string in the export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = pathlib.Path(temp_dir)
+            export_file_path = temp_dir_path / "export.zip"
+            with export_file_path.open("wb") as f:
+                async with instance_client.get_exported_instance_data() as response:
+                    async for chunk in response:
+                        f.write(chunk)
+
+            extract_path = temp_dir_path / "extracted"
+            await asyncio.to_thread(
+                shutil.unpack_archive,
+                filename=export_file_path,
+                extract_dir=extract_path,
+                format="zip",
+            )
+
+            config_path = extract_path / "config.json"
+            assert config_path.exists()
+            assert config_path.read_text() == '{"test_key":"new_value","secret_field":""}'
+
+        config_provider_wrapper.reset_mock()
+
+        response = await instance_client.put_config(
+            assistant_model.ConfigPutRequestModel(config={"test_key": "new_value", "secret_field": ""})
+        )
+        assert response == assistant_model.ConfigResponseModel(
+            config={"test_key": "new_value", "secret_field": ""},
+            json_schema=TestConfigModel.model_json_schema(),
+            ui_schema=expected_ui_schema,
+        )
+        assert config_provider_wrapper.set.called
+        assert config_provider_wrapper.set.call_args[0][1] == {
+            "test_key": "new_value",
+            "secret_field": "",
+        }
+
+        config_provider_wrapper.reset_mock()
+
         with pytest.raises(semantic_workbench_api_model.assistant_service_client.AssistantResponseError) as e:
             await instance_client.put_config(
-                assistant_model.ConfigPutRequestModel(config={"config": {"test_key": {"invalid_value": 1}}})
+                assistant_model.ConfigPutRequestModel(config={"test_key": {"invalid_value": 1}})
             )
 
         assert e.value.status_code == 400

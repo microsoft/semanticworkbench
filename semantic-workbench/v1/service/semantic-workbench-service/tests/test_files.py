@@ -2,6 +2,7 @@ import io
 import uuid
 
 import pytest
+
 from semantic_workbench_service import files
 
 

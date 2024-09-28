@@ -1,6 +1,7 @@
 import inspect
 import os
 import types
+from enum import StrEnum
 from typing import Annotated, Any, Literal, Type, TypeVar, get_args, get_origin
 
 import deepmerge
@@ -22,7 +23,7 @@ def first_env_var(*env_vars: str, include_upper_and_lower: bool = True, include_
     then the upper and lower case versions of the env vars will also be checked.
 
     .. warning::
-        When running from VS Code, the .env values are not reloaded on a 'restart'. You
+        When running from VSCode, the .env values are not reloaded on a 'restart'. You
         need to 'stop' and then 'start' the service to get the new values from the .env
         file.
     """
@@ -156,18 +157,53 @@ class UISchema:
             self.schema.update({"ui:options": ui_options})
 
 
-ENABLE_SECRET_MASKING_CONTEXT_KEY = "enable_secret_masking"
+class ConfigSecretStrJsonSerializationMode(StrEnum):
+    serialize_masked_value = "serialize_masked_value"
+    serialize_as_empty = "serialize_as_empty"
+    serialize_value = "serialize_value"
 
 
-def config_secret_str_json_serializer(value: str, info: SerializationInfo) -> str:
+_CONFIG_SECRET_STR_SERIALIZATION_MODE_CONTEXT_KEY = "_config_secret_str_serialization_mode"
+
+
+def config_secret_str_context(
+    json_serialization_mode: ConfigSecretStrJsonSerializationMode, context: dict[str, Any] = {}
+) -> dict[str, Any]:
+    """Creates a context that can be used to control the serialization of ConfigSecretStr fields."""
+    return {
+        **context,
+        _CONFIG_SECRET_STR_SERIALIZATION_MODE_CONTEXT_KEY: json_serialization_mode,
+    }
+
+
+def _config_secret_str_serialization_mode_from_context(
+    context: dict[str, Any] | None,
+) -> ConfigSecretStrJsonSerializationMode:
+    """Gets the serialization mode for ConfigSecretStr fields from the context."""
+    if context is None:
+        return ConfigSecretStrJsonSerializationMode.serialize_masked_value
+
+    return context.get(
+        _CONFIG_SECRET_STR_SERIALIZATION_MODE_CONTEXT_KEY, ConfigSecretStrJsonSerializationMode.serialize_masked_value
+    )
+
+
+def _config_secret_str_json_serializer(value: str, info: SerializationInfo) -> str:
     """JSON serializer for secret strings that masks the value unless explicitly requested."""
     if not value:
         return value
 
-    if info.context and info.context.get(ENABLE_SECRET_MASKING_CONTEXT_KEY, True) is False:
-        return value
+    json_serialization_mode = _config_secret_str_serialization_mode_from_context(info.context)
 
-    return "*" * 10
+    match json_serialization_mode:
+        case ConfigSecretStrJsonSerializationMode.serialize_as_empty:
+            return ""
+
+        case ConfigSecretStrJsonSerializationMode.serialize_value:
+            return value
+
+        case ConfigSecretStrJsonSerializationMode.serialize_masked_value:
+            return "*" * 10
 
 
 """
@@ -182,7 +218,7 @@ ConfigSecretStr = typing_extensions.TypeAliasType(
     Annotated[
         str,
         PlainSerializer(
-            func=config_secret_str_json_serializer,
+            func=_config_secret_str_json_serializer,
             return_type=str,
             when_used="json-unless-none",
         ),

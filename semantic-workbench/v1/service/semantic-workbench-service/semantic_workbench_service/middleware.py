@@ -13,15 +13,9 @@ from semantic_workbench_api_model import workbench_service_client
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp
 
-from . import auth
+from . import auth, settings
 
 logger = logging.getLogger(__name__)
-
-verify_bearer_token_signatures = True
-allowed_algorithms = {"RS256"}
-
-# The same value is set also in "Constants.ts" in the frontend
-allowed_app_ids = {"22cb77c3-ca98-4a26-b4db-ac4dcecba690"}
 
 
 _unauthorized_assistant_exception = HTTPException(
@@ -74,6 +68,9 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
     if token is None:
         return None
 
+    allowed_jwt_algorithms = settings.auth.allowed_jwt_algorithms
+    allowed_app_ids = settings.auth.allowed_app_ids
+
     try:
         algorithm: str = jwt.get_unverified_header(token).get("alg") or ""
 
@@ -85,7 +82,7 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
 
         decoded = jwt.decode(
             token,
-            algorithms=allowed_algorithms,
+            algorithms=allowed_jwt_algorithms,
             key=keys,
             options={"verify_signature": False, "verify_aud": False},
         )
@@ -102,7 +99,7 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
         logger.exception("error decoding token", exc_info=True)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    if algorithm not in allowed_algorithms:
+    if algorithm not in allowed_jwt_algorithms:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token algorithm")
 
     if app_id not in allowed_app_ids:
