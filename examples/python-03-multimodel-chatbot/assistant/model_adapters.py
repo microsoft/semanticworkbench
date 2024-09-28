@@ -18,7 +18,7 @@ from openai.types.chat import (
 from openai.types.chat.chat_completion import Choice
 from pydantic import BaseModel
 
-from assistant.config import (
+from .config import (
     AnthropicServiceConfig,
     GeminiServiceConfig,
     OllamaServiceConfig,

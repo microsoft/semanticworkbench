@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Annotated, Literal, Union
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
-    BaseModelAssistantConfigWithSecrets,
+    BaseModelAssistantConfig,
     ConversationContext,
     FileStorageContext,
 )
@@ -13,7 +13,7 @@ from semantic_workbench_assistant.config import UISchema
 from semantic_workbench_assistant.storage import read_model, write_model
 
 if TYPE_CHECKING:
-    from assistant import AssistantConfigModel, AssistantServiceConfigModel
+    from assistant import AssistantConfigModel
 
 
 #
@@ -272,7 +272,7 @@ class ArtifactConversationInspectorStateProvider:
 
     def __init__(
         self,
-        config_provider: BaseModelAssistantConfigWithSecrets["AssistantConfigModel", "AssistantServiceConfigModel"],
+        config_provider: BaseModelAssistantConfig["AssistantConfigModel"],
     ) -> None:
         self.config_provider = config_provider
 

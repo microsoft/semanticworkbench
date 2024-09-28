@@ -37,13 +37,13 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
-    BaseModelAssistantConfigWithSecrets,
+    BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, AssistantServiceConfigModel
+from .config import AssistantConfigModel
 from .model_adapters import Message, get_model_adapter
 
 logger = logging.getLogger(__name__)
@@ -62,16 +62,13 @@ service_description = "A chat assistant supporting multiple AI models using the 
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfigWithSecrets(
-    default=AssistantConfigModel(),
-    default_secrets=AssistantServiceConfigModel(),
-)
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel())
 
 
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
-    config_secrets = await assistant_config.get_secrets(context.assistant)
-    return CombinedContentSafetyEvaluator(config_secrets.content_safety_config)
+    config = await assistant_config.get(context.assistant)
+    return CombinedContentSafetyEvaluator(config.content_safety_config)
 
 
 content_safety = ContentSafety(content_evaluator_factory)
@@ -197,7 +194,6 @@ async def respond_to_conversation(
     try:
         # get the assistant's configuration
         config = await assistant_config.get(context.assistant)
-        config_secrets = await assistant_config.get_secrets(context.assistant)
 
         # get the list of conversation participants
         participants_response = await context.get_participants(include_inactive=True)
@@ -242,17 +238,17 @@ async def respond_to_conversation(
             messages.append(Message(role, content))
 
         # get the model adapter
-        adapter = get_model_adapter(config_secrets.service_config.service_type)
+        adapter = get_model_adapter(config.service_config.service_type)
 
         # generate a response from the AI model
-        result = await adapter.generate_response(messages, config.request_config, config_secrets.service_config)
+        result = await adapter.generate_response(messages, config.request_config, config.service_config)
         # get the response content and metadata
         content = result.response
         deepmerge.always_merger.merge(metadata, result.metadata)
 
         if result.error:
             logger.exception(
-                f"exception occurred calling {config_secrets.service_config.service_type} chat completion: {result.error}"
+                f"exception occurred calling {config.service_config.service_type} chat completion: {result.error}"
             )
 
         # set the message type based on the content
@@ -289,7 +285,7 @@ async def respond_to_conversation(
         # send the response to the conversation
         await context.send_messages(
             NewConversationMessage(
-                content=content or f"[no response from {config_secrets.service_config.service_type}]",
+                content=content or f"[no response from {config.service_config.service_type}]",
                 message_type=message_type,
                 metadata=metadata,
             )

@@ -1,6 +1,5 @@
-from .config import AssistantConfigModel, AssistantServiceConfigModel
+from .config import AssistantConfigModel
 
 __all__ = [
     "AssistantConfigModel",
-    "AssistantServiceConfigModel",
 ]
