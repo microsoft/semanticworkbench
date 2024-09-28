@@ -49,7 +49,7 @@
   // Configure tool-specific properties.
   "customizations": {
     "codespaces": {
-      "openFiles": [".devcontainer/POST_SETUP_README.md"]
+      "openFiles": ["/workspaces/semanticworkbench/.devcontainer/POST_SETUP_README.md"]
     },
     "vscode": {
       "extensions": [
