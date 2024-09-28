@@ -38,42 +38,13 @@ For more details on using GitHub Codespaces in VS Code, see the [documentation](
 - Launch VS Code and open the command palette with the `F1` key or `Ctrl/Cmd+Shift+P`
 - Type `Codespaces: Connect to Codespace...` and select it
 
-### Start the app and service
+### Next steps
 
-- Launch the [semantic-workbench.code-workspace](../semantic-workbench/v1/semantic-workbench.code-workspace) in VS Code
-  - Use the command palette: `Ctrl/Cmd+P` and type `semantic-workbench.code-workspace` to open the workspace file
-  - Click `Open Workspace` button in lower right corner to launch the workspace
-- Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `semantic-workbench` to start the project
-- Open your browser and navigate to `https://127.0.0.1:4000`
-  - You may receive a warning about the app not being secure; click `Advanced` and `Proceed to localhost` to continue
-- You can now interact with the app and service in the browser
+Once you have connected to the Codespace, it should automatically open the workspace file for the Semantic Workbench project. If it does not, you can open the workspace file manually:
 
-See the [README](../README.md) for more details on how to use the Semantic Workbench app and service.
+- Use the command palette: `Ctrl/Cmd+P` and type `semantic-workbench.code-workspace` to open the workspace file
+- Click `Open Workspace` button in lower right corner to launch the workspace
 
-### Next steps:
+From here, you can start the app and service, and interact with the Semantic Workbench app in your browser.
 
-- Launch an example assistant service:
-  - Using the [canonical assistant](../semantic-workbench/v1/service/semantic-workbench-assistant/README.md)
-    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `canonical-assistant` to start the canonical assistant
-  - Using an [example assistant](../examples/)
-    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `launch assistant (examples/python-01-echo-bot)` to start the example assistant
-  - Or create your own assistant service by following the [Assistant Development Guide](../docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
-- If launching an assistant service from within the same Codespace, it will be automatically accessible to the Semantic Workbench service
-- Add the assistant to the workbench app by clicking the `Add Assistant` button in the app and selecting the assistant from the list
-- Configure the assistant and interact with it in the app by clicking on the assistant in the list
-- From the assistant configuration screen, click `New Conversation` to start a new conversation with the assistant
-
-## Assistant service example
-
-We have included an example Python assistant service that echos the user's input and can serve as a starting point for your own assistant service.
-
-See the [python-01-echo-bot/README](../examples/python-01-echo-bot/README.md) for more details.
-
-## Deleting a Codespace
-
-When you are done with a Codespace, you can delete it to free up resources.
-
-- Visit the source repository on GitHub
-- Click on the `Code` button and select the Codespaces tab
-- Click on the `...` button next to the Codespace you want to delete
-- Select `Delete`
+See [POST_SETUP_README.md](./POST_SETUP_README.md) for the steps to get started with the Semantic Workbench app and service and assistants.

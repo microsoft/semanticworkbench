@@ -44,8 +44,13 @@
     // Set up git to automatically set up the remote when pushing if it doesn't exist
     "git_config": "git config --add push.autoSetupRemote true"
   },
+  // Launch the recommended workspace for the repository.
+  "workspaceFolder": "/workspaces/semanticworkbench/semantic-workbench.code-workspace",
   // Configure tool-specific properties.
   "customizations": {
+    "codespaces": {
+      "openFiles": [".devcontainer/POST_SETUP_README.md"]
+    },
     "vscode": {
       "extensions": [
         "GitHub.copilot",
