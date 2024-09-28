@@ -17,35 +17,50 @@ export const useConversationUtility = () => {
     //
     const getShareTypeMetadata = (
         shareType: ConversationShareType,
+        linkToMessageId?: string,
     ): {
         permission: 'read' | 'read_write';
-        metadata: { showDuplicateAction?: boolean };
+        metadata: { showDuplicateAction?: boolean; linkToMessageId?: string };
     } => {
         // Default to read_write for invited to participate, read for observe or duplicate.
         const permission = shareType === ConversationShareType.InvitedToParticipate ? 'read_write' : 'read';
         const showDuplicateAction = shareType === ConversationShareType.InvitedToDuplicate;
         return {
             permission,
-            metadata: { showDuplicateAction },
+            metadata: { showDuplicateAction, linkToMessageId },
         };
     };
 
-    const getShareType = (conversationShare: ConversationShare) => {
+    const getShareType = (
+        conversationShare: ConversationShare,
+    ): {
+        shareType: ConversationShareType;
+        linkToMessageId?: string;
+    } => {
         const { isRedeemable, conversationPermission, metadata } = conversationShare;
 
         if (!isRedeemable) {
-            return ConversationShareType.NotRedeemable;
+            return { shareType: ConversationShareType.NotRedeemable };
         }
 
         // If the showDuplicateAction metadata is set, use that to determine the share type.
-        if (!metadata.showDuplicateAction) {
-            // Otherwise, use the conversation permission to determine the share type.
-            return conversationPermission !== 'read'
-                ? ConversationShareType.InvitedToParticipate
-                : ConversationShareType.InvitedToObserve;
+        if (metadata.showDuplicateAction) {
+            return { shareType: ConversationShareType.InvitedToDuplicate };
         }
 
-        return ConversationShareType.InvitedToDuplicate;
+        // Otherwise, use the conversation permission to determine the share type.
+        const shareType =
+            conversationPermission !== 'read'
+                ? ConversationShareType.InvitedToParticipate
+                : ConversationShareType.InvitedToObserve;
+        return {
+            shareType,
+            linkToMessageId: metadata.linkToMessageId,
+        };
+    };
+
+    const getShareLink = (share: ConversationShare): string => {
+        return `${window.location.origin}/conversation-share/${encodeURIComponent(share.id)}/redeem`;
     };
     // endregion
 
@@ -54,5 +69,6 @@ export const useConversationUtility = () => {
     return {
         getShareTypeMetadata,
         getShareType,
+        getShareLink,
     };
 };

@@ -64,7 +64,7 @@ export const MyAssistants: React.FC<MyAssistantsProps> = (props) => {
                     <CommandButton
                         icon={<Bot24Regular />}
                         label={`New Assistant`}
-                        description={`Create a new assistant`}
+                        description={`Select an assistant service and create a new assistant instance`}
                         onClick={() => setAssistantCreateOpen(true)}
                     />
                     <AssistantCreate

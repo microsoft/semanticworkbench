@@ -25,7 +25,6 @@ import { WorkflowRun } from '../../models/WorkflowRun';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
 import { setChatWidthPercent } from '../../redux/features/app/appSlice';
 import {
-    useGetConversationParticipantMeQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
     useGetWorkflowRunAssistantsQuery,
@@ -63,7 +62,7 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'row',
         justifyContent: 'stretch',
-        zIndex: 1000,
+        zIndex: tokens.zIndexFloating,
     },
     body: {
         display: 'flex',
@@ -96,7 +95,7 @@ const useClasses = makeStyles({
         top: 0,
         right: 0,
         ...shorthands.padding(tokens.spacingVerticalS),
-        zIndex: 1000,
+        zIndex: tokens.zIndexFloating,
     },
     inspectors: {
         position: 'relative',
@@ -152,11 +151,6 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoading: isLoadingParticipants,
         error: participantsError,
     } = useGetConversationParticipantsQuery(conversationId, { refetchOnMountOrArgChange: true });
-    const {
-        currentData: participantMe,
-        isLoading: isLoadingParticipantMe,
-        error: participantMeError,
-    } = useGetConversationParticipantMeQuery(conversationId);
 
     const [isResizing, setIsResizing] = React.useState(false);
     const siteUtility = useSiteUtility();
@@ -170,11 +164,6 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
     if (participantsError) {
         const errorMessage = JSON.stringify(participantsError);
         throw new Error(`Error loading participants: ${errorMessage}`);
-    }
-
-    if (participantMeError) {
-        const errorMessage = JSON.stringify(participantMeError);
-        throw new Error(`Error loading participant: ${errorMessage}`);
     }
 
     if (workflowRunAssistantsError) {
@@ -249,11 +238,9 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoadingWorkflowRunAssistants ||
         isLoadingConversation ||
         isLoadingParticipants ||
-        isLoadingParticipantMe ||
         !conversation ||
         !participants ||
-        !workflowRunAssistants ||
-        !participantMe
+        !workflowRunAssistants
     ) {
         return <Loading />;
     }
@@ -263,7 +250,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
             participants.some((participant) => participant.active && participant.id === assistant.id),
         ) ?? [];
 
-    const readOnly = participantMe.conversationPermission === 'read';
+    const readOnly = conversation.conversationPermission === 'read';
 
     return (
         <div

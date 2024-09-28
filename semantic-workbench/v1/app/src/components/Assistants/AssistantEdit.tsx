@@ -29,7 +29,7 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'row',
         gap: '8px',
-        zIndex: 1,
+        zIndex: tokens.zIndexContent,
         backgroundColor: 'white',
         padding: '8px',
         ...shorthands.border(tokens.strokeWidthThin, 'solid', tokens.colorNeutralStroke1),

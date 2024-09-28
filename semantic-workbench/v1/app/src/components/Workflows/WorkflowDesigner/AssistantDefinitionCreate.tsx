@@ -154,7 +154,7 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
                     }}
                 >
                     <DialogBody>
-                        <DialogTitle>New Assistant</DialogTitle>
+                        <DialogTitle>New Instance of Assistant</DialogTitle>
                         <DialogContent>
                             <p>
                                 <Field label="Name">

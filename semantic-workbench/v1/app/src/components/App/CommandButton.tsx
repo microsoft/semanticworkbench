@@ -88,6 +88,13 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
                 {label}
             </Button>
         );
+        if (description) {
+            commandButton = (
+                <Tooltip content={description} relationship="label">
+                    {commandButton}
+                </Tooltip>
+            );
+        }
     }
 
     if (!dialogContent) {

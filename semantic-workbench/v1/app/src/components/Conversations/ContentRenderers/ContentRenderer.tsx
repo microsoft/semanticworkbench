@@ -24,7 +24,7 @@ export const ContentRenderer: React.FC<ContentRenderProps> = (props) => {
     }
 
     if (content.includes('```html')) {
-        return <HtmlContentRenderer content={content} />;
+        return <HtmlContentRenderer content={content} displayNonHtmlContent />;
     }
 
     // Default to markdown

@@ -136,6 +136,8 @@ export const useInteractCanvasController = () => {
                     await transitionOpenToNewMode({ ...interactCanvasState, ...targetCanvasState });
                     break;
                 case 'none':
+                    // no transition needed, just update the state
+                    dispatch(setInteractCanvasState({ ...interactCanvasState, ...targetCanvasState }));
                     setIsTransitioning(false);
                     break;
             }

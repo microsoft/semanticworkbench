@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { useAccount } from '@azure/msal-react';
 import {
     Button,
     Dialog,
@@ -17,7 +18,12 @@ import { Loading } from '../components/App/Loading';
 import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useWorkbenchService } from '../libs/useWorkbenchService';
-import { useRemoveConversationParticipantMutation } from '../services/workbench';
+import { Conversation } from '../models/Conversation';
+import {
+    useCreateConversationMessageMutation,
+    useGetConversationsQuery,
+    useRemoveConversationParticipantMutation,
+} from '../services/workbench';
 import { useGetShareQuery, useRedeemShareMutation } from '../services/workbench/share';
 
 export const ShareRedeem: React.FC = () => {
@@ -25,10 +31,13 @@ export const ShareRedeem: React.FC = () => {
     const navigate = useNavigate();
     const workbenchService = useWorkbenchService();
     const [redeemShare] = useRedeemShareMutation();
+    const [createConversationMessage] = useCreateConversationMessageMutation();
     const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
     const [submitted, setSubmitted] = React.useState(false);
     const [messageId, setMessageId] = React.useState<string | undefined>(undefined);
+    const [joinAttempted, setJoinAttempted] = React.useState(false);
     const conversationUtility = useConversationUtility();
+    const account = useAccount();
 
     if (!conversationShareId) {
         throw new Error('Conversation Share ID is required');
@@ -38,8 +47,14 @@ export const ShareRedeem: React.FC = () => {
     const {
         data: conversationShare,
         error: conversationShareError,
-        isLoading: conversationIsLoading,
+        isLoading: conversationShareIsLoading,
     } = useGetShareQuery(conversationShareId);
+    const {
+        data: conversations,
+        error: conversationsError,
+        isLoading: conversationsIsLoading,
+    } = useGetConversationsQuery();
+    const [existingDuplicateConversations, setExistingDuplicateConversations] = React.useState<Array<Conversation>>([]);
 
     const title = 'Open a shared conversation';
     siteUtility.setDocumentTitle(title);
@@ -50,13 +65,24 @@ export const ShareRedeem: React.FC = () => {
         }
         setSubmitted(true);
         try {
-            await redeemShare(conversationShareId);
+            await redeemShare(conversationShare.id);
             const hash = messageId ? `#${messageId}` : '';
+
+            // send event to notify the conversation that the user has joined
+            const accountName = account?.name;
+            if (conversationShare.conversationPermission === 'read_write' && accountName) {
+                await createConversationMessage({
+                    conversationId: conversationShare.conversationId,
+                    content: `${accountName} joined the conversation`,
+                    messageType: 'notice',
+                });
+            }
+
             navigate(`/conversation/${conversationShare.conversationId}${hash}`, { replace: true });
         } finally {
             setSubmitted(false);
         }
-    }, [conversationShare, redeemShare, conversationShareId, messageId, navigate]);
+    }, [conversationShare, redeemShare, messageId, account?.name, navigate, createConversationMessage]);
 
     const handleClickDuplicate = React.useCallback(async () => {
         if (!conversationShare) {
@@ -88,16 +114,26 @@ export const ShareRedeem: React.FC = () => {
         }
     }, [redeemShare, conversationShare, navigate, workbenchService, removeConversationParticipant, setSubmitted]);
 
-    React.useEffect(() => {
-        if (conversationShare && conversationShare.isRedeemable && conversationShare.metadata['openMessageAction']) {
-            setMessageId(conversationShare.metadata['openMessageAction']);
-            handleClickJoin();
-        }
-    }, [conversationShare, handleClickJoin, setMessageId]);
-
     const handleDismiss = React.useCallback(() => {
         navigate(`/`);
     }, [navigate]);
+
+    const readyToCheckForMessageLink = conversationShare && !joinAttempted && !conversationsIsLoading;
+
+    React.useEffect(() => {
+        if (!readyToCheckForMessageLink) {
+            return;
+        }
+
+        const { linkToMessageId } = conversationUtility.getShareType(conversationShare);
+        if (!linkToMessageId) {
+            return;
+        }
+
+        setMessageId(linkToMessageId);
+        setJoinAttempted(true);
+        handleClickJoin();
+    }, [conversationShare, conversationUtility, handleClickJoin, readyToCheckForMessageLink]);
 
     const renderAppView = React.useCallback(
         (options: {
@@ -151,7 +187,19 @@ export const ShareRedeem: React.FC = () => {
         [submitted],
     );
 
-    if (conversationIsLoading) {
+    React.useEffect(() => {
+        if (!conversations || !conversationShare) {
+            return;
+        }
+        const existingDuplicates = conversations.filter(
+            (conversation) => conversation.importedFromConversationId === conversationShare.conversationId,
+        );
+        if (existingDuplicates.length > 0) {
+            setExistingDuplicateConversations(existingDuplicates);
+        }
+    }, [conversations, conversationShare]);
+
+    if (conversationShareIsLoading || conversationsIsLoading) {
         return renderAppView({
             dialogContent: <Loading />,
         });
@@ -164,9 +212,21 @@ export const ShareRedeem: React.FC = () => {
         });
     }
 
+    if (conversationsError || !conversations) {
+        return renderAppView({
+            dialogTitle: 'Error loading conversations',
+        });
+    }
+
     // Determine the share type and render the appropriate view.
-    const shareType = conversationUtility.getShareType(conversationShare);
+    const { shareType, linkToMessageId } = conversationUtility.getShareType(conversationShare);
     const { conversationTitle, createdByUser } = conversationShare;
+
+    if (shareType !== ConversationShareType.NotRedeemable && linkToMessageId) {
+        return renderAppView({
+            dialogContent: <Loading />,
+        });
+    }
 
     // Many of the share types have common content, so we'll define them here.
     const shareDetails = (
@@ -180,13 +240,21 @@ export const ShareRedeem: React.FC = () => {
         </ul>
     );
     const inviteTitle = 'A conversation has been shared with you';
-    const inviteContent = (
-        <>
-            You have been <em>{shareType.toLowerCase()}</em> a conversation:
-            {shareDetails}
-        </>
-    );
     const copyNote = 'You may create a copy of the conversation to make changes without affecting the original.';
+    const existingCopyNote = existingDuplicateConversations.length ? (
+        <>
+            You have copied this conversation before. Click on a link below to open an existing copy:
+            <ul>
+                {existingDuplicateConversations.map((conversation) => (
+                    <li key={conversation.id}>
+                        <a href={`${window.location.origin}/conversation/${conversation.id}`}>{conversation.title}</a>
+                    </li>
+                ))}
+            </ul>
+        </>
+    ) : (
+        <> </>
+    );
 
     switch (shareType) {
         // Handle the case where the share is no longer redeemable.
@@ -209,9 +277,11 @@ export const ShareRedeem: React.FC = () => {
                 dialogContent: (
                     <>
                         <p>
-                            {inviteContent}
-                            By joining, you will be able to view and participate in the conversation.
+                            You have been <em>invited to participate</em> in a conversation: By joining, you will be
+                            able to view and participate in the conversation.
+                            {shareDetails}
                         </p>
+                        <p>{existingCopyNote}</p>
                         <p>{copyNote}</p>
                     </>
                 ),
@@ -237,9 +307,11 @@ export const ShareRedeem: React.FC = () => {
                 dialogContent: (
                     <>
                         <p>
-                            {inviteContent}
-                            By observing, you will be able to view the conversation without participating.
+                            You have been <em>invited to observe</em> a conversation: By observing, you will be able to
+                            view the conversation without participating.
+                            {shareDetails}
                         </p>
+                        <p>{existingCopyNote}</p>
                         <p>{copyNote}</p>
                     </>
                 ),
@@ -263,15 +335,23 @@ export const ShareRedeem: React.FC = () => {
             return renderAppView({
                 dialogTitle: inviteTitle,
                 dialogContent: (
-                    <p>
-                        {inviteContent}
-                        {copyNote}
-                    </p>
+                    <>
+                        <p>
+                            You have been <em>invited to copy</em> a conversation:
+                            {shareDetails}
+                        </p>
+                        <p>{existingCopyNote}</p>
+                        <p>{copyNote}</p>
+                    </>
                 ),
-                dialogActions: renderTrigger({
-                    label: 'Create copy',
-                    onClick: handleClickDuplicate,
-                }),
+                dialogActions: (
+                    <>
+                        {renderTrigger({
+                            label: 'Create copy',
+                            onClick: handleClickDuplicate,
+                        })}
+                    </>
+                ),
             });
     }
 };
