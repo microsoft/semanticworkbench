@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "semantic-workbench-api-model"
 version = "0.1.0"
-description = "Library of pydantic models for requests and responses to the semantic-workbench-service and semant-workbench-assistant services."
+description = "Library of pydantic models for requests and responses to the semantic-workbench-service and semantic-workbench-assistant services."
 authors = ["Semantic Workbench Team"]
 readme = "README.md"
 packages= [

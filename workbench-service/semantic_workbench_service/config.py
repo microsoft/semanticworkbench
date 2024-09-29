@@ -10,7 +10,7 @@ class DBSettings(BaseSettings):
     echosql: bool = False
     postgresql_ssl_mode: str = "require"
     postgresql_pool_size: int = 10
-    alembic_config_path: str = "./semantic-workbench-service/alembic.ini"
+    alembic_config_path: str = "./alembic.ini"
 
 
 class ApiKeySettings(BaseSettings):

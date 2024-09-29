@@ -31,7 +31,7 @@ Edit the following files with the new app registration details:
 
   - Update the `msal.auth.clientId` with the `Application (client) ID`
 
-- Semantic Workbench service: [config.py](../workbench-service/semantic-workbench-service/semantic_workbench_service/config.py)
+- Semantic Workbench service: [config.py](../workbench-service/semantic_workbench_service/config.py)
   - Update the `AuthSettings.allowed_app_ids` with the `Application (client) ID`
 
 ## TODO

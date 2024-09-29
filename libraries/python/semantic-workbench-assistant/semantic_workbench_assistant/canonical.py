@@ -30,7 +30,7 @@ class PromptConfigModel(BaseModel):
 
 
 class ConfigStateModel(BaseModel):
-    model_config: ConfigDict = ConfigDict(extra="forbid", strict=True)
+    model_config: ConfigDict = ConfigDict(extra="forbid", strict=True)  # type: ignore
 
     un_annotated_text: str = ""
     short_text: Annotated[

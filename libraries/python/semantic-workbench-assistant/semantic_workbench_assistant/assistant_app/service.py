@@ -141,6 +141,7 @@ class AssistantService(FastAPIAssistantService):
             for task in self._conversation_event_tasks:
                 task.cancel()
 
+            results = []
             with contextlib.suppress(asyncio.CancelledError):
                 results = await asyncio.gather(*self._conversation_event_tasks, return_exceptions=True)
 
@@ -149,6 +150,7 @@ class AssistantService(FastAPIAssistantService):
                     logging.exception("event handling task raised exception", exc_info=result)
 
     def read_assistant_states(self) -> _PersistedAssistantStates:
+        states = None
         try:
             states = read_model(self._assistant_states_path, _PersistedAssistantStates)
         except FileNotFoundError:
@@ -404,6 +406,7 @@ class AssistantService(FastAPIAssistantService):
         """
         while True:
             try:
+                wrapper = None
                 try:
                     async with asyncio.timeout(1):
                         wrapper = await queue.get()
@@ -416,6 +419,9 @@ class AssistantService(FastAPIAssistantService):
                         break
 
                 queue.task_done()
+
+                if wrapper is None:
+                    continue
 
                 assistant_id = wrapper.assistant_id
                 event = wrapper.event

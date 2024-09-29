@@ -48,6 +48,7 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
             # if the config file hasn't been written yet, check the export/import path
             path = self._export_import_path_for(assistant_context)
 
+        config = None
         try:
             config = read_model(path, self._default.__class__)
         except ValidationError as e:

@@ -1,0 +1,17 @@
+{
+  "recommendations": [
+    "aaron-bond.better-comments",
+    "charliermarsh.ruff",
+    "dbaeumer.vscode-eslint",
+    "epivision.vscode-file-header",
+    "esbenp.prettier-vscode",
+    "github.vscode-github-actions",
+    "ms-azuretools.vscode-docker",
+    "ms-python.debugpy",
+    "ms-python.python",
+    "ms-vscode.makefile-tools",
+    "ms-vscode.vscode-node-azure-pack",
+    "tamasfe.even-better-toml",
+    "streetsidesoftware.code-spell-checker"
+  ]
+}

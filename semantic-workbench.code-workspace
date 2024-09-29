@@ -1,12 +1,10 @@
 {
   // Naming convention: <root folder>:<package folder> (skip all subfolders)
   "folders": [
-    // Docs
     {
       "name": "docs",
       "path": "./docs"
     },
-    // Workbench
     {
       "name": "workbench-app",
       "path": "./workbench-app"
@@ -15,7 +13,6 @@
       "name": "workbench-service",
       "path": "./workbench-service"
     },
-    // Remaining folders related to python assistants
     {
       "name": "examples:python-01-echo-bot",
       "path": "./examples/python/python-01-echo-bot"
@@ -44,7 +41,6 @@
       "name": "libraries:semantic-workbench-assistant",
       "path": "./libraries/python/semantic-workbench-assistant"
     },
-    // Remaining general dev
     {
       "name": "tools",
       "path": "./tools"
@@ -56,15 +52,6 @@
     {
       "name": ".github",
       "path": "./.github"
-    },
-    {
-      "name": ".vscode",
-      "path": "./.vscode"
-    },
-    // Everything else
-    {
-      "name": "root",
-      "path": "."
     }
   ]
 }

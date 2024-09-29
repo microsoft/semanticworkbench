@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "canonical-assistant",
+      "cwd": "${workspaceFolder}",
+      "module": "semantic_workbench_assistant.start",
+      "args": ["semantic_workbench_assistant.canonical:app", "--port", "3002"],
+      "consoleTitle": "canonical-assistant"
+    }
+  ]
+}
