@@ -11,7 +11,7 @@ import { useAppSelector } from '../../../redux/app/hooks';
 
 const useClasses = makeStyles({
     root: {
-        zIndex: 1000,
+        zIndex: tokens.zIndexFloating,
         position: 'absolute',
         backgroundColor: `rgba(255, 255, 255, 0.5)`,
         borderBottomLeftRadius: tokens.borderRadiusMedium,
@@ -86,9 +86,7 @@ export const CanvasControls: React.FC<CanvasControlsProps> = (props) => {
             </Tooltip>
             <Tooltip
                 content={
-                    interactCanvasState?.assistantId
-                        ? 'Open assistant canvas'
-                        : 'No assistants available in conversation'
+                    interactCanvasState?.assistantId ? 'Open assistant canvas' : 'No assistants in the conversation'
                 }
                 relationship="label"
             >

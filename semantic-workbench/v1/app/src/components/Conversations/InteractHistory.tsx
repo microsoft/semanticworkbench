@@ -182,7 +182,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     <div className={classes.item} key={message.id}>
                         <InteractMessage
                             readOnly={readOnly}
-                            conversationId={conversation.id}
+                            conversation={conversation}
                             message={message}
                             participant={senderParticipant}
                             hideParticipant={hideParticipant}
@@ -210,7 +210,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         classes.counter,
         classes.item,
         classes.status,
-        conversation.id,
+        conversation,
         handleParticipantStatusChange,
         hash,
         hashItemIndex,

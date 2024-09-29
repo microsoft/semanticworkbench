@@ -14,9 +14,19 @@ import {
     DialogTrigger,
     Field,
     Input,
+    makeStyles,
+    tokens,
 } from '@fluentui/react-components';
 import React from 'react';
 import { ConversationDefinition } from '../../../models/WorkflowDefinition';
+
+const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
+});
 
 interface ConversationDefinitionCreateProps {
     open: boolean;
@@ -26,6 +36,7 @@ interface ConversationDefinitionCreateProps {
 
 export const ConversationDefinitionCreate: React.FC<ConversationDefinitionCreateProps> = (props) => {
     const { open, onOpenChange, onCreate } = props;
+    const classes = useClasses();
     const [title, setTitle] = React.useState('');
 
     const handleSave = () => {
@@ -61,16 +72,14 @@ export const ConversationDefinitionCreate: React.FC<ConversationDefinitionCreate
                 >
                     <DialogBody>
                         <DialogTitle>New Conversation</DialogTitle>
-                        <DialogContent>
-                            <p>
-                                <Field label="Title">
-                                    <Input
-                                        value={title}
-                                        onChange={(_event, data) => setTitle(data?.value)}
-                                        aria-autocomplete="none"
-                                    />
-                                </Field>
-                            </p>
+                        <DialogContent className={classes.dialogContent}>
+                            <Field label="Title">
+                                <Input
+                                    value={title}
+                                    onChange={(_event, data) => setTitle(data?.value)}
+                                    aria-autocomplete="none"
+                                />
+                            </Field>
                             <button type="submit" hidden />
                         </DialogContent>
                         <DialogActions>

@@ -1,5 +1,5 @@
 from .assistant import AssistantApp
-from .config import BaseModelAssistantConfig, BaseModelAssistantConfigWithSecrets
+from .config import BaseModelAssistantConfig
 from .content_safety import (
     AlwaysWarnContentSafetyEvaluator,
     ContentSafety,
@@ -26,7 +26,6 @@ __all__ = [
     "AssistantConversationInspectorStateDataModel",
     "AssistantConversationInspectorStateProvider",
     "BaseModelAssistantConfig",
-    "BaseModelAssistantConfigWithSecrets",
     "ConversationContext",
     "ContentSafety",
     "ContentSafetyEvaluation",

@@ -13,7 +13,7 @@ export const conversationApi = workbenchApi.injectEndpoints({
             invalidatesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversation(response),
         }),
-        updateConversation: builder.mutation<Conversation, Conversation>({
+        updateConversation: builder.mutation<Conversation, Pick<Conversation, 'id' | 'title' | 'metadata'>>({
             query: (body) => ({
                 url: `/conversations/${body.id}`,
                 method: 'PATCH',
@@ -96,6 +96,8 @@ const transformResponseToConversation = (response: any): Conversation => {
             ownerId: response.owner_id,
             title: response.title,
             metadata: response.metadata,
+            conversationPermission: response.conversation_permission,
+            importedFromConversationId: response.imported_from_conversation_id,
         };
     } catch (error) {
         throw new Error(`Failed to transform conversation response: ${error}`);

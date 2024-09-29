@@ -38,13 +38,13 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
-    BaseModelAssistantConfigWithSecrets,
+    BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, AssistantServiceConfigModel
+from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -62,16 +62,13 @@ service_description = "A simple OpenAI chat assistant using the Semantic Workben
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfigWithSecrets(
-    default=AssistantConfigModel(),
-    default_secrets=AssistantServiceConfigModel(),
-)
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel())
 
 
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
-    config_secrets = await assistant_config.get_secrets(context.assistant)
-    return CombinedContentSafetyEvaluator(config_secrets.content_safety_config)
+    config = await assistant_config.get(context.assistant)
+    return CombinedContentSafetyEvaluator(config.content_safety_config)
 
 
 content_safety = ContentSafety(content_evaluator_factory)
@@ -194,7 +191,6 @@ async def respond_to_conversation(
 
     # get the assistant's configuration, supports overwriting defaults from environment variables
     config = await assistant_config.get(context.assistant)
-    config_secrets = await assistant_config.get_secrets(context.assistant)
 
     # get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
@@ -331,7 +327,7 @@ async def respond_to_conversation(
     #     return
 
     # generate a response from the AI model
-    async with config_secrets.service_config.new_client(api_version="2024-06-01") as openai_client:
+    async with config.service_config.new_client(api_version="2024-06-01") as openai_client:
         try:
             # call the OpenAI chat completion endpoint to get a response
             completion = await openai_client.chat.completions.create(

@@ -31,6 +31,11 @@ import { AssistantDefinition } from '../../../models/WorkflowDefinition';
 import { useGetAssistantServiceRegistrationsQuery } from '../../../services/workbench';
 
 const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
     option: {
         display: 'flex',
         flexDirection: 'row',
@@ -154,35 +159,31 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
                     }}
                 >
                     <DialogBody>
-                        <DialogTitle>New Assistant</DialogTitle>
-                        <DialogContent>
-                            <p>
-                                <Field label="Name">
-                                    <Input
-                                        value={name}
-                                        onChange={(_event, data) => setName(data?.value)}
-                                        aria-autocomplete="none"
-                                    />
-                                </Field>
-                            </p>
-                            <p>
-                                <Field label="Assistant Service">
-                                    <Dropdown
-                                        placeholder="Select an assistant service"
-                                        onOptionSelect={(_event, data) => {
-                                            if (data.optionValue) {
-                                                setAssistantServiceId(data.optionValue as string);
-                                            }
+                        <DialogTitle>New Instance of Assistant</DialogTitle>
+                        <DialogContent className={classes.dialogContent}>
+                            <Field label="Name">
+                                <Input
+                                    value={name}
+                                    onChange={(_event, data) => setName(data?.value)}
+                                    aria-autocomplete="none"
+                                />
+                            </Field>
+                            <Field label="Assistant Service">
+                                <Dropdown
+                                    placeholder="Select an assistant service"
+                                    onOptionSelect={(_event, data) => {
+                                        if (data.optionValue) {
+                                            setAssistantServiceId(data.optionValue as string);
+                                        }
 
-                                            if (data.optionText && name === '') {
-                                                setName(data.optionText);
-                                            }
-                                        }}
-                                    >
-                                        {options}
-                                    </Dropdown>
-                                </Field>
-                            </p>
+                                        if (data.optionText && name === '') {
+                                            setName(data.optionText);
+                                        }
+                                    }}
+                                >
+                                    {options}
+                                </Dropdown>
+                            </Field>
                             <button type="submit" hidden disabled={!name || !assistantServiceId} />
                         </DialogContent>
                         <DialogActions>

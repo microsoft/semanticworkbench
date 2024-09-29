@@ -13,7 +13,7 @@ import {
     LexicalEditorRefPlugin,
     TextNode,
 } from '@fluentui-copilot/react-copilot';
-import { Button, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import { Button, makeStyles, mergeClasses, shorthands, Title3, tokens } from '@fluentui/react-components';
 import { Attach20Regular } from '@fluentui/react-icons';
 import debug from 'debug';
 import { getEncoding } from 'js-tiktoken';
@@ -55,6 +55,10 @@ const useClasses = makeStyles({
         width: '100%',
         gap: tokens.spacingVerticalS,
         ...shorthands.padding(tokens.spacingVerticalM),
+    },
+    readOnly: {
+        pointerEvents: 'none',
+        opacity: 0.5,
     },
     content: {
         display: 'flex',
@@ -470,95 +474,107 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
     return (
         <div className={classes.root}>
-            <div className={classes.content}>
-                {/* // this is for injecting controls for supporting features like workflow */}
-                {additionalContent}
-                <InputOptionsControl
-                    messageTypeValue={messageTypeValue}
-                    participants={participants}
-                    onDirectedAtChange={setDirectedAtId}
-                />
-                <div
-                    ref={dropTargetRef}
-                    onDrop={handleDrop}
-                    className={mergeClasses(
-                        classes.row,
-                        classes.dragTarget,
-                        isDraggingOverTarget ? classes.dragOverTarget : isDraggingOverBody ? classes.dragOverBody : '',
-                    )}
-                >
-                    <ChatInput
-                        className={mergeClasses(
-                            classes.fullWidth,
-                            messageTypeValue === 'Command' ? classes.commandTextbox : '',
-                        )}
-                        onChange={(_event, data) => updateInput(data.value)}
-                        maxLength={Constants.app.maxInputLength}
-                        characterCount={tokenCount}
-                        charactersRemainingMessage={(charactersRemaining) =>
-                            `${charactersRemaining} characters remaining`
-                        }
-                        count={
-                            <span>
-                                {tokenCount} tokens | {attachmentFiles.size} attachments (max{' '}
-                                {Constants.app.maxFileAttachmentsPerMessage})
-                            </span>
-                        }
-                        placeholderValue="Ask a question or request assistance or type / to enter a command."
-                        customNodes={[ChatInputTokenNode, ChatInputEntityNode, LineBreakNode, TemporaryTextNode]}
-                        disableSend={disableSend}
-                        onSubmit={handleSend}
-                        trimWhiteSpace
-                        showCount
-                        actions={
-                            <span style={{ display: 'flex', alignItems: 'center' }}>
-                                <span>
-                                    <input
-                                        hidden
-                                        ref={attachmentInputRef}
-                                        type="file"
-                                        onChange={onAttachmentChanged}
-                                        multiple
-                                    />
-                                    <Button
-                                        appearance="transparent"
-                                        disabled={disableInputs}
-                                        icon={<Attach20Regular />}
-                                        onClick={onAttachment}
-                                    />
-                                    <SpeechButton
-                                        disabled={disableInputs}
-                                        onListeningChange={handleListeningChange}
-                                        onSpeechRecognizing={handleSpeechRecognizing}
-                                        onSpeechRecognized={handleSpeechRecognized}
-                                    />
-                                </span>
-                            </span>
-                        }
-                        attachments={
-                            <InputAttachmentList
-                                attachments={[...attachmentFiles.values()]}
-                                onDismissAttachment={(dismissedFile) =>
-                                    setAttachmentFiles((prevFiles) => {
-                                        const updatedFiles = new Map(prevFiles);
-                                        updatedFiles.delete(dismissedFile.name);
-                                        return updatedFiles;
-                                    })
-                                }
-                            />
-                        }
-                    >
-                        <ClearEditorPlugin />
-                        {participants && (
-                            <ParticipantMentionsPlugin
-                                participants={participants.filter((participant) => participant.id !== userId)}
-                                parent={document.getElementById('app')}
-                            />
-                        )}
-                        <LexicalEditorRefPlugin editorRef={editorRefCallback} />
-                    </ChatInput>
+            {readOnly ? (
+                <div className={classes.readOnly}>
+                    <Title3>You are currently observing this conversation.</Title3>
                 </div>
-            </div>
+            ) : (
+                <div className={classes.content}>
+                    {/* // this is for injecting controls for supporting features like workflow */}
+                    {additionalContent}
+                    <InputOptionsControl
+                        disabled={readOnly}
+                        messageTypeValue={messageTypeValue}
+                        participants={participants}
+                        onDirectedAtChange={setDirectedAtId}
+                    />
+                    <div
+                        ref={dropTargetRef}
+                        onDrop={handleDrop}
+                        className={mergeClasses(
+                            classes.row,
+                            classes.dragTarget,
+                            isDraggingOverTarget
+                                ? classes.dragOverTarget
+                                : isDraggingOverBody
+                                ? classes.dragOverBody
+                                : '',
+                        )}
+                    >
+                        <ChatInput
+                            className={mergeClasses(
+                                classes.fullWidth,
+                                messageTypeValue === 'Command' ? classes.commandTextbox : '',
+                            )}
+                            onChange={(_event, data) => updateInput(data.value)}
+                            maxLength={Constants.app.maxInputLength}
+                            characterCount={tokenCount}
+                            charactersRemainingMessage={(charactersRemaining) =>
+                                `${charactersRemaining} characters remaining`
+                            }
+                            count={
+                                <span>
+                                    {tokenCount} tokens | {attachmentFiles.size} attachments (max{' '}
+                                    {Constants.app.maxFileAttachmentsPerMessage})
+                                </span>
+                            }
+                            disabled={readOnly}
+                            placeholderValue="Ask a question or request assistance or type / to enter a command."
+                            customNodes={[ChatInputTokenNode, ChatInputEntityNode, LineBreakNode, TemporaryTextNode]}
+                            disableSend={disableSend}
+                            onSubmit={handleSend}
+                            trimWhiteSpace
+                            showCount
+                            actions={
+                                <span style={{ display: 'flex', alignItems: 'center' }}>
+                                    <span>
+                                        <input
+                                            hidden
+                                            ref={attachmentInputRef}
+                                            type="file"
+                                            onChange={onAttachmentChanged}
+                                            multiple
+                                        />
+                                        <Button
+                                            appearance="transparent"
+                                            disabled={disableInputs}
+                                            icon={<Attach20Regular />}
+                                            onClick={onAttachment}
+                                        />
+                                        <SpeechButton
+                                            disabled={disableInputs}
+                                            onListeningChange={handleListeningChange}
+                                            onSpeechRecognizing={handleSpeechRecognizing}
+                                            onSpeechRecognized={handleSpeechRecognized}
+                                        />
+                                    </span>
+                                </span>
+                            }
+                            attachments={
+                                <InputAttachmentList
+                                    attachments={[...attachmentFiles.values()]}
+                                    onDismissAttachment={(dismissedFile) =>
+                                        setAttachmentFiles((prevFiles) => {
+                                            const updatedFiles = new Map(prevFiles);
+                                            updatedFiles.delete(dismissedFile.name);
+                                            return updatedFiles;
+                                        })
+                                    }
+                                />
+                            }
+                        >
+                            <ClearEditorPlugin />
+                            {participants && (
+                                <ParticipantMentionsPlugin
+                                    participants={participants.filter((participant) => participant.id !== userId)}
+                                    parent={document.getElementById('app')}
+                                />
+                            )}
+                            <LexicalEditorRefPlugin editorRef={editorRefCallback} />
+                        </ChatInput>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

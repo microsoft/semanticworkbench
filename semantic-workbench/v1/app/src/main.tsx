@@ -41,12 +41,18 @@ const unauthenticatedRouter = createBrowserRouter([
         errorElement: <ErrorPage />,
         children: [
             {
+                // This is the default route, it should not include a path
                 index: true,
                 element: <Login />,
             },
             {
                 path: '/terms',
                 element: <AcceptTerms />,
+            },
+            {
+                // This is the catch-all route, it should be the last route
+                path: '/*',
+                element: <Login />,
             },
         ],
     },

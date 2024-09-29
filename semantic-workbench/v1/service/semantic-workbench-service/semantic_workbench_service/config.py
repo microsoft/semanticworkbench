@@ -21,6 +21,11 @@ class ApiKeySettings(BaseSettings):
         return self.key_vault_url is not None
 
 
+class AuthSettings(BaseSettings):
+    allowed_jwt_algorithms: set[str] = {"RS256"}
+    allowed_app_ids: set[str] = {"22cb77c3-ca98-4a26-b4db-ac4dcecba690"}
+
+
 class WebServiceSettings(BaseSettings):
     protocol: str = "http"
     hostname: str = "127.0.0.1"
@@ -51,6 +56,7 @@ class Settings(BaseSettings):
     logging: LoggingSettings = LoggingSettings()
     service: WebServiceSettings = WebServiceSettings()
     workflow: WorkflowSettings = WorkflowSettings()
+    auth: AuthSettings = AuthSettings()
 
 
 if __name__ == "__main__":

@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import io
+import types
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, AsyncIterator, Callable, Mapping
+from typing import Any, AsyncGenerator, AsyncIterator, Callable, Iterable, Mapping, Self
 
 import asgi_correlation_id
 import httpx
@@ -14,9 +17,9 @@ HEADER_ASSISTANT_ID = "X-Assistant-ID"
 HEADER_API_KEY = "X-API-Key"
 
 
-# HTTPX transport can be overridden with an ASGI transport for testing
-# ex: httpx_transport = httpx.ASGITransport(app=app)
-httpx_transport = httpx.AsyncHTTPTransport(retries=3)
+# HTTPX transport factory can be overridden to return an ASGI transport for testing
+def httpx_transport_factory() -> httpx.AsyncHTTPTransport:
+    return httpx.AsyncHTTPTransport(retries=3)
 
 
 @dataclass
@@ -25,11 +28,10 @@ class AssistantServiceRequestHeaders:
     api_key: str
 
     def to_headers(self) -> Mapping[str, str]:
-        headers = {HEADER_ASSISTANT_SERVICE_ID: self.assistant_service_id, HEADER_API_KEY: self.api_key}
-        return headers
+        return {HEADER_ASSISTANT_SERVICE_ID: self.assistant_service_id, HEADER_API_KEY: self.api_key}
 
     @staticmethod
-    def from_headers(headers: Mapping[str, str]) -> "AssistantServiceRequestHeaders":
+    def from_headers(headers: Mapping[str, str]) -> AssistantServiceRequestHeaders:
         return AssistantServiceRequestHeaders(
             assistant_service_id=headers.get(HEADER_ASSISTANT_SERVICE_ID) or "",
             api_key=headers.get(HEADER_API_KEY) or "",
@@ -44,12 +46,10 @@ class AssistantInstanceRequestHeaders:
         return {HEADER_ASSISTANT_ID: str(self.assistant_id)}
 
     @staticmethod
-    def from_headers(headers: Mapping[str, str]) -> "AssistantInstanceRequestHeaders":
+    def from_headers(headers: Mapping[str, str]) -> AssistantInstanceRequestHeaders:
         assistant_id: uuid.UUID | None = None
-        try:
+        with suppress(ValueError):
             assistant_id = uuid.UUID(headers.get(HEADER_ASSISTANT_ID) or "")
-        except ValueError:
-            pass
         return AssistantInstanceRequestHeaders(
             assistant_id=assistant_id,
         )
@@ -79,7 +79,7 @@ class ConversationAPIClient:
     async def delete_conversation(self) -> None:
         async with self._client as client:
             http_response = await client.delete(f"/conversations/{self._conversation_id}")
-            if http_response.status_code == 404:
+            if http_response.status_code == httpx.codes.NOT_FOUND:
                 return
             http_response.raise_for_status()
 
@@ -104,20 +104,22 @@ class ConversationAPIClient:
             http_response.raise_for_status()
             return workbench_model.ConversationParticipant.model_validate(http_response.json())
 
-    async def get_participants(self, include_inactive=False) -> workbench_model.ConversationParticipantList:
+    async def get_participants(self, *, include_inactive: bool = False) -> workbench_model.ConversationParticipantList:
         async with self._client as client:
             http_response = await client.get(
                 f"/conversations/{self._conversation_id}/participants",
                 params={"include_inactive": include_inactive},
             )
-            if http_response.status_code == 404:
+            if http_response.status_code == httpx.codes.NOT_FOUND:
                 return workbench_model.ConversationParticipantList(participants=[])
 
             http_response.raise_for_status()
             return workbench_model.ConversationParticipantList.model_validate(http_response.json())
 
     async def update_participant(
-        self, participant_id: str, participant: workbench_model.UpdateParticipant
+        self,
+        participant_id: str,
+        participant: workbench_model.UpdateParticipant,
     ) -> workbench_model.ConversationParticipant:
         async with self._client as client:
             http_response = await client.patch(
@@ -128,7 +130,8 @@ class ConversationAPIClient:
             return workbench_model.ConversationParticipant.model_validate(http_response.json())
 
     async def update_participant_me(
-        self, participant: workbench_model.UpdateParticipant
+        self,
+        participant: workbench_model.UpdateParticipant,
     ) -> workbench_model.ConversationParticipant:
         return await self.update_participant(participant_id="me", participant=participant)
 
@@ -145,7 +148,8 @@ class ConversationAPIClient:
         self,
         before: uuid.UUID | None = None,
         after: uuid.UUID | None = None,
-        message_types: list[workbench_model.MessageType] = [workbench_model.MessageType.chat],
+        message_types: Iterable[workbench_model.MessageType] = (workbench_model.MessageType.chat,),
+        participant_ids: Iterable[str] | None = None,
         participant_role: workbench_model.ParticipantRole | None = None,
         limit: int | None = None,
     ) -> workbench_model.ConversationMessageList:
@@ -153,12 +157,14 @@ class ConversationAPIClient:
             params: dict[str, str | list[str]] = {}
             if message_types:
                 params["message_type"] = [mt.value for mt in message_types]
+            if participant_ids:
+                params["participant_id"] = list(participant_ids)
+            if participant_role:
+                params["participant_role"] = participant_role.value
             if before:
                 params["before"] = str(before)
             if after:
                 params["after"] = str(after)
-            if participant_role:
-                params["participant_role"] = participant_role.value
             if limit:
                 params["limit"] = str(limit)
 
@@ -167,7 +173,8 @@ class ConversationAPIClient:
             return workbench_model.ConversationMessageList.model_validate(http_response.json())
 
     async def send_messages(
-        self, *messages: workbench_model.NewConversationMessage
+        self,
+        *messages: workbench_model.NewConversationMessage,
     ) -> workbench_model.ConversationMessageList:
         messages_out = []
         async with self._client as client:
@@ -183,7 +190,9 @@ class ConversationAPIClient:
         return workbench_model.ConversationMessageList(messages=messages_out)
 
     async def send_conversation_state_event(
-        self, assistant_id: str, state_event: workbench_model.AssistantStateEvent
+        self,
+        assistant_id: str,
+        state_event: workbench_model.AssistantStateEvent,
     ) -> None:
         async with self._client as client:
             http_response = await client.post(
@@ -194,7 +203,10 @@ class ConversationAPIClient:
             http_response.raise_for_status()
 
     async def write_file(
-        self, filename: str, file_content: io.BytesIO, content_type: str = "application/octet-stream"
+        self,
+        filename: str,
+        file_content: io.BytesIO,
+        content_type: str = "application/octet-stream",
     ) -> workbench_model.File:
         async with self._client as client:
             http_response = await client.put(
@@ -203,12 +215,14 @@ class ConversationAPIClient:
             )
             http_response.raise_for_status()
 
-            list = workbench_model.FileList.model_validate(http_response.json())
-            return list.files[0]
+            file_list = workbench_model.FileList.model_validate(http_response.json())
+            return file_list.files[0]
 
     @asynccontextmanager
     async def read_file(
-        self, filename: str, chunk_size: int | None = None
+        self,
+        filename: str,
+        chunk_size: int | None = None,
     ) -> AsyncGenerator[AsyncIterator[bytes], Any]:
         async with self._client as client:
             request = client.build_request("GET", f"/conversations/{self._conversation_id}/files/{filename}")
@@ -243,7 +257,7 @@ class ConversationAPIClient:
     async def delete_file(self, filename: str) -> None:
         async with self._client as client:
             http_response = await client.delete(f"/conversations/{self._conversation_id}/files/{filename}")
-            if http_response.status_code == 404:
+            if http_response.status_code == httpx.codes.NOT_FOUND:
                 return
             http_response.raise_for_status()
 
@@ -266,7 +280,8 @@ class ConversationsAPIClient:
             return workbench_model.ConversationList.model_validate(http_response.json())
 
     async def create_conversation(
-        self, new_conversation: workbench_model.NewConversation
+        self,
+        new_conversation: workbench_model.NewConversation,
     ) -> workbench_model.Conversation:
         async with self._client as client:
             http_response = await client.post(
@@ -279,7 +294,7 @@ class ConversationsAPIClient:
     async def delete_conversation(self, conversation_id: str) -> None:
         async with self._client as client:
             http_response = await client.delete(f"/conversations/{conversation_id}")
-            if http_response.status_code == 404:
+            if http_response.status_code == httpx.codes.NOT_FOUND:
                 return
             http_response.raise_for_status()
 
@@ -313,7 +328,7 @@ class AssistantsAPIClient:
     async def delete_assistant(self, assistant_id: str) -> None:
         async with self._client as client:
             http_response = await client.delete(f"/assistants/{assistant_id}")
-            if http_response.status_code == 404:
+            if http_response.status_code == httpx.codes.NOT_FOUND:
                 return
             http_response.raise_for_status()
 
@@ -340,7 +355,7 @@ class AssistantAPIClient:
     async def delete_assistant(self) -> None:
         async with self._client as client:
             http_response = await client.delete(f"/assistants/{self._assistant_id}")
-            if http_response.status_code == 404:
+            if http_response.status_code == httpx.codes.NOT_FOUND:
                 return
             http_response.raise_for_status()
 
@@ -367,18 +382,25 @@ class AssistantServiceAPIClient:
     ) -> None:
         self._client = httpx_client_factory()
 
-    async def __aenter__(self) -> "AssistantServiceAPIClient":
+    async def __aenter__(self) -> Self:
         self._client = await self._client.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: types.TracebackType | None = None,
+    ) -> None:
         await self._client.__aexit__(exc_type, exc_value, traceback)
 
     async def aclose(self) -> None:
         await self._client.aclose()
 
     async def update_registration_url(
-        self, assistant_service_id: str, update: workbench_model.UpdateAssistantServiceRegistrationUrl
+        self,
+        assistant_service_id: str,
+        update: workbench_model.UpdateAssistantServiceRegistrationUrl,
     ) -> None:
         http_response = await self._client.put(
             f"/assistant-service-registrations/{assistant_service_id}",
@@ -402,7 +424,7 @@ class WorkbenchServiceClientBuilder:
 
     def _client(self, *headers: AssistantServiceRequestHeaders | AssistantInstanceRequestHeaders) -> httpx.AsyncClient:
         client = httpx.AsyncClient(
-            transport=httpx_transport,
+            transport=httpx_transport_factory(),
             base_url=self._base_url,
             timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
             headers={
@@ -416,8 +438,8 @@ class WorkbenchServiceClientBuilder:
     def for_service(self) -> AssistantServiceAPIClient:
         return AssistantServiceAPIClient(
             httpx_client_factory=lambda: self._client(
-                AssistantServiceRequestHeaders(assistant_service_id=self._assistant_service_id, api_key=self._api_key)
-            )
+                AssistantServiceRequestHeaders(assistant_service_id=self._assistant_service_id, api_key=self._api_key),
+            ),
         )
 
     def for_conversation(self, assistant_id: str, conversation_id: str) -> ConversationAPIClient:
@@ -442,7 +464,7 @@ class WorkbenchServiceUserClientBuilder:
         self._headers = headers
 
     def _client(self) -> httpx.AsyncClient:
-        client = httpx.AsyncClient(transport=httpx_transport)
+        client = httpx.AsyncClient(transport=httpx_transport_factory())
         client.base_url = self._base_url
         client.timeout.connect = 10
         client.timeout.read = 60

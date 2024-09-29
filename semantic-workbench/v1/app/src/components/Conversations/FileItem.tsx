@@ -1,6 +1,15 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Caption1, Card, CardHeader, DialogTrigger, makeStyles, Text } from '@fluentui/react-components';
+import {
+    Button,
+    Caption1,
+    Card,
+    CardHeader,
+    DialogTrigger,
+    makeStyles,
+    Text,
+    Tooltip,
+} from '@fluentui/react-components';
 import { ArrowDownloadRegular, Delete16Regular } from '@fluentui/react-icons';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -19,6 +28,11 @@ dayjs.extend(timezone);
 dayjs.tz.guess();
 
 const useClasses = makeStyles({
+    cardHeader: {
+        '> .fui-CardHeader__header': {
+            overflow: 'hidden',
+        },
+    },
     actions: {
         display: 'flex',
         flexDirection: 'row',
@@ -29,11 +43,12 @@ const useClasses = makeStyles({
 interface FileItemProps {
     conversation: Conversation;
     conversationFile: ConversationFile;
+    readOnly?: boolean;
     onFileSelect?: (file: ConversationFile) => void;
 }
 
 export const FileItem: React.FC<FileItemProps> = (props) => {
-    const { conversation, conversationFile } = props;
+    const { conversation, conversationFile, readOnly } = props;
     const classes = useClasses();
     const workbenchService = useWorkbenchService();
     const [deleteConversationFile] = useDeleteConversationFileMutation();
@@ -64,11 +79,8 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
             throw new Error('Failed to fetch file');
         }
 
-        const contentDisposition = response.headers.get('content-disposition');
-        const fileName = contentDisposition ? contentDisposition.split('filename=')[1] : conversationFile.name;
-
         // Create a file stream using StreamSaver
-        const fileStream = StreamSaver.createWriteStream(fileName);
+        const fileStream = StreamSaver.createWriteStream(conversationFile.name);
 
         const readableStream = response.body;
 
@@ -98,8 +110,15 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
     return (
         <Card key={conversationFile.name}>
             <CardHeader
+                className={classes.cardHeader}
                 image={<ConversationFileIcon file={conversationFile} size={24} />}
-                header={<Text weight="semibold">{conversationFile.name}</Text>}
+                header={
+                    <Tooltip content={conversationFile.name} relationship="label">
+                        <Text truncate wrap={false} weight="semibold">
+                            {conversationFile.name}
+                        </Text>
+                    </Tooltip>
+                }
                 description={
                     <Caption1>
                         {time} | {sizeToDisplay(conversationFile.size)}
@@ -114,6 +133,7 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
                         />
                         <CommandButton
                             description="Delete file from conversation"
+                            disabled={readOnly}
                             icon={<Delete16Regular />}
                             dialogContent={{
                                 title: 'Delete file',

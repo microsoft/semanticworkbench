@@ -2,51 +2,51 @@
   "folders": [
     {
       "name": "docs",
-      "path": "../../docs"
+      "path": "./docs"
     },
     {
       "name": "semantic-workbench/v1",
-      "path": "."
+      "path": "./semantic-workbench/v1"
     },
     {
       "name": "examples/python-01-echo-bot",
-      "path": "../../examples/python-01-echo-bot"
+      "path": "./examples/python-01-echo-bot"
     },
     {
       "name": "examples/python-02-simple-chatbot",
-      "path": "../../examples/python-02-simple-chatbot"
+      "path": "./examples/python-02-simple-chatbot"
     },
     {
       "name": "examples/python-03-multimodel-chatbot",
-      "path": "../../examples/python-03-multimodel-chatbot"
+      "path": "./examples/python-03-multimodel-chatbot"
     },
     {
       "name": "assistants/prospector-assistant",
-      "path": "../../assistants/prospector-assistant"
+      "path": "./assistants/prospector-assistant"
     },
     {
       "name": "assistant-connector",
-      "path": "../../assistant-connector"
+      "path": "./assistant-connector"
     },
     {
       "name": "libraries/content-safety",
-      "path": "../../libraries/content-safety"
+      "path": "./libraries/content-safety"
     },
     {
       "name": "build-tools",
-      "path": "../../build-tools"
+      "path": "./build-tools"
     },
     {
       "name": ".github",
-      "path": "../../.github"
+      "path": "./.github"
     },
     {
       "name": ".devcontainer",
-      "path": "../../.devcontainer"
+      "path": "./.devcontainer"
     },
     {
       "name": ".vscode",
-      "path": "../../.vscode"
+      "path": "./.vscode"
     }
   ]
 }

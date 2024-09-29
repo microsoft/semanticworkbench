@@ -752,7 +752,7 @@ def init(
         conversation_id: uuid.UUID,
         principal: auth.DependsActorPrincipal,
         participant_roles: Annotated[list[ParticipantRole] | None, Query(alias="participant_role")] = None,
-        participant_ids: Annotated[list[str] | None, Query(lias="participant_id")] = None,
+        participant_ids: Annotated[list[str] | None, Query(alias="participant_id")] = None,
         message_types: Annotated[list[MessageType] | None, Query(alias="message_type")] = None,
         before: Annotated[uuid.UUID | None, Query()] = None,
         after: Annotated[uuid.UUID | None, Query()] = None,

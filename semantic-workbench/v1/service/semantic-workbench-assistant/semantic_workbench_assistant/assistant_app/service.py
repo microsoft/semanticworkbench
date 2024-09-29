@@ -204,10 +204,11 @@ class AssistantService(FastAPIAssistantService):
                     if not isinstance(messages, list):
                         messages = [messages]
                     updated_messages = await content_interceptor.intercept_outgoing_messages(context, messages)
-                    return await original_send_messages(updated_messages)
                 except Exception:
                     logger.exception("error in content interceptor, swallowing messages")
                     return workbench_model.ConversationMessageList(messages=[])
+
+                return await original_send_messages(updated_messages)
 
             context.send_messages = override
 
@@ -244,7 +245,7 @@ class AssistantService(FastAPIAssistantService):
         )
         assistant_state.assistant_name = assistant.assistant_name
 
-        is_new = assistant_id not in states.assistants
+        is_new = not from_export and assistant_id not in states.assistants
         states.assistants[assistant_id] = assistant_state
         self.write_assistant_states(states)
 
@@ -282,16 +283,18 @@ class AssistantService(FastAPIAssistantService):
             return
 
         states = self.read_assistant_states()
-        assistant_state = states.assistants.pop(assistant_id, None)
+        assistant_state = states.assistants.get(assistant_id)
 
         if assistant_state is None:
             return
 
-        self.write_assistant_states(states)
-
         # delete conversations
         for conversation_id in assistant_state.conversations:
             await self.delete_conversation(assistant_id, conversation_id)
+
+        states = self.read_assistant_states()
+        states.assistants.pop(assistant_id, None)
+        self.write_assistant_states(states)
 
         await self.assistant_app.events.assistant._on_deleted_handlers(assistant_context)
 
@@ -330,7 +333,7 @@ class AssistantService(FastAPIAssistantService):
             conversation_id=conversation_id,
             title=conversation.title,
         )
-        is_new = conversation_id not in assistant_state.conversations
+        is_new = not from_export and conversation_id not in assistant_state.conversations
 
         conversation_state.title = conversation.title
 
@@ -379,7 +382,7 @@ class AssistantService(FastAPIAssistantService):
             return
         self.write_assistant_states(states)
 
-        await self.assistant_app.events.conversation._on_created_handlers(conversation_context)
+        await self.assistant_app.events.conversation._on_deleted_handlers(conversation_context)
 
     async def _get_or_create_queue(self, assistant_id: str, conversation_id: str) -> asyncio.Queue[_Event]:
         key = (assistant_id, conversation_id)

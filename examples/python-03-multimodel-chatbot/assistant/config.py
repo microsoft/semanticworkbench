@@ -38,14 +38,6 @@ def load_text_include(filename) -> str:
     return file_path.read_text()
 
 
-# endregion
-
-
-#
-# region Assistant Configuration
-#
-
-
 # mapping service types to an enum to use as keys in the configuration model
 # to prevent errors if the service type is changed where string values were used
 class ServiceType(StrEnum):
@@ -76,99 +68,8 @@ class ServiceConfig(BaseModel):
         pass
 
 
-class RequestConfig(BaseModel):
-    model_config = ConfigDict(
-        title="Response Generation",
-        json_schema_extra={
-            "required": ["max_tokens", "response_tokens"],
-        },
-    )
-
-    max_tokens: Annotated[
-        int,
-        Field(
-            title="Max Tokens",
-            description=(
-                "The maximum number of tokens to use for both the prompt and response. Current max supported by OpenAI"
-                " is 128k tokens, but varies by model (https://platform.openai.com/docs/models)"
-            ),
-        ),
-    ] = 128_000
-
-    response_tokens: Annotated[
-        int,
-        Field(
-            title="Response Tokens",
-            description=(
-                "The number of tokens to use for the response, will reduce the number of tokens available for the"
-                " prompt. Current max supported by OpenAI is 4096 tokens (https://platform.openai.com/docs/models)"
-            ),
-        ),
-    ] = 4_048
-
-
-# the workbench app builds dynamic forms based on the configuration model and UI schema
-class AssistantConfigModel(BaseModel):
-    enable_debug_output: Annotated[
-        bool,
-        Field(
-            title="Include Debug Output",
-            description="Include debug output on conversation messages.",
-        ),
-    ] = False
-
-    instruction_prompt: Annotated[
-        str,
-        Field(
-            title="Instruction Prompt",
-            description="The prompt used to instruct the behavior of the AI assistant.",
-        ),
-        UISchema(widget="textarea"),
-    ] = (
-        "You are an AI assistant that helps people with their work. In addition to text, you can also produce markdown,"
-        " code snippets, and other types of content. If you wrap your response in triple backticks, you can specify the"
-        " language for syntax highlighting. For example, ```python print('Hello, World!')``` will produce a code"
-        " snippet in Python. Mermaid markdown is supported if you wrap the content in triple backticks and specify"
-        " 'mermaid' as the language. For example, ```mermaid graph TD; A-->B;``` will render a flowchart for the"
-        " user.ABC markdown is supported if you wrap the content in triple backticks and specify 'abc' as the"
-        " language.For example, ```abc C4 G4 A4 F4 E4 G4``` will render a music score and an inline player with a link"
-        " to download the midi file."
-    )
-
-    guardrails_prompt: Annotated[
-        str,
-        Field(
-            title="Guardrails Prompt",
-            description=(
-                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
-                " recommendations from: [Microsoft OpenAI Service: System message templates]"
-                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
-                "#define-additional-safety-and-behavioral-guardrails)"
-            ),
-        ),
-        UISchema(widget="textarea"),
-    ] = load_text_include("guardrails_prompt.txt")
-
-    welcome_message: Annotated[
-        str,
-        Field(
-            title="Welcome Message",
-            description="The message to display when the conversation starts.",
-        ),
-        UISchema(widget="textarea"),
-    ] = "Hello! How can I help you today?"
-
-    request_config: Annotated[
-        RequestConfig,
-        Field(
-            title="Request Configuration",
-        ),
-    ] = RequestConfig()
-
-    # add any additional configuration fields
-
-
 # endregion
+
 
 #
 # region Azure OpenAI Service Configuration
@@ -465,8 +366,100 @@ class OllamaServiceConfig(ServiceConfig):
 # endregion
 
 
-# configuration with secrets, such as connection strings or API keys, should be in a separate model
-class AssistantServiceConfigModel(BaseModel):
+#
+# region Assistant Configuration
+#
+
+
+class RequestConfig(BaseModel):
+    model_config = ConfigDict(
+        title="Response Generation",
+        json_schema_extra={
+            "required": ["max_tokens", "response_tokens"],
+        },
+    )
+
+    max_tokens: Annotated[
+        int,
+        Field(
+            title="Max Tokens",
+            description=(
+                "The maximum number of tokens to use for both the prompt and response. Current max supported by OpenAI"
+                " is 128k tokens, but varies by model (https://platform.openai.com/docs/models)"
+            ),
+        ),
+    ] = 128_000
+
+    response_tokens: Annotated[
+        int,
+        Field(
+            title="Response Tokens",
+            description=(
+                "The number of tokens to use for the response, will reduce the number of tokens available for the"
+                " prompt. Current max supported by OpenAI is 4096 tokens (https://platform.openai.com/docs/models)"
+            ),
+        ),
+    ] = 4_048
+
+
+# the workbench app builds dynamic forms based on the configuration model and UI schema
+class AssistantConfigModel(BaseModel):
+    enable_debug_output: Annotated[
+        bool,
+        Field(
+            title="Include Debug Output",
+            description="Include debug output on conversation messages.",
+        ),
+    ] = False
+
+    instruction_prompt: Annotated[
+        str,
+        Field(
+            title="Instruction Prompt",
+            description="The prompt used to instruct the behavior of the AI assistant.",
+        ),
+        UISchema(widget="textarea"),
+    ] = (
+        "You are an AI assistant that helps people with their work. In addition to text, you can also produce markdown,"
+        " code snippets, and other types of content. If you wrap your response in triple backticks, you can specify the"
+        " language for syntax highlighting. For example, ```python print('Hello, World!')``` will produce a code"
+        " snippet in Python. Mermaid markdown is supported if you wrap the content in triple backticks and specify"
+        " 'mermaid' as the language. For example, ```mermaid graph TD; A-->B;``` will render a flowchart for the"
+        " user.ABC markdown is supported if you wrap the content in triple backticks and specify 'abc' as the"
+        " language.For example, ```abc C4 G4 A4 F4 E4 G4``` will render a music score and an inline player with a link"
+        " to download the midi file."
+    )
+
+    guardrails_prompt: Annotated[
+        str,
+        Field(
+            title="Guardrails Prompt",
+            description=(
+                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
+                " recommendations from: [Microsoft OpenAI Service: System message templates]"
+                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
+                "#define-additional-safety-and-behavioral-guardrails)"
+            ),
+        ),
+        UISchema(widget="textarea"),
+    ] = load_text_include("guardrails_prompt.txt")
+
+    welcome_message: Annotated[
+        str,
+        Field(
+            title="Welcome Message",
+            description="The message to display when the conversation starts.",
+        ),
+        UISchema(widget="textarea"),
+    ] = "Hello! How can I help you today?"
+
+    request_config: Annotated[
+        RequestConfig,
+        Field(
+            title="Request Configuration",
+        ),
+    ] = RequestConfig()
+
     service_config: Annotated[
         AzureOpenAIServiceConfig
         | OpenAIServiceConfig
@@ -487,6 +480,8 @@ class AssistantServiceConfigModel(BaseModel):
         ),
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
+
+    # add any additional configuration fields
 
 
 # endregion

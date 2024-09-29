@@ -22,6 +22,7 @@ const useClasses = makeStyles({
 });
 
 interface InputOptionsControlProps {
+    disabled?: boolean;
     messageTypeValue: string;
     participants?: ConversationParticipant[];
     onDirectedAtChange: (participantId?: string) => void;
@@ -31,7 +32,7 @@ const directedAtDefaultKey = 'all';
 const directedAtDefaultValue = 'All assistants';
 
 export const InputOptionsControl: React.FC<InputOptionsControlProps> = (props) => {
-    const { messageTypeValue, participants, onDirectedAtChange } = props;
+    const { messageTypeValue, participants, onDirectedAtChange, disabled } = props;
     const classes = useClasses();
     const [directedAtId, setDirectedAtId] = React.useState<string>(directedAtDefaultKey);
     const [directedAtName, setDirectedAtName] = React.useState<string>(directedAtDefaultValue);
@@ -51,6 +52,7 @@ export const InputOptionsControl: React.FC<InputOptionsControlProps> = (props) =
                 <div>
                     <Dropdown
                         disabled={
+                            disabled ||
                             participants?.filter((participant) => participant.role === 'assistant').length === 0 ||
                             messageTypeValue !== 'Command'
                         }

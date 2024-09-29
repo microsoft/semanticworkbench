@@ -8,10 +8,11 @@ import { FileItem } from './FileItem';
 interface FileListProps {
     conversation: Conversation;
     conversationFiles: ConversationFile[];
+    readOnly?: boolean;
 }
 
 export const FileList: React.FC<FileListProps> = (props) => {
-    const { conversation, conversationFiles } = props;
+    const { conversation, conversationFiles, readOnly } = props;
 
     if (conversationFiles.length === 0) {
         return 'No conversation files found';
@@ -22,7 +23,7 @@ export const FileList: React.FC<FileListProps> = (props) => {
             {conversationFiles
                 .toSorted((a, b) => a.name.localeCompare(b.name))
                 .map((file) => (
-                    <FileItem key={file.name} conversation={conversation} conversationFile={file} />
+                    <FileItem key={file.name} readOnly={readOnly} conversation={conversation} conversationFile={file} />
                 ))}
         </>
     );

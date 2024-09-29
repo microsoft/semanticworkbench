@@ -1,5 +1,4 @@
 from typing import Annotated, Literal
-
 from pydantic import AliasChoices, Field, HttpUrl
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, SettingsConfigDict

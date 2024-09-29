@@ -23,7 +23,7 @@ const useClasses = makeStyles({
         position: 'absolute',
         top: tokens.spacingVerticalM,
         right: tokens.spacingHorizontalM,
-        zIndex: 1000,
+        zIndex: tokens.zIndexFloating,
         display: 'flex',
         flexDirection: 'row',
         justifyContent: 'flex-end',

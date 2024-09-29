@@ -4,19 +4,21 @@ import fastapi
 import pytest
 from fastapi.testclient import TestClient
 from jose import jwt
-from semantic_workbench_service import assistant_api_key, middleware
+from semantic_workbench_service import assistant_api_key, middleware, settings
 
 from .types import MockUser
 
 
-def api_key_source(initial_api_key: str = ""):
+def mock_api_key_source(initial_api_key: str = ""):
     async def source(assistant_service_id: str) -> str | None:
         return await assistant_api_key.FixedApiKeyStore(initial_api_key).get(assistant_service_id)
 
     return source
 
 
-async def test_auth_middleware_rejects_disallowed_algo():
+async def test_auth_middleware_rejects_disallowed_algo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings.auth, "allowed_jwt_algorithms", {"RS256"})
+
     tid = str(uuid.uuid4())
     token = jwt.encode(
         claims={
@@ -27,7 +29,7 @@ async def test_auth_middleware_rejects_disallowed_algo():
     )
 
     app = fastapi.FastAPI()
-    app.add_middleware(middleware.AuthMiddleware, api_key_source=api_key_source())
+    app.add_middleware(middleware.AuthMiddleware, api_key_source=mock_api_key_source())
 
     with TestClient(app) as client:
         http_response = client.get("/", headers={"Authorization": f"Bearer {token}"})
@@ -39,8 +41,8 @@ async def test_auth_middleware_rejects_disallowed_algo():
 def test_auth_middleware_rejects_disallowed_app_id(monkeypatch: pytest.MonkeyPatch) -> None:
     algo = "HS256"
 
-    monkeypatch.setattr(middleware, "allowed_app_ids", {})
-    monkeypatch.setattr(middleware, "allowed_algorithms", {algo})
+    monkeypatch.setattr(settings.auth, "allowed_app_ids", {})
+    monkeypatch.setattr(settings.auth, "allowed_jwt_algorithms", {algo})
 
     token = jwt.encode(
         claims={
@@ -51,7 +53,7 @@ def test_auth_middleware_rejects_disallowed_app_id(monkeypatch: pytest.MonkeyPat
     )
 
     app = fastapi.FastAPI()
-    app.add_middleware(middleware.AuthMiddleware, api_key_source=api_key_source())
+    app.add_middleware(middleware.AuthMiddleware, api_key_source=mock_api_key_source())
 
     with TestClient(app) as client:
         http_response = client.get("/", headers={"Authorization": f"Bearer {token}"})
@@ -62,7 +64,7 @@ def test_auth_middleware_rejects_disallowed_app_id(monkeypatch: pytest.MonkeyPat
 
 def test_auth_middleware_rejects_missing_authorization_header():
     app = fastapi.FastAPI()
-    app.add_middleware(middleware.AuthMiddleware, api_key_source=api_key_source())
+    app.add_middleware(middleware.AuthMiddleware, api_key_source=mock_api_key_source())
 
     with TestClient(app) as client:
         http_response = client.get("/")
@@ -73,7 +75,7 @@ def test_auth_middleware_rejects_missing_authorization_header():
 
 def test_auth_middleware_accepts_valid_user(test_user: MockUser):
     app = fastapi.FastAPI()
-    app.add_middleware(middleware.AuthMiddleware, api_key_source=api_key_source())
+    app.add_middleware(middleware.AuthMiddleware, api_key_source=mock_api_key_source())
 
     with TestClient(app) as client:
         http_response = client.get("/", headers=test_user.authorization_headers)
@@ -85,7 +87,7 @@ def test_auth_middleware_accepts_valid_assistant_service():
     test_api_key = uuid.uuid4().hex
 
     app = fastapi.FastAPI()
-    app.add_middleware(middleware.AuthMiddleware, api_key_source=api_key_source(test_api_key))
+    app.add_middleware(middleware.AuthMiddleware, api_key_source=mock_api_key_source(test_api_key))
 
     valid_assistant_service_id = uuid.uuid4().hex
     with TestClient(app) as client:
@@ -104,7 +106,7 @@ def test_auth_middleware_rejects_invalid_assistant_api_key():
     test_api_key = uuid.uuid4().hex
 
     app = fastapi.FastAPI()
-    app.add_middleware(middleware.AuthMiddleware, api_key_source=api_key_source(test_api_key))
+    app.add_middleware(middleware.AuthMiddleware, api_key_source=mock_api_key_source(test_api_key))
 
     valid_assistant_service_id = uuid.uuid4().hex
     with TestClient(app) as client:
@@ -124,7 +126,7 @@ def test_auth_middleware_rejects_invalid_assistant_service_id():
     test_api_key = uuid.uuid4().hex
 
     app = fastapi.FastAPI()
-    app.add_middleware(middleware.AuthMiddleware, api_key_source=api_key_source(test_api_key))
+    app.add_middleware(middleware.AuthMiddleware, api_key_source=mock_api_key_source(test_api_key))
 
     invalid_assistant_service_id = ""
     with TestClient(app) as client:
@@ -144,7 +146,7 @@ def test_auth_middleware_accepts_valid_assistant():
     test_api_key = uuid.uuid4().hex
 
     app = fastapi.FastAPI()
-    app.add_middleware(middleware.AuthMiddleware, api_key_source=api_key_source(test_api_key))
+    app.add_middleware(middleware.AuthMiddleware, api_key_source=mock_api_key_source(test_api_key))
 
     valid_assistant_service_id = uuid.uuid4().hex
     valid_assistant_id = uuid.uuid4()
@@ -168,7 +170,7 @@ def test_auth_middleware_allows_anonymous_excluded_paths():
     app.add_route("/", route=lambda _: fastapi.Response(status_code=200))
     app.add_middleware(
         middleware.AuthMiddleware,
-        api_key_source=api_key_source(test_api_key),
+        api_key_source=mock_api_key_source(test_api_key),
         exclude_paths={"/"},
     )
 

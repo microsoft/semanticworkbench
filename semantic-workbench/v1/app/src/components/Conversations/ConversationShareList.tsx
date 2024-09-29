@@ -29,14 +29,14 @@ export const ConversationShareList: React.FC<ConversationShareListProps> = (prop
         throw new Error(`Error loading conversation shares: ${JSON.stringify(conversationSharesError)}`);
     }
 
-    if (conversationSharesLoading) {
+    if (conversationSharesLoading || !conversationShares) {
         return <Loading />;
     }
 
     return (
         <MyShares
             conversation={conversation}
-            shares={conversationShares ?? []}
+            shares={conversationShares}
             title={`Shares for "${conversation.title}"`}
         />
     );

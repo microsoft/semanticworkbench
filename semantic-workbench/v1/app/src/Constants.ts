@@ -45,7 +45,8 @@ export const Constants = {
         method: 'redirect', // 'redirect' | 'popup'
         auth: {
             // Semantic Workbench GitHub sample app registration
-            // The same value is set also in "middleware.py" in the backend
+            // The same value is set also in AuthSettings in
+            // "semantic_workbench_service.config.py" in the backend
             clientId: '22cb77c3-ca98-4a26-b4db-ac4dcecba690',
 
             // Specific tenant only:     'https://login.microsoftonline.com/<tenant>/',

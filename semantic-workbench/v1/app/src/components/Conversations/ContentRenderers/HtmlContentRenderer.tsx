@@ -1,26 +1,56 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { makeStyles, shorthands, Text, tokens } from '@fluentui/react-components';
 import React from 'react';
+import DynamicIframe from '../../App/DynamicIframe';
+import { CodeContentRenderer } from './CodeContentRenderer';
+import { MarkdownContentRenderer } from './MarkdownContentRenderer';
+
+const useClasses = makeStyles({
+    previewTitle: {
+        ...shorthands.margin(tokens.spacingVerticalM, 0, 0, 0),
+    },
+    previewBox: {
+        border: `1px solid ${tokens.colorNeutralStroke1}`,
+    },
+});
 
 interface HtmlContentRendererProps {
     content: string;
+    displayNonHtmlContent?: boolean;
 }
 
 export const HtmlContentRenderer: React.FC<HtmlContentRendererProps> = (props) => {
-    const { content } = props;
+    const { content, displayNonHtmlContent } = props;
+    const classes = useClasses();
 
-    // get content from within "other stuff...\n```html\n<HTML/>\n```\nmore stuff..."
-    const htmlContent = content.match(/```html\n([\s\S]*?)\n```/)?.[1] || '';
-
-    // TODO: support additional content, but maybe hide it if a metadata flag is set
-    // // get the rest of the content
-    // const restOfContent = content.replace(/```html\n([\s\S]*?)\n```/, '');
+    // replace all html content with the dynamic iframe
+    const parts = content.split(/(```html\n[\s\S]*?\n```)/g);
 
     return (
-        <iframe
-            title="HtmlContentRenderer"
-            srcDoc={htmlContent}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-        />
+        <>
+            {parts.map((part, index) => {
+                const htmlMatch = part.match(/```html\n([\s\S]*?)\n```/);
+                if (htmlMatch) {
+                    return (
+                        <>
+                            {displayNonHtmlContent ? (
+                                <>
+                                    <CodeContentRenderer key={index} content={htmlMatch[1]} language="html" />
+                                    <Text className={classes.previewTitle} weight="semibold">
+                                        Preview:
+                                    </Text>
+                                </>
+                            ) : null}
+                            <div className={displayNonHtmlContent ? classes.previewBox : ''}>
+                                <DynamicIframe key={index} source={htmlMatch[1]} />
+                            </div>
+                        </>
+                    );
+                } else {
+                    return displayNonHtmlContent ? <MarkdownContentRenderer key={index} content={part} /> : null;
+                }
+            })}
+        </>
     );
 };

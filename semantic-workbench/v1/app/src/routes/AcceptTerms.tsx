@@ -4,6 +4,7 @@ import { Button, Title2, makeStyles, shorthands, tokens } from '@fluentui/react-
 import debug from 'debug';
 import React from 'react';
 import { useNavigate } from 'react-router';
+import { useLocation } from 'react-router-dom';
 import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
@@ -52,12 +53,14 @@ export const AcceptTerms: React.FC = () => {
     const { completedFirstRun } = useAppSelector((state) => state.app);
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
+    const location = useLocation();
 
     React.useEffect(() => {
         if (completedFirstRun?.app) {
-            navigate('/');
+            const redirectTo = location.state?.redirectTo ?? '/';
+            navigate(redirectTo);
         }
-    }, [completedFirstRun, navigate]);
+    }, [completedFirstRun, location.state?.redirectTo, navigate]);
 
     const handleAccept = () => {
         log('User accepted terms');

@@ -1,22 +1,24 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, shorthands, Title3, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
 import { InteractCanvas } from '../components/Conversations/Canvas/InteractCanvas';
+import { ConversationRename } from '../components/Conversations/ConversationRename';
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
+import { useLocalUserAccount } from '../libs/useLocalUserAccount';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import {
     useGetAssistantsInConversationQuery,
     useGetConversationFilesQuery,
-    useGetConversationParticipantMeQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
+    useUpdateConversationMutation,
 } from '../services/workbench';
 
 const useClasses = makeStyles({
@@ -25,6 +27,8 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         width: '100%',
         height: '100%',
+        // to let the controls anchor to the corner
+        position: 'relative',
     },
     main: {
         position: 'relative',
@@ -55,6 +59,13 @@ const useClasses = makeStyles({
         ...shorthands.borderTop(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
         ...shorthands.borderBottom(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
     },
+    title: {
+        color: tokens.colorNeutralForegroundOnBrand,
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: tokens.spacingHorizontalM,
+    },
 });
 
 export const Interact: React.FC = () => {
@@ -84,11 +95,8 @@ export const Interact: React.FC = () => {
         error: conversationFilesError,
         isLoading: isLoadingConversationFiles,
     } = useGetConversationFilesQuery(conversationId);
-    const {
-        currentData: participantMe,
-        isLoading: isLoadingParticipantMe,
-        error: participantMeError,
-    } = useGetConversationParticipantMeQuery(conversationId);
+    const [updateConversation] = useUpdateConversationMutation();
+    const { getUserId } = useLocalUserAccount();
 
     const siteUtility = useSiteUtility();
 
@@ -112,11 +120,6 @@ export const Interact: React.FC = () => {
         throw new Error(`Error loading conversation files: ${errorMessage}`);
     }
 
-    if (participantMeError) {
-        const errorMessage = JSON.stringify(participantMeError);
-        throw new Error(`Error loading participant: ${errorMessage}`);
-    }
-
     if (!isLoadingConversation && !conversation) {
         const errorMessage = `No conversation loaded for ${conversationId}`;
         throw new Error(errorMessage);
@@ -138,17 +141,22 @@ export const Interact: React.FC = () => {
         }
     }, [conversation, conversationParticipants, siteUtility]);
 
+    const handleConversationRename = React.useCallback(
+        async (id: string, newTitle: string) => {
+            await updateConversation({ id, title: newTitle });
+        },
+        [updateConversation],
+    );
+
     if (
         isLoadingAssistants ||
         isLoadingConversation ||
         isLoadingConversationParticipants ||
         isLoadingConversationFiles ||
-        isLoadingParticipantMe ||
         !assistants ||
         !conversation ||
         !conversationParticipants ||
-        !conversationFiles ||
-        !participantMe
+        !conversationFiles
     ) {
         return (
             <AppView title="Interact">
@@ -156,8 +164,7 @@ export const Interact: React.FC = () => {
             </AppView>
         );
     }
-
-    const readOnly = participantMe.conversationPermission === 'read';
+    const readOnly = conversation.conversationPermission === 'read';
 
     const conversationAssistants = assistants.filter((assistant) =>
         conversationParticipants.some(
@@ -168,8 +175,24 @@ export const Interact: React.FC = () => {
         items: [<ConversationShare key="share" iconOnly conversation={conversation} />],
     };
 
+    const userId = getUserId();
+
     return (
-        <AppView title={conversation.title} actions={actions} fullSizeContent>
+        <AppView
+            title={
+                <div className={classes.title}>
+                    <ConversationRename
+                        id={conversation.id}
+                        value={conversation.title}
+                        disabled={conversation.ownerId !== userId}
+                        onRename={handleConversationRename}
+                    />
+                    <Title3>{conversation.title}</Title3>
+                </div>
+            }
+            actions={actions}
+            fullSizeContent
+        >
             <div className={classes.root}>
                 <div className={classes.main}>
                     <div className={classes.history}>

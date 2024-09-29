@@ -2,8 +2,11 @@
 import { makeStyles } from '@fluentui/react-components';
 import { LinkRegular } from '@fluentui/react-icons';
 import React from 'react';
-import { useCreateShareMutation } from '../../services/workbench/share';
-import { CopyButton } from '../App/CopyButton';
+import { Conversation } from '../../models/Conversation';
+import { ConversationShare } from '../../models/ConversationShare';
+import { CommandButton } from '../App/CommandButton';
+import { ConversationShareCreate } from './ConversationShareCreate';
+import { ConversationShareView } from './ConversationShareView';
 
 const useClasses = makeStyles({
     root: {
@@ -12,46 +15,41 @@ const useClasses = makeStyles({
 });
 
 interface MessageLinkProps {
-    readOnly: boolean;
-    conversationId: string;
+    conversation: Conversation;
     messageId: string;
 }
 
-export const MessageLink: React.FC<MessageLinkProps> = ({ conversationId, messageId, readOnly }) => {
+export const MessageLink: React.FC<MessageLinkProps> = ({ conversation, messageId }) => {
     const classes = useClasses();
-    const [createShare] = useCreateShareMutation();
+    const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+    const [createdShare, setCreatedShare] = React.useState<ConversationShare | undefined>(undefined);
 
-    if (!conversationId || !messageId) {
+    if (!conversation || !messageId) {
         throw new Error('Invalid conversation or message ID');
     }
 
-    const getLink = React.useCallback(async () => {
-        if (readOnly) {
-            return `${window.location.origin}/conversation/${conversationId}#${messageId}`;
-        }
-
-        const share = await createShare({
-            conversationId,
-            label: 'Message link',
-            conversationPermission: 'read_write',
-            metadata: {
-                openMessageAction: messageId,
-                showDuplicateAction: false,
-                showJoinAction: false,
-            },
-        }).unwrap();
-        return `${window.location.origin}/conversation-share/${encodeURIComponent(share.id)}/redeem`;
-    }, [createShare, conversationId, messageId, readOnly]);
-
     return (
-        <div className={classes.root}>
-            <CopyButton
-                icon={<LinkRegular />}
-                appearance="subtle"
-                data={getLink}
-                tooltip="Copy message link"
-                size="small"
-            />
-        </div>
+        <>
+            <div className={classes.root}>
+                <CommandButton
+                    icon={<LinkRegular />}
+                    appearance="subtle"
+                    title="Share message link"
+                    size="small"
+                    onClick={() => setCreateDialogOpen(true)}
+                />
+            </div>
+            {createDialogOpen && (
+                <ConversationShareCreate
+                    conversation={conversation}
+                    linkToMessageId={messageId}
+                    onCreated={(share) => setCreatedShare(share)}
+                    onClosed={() => setCreateDialogOpen(false)}
+                />
+            )}
+            {createdShare && (
+                <ConversationShareView conversationShare={createdShare} onClosed={() => setCreatedShare(undefined)} />
+            )}
+        </>
     );
 };

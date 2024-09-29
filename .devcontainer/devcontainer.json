@@ -46,6 +46,9 @@
   },
   // Configure tool-specific properties.
   "customizations": {
+    "codespaces": {
+      "openFiles": ["/workspaces/semanticworkbench/.devcontainer/POST_SETUP_README.md"]
+    },
     "vscode": {
       "extensions": [
         "GitHub.copilot",

@@ -14,11 +14,21 @@ import {
     DialogTrigger,
     Field,
     Input,
+    makeStyles,
+    tokens,
 } from '@fluentui/react-components';
 import React from 'react';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
 import { ConversationDefinition, WorkflowDefinition, WorkflowState } from '../../models/WorkflowDefinition';
 import { useCreateWorkflowDefinitionMutation } from '../../services/workbench/workflow';
+
+const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
+});
 
 interface WorkflowCreateProps {
     open: boolean;
@@ -28,6 +38,7 @@ interface WorkflowCreateProps {
 
 export const WorkflowCreate: React.FC<WorkflowCreateProps> = (props) => {
     const { open, onOpenChange, onCreate } = props;
+    const classes = useClasses();
     const [createWorkflowDefinition] = useCreateWorkflowDefinitionMutation();
     const [label, setLabel] = React.useState('');
     const [submitted, setSubmitted] = React.useState(false);
@@ -109,17 +120,15 @@ export const WorkflowCreate: React.FC<WorkflowCreateProps> = (props) => {
                 >
                     <DialogBody>
                         <DialogTitle>New Workflow</DialogTitle>
-                        <DialogContent>
-                            <p>
-                                <Field label="Label">
-                                    <Input
-                                        disabled={submitted}
-                                        value={label}
-                                        onChange={(_event, data) => setLabel(data.value)}
-                                        aria-autocomplete="none"
-                                    />
-                                </Field>
-                            </p>
+                        <DialogContent className={classes.dialogContent}>
+                            <Field label="Label">
+                                <Input
+                                    disabled={submitted}
+                                    value={label}
+                                    onChange={(_event, data) => setLabel(data.value)}
+                                    aria-autocomplete="none"
+                                />
+                            </Field>
                             <button disabled={submitted} type="submit" hidden />
                         </DialogContent>
                         <DialogActions>

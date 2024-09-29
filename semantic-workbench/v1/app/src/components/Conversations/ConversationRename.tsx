@@ -5,13 +5,15 @@ import { EditRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { CommandButton } from '../App/CommandButton';
 
-interface AssistantRenameProps {
+interface ConversationRenameProps {
+    disabled?: boolean;
+    id: string;
     value: string;
-    onRename: (value: string) => Promise<void>;
+    onRename: (id: string, value: string) => Promise<void>;
 }
 
-export const AssistantRename: React.FC<AssistantRenameProps> = (props) => {
-    const { value, onRename } = props;
+export const ConversationRename: React.FC<ConversationRenameProps> = (props) => {
+    const { id, value, onRename, disabled } = props;
     const [name, setName] = React.useState(value);
     const [submitted, setSubmitted] = React.useState(false);
 
@@ -20,7 +22,7 @@ export const AssistantRename: React.FC<AssistantRenameProps> = (props) => {
             return;
         }
         setSubmitted(true);
-        await onRename(name);
+        await onRename(id, name);
         setSubmitted(false);
     };
 
@@ -29,9 +31,10 @@ export const AssistantRename: React.FC<AssistantRenameProps> = (props) => {
             iconOnly
             icon={<EditRegular />}
             label="Rename"
-            description="Rename assistant"
+            disabled={disabled}
+            description="Rename conversation"
             dialogContent={{
-                title: 'Rename Assistant',
+                title: 'Rename conversation',
                 content: (
                     <Field label="Name">
                         <Input disabled={submitted} value={name} onChange={(_event, data) => setName(data.value)} />

@@ -7,4 +7,6 @@ export interface Conversation {
     metadata?: {
         [key: string]: any;
     };
+    conversationPermission: 'read' | 'read_write';
+    importedFromConversationId?: string;
 }

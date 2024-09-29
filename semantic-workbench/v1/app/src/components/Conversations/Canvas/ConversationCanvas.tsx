@@ -64,7 +64,7 @@ export const ConversationCanvas: React.FC<ConversationCanvasProps> = (props) => 
                 <Text size={400} weight="semibold">
                     Files
                 </Text>
-                <FileList conversation={conversation} conversationFiles={conversationFiles} />
+                <FileList readOnly={readOnly} conversation={conversation} conversationFiles={conversationFiles} />
             </Card>
         </div>
     );

@@ -19,7 +19,7 @@ from semantic_workbench_api_model import (
     assistant_service_client,
     workbench_service_client,
 )
-from semantic_workbench_service import files, middleware
+from semantic_workbench_service import files, settings
 from semantic_workbench_service import service as workbenchservice
 from semantic_workbench_service.api import FastAPILifespan
 from semantic_workbench_service.config import DBSettings
@@ -31,9 +31,11 @@ def create_test_user(monkeypatch: pytest.MonkeyPatch) -> MockUser:
     random_id = str(uuid.uuid4())
     name = f"test user {random_id}"
     test_user = MockUser(tenant_id=random_id, object_id=random_id, name=name)
-    # monkeypatch the allowed_algorithms and app_ids for tests
-    monkeypatch.setattr(middleware, "allowed_algorithms", {test_user.token_algo})
-    monkeypatch.setattr(middleware, "allowed_app_ids", {test_user.app_id})
+
+    # monkeypatch the allowed_jwt_algorithms and app_ids for tests
+    monkeypatch.setattr(settings.auth, "allowed_jwt_algorithms", {test_user.token_algo})
+    monkeypatch.setattr(settings.auth, "allowed_app_ids", {test_user.app_id})
+
     return test_user
 
 
@@ -185,7 +187,7 @@ def workbench_service(
     )
 
     # monkeypatch workbench client to use a transport that directs requests to the workbench app
-    monkeypatch.setattr(workbench_service_client, "httpx_transport", httpx.ASGITransport(app=app))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=app))
 
     return app
 
@@ -200,6 +202,8 @@ def canonical_assistant_service(
         assistant_app = semantic_workbench_assistant.canonical.canonical_app.fastapi_app()
 
         # configure assistant client to use a specific transport that directs requests to the assistant app
-        monkeypatch.setattr(assistant_service_client, "httpx_transport", httpx.ASGITransport(app=assistant_app))
+        monkeypatch.setattr(
+            assistant_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=assistant_app)
+        )
 
         yield assistant_app

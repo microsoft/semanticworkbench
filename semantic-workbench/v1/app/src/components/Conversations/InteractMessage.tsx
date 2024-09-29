@@ -36,6 +36,7 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import React from 'react';
+import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useCreateConversationMessageMutation } from '../../services/workbench';
@@ -136,7 +137,7 @@ const useClasses = makeStyles({
 });
 
 interface InteractMessageProps {
-    conversationId: string;
+    conversation: Conversation;
     message: ConversationMessage;
     participant: ConversationParticipant;
     hideParticipant?: boolean;
@@ -145,7 +146,7 @@ interface InteractMessageProps {
 }
 
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
-    const { conversationId, message, participant, hideParticipant, displayDate, readOnly } = props;
+    const { conversation, message, participant, hideParticipant, displayDate, readOnly } = props;
     const classes = useClasses();
     const [createConversationMessage] = useCreateConversationMessageMutation();
 
@@ -175,7 +176,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         const onSubmit = async (data: string) => {
             if (message.metadata?.command) {
                 await createConversationMessage({
-                    conversationId,
+                    conversationId: conversation.id,
                     content: JSON.stringify({
                         command: message.metadata.command,
                         parameters: data,
@@ -193,7 +194,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 onSubmit={onSubmit}
             />
         );
-    }, [conversationId, createConversationMessage, message.content, message.contentType, message.metadata]);
+    }, [conversation, createConversationMessage, message.content, message.contentType, message.metadata]);
 
     const contentSafetyNotice = React.useMemo(() => {
         const metadata = message.metadata;
@@ -215,18 +216,18 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const actions = React.useMemo(
         () => (
             <>
-                <MessageLink readOnly={readOnly} conversationId={conversationId} messageId={message.id} />
+                {!readOnly && <MessageLink conversation={conversation} messageId={message.id} />}
                 <DebugInspector debug={message.metadata?.debug} />
                 <CopyButton data={message.content} tooltip="Copy message" size="small" appearance="transparent" />
                 {!readOnly && (
                     <>
-                        <MessageDelete conversationId={conversationId} message={message} />
-                        <RewindConversation conversationId={conversationId} message={message} />
+                        <MessageDelete conversationId={conversation.id} message={message} />
+                        <RewindConversation conversationId={conversation.id} message={message} />
                     </>
                 )}
             </>
         ),
-        [conversationId, message, readOnly],
+        [conversation, message, readOnly],
     );
 
     const getRenderedMessage = React.useCallback(() => {

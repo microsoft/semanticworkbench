@@ -37,9 +37,10 @@ export const Login: React.FC = () => {
                 </Button>
             </div>
             <Label>
-                Note: Semantic Workbench can be deployed as a multi-user application, requiring user sign-in even when running locally as a single-user instance.
-                By default, it uses Microsoft accounts and a sample app registration for quick setup.
-                You can modify the configuration in the code by editing `Constants.ts` and `middleware.py`.
+                Note: Semantic Workbench can be deployed as a multi-user application, requiring user sign-in even when
+                running locally as a single-user instance. By default, it uses Microsoft accounts and a sample app
+                registration for quick setup. You can modify the configuration in the code by editing `Constants.ts` and
+                `AuthSettings` in `semantic_workbench_settings.config.py`.
             </Label>
             {errorMessage && (
                 <MessageBar intent="error" layout="multiline">

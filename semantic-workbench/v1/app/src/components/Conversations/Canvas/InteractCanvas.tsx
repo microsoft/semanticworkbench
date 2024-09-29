@@ -1,13 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    DrawerHeader,
-    DrawerHeaderTitle,
-    InlineDrawer,
-    makeStyles,
-    shorthands,
-    tokens,
-} from '@fluentui/react-components';
+import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import debug from 'debug';
 import React from 'react';
 import { Constants } from '../../../Constants';
@@ -19,22 +12,23 @@ import { ConversationParticipant } from '../../../models/ConversationParticipant
 import { useAppSelector } from '../../../redux/app/hooks';
 import { AssistantCanvasList } from './AssistantCanvasList';
 import { CanvasControls } from './CanvasControls';
+import { CanvasDrawer } from './CanvasDrawer';
 import { ConversationCanvas } from './ConversationCanvas';
 
 const log = debug(Constants.debug.root).extend('InteractCanvas');
 
 const useClasses = makeStyles({
-    root: {
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        height: '100%',
-    },
     controls: {
-        position: 'absolute',
+        position: 'relative',
         top: 0,
         right: 0,
+        zIndex: tokens.zIndexFloating,
+    },
+    controlsInline: {
+        position: 'absolute',
+    },
+    controlsOverlay: {
+        position: 'fixed',
     },
     drawer: {
         height: '100%',
@@ -55,7 +49,18 @@ const useClasses = makeStyles({
             backgroundColor: tokens.colorNeutralStencil1Alpha,
         },
     },
+    drawerOpenInlineNarrow: {
+        width: 'min(50vw, 500px)',
+    },
+    drawerOpenInlineWide: {
+        width: 'calc(200vw - 300px)',
+    },
+    drawerOpenOverlay: {
+        width: '100%',
+    },
 });
+
+const drawerResponsiveBreakpoint = '900px';
 
 interface InteractCanvasProps {
     conversationAssistants: Assistant[];
@@ -80,6 +85,26 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
     const interactCanvasController = useInteractCanvasController();
     const [firstRun, setFirstRun] = React.useState(true);
     const [selectedAssistant, setSelectedAssistant] = React.useState<Assistant | null>(null);
+    const [drawerMode, setDrawerMode] = React.useState<'inline' | 'overlay'>('inline');
+
+    const onMediaQueryChange = React.useCallback(
+        (matches: boolean) => setDrawerMode(matches ? 'overlay' : 'inline'),
+        [setDrawerMode],
+    );
+
+    React.useEffect(() => {
+        const mediaQuery = window.matchMedia(`(max-width: ${drawerResponsiveBreakpoint})`);
+
+        if (mediaQuery.matches) {
+            setDrawerMode('overlay');
+        }
+
+        mediaQuery.addEventListener('change', (event) => onMediaQueryChange(event.matches));
+
+        return () => {
+            mediaQuery.removeEventListener('change', (event) => onMediaQueryChange(event.matches));
+        };
+    }, [onMediaQueryChange]);
 
     // Verify the selected assistant is in the conversation
     React.useEffect(() => {
@@ -159,42 +184,51 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
         // Otherwise do not open any drawer
     }
 
+    const controlsClassName = mergeClasses(
+        classes.controls,
+        openDrawer !== 'none' && drawerMode === 'overlay' ? classes.controlsOverlay : classes.controlsInline,
+    );
+
     return (
-        <div className={classes.root}>
-            <div className={classes.controls}>
+        <>
+            <div className={controlsClassName}>
                 <CanvasControls conversationId={conversation.id} />
             </div>
-            <InlineDrawer className={classes.drawer} open={openDrawer === 'conversation'} position="end" size="medium">
-                <DrawerHeader>
-                    <DrawerHeaderTitle>Conversation</DrawerHeaderTitle>
-                </DrawerHeader>
-                <div className={classes.drawerContent}>
-                    <ConversationCanvas
-                        readOnly={readOnly}
+            <CanvasDrawer
+                openClassName={drawerMode === 'inline' ? classes.drawerOpenInlineNarrow : classes.drawerOpenOverlay}
+                className={classes.drawer}
+                open={openDrawer === 'conversation'}
+                mode={drawerMode}
+                side="right"
+                title="Conversation"
+            >
+                <ConversationCanvas
+                    readOnly={readOnly}
+                    conversation={conversation}
+                    conversationParticipants={conversationParticipants}
+                    conversationFiles={conversationFiles}
+                    conversationAssistants={conversationAssistants}
+                    preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
+                />
+            </CanvasDrawer>
+            <CanvasDrawer
+                openClassName={drawerMode === 'inline' ? classes.drawerOpenInlineWide : classes.drawerOpenOverlay}
+                className={classes.drawer}
+                open={openDrawer === 'assistant'}
+                mode={drawerMode}
+                side="right"
+                title="Assistants"
+            >
+                {selectedAssistant ? (
+                    <AssistantCanvasList
+                        selectedAssistant={selectedAssistant}
                         conversation={conversation}
-                        conversationParticipants={conversationParticipants}
-                        conversationFiles={conversationFiles}
                         conversationAssistants={conversationAssistants}
-                        preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
                     />
-                </div>
-            </InlineDrawer>
-            <InlineDrawer className={classes.drawer} open={openDrawer === 'assistant'} position="end" size="large">
-                <DrawerHeader>
-                    <DrawerHeaderTitle>Assistants</DrawerHeaderTitle>
-                </DrawerHeader>
-                <div className={classes.drawerContent}>
-                    {selectedAssistant ? (
-                        <AssistantCanvasList
-                            selectedAssistant={selectedAssistant}
-                            conversation={conversation}
-                            conversationAssistants={conversationAssistants}
-                        />
-                    ) : (
-                        'No assistant selected.'
-                    )}
-                </div>
-            </InlineDrawer>
-        </div>
+                ) : (
+                    'No assistant selected.'
+                )}
+            </CanvasDrawer>
+        </>
     );
 };
