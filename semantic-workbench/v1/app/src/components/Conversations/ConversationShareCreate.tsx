@@ -13,14 +13,24 @@ import {
     DialogTrigger,
     Field,
     Input,
+    makeStyles,
     Radio,
     RadioGroup,
+    tokens,
 } from '@fluentui/react-components';
 import React from 'react';
 import { ConversationShareType, useConversationUtility } from '../../libs/useConversationUtility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationShare } from '../../models/ConversationShare';
 import { useCreateShareMutation } from '../../services/workbench/share';
+
+const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
+});
 
 interface ConversationShareCreateProps {
     conversation: Conversation;
@@ -31,6 +41,7 @@ interface ConversationShareCreateProps {
 
 export const ConversationShareCreate: React.FC<ConversationShareCreateProps> = (props) => {
     const { conversation, linkToMessageId, onCreated, onClosed } = props;
+    const classes = useClasses();
     const [createShare] = useCreateShareMutation();
     const [submitted, setSubmitted] = React.useState(false);
     const defaultShareLabel = conversation.title + (linkToMessageId ? ' - message link' : '');
@@ -81,44 +92,38 @@ export const ConversationShareCreate: React.FC<ConversationShareCreateProps> = (
             <DialogSurface>
                 <DialogBody>
                     <DialogTitle>{createTitle}</DialogTitle>
-                    <DialogContent>
-                        <>
-                            <p>
-                                <Field label="Label for display in your Shared links list" required={true}>
-                                    <Input
-                                        disabled={submitted}
-                                        value={shareLabel}
-                                        onChange={(_event, data) => setShareLabel(data.value)}
-                                        onFocus={handleFocus}
-                                        required={true}
+                    <DialogContent className={classes.dialogContent}>
+                        <Field label="Label for display in your Shared links list" required={true}>
+                            <Input
+                                disabled={submitted}
+                                value={shareLabel}
+                                onChange={(_event, data) => setShareLabel(data.value)}
+                                onFocus={handleFocus}
+                                required={true}
+                            />
+                        </Field>
+                        <Field label="Permissions" required={true}>
+                            <RadioGroup
+                                defaultValue={shareType}
+                                onChange={(_, data) => setShareType(data.value as ConversationShareType)}
+                                required={true}
+                            >
+                                <Radio
+                                    value={ConversationShareType.InvitedToParticipate}
+                                    label={`${ConversationShareType.InvitedToParticipate} in the conversation (read/write)`}
+                                />
+                                <Radio
+                                    value={ConversationShareType.InvitedToObserve}
+                                    label={`${ConversationShareType.InvitedToObserve} the conversation (read-only)`}
+                                />
+                                {!linkToMessageId && (
+                                    <Radio
+                                        value={ConversationShareType.InvitedToDuplicate}
+                                        label={`${ConversationShareType.InvitedToDuplicate} the conversation (read-only)`}
                                     />
-                                </Field>
-                            </p>
-                            <p>
-                                <Field label="Permissions" required={true}>
-                                    <RadioGroup
-                                        defaultValue={shareType}
-                                        onChange={(_, data) => setShareType(data.value as ConversationShareType)}
-                                        required={true}
-                                    >
-                                        <Radio
-                                            value={ConversationShareType.InvitedToParticipate}
-                                            label={`${ConversationShareType.InvitedToParticipate} in the conversation (read/write)`}
-                                        />
-                                        <Radio
-                                            value={ConversationShareType.InvitedToObserve}
-                                            label={`${ConversationShareType.InvitedToObserve} the conversation (read-only)`}
-                                        />
-                                        {!linkToMessageId && (
-                                            <Radio
-                                                value={ConversationShareType.InvitedToDuplicate}
-                                                label={`${ConversationShareType.InvitedToDuplicate} the conversation (read-only)`}
-                                            />
-                                        )}
-                                    </RadioGroup>
-                                </Field>
-                            </p>
-                        </>
+                                )}
+                            </RadioGroup>
+                        </Field>
                     </DialogContent>
                     <DialogActions>
                         <DialogTrigger>

@@ -13,7 +13,9 @@ import {
     DialogTitle,
     Field,
     Input,
+    makeStyles,
     Textarea,
+    tokens,
 } from '@fluentui/react-components';
 import React from 'react';
 import { Form } from 'react-router-dom';
@@ -27,6 +29,14 @@ import {
 } from '../../services/workbench';
 import { AssistantServiceRegistrationApiKey } from './AssistantServiceRegistrationApiKey';
 
+const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
+});
+
 interface AssistantServiceRegistrationCreateProps {
     open: boolean;
     onOpenChange?: (open: boolean) => void;
@@ -35,6 +45,7 @@ interface AssistantServiceRegistrationCreateProps {
 
 export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegistrationCreateProps> = (props) => {
     const { open, onOpenChange, onCreate } = props;
+    const classes = useClasses();
     const { refetch: refetchAssistantServiceRegistrations } = useGetAssistantServiceRegistrationsQuery({});
     const [createAssistantServiceRegistration] = useCreateAssistantServiceRegistrationMutation();
     const [name, setName] = React.useState('');
@@ -106,58 +117,50 @@ export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegist
                     <Form>
                         <DialogBody>
                             <DialogTitle>Create Assistant Service Registration</DialogTitle>
-                            <DialogContent>
-                                <p>
-                                    <Field label="Assistant Service ID" required>
-                                        <Input
-                                            value={id}
-                                            onChange={(event, data) => {
-                                                // lowercase first
-                                                data.value = data.value.toLowerCase();
-                                                // limit to lowercase alphanumeric and hyphen
-                                                data.value = data.value.replace(/[^a-z0-9-.]/g, '');
+                            <DialogContent className={classes.dialogContent}>
+                                <Field label="Assistant Service ID" required>
+                                    <Input
+                                        value={id}
+                                        onChange={(event, data) => {
+                                            // lowercase first
+                                            data.value = data.value.toLowerCase();
+                                            // limit to lowercase alphanumeric and hyphen
+                                            data.value = data.value.replace(/[^a-z0-9-.]/g, '');
 
-                                                setId(data.value);
-                                                setValid(event.currentTarget.form!.checkValidity());
-                                            }}
-                                            aria-autocomplete="none"
-                                            placeholder="Unique identifier for your assistant; eg: helpful-assistant.team-name"
-                                        />
-                                    </Field>
-                                </p>
-                                <p>
-                                    <Field label="Name" required>
-                                        <Input
-                                            value={name}
-                                            onChange={(event, data) => {
-                                                setName(data.value);
-                                                setValid(event.currentTarget.form!.checkValidity());
-                                            }}
-                                            aria-autocomplete="none"
-                                            placeholder="Display name for your assistant; eg: Helpful Assistant"
-                                        />
-                                    </Field>
-                                </p>
-                                <p>
-                                    <Checkbox
-                                        label="Include this assistant service in everyone's create assistant list"
-                                        checked={includeInListing}
-                                        onChange={(_, data) => setIncludeInListing(data.checked === true)}
+                                            setId(data.value);
+                                            setValid(event.currentTarget.form!.checkValidity());
+                                        }}
+                                        aria-autocomplete="none"
+                                        placeholder="Unique identifier for your assistant; eg: helpful-assistant.team-name"
                                     />
-                                </p>
-                                <p>
-                                    <Field label="Description">
-                                        <Textarea
-                                            value={description}
-                                            onChange={(event, data) => {
-                                                setDescription(data.value);
-                                                setValid(event.currentTarget.form!.checkValidity());
-                                            }}
-                                            aria-autocomplete="none"
-                                            placeholder="Description of your assistant; eg: A helpful assistant that can answer questions and provide guidance."
-                                        />
-                                    </Field>
-                                </p>
+                                </Field>
+                                <Field label="Name" required>
+                                    <Input
+                                        value={name}
+                                        onChange={(event, data) => {
+                                            setName(data.value);
+                                            setValid(event.currentTarget.form!.checkValidity());
+                                        }}
+                                        aria-autocomplete="none"
+                                        placeholder="Display name for your assistant; eg: Helpful Assistant"
+                                    />
+                                </Field>
+                                <Checkbox
+                                    label="Include this assistant service in everyone's create assistant list"
+                                    checked={includeInListing}
+                                    onChange={(_, data) => setIncludeInListing(data.checked === true)}
+                                />
+                                <Field label="Description">
+                                    <Textarea
+                                        value={description}
+                                        onChange={(event, data) => {
+                                            setDescription(data.value);
+                                            setValid(event.currentTarget.form!.checkValidity());
+                                        }}
+                                        aria-autocomplete="none"
+                                        placeholder="Description of your assistant; eg: A helpful assistant that can answer questions and provide guidance."
+                                    />
+                                </Field>
                             </DialogContent>
                             <DialogActions>
                                 <Button appearance="primary" onClick={handleSave} disabled={!valid || submitted}>

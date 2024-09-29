@@ -36,6 +36,11 @@ import {
 import { AssistantImport } from './AssistantImport';
 
 const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
     option: {
         display: 'flex',
         flexDirection: 'row',
@@ -222,50 +227,44 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
                 >
                     <DialogBody>
                         <DialogTitle>New Instance of Assistant</DialogTitle>
-                        <DialogContent>
+                        <DialogContent className={classes.dialogContent}>
                             {!manualEntry && (
-                                <p>
-                                    <Field label="Assistant Service">
-                                        <Dropdown
-                                            placeholder="Select an assistant service"
-                                            disabled={submitted}
-                                            onOptionSelect={(_event, data) => {
-                                                if (data.optionValue) {
-                                                    setAssistantServiceId(data.optionValue as string);
-                                                }
+                                <Field label="Assistant Service">
+                                    <Dropdown
+                                        placeholder="Select an assistant service"
+                                        disabled={submitted}
+                                        onOptionSelect={(_event, data) => {
+                                            if (data.optionValue) {
+                                                setAssistantServiceId(data.optionValue as string);
+                                            }
 
-                                                if (data.optionText && name === '') {
-                                                    setName(data.optionText);
-                                                }
-                                            }}
-                                        >
-                                            {options}
-                                        </Dropdown>
-                                    </Field>
-                                </p>
+                                            if (data.optionText && name === '') {
+                                                setName(data.optionText);
+                                            }
+                                        }}
+                                    >
+                                        {options}
+                                    </Dropdown>
+                                </Field>
                             )}
                             {manualEntry && (
-                                <p>
-                                    <Field label="Assistant Service ID">
-                                        <Input
-                                            disabled={submitted}
-                                            value={assistantServiceId}
-                                            onChange={(_event, data) => setAssistantServiceId(data?.value)}
-                                            aria-autocomplete="none"
-                                        />
-                                    </Field>
-                                </p>
-                            )}
-                            <p>
-                                <Field label="Name">
+                                <Field label="Assistant Service ID">
                                     <Input
                                         disabled={submitted}
-                                        value={name}
-                                        onChange={(_event, data) => setName(data?.value)}
+                                        value={assistantServiceId}
+                                        onChange={(_event, data) => setAssistantServiceId(data?.value)}
                                         aria-autocomplete="none"
                                     />
                                 </Field>
-                            </p>
+                            )}
+                            <Field label="Name">
+                                <Input
+                                    disabled={submitted}
+                                    value={name}
+                                    onChange={(_event, data) => setName(data?.value)}
+                                    aria-autocomplete="none"
+                                />
+                            </Field>
                             <button disabled={!name || !assistantServiceId || submitted} type="submit" hidden />
                         </DialogContent>
                         <DialogActions>

@@ -12,11 +12,17 @@ import {
     Input,
     Text,
     makeStyles,
+    tokens,
 } from '@fluentui/react-components';
 import { Copy24Regular } from '@fluentui/react-icons';
 import React from 'react';
 
 const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
     row: {
         display: 'flex',
         alignItems: 'center',
@@ -61,32 +67,27 @@ export const AssistantServiceRegistrationApiKey: React.FC<AssistantServiceRegist
             <DialogSurface>
                 <DialogBody>
                     <DialogTitle>Assistant Service Registration API Key</DialogTitle>
-                    <DialogContent>
-                        <p>
-                            <Field>
-                                <Input
-                                    ref={inputRef}
-                                    value={apiKey}
-                                    readOnly
-                                    contentAfter={
-                                        <div className={classes.row}>
-                                            {copiedTimeout && <Text>Copied to clipboard!</Text>}
-                                            <Button
-                                                appearance="transparent"
-                                                icon={<Copy24Regular />}
-                                                onClick={handleCopy}
-                                            />
-                                        </div>
-                                    }
-                                />
-                            </Field>
-                        </p>
-                        <p>
-                            <Text>
-                                Make sure to copy the API key before closing this dialog, as it will not be displayed
-                                again.
-                            </Text>
-                        </p>
+                    <DialogContent className={classes.dialogContent}>
+                        <Field>
+                            <Input
+                                ref={inputRef}
+                                value={apiKey}
+                                readOnly
+                                contentAfter={
+                                    <div className={classes.row}>
+                                        {copiedTimeout && <Text>Copied to clipboard!</Text>}
+                                        <Button
+                                            appearance="transparent"
+                                            icon={<Copy24Regular />}
+                                            onClick={handleCopy}
+                                        />
+                                    </div>
+                                }
+                            />
+                        </Field>
+                        <Text>
+                            Make sure to copy the API key before closing this dialog, as it will not be displayed again.
+                        </Text>
                     </DialogContent>
                     <DialogActions>
                         <Button appearance="primary" onClick={onClose}>

@@ -22,6 +22,11 @@ import { ConversationShare } from '../../models/ConversationShare';
 import { CopyButton } from '../App/CopyButton';
 
 const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
     shareLink: {
         display: 'flex',
         flexDirection: 'row',
@@ -61,48 +66,30 @@ export const ConversationShareView: React.FC<ConversationShareViewProps> = (prop
             <DialogSurface>
                 <DialogBody>
                     <DialogTitle>Share link details</DialogTitle>
-                    <DialogContent>
-                        <>
-                            <p>
-                                <Field label="Share label">
-                                    <strong>{conversationShare.label}</strong>
+                    <DialogContent className={classes.dialogContent}>
+                        <Field label="Share label">
+                            <strong>{conversationShare.label}</strong>
+                        </Field>
+                        <Field label="Share link">
+                            <div className={classes.shareLink}>
+                                <a href={link}>{link}</a>
+                                <CopyButton appearance="primary" data={link} tooltip="Copy share link" />
+                            </div>
+                        </Field>
+                        {showDetails && (
+                            <>
+                                <Field label="Conversation">
+                                    <a href={linkToConversation(conversationShare.conversationId)}>
+                                        {conversationShare.conversationTitle}
+                                    </a>
                                 </Field>
-                            </p>
-                            <p>
-                                <Field label="Share link">
-                                    <div className={classes.shareLink}>
-                                        <a href={link}>{link}</a>
-                                        <CopyButton appearance="primary" data={link} tooltip="Copy share link" />
-                                    </div>
+                                {linkToMessageId && <Field label="Links to message">{linkToMessageId}</Field>}
+                                <Field label="Permission">{shareType.toString()}</Field>
+                                <Field label="Created">
+                                    {new Date(Date.parse(conversationShare.createdDateTime + 'Z')).toLocaleString()}
                                 </Field>
-                            </p>
-                            {showDetails && (
-                                <>
-                                    <p>
-                                        <Field label="Conversation">
-                                            <a href={linkToConversation(conversationShare.conversationId)}>
-                                                {conversationShare.conversationTitle}
-                                            </a>
-                                        </Field>
-                                    </p>
-                                    {linkToMessageId && (
-                                        <p>
-                                            <Field label="Links to message">{linkToMessageId}</Field>
-                                        </p>
-                                    )}
-                                    <p>
-                                        <Field label="Permission">{shareType.toString()}</Field>
-                                    </p>
-                                    <p>
-                                        <Field label="Created">
-                                            {new Date(
-                                                Date.parse(conversationShare.createdDateTime + 'Z'),
-                                            ).toLocaleString()}
-                                        </Field>
-                                    </p>
-                                </>
-                            )}
-                        </>
+                            </>
+                        )}
                     </DialogContent>
                     <DialogActions>
                         <DialogTrigger>

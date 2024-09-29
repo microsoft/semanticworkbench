@@ -13,10 +13,20 @@ import {
     DialogTrigger,
     Field,
     Input,
+    makeStyles,
+    tokens,
 } from '@fluentui/react-components';
 import React from 'react';
 import { WorkflowRun } from '../../models/WorkflowRun';
 import { useCreateWorkflowRunMutation, useGetWorkflowRunsQuery } from '../../services/workbench';
+
+const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
+});
 
 interface WorkflowRunCreateProps {
     workflowDefinitionId: string;
@@ -27,6 +37,7 @@ interface WorkflowRunCreateProps {
 
 export const WorkflowRunCreate: React.FC<WorkflowRunCreateProps> = (props) => {
     const { workflowDefinitionId, open, onOpenChange, onCreate } = props;
+    const classes = useClasses();
     const { refetch: refetchWorkflowRuns } = useGetWorkflowRunsQuery(workflowDefinitionId);
     const [createWorkflowRun] = useCreateWorkflowRunMutation();
     const [title, setTitle] = React.useState('');
@@ -74,17 +85,15 @@ export const WorkflowRunCreate: React.FC<WorkflowRunCreateProps> = (props) => {
                 >
                     <DialogBody>
                         <DialogTitle>New Run of Workflow</DialogTitle>
-                        <DialogContent>
-                            <p>
-                                <Field label="Title of Run">
-                                    <Input
-                                        disabled={submitted}
-                                        value={title}
-                                        onChange={(_event, data) => setTitle(data?.value)}
-                                        aria-autocomplete="none"
-                                    />
-                                </Field>
-                            </p>
+                        <DialogContent className={classes.dialogContent}>
+                            <Field label="Title of Run">
+                                <Input
+                                    disabled={submitted}
+                                    value={title}
+                                    onChange={(_event, data) => setTitle(data?.value)}
+                                    aria-autocomplete="none"
+                                />
+                            </Field>
                             <button disabled={submitted} type="submit" hidden />
                         </DialogContent>
                         <DialogActions>
