@@ -23,4 +23,4 @@ format:
 lint:
 	npm run lint
 
-include $(repo_root)/build-tools/makefiles/shell.mk
+include $(repo_root)/tools/makefiles/shell.mk
