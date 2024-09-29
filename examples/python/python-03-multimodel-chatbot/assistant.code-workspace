@@ -2,7 +2,7 @@
   "folders": [
     {
       "path": ".",
-      "name": "examples/python-03-multimodel-chatbot"
+      "name": "examples/python/python-03-multimodel-chatbot"
     },
     {
       "path": "../.."

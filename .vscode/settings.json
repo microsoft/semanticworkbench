@@ -26,10 +26,10 @@
   "python.analysis.fixAll": ["source.unusedImports"],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "basic",
-  "python.defaultInterpreterPath": "${workspaceFolder}/semantic-workbench/v1/service/.venv",
+  "python.defaultInterpreterPath": "${workspaceFolder}/workbench-service/.venv",
   "python.languageServer": "Pylance",
   "python.testing.pytestEnabled": true,
-  "python.testing.cwd": "${workspaceFolder:v1}/service",
+  "python.testing.cwd": "${workspaceFolder:v1}/workbench-service",
   "python.testing.pytestArgs": [],
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",

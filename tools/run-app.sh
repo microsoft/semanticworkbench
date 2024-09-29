@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && cd .. && pwd)"
 cd $ROOT
 # ================================================================
 
-cd semantic-workbench/v1/app
+cd workbench-app
 
 # Check node version, it must be major version 20 (any minor), otherwise show an error and exit
 NODE_VERSION=$(node -v)

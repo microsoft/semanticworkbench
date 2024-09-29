@@ -27,11 +27,11 @@ App registration is a free service, but you may need to provide a credit card fo
 
 Edit the following files with the new app registration details:
 
-- Semantic Workbench app: [constants.ts](../semantic-workbench/v1/app/src/Constants.ts)
+- Semantic Workbench app: [constants.ts](../workbench-app/src/Constants.ts)
 
   - Update the `msal.auth.clientId` with the `Application (client) ID`
 
-- Semantic Workbench service: [config.py](../semantic-workbench/v1/service/semantic-workbench-service/semantic_workbench_service/config.py)
+- Semantic Workbench service: [config.py](../workbench-service/semantic-workbench-service/semantic_workbench_service/config.py)
   - Update the `AuthSettings.allowed_app_ids` with the `Application (client) ID`
 
 ## TODO

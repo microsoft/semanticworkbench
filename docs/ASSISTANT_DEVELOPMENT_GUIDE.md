@@ -4,24 +4,24 @@
 
 For assistants to be instantiated in Semantic Workbench, you need to implement an assistant service that the workbench can talk with via http.
 
-We provide several python base classes to make this easier: [semantic-workbench-assistant](../semantic-workbench/v1/service/semantic-workbench-assistant/README.md)
+We provide several python base classes to make this easier: [semantic-workbench-assistant](../libraries/python/semantic-workbench-assistant/README.md)
 
 Example assistant services:
 
-- [Canonical assistant example](../semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
-- Python assistant [python-01-echo-bot](../examples/python-01-echo-bot/README.md) and [python-02-simple-chatbot](../examples/python-02-simple-chatbot/README.md)
-- .NET agent [dotnet-01-echo-bot](../examples/dotnet-01-echo-bot/README.md), [dotnet-02-message-types-demo](../examples/dotnet-02-message-types-demo/README.md) and [dotnet-03-simple-chatbot](../examples/dotnet-03-simple-chatbot/README.md)
+- [Canonical assistant example](../libraries/python/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
+- Python assistant [python-01-echo-bot](../examples/python/python-01-echo-bot/README.md) and [python-02-simple-chatbot](../examples/python/python-02-simple-chatbot/README.md)
+- .NET agent [dotnet-01-echo-bot](../examples/dotnet/dotnet-01-echo-bot/README.md), [dotnet-02-message-types-demo](../examples/dotnet/dotnet-02-message-types-demo/README.md) and [dotnet-03-simple-chatbot](../examples/dotnet/dotnet-03-simple-chatbot/README.md)
 
 ## Top level concepts
 
 RECOMMENDED FOR PYTHON: Use the `semantic-workbench-assistant` classes to create your assistant service. These classes provide a lot of the boilerplate code for you.
 
-See the [semantic-workbench-assistant.assistant_app.AssistantApp](../semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/assistant_app/assistant.py) for the classes
-and the Python [python-01-echo-bot](../examples/python-01-echo-bot/README.md) for an example of how to use them.
+See the [semantic-workbench-assistant.assistant_app.AssistantApp](../libraries/python/semantic-workbench-assistant/semantic_workbench_assistant/assistant_app/assistant.py) for the classes
+and the Python [python-01-echo-bot](../examples/python/python-01-echo-bot/README.md) for an example of how to use them.
 
 ### assistant_service.FastAPIAssistantService
 
-Your main job is to implement a service that supports all the Semantic Workbench methods. The [Canonical assistant example](../semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py) demonstrates a minimal implementation.
+Your main job is to implement a service that supports all the Semantic Workbench methods. The [Canonical assistant example](../libraries/python/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py) demonstrates a minimal implementation.
 
 It implements an assistant service that inherits from FastAPIAssistantService:
 
@@ -44,7 +44,7 @@ This service is now a FastAPIAssistantService containing all the assistant metho
   - Follow the `README.md` in the example project to get started
   - If the project has a `.env.example` file, copy it to `.env` and update the values as needed
 - Build and Launch assistant. Run workbench service. Run workbench app. Add assistant local url to workbench via UI.
-- NOTE: See additional documentation in [/semantic-workbench/v1/app/docs](../semantic-workbench/v1/app/docs/) regarding app features that can be used in the assistant service.
+- NOTE: See additional documentation in [/workbench-app/docs](../workbench-app/docs/) regarding app features that can be used in the assistant service.
 
 ## Assistant service deployment
 

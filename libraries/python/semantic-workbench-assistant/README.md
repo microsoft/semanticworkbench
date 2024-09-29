@@ -9,6 +9,6 @@ The repository contains a without any AI feature, that can be used as starting p
 To start the canonical assistant:
 
 ```sh
-cd semantic-workbench/v1/service
+cd workbench-service
 start-semantic-workbench-assistant semantic_workbench_assistant.canonical:app
 ```

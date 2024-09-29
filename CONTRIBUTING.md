@@ -17,7 +17,7 @@ Before filing a new issue, please search the list of issues to make sure it does
 not already exist.
 
 If you do find an existing issue for what you wanted to report, please include
-your own feedback in the discussion. Do consider upvoting (👍 reaction) the original
+your own feedback in the discussion. Do consider up-voting (👍 reaction) the original
 post, as this helps us prioritize popular issues in our backlog.
 
 ### Writing a Good Bug Report
@@ -87,9 +87,9 @@ We use and recommend the following workflow:
      You can request that the issue be assigned to you. Note: The issue filer and
      the implementer don't have to be the same person.
 2. Create a personal fork of the repository on GitHub (if you don't already have one).
-3. In your fork, create a branch off of main (`git checkout -b mybranch`).
+3. In your fork, create a branch off of main (`git checkout -b my_branch`).
    - Name the branch so that it clearly communicates your intentions, such as
-     "issue-123" or "githubhandle-issue".
+     "issue-123" or "github_handle-issue".
 4. Make and commit your changes to your branch.
 5. Add new tests corresponding to your change, if applicable.
 6. Run the build and tests as described in the readme for the part(s) of the Semantic Workbench your changes impact to ensure that your build is clean and all tests are passing.
@@ -99,11 +99,10 @@ We use and recommend the following workflow:
 8. Wait for feedback or approval of your changes from the code maintainers.
 9. When area owners have signed off, and all checks are green, your PR will be merged.
 
-
 ### Adding Assistants
 
 We appreciate your interest in extending Semantic Workbench's functionality through
-providing assistants in the main repo. However, we want to clarify our approach to 
+providing assistants in the main repo. However, we want to clarify our approach to
 our GitHub repository. To maintain a clean and manageable codebase we will not be
 hosting assistants directly in the Semantic Workbench GitHub repository.
 Instead, we encourage contributors to host their assistants in separate

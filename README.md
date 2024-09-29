@@ -7,9 +7,9 @@ or more assistants, configuring settings, and exposing various behaviors.
 
 The Semantic Workbench is composed of three main components:
 
-- [Workbench Service](semantic-workbench/v1/service/README.md) (Python): The backend service that
+- [Workbench Service](workbench-service/README.md) (Python): The backend service that
   handles core functionalities.
-- [Workbench App](semantic-workbench/v1/app/README.md) (React/Typescript): The frontend web user
+- [Workbench App](workbench-app/README.md) (React/Typescript): The frontend web user
   interface for interacting with workbench and assistants.
 - [Assistant Services](examples) (Python, C#, etc.): any number of assistant services that implement the service protocols/APIs,
   developed using any framework and programming language of your choice.
@@ -30,9 +30,9 @@ See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for m
 # Quick start - Local development environment
 
 - Configure your dev environment, [setup guide](docs/SETUP_DEV_ENVIRONMENT.md).
-- Start the backend service, see [here for instructions](semantic-workbench/v1/service/README.md).
-- Start the frontend app, see [here for instructions](semantic-workbench/v1/app/README.md).
-- Start the [Python chatbot example](examples/python-03-simple-chatbot/README.md), or one of the other [examples](examples).
+- Start the backend service, see [here for instructions](workbench-service/README.md).
+- Start the frontend app, see [here for instructions](workbench-app/README.md).
+- Start the [Python chatbot example](examples/python/python-03-simple-chatbot/README.md), or one of the other [examples](examples).
 
 ![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme1.png)
 
@@ -46,16 +46,16 @@ To develop new assistants and connect existing ones, see the [Assistant Developm
 
 The repository contains a few examples that can be used to create custom assistants:
 
-- [Python Canonical Assistant](semantic-workbench/v1/service/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
-- [Python example 1](examples/python-01-echo-bot/README.md): a simple assistant echoing text back.
-- [Python example 2](examples/python-02-simple-chatbot/README.md): a simple chatbot implementing metaprompt guardrails and content moderation.
-- [Python example 3](examples/python-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
-- [.NET example 1](examples/dotnet-01-echo-bot/README.md): a simple agent with echo and support for a basic `/say` command.
-- [.NET example 2](examples/dotnet-02-message-types-demo/README.md): a simple assistants showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
-- [.NET example 3](examples/dotnet-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
+- [Python Canonical Assistant](libraries/python/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
+- [Python example 1](examples/python/python-01-echo-bot/README.md): a simple assistant echoing text back.
+- [Python example 2](examples/python/python-02-simple-chatbot/README.md): a simple chatbot implementing metaprompt guardrails and content moderation.
+- [Python example 3](examples/python/python-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
+- [.NET example 1](examples/dotnet/dotnet-01-echo-bot/README.md): a simple agent with echo and support for a basic `/say` command.
+- [.NET example 2](examples/dotnet/dotnet-02-message-types-demo/README.md): a simple assistants showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
+- [.NET example 3](examples/dotnet/dotnet-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
 
-![Mermaid graph example](examples/dotnet-02-message-types-demo/docs/mermaid.png)
-![ABC music example](examples/dotnet-02-message-types-demo/docs/abc.png)
+![Mermaid graph example](examples/dotnet/dotnet-02-message-types-demo/docs/mermaid.png)
+![ABC music example](examples/dotnet/dotnet-02-message-types-demo/docs/abc.png)
 
 ## Open the Workbench and create an assistant instance
 
@@ -82,13 +82,13 @@ Expected: You get a response from your assistant!
 
 ## Refreshing Dev Environment
 
-- [v1\service\.data](service.data) delete this directory or specific files if you know which one.
+- Delete `~/workbench-service/.data` or specific files if you know which one(s).
 - From repo root, run `make clean install`.
   - This will perform a `git clean` and run installs in all sub-directories
 - Or a faster option if you just want to install semantic workbench related stuff:
   - From repo root, run `make clean`
-  - From `~/semantic-workbench/v1/app`, run `make install`
-  - From `~/semantic-workbench/v1/service`, run `make install`
+  - From `~/workbench-app`, run `make install`
+  - From `~/workbench-service`, run `make install`
 
 # Contributing
 
