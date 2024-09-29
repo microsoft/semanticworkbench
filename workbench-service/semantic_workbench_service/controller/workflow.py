@@ -1479,13 +1479,13 @@ class WorkflowController:
                 if transition is not None:
                     return transition
 
-            # if no transition found, return a default transition to the start state
-            # use the start_state_id as id in case it is needed again (should not be)
-            return WorkflowTransition(
-                id=workflow_definition.start_state_id,
-                source_outlet_id=outlet.id,
-                target_state_id=workflow_definition.start_state_id,
-            )
+                # if no transition found, return a default transition to the start state
+                # use the start_state_id as id in case it is needed again (should not be)
+                return WorkflowTransition(
+                    id=workflow_definition.start_state_id,
+                    source_outlet_id=outlet.id,
+                    target_state_id=workflow_definition.start_state_id,
+                )
 
     async def create_conversation_for_workflow_state(
         self,

@@ -1,5 +1,6 @@
 import argparse
 import shlex
+from typing import NoReturn
 
 
 class CommandArgumentParser(argparse.ArgumentParser):
@@ -26,10 +27,11 @@ class CommandArgumentParser(argparse.ArgumentParser):
     def command(self) -> str:
         return self.prog
 
-    def error(self, message):
+    def error(self, message) -> NoReturn:
         self._error_message = message
+        raise argparse.ArgumentError(None, message)
 
-    def parse_args(self, arg_string: str):
+    def parse_args(self, arg_string: str) -> argparse.Namespace:  # type: ignore
         try:
             sys_args_like = shlex.split(arg_string)
         except ValueError as e:

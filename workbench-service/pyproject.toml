@@ -25,13 +25,13 @@ python-dotenv = "~1.0.0"
 python-jose = { version = "*", extras = ["cryptography"] }
 python-json-logger = "^2.0.7"
 rich = "^13.7.0"
-semantic-workbench-api-model = { path = "../semantic-workbench-api-model", develop = true }
+semantic-workbench-api-model = { path = "../libraries/python/semantic-workbench-api-model", develop = true }
 sqlmodel = "~0.0.14"
 sse-starlette = "~1.8.2"
 
 [tool.poetry.group.dev.dependencies]
 # semantic-workbench-assistant is used for integration tests
-semantic-workbench-assistant = { path = "../semantic-workbench-assistant", develop = true }
+semantic-workbench-assistant = { path = "../libraries/python/semantic-workbench-assistant", develop = true }
 asgi-lifespan = "^2.1.0"
 pytest = "^7.4.3"
 pytest-asyncio = "^0.23.5.post1"
@@ -48,3 +48,23 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pyright]
 exclude = ["venv", ".venv"]
+
+[tool.pytest.ini_options]
+addopts = "-vv"
+log_cli = true
+log_cli_level = "WARNING"
+log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+
+# fail tests on warnings that aren't explicitly ignored
+filterwarnings = [
+    "error",
+    # stream warnings are from bugs in starlette - hopefully they fix this
+    "ignore: Unclosed .MemoryObject(Send|Receive)Stream.:ResourceWarning",
+    # aiosqlite doesn't handle cancelations correctly
+    "ignore: Exception in thread Thread:pytest.PytestUnhandledThreadExceptionWarning",
+    # asyncpg sometimes fails to close sockets
+    "ignore: unclosed <socket.socket:ResourceWarning",
+]

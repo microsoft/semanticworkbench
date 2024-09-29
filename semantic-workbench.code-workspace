@@ -60,11 +60,11 @@
     {
       "name": ".vscode",
       "path": "./.vscode"
-    }
+    },
     // Everything else
-    // {
-    //   "name": "root",
-    //   "path": "."
-    // }
+    {
+      "name": "root",
+      "path": "."
+    }
   ]
 }
