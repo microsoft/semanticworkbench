@@ -55,6 +55,11 @@ class ModelAdapter(BaseModel):
         pass
 
 
+#
+# region OpenAI
+#
+
+
 class OpenAIAdapter(ModelAdapter):
     def _format_messages(self, messages: List[Message]) -> List[ChatCompletionMessageParam]:
         formatted_messages = []
@@ -106,6 +111,13 @@ class OpenAIAdapter(ModelAdapter):
             )
         except Exception as e:
             return exception_to_generate_response_result(e, metadata)
+
+
+# endregion
+
+#
+# region Anthropic
+#
 
 
 class AnthropicAdapter(ModelAdapter):
@@ -197,9 +209,17 @@ class AnthropicAdapter(ModelAdapter):
             return exception_to_generate_response_result(e, metadata)
 
 
-class GeminiAdapter(ModelAdapter):
-    GeminiFormattedMessages: TypeAlias = Iterable[genai.types.StrictContentType]
+# endregion
 
+#
+# region Gemini
+#
+
+
+GeminiFormattedMessages: TypeAlias = Iterable[genai.types.StrictContentType]
+
+
+class GeminiAdapter(ModelAdapter):
     def _format_messages(self, messages: List[Message]) -> GeminiFormattedMessages:
         gemini_messages = []
         for msg in messages:
@@ -232,8 +252,8 @@ class GeminiAdapter(ModelAdapter):
 
         try:
             model = service_config.new_client()
-            chat = model.start_chat(history=formatted_messages)
-            response = await chat.send_message_async(list(formatted_messages)[:1])
+            chat = model.start_chat(history=list(formatted_messages)[:-1])
+            response = await chat.send_message_async(list(formatted_messages)[-1])
             deepmerge.always_merger.merge(metadata, {"debug": {"response": response.to_dict()}})
             return GenerateResponseResult(
                 response=response.text,
@@ -241,6 +261,13 @@ class GeminiAdapter(ModelAdapter):
             )
         except Exception as e:
             return exception_to_generate_response_result(e, metadata)
+
+
+# endregion
+
+#
+# region General
+#
 
 
 def get_model_adapter(service_type: ServiceType) -> ModelAdapter:
@@ -269,3 +296,6 @@ def exception_to_generate_response_result(e: Exception, metadata: dict[str, Any]
         error=str(e),
         metadata=metadata,
     )
+
+
+# endregion
