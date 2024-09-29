@@ -28,7 +28,7 @@ See the [Responsible AI FAQ](../../RESPONSIBLE_AI_FAQ.md) for more information.
   - SUGGESTED: Use GitHub Codespaces for a quick, easy, and consistent dev
     environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
   - ALTERNATIVE: Local setup following the [main README](../../README.md#quick-start---local-development-environment)
-- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench/v1/semantic-workbench.code-workspace)
+- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench.code-workspace)
 - If using Azure OpenAI, set up an Azure account and create a Content Safety resource
   - See [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety) for more information
   - Copy the `.env.example` to `.env` and update the `ASSISTANT__AZURE_CONTENT_SAFETY_ENDPOINT` value with the endpoint of your Azure Content Safety resource

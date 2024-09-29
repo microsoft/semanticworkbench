@@ -16,7 +16,7 @@ The code here is only meant to **show the basics**, to **familiarize with code s
   - SUGGESTED: Use GitHub Codespaces for a quick, easy, and consistent dev
     environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
   - ALTERNATIVE: Local setup following the [main README](../../README.md#quick-start---local-development-environment)
-- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench/v1/semantic-workbench.code-workspace)
+- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench.code-workspace)
 
 ## Steps
 
