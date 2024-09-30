@@ -37,9 +37,8 @@
   // Use 'otherPortsAttributes' to set the defaults that are applied to all ports, unless overridden
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
-  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y pv",
-  "updateContentCommand": "sudo apt-get update && sudo apt-get install -y pv",
-  "postCreateCommand": "/bin/bash /workspaces/semanticworkbench/.devcontainer/post-create-setup.sh",
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y pv && git config --global push.autoSetupRemote true",
+  "updateContentCommand": "make -C /workspaces/semanticworkbench | pv -lep -s $(($(make -C /workspaces/semanticworkbench -n | wc -l)))",
   "postStartCommand": "/bin/bash /workspaces/semanticworkbench/.devcontainer/post-start-setup.sh",
   // Configure tool-specific properties.
   "customizations": {
