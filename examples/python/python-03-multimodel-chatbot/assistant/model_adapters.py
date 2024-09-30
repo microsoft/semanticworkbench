@@ -189,19 +189,26 @@ class AnthropicAdapter(ModelAdapter):
                 # we're only expecting text blocks for now, so raise an error if we get a ToolUseBlock
                 content = completion.content
                 deepmerge.always_merger.merge(metadata, {"debug": {"response": completion.model_dump_json()}})
-                if isinstance(content, anthropic.types.TextBlock):
-                    return GenerateResponseResult(
-                        response=content.text,
-                        metadata=metadata,
-                    )
-                elif isinstance(content, anthropic.types.ToolUseBlock):
-                    return GenerateResponseResult(
-                        error="Received a ToolUseBlock, which is not supported",
-                        metadata=metadata,
-                    )
+                if isinstance(content, list):
+                    for item in content:
+                        if isinstance(item, anthropic.types.TextBlock):
+                            return GenerateResponseResult(
+                                response=item.text,
+                                metadata=metadata,
+                            )
+                        elif isinstance(item, anthropic.types.ToolUseBlock):
+                            return GenerateResponseResult(
+                                error="Received a ToolUseBlock, which is not supported",
+                                metadata=metadata,
+                            )
+                        else:
+                            return GenerateResponseResult(
+                                error="Received an unexpected response",
+                                metadata=metadata,
+                            )
                 else:
                     return GenerateResponseResult(
-                        error="Received an unexpected response",
+                        error="Content is not a list",
                         metadata=metadata,
                     )
 

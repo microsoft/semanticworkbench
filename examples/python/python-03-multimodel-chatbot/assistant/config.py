@@ -6,7 +6,8 @@ from typing import Annotated, Any, Literal
 import google.generativeai as genai
 import openai
 from anthropic import AsyncAnthropic
-from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity.aio import (DefaultAzureCredential,
+                                get_bearer_token_provider)
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant import config
@@ -359,7 +360,8 @@ class OllamaServiceConfig(ServiceConfig):
 
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
         return openai.AsyncOpenAI(
-            base_url=f"{self.ollama_endpoint}/v1",
+            base_url=f"{self.ollama_endpoint}",
+            api_key=self.openai_api_key
         )
 
 
@@ -484,4 +486,5 @@ class AssistantConfigModel(BaseModel):
     # add any additional configuration fields
 
 
+# endregion
 # endregion
