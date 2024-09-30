@@ -1,0 +1,15 @@
+.DS_Store
+.dockerignore
+.data*
+__pycache__
+.pytest_cache
+*.egg*
+.venv
+.env
+devdb
+README.md
+tests
+Dockerfile
+Dockerfile.*
+Makefile
+infra

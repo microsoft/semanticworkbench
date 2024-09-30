@@ -2,6 +2,9 @@
 
 set -e
 
-service ssh start
+# if SSHD_PORT is set, start sshd
+if [ -n "${SSHD_PORT}" ]; then
+    service ssh start
+fi
 
-start-semantic-workbench-service --port ${port}
+exec "$@"
