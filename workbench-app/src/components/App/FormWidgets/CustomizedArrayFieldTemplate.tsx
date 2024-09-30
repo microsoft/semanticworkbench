@@ -52,9 +52,9 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
     const { items, canAdd, onAddClick, className, disabled, schema, uiSchema, title, formData, rawErrors } = props;
     const classes = useClasses();
 
-    const hideTitle = uiSchema?.['ui:options']?.['hide_title'] === true ?? false;
+    const hideTitle = uiSchema?.['ui:options']?.['hide_title'] === true;
 
-    const collapsed = uiSchema?.['ui:options']?.['collapsed'] === true ?? false;
+    const collapsed = uiSchema?.['ui:options']?.['collapsed'] === true;
     const openItems: AccordionItemValue[] = [];
     if (!collapsed) {
         for (let i = 0; i < items.length; i++) {

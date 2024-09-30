@@ -31,10 +31,10 @@ export const CustomizedObjectFieldTemplate: React.FC<ObjectFieldTemplateProps> =
     const { title, description, properties, uiSchema, idSchema, schema } = props;
     const classes = useClasses();
 
-    const hideTitle = uiSchema?.['ui:options']?.['hide_title'] ?? false;
+    const hideTitle = uiSchema?.['ui:options']?.['hide_title'];
 
-    const isCollapsed = uiSchema?.['ui:options']?.['collapsed'] === true ?? false;
-    const isCollapsible = isCollapsed || (uiSchema?.['ui:options']?.['collapsible'] === true ?? false);
+    const isCollapsed = uiSchema?.['ui:options']?.['collapsed'] === true;
+    const isCollapsible = isCollapsed || uiSchema?.['ui:options']?.['collapsible'] === true;
     const openItems = isCollapsed ? [] : properties.map((_, index) => index);
 
     if (isCollapsible) {
