@@ -38,7 +38,7 @@
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
   // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "/bin/bash /workspaces/semanticworkbench/.devcontainer/post-create-setup.sh",
+  "postCreateCommand": "apt-get update && apt-get install -y pv && /bin/bash /workspaces/semanticworkbench/.devcontainer/post-create-setup.sh",
   // Configure tool-specific properties.
   "customizations": {
     "vscode": {
