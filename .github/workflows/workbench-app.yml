@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-pr:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,6 +39,31 @@ jobs:
         env:
           NODE_OPTIONS: "--max_old_space_size=8192"
 
+  build-main:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    environment:
+      name: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js version
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+
+      - name: npm install, build, and test
+        run: |
+          npm install
+          npm run build --if-present
+          npm run test --if-present
+        working-directory: ./workbench-app
+        env:
+          NODE_OPTIONS: "--max_old_space_size=8192"
+          VITE_SEMANTIC_WORKBENCH_AUTHORITY: ${{ secrets.VITE_SEMANTIC_WORKBENCH_AUTHORITY }}
+          VITE_SEMANTIC_WORKBENCH_CLIENT_ID: ${{ secrets.VITE_SEMANTIC_WORKBENCH_CLIENT_ID }}
+
       - name: Zip artifact for deployment
         if: github.event_name != 'pull_request'
         run: zip semantic-workbench-release.zip . -r
@@ -54,7 +79,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
-    needs: build
+    needs: build-main
     environment:
       name: production
     permissions:
