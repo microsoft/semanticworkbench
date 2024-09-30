@@ -38,19 +38,9 @@
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
   // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": {
-    // Set up git to automatically set up the remote when pushing if it doesn't exist
-    "git_config": "git config --add push.autoSetupRemote true",
-    // Build and restore dependencies for key projects in the repo
-    "make": "make -C /workspaces/semanticworkbench"
-  },
+  "postCreateCommand": "/bin/bash /workspaces/semanticworkbench/.devcontainer/post-create-setup.sh",
   // Configure tool-specific properties.
   "customizations": {
-    "codespaces": {
-      "openFiles": [
-        "/workspaces/semanticworkbench/.devcontainer/POST_SETUP_README.md"
-      ]
-    },
     "vscode": {
       "extensions": [
         "GitHub.copilot",
