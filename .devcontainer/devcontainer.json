@@ -39,7 +39,6 @@
   // "otherPortsAttributes": {},
   "updateContentCommand": "make -C /workspaces/semanticworkbench",
   "postCreateCommand": "git config --global push.autoSetupRemote true",
-  "workspaceFolder": "/workspaces/semanticworkbench/semantic-workbench.code-workspace",
   // Configure tool-specific properties.
   "customizations": {
     "codespaces": {
@@ -55,13 +54,15 @@
         "epivision.vscode-file-header",
         "esbenp.prettier-vscode",
         "github.vscode-github-actions",
+        "matt-rudge.auto-open-preview-panel",
         "ms-azuretools.vscode-docker",
         "ms-python.debugpy",
         "ms-python.python",
         "ms-vscode.makefile-tools",
         "ms-vscode.vscode-node-azure-pack",
         "tamasfe.even-better-toml",
-        "streetsidesoftware.code-spell-checker"
+        "streetsidesoftware.code-spell-checker",
+        "zoma.vscode-auto-open-workspace"
       ]
     }
   },
