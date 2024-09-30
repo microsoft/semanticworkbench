@@ -4,7 +4,7 @@
     {
       "type": "debugpy",
       "request": "launch",
-      "name": "launch assistant",
+      "name": "examples: python-01-echo-bot",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
       "args": ["assistant.chat:app", "--port", "3001"],

@@ -7,7 +7,7 @@
       "name": "canonical-assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["semantic_workbench_assistant.canonical:app", "--port", "3002"],
+      "args": ["semantic_workbench_assistant.canonical:app", "--port", "3100"],
       "consoleTitle": "canonical-assistant"
     }
   ]
