@@ -55,15 +55,16 @@ jobs:
           node-version: "20.x"
 
       - name: npm install, build, and test
-        run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
-        working-directory: ./workbench-app
         env:
           NODE_OPTIONS: "--max_old_space_size=8192"
           VITE_SEMANTIC_WORKBENCH_AUTHORITY: ${{ secrets.VITE_SEMANTIC_WORKBENCH_AUTHORITY }}
           VITE_SEMANTIC_WORKBENCH_CLIENT_ID: ${{ secrets.VITE_SEMANTIC_WORKBENCH_CLIENT_ID }}
+          VITE_SEMANTIC_WORKBENCH_SERVICE_URL: ${{ secrets.VITE_SEMANTIC_WORKBENCH_SERVICE_URL }}
+        working-directory: ./workbench-app
+        run: |
+          npm install
+          npm run build --if-present
+          npm run test --if-present
 
       - name: Zip artifact for deployment
         if: github.event_name != 'pull_request'
