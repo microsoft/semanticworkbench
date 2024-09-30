@@ -57,7 +57,7 @@ If you haven't already, enable long file paths on Windows.
 
 ### Configure and build the backend
 
-- Within the [`v1/service`](../semantic-workbench/v1/service/) directory, create your virtual environment, and install the service packages:
+- Within the [`v1/service`](../workbench-service/) directory, create your virtual environment, and install the service packages:
 
       make
 
@@ -88,9 +88,9 @@ nvm use 20
 
 ### Build the frontend
 
-Within the [`v1/app`](../semantic-workbench/v1/app/) directory, install packages.
+Within the [`v1/app`](../workbench-app/) directory, install packages.
 
 ```
-cd semantic-workbench/v1/app
+cd workbench-app
 make
 ```

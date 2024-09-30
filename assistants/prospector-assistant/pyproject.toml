@@ -17,8 +17,8 @@ pdfplumber = "^0.11.2"
 tiktoken = "^0.7.0"
 
 # If you copy this file to your project, you should verify the relative path to the following:
-semantic-workbench-assistant = { path = "../../semantic-workbench/v1/service/semantic-workbench-assistant", develop = true }
-content-safety = { path = "../../libraries/content-safety/", develop = true }
+semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", develop = true }
+content-safety = { path = "../../libraries/python/content-safety/", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.4"

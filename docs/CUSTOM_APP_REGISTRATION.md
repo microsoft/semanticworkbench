@@ -27,13 +27,15 @@ App registration is a free service, but you may need to provide a credit card fo
 
 Edit the following files with the new app registration details:
 
-- Semantic Workbench app: [constants.ts](../semantic-workbench/v1/app/src/Constants.ts)
+- Semantic Workbench app: [.env.example](../workbench-app/.env.example)
 
-  - Update the `msal.auth.clientId` with the `Application (client) ID`
+  - Copy the `.env.example` file to `.env`
+  - Update the `VITE_SEMANTIC_WORKBENCH_CLIENT_ID` with the `Application (client) ID`
 
-- Semantic Workbench service: [config.py](../semantic-workbench/v1/service/semantic-workbench-service/semantic_workbench_service/config.py)
+- Semantic Workbench service: [config.py](../workbench-service/semantic_workbench_service/config.py)
+
   - Update the `AuthSettings.allowed_app_ids` with the `Application (client) ID`
 
 ## TODO
 
-- [ ] Update the codebase to allow app registration details to be passed in as environment variables
+- [ ] Update the service config to allow app registration details to be passed in as environment variables

@@ -1,6 +1,6 @@
 # Semantic Workbench Known Issues
 
-You may encounter the following known issues, which may include workarounds, mitigations, or expected resolution timeframes.
+You may encounter the following known issues, which may include workarounds, mitigation's, or expected resolution time-frames.
 
 ## Semantic Workbench App
 

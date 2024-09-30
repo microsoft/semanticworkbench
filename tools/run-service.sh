@@ -5,10 +5,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && cd .. && pwd)"
 cd $ROOT
 # ================================================================
 
-cd semantic-workbench/v1/service/semantic-workbench-service
+cd workbench-service
 
 # Note: this creates the .data folder at
-# path         ./semantic-workbench/v1/service/semantic-workbench-service/.data
-# rather than  ./semantic-workbench/v1/service/.data
+# path         ./workbench-service/.data
+# rather than  ./workbench-service/.data
 poetry install
 poetry run start-semantic-workbench-service

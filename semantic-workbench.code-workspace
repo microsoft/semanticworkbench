@@ -1,52 +1,81 @@
 {
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [],
+    "compounds": [
+      {
+        "name": "semantic-workbench",
+        "configurations": [
+          "app: semantic-workbench-app",
+          "service: semantic-workbench-service"
+        ]
+      },
+      {
+        "name": "everything",
+        "configurations": [
+          "app: semantic-workbench-app",
+          "service: semantic-workbench-service",
+          "examples: python-01-echo-bot",
+          "examples: python-02-simple-chatbot",
+          "examples: python-03-multimodel-chatbot",
+          "assistants: prospector-assistant",
+         ]
+      }
+    ]
+  },
+  // Naming convention: <root folder>:<package folder> (skip all subfolders)
   "folders": [
     {
       "name": "docs",
       "path": "./docs"
     },
     {
-      "name": "semantic-workbench/v1",
-      "path": "./semantic-workbench/v1"
+      "name": "workbench-app",
+      "path": "./workbench-app"
     },
     {
-      "name": "examples/python-01-echo-bot",
-      "path": "./examples/python-01-echo-bot"
+      "name": "workbench-service",
+      "path": "./workbench-service"
     },
     {
-      "name": "examples/python-02-simple-chatbot",
-      "path": "./examples/python-02-simple-chatbot"
+      "name": "examples:python-01-echo-bot",
+      "path": "./examples/python/python-01-echo-bot"
     },
     {
-      "name": "examples/python-03-multimodel-chatbot",
-      "path": "./examples/python-03-multimodel-chatbot"
+      "name": "examples:python-02-simple-chatbot",
+      "path": "./examples/python/python-02-simple-chatbot"
     },
     {
-      "name": "assistants/prospector-assistant",
+      "name": "examples:python-03-multimodel-chatbot",
+      "path": "./examples/python/python-03-multimodel-chatbot"
+    },
+    {
+      "name": "assistants:prospector-assistant",
       "path": "./assistants/prospector-assistant"
     },
     {
-      "name": "assistant-connector",
-      "path": "./assistant-connector"
+      "name": "libraries:content-safety",
+      "path": "./libraries/python/content-safety"
     },
     {
-      "name": "libraries/content-safety",
-      "path": "./libraries/content-safety"
+      "name": "libraries:semantic-workbench-api-model",
+      "path": "./libraries/python/semantic-workbench-api-model"
     },
     {
-      "name": "build-tools",
-      "path": "./build-tools"
+      "name": "libraries:semantic-workbench-assistant",
+      "path": "./libraries/python/semantic-workbench-assistant"
     },
     {
-      "name": ".github",
-      "path": "./.github"
+      "name": "tools",
+      "path": "./tools"
     },
     {
       "name": ".devcontainer",
       "path": "./.devcontainer"
     },
     {
-      "name": ".vscode",
-      "path": "./.vscode"
+      "name": ".github",
+      "path": "./.github"
     }
   ]
 }

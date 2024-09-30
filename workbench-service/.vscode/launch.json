@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "service: semantic-workbench-service",
+      "cwd": "${workspaceFolder}",
+      "module": "semantic_workbench_service.start",
+      "justMyCode": false,
+      "consoleTitle": "semantic-workbench-service",
+      "args": ["--host", "0.0.0.0", "--port", "3000"]
+    }
+  ]
+}

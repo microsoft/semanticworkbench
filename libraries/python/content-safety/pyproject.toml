@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "content-safety"
+version = "0.1.0"
+description = "Content Safety for Semantic Workbench Assistants"
+authors = ["Semantic Workbench Team"]
+readme = "README.md"
+packages = [{ include = "content_safety" }]
+
+[tool.poetry.dependencies]
+python = "~3.11"
+azure-ai-contentsafety = "^1.0.0"
+azure-core = { version = "*", extras = ["aio"] }
+azure-identity = "^1.17.1"
+openai = "^1.3.9"
+
+# If you copy this file to your project, you should verify the relative path to the following:
+semantic-workbench-assistant = { path = "../semantic-workbench-assistant", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.6.4"
+
+[build-system]
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+exclude = ["venv", ".venv"]

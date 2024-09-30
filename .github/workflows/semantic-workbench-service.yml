@@ -6,7 +6,7 @@ on:
     paths:
       [
         ".github/workflows/semantic-workbench-service.yml",
-        "semantic-workbench/v1/service/semantic-workbench-service/**",
+        "workbench-service/**",
       ]
 
   push:
@@ -14,14 +14,14 @@ on:
     paths:
       [
         ".github/workflows/semantic-workbench-service.yml",
-        "semantic-workbench/v1/service/semantic-workbench-service/**",
+        "workbench-service/**",
       ]
 
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: semantic-workbench/v1/service/semantic-workbench-service
+    working-directory: workbench-service
 
 jobs:
   test:
