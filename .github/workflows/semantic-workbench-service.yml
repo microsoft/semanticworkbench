@@ -1,0 +1,55 @@
+name: semantic workbench service validation
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      [
+        ".github/workflows/semantic-workbench-service.yml",
+        "semantic-workbench/v1/service/semantic-workbench-service/**",
+      ]
+
+  push:
+    branches: ["main"]
+    paths:
+      [
+        ".github/workflows/semantic-workbench-service.yml",
+        "semantic-workbench/v1/service/semantic-workbench-service/**",
+      ]
+
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: semantic-workbench/v1/service/semantic-workbench-service
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+        poetry-version: ["1.7.1"]
+        dbtype: ["sqlite", "postgresql"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ matrix.poetry-version }}
+
+      - name: Install package
+        run: |
+          poetry install
+
+      - name: pytest
+        run: |
+          poetry run pytest --dbtype=${{ matrix.dbtype }}
