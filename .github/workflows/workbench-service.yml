@@ -1,4 +1,4 @@
-name: workbench service test and deploy
+name: workbench-service test and deploy
 
 on:
   pull_request:
