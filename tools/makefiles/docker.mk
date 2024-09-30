@@ -4,15 +4,15 @@ DOCKER_USERNAME ?= $(DOCKER_REGISTRY_NAME)
 DOCKER_IMAGE_TAG ?= $(shell git rev-parse HEAD)
 DOCKER_PUSH_LATEST ?= true
 DOCKER_PATH ?= .
+DOCKER_FILE ?= Dockerfile
 DOCKER_ARGS ?=
 DOCKER_BUILD_ARGS ?=
-
 
 AZURE_WEBSITE_NAME ?=
 AZURE_WEBSITE_SLOT ?= staging
 AZURE_WEBSITE_TARGET_SLOT ?= production
-AZURE_WEBSITE_SUBSCRIPTION ?= 
-AZURE_WEBSITE_RESOURCE_GROUP ?= 
+AZURE_WEBSITE_SUBSCRIPTION ?=
+AZURE_WEBSITE_RESOURCE_GROUP ?=
 
 require_value = $(foreach var,$(1),$(if $(strip $($(var))),,$(error "Variable $(var) is not set: $($(var))")))
 
@@ -58,4 +58,10 @@ endef
 	$(foreach website_name,$(AZURE_WEBSITE_NAME),$(call update-container,$(website_name)))
 ifneq ($(AZURE_WEBSITE_SLOT),$(AZURE_WEBSITE_TARGET_SLOT))
 	$(foreach website_name,$(AZURE_WEBSITE_NAME),$(call swap-slots,$(website_name)))
+endif
+
+ifndef DISABLE_DEFAULT_DOCKER_TARGETS
+docker-build: .docker-build
+docker-push: .docker-push
+docker-deploy: .azure-container-deploy
 endif
