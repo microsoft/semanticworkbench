@@ -20,6 +20,7 @@ on:
 
 jobs:
   build-pr:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -41,7 +42,7 @@ jobs:
 
   build-main:
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     environment:
       name: production
 
@@ -78,7 +79,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build-main
     environment:
       name: production
