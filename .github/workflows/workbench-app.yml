@@ -39,18 +39,6 @@ jobs:
         env:
           NODE_OPTIONS: "--max_old_space_size=8192"
 
-      - name: Zip artifact for deployment
-        if: github.event_name != 'pull_request'
-        run: zip semantic-workbench-release.zip . -r
-        working-directory: ./workbench-app/build
-
-      - name: Upload artifact for deployment job
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: semantic-workbench-node-app
-          path: ./workbench-app/build/semantic-workbench-release.zip
-
   build-main:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
