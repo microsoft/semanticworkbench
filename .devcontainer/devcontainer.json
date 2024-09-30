@@ -39,7 +39,6 @@
   // "otherPortsAttributes": {},
   "onCreateCommand": "git config --global push.autoSetupRemote true",
   "updateContentCommand": "make -C /workspaces/semanticworkbench",
-  "postStartCommand": "/bin/bash /workspaces/semanticworkbench/.devcontainer/post-start-setup.sh",
   "workspaceFolder": "/workspaces/semanticworkbench/semantic-workbench.code-workspace",
   // Configure tool-specific properties.
   "customizations": {
