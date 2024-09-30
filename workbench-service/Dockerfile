@@ -36,7 +36,7 @@ COPY ./workbench-service/alembic.ini /workbench-service/alembic.ini
 COPY ./workbench-service/migrations /workbench-service/migrations
 
 # entrypoint script
-COPY ./workbench-service/scripts/docker-entrypoint.sh /scripts/docker-entrypoint.sh
+COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
 RUN chmod +x /scripts/docker-entrypoint.sh
 
 WORKDIR /workbench-service
