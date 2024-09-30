@@ -37,8 +37,8 @@
   // Use 'otherPortsAttributes' to set the defaults that are applied to all ports, unless overridden
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
-  "onCreateCommand": "git config --global push.autoSetupRemote true",
   "updateContentCommand": "make -C /workspaces/semanticworkbench",
+  "postCreateCommand": "git config --global push.autoSetupRemote true",
   "workspaceFolder": "/workspaces/semanticworkbench/semantic-workbench.code-workspace",
   // Configure tool-specific properties.
   "customizations": {
