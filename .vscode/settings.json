@@ -206,6 +206,7 @@
     "sqlalchemy",
     "sqlmodel",
     "starlette",
+    "tamasfe",
     "tracebacks",
     "uvicorn",
     "webservice",

@@ -22,6 +22,7 @@ while ! command -v code &> /dev/null; do
         echo "Error: VS Code did not become available within the timeout period."
         exit 1
     fi
+    echo "VS Code not ready yet, retrying..."
     sleep 1
 done
 
