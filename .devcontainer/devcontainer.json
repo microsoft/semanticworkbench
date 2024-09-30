@@ -37,9 +37,9 @@
   // Use 'otherPortsAttributes' to set the defaults that are applied to all ports, unless overridden
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
-  // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y pv",
-  // Use 'postStartCommand' to run commands after the container is started.
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y pv",
+  "updateContentCommand": "sudo apt-get update && sudo apt-get install -y pv",
+  "postCreateCommand": "/bin/bash /workspaces/semanticworkbench/.devcontainer/post-create-setup.sh",
   "postStartCommand": "/bin/bash /workspaces/semanticworkbench/.devcontainer/post-start-setup.sh",
   // Configure tool-specific properties.
   "customizations": {

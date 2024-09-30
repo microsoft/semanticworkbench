@@ -1,14 +1,9 @@
 #!/bin/bash
 
-echo "Starting setup..."
+echo "Starting post-start setup..."
 
-# Set up git to automatically set up the remote when pushing if it doesn't already exist
-echo "Configuring git..."
-git config --global push.autoSetupRemote true
-
-# Run make command in the specified directory with progress indicator
-echo "Running make command..."
-make -C /workspaces/semanticworkbench | pv -lep -s $(($(make -C /workspaces/semanticworkbench -n | wc -l)))
+# Ensure the code command is available in the PATH
+export PATH=$PATH:/usr/local/bin
 
 # Wait for the code command to become available with a timeout
 echo "Waiting for VS Code to be ready..."
