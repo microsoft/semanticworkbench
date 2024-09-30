@@ -112,7 +112,7 @@ const authenticatedRouter = createBrowserRouter([
     },
 ]);
 
-const msalInstance = new PublicClientApplication(AuthHelper.msalConfig);
+const msalInstance = new PublicClientApplication(AuthHelper.getMsalConfig());
 
 const accounts = msalInstance.getAllAccounts();
 if (accounts.length > 0) {
