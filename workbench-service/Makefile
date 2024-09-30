@@ -25,6 +25,6 @@ endif
 
 include $(repo_root)/tools/makefiles/docker.mk
 
-DOCKER_PATH = ../
+DOCKER_PATH = $(repo_root)
 
 docker-%: DOCKER_IMAGE_NAME := workbench
