@@ -1,0 +1,19 @@
+# files
+
+.DS_Store
+.dockerignore
+.env
+README.md
+Dockerfile
+Dockerfile.*
+Makefile
+
+# dirs
+
+.vscode
+.github
+.devcontainer
+.data
+__pycache__
+.pytest_cache
+.venv
