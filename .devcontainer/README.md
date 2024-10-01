@@ -38,6 +38,10 @@ For more details on using GitHub Codespaces in VS Code, see the [documentation](
 - Launch VS Code and open the command palette with the `F1` key or `Ctrl/Cmd+Shift+P`
 - Type `Codespaces: Connect to Codespace...` and select it
 
+### Optimizing your Codespaces experience
+
+See [OPTIMIZING_FOR_CODESPACES.md](./OPTIMIZING_FOR_CODESPACES.md) for tips on optimizing your Codespaces experience.
+
 ### Next steps
 
 Once you have connected to the Codespace, it should automatically open the workspace file for the Semantic Workbench project. If it does not, you can open the workspace file manually:
