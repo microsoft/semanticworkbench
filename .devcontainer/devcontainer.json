@@ -61,8 +61,7 @@
         "ms-vscode.makefile-tools",
         "ms-vscode.vscode-node-azure-pack",
         "tamasfe.even-better-toml",
-        "streetsidesoftware.code-spell-checker",
-        "zoma.vscode-auto-open-workspace"
+        "streetsidesoftware.code-spell-checker"
       ]
     }
   },

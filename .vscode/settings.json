@@ -97,7 +97,6 @@
   "eslint.options": {
     "overrideConfigFile": ".eslintrc.cjs"
   },
-  "autoOpenWorkspace.enableAutoOpenAlwaysFirst": true,
   "better-comments.highlightPlainText": true,
   "better-comments.multilineComments": true,
   "better-comments.tags": [
