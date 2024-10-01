@@ -65,8 +65,8 @@ filterwarnings = [
     "ignore: Unclosed .MemoryObject(Send|Receive)Stream.:ResourceWarning",
     # aiosqlite doesn't handle cancelations correctly
     "ignore: Exception in thread Thread:pytest.PytestUnhandledThreadExceptionWarning",
-    # asyncpg sometimes fails to close sockets
+    # asyncpg sometimes fails to close sockets/transports/connections
     "ignore: unclosed <socket.socket:ResourceWarning",
-    #asyncpg sometimes fails to close transport
     "ignore: unclosed transport:ResourceWarning",
+    "ignore: unclosed connection <asyncpg.connection:ResourceWarning",
 ]
