@@ -1,19 +1,20 @@
 # files
 
-.DS_Store
-.dockerignore
-.env
-README.md
-Dockerfile
-Dockerfile.*
-Makefile
+**/.DS_Store
+**/.dockerignore
+**/.env
+**/.env.example
+**/.gitignore
+**/Dockerfile
+**/Dockerfile.*
+**/Makefile
 
 # dirs
 
-.vscode
 .github
 .devcontainer
-.data
-__pycache__
-.pytest_cache
-.venv
+**/.vscode
+**/.data
+**/__pycache__
+**/.pytest_cache
+**/.venv

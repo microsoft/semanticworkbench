@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+
+# Dockerfile for assistants
+# Context root is expected to be the root of the repo
+ARG python_image=python:3.11-slim
+
+# These build arguments will differ per assistant:
+# package is the directory name of the assistant package under /assistants
+ARG package
+ARG app
+
+FROM ${python_image} AS build
+
+ARG package
+
+RUN python3 -m venv /venv
+ENV PATH=/venv/bin:$PATH
+
+RUN pip3 install --no-cache-dir --upgrade pip
+
+# copy all library packages
+COPY ./libraries/python /packages/libraries/python
+# copy the assistant package
+COPY ./assistants/${package} /packages/assistants/$package
+
+# install the assistant package
+RUN pip3 install --no-cache-dir /packages/assistants/${package}
+
+FROM ${python_image}
+
+ARG app
+
+COPY --from=build /venv /venv
+ENV PATH=/venv/bin:$PATH
+
+COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
+RUN chmod +x /scripts/docker-entrypoint.sh
+ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
+
+ENV ASSISTANT_APP=${app}
+
+CMD ["start-semantic-workbench-assistant", "--host", "0.0.0.0"]

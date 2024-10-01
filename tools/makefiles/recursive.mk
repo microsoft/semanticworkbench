@@ -3,6 +3,7 @@
 # ex: make (runs DEFAULT_GOAL)
 # ex: make clean (runs clean)
 # ex: make install (runs install)
+this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
 
 .DEFAULT_GOAL := install
 
@@ -15,9 +16,6 @@ GIT_CLEAN_EXCLUDE = $(foreach v,$(GIT_CLEAN_RETAIN),--exclude !$(v))
 .PHONY: git-clean
 git-clean:
 	git clean -dffX . $(GIT_CLEAN_EXCLUDE)
-
-DIR = $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
-include $(DIR)/shell.mk
 
 FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
 MAKE_FILES = $(shell find . -mindepth 2 -name Makefile)
@@ -37,3 +35,5 @@ $(MAKE_DIRS):
 ifndef IS_RECURSIVE_MAKE
 	$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 || $(true_expression)
 endif
+
+include $(this_dir)/shell.mk
