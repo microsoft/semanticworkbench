@@ -1,67 +1,94 @@
 # Skill Assistant
 
-The Skill Assistant serves as a demonstration of integrating the Skill Library within an Assistant in the Semantic Workbench. Specifically, this assistant showcases the Posix skill and the chat driver. The [Posix skill](../../skills/skills/posix-skill/README.md) demonstrates file system management by allowing the assistant to perform posix-style actions. The [chat driver](../../libraries/chat-driver/README.md) handles conversations and interacts with underlying AI models like OpenAI and Azure OpenAI.
+The Skill Assistant serves as a demonstration of integrating the Skill Library within an Assistant in the Semantic Workbench. Specifically, this assistant showcases the Posix skill and the chat driver. The [Posix skill](../../libraries/python/skills/skills/posix-skill/README.md) demonstrates file system management by allowing the assistant to perform posix-style actions. The [chat driver](../../libraries/python/chat-driver/README.md) handles conversations and interacts with underlying AI models like OpenAI and Azure OpenAI.
 
 ## Overview
+
 [skill_controller.py](assistant/skill_controller.py) file is responsible for managing the assistant instances. It includes functionality to create and retrieve assistants, configure chat drivers, and map skill events to the Semantic Workbench.
+
 - AssistantRegistry: Manages multiple assistant instances, each associated with a unique conversation.
-- _event_mapper: Maps skill events to message types understood by the Semantic Workbench.
+- \_event_mapper: Maps skill events to message types understood by the Semantic Workbench.
 - create_assistant: Defines how to create and configure a new assistant.
 
 [skill_assistant.py](assistant/skill_assistant.py) file defines the main Skill Assistant class that integrates with the Semantic Workbench. It handles workbench events and coordinates the assistant's responses based on the conversation state.
+
 - SkillAssistant Class: The main class that integrates with the Semantic Workbench.
 - on_workbench_event: Handles various workbench events to drive the assistant's behavior.
 
 [config.py](assistant/config.py) file defines the configuration model for the Skill Assistant. It includes settings for both Azure OpenAI and OpenAI services, along with request-specific settings such as max_tokens and response_tokens.
+
 - AzureOpenAIServiceConfig: Configuration for Azure OpenAI services.
 - OpenAIServiceConfig: Configuration for OpenAI services.
 - RequestConfig: Defines parameters for generating responses, including tokens settings.
 
-## Setup
+## Responsible AI
 
-  macOS:
+The assistant includes some important best practices for AI development, such as:
 
-  ```sh
-  brew install python@3.11
-  brew install poetry
-  brew install make
-  ```
+- **System prompt safety**, ie a set of LLM guardrails to protect users. As a developer you should understand how these
+  guardrails work in your scenarios, and how to change them if needed. The system prompt and the prompt safety
+  guardrails are split in two to help with testing. When talking to LLM models, prompt safety is injected before the
+  system prompt.
+  - See https://learn.microsoft.com/azure/ai-services/openai/concepts/system-message for more details
+    about protecting application and users in different scenarios.
+- **Content moderation**, via [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety)
+  or [OpenAI Content Moderation](https://platform.openai.com/docs/guides/moderation).
 
-  Windows:
+See the [Responsible AI FAQ](../../RESPONSIBLE_AI_FAQ.md) for more information.
 
-  ```powershell
-  scoop bucket add versions
-  scoop install python311
-  scoop install poetry
-  scoop install make
-  ```
+# Suggested Development Environment
 
-- Within the assistant project directory, create your virtual environment, and install the service packages:
+- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
+- VS Code is recommended for development
 
-  ```sh
-  make
-  ```
+## Pre-requisites
 
-  If this fails in Windows, try running a vanilla instance of `cmd` or `powershell` and not within `Cmder` or another shell that may have modified the environment.
+- Set up your dev environment
+  - SUGGESTED: Use GitHub Codespaces for a quick, easy, and consistent dev
+    environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
+  - ALTERNATIVE: Local setup following the [main README](../../README.md#quick-start---local-development-environment)
+- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench.code-workspace)
+- If using Azure OpenAI, set up an Azure account and create a Content Safety resource
+  - See [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety) for more information
+  - Copy the `.env.example` to `.env` and update the `ASSISTANT__AZURE_CONTENT_SAFETY_ENDPOINT` value with the endpoint of your Azure Content Safety resource
+  - From VS Code > `Terminal`, run `az login` to authenticate with Azure prior to starting the assistant
 
-- Copy `.env.example` file to `.env` and fill in the values.
+## Steps
 
-## Running the Assistant
+- Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `semantic-workbench` to start the app and service from this workspace
+- Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `launch assistant` to start the assistant.
+- If running in a devcontainer, follow the instructions in [GitHub Codespaces / devcontainer README](../../.devcontainer/README.md#start-the-app-and-service) for any additional steps.
+- Return to the workbench app to interact with the assistant
+- Add a new assistant from the main menu of the app, choose the assistant name as defined by the `service_name` in [chat.py](./assistant/chat.py)
+- Click the newly created assistant to configure and interact with it
 
-There are two main ways to run your assistant:
+## Starting the example from CLI
 
-- Local Assistant / Remote Semantic Workbench
+If you're not using VS Code and/or Codespaces, you can also work from the
+command line, using `poetry`:
 
-  - Benefit: quickly iterate on your assistant service without needing to deploy to a remote server, but still have the ability to test with a remote Semantic Workbench instance, any other registered assistant services, and share your locally running assistant with others.
-  - Steps
-    - Note the port the assistant service will be running on (default is 3001, see [launch.json](./.vscode/launch.json))
-    - Follow the steps in [Local Assistant / Remote Semantic Workbench](../../../semantic-workbench/v1/docs/LOCAL_ASSISTANT_WITH_REMOTE_WORKBENCH.md) to set up the tunnel, the local assistant, and register the assistant service with the remote Semantic Workbench instance
+```
+cd <PATH TO THIS FOLDER>
 
-- Local Assistant / Local Semantic Workbench
-  - Benefit: quickly iterate on your assistant service without needing to deploy to a remote server, but still have the ability to test with a local Semantic Workbench instance, skip the tunnel setup, and debug the workbench service and app locally if needed.
-  - Steps
-    - Run the workbench service and app locally
-      - Follow the steps in the [Semantic Workbench Readme](../../../semantic-workbench/v1/README.md) to set up the workbench service and app locally
-    - Run the assistant service locally
-      - From the VSCode sidebar, select `Run and Debug`
-      - From the debugger drop down, select `launch assistant (<your assistant name>)`
+poetry install
+
+poetry run start-semantic-workbench-assistant assistant.chat:app
+```
+
+## Create your own assistant
+
+Copy the contents of this folder to your project.
+
+- The paths are already set if you put in the same repo root and relative path of `/<your_projects>/<your_assistant_name>`
+- If placed in a different location, update the references in the `pyproject.toml` to point to the appropriate locations for the `semantic-workbench-*` packages
+
+## From Development to Production
+
+It's important to highlight how Semantic Workbench is a development tool, and it's not designed to host agents in
+a production environment. The workbench helps with testing and debugging, in a development and isolated environment, usually your localhost.
+
+The core of your assistant/AI application, e.g. how it reacts to users, how it invokes tools, how it stores data, can be
+developed with any framework, such as Semantic Kernel, Langchain, OpenAI assistants, etc. That is typically the code
+you will add to `chat.py`.
+
+**Semantic Workbench is not a framework**. Dependencies on `semantic-workbench-assistant` package are used only to test and debug your code in Semantic Workbench. **When an assistant is fully developed and ready for production, configurable settings should be hard coded, dependencies on `semantic-workbench-assistant` and similar should be removed**.

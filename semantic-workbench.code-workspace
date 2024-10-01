@@ -19,6 +19,7 @@
           "examples: python-02-simple-chatbot",
           "examples: python-03-multimodel-chatbot",
           "assistants: prospector-assistant",
+          "assistants: skill-assistant",
          ]
       }
     ]
@@ -54,8 +55,28 @@
       "path": "./assistants/prospector-assistant"
     },
     {
+      "name": "assistants:skill-assistant",
+      "path": "assistants/skill-assistant"
+    },
+    {
+      "name": "libraries:chat-driver",
+      "path": "./libraries/python/chat-driver"
+    },
+    {
       "name": "libraries:content-safety",
       "path": "./libraries/python/content-safety"
+    },
+    {
+      "name": "libraries:context",
+      "path": "./libraries/python/context"
+    },
+    {
+      "name": "libraries:events",
+      "path": "./libraries/python/events"
+    },
+    {
+      "name": "libraries:function-registry",
+      "path": "./libraries/python/function-registry"
     },
     {
       "name": "libraries:semantic-workbench-api-model",
@@ -64,6 +85,30 @@
     {
       "name": "libraries:semantic-workbench-assistant",
       "path": "./libraries/python/semantic-workbench-assistant"
+    },
+    {
+      "name": "libraries:skills:document-skill",
+      "path": "libraries/python/skills/skills/document-skill"
+    },
+    {
+      "name": "libraries:skills:notebooks",
+      "path": "libraries/python/skills/notebooks"
+    },
+    {
+      "name": "libraries:skills:posix-skill",
+      "path": "libraries/python/skills/skills/posix-skill"
+    },
+    {
+      "name": "libraries:skills:prospector-skill",
+      "path": "libraries/python/skills/skills/prospector-skill"
+    },
+    {
+      "name": "libraries:skills:skill-template",
+      "path": "libraries/python/skills/skills/skill-template"
+    },
+    {
+      "name": "libraries:skills:skill-library",
+      "path": "libraries/python/skills/skill-library"
     },
     {
       "name": "tools",

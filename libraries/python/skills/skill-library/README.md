@@ -25,7 +25,7 @@ more easily:
   assistants by providing clearer purposeful abstractions and better defining or
   disambiguating commonly confused terms. For example, we separate out a lot of
   the complexity of interacting with the OpenAI Chat Completion API with the
-  [chat driver](../../libraries/chat-driver/README.md) abstraction and we now
+  [chat driver](../../chat-driver/README.md) abstraction and we now
   distinguish between chat commands, chat tool functions, and routine actions in
   a clear way, even though they're really all just functions.
 - Routines (formerly referred to as "Recipes") make it clear that what we are
@@ -71,8 +71,8 @@ well.
 
 ## Context
 
-This library uses the same [Context](../../libraries/context/README.md) library
-as the [chat driver](../../libraries/chat-driver/README.md) library. This allows
+This library uses the same [Context](../../context/README.md) library
+as the [chat driver](../../chat-driver/README.md) library. This allows
 you to instantiate a Context object for the assistant and have it automatically
 passed into all assistant's actions and routines. This is especially helpful in
 (1) setting the session id for all parts of the system (allowing them all to

@@ -4,13 +4,9 @@ from pathlib import Path
 
 from chat_driver import ChatDriverConfig
 from chat_driver.client import (
-    AzureOpenAIServiceConfig,
-    OpenAIClientFactory,
     OpenAIModel,
-    OpenAIServiceConfig,
 )
 from events import events as skill_events
-from openai import AsyncOpenAI
 from posix_skill import PosixSkill
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
@@ -19,6 +15,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
+    FileStorageContext,
 )
 from skill_library import Assistant
 
@@ -69,22 +66,6 @@ async def _event_mapper(
 
         case _:
             logger.warning("Unhandled event: %s", skill_event)
-
-
-def _openai_client_for_instance(
-    service_config: config.AzureOpenAIServiceConfig | config.OpenAIServiceConfig,
-) -> AsyncOpenAI:
-    """
-    We don't create an OpenAI client in the constructor, because each
-    assistant instance can have it's own configuration.
-    """
-    factory = OpenAIClientFactory()
-    match service_config:
-        case config.AzureOpenAIServiceConfig():
-            return factory.create_client(AzureOpenAIServiceConfig(**service_config.model_dump()), "2024-06-01")
-
-        case config.OpenAIServiceConfig():
-            return factory.create_client(OpenAIServiceConfig(**service_config.model_dump()))
 
 
 class AssistantRegistry:
@@ -147,7 +128,8 @@ class AssistantRegistry:
         """
         # Get an OpenAI client.
         try:
-            async_client = _openai_client_for_instance(service_config)
+            # async_client = _openai_client_for_instance(service_config)
+            async_client = service_config.new_client()
         except Exception as e:
             logging.exception("Failed to create OpenAI client")
             await conversation_context.send_messages(
@@ -155,11 +137,14 @@ class AssistantRegistry:
             )
             return
 
+        data_dir = FileStorageContext.get(conversation_context).directory
+
         # Create the assistant.
         assistant = Assistant(
             name="Assistant",
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
+                data_dir=data_dir / "assistant-chat-driver",
                 model=OpenAIModel(chat_driver_config.openai_model),
                 instructions=chat_driver_config.instructions,
             ),
@@ -173,6 +158,7 @@ class AssistantRegistry:
             mount_dir="/mnt/data",
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
+                data_dir=data_dir / "posix-skill-chat-driver",
                 model=OpenAIModel(chat_driver_config.openai_model),
             ),
         )

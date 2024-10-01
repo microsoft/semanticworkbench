@@ -10,20 +10,30 @@ ENV PATH=/venv/bin:$PATH
 
 RUN pip3 install --no-cache-dir --upgrade pip
 
-# copy the directory structure so the relative paths remain the same
-COPY ./semantic-workbench-assistants/skill-assistant /packages/semantic-workbench-assistants/skill-assistant
-COPY ./semantic-workbench/v1/service/semantic-workbench-api-model /packages/semantic-workbench/v1/service/semantic-workbench-api-model
-COPY ./semantic-workbench/v1/service/semantic-workbench-assistant /packages/semantic-workbench/v1/service/semantic-workbench-assistant
-COPY ./skills/skill-library /packages/skills/skill-library
-COPY ./skills/skills /packages/skills/skills
-COPY ./libraries/chat-driver /packages/libraries/chat-driver
-COPY ./libraries/content-safety-evaluators/azure-content-safety-evaluator /packages/libraries/content-safety-evaluators/azure-content-safety-evaluator
-COPY ./libraries/content-safety-evaluators/openai-content-safety-evaluator /packages/libraries/content-safety-evaluators/openai-content-safety-evaluator
-COPY ./libraries/context /packages/libraries/context
-COPY ./libraries/events /packages/libraries/events
-COPY ./libraries/function-registry /packages/libraries/function-registry
 
-RUN pip3 install --no-cache-dir /packages/semantic-workbench-assistants/skill-assistant
+# copy the directory structure so the relative paths remain the same
+
+# semantic workbench packages
+COPY ./libraries/python/semantic-workbench-api-model /packages/libraries/python/semantic-workbench-api-model
+COPY ./libraries/python/semantic-workbench-assistant /packages/libraries/python/semantic-workbench-assistant
+
+# content safety
+COPY ./libraries/python/content-safety /packages/libraries/python/content-safety
+
+# skills
+COPY ./libraries/python/chat-driver /packages/libraries/python/chat-driver
+COPY ./libraries/python/context /packages/libraries/python/context
+COPY ./libraries/python/events /packages/libraries/python/events
+COPY ./libraries/python/function-registry /packages/libraries/python/function-registry
+COPY ./libraries/python/skills/skill-library /packages/libraries/python/skills/skill-library
+COPY ./libraries/python/skills/skills /packages/libraries/python/skills/skills
+
+# this assistant package
+COPY ./assistants/skill-assistant/ /packages/assistants/skill-assistant
+
+# install the assistant package dependencies - ensure the path matches the path in the COPY command above
+RUN pip3 install --no-cache-dir /packages/assistants/skill-assistant
+
 
 FROM ${python_image}
 
