@@ -215,6 +215,11 @@ class AnthropicAdapter(ModelAdapter):
         except Exception as e:
             return exception_to_generate_response_result(e, metadata)
 
+        return GenerateResponseResult(
+            error="Unexpected error",
+            metadata=metadata,
+        )
+
 
 # endregion
 
