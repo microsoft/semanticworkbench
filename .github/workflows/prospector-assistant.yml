@@ -28,7 +28,6 @@ defaults:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -44,7 +43,8 @@ jobs:
       contents: read
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-prospector-assistant
-    if: github.event_name != 'pull_request'
+    needs: build
+    if: (github.event_name == 'push' || github.event_name == 'workflow_displatch') && github.ref == 'refs/head/main' && vars.DEPLOYMENT_ENABLED == 'true'
     env:
       DOCKER_IMAGE_TAG: ${{ github.sha }}
       DOCKER_REGISTRY_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
