@@ -14,7 +14,7 @@ All interactions with the OpenAI service can be logged.
 For users of the Semantic Workbench, an additional module is provided to make it
 simple to create an AsyncClient from Workbench-type config.
 
-See [this notebook](../../skills/notebooks/notebooks/chat_driver.ipynb) for
+See [this notebook](../skills/notebooks/notebooks/chat_driver.ipynb) for
 usage examples.
 
 ## Future Work

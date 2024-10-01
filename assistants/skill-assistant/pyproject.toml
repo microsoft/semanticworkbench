@@ -13,17 +13,16 @@ azure-identity = "^1.16.0"
 azure-core = { version = "*", extras = ["aio"] }
 openai = "^1.3.9"
 
-semantic-workbench-assistant = { path = "../../semantic-workbench/v1/service/semantic-workbench-assistant", develop = true }
+# If you copy this file to your project, you should verify the relative path to the following:
+semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", develop = true }
+content-safety = { path = "../../libraries/python/content-safety/", develop = true }
 
-chat_driver = { path = "../../libraries/chat-driver", develop = true }
-context = { path = "../../libraries/context", develop = true }
-events = { path = "../../libraries/events", develop = true }
+chat_driver = { path = "../../libraries/python/chat-driver", develop = true }
+context = { path = "../../libraries/python/context", develop = true }
+events = { path = "../../libraries/python/events", develop = true }
 
-posix-skill = { path = "../../skills/skills/posix-skill", develop = true }
-skill-library = { path = "../../skills/skill-library", develop = true }
-
-azure-content-safety-evaluator = { path = "../../libraries/content-safety-evaluators/azure-content-safety-evaluator", develop = true }
-openai-content-safety-evaluator = { path = "../../libraries/content-safety-evaluators/openai-content-safety-evaluator", develop = true }
+posix-skill = { path = "../../libraries/python/skills/skills/posix-skill", develop = true }
+skill-library = { path = "../../libraries/python/skills/skill-library", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.1"

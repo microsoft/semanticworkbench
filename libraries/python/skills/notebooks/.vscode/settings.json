@@ -53,7 +53,9 @@
   "ruff.nativeServer": "on",
   "cSpell.words": [
     "agentic",
+    "connectionpool",
     "dotenv",
+    "httpcore",
     "levelname",
     "OCCD",
     "openai",

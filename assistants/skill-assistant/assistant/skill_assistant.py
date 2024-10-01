@@ -9,8 +9,7 @@
 
 import logging
 
-from azure_content_safety_evaluator import AzureContentSafetyEvaluator
-from openai_content_safety_evaluator import OpenAIContentSafetyEvaluator, OpenAIContentSafetyEvaluatorConfigModel
+from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
@@ -51,15 +50,7 @@ assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 # define the content safety evaluator factory
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
     config = await assistant_config.get(context.assistant)
-
-    # return the content safety evaluator based on the service type
-    match config.service_config.service_type:
-        case "Azure OpenAI":
-            return AzureContentSafetyEvaluator(config.service_config.azure_content_safety_config)
-        case "OpenAI":
-            return OpenAIContentSafetyEvaluator(
-                OpenAIContentSafetyEvaluatorConfigModel(openai_api_key=config.service_config.openai_api_key)
-            )
+    return CombinedContentSafetyEvaluator(config.content_safety_config)
 
 
 content_safety = ContentSafety(content_evaluator_factory)
