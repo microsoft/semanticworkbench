@@ -97,6 +97,7 @@
   "eslint.options": {
     "overrideConfigFile": ".eslintrc.cjs"
   },
+  "autoOpenWorkspace.enableAutoOpenAlwaysFirst": true,
   "better-comments.highlightPlainText": true,
   "better-comments.multilineComments": true,
   "better-comments.tags": [
@@ -177,6 +178,7 @@
     "devcontainers",
     "devtunnel",
     "dotenv",
+    "Dotfiles",
     "echosql",
     "epivision",
     "esbenp",
@@ -195,6 +197,7 @@
     "multimodel",
     "nonchat",
     "openai",
+    "Prebuild",
     "pydantic",
     "pylance",
     "pyproject",
