@@ -19,8 +19,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-pr:
-    if: github.event_name == 'pull_request'
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -32,17 +31,17 @@ jobs:
           node-version: "20.x"
 
       - name: npm install, build, and test
+        env:
+          NODE_OPTIONS: "--max_old_space_size=8192"
+        working-directory: ./workbench-app
         run: |
           npm install
           npm run build --if-present
           npm run test --if-present
-        working-directory: ./workbench-app
-        env:
-          NODE_OPTIONS: "--max_old_space_size=8192"
 
   build-main:
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main'
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' }}
     environment:
       name: production
 
@@ -67,12 +66,12 @@ jobs:
           npm run test --if-present
 
       - name: Zip artifact for deployment
-        if: github.event_name != 'pull_request'
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
         run: zip semantic-workbench-release.zip . -r
         working-directory: ./workbench-app/build
 
       - name: Upload artifact for deployment job
-        if: github.event_name != 'pull_request'
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
         uses: actions/upload-artifact@v4
         with:
           name: semantic-workbench-node-app
@@ -80,7 +79,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' && vars.DEPLOYMENT_ENABLED == 'true'
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' && vars.DEPLOYMENT_ENABLED == 'true' }}
     needs: build-main
     environment:
       name: production

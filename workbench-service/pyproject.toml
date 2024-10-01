@@ -67,4 +67,6 @@ filterwarnings = [
     "ignore: Exception in thread Thread:pytest.PytestUnhandledThreadExceptionWarning",
     # asyncpg sometimes fails to close sockets
     "ignore: unclosed <socket.socket:ResourceWarning",
+    #asyncpg sometimes fails to close transport
+    "ignore: unclosed transport:ResourceWarning",
 ]
