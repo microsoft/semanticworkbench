@@ -1,0 +1,67 @@
+{
+  "editor.bracketPairColorization.enabled": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "always",
+    "source.organizeImports": "always"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
+  "editor.formatOnType": true,
+  "editor.guides.bracketPairs": "active",
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "flake8.ignorePatterns": ["**/*.py"], // disable flake8 in favor of ruff
+  "jupyter.debugJustMyCode": false,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.exclude": [
+    "**/.venv/**",
+    "**/.data/**",
+    "**/__pycache__/**"
+  ],
+  "python.analysis.fixAll": ["source.unusedImports"],
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  "python.testing.cwd": "${workspaceFolder}",
+  "python.testing.pytestArgs": ["--color", "yes"],
+  "python.testing.pytestEnabled": false,
+  "search.exclude": {
+    "**/.venv": true,
+    "**/.data": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.unusedImports": "explicit",
+      "source.organizeImports": "explicit",
+      "source.formatDocument": "explicit"
+    }
+  },
+  "notebook.defaultFormatter": "charliermarsh.ruff",
+  "ruff.nativeServer": "on",
+  "cSpell.words": [
+    "agentic",
+    "connectionpool",
+    "dotenv",
+    "httpcore",
+    "levelname",
+    "OCCD",
+    "openai",
+    "posix",
+    "productized",
+    "pydantic",
+    "tiktoken"
+  ]
+}

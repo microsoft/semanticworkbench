@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "assistants: skill-assistant",
+      "cwd": "${workspaceFolder}",
+      "module": "semantic_workbench_assistant.start",
+      "args": ["assistant.skill_assistant:app", "--port", "3012"],
+      "consoleTitle": "${workspaceFolderBasename}"
+    }
+  ]
+}
