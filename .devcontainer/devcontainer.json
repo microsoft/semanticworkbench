@@ -37,19 +37,12 @@
   // Use 'otherPortsAttributes' to set the defaults that are applied to all ports, unless overridden
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
-  // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": {
-    // Set up git to automatically set up the remote when pushing if it doesn't exist
-    "git_config": "git config --add push.autoSetupRemote true",
-    // Build and restore dependencies for key projects in the repo
-    "make": "make -C /workspaces/semanticworkbench"
-  },
+  "updateContentCommand": "make -C /workspaces/semanticworkbench",
+  "postCreateCommand": "git config --global push.autoSetupRemote true",
   // Configure tool-specific properties.
   "customizations": {
     "codespaces": {
-      "openFiles": [
-        "/workspaces/semanticworkbench/.devcontainer/POST_SETUP_README.md"
-      ]
+      "openFiles": [".devcontainer/POST_SETUP_README.md"]
     },
     "vscode": {
       "extensions": [
@@ -61,6 +54,7 @@
         "epivision.vscode-file-header",
         "esbenp.prettier-vscode",
         "github.vscode-github-actions",
+        "matt-rudge.auto-open-preview-panel",
         "ms-azuretools.vscode-docker",
         "ms-python.debugpy",
         "ms-python.python",
@@ -70,15 +64,7 @@
         "streetsidesoftware.code-spell-checker"
       ]
     }
-  }
-  // Uncomment to run commands after the container is created.
-  // "containerEnv": {
-  //  Disabled because it is being applied twice for the app because something else is setting it
-  //  and appears to be adding it to whatever it is already set to. The reason I was adding it was
-  //  to increase the memory limit across the whole container for pylance.  Alternate "fix" may be
-  //  to use a higher capacity container and/or fewer open projects in the workspace.
-  // 	"NODE_OPTIONS": "--max-old-space-size=8192"
-  // }
-  // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-  // "remoteUser": "root"
+  },
+  // Connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+  "remoteUser": "root"
 }

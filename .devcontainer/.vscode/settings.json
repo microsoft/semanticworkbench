@@ -8,12 +8,16 @@
         "debugpy",
         "devcontainer",
         "devcontainers",
+        "Dotfiles",
         "epivision",
         "esbenp",
         "jungaretti",
+        "prebuild",
         "pylance",
         "robbert",
+        "rudge",
         "semanticworkbench",
-        "tamasfe"
+        "tamasfe",
+        "zoma"
     ]
 }
