@@ -41,7 +41,7 @@ jobs:
 
   build-main:
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
     environment:
       name: production
 
@@ -79,7 +79,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' && vars.DEPLOYMENT_ENABLED == 'true' }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.DEPLOYMENT_ENABLED == 'true' }}
     needs: build-main
     environment:
       name: production
