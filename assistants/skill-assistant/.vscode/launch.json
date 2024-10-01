@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "launch assistant",
+      "cwd": "${workspaceFolder}",
+      "module": "semantic_workbench_assistant.start",
+      "args": ["assistant.skill_assistant:app", "--port", "3092"],
+      "consoleTitle": "${workspaceFolderBasename}",
+      "justMyCode": false
+    }
+  ]
+}

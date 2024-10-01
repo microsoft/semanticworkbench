@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "aarontamasfe.even-better-toml",
+    "charliermarsh.ruff",
+    "epivision.vscode-file-header",
+    "esbenp.prettier-vscode",
+    "ms-python.python",
+    "ms-toolsai.datawrangler"
+  ]
+}

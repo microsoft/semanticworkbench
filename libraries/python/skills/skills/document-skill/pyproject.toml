@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "document-skill"
+version = "0.1.0"
+description = "MADE:Exploration Document skill"
+authors = ["MADE:Explorers"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.11"
+skill-library = { path = "../../../skills/skill-library", develop = true }
+chat-driver = { path = "../../../libraries/chat-driver", develop = true }
+context = { path = "../../../libraries/context", develop = true }
+events = { path = "../../../libraries/events", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.3.0"
+flake8 = "^6.1.0"
+pytest = "^8.3.1"
+pytest-asyncio = "^0.23.8"
+pytest-repeat = "^0.9.3"
+
+[build-system]
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+line_length = 120
+profile = "black"
+
+[tool.pyright]
+exclude = ["venv", ".venv"]

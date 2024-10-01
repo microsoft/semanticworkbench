@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "Skill notebooks"
+package-mode = false
+license = "Copyright (c) Microsoft. All rights reserved."
+authors = ["Paul Payne <papayne@microsoft.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.11"
+python-dotenv = "^1.0.1"
+openai = "^1.16.1"
+nest-asyncio = "^1.6.0"
+skill-library = { path = "../../skills/skill-library/", develop = true }
+posix-skill = { path = "../../skills/skills/posix-skill", develop = true }
+chat-driver = { path = "../../libraries/chat-driver", develop = true }
+context = { path = "../../libraries/context", develop = true }
+events = { path = "../../libraries/events", develop = true }
+function-registry = { path = "../../libraries/function-registry", develop = true }
+azure-identity = "^1.17.1"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.4"
+ruff = "^0.6.4"
+
+[build-system]
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+exclude = [
+    "__pycache__",
+    ".vscode",
+    ".ipynb_checkpoints",
+    "build",
+    "dist",
+    "venv",
+    ".venv",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".git",
+]

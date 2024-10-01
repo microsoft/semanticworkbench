@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "posix-skill"
+version = "0.1.0"
+description = "MADE:Exploration Posix skill"
+authors = ["MADE:Explorers"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.11"
+skill-library = { path = "../../../skills/skill-library", develop = true }
+chat-driver = { path = "../../../libraries/chat-driver", develop = true }
+context = { path = "../../../libraries/context", develop = true }
+events = { path = "../../../libraries/events", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.1"
+pytest-asyncio = "^0.23.8"
+pytest-repeat = "^0.9.3"
+ruff = "^0.6.4"
+
+[build-system]
+requires = ["poetry-core>=1.2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+exclude = ["venv", ".venv"]
