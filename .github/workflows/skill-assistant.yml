@@ -52,7 +52,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-skill-assistant
     needs: build
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' && vars.DEPLOYMENT_ENABLED == 'true'
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' && vars.DEPLOYMENT_ENABLED == 'true' }}
     env:
       DOCKER_IMAGE_TAG: ${{ github.sha }}
       DOCKER_REGISTRY_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
