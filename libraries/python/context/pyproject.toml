@@ -7,7 +7,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "~3.11"
-events = { path = "../../libraries/events", develop = true }
+events = { path = "../events", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.1"
