@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: workbench-app build and deploy
+name: workbench-app continuous integration
 
 on:
   push:
@@ -42,7 +42,7 @@ jobs:
 
   build-main:
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main'
     environment:
       name: production
 
@@ -80,7 +80,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' && vars.DEPLOYMENT_ENABLED == 'true'
     needs: build-main
     environment:
       name: production

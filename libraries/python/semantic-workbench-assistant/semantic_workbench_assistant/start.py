@@ -24,7 +24,7 @@ def main():
         default=settings.port,
         help="port to run service on",
     )
-    parse_args.add_argument("--host", dest="host", type=str, default="127.0.0.1", help="host IP to run service on")
+    parse_args.add_argument("--host", dest="host", type=str, default=settings.host, help="host IP to run service on")
     parse_args.add_argument(
         "--assistant-service-id",
         dest="assistant_service_id",

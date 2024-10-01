@@ -1,3 +1,5 @@
+this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
+
 # If set to true, virtualenvs will be created in the project directory
 POETRY_VIRTUALENVS_IN_PROJECT ?= true
 ifeq ($(POETRY_VIRTUALENVS_IN_PROJECT),true)
@@ -28,5 +30,4 @@ $(call install_marker_path,$(POETRY_PACKAGE)): $(POETRY_PACKAGE)/poetry.lock
 clean-venv clean:
 	poetry --directory=$(POETRY_PACKAGE) env remove --all
 
-DIR = $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
-include $(DIR)/shell.mk
+include $(this_dir)/shell.mk

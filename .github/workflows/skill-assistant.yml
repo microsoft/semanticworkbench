@@ -1,59 +1,39 @@
-name: workbench-service continuous integration
+name: skill assistant continuous integration
 
 on:
   pull_request:
     branches: ["main"]
     paths:
-      [
-        ".github/workflows/semantic-workbench-service.yml",
-        "workbench-service/**",
-      ]
+      - "assistants/skill-assistant/**"
+      - "libraries/python/semantic-workbench-api-model/**"
+      - "libraries/python/semantic-workbench-assistant/**"
+      - "libraries/python/content-safety/**"
+      - "libraries/python/chat-driver/**"
+      - "libraries/python/context/**"
+      - "libraries/python/events/**"
+      - "libraries/python/skills/**"
+      - ".github/workflows/skill-assistant.yml"
 
   push:
     branches: ["main"]
     paths:
-      [
-        ".github/workflows/semantic-workbench-service.yml",
-        "workbench-service/**",
-      ]
+      - "assistants/skill-assistant/**"
+      - "libraries/python/semantic-workbench-api-model/**"
+      - "libraries/python/semantic-workbench-assistant/**"
+      - "libraries/python/content-safety/**"
+      - "libraries/python/chat-driver/**"
+      - "libraries/python/context/**"
+      - "libraries/python/events/**"
+      - "libraries/python/skills/**"
+      - ".github/workflows/skill-assistant.yml"
 
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: workbench-service
+    working-directory: assistants/skill-assistant
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11"]
-        poetry-version: ["1.7.1"]
-        dbtype: ["sqlite", "postgresql"]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-
-      - name: Install poetry
-        uses: abatilo/actions-poetry@v2
-        with:
-          poetry-version: ${{ matrix.poetry-version }}
-
-      - name: Install package
-        run: |
-          poetry install
-
-      - name: pytest
-        run: |
-          poetry run pytest --dbtype=${{ matrix.dbtype }}
-
   build:
     runs-on: ubuntu-latest
     steps:
@@ -70,13 +50,13 @@ jobs:
       id-token: write # for OIDC login
       contents: read
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-workbench
-    needs: [build, test]
+      group: ${{ github.workflow }}-${{ github.ref }}-skill-assistant
+    needs: build
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/head/main' && vars.DEPLOYMENT_ENABLED == 'true'
     env:
       DOCKER_IMAGE_TAG: ${{ github.sha }}
       DOCKER_REGISTRY_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
-      AZURE_WEBSITE_NAME: ${{ secrets.AZURE_WORKBENCH_SERVICE_NAME }}
+      AZURE_WEBSITE_NAME: ${{ secrets.AZURE_PROSPECTOR_ASSISTANT_SERVICE_NAME }}
       AZURE_WEBSITE_RESOURCE_GROUP: ${{ secrets.AZURE_WEBSITE_RESOURCE_GROUP }}
       AZURE_WEBSITE_SUBSCRIPTION: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 

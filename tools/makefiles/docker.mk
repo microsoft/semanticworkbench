@@ -5,7 +5,6 @@ DOCKER_IMAGE_TAG ?= $(shell git rev-parse HEAD)
 DOCKER_PUSH_LATEST ?= true
 DOCKER_PATH ?= .
 DOCKER_FILE ?= Dockerfile
-DOCKER_ARGS ?=
 DOCKER_BUILD_ARGS ?=
 
 AZURE_WEBSITE_NAME ?=
@@ -19,7 +18,11 @@ require_value = $(foreach var,$(1),$(if $(strip $($(var))),,$(error "Variable $(
 .PHONY: .docker-build
 .docker-build:
 	$(call require_value,DOCKER_IMAGE_NAME DOCKER_IMAGE_TAG DOCKER_FILE DOCKER_PATH)
-	docker $(DOCKER_ARGS) build -t $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_ARGS) $(DOCKER_PATH) -f $(DOCKER_FILE)
+ifdef DOCKER_BUILD_ARGS
+	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) $(foreach arg,$(DOCKER_BUILD_ARGS),--build-arg $(arg)) $(DOCKER_PATH) -f $(DOCKER_FILE)
+else
+	docker build -t $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG) $(DOCKER_PATH) -f $(DOCKER_FILE)
+endif
 
 .PHONY: .docker-push
 .docker-push: .docker-build
