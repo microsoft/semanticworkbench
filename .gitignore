@@ -5,19 +5,24 @@
 .env
 *.local
 *__local__*
-.data/
+.data
 .idea/
 appsettings.*.json
 
 # Dependencies and build cache
 node_modules
 poetry.lock
+uv.lock
+.venv
 __pycache__
 .pytest_cache
 .ruff_cache
 .cache
-bin/
-obj/
+*.egg-info
+bin
+obj
+dist
+build
 
 # Logs
 *.log

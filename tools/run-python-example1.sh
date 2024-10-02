@@ -7,5 +7,5 @@ cd $ROOT
 
 cd examples/python/python-01-echo-bot
 
-poetry install
-poetry run start-semantic-workbench-assistant assistant.chat:app
+uv sync 
+uv run start-semantic-workbench-assistant assistant.chat:app

@@ -1,23 +1,25 @@
-[tool.poetry]
+[project]
 name = "events"
 version = "0.1.0"
 description = "MADE:Exploration Chat Events"
-authors = ["MADE:Explorers"]
+authors = [{name="MADE:Explorers"}]
 readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6.1",
+]
 
-[tool.poetry.dependencies]
-python = "~3.11"
-pydantic = "^2.6.1"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.1"
-pytest-asyncio = "^0.23.8"
-pytest-repeat = "^0.9.3"
-ruff = "^0.6.4"
+[tool.uv]
+package = true
+dev-dependencies = [
+    "pytest>=8.3.1",
+    "pytest-asyncio>=0.23.8",
+    "pytest-repeat>=0.9.3",
+]
 
 [build-system]
-requires = ["poetry-core>=1.2.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pyright]
-exclude = ["venv", ".venv"]
+exclude = [".venv"]

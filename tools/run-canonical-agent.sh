@@ -7,4 +7,4 @@ cd $ROOT
 
 cd workbench-service
 
-poetry run start-semantic-workbench-assistant semantic_workbench_assistant.canonical:app
+uv run start-semantic-workbench-assistant semantic_workbench_assistant.canonical:app

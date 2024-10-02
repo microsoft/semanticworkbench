@@ -14,7 +14,7 @@
 
   - Update the `name = "your-skill"` to `name = "<skill-name>-skill"`. Be sure to use a hyphen. This will be the name of the skill package created and installed in the .venv directory of your new skill directory.
   - Update the `description = "MADE:Exploration Template-Rename skill"` to `description = "<Description of your skill>"`.
-  - Add any other additional dependency packages under '[tool.poetry.dependencies]' section.
+  - Add any other additional dependency packages under '[project] dependencies'.
 
 - Under your newly renamed `your_skill` subdirectory:
 

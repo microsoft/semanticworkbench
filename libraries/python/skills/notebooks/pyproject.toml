@@ -1,30 +1,34 @@
-[tool.poetry]
-name = "Skill notebooks"
-package-mode = false
-license = "Copyright (c) Microsoft. All rights reserved."
-authors = ["Paul Payne <papayne@microsoft.com>"]
+[project]
+name = "skill-notebooks"
+version = "0.1.0"
+authors = [{name="Paul Payne", email="<papayne@microsoft.com>"}]
 readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "python-dotenv>=1.0.1",
+    "openai>=1.16.1",
+    "nest-asyncio>=1.6.0",
+    "azure-identity>=1.17.1",
+    "skill-library>=0.1.0",
+    "posix-skill>=0.1.0",
+    "chat-driver>=0.1.0",
+    "context>=0.1.0",
+    "events>=0.1.0",
+    "function-registry>=0.1.0",
+]
 
-[tool.poetry.dependencies]
-python = "~3.11"
-python-dotenv = "^1.0.1"
-openai = "^1.16.1"
-nest-asyncio = "^1.6.0"
-skill-library = { path = "../skill-library/", develop = true }
-posix-skill = { path = "../skills/posix-skill", develop = true }
-chat-driver = { path = "../../chat-driver", develop = true }
-context = { path = "../../context", develop = true }
-events = { path = "../../events", develop = true }
-function-registry = { path = "../../function-registry", develop = true }
-azure-identity = "^1.17.1"
+[tool.uv]
+dev-dependencies = [
+    "ipykernel>=6.29.4",
+]
 
-[tool.poetry.group.dev.dependencies]
-ipykernel = "^6.29.4"
-ruff = "^0.6.4"
-
-[build-system]
-requires = ["poetry-core>=1.2.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv.sources]
+skill-library = { path = "../skill-library/", editable = true }
+posix-skill = { path = "../skills/posix-skill", editable = true }
+chat-driver = { path = "../../chat-driver", editable = true }
+context = { path = "../../context", editable = true }
+events = { path = "../../events", editable = true }
+function-registry = { path = "../../function-registry", editable = true }
 
 [tool.pyright]
 exclude = [

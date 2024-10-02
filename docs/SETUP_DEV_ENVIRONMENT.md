@@ -20,33 +20,28 @@ Recommended installers:
 
 The backend service for the Semantic Workbench is written in Python. Currently we require Python 3.11.
 
-The core dependencies you need to install are: `python 3.11`, `poetry`, `make`.
+The core dependencies you need to install are: `uv` and `make`.
+
+`uv` will automatically install the correct version of Python for you when you run `uv sync`.
 
 Linux:
 
-     sudo add-apt-repository ppa:deadsnakes/ppa
      sudo apt update
-     sudo apt install python3.11 python3-pip python3-poetry python-is-python3
-     pip install cffi
-
-If you have other versions of python installed, make sure they are all registered with update-alternatives and ensure python 3.11 is active:
-
-     sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 100
-     sudo update-alternatives --config python3
+     sudo apt install pipx
+     pipx ensurepath
+     pipx install uv
 
 macOS:
 
-      brew install python@3.11
-      brew install poetry
+      brew install uv
       brew install make
 
 Windows:
 
-      winget install Python.Python.3.11
       winget install ezwinports.make
       python -m pip install --user pipx
       python -m pipx ensurepath
-      pipx install poetry
+      pipx install uv
 
 If you haven't already, enable long file paths on Windows.
 

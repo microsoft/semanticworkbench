@@ -11,9 +11,7 @@
   "editor.guides.bracketPairs": "active",
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,
-  "flake8.ignorePatterns": [
-    "**/*.py"
-  ], // disable flake8 in favor of ruff
+  "flake8.ignorePatterns": ["**/*.py"], // disable flake8 in favor of ruff
   "jupyter.debugJustMyCode": false,
   "python.analysis.autoFormatStrings": true,
   "python.analysis.autoImportCompletions": true,
@@ -23,18 +21,11 @@
     "**/.data/**",
     "**/__pycache__/**"
   ],
-  "python.analysis.fixAll": [
-    "source.unusedImports"
-  ],
+  "python.analysis.fixAll": ["source.unusedImports"],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "basic",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-  "python.testing.cwd": "${workspaceFolder}",
-  "python.testing.pytestArgs": [
-    "--color",
-    "yes"
-  ],
-  "python.testing.pytestEnabled": true,
+  "python.testing.pytestEnabled": false,
   "search.exclude": {
     "**/.venv": true,
     "**/data": true

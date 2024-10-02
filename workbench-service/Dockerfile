@@ -2,15 +2,13 @@ ARG python_image=python:3.11-slim
 
 FROM ${python_image} AS build
 
-RUN python3 -m venv /venv
-ENV PATH=/venv/bin:$PATH
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-RUN pip3 install --no-cache-dir --upgrade pip
+COPY ./libraries/python/semantic-workbench-api-model /libraries/python/semantic-workbench-api-model
+COPY ./libraries/python/semantic-workbench-assistant /libraries/python/semantic-workbench-assistant
+COPY ./workbench-service /workbench-service
 
-COPY ./libraries/python/semantic-workbench-api-model /packages/libraries/python/semantic-workbench-api-model
-COPY ./workbench-service /packages/workbench-service
-
-RUN pip3 install --no-cache-dir /packages/workbench-service
+RUN uv sync --directory /workbench-service --no-editable --no-dev
 
 FROM ${python_image}
 
@@ -28,8 +26,8 @@ ENV SSHD_PORT=2222
 ########
 # END: enable ssh in azure web app
 
-COPY --from=build /venv /venv
-ENV PATH=/venv/bin:$PATH
+COPY --from=build /workbench-service/.venv /workbench-service/.venv
+ENV PATH=/workbench-service/.venv/bin:$PATH
 
 # alembic migrations related files
 COPY ./workbench-service/alembic.ini /workbench-service/alembic.ini
@@ -40,6 +38,8 @@ COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
 RUN chmod +x /scripts/docker-entrypoint.sh
 
 WORKDIR /workbench-service
+
+ENV WORKBENCH__SERVICE__HOSTNAME=0.0.0.0
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]

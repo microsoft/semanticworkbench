@@ -1,32 +1,39 @@
-[tool.poetry]
+[project]
 name = "chat-driver"
 version = "0.1.0"
 description = "MADE:Exploration Chat Driver"
-authors = ["MADE:Explorers"]
+authors = [{name="MADE:Explorers"}]
 readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.16.1",
+    "pydantic>=2.6.1",
+    "pydantic-settings>=2.3.4",
+    "python-dotenv>=1.0.1",
+    "requests>=2.32.0",
+    "tiktoken>=0.7.0",
+    "azure-identity>=1.17.1",
+    "context>=0.1.0",
+    "events>=0.1.0",
+    "function-registry>=0.1.0",
+]
 
-[tool.poetry.dependencies]
-python = "~3.11"
-openai = "^1.16.1"
-pydantic = "^2.6.1"
-pydantic-settings = "^2.3.4"
-python-dotenv = "^1.0.1"
-requests = "^2.32.0"
-tiktoken = "^0.7.0"
-azure-identity = "^1.17.1"
-context = { path = "../context", develop = true }
-events = { path = "../events", develop = true }
-function-registry = { path = "../function-registry", develop = true }
+[tool.uv]
+package = true
+dev-dependencies = [
+    "pytest>=8.3.1",
+    "pytest-asyncio>=0.23.8",
+    "pytest-repeat>=0.9.3",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.1"
-pytest-asyncio = "^0.23.8"
-pytest-repeat = "^0.9.3"
-ruff = "^0.6.4"
+[tool.uv.sources]
+context = { path = "../context", editable = true }
+events = { path = "../events", editable = true }
+function-registry = { path = "../function-registry", editable = true }
 
 [build-system]
-requires = ["poetry-core>=1.2.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pyright]
-exclude = ["venv", ".venv"]
+exclude = [".venv"]

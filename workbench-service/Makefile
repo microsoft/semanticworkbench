@@ -1,11 +1,6 @@
 repo_root = $(shell git rev-parse --show-toplevel)
 
-.DEFAULT_GOAL := venv
-
-include $(repo_root)/tools/makefiles/poetry.mk
-
-test: venv
-	$(VENV_BIN)/pytest
+include $(repo_root)/tools/makefiles/python.mk
 
 WORKBENCH__DB__URL ?= postgresql:///workbench
 
@@ -23,8 +18,8 @@ else
 	WORKBENCH__DB__URL="$(WORKBENCH__DB__URL)" alembic revision --autogenerate -m "$(migration)"
 endif
 
-include $(repo_root)/tools/makefiles/docker.mk
-
 DOCKER_PATH = $(repo_root)
 
 docker-%: DOCKER_IMAGE_NAME := workbench
+
+include $(repo_root)/tools/makefiles/docker.mk

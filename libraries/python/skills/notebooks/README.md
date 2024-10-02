@@ -6,10 +6,10 @@ library.
 ## Environment setup
 
 - Install Python 3.11.
-- Install [![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/).
-- For simplicity, all of these notebooks share the same python/poetry
-  environment, which is managed locally and managed by Poetry. From the notebook
-  directory, run `poetry update` to install all python dependencies listed in
+- Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
+- For simplicity, all of these notebooks share the same python/uv
+  environment, which is managed locally and managed by uv. From the notebook
+  directory, run `uv sync` to install all python dependencies listed in
   [./pyproject.toml](pyproject.toml) into the [.\.venv](.venv) folder.
 - Open this directory as a workspace in VS Code. e.g.,
   `code .\users\papayne\workspaces\notebooks.code-workspace` from the repo root.
@@ -19,10 +19,10 @@ library.
 Just open any `*.ipynb` file (a notebook file) and start exploring via VSCode's
 built-in Jupyter Notebook viewers.
 
-### Select the right python (poetry) environment
+### Select the right python (uv) environment
 
 If you get python dependency errors in the notebook code, make sure you have the
-correct python environment activated. A Poetry
+correct python environment activated. A
 [./pyproject.toml](pyproject.toml) is provided that lists all the dependencies.
 You can install them however you like to manage your dependencies, but here is
 what I do:
