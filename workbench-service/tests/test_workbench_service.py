@@ -221,6 +221,7 @@ def test_create_assistant_add_to_conversation(
         assert assistant_conversations.conversations[0].id == conversation.id
 
 
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
 def test_create_assistant_add_to_conversation_delete_assistant_retains_participant(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
@@ -372,6 +373,7 @@ def test_create_get_assistant(
         assert assistants_response["assistants"] == [assistant_response]
 
 
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
 def test_create_update_assistant(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
@@ -427,6 +429,7 @@ def test_create_update_assistant(
         assert httpx.codes.is_client_error(http_response.status_code)
 
 
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
 def test_create_delete_assistant(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
@@ -501,6 +504,7 @@ def test_create_delete_assistant(
         assert http_response.status_code == httpx.codes.NOT_FOUND
 
 
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
 def test_create_assistant_update_participant(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
@@ -745,6 +749,7 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
         assert len(messages) == 3
 
 
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
 def test_create_assistant_send_assistant_message(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
@@ -924,6 +929,7 @@ def test_create_conversation_write_read_delete_file(
         assert http_response.status_code == httpx.codes.NOT_FOUND
 
 
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
 def test_create_assistant_export_import_data(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
@@ -1021,6 +1027,7 @@ def test_create_assistant_export_import_data(
                 assert assistant["name"] == f"test-assistant ({assistant_count - index - 1})"
 
 
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
 def test_create_assistant_conversations_export_import_conversations(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
@@ -1229,6 +1236,7 @@ def test_export_import_conversations_with_files(
                             pytest.fail(f"unexpected file: {file.filename}")
 
 
+@pytest.mark.httpx_mock(can_send_already_matched_responses=True)
 def test_create_conversations_get_participants(
     workbench_service: FastAPI,
     httpx_mock: HTTPXMock,
