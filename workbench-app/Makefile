@@ -5,22 +5,21 @@ repo_root = $(shell git rev-parse --show-toplevel)
 .PHONY: clean
 clean:
 	$(rm) node_modules || $(true_expression)
-	npm cache clean --force
 
 .PHONY: install
 install:
-	npm install
+	pnpm install
 
 .PHONY: test
 test:
-	npm run type-check
+	pnpm run type-check
 
 .PHONY: format
 format:
-	npm run format
+	pnpm run format
 
 .PHONY: lint
 lint:
-	npm run lint
+	pnpm run lint
 
 include $(repo_root)/tools/makefiles/shell.mk

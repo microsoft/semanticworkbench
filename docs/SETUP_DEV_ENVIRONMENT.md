@@ -79,6 +79,7 @@ Once you have nvm installed:
 ```
 nvm install 20 lts
 nvm use 20
+npm install -g pnpm
 ```
 
 ### Build the frontend
