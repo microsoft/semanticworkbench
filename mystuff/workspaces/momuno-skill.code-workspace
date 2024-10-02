@@ -1,0 +1,50 @@
+{
+    "folders": [
+      {
+        "name": "Python Libs",
+        "path": "../../libraries/python"
+      },
+      {
+        "name": "Skills Libs",
+        "path": "../../libraries/python/skills/"
+      },
+      {
+        "name": "Document Skill",
+        "path": "../../libraries/python/skills/skills/document-skill"
+      },
+
+      {
+        "name": "Skill Assistant (SW)",
+        "path": "../../assistants/skill-assistant"
+      },
+      {
+        "name": "Mollie: Notebooks",
+        "path": "../../mystuff/notebooks"
+      },
+      {
+        "name": "Semantic Workbench Service",
+        "path": "../../workbench-service"
+      },
+      {
+        "name": "Build Tools",
+        "path": "../../tools"
+      },
+      {
+        "name": "Momuno: Workspaces",
+        "path": "../../mystuff/workspaces"
+      },
+      {
+        "name": "Root",
+        "path": "../../"
+      }
+    ],
+    "settings": {
+      "notebook.output.scrolling": true,
+      "notebook.output.wordWrap": true,
+      "notebook.showCellStatusBar": "visible",
+      "python.languageServer": "Pylance",
+      "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+      }
+    }
+  }
