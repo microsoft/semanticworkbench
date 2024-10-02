@@ -21,7 +21,7 @@ COPY ./libraries/python /packages/libraries/python
 COPY ./assistants/${package} /packages/assistants/assistant
 
 # install the assistant and dependencies to /.venv
-RUN uv sync --directory /packages/assistants/assistant --no-editable --no-dev
+RUN uv sync --directory /packages/assistants/assistant --no-editable --no-dev --locked
 
 FROM ${python_image}
 

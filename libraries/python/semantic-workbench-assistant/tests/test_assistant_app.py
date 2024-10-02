@@ -207,8 +207,8 @@ async def test_assistant_with_inspector(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda: AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -280,8 +280,8 @@ async def test_assistant_with_state_exporter(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda: AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -355,8 +355,8 @@ async def test_assistant_with_config_provider(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda: AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()

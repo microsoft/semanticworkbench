@@ -15,6 +15,10 @@ endif
 install:
 	uv sync $(uv_project_args) $(UV_SYNC_ARGS)
 
+.PHONY: lock
+lock:
+	uv lock $(uv_project_args) $(UV_LOCK_ARGS)
+
 .PHONY: clean
 clean:
 	$(rm) $(venv_dir)

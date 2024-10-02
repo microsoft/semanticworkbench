@@ -16,33 +16,39 @@ NAME = "Document skill"
 CLASS_NAME = "DocumentSkill"
 DESCRIPTION = "Anything related to documents - creation, edit, translation, etc."
 DEFAULT_MAX_RETRIES = 3
-INSTRUCTIONS = "You are an assistant that manages and works on and with documents, from creation to editing to translation."
+INSTRUCTIONS = (
+    "You are an assistant that manages and works on and with documents, from creation to editing to translation."
+)
+
 
 class Attachment(BaseModel):
     filename: str
     content: str
 
+
 class Outline(BaseModel):
     version: int = 0
     content: str
 
+
 class Content(BaseModel):
     content: str  # Content/fragment/page that is created will likely have data associated with it... not sure what more at this point.
+
 
 class Paper(BaseModel):
     version: int = 0
     contents: list[Content] = []
 
+
 class DocumentContext(Context):
-    def __init__(
-        self
-    ) -> None:
+    def __init__(self) -> None:
         self.chat_history: str = ""
         self.attachments_list: list[Attachment] = []
         self.outline_versions: list[Outline] = []
         self.paper_versions: list[Paper] = []
 
-        super().__init__() # currently all params of Context can be None.
+        super().__init__()  # currently all params of Context can be None.
+
 
 class DocumentSkill(Skill):
     def __init__(
@@ -50,7 +56,6 @@ class DocumentSkill(Skill):
         context: DocumentContext,
         chat_driver_config: ChatDriverConfig,
     ) -> None:
-
         self.context: DocumentContext = context
 
         # Add some actions.
@@ -87,29 +92,18 @@ class DocumentSkill(Skill):
             program=("TBD"),
         )
 
-
     ##################################
     # Actions
     ##################################
 
     # This may not be needed as an action... not sure yet how context will be set.
-    def set_context(
-        self,
-        context: Context,
-        chat_history: str,
-        attachments_list: list[Attachment]
-    ) -> None:
+    def set_context(self, context: Context, chat_history: str, attachments_list: list[Attachment]) -> None:
         self.context.chat_history = chat_history
         self.context.attachments_list = attachments_list
 
     async def draft_outline(
-        self,
-        context: Context,
-        openai_client: AsyncOpenAI,
-        model: str,
-        user_feedback: str | None = None
-        ) -> None:
-
+        self, context: Context, openai_client: AsyncOpenAI, model: str, user_feedback: str | None = None
+    ) -> None:
         # construct completion request - draft outline from existing info
         messages: list[ChatCompletionMessageParam] = []
         _add_main_system_message(messages, draft_outline_main_system_message)
@@ -122,19 +116,13 @@ class DocumentSkill(Skill):
         if user_feedback is not None:
             _add_user_feedback_system_message(messages, user_feedback)
 
-        completion_args = {
-            "messages": messages,
-            "model": model,
-            "response_format": {
-                "type": "text"
-              }
-        }
+        completion_args = {"messages": messages, "model": model, "response_format": {"type": "text"}}
         completion = await openai_client.chat.completions.create(**completion_args)
         outline = completion.choices[0].message.content
 
         debug_log = json.dumps(completion_args, indent=2) + "\n\n"
         debug_log += f"Response:\n{completion.model_dump_json(indent=2)}\n\n"
-        #print(debug_log)
+        # print(debug_log)
 
         # message event should be sent from within this action. For now using stdout.
         chat_output = f"\nAssistant: Outline drafted\n\n{outline}\n"
@@ -155,9 +143,9 @@ class DocumentSkill(Skill):
         openai_client: AsyncOpenAI,
         model: str,
         user_feedback: str | None = None,
-        decision: str | None = None
+        decision: str | None = None,
     ) -> None:
-         # construct completion request - draft content/page/fragment from existing info
+        # construct completion request - draft content/page/fragment from existing info
         messages: list[ChatCompletionMessageParam] = []
 
         if decision == "[ITERATE]":
@@ -179,19 +167,13 @@ class DocumentSkill(Skill):
                     full_content += content.content
                 _add_existing_content_system_message(messages, full_content)
 
-        completion_args = {
-            "messages": messages,
-            "model": model,
-            "response_format": {
-                "type": "text"
-              }
-        }
+        completion_args = {"messages": messages, "model": model, "response_format": {"type": "text"}}
         completion = await openai_client.chat.completions.create(**completion_args)
         draft = completion.choices[0].message.content
 
         debug_log = json.dumps(completion_args, indent=2) + "\n\n"
         debug_log += f"Response:\n{completion.model_dump_json(indent=2)}\n\n"
-        #print(debug_log)
+        # print(debug_log)
 
         # message event should be sent from within this action. For now using stdout.
         if decision == "[ITERATE]":
@@ -218,24 +200,21 @@ class DocumentSkill(Skill):
         return
 
     async def get_user_feedback(
-        self,
-        context: Context,
-        openai_client: AsyncOpenAI,
-        model: str,
-        outline: bool
+        self, context: Context, openai_client: AsyncOpenAI, model: str, outline: bool
     ) -> tuple[str, str]:
-
         # message event should be sent from within this action. For now using stdout.
-        event_message = ("Please review the above draft and provide me any feedback. You can also "
-                        "let me know if you are ready to continue drafting the paper or would like"
-                        " to iterate on the current content.")
+        event_message = (
+            "Please review the above draft and provide me any feedback. You can also "
+            "let me know if you are ready to continue drafting the paper or would like"
+            " to iterate on the current content."
+        )
         # msg_event = MessageEvent(message=event_message)
         chat_output = f"\nAssistant: {event_message}\n"
         sys.stdout.write(chat_output)
         sys.stdout.flush()
         self.context.chat_history = self.context.chat_history + chat_output
 
-        #user response input should be awaited for here from interface. For now using stdout.
+        # user response input should be awaited for here from interface. For now using stdout.
         sys.stdout.write("\nUser: ")
         user_feedback = input()
         sys.stdout.write(user_feedback)
@@ -267,19 +246,13 @@ class DocumentSkill(Skill):
 
         _add_user_feedback_system_message(messages, user_feedback)
 
-        completion_args = {
-            "messages": messages,
-            "model": model,
-            "response_format": {
-                "type": "text"
-              }
-        }
+        completion_args = {"messages": messages, "model": model, "response_format": {"type": "text"}}
         completion = await openai_client.chat.completions.create(**completion_args)
-        decision = completion.choices[0].message.content # this should NOT be done as a string.
+        decision = completion.choices[0].message.content  # this should NOT be done as a string.
 
         debug_log = json.dumps(completion_args, indent=2) + "\n\n"
         debug_log += f"Response:\n{completion.model_dump_json(indent=2)}\n\n"
-        #print(debug_log)
+        # print(debug_log)
 
         return decision, user_feedback
 
@@ -294,92 +267,108 @@ class DocumentSkill(Skill):
 
 
 # Current approach uses system messages for everything.
-draft_outline_main_system_message = ("Generate an outline for the document, including title. The outline should include the key points that will"
+draft_outline_main_system_message = (
+    "Generate an outline for the document, including title. The outline should include the key points that will"
     " be covered in the document. Consider the attachments, the rationale for why they were uploaded, and the"
     " conversation that has taken place. The outline should be a hierarchical structure with multiple levels of"
     " detail, and it should be clear and easy to understand. The outline should be generated in a way that is"
-    " consistent with the document that will be generated from it.")
-    #("You are an AI assistant that helps draft outlines for a future flushed-out document."
-    # " You use information from a chat history between a user and an assistant, a prior version of a draft"
-    # " outline if it exists, as well as any other attachments provided by the user to inform a newly revised "
-    # "outline draft. Provide ONLY any outline. Provide no further instructions to the user.")
+    " consistent with the document that will be generated from it."
+)
+# ("You are an AI assistant that helps draft outlines for a future flushed-out document."
+# " You use information from a chat history between a user and an assistant, a prior version of a draft"
+# " outline if it exists, as well as any other attachments provided by the user to inform a newly revised "
+# "outline draft. Provide ONLY any outline. Provide no further instructions to the user.")
 
-outline_feedback_main_system_message = ("Use the user's most recent feedback to determine if the user wants to iterate further on the"
+outline_feedback_main_system_message = (
+    "Use the user's most recent feedback to determine if the user wants to iterate further on the"
     " provided outline [ITERATE], or if the user is ready to move on to drafting a paper from the"
     " provided outline [CONTINUE]. Based on the user's feedback on the provided outline, determine if"
-    " the user wants to [ITERATE], [CONTINUE], or [QUIT]. Reply with ONLY [ITERATE], [CONTINUE], or [QUIT].")
+    " the user wants to [ITERATE], [CONTINUE], or [QUIT]. Reply with ONLY [ITERATE], [CONTINUE], or [QUIT]."
+)
 
-draft_page_continue_main_system_message = ("Following the structure of the outline, create the content for the next (or first) page of the"
+draft_page_continue_main_system_message = (
+    "Following the structure of the outline, create the content for the next (or first) page of the"
     " document - don't try to create the entire document in one pass nor wrap it up too quickly, it will be a"
     " multi-page document so just create the next page. It's more important to maintain"
     " an appropriately useful level of detail. After this page is generated, the system will follow up"
     " and ask for the next page. If you have already generated all the pages for the"
-    " document as defined in the outline, return empty content.")
-    #("You are an AI assistant that helps draft new content of a document based on an outline."
-    # " You use information from a chat history between a user and an assistant, the approved outline from the user,"
-    # "and an existing version of drafted content if it exists, as well as any other attachments provided by the user to inform newly revised "
-    # "content. Newly drafted content does not need to cover the entire outline.  Instead it should be limited to a reasonable 100 lines of natural language"
-    # " or subsection of the outline (which ever is shorter). The newly drafted content should be written as to append to any existing drafted content."
-    # " This way the user can review newly drafted content as a subset of the future full document and not be overwhelmed."
-    # "Only provide the newly drafted content. Provide no further instructions to the user.")
+    " document as defined in the outline, return empty content."
+)
+# ("You are an AI assistant that helps draft new content of a document based on an outline."
+# " You use information from a chat history between a user and an assistant, the approved outline from the user,"
+# "and an existing version of drafted content if it exists, as well as any other attachments provided by the user to inform newly revised "
+# "content. Newly drafted content does not need to cover the entire outline.  Instead it should be limited to a reasonable 100 lines of natural language"
+# " or subsection of the outline (which ever is shorter). The newly drafted content should be written as to append to any existing drafted content."
+# " This way the user can review newly drafted content as a subset of the future full document and not be overwhelmed."
+# "Only provide the newly drafted content. Provide no further instructions to the user.")
 
-draft_page_iterate_main_system_message = ("Following the structure of the outline, iterate on the currently drafted page of the"
+draft_page_iterate_main_system_message = (
+    "Following the structure of the outline, iterate on the currently drafted page of the"
     " document. It's more important to maintain"
     " an appropriately useful level of detail. After this page is iterated upon, the system will follow up"
-    " and ask for the next page.")
+    " and ask for the next page."
+)
 
-draft_page_feedback_main_system_message = ("You are an AI assistant that helps draft outlines for a future flushed-out document."
+draft_page_feedback_main_system_message = (
+    "You are an AI assistant that helps draft outlines for a future flushed-out document."
     " You use the user's most recent feedback to determine if the user wants to iterate further on the"
     " provided draft content [ITERATE], or if the user is ready to move on to drafting new additional content"
     " [CONTINUE]. Based on the user's feedback on the provided drafted content, determine if"
-    " the user wants to [ITERATE], [CONTINUE], or [QUIT]. Reply with ONLY [ITERATE], [CONTINUE], or [QUIT].")
+    " the user wants to [ITERATE], [CONTINUE], or [QUIT]. Reply with ONLY [ITERATE], [CONTINUE], or [QUIT]."
+)
+
 
 def _add_main_system_message(messages: list[ChatCompletionMessageParam], prompt: str) -> None:
-    message: ChatCompletionSystemMessageParam = {
-        "role": "system",
-        "content": prompt
-    }
+    message: ChatCompletionSystemMessageParam = {"role": "system", "content": prompt}
     messages.append(message)
+
 
 def _add_chat_history_system_message(messages: list[ChatCompletionMessageParam], chat_history: str) -> None:
     message: ChatCompletionSystemMessageParam = {
         "role": "system",
-        "content": f"<CHAT_HISTORY>{chat_history}</CHAT_HISTORY>"
+        "content": f"<CHAT_HISTORY>{chat_history}</CHAT_HISTORY>",
     }
     messages.append(message)
+
 
 def _add_attachments_system_message(messages: list[ChatCompletionMessageParam], attachments: list[Attachment]) -> None:
     for item in attachments:
         message: ChatCompletionSystemMessageParam = {
             "role": "system",
-            "content": (f"<ATTACHMENT><FILENAME>{item.filename}</FILENAME><CONTENT>{item.content}</CONTENT></ATTACHMENT>")
+            "content": (
+                f"<ATTACHMENT><FILENAME>{item.filename}</FILENAME><CONTENT>{item.content}</CONTENT></ATTACHMENT>"
+            ),
         }
         messages.append(message)
+
 
 def _add_existing_outline_system_message(messages: list[ChatCompletionMessageParam], outline: str) -> None:
     message: ChatCompletionSystemMessageParam = {
         "role": "system",
-        "content": (f"<EXISTING_OUTLINE>{outline}</EXISTING_OUTLINE>")
+        "content": (f"<EXISTING_OUTLINE>{outline}</EXISTING_OUTLINE>"),
     }
     messages.append(message)
+
 
 def _add_approved_outline_system_message(messages: list[ChatCompletionMessageParam], outline: str) -> None:
     message: ChatCompletionSystemMessageParam = {
         "role": "system",
-        "content": (f"<APPROVED_OUTLINE>{outline}</APPROVED_OUTLINE>")
+        "content": (f"<APPROVED_OUTLINE>{outline}</APPROVED_OUTLINE>"),
     }
     messages.append(message)
+
 
 def _add_existing_content_system_message(messages: list[ChatCompletionMessageParam], content: str) -> None:
     message: ChatCompletionSystemMessageParam = {
         "role": "system",
-        "content": (f"<EXISTING_CONTENT>{content}</EXISTING_CONTENT>")
+        "content": (f"<EXISTING_CONTENT>{content}</EXISTING_CONTENT>"),
     }
     messages.append(message)
+
 
 def _add_user_feedback_system_message(messages: list[ChatCompletionMessageParam], user_feedback: str) -> None:
     message: ChatCompletionSystemMessageParam = {
         "role": "system",
-        "content": (f"<USER_FEEDBACK>{user_feedback}</USER_FEEDBACK>")
+        "content": (f"<USER_FEEDBACK>{user_feedback}</USER_FEEDBACK>"),
     }
     messages.append(message)
