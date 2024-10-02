@@ -37,6 +37,7 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: workbench-app/pnpm-lock.yaml
 
       - name: pnpm install, build, and test
         env:
@@ -67,6 +68,7 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: workbench-app/pnpm-lock.yaml
 
       - name: pnpm install, build, and test
         env:
