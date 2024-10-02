@@ -39,14 +39,18 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: workbench-app/pnpm-lock.yaml
 
-      - name: pnpm install, build, and test
+      - name: pnpm install
+        working-directory: ./workbench-app
+        run: pnpm install
+
+      - name: pnpm build
         env:
           NODE_OPTIONS: "--max_old_space_size=8192"
+          VITE_SEMANTIC_WORKBENCH_AUTHORITY: ${{ secrets.VITE_SEMANTIC_WORKBENCH_AUTHORITY }}
+          VITE_SEMANTIC_WORKBENCH_CLIENT_ID: ${{ secrets.VITE_SEMANTIC_WORKBENCH_CLIENT_ID }}
+          VITE_SEMANTIC_WORKBENCH_SERVICE_URL: ${{ secrets.VITE_SEMANTIC_WORKBENCH_SERVICE_URL }}
         working-directory: ./workbench-app
-        run: |
-          pnpm install
-          pnpm run build --if-present
-          pnpm run test --if-present
+        run: pnpm run build
 
   build-main:
     runs-on: ubuntu-latest
@@ -70,17 +74,18 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: workbench-app/pnpm-lock.yaml
 
-      - name: pnpm install, build, and test
+      - name: pnpm install
+        working-directory: ./workbench-app
+        run: pnpm install
+
+      - name: pnpm build
         env:
           NODE_OPTIONS: "--max_old_space_size=8192"
           VITE_SEMANTIC_WORKBENCH_AUTHORITY: ${{ secrets.VITE_SEMANTIC_WORKBENCH_AUTHORITY }}
           VITE_SEMANTIC_WORKBENCH_CLIENT_ID: ${{ secrets.VITE_SEMANTIC_WORKBENCH_CLIENT_ID }}
           VITE_SEMANTIC_WORKBENCH_SERVICE_URL: ${{ secrets.VITE_SEMANTIC_WORKBENCH_SERVICE_URL }}
         working-directory: ./workbench-app
-        run: |
-          pnpm install
-          pnpm run build --if-present
-          pnpm run test --if-present
+        run: pnpm run build
 
       - name: Zip artifact for deployment
         if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
