@@ -15,4 +15,4 @@ fi
 
 echo "Starting the Semantic Workbench app, open https://127.0.0.1:4000 in your browser when ready"
 
-npm start
+pnpm start

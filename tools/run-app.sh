@@ -17,5 +17,5 @@ fi
 
 echo "Starting the Semantic Workbench app, open https://localhost:4000 in your browser when ready"
 
-npm install
-npm start
+pnpm install
+pnpm start

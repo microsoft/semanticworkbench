@@ -3,8 +3,7 @@
 import { Button, Title2, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import debug from 'debug';
 import React from 'react';
-import { useNavigate } from 'react-router';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
