@@ -1,2 +1,2 @@
-repo_root = $(shell git rev-parse --show-toplevel)
-include $(repo_root)/tools/makefiles/recursive.mk
+this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
+include $(this_dir)/tools/makefiles/recursive.mk
