@@ -3,6 +3,7 @@
     "private": true,
     "version": "0.1.0",
     "type": "module",
+    "packageManager": "pnpm@9.10.0",
     "scripts": {
         "build": "tsc && vite build",
         "depcheck": "depcheck --ignores=\"@types/*,ts-prune,typescript,vite\" --ignore-dirs=\".vscode,.vs,.git,node_modules\" --skip-missing",
