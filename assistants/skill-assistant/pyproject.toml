@@ -1,37 +1,33 @@
-[tool.poetry]
+[project]
 name = "assistant"
 version = "0.1.0"
 description = "Exploration of a skill assistant library assistant (name to be updated)."
-authors = ["Semantic Workbench Team"]
+authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
-packages = [{ include = "assistant" }]
+requires-python = ">=3.11"
+dependencies = [
+    "azure-ai-contentsafety>=1.0.0",
+    "azure-identity>=1.16.0",
+    "azure-core[aio]>=1.30.0",
+    "openai>=1.3.9",
+    "semantic-workbench-assistant>=0.1.0",
+    "content-safety>=0.1.0",
+    "posix-skill>=0.1.0",
+]
 
-[tool.poetry.dependencies]
-python = "~3.11"
-azure-ai-contentsafety = "^1.0.0"
-azure-identity = "^1.16.0"
-azure-core = { version = "*", extras = ["aio"] }
-openai = "^1.3.9"
+[tool.uv]
+package = true
+dev-dependencies = ["pytest>=8.3.1", "pytest-asyncio>=0.23.8"]
 
+[tool.uv.sources]
 # If you copy this file to your project, you should verify the relative path to the following:
-semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", develop = true }
-content-safety = { path = "../../libraries/python/content-safety/", develop = true }
-
-chat_driver = { path = "../../libraries/python/chat-driver", develop = true }
-context = { path = "../../libraries/python/context", develop = true }
-events = { path = "../../libraries/python/events", develop = true }
-
-posix-skill = { path = "../../libraries/python/skills/skills/posix-skill", develop = true }
-skill-library = { path = "../../libraries/python/skills/skill-library", develop = true }
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.1"
-pytest-asyncio = "^0.23.8"
-ruff = "^0.6.4"
+semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
+content-safety = { path = "../../libraries/python/content-safety/", editable = true }
+posix-skill = { path = "../../libraries/python/skills/skills/posix-skill", editable = true }
 
 [build-system]
-requires = ["poetry-core>=1.2.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pyright]
 exclude = ["venv", ".venv"]

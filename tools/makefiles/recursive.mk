@@ -33,7 +33,11 @@ clean install test format lint: $(MAKE_DIRS)
 
 $(MAKE_DIRS):
 ifndef IS_RECURSIVE_MAKE
+ifdef FAIL_ON_ERROR
+	$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1
+else
 	$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 || $(true_expression)
+endif
 endif
 
 include $(this_dir)/shell.mk

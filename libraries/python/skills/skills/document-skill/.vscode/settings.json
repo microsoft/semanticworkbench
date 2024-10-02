@@ -1,5 +1,4 @@
 {
-  "black-formatter.args": ["--config", "${workspaceFolder}/.black.toml"],
   "editor.bracketPairColorization.enabled": true,
   "editor.codeActionsOnSave": {
     "source.fixAll": "always",
@@ -12,9 +11,6 @@
   "editor.guides.bracketPairs": "active",
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,
-  "flake8.args": ["--config", ".flake8"],
-  "isort.args": ["--profile", "black", "--gitignore"],
-  "isort.interpreter": ["${workspaceFolder}/.venv/bin/python"],
   "jupyter.debugJustMyCode": false,
   "python.analysis.autoFormatStrings": true,
   "python.analysis.autoImportCompletions": true,
@@ -44,14 +40,16 @@
     "editor.formatOnSave": true
   },
   "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.fixAll": "explicit",
+      "source.unusedImports": "explicit",
       "source.organizeImports": "explicit",
-      "source.unusedImports": "explicit"
-    },
-    "editor.defaultFormatter": "ms-python.black-formatter",
-    "editor.formatOnSave": true
+      "source.formatDocument": "explicit"
+    }
   },
+  "ruff.nativeServer": "on",
   "cSpell.words": [
     "dotenv",
     "httpx",

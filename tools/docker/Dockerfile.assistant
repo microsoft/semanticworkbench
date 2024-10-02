@@ -13,30 +13,28 @@ FROM ${python_image} AS build
 
 ARG package
 
-RUN python3 -m venv /venv
-ENV PATH=/venv/bin:$PATH
-
-RUN pip3 install --no-cache-dir --upgrade pip
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # copy all library packages
 COPY ./libraries/python /packages/libraries/python
 # copy the assistant package
-COPY ./assistants/${package} /packages/assistants/$package
+COPY ./assistants/${package} /packages/assistants/assistant
 
-# install the assistant package
-RUN pip3 install --no-cache-dir /packages/assistants/${package}
+# install the assistant and dependencies to /.venv
+RUN uv sync --directory /packages/assistants/assistant --no-editable --no-dev
 
 FROM ${python_image}
 
 ARG app
 
-COPY --from=build /venv /venv
-ENV PATH=/venv/bin:$PATH
+COPY --from=build /packages/assistants/assistant/.venv /packages/assistants/assistant/.venv
+ENV PATH=/packages/assistants/assistant/.venv/bin:$PATH
 
 COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
 RUN chmod +x /scripts/docker-entrypoint.sh
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
 
 ENV ASSISTANT_APP=${app}
+ENV ASSISTANT__HOST=0.0.0.0
 
-CMD ["start-semantic-workbench-assistant", "--host", "0.0.0.0"]
+CMD ["start-semantic-workbench-assistant"]
