@@ -11,8 +11,6 @@ appsettings.*.json
 
 # Dependencies and build cache
 node_modules
-poetry.lock
-uv.lock
 .venv
 __pycache__
 .pytest_cache

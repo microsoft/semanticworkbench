@@ -41,7 +41,7 @@ jobs:
 
       - name: pnpm install
         working-directory: ./workbench-app
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: pnpm build
         env:
@@ -76,7 +76,7 @@ jobs:
 
       - name: pnpm install
         working-directory: ./workbench-app
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: pnpm build
         env:

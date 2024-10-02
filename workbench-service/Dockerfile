@@ -8,7 +8,7 @@ COPY ./libraries/python/semantic-workbench-api-model /libraries/python/semantic-
 COPY ./libraries/python/semantic-workbench-assistant /libraries/python/semantic-workbench-assistant
 COPY ./workbench-service /workbench-service
 
-RUN uv sync --directory /workbench-service --no-editable --no-dev
+RUN uv sync --directory /workbench-service --no-editable --no-dev --locked
 
 FROM ${python_image}
 

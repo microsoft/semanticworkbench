@@ -23,6 +23,9 @@ node_modules
 !.yarn/cache
 #.pnp.*
 
+# Ignore package-lock.json, as we use pnpm instead of npm
+package-lock.json
+
 # Testing
 coverage
 
