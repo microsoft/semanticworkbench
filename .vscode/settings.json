@@ -16,7 +16,7 @@
   },
   "python.analysis.autoFormatStrings": true,
   "python.analysis.autoImportCompletions": true,
-  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.diagnosticMode": "openFilesOnly",
   "python.analysis.exclude": [
     "**/node_modules/**",
     "**/.venv/**",
