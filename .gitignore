@@ -5,7 +5,7 @@
 .env
 *.local
 *__local__*
-.data/
+.data
 .idea/
 appsettings.*.json
 
@@ -13,6 +13,7 @@ appsettings.*.json
 node_modules
 poetry.lock
 uv.lock
+.venv
 __pycache__
 .pytest_cache
 .ruff_cache

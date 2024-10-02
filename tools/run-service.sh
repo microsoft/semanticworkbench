@@ -10,5 +10,5 @@ cd workbench-service
 # Note: this creates the .data folder at
 # path         ./workbench-service/.data
 # rather than  ./workbench-service/.data
-poetry install
-poetry run start-semantic-workbench-service
+uv sync
+uv run start-semantic-workbench-service

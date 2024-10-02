@@ -30,14 +30,14 @@ The code here is only meant to **show the basics**, to **familiarize with code s
 ## Starting the example from CLI
 
 If you're not using VS Code and/or Codespaces, you can also work from the
-command line, using `poetry`:
+command line, using `uv`:
 
 ```
 cd <PATH TO THIS FOLDER>
 
-poetry install
+uv sync
 
-poetry run start-semantic-workbench-assistant assistant.chat:app
+uv run start-semantic-workbench-assistant assistant.chat:app
 ```
 
 ## Create your own assistant
