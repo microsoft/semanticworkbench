@@ -13,10 +13,9 @@ This directory is split into:
   library.
 
 Also, see our
-[example](../semantic-workbench-assistants/skill-assistant/README.md) of
+[example](../../../assistants/skill-assistant/README.md) of
 integrating a skill [assistant](./skill-library/skill_library/assistant.py) into
 a Semantic Workbench assistant if that's something you want to try.
-
 
 Each of these are different python packages and will need to be installed
 independently (using `make` or `poetry install` in their respective
@@ -48,7 +47,7 @@ more easily:
   assistants by providing clearer purposeful abstractions and better defining or
   disambiguating commonly confused terms. For example, we separate out a lot of
   the complexity of interacting with the OpenAI Chat Completion API with the
-  [chat driver](../libraries/chat-driver/README.md) abstraction and we now
+  [chat driver](../chat-driver/README.md) abstraction and we now
   distinguish between chat commands, chat tool functions, and routine actions in
   a clear way, even though they're really all just functions.
 - Routines (formerly referred to as "Recipes") make it clear that what we are
@@ -59,5 +58,5 @@ more easily:
   monitor progress and modify the routines as necessary).
 
 Currently we provide one functional routine runner implementation, the
-[InstructionRoutineRunner](./skill_library/routine_runners/instruction_routine_runner.py),
+[InstructionRoutineRunner](./skill-library/skill_library/routine_runners/instruction_routine_runner.py),
 but will be adding several more in the upcoming weeks.

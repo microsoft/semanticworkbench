@@ -8,8 +8,7 @@
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_service.start",
       "justMyCode": false,
-      "consoleTitle": "semantic-workbench-service",
-      "args": ["--host", "0.0.0.0", "--port", "3000"]
+      "consoleTitle": "semantic-workbench-service"
     }
   ]
 }

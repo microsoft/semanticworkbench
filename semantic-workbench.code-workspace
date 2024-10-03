@@ -19,8 +19,8 @@
           "examples: python-02-simple-chatbot",
           "examples: python-03-multimodel-chatbot",
           "assistants: prospector-assistant",
-          "assistants: skill-assistant",
-         ]
+          "assistants: skill-assistant"
+        ]
       }
     ]
   },
@@ -122,5 +122,8 @@
       "name": ".github",
       "path": "./.github"
     }
-  ]
+  ],
+  "settings": {
+    "markdown.validate.enabled": true
+  }
 }
