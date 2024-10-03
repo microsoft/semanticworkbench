@@ -27,10 +27,7 @@
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
-  "forwardPorts": [
-    3000,
-    4000
-  ],
+  "forwardPorts": [3000, 4000],
   // Use 'portsAttributes' to configure the behavior of specific port forwarding instances.
   "portsAttributes": {
     "3000": {
@@ -43,14 +40,12 @@
   // Use 'otherPortsAttributes' to set the defaults that are applied to all ports, unless overridden
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
-  "updateContentCommand": "make -C ${containerWorkspaceFolder} && chown -R vscode:vscode ${containerWorkspaceFolder}",
+  "updateContentCommand": "make -C ${containerWorkspaceFolder}",
   "postCreateCommand": "git config --global push.autoSetupRemote true",
   // Configure tool-specific properties.
   "customizations": {
     "codespaces": {
-      "openFiles": [
-        ".devcontainer/POST_SETUP_README.md"
-      ]
+      "openFiles": [".devcontainer/POST_SETUP_README.md"]
     },
     "vscode": {
       "extensions": [
