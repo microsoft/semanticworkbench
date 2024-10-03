@@ -4,7 +4,7 @@ This document covers the common setup information for the Semantic Workbench.
 
 # Codespaces
 
-We recommend using [GitHub Codespaces for developing with the Semantic Workbench](../.devcontainer/README.md). This will provide a pre-configured environment with VS Code and no additional setup.
+We recommend using [GitHub Codespaces for developing with the Semantic Workbench](../.devcontainer/README.md). This will provide a pre-configured environment with all development tools already installed.
 
 # Local Development
 
@@ -12,34 +12,59 @@ We recommend using [GitHub Codespaces for developing with the Semantic Workbench
 
 Recommended installers:
 
+- Linux: apt or your distribution's package manager
 - macOS: [brew](https://brew.sh/)
 - Windows: [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/)
-- Linux: apt or your distribution's package manager
 
-## Service Setup
+## Development tools
 
-The backend service for the Semantic Workbench is written in Python. Currently we require Python 3.11.
+The backend service for the Semantic Workbench is written in Python.
 
-The core dependencies you need to install are: `uv` and `make`.
+The frontend for the Semantic Workbench is written in Typescript.
 
-`uv` will automatically install the correct version of Python for you when you run `uv sync`.
+The core dependencies you need to install are:
+
+- `make` - for scripting installation steps of the various projects within this repo
+- `uv` - for managing installed versions of `python` - for installing python dependencies
+- `nvm` - for managing installed versions of `node`
+- `pnpm` - for installing node dependencies
 
 Linux:
 
-     sudo apt update
-     sudo apt install pipx
-     pipx ensurepath
-     pipx install uv
+    # make is installed by default on linux
+    sudo apt update && sudo apt install pipx
+    pipx ensurepath
+    pipx install uv
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+    nvm install 20 lts
+    nvm use 20
+    npm install -g pnpm
 
 macOS:
 
-      brew install uv
-      brew install make
+    brew install make
+    brew install uv
+    brew install nvm
+
+    nvm install 20 lts
+    nvm use 20
+    npm install -g pnpm
 
 Windows:
 
-      winget install ezwinports.make
-      winget install --id=astral-sh.uv  -e
+    winget install ezwinports.make
+    winget install --id=astral-sh.uv  -e
+    winget install CoreyButler.NVMforWindows
+
+On Windows, exit and restart the VSCode and/or terminal you installed from to re-load your environment
+variables and ensure the newly installed apps are available on your PATH.
+
+Windows continued:
+
+    nvm install 20 lts
+    nvm use 20
+    npm install -g pnpm
 
 If you haven't already, enable long file paths on Windows.
 
@@ -49,12 +74,6 @@ If you haven't already, enable long file paths on Windows.
 - Double-click on `LongPathsEnabled`, set its value to `1`, and click OK.
 
 ### Configure and build the backend
-
-- Within the [`v1/service`](../workbench-service/) directory, create your virtual environment, and install the service packages:
-
-      make
-
-  If this fails in Windows, try running a vanilla instance of `cmd` or `powershell` and not within `Cmder` or another shell that may have modified the environment.
 
 # Frontend Setup
 
