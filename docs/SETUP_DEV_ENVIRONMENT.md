@@ -53,9 +53,9 @@ macOS:
 
 Windows:
 
-    winget install ezwinports.make
-    winget install --id=astral-sh.uv  -e
-    winget install CoreyButler.NVMforWindows
+    winget install ezwinports.make -e
+    winget install astral-sh.uv  -e
+    winget install CoreyButler.NVMforWindows -e
 
 On Windows, exit and restart the VSCode and/or terminal you installed from to re-load your environment
 variables and ensure the newly installed apps are available on your PATH.
