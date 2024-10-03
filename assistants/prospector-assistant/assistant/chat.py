@@ -370,7 +370,7 @@ async def respond_to_conversation(
 
         # generate a response from the AI model
         completion_total_tokens: int | None = None
-        async with config.service_config.new_client(api_version="2024-02-15-preview") as openai_client:
+        async with config.service_config.new_client() as openai_client:
             try:
                 # call the OpenAI API to generate a completion
                 completion = await openai_client.beta.chat.completions.parse(

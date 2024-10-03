@@ -159,7 +159,7 @@ class AzureOpenAIServiceConfig(ServiceConfig):
     )
 
     def new_client(self, **kwargs) -> openai.AsyncAzureOpenAI:
-        api_version = kwargs.get("api_version", "2024-02-15-preview")
+        api_version = kwargs.get("api_version", "2024-08-01-preview")
 
         match self.auth_config:
             case AzureOpenAIApiKeyAuthConfig():
