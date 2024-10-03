@@ -39,9 +39,7 @@ macOS:
 Windows:
 
       winget install ezwinports.make
-      python -m pip install --user pipx
-      python -m pipx ensurepath
-      pipx install uv
+      winget install --id=astral-sh.uv  -e
 
 If you haven't already, enable long file paths on Windows.
 
