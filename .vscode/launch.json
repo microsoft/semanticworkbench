@@ -27,16 +27,7 @@
       "cwd": "${workspaceFolder}/workbench-service",
       "module": "semantic_workbench_service.start",
       "justMyCode": false,
-      "consoleTitle": "semantic-workbench-service"
-    },
-    {
-      "type": "debugpy",
-      "request": "launch",
-      "name": "canonical-assistant",
-      "cwd": "${workspaceFolder}/libraries/semantic-workbench-assistant",
-      "module": "semantic_workbench_assistant.start",
-      "args": ["semantic_workbench_assistant.canonical:app", "--port", "3002"],
-      "consoleTitle": "canonical-assistant"
+      "consoleTitle": "service: semantic-workbench-service"
     }
   ]
 }
