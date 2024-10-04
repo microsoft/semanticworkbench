@@ -23,16 +23,19 @@ in various development environments.
 
 # Quick start (Recommended) - GitHub Codespaces for turn-key development environment
 
-GitHub Codespaces provides a cloud-based development environment for your repository. It allows you to develop, build, and test your code in a consistent environment, without needing to install dependencies or configure your local machine. It works with any system with a web browser and internet connection, including Windows, MacOS, Linux, Chromebooks, tablets, and mobile devices.
+GitHub Codespaces provides a cloud-based development environment for your repository. It allows you to develop, build, and test your code
+in a consistent environment, without needing to install dependencies or configure your local machine. It works with any system with a web
+browser and internet connection, including Windows, MacOS, Linux, Chromebooks, tablets, and mobile devices.
 
-See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for more information on how to set up and use GitHub Codespaces with Semantic Workbench.
+See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for more information on how to set up and use GitHub Codespaces
+with Semantic Workbench.
 
 # Quick start - Local development environment
 
 - Configure your dev environment, [setup guide](docs/SETUP_DEV_ENVIRONMENT.md).
 - Start the backend service, see [here for instructions](workbench-service/README.md).
 - Start the frontend app, see [here for instructions](workbench-app/README.md).
-- Start the [Python chatbot example](examples/python/python-03-simple-chatbot/README.md), or one of the other [examples](examples).
+- Start the [Python chatbot example](examples/python/python-02-simple-chatbot/README.md), or one of the other [examples](examples).
 
 ![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme1.png)
 
@@ -49,7 +52,7 @@ The repository contains a few examples that can be used to create custom assista
 - [Python Canonical Assistant](libraries/python/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
 - [Python example 1](examples/python/python-01-echo-bot/README.md): a simple assistant echoing text back.
 - [Python example 2](examples/python/python-02-simple-chatbot/README.md): a simple chatbot implementing metaprompt guardrails and content moderation.
-- [Python example 3](examples/python/python-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
+- [Python example 3](examples/python/python-03-multimodel-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
 - [.NET example 1](examples/dotnet/dotnet-01-echo-bot/README.md): a simple agent with echo and support for a basic `/say` command.
 - [.NET example 2](examples/dotnet/dotnet-02-message-types-demo/README.md): a simple assistants showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
 - [.NET example 3](examples/dotnet/dotnet-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.

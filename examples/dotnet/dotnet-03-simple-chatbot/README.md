@@ -29,9 +29,9 @@ The chatbot includes some important best practices for AI development, such as:
      - `OpenAI.Endpoint`: change the value if you're using OpenAI compatible services like LM Studio
      - `OpenAI.ApiKey`: the service credentials
 2. Start the agent, e.g. from this folder run `dotnet run`
-3. Start the workbench backend, e.g. from root of the repo: `./tools/run-service.sh`. More info in the [README](../../README.md).
+3. Start the workbench backend, e.g. from root of the repo: `./tools/run-service.sh`. More info in the [README](../../../README.md).
 4. Start the workbench frontend, e.g. from root of the repo: `./tools/run-app.sh`. More info in
-   the [README](../../README.md).
+   the [README](../../../README.md).
 
 ## Project Overview
 

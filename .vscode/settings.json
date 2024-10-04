@@ -214,5 +214,6 @@
     "webservice",
     "winget",
     "workbenchservice"
-  ]
+  ],
+  "markdown.validate.enabled": true
 }
