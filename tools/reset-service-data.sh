@@ -6,4 +6,3 @@ cd $ROOT
 # ================================================================
 
 rm -f workbench-service/.data/workbench.db
-rm -f workbench-service/.data/workbench.db

@@ -8,4 +8,4 @@ cd $ROOT
 cd examples/python/python-02-simple-chatbot
 
 uv sync
-uv run start-semantic-workbench-assistant assistant.chat:app
+uv run start-semantic-workbench-assistant assistant.chat:app --port 3002
