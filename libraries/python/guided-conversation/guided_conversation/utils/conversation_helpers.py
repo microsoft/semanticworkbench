@@ -1,9 +1,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from dataclasses import dataclass, field
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 import datetime
-from enum import Enum
 import logging
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import Union
 
 from semantic_kernel.contents import ChatMessageContent

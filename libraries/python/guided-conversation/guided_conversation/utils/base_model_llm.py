@@ -1,5 +1,8 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 import ast
 from types import NoneType
 from typing import get_args

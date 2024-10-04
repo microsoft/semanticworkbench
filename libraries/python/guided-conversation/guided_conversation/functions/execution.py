@@ -1,5 +1,8 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 from typing import Annotated
 
 from semantic_kernel import Kernel

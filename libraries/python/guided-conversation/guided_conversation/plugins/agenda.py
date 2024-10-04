@@ -1,18 +1,22 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 import logging
 from typing import Annotated
+
+from pydantic import Field, ValidationError
+from semantic_kernel import Kernel
+from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
+from semantic_kernel.functions import KernelArguments
+from semantic_kernel.functions.kernel_function_decorator import kernel_function
 
 from guided_conversation.utils.base_model_llm import BaseModelLLM
 from guided_conversation.utils.conversation_helpers import Conversation, ConversationMessageType
 from guided_conversation.utils.openai_tool_calling import ToolValidationResult
 from guided_conversation.utils.plugin_helpers import PluginOutput, fix_error, update_attempts
 from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit, format_resource
-from pydantic import Field, ValidationError
-from semantic_kernel import Kernel
-from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
-from semantic_kernel.functions import KernelArguments
-from semantic_kernel.functions.kernel_function_decorator import kernel_function
 
 AGENDA_ERROR_CORRECTION_SYSTEM_TEMPLATE = """<message role="system">You are a helpful, thoughtful, and meticulous assistant.
 You are conducting a conversation with a user. You tried to update the agenda, but the update was invalid.
@@ -113,14 +117,16 @@ class Agenda:
         while True:
             try:
                 # Try to update the agenda, and do extra validation checks
-                self.agenda.items = items
+                self.agenda.items = items  # type: ignore
                 self._validate_agenda_update(items, remaining_turns)
                 self.logger.info(f"Agenda updated successfully: {self.get_agenda_for_prompt()}")
                 return PluginOutput(True, [])
             except (ValidationError, ValueError) as e:
                 # Update the previous attempts and get instructions for the LLM
                 previous_attempts, llm_formatted_attempts = update_attempts(
-                    error=e, attempt_id=str(items), previous_attempts=previous_attempts
+                    error=e,
+                    attempt_id=str(items),
+                    previous_attempts=previous_attempts,  # type: ignore
                 )
 
                 # If we have reached the maximum number of retries return a failure
@@ -175,11 +181,12 @@ class Agenda:
     async def _fix_agenda_error(self, previous_attempts: str, conversation: Conversation) -> None:
         """Calls an LLM to try and fix an error in the agenda update."""
         req_settings = self.kernel.get_prompt_execution_settings_from_service_id(self.service_id)
-        req_settings.max_tokens = 2000
+        req_settings.max_tokens = 2000  # type: ignore
 
         self.kernel.add_function(plugin_name=self.id, function=self.update_agenda_items)
-        filter = {"included_plugins": [self.id]}
-        req_settings.function_choice_behavior = FunctionChoiceBehavior.Auto(auto_invoke=False, filters=filter)
+        req_settings.function_choice_behavior = FunctionChoiceBehavior.Auto(
+            auto_invoke=False, filters={"included_plugins": [self.id]}
+        )
 
         arguments = KernelArguments(
             conversation_history=conversation.get_repr_for_prompt(exclude_types=[ConversationMessageType.REASONING]),

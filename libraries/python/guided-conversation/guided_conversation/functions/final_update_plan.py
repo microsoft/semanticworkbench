@@ -1,8 +1,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from guided_conversation.utils.conversation_helpers import Conversation
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 from semantic_kernel import Kernel
 from semantic_kernel.functions import FunctionResult, KernelArguments
+
+from guided_conversation.utils.conversation_helpers import Conversation
 
 final_update_template = """<message role="system">You are a helpful, thoughtful, and meticulous assistant.
 You just finished a conversation with a user.{{#if context}} Here is some additional context about the conversation:

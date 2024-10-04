@@ -1,18 +1,22 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 import logging
 from typing import Annotated, Any, Literal, get_args, get_origin, get_type_hints
 
-from guided_conversation.utils.base_model_llm import BaseModelLLM
-from guided_conversation.utils.conversation_helpers import Conversation, ConversationMessageType
-from guided_conversation.utils.openai_tool_calling import ToolValidationResult
-from guided_conversation.utils.plugin_helpers import PluginOutput, fix_error, update_attempts
 from pydantic import BaseModel, create_model
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
 from semantic_kernel.contents import AuthorRole, ChatMessageContent
 from semantic_kernel.functions import KernelArguments
 from semantic_kernel.functions.kernel_function_decorator import kernel_function
+
+from guided_conversation.utils.base_model_llm import BaseModelLLM
+from guided_conversation.utils.conversation_helpers import Conversation, ConversationMessageType
+from guided_conversation.utils.openai_tool_calling import ToolValidationResult
+from guided_conversation.utils.plugin_helpers import PluginOutput, fix_error, update_attempts
 
 ARTIFACT_ERROR_CORRECTION_SYSTEM_TEMPLATE = """<message role="system">You are a helpful, thoughtful, and meticulous assistant.
 You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation.

@@ -1,9 +1,18 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
+
+from pydantic import BaseModel
+from semantic_kernel import Kernel
+from semantic_kernel.contents import AuthorRole, ChatMessageContent
+from semantic_kernel.functions import KernelArguments
+from semantic_kernel.functions.kernel_function_decorator import kernel_function
 
 from guided_conversation.functions.conversation_plan import conversation_plan_function
 from guided_conversation.functions.execution import end_conversation, execution, send_message
@@ -18,11 +27,6 @@ from guided_conversation.utils.openai_tool_calling import (
 )
 from guided_conversation.utils.plugin_helpers import PluginOutput, format_kernel_functions_as_tools
 from guided_conversation.utils.resources import GCResource, ResourceConstraint
-from pydantic import BaseModel
-from semantic_kernel import Kernel
-from semantic_kernel.contents import AuthorRole, ChatMessageContent
-from semantic_kernel.functions import KernelArguments
-from semantic_kernel.functions.kernel_function_decorator import kernel_function
 
 MAX_DECISION_RETRIES = 2
 

@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "assistants: prospector-assistant",
+      "cwd": "${workspaceFolder}",
+      "module": "semantic_workbench_assistant.start",
+      "args": ["assistant.chat:app", "--port", "3011"],
+      "consoleTitle": "${workspaceFolderBasename}"
+    }
+  ]
+}

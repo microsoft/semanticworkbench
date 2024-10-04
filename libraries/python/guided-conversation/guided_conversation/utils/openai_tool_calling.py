@@ -1,9 +1,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from dataclasses import dataclass
-from enum import Enum
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 import json
 import logging
+from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from semantic_kernel.contents.function_call_content import FunctionCallContent

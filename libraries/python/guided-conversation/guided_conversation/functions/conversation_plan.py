@@ -1,13 +1,17 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
+# type: ignore
+
 import logging
+
+from semantic_kernel import Kernel
+from semantic_kernel.functions import FunctionResult, KernelArguments
 
 from guided_conversation.plugins.agenda import Agenda
 from guided_conversation.plugins.artifact import Artifact
 from guided_conversation.utils.conversation_helpers import Conversation
 from guided_conversation.utils.resources import GCResource, ResourceConstraintMode
-from semantic_kernel import Kernel
-from semantic_kernel.functions import FunctionResult, KernelArguments
 
 logger = logging.getLogger(__name__)
 
