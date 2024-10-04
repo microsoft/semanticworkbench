@@ -1,5 +1,5 @@
-from typing import Annotated, Literal
 import uuid
+from typing import Annotated, Literal
 
 import pytest
 from pydantic import BaseModel
@@ -8,64 +8,9 @@ from semantic_workbench_assistant.config import (
     ConfigSecretStrJsonSerializationMode,
     UISchema,
     config_secret_str_serialization_context,
-    replace_config_secret_str_masked_values,
     get_ui_schema,
-    overwrite_defaults_from_env,
+    replace_config_secret_str_masked_values,
 )
-
-
-def test_overwrite_defaults_from_env(monkeypatch: pytest.MonkeyPatch):
-    class SubModel(BaseModel):
-        sub_field: str = ""
-
-    class TestModel(BaseModel):
-        field: str = "default"
-        optional_field: str | None = None
-        sub_model: SubModel = SubModel()
-        flag: bool = False
-
-    model = TestModel()
-    model_copy = model.model_copy()
-
-    monkeypatch.setenv("config__field", "field_test")
-    monkeypatch.setenv("config__optional_field", "optional_field_test")
-    # verify all caps env var
-    monkeypatch.setenv("CONFIG__SUB_MODEL__SUB_FIELD", "sub_field_test")
-    # booleans (non strs) should not be affected
-    monkeypatch.setenv("config__flag", "TRUE")
-
-    updated = overwrite_defaults_from_env(model, prefix="config", separator="__")
-
-    # ensure original was not mutated
-    assert model == model_copy
-    # ensure expected updates were applied
-    assert updated == TestModel(
-        field="field_test",
-        optional_field="optional_field_test",
-        sub_model=SubModel(sub_field="sub_field_test"),
-        flag=False,
-    )
-
-
-def test_overwrite_defaults_from_env_no_effect_on_non_default_values(monkeypatch: pytest.MonkeyPatch):
-    class SubModel(BaseModel):
-        sub_field: str = ""
-
-    class TestModel(BaseModel):
-        field: str = ""
-        sub_model: SubModel = SubModel()
-
-    model = TestModel(field="test", sub_model=SubModel(sub_field="test"))
-    model_copy = model.model_copy()
-
-    monkeypatch.setenv("config__field", "this value should not be applied")
-    monkeypatch.setenv("CONFIG__SUB_MODEL__SUB_FIELD", "this value should not be applied")
-
-    updated = overwrite_defaults_from_env(model, prefix="config", separator="__")
-
-    # ensure original was not mutated
-    assert model == model_copy
-    assert updated == model
 
 
 @pytest.mark.parametrize(
@@ -130,16 +75,19 @@ def test_config_secret_str_serialization(
 
 
 def test_config_secret_str_deserialization() -> None:
-    class SubModel(BaseModel):
+    class SubModel1(BaseModel):
+        secret: ConfigSecretStr
+
+    class SubModel2(BaseModel):
         secret: ConfigSecretStr
 
     class TestModel(BaseModel):
         secret: ConfigSecretStr
-        sub_model: SubModel
+        sub_model: SubModel1 | SubModel2
 
     secret_value = uuid.uuid4().hex
 
-    model = TestModel(secret=secret_value, sub_model=SubModel(secret=secret_value))
+    model = TestModel(secret=secret_value, sub_model=SubModel2(secret=secret_value))
     assert model.secret == secret_value
 
     serialized_config = model.model_dump(mode="json")

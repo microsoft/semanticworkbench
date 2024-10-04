@@ -1,15 +1,14 @@
 import pathlib
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 import google.generativeai as genai
 import openai
+import openai_client
 from anthropic import AsyncAnthropic
-from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
-from semantic_workbench_assistant import config
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
 # The semantic workbench app uses react-jsonschema-form for rendering
@@ -48,7 +47,7 @@ class ServiceType(StrEnum):
     Ollama = "ollama"
 
 
-class ServiceConfig(BaseModel):
+class ServiceConfig(ABC, BaseModel):
     model_config = ConfigDict(
         title="Service Configuration",
         json_schema_extra={
@@ -76,46 +75,7 @@ class ServiceConfig(BaseModel):
 #
 
 
-class AzureAuthConfigType(StrEnum):
-    Identity = "azure-identity"
-    ServiceKey = "api-key"
-
-
-class AzureOpenAIAzureIdentityAuthConfig(BaseModel):
-    model_config = ConfigDict(title="Azure identity based authentication")
-
-    auth_method: Annotated[Literal[AzureAuthConfigType.Identity], UISchema(widget="hidden")] = (
-        AzureAuthConfigType.Identity
-    )
-
-
-class AzureOpenAIApiKeyAuthConfig(BaseModel):
-    model_config = ConfigDict(
-        title="API key based authentication",
-        json_schema_extra={
-            "required": ["azure_openai_api_key"],
-        },
-    )
-
-    auth_method: Annotated[Literal[AzureAuthConfigType.ServiceKey], UISchema(widget="hidden")] = (
-        AzureAuthConfigType.ServiceKey
-    )
-
-    azure_openai_api_key: Annotated[
-        # ConfigSecretStr is a custom type that should be used for any secrets.
-        # It will hide the value in the UI.
-        ConfigSecretStr,
-        Field(
-            title="Azure OpenAI API Key",
-            description=(
-                "The Azure OpenAI API key for your resource instance.  If not provided, the service default will be"
-                " used."
-            ),
-        ),
-    ] = ""
-
-
-class AzureOpenAIServiceConfig(ServiceConfig):
+class AzureOpenAIServiceConfig(ServiceConfig, openai_client.AzureOpenAIServiceConfig):
     model_config = ConfigDict(
         title="Azure OpenAI",
         json_schema_extra={
@@ -125,65 +85,14 @@ class AzureOpenAIServiceConfig(ServiceConfig):
 
     service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(widget="hidden")] = ServiceType.AzureOpenAI
 
-    auth_config: Annotated[
-        AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
-        Field(
-            title="Authentication Configuration",
-            discriminator="auth_method",
-        ),
-        UISchema(hide_title=True, widget="radio"),
-    ] = AzureOpenAIAzureIdentityAuthConfig()
-
-    azure_openai_endpoint: Annotated[
-        str,
-        Field(
-            title="Azure OpenAI Endpoint",
-            description=(
-                "The Azure OpenAI endpoint for your resource instance. If not provided, the service default will"
-                " be used."
-            ),
-        ),
-    ] = config.first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""
-
     openai_model: Annotated[
         str,
         Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
     ] = "gpt-4o"
 
-    azure_openai_deployment: Annotated[
-        str,
-        Field(
-            title="Azure OpenAI Deployment",
-            description="The Azure OpenAI deployment to use.",
-        ),
-    ] = "gpt-4o"
-
-    # set on the class to avoid re-creating the token provider for each client, which allows
-    # the token provider to cache and re-use tokens
-    _azure_bearer_token_provider = get_bearer_token_provider(
-        DefaultAzureCredential(),
-        "https://cognitiveservices.azure.com/.default",
-    )
-
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
         api_version = kwargs.get("api_version", "2024-06-01")
-
-        match self.auth_config.auth_method:
-            case AzureAuthConfigType.ServiceKey:
-                return openai.AsyncAzureOpenAI(
-                    api_key=self.auth_config.azure_openai_api_key,
-                    azure_deployment=self.azure_openai_deployment,
-                    azure_endpoint=self.azure_openai_endpoint,
-                    api_version=api_version,
-                )
-
-            case AzureAuthConfigType.Identity:
-                return openai.AsyncAzureOpenAI(
-                    azure_ad_token_provider=AzureOpenAIServiceConfig._azure_bearer_token_provider,
-                    azure_deployment=self.azure_openai_deployment,
-                    azure_endpoint=self.azure_openai_endpoint,
-                    api_version=api_version,
-                )
+        return openai_client.create_client(self, api_version=api_version)
 
 
 # endregion
@@ -193,7 +102,7 @@ class AzureOpenAIServiceConfig(ServiceConfig):
 #
 
 
-class OpenAIServiceConfig(ServiceConfig):
+class OpenAIServiceConfig(ServiceConfig, openai_client.OpenAIServiceConfig):
     model_config = ConfigDict(
         title="OpenAI",
         json_schema_extra={
@@ -203,38 +112,13 @@ class OpenAIServiceConfig(ServiceConfig):
 
     service_type: Annotated[Literal[ServiceType.OpenAI], UISchema(widget="hidden")] = ServiceType.OpenAI
 
-    openai_api_key: Annotated[
-        # ConfigSecretStr is a custom type that should be used for any secrets.
-        # It will hide the value in the UI.
-        ConfigSecretStr,
-        Field(
-            title="OpenAI API Key",
-            description="The API key to use for the OpenAI API.",
-        ),
-    ] = ""
-
     openai_model: Annotated[
         str,
         Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
     ] = "gpt-4o"
 
-    openai_organization_id: Annotated[
-        str,
-        Field(
-            title="Organization ID [Optional]",
-            description=(
-                "The ID of the organization to use for the OpenAI API.  NOTE, this is not the same as the organization"
-                " name. If you do not specify an organization ID, the default organization will be used."
-            ),
-        ),
-        UISchema(placeholder="[optional]"),
-    ] = ""
-
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
-        return openai.AsyncOpenAI(
-            api_key=self.openai_api_key,
-            organization=self.openai_organization_id or None,
-        )
+        return openai_client.create_client(self)
 
 
 # endregion
@@ -340,25 +224,12 @@ class OllamaServiceConfig(ServiceConfig):
         Field(title="Ollama Model", description="The Ollama model to use for generating responses."),
     ] = "llama3.1"
 
-    openai_model: Annotated[
-        str,
-        Field(title="OpenAI Model", description="Same as Ollama model, used in later calls to OpenAI API."),
-        UISchema(widget="hidden"),
-    ] = ollama_model
-
-    openai_api_key: Annotated[
-        # ConfigSecretStr is a custom type that should be used for any secrets.
-        # It will hide the value in the UI.
-        ConfigSecretStr,
-        Field(
-            title=" API Key",
-            description="Required by OpenAI API but ignored by Ollama",
-        ),
-        UISchema(placeholder="[optional]"),
-    ] = "ollama"
+    @property
+    def openai_model(self) -> str:
+        return self.ollama_model
 
     def new_client(self, **kwargs) -> openai.AsyncOpenAI:
-        return openai.AsyncOpenAI(base_url=f"{self.ollama_endpoint}", api_key=self.openai_api_key)
+        return openai.AsyncOpenAI(base_url=f"{self.ollama_endpoint}", api_key="ollama")
 
 
 # endregion

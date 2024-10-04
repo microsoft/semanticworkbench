@@ -59,6 +59,10 @@
       "path": "assistants/skill-assistant"
     },
     {
+      "name": "libraries:openai-client",
+      "path": "./libraries/python/openai-client"
+    },
+    {
       "name": "libraries:chat-driver",
       "path": "./libraries/python/chat-driver"
     },
