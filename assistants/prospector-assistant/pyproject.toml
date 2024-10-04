@@ -37,6 +37,3 @@ document-skill = { path = "../../libraries/python/skills/skills/document-skill",
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.pyright]
-exclude = ["venv", ".venv"]
