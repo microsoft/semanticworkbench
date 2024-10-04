@@ -2,7 +2,6 @@
 # the chat_driver package.
 from context import Context, ContextProtocol
 
-from . import client
 from .openai_chat_completion_driver import TEXT_RESPONSE_FORMAT, ChatDriver, ChatDriverConfig, ResponseFormat
 
 __all__ = [
@@ -12,5 +11,4 @@ __all__ = [
     "ChatDriverConfig",
     "TEXT_RESPONSE_FORMAT",
     "ResponseFormat",
-    "client",
 ]

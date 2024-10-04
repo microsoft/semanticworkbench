@@ -76,6 +76,15 @@ class AzureServiceKeyAuthConfig(BaseModel):
 # region Evaluator Configuration
 #
 
+_lazy_initialized_azure_default_credential = None
+
+
+def get_azure_default_credential() -> DefaultAzureCredential:
+    global _lazy_initialized_azure_default_credential
+    if _lazy_initialized_azure_default_credential is None:
+        _lazy_initialized_azure_default_credential = DefaultAzureCredential()
+    return _lazy_initialized_azure_default_credential
+
 
 class AzureContentSafetyEvaluatorConfig(BaseModel):
     model_config = ConfigDict(title="Azure Content Safety Evaluator")
@@ -128,13 +137,15 @@ class AzureContentSafetyEvaluatorConfig(BaseModel):
     ] = config.first_env_var("azure_content_safety_endpoint", "assistant__azure_content_safety_endpoint") or ""
 
     # set on the class to avoid re-authenticating for each request
+    _azure_default_credential: DefaultAzureCredential | None = None
+
     def _get_azure_credentials(self) -> AzureKeyCredential | DefaultAzureCredential:
         match self.auth_config.auth_method:
             case AzureAuthConfigType.ServiceKey:
                 return AzureKeyCredential(self.auth_config.azure_service_api_key)
 
             case AzureAuthConfigType.Identity:
-                return DefaultAzureCredential()
+                return get_azure_default_credential()
 
 
 # endregion
