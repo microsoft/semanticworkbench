@@ -32,7 +32,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .agents import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider, AttachmentAgent
+from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
+from .agents.attachment_agent import AttachmentAgent
+from .agents.skills_agent import SkillsAgent, SkillsAgentConversationInspectorStateProvider
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -63,7 +65,7 @@ async def content_evaluator_factory(context: ConversationContext) -> ContentSafe
 content_safety = ContentSafety(content_evaluator_factory)
 
 artifact_conversation_inspector_state_provider = ArtifactConversationInspectorStateProvider(assistant_config)
-
+skills_agent_conversation_inspector_state_provider = SkillsAgentConversationInspectorStateProvider(assistant_config)
 
 # create the AssistantApp instance
 assistant = AssistantApp(
@@ -74,6 +76,7 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": artifact_conversation_inspector_state_provider,
+        "skills_agent": skills_agent_conversation_inspector_state_provider,
     },
 )
 
@@ -126,12 +129,24 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
     try:
-        # respond to the conversation message
-        await respond_to_conversation(
-            context,
-            message=message,
-            metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
-        )
+        #
+        # NOTE: we're experimenting with skills, if enabled pass control to the skills agent
+        #
+        config = await assistant_config.get(context.assistant)
+
+        if config.agents_config.skills_agent.enable_skills:
+            # create the skills agent instance
+            skills_agent = SkillsAgent(config_provider=assistant_config)
+            await skills_agent.respond_to_conversation(context, event, message)
+
+        else:
+            # respond to the conversation message
+            await respond_to_conversation(
+                context,
+                message=message,
+                metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
+            )
+
     finally:
         # update the participant status to indicate the assistant is done thinking
         await context.update_participant_me(UpdateParticipant(status=None))
@@ -142,6 +157,11 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
     """
+
+    assistant_sent_messages = await context.get_messages(participant_ids=[context.assistant.id], limit=1)
+    welcome_sent_before = len(assistant_sent_messages.messages) > 0
+    if welcome_sent_before:
+        return
 
     # send a welcome message to the conversation
     config = await assistant_config.get(context.assistant)
@@ -484,6 +504,7 @@ async def respond_to_conversation(
                         }
                     },
                 )
+
             except Exception as e:
                 logger.exception(f"exception occurred calling openai chat completion: {e}")
                 content = (
@@ -504,6 +525,9 @@ async def respond_to_conversation(
                         }
                     },
                 )
+
+    # once done with the response generation, reduce the metadata debug payload
+    metadata = _reduce_metadata_debug_payload(metadata)
 
     # set the message type based on the content
     message_type = MessageType.chat
@@ -626,6 +650,44 @@ async def delete_attachment_for_file(context: ConversationContext, file: File, m
                 metadata={**metadata, "attribution": "system"},
             )
         )
+
+
+def _reduce_metadata_debug_payload(metadata: dict[str, Any]) -> dict[str, Any]:
+    """
+    Reduce the size of the metadata debug payload.
+    """
+
+    # map of payload reducers and keys they should be called for
+    # each reducer should take a value and return a reduced value
+    payload_reducers: dict[str, list[Any]] = {
+        "content": [
+            AttachmentAgent.reduce_attachment_payload_from_content,
+        ]
+    }
+
+    # now iterate recursively over all metadata keys and call the payload reducers for the matching keys
+    def reduce_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+        # iterate over the metadata keys
+        for key, value in metadata.items():
+            # check if the key is in the payload reducers
+            if key in payload_reducers:
+                # call the payload reducer for the key
+                for reducer in payload_reducers[key]:
+                    metadata[key] = reducer(value)
+            # check if the value is a dictionary
+            if isinstance(value, dict):
+                # recursively reduce the metadata
+                metadata[key] = reduce_metadata(value)
+            # check if the value is a list
+            elif isinstance(value, list):
+                # recursively reduce the metadata for each item in the list
+                metadata[key] = [reduce_metadata(item) for item in value]
+
+        # return the reduced metadata
+        return metadata
+
+    # reduce the metadata
+    return reduce_metadata(metadata)
 
 
 # endregion

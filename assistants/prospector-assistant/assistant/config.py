@@ -10,7 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant import config
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
-from .agents import ArtifactAgentConfigModel, AttachmentAgentConfigModel
+from .agents.artifact_agent import ArtifactAgentConfigModel
+from .agents.attachment_agent import AttachmentAgentConfigModel
+from .agents.skills_agent import SkillsAgentConfigModel
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -228,6 +230,7 @@ class AgentsConfigModel(BaseModel):
             description="Configuration for the artifact agent.",
         ),
     ] = ArtifactAgentConfigModel()
+
     attachment_agent: Annotated[
         AttachmentAgentConfigModel,
         Field(
@@ -235,6 +238,14 @@ class AgentsConfigModel(BaseModel):
             description="Configuration for the attachment agent.",
         ),
     ] = AttachmentAgentConfigModel()
+
+    skills_agent: Annotated[
+        SkillsAgentConfigModel,
+        Field(
+            title="Skills Agent Configuration",
+            description="Configuration for the skills agent.",
+        ),
+    ] = SkillsAgentConfigModel()
 
 
 class HighTokenUsageWarning(BaseModel):
