@@ -8,7 +8,12 @@ from pydantic import (
     ValidationError,
 )
 
-from ..config import ConfigSecretStrJsonSerializationMode, config_secret_str_context, get_ui_schema
+from ..config import (
+    ConfigSecretStrJsonSerializationMode,
+    config_secret_str_serialization_context,
+    get_ui_schema,
+    replace_config_secret_str_masked_values,
+)
 from ..storage import read_model, write_model
 from .context import AssistantContext, FileStorageContext
 from .error import BadRequestError
@@ -20,7 +25,6 @@ from .protocol import (
 logger = logging.getLogger(__name__)
 
 ConfigModelT = TypeVar("ConfigModelT", bound=BaseModel)
-ConfigSecretsModelT = TypeVar("ConfigSecretsModelT", bound=BaseModel)
 
 
 class BaseModelAssistantConfig(Generic[ConfigModelT]):
@@ -61,13 +65,17 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
         write_model(
             self._private_path_for(assistant_context),
             config,
-            serialization_context=config_secret_str_context(ConfigSecretStrJsonSerializationMode.serialize_value),
+            serialization_context=config_secret_str_serialization_context(
+                ConfigSecretStrJsonSerializationMode.serialize_value
+            ),
         )
         # save a copy of the config for export, with secret fields set to empty strings
         write_model(
             self._export_import_path_for(assistant_context),
             config,
-            serialization_context=config_secret_str_context(ConfigSecretStrJsonSerializationMode.serialize_as_empty),
+            serialization_context=config_secret_str_serialization_context(
+                ConfigSecretStrJsonSerializationMode.serialize_as_empty
+            ),
         )
 
     @property
@@ -89,6 +97,10 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
                     updated_config = self._provider._default.model_validate(config)
                 except ValidationError as e:
                     raise BadRequestError(str(e))
+
+                # replace masked secret values with original values
+                original_config = await self._provider.get(assistant_context)
+                updated_config = replace_config_secret_str_masked_values(updated_config, original_config)
 
                 await self._provider._set(assistant_context, updated_config)
 

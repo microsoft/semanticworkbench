@@ -166,7 +166,7 @@ class ConfigSecretStrJsonSerializationMode(StrEnum):
 _CONFIG_SECRET_STR_SERIALIZATION_MODE_CONTEXT_KEY = "_config_secret_str_serialization_mode"
 
 
-def config_secret_str_context(
+def config_secret_str_serialization_context(
     json_serialization_mode: ConfigSecretStrJsonSerializationMode, context: dict[str, Any] = {}
 ) -> dict[str, Any]:
     """Creates a context that can be used to control the serialization of ConfigSecretStr fields."""
@@ -188,6 +188,9 @@ def _config_secret_str_serialization_mode_from_context(
     )
 
 
+_MASKED_VALUE = "*" * 10
+
+
 def _config_secret_str_json_serializer(value: str, info: SerializationInfo) -> str:
     """JSON serializer for secret strings that masks the value unless explicitly requested."""
     if not value:
@@ -203,7 +206,41 @@ def _config_secret_str_json_serializer(value: str, info: SerializationInfo) -> s
             return value
 
         case ConfigSecretStrJsonSerializationMode.serialize_masked_value:
-            return "*" * 10
+            return _MASKED_VALUE
+
+
+def replace_config_secret_str_masked_values(model_values: ModelT, original_model_values: ModelT) -> ModelT:
+    updated_model_values = model_values.model_copy()
+    for field_name, field_info in updated_model_values.model_fields.items():
+        if isinstance(field_info.annotation, types.UnionType):
+            field_type = field_info.annotation.__args__[0]
+            if isinstance(field_type, BaseModel.__class__):
+                setattr(
+                    updated_model_values,
+                    field_name,
+                    replace_config_secret_str_masked_values(
+                        getattr(updated_model_values, field_name),
+                        getattr(original_model_values, field_name),
+                    ),
+                )
+                continue
+
+        if isinstance(field_info.annotation, BaseModel.__class__):
+            setattr(
+                updated_model_values,
+                field_name,
+                replace_config_secret_str_masked_values(
+                    getattr(updated_model_values, field_name),
+                    getattr(original_model_values, field_name),
+                ),
+            )
+            continue
+
+        if field_info.annotation is ConfigSecretStr:
+            if getattr(updated_model_values, field_name) == _MASKED_VALUE:
+                setattr(updated_model_values, field_name, getattr(original_model_values, field_name))
+
+    return updated_model_values
 
 
 """
