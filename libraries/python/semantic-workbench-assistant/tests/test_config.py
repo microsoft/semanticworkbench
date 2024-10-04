@@ -1,4 +1,5 @@
 from typing import Annotated, Literal
+import uuid
 
 import pytest
 from pydantic import BaseModel
@@ -6,7 +7,8 @@ from semantic_workbench_assistant.config import (
     ConfigSecretStr,
     ConfigSecretStrJsonSerializationMode,
     UISchema,
-    config_secret_str_context,
+    config_secret_str_serialization_context,
+    replace_config_secret_str_masked_values,
     get_ui_schema,
     overwrite_defaults_from_env,
 )
@@ -97,7 +99,7 @@ def test_overwrite_defaults_from_env_no_effect_on_non_default_values(monkeypatch
         ("str_json", ConfigSecretStrJsonSerializationMode.serialize_value, "", ""),
     ],
 )
-def test_config_secret_str(
+def test_config_secret_str_serialization(
     model_dump_mode: Literal["dict_python", "dict_json", "str_json"],
     serialization_mode: ConfigSecretStrJsonSerializationMode | None,
     secret_value: str,
@@ -113,7 +115,7 @@ def test_config_secret_str(
         case None:
             context = None
         case _:
-            context = config_secret_str_context(serialization_mode)
+            context = config_secret_str_serialization_context(serialization_mode)
 
     match model_dump_mode:
         case "dict_python":
@@ -125,6 +127,35 @@ def test_config_secret_str(
         case "str_json":
             dump = model.model_dump_json(context=context)
             assert dump == f'{{"secret":"{expected_value}"}}'
+
+
+def test_config_secret_str_deserialization() -> None:
+    class SubModel(BaseModel):
+        secret: ConfigSecretStr
+
+    class TestModel(BaseModel):
+        secret: ConfigSecretStr
+        sub_model: SubModel
+
+    secret_value = uuid.uuid4().hex
+
+    model = TestModel(secret=secret_value, sub_model=SubModel(secret=secret_value))
+    assert model.secret == secret_value
+
+    serialized_config = model.model_dump(mode="json")
+
+    assert serialized_config["secret"] == "**********"
+    assert serialized_config["sub_model"]["secret"] == "**********"
+
+    deserialized_config = TestModel.model_validate(serialized_config)
+
+    masked_reverted = replace_config_secret_str_masked_values(deserialized_config, model)
+    assert masked_reverted.secret == model.secret
+    assert masked_reverted.sub_model.secret == model.sub_model.secret
+
+    deserialized_model = TestModel.model_validate(masked_reverted)
+
+    assert deserialized_model.secret == secret_value
 
 
 def test_config_secret_str_ui_schema() -> None:
