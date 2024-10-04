@@ -29,17 +29,3 @@ chat-driver = { path = "../../chat-driver", editable = true }
 context = { path = "../../context", editable = true }
 events = { path = "../../events", editable = true }
 function-registry = { path = "../../function-registry", editable = true }
-
-[tool.pyright]
-exclude = [
-    "__pycache__",
-    ".vscode",
-    ".ipynb_checkpoints",
-    "build",
-    "dist",
-    "venv",
-    ".venv",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".git",
-]
