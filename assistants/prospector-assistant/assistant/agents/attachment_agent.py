@@ -64,6 +64,12 @@ class Attachment(BaseModel):
 #
 
 
+attachment_tag = "ATTACHMENT"
+filename_tag = "FILENAME"
+content_tag = "CONTENT"
+image_tag = "IMAGE"
+
+
 class AttachmentAgent:
     @staticmethod
     async def create_or_update_attachment_from_file(
@@ -137,7 +143,7 @@ class AttachmentAgent:
                     "content": [
                         {
                             "type": "text",
-                            "text": f"<ATTACHMENT>\n\t<FILENAME>{attachment.filename}</FILENAME>\n\t<IMAGE>",
+                            "text": f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
                         },
                         {
                             "type": "image_url",
@@ -147,23 +153,76 @@ class AttachmentAgent:
                         },
                         {
                             "type": "text",
-                            "text": "</IMAGE>\n</ATTACHMENT>",
+                            "text": f"</{image_tag}></{attachment_tag}>",
                         },
                     ],
                 })
                 continue
 
             # otherwise, include the content as text within the message content
-            content_details = (
-                f"\n\t<FILENAME>{attachment.filename}</FILENAME>\n\t<CONTENT>{attachment.content}</CONTENT>"
-            )
+            content_details = f"<{filename_tag}>{attachment.filename}</{filename_tag}><{content_tag}>{attachment.content}</{content_tag}>"
 
             messages.append({
                 "role": "system",
-                "content": f"<ATTACHMENT>{content_details}\n</ATTACHMENT>",
+                "content": f"<{attachment_tag}>{content_details}</{attachment_tag}>",
             })
 
         return messages
+
+    @staticmethod
+    def reduce_attachment_payload_from_content(value: Any) -> Any:
+        """
+        Reduce the content of any attachment in the payload to a smaller size.
+
+        This method is intended to be used with the debug metadata in the parent assistant that
+        uses this agent to reduce the size of the content of the attachments in the payload.
+
+        The content will be reduced to the first and last `head_tail_length` characters, with a
+        placeholder in the middle.
+        """
+
+        # define the length of the head and tail of the content to keep and the placeholder to use in the middle
+        head_tail_length = 40
+        placeholder = "<REDUCED_FOR_DEBUG_OUTPUT/>"
+
+        # inspect the content and look for the attachment tags
+        # there are two types of content that we need to handle: text and image
+        # if the content is an image, we will be reducing the image_url.url value
+        # if the content is text, we will be reducing the text value if it contains the attachment tag
+
+        # start by checking if this is a string or a list of dictionaries
+        if isinstance(value, str):
+            # if this is a string, we can assume that this is a text content
+            # we will be reducing the text value if it contains the attachment tag
+            if attachment_tag in value:
+                # just reduce within the content_tag, but still show the head/tail in there
+                start_index = value.find(f"<{content_tag}>") + len(f"<{content_tag}>")
+                end_index = value.find(f"</{content_tag}>")
+                if start_index != -1 and end_index != -1:
+                    return (
+                        value[: start_index + head_tail_length]
+                        + f"...{placeholder}..."
+                        + value[end_index - head_tail_length :]
+                    )
+        elif isinstance(value, list):
+            # if this is a list, check to see if it contains dictionaries
+            # and if they contain the attachment tag
+            # if so, look for and reduce the image_url.url value
+            is_attachment = False
+            for item in value:
+                if isinstance(item, dict):
+                    if "text" in item and attachment_tag in item["text"]:
+                        is_attachment = True
+                        break
+            if is_attachment:
+                # reduce the image_url.url value
+                for item in value:
+                    if isinstance(item, dict) and "image_url" in item:
+                        item["image_url"]["url"] = item["image_url"]["url"][:head_tail_length] + f"...{placeholder}"
+            return value
+
+        # if the content is not an attachment, return the original value
+        return value
 
 
 # endregion

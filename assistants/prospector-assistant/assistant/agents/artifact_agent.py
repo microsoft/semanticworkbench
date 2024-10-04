@@ -13,7 +13,7 @@ from semantic_workbench_assistant.config import UISchema
 from semantic_workbench_assistant.storage import read_model, write_model
 
 if TYPE_CHECKING:
-    from assistant import AssistantConfigModel
+    from ..config import AssistantConfigModel
 
 
 #
