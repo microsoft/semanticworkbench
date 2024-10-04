@@ -665,8 +665,14 @@ def _reduce_metadata_debug_payload(metadata: dict[str, Any]) -> dict[str, Any]:
         ]
     }
 
+    # NOTE: use try statements around each recursive call to reduce_metadata to report the parent key in case of error
+
     # now iterate recursively over all metadata keys and call the payload reducers for the matching keys
-    def reduce_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    def reduce_metadata(metadata: dict[str, Any] | Any) -> dict[str, Any] | Any:
+        # check if the metadata is not a dictionary
+        if not isinstance(metadata, dict):
+            return metadata
+
         # iterate over the metadata keys
         for key, value in metadata.items():
             # check if the key is in the payload reducers
@@ -676,18 +682,28 @@ def _reduce_metadata_debug_payload(metadata: dict[str, Any]) -> dict[str, Any]:
                     metadata[key] = reducer(value)
             # check if the value is a dictionary
             if isinstance(value, dict):
-                # recursively reduce the metadata
-                metadata[key] = reduce_metadata(value)
+                try:
+                    # recursively reduce the metadata
+                    metadata[key] = reduce_metadata(value)
+                except Exception as e:
+                    logger.exception(f"exception occurred reducing metadata for key '{key}': {e}")
             # check if the value is a list
             elif isinstance(value, list):
-                # recursively reduce the metadata for each item in the list
-                metadata[key] = [reduce_metadata(item) for item in value]
+                try:
+                    # recursively reduce the metadata for each item in the list
+                    metadata[key] = [reduce_metadata(item) for item in value]
+                except Exception as e:
+                    logger.exception(f"exception occurred reducing metadata for key '{key}': {e}")
 
         # return the reduced metadata
         return metadata
 
-    # reduce the metadata
-    return reduce_metadata(metadata)
+    try:
+        # reduce the metadata
+        return reduce_metadata(metadata)
+    except Exception as e:
+        logger.exception(f"exception occurred reducing metadata: {e}")
+        return metadata
 
 
 # endregion
