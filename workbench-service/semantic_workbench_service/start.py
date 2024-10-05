@@ -42,7 +42,12 @@ def main():
 
     logger.info("Starting workbench service ...")
     app = create_app()
-    uvicorn.run(app, host=args.host, port=args.port, log_config={"version": 1, "disable_existing_loggers": False})
+    uvicorn.run(
+        app,
+        host=settings.service.hostname,
+        port=settings.service.port,
+        log_config={"version": 1, "disable_existing_loggers": False},
+    )
 
 
 if __name__ == "__main__":

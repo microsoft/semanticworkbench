@@ -62,7 +62,7 @@ service_description = "A chat assistant supporting multiple AI models using the 
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfig(AssistantConfigModel())
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
 # define the content safety evaluator factory

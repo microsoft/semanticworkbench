@@ -16,4 +16,4 @@ Set-Location "examples/python/python-02-simple-chatbot"
 
 # Run the commands
 uv sync
-uv run start-semantic-workbench-assistant assistant.chat:app --port 3002
+uv run start-semantic-workbench-assistant assistant.chat:app

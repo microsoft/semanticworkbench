@@ -24,21 +24,24 @@ def first_env_var(*env_vars: str, include_upper_and_lower: bool = True, include_
 
     Args:
         include_upper_and_lower: if True, then the UPPER and lower case versions of the env vars will be checked.
-        include_dot_env: if True, then the .env file will be checked for the env vars.
+        include_dot_env: if True, then the .env file will be checked for the env vars after the os.
     """
     if include_upper_and_lower:
         env_vars = (*env_vars, *[env_var.upper() for env_var in env_vars], *[env_var.lower() for env_var in env_vars])
-
-    dot_env_values = {}
-    if include_dot_env:
-        dotenv_path = dotenv.find_dotenv(usecwd=True)
-        if dotenv_path:
-            dot_env_values = dotenv.dotenv_values(dotenv_path)
 
     for env_var in env_vars:
         if env_var in os.environ:
             return os.environ[env_var]
 
+    if not include_dot_env:
+        return None
+
+    dotenv_path = dotenv.find_dotenv(usecwd=True)
+    if not dotenv_path:
+        return None
+
+    dot_env_values = dotenv.dotenv_values(dotenv_path)
+    for env_var in env_vars:
         if env_var in dot_env_values:
             return dot_env_values[env_var]
 

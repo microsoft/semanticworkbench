@@ -76,6 +76,7 @@ class ConversationDataExporter(Protocol):
 @dataclass
 class AssistantConfigDataModel:
     config: dict[str, Any]
+    errors: list[str] | None = field(default=None)
     json_schema: dict[str, Any] | None = field(default=None)
     ui_schema: dict[str, Any] | None = field(default=None)
 

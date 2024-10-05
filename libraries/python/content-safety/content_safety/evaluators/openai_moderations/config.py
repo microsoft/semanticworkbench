@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 class OpenAIContentSafetyEvaluatorConfig(BaseModel):
     model_config = ConfigDict(
         title="OpenAI Content Safety Evaluator",
+        json_schema_extra={
+            "required": ["openai_api_key"],
+        },
     )
 
     service_type: Annotated[
@@ -60,7 +63,6 @@ class OpenAIContentSafetyEvaluatorConfig(BaseModel):
     openai_api_key: Annotated[
         ConfigSecretStr,
         Field(
-            default="",
             title="OpenAI API Key",
             description="The API key to use for the OpenAI API.",
         ),

@@ -340,7 +340,7 @@ class AssistantConfigModel(BaseModel):
             discriminator="service_type",
         ),
         UISchema(widget="radio", hide_title=True),
-    ] = AzureOpenAIServiceConfig()
+    ] = AzureOpenAIServiceConfig.model_construct()
 
     content_safety_config: Annotated[
         CombinedContentSafetyEvaluatorConfig,

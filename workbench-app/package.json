@@ -9,7 +9,7 @@
         "depcheck": "depcheck --ignores=\"@types/*,ts-prune,typescript,vite\" --ignore-dirs=\".vscode,.vs,.git,node_modules\" --skip-missing",
         "dev": "vite",
         "find-deadcode": "node ./tools/filtered-ts-prune.cjs",
-        "format": "prettier --write .",
+        "format": "prettier --write src",
         "lint": "eslint src --fix",
         "prettify": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,scss,css,html,svg}\"",
         "preview": "vite preview",
