@@ -223,8 +223,8 @@ class GuidedConversationAgent:
 
 
 class GuidedConversationConversationInspectorStateProvider:
-    display_name = "Artifacts"
-    description = "Artifacts that have been co-created by the participants in the conversation. NOTE: This feature is experimental and disabled by default."
+    display_name = "Guided Conversation State"
+    description = "State of the guided conversation feature within the conversation."
 
     def __init__(
         self,

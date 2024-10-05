@@ -4,10 +4,10 @@
     {
       "type": "debugpy",
       "request": "launch",
-      "name": "assistants: prospector-assistant",
+      "name": "assistants: guided-conversation-assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["assistant.chat:app", "--port", "3011"],
+      "args": ["assistant.chat:app", "--port", "3010"],
       "consoleTitle": "${workspaceFolderBasename}"
     }
   ]

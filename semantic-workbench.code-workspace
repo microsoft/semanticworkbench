@@ -18,6 +18,7 @@
           "examples: python-01-echo-bot",
           "examples: python-02-simple-chatbot",
           "examples: python-03-multimodel-chatbot",
+          "assistants: guided-conversation-assistant",
           "assistants: prospector-assistant",
           "assistants: skill-assistant"
         ]

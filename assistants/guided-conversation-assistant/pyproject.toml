@@ -17,6 +17,7 @@ dependencies = [
     "content-safety>=0.1.0",
     "semantic-kernel>=1.11.0",
     "guided-conversation>=0.1.0",
+    "openai-client>=0.1.0",
 ]
 
 [tool.uv]
@@ -26,6 +27,7 @@ package = true
 semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
 content-safety = { path = "../../libraries/python/content-safety/", editable = true }
 guided-conversation = { path = "../../libraries/python/guided-conversation", editable = true }
+openai-client = { path = "../../libraries/python/openai-client", editable = true }
 
 [build-system]
 requires = ["hatchling"]

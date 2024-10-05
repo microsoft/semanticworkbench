@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 import deepmerge
+import openai_client
 import tiktoken
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
@@ -40,11 +41,11 @@ logger = logging.getLogger(__name__)
 #
 
 # the service id to be registered in the workbench to identify the assistant
-service_id = "prospector-assistant.made-exploration"
+service_id = "guided-conversation-assistant.made-exploration"
 # the name of the assistant service, as it will appear in the workbench UI
-service_name = "Prospector Assistant"
+service_name = "Guided Conversation Assistant"
 # a description of the assistant service, as it will appear in the workbench UI
-service_description = "An assistant that helps you mine ideas from artifacts."
+service_description = "An assistant that will guide users through a conversation towards a specific goal."
 
 #
 # create the configuration provider, using the extended configuration model
@@ -460,10 +461,10 @@ async def respond_to_conversation(
     # if not config.agents_config.artifact_agent.enable_artifacts:
     # generate a response from the AI model
     completion_total_tokens: int | None = None
-    async with config.service_config.new_client() as openai_client:
+    async with openai_client.create_client(config.service_config) as client:
         try:
             # call the OpenAI API to generate a completion
-            completion = await openai_client.chat.completions.create(
+            completion = await client.chat.completions.create(
                 messages=completion_messages,
                 model=config.request_config.openai_model,
                 max_tokens=config.request_config.response_tokens,
