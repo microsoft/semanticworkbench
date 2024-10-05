@@ -63,7 +63,7 @@ class OpenAIContentSafetyEvaluatorConfig(BaseModel):
             title="OpenAI API Key",
             description="The API key to use for the OpenAI API.",
         ),
-    ]
+    ] = ""
 
 
 # endregion

@@ -21,7 +21,7 @@ def create_client(service_config: ServiceConfig, *, api_version: str = "2024-08-
                     return AsyncAzureOpenAI(
                         api_key=service_config.auth_config.azure_openai_api_key,
                         azure_deployment=service_config.azure_openai_deployment,
-                        azure_endpoint=service_config.azure_openai_endpoint,
+                        azure_endpoint=str(service_config.azure_openai_endpoint),
                         api_version=api_version,
                     )
 
@@ -29,7 +29,7 @@ def create_client(service_config: ServiceConfig, *, api_version: str = "2024-08-
                     return AsyncAzureOpenAI(
                         azure_ad_token_provider=_get_azure_bearer_token_provider(),
                         azure_deployment=service_config.azure_openai_deployment,
-                        azure_endpoint=service_config.azure_openai_endpoint,
+                        azure_endpoint=str(service_config.azure_openai_endpoint),
                         api_version=api_version,
                     )
 

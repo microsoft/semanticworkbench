@@ -42,7 +42,7 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
             title="Azure OpenAI API Key",
             description="The Azure OpenAI API key for your resource instance.",
         ),
-    ]
+    ] = ""
 
 
 class AzureOpenAIServiceConfig(BaseModel):
@@ -90,7 +90,8 @@ class AzureOpenAIServiceConfig(BaseModel):
 
 
 class OpenAIServiceConfig(BaseModel):
-    model_config = ConfigDict(title="OpenAI")
+    model_config = ConfigDict(title="OpenAI", json_schema_extra={
+                              "required": ["openai_api_key"]})
 
     service_type: Annotated[Literal[ServiceType.OpenAI],
                             UISchema(widget="hidden")] = ServiceType.OpenAI
@@ -103,7 +104,7 @@ class OpenAIServiceConfig(BaseModel):
             title="OpenAI API Key",
             description="The API key to use for the OpenAI API.",
         ),
-    ]
+    ] = ""
 
     # spell-checker: ignore rocrupyvzgcl4yf25rqq6d1v
     openai_organization_id: Annotated[
