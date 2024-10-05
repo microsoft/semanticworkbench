@@ -223,7 +223,7 @@ class GuidedConversationAgent:
 
 
 class GuidedConversationConversationInspectorStateProvider:
-    display_name = "Guided Conversation State"
+    display_name = "Guided Conversation"
     description = "State of the guided conversation feature within the conversation."
 
     def __init__(

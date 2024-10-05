@@ -57,6 +57,17 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
     const { interactCanvasState } = useAppSelector((state) => state.app);
     const interactCanvasController = useInteractCanvasController();
 
+    if (stateDescriptions.length === 1) {
+        // Only one assistant state, no need to show tabs, just show the single assistant state
+        return (
+            <AssistantInspector
+                assistantId={assistant.id}
+                conversationId={conversationId}
+                stateDescription={stateDescriptions[0]}
+            />
+        );
+    }
+
     const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
         interactCanvasController.transitionToState({ assistantStateId: data.value as string });
     };

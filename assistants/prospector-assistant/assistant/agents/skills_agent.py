@@ -96,7 +96,7 @@ class SkillsAgent:
 
 
 class SkillsAgentConversationInspectorStateProvider:
-    display_name = "Skills Agent"
+    display_name = "Skills"
     description = "Inspect the state of the skills agent."
 
     def __init__(
