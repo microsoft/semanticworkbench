@@ -1,16 +1,14 @@
-# Copyright (c) Microsoft. All rights reserved.
-
 # FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
-# type: ignore
+# TODO: Search for and find the `# type: ignore` comments in the copied code and remove them
 
 from semantic_kernel import Kernel
-from semantic_kernel.functions import FunctionResult, KernelArguments
+from semantic_kernel.functions import FunctionResult, KernelArguments, KernelPlugin
 
 from guided_conversation.utils.conversation_helpers import Conversation
 
 final_update_template = """<message role="system">You are a helpful, thoughtful, and meticulous assistant.
-You just finished a conversation with a user.{{#if context}} Here is some additional context about the conversation:
-{{ context }}{{/if}}
+You just finished a conversation with a user.{% if context %} Here is some additional context about the conversation:
+{{ context }}{% endif %}
 
 Your goal is to complete an artifact as thoroughly and accurately as possible based on the conversation.
 
@@ -75,20 +73,22 @@ async def final_update_plan_function(
     Returns:
         FunctionResult: The result of the function (step-by-step reasoning about what to update in the artifact)
     """
-    req_settings.tools = None
-    req_settings.tool_choice = None
+    req_settings.tools = None  # type: ignore
+    req_settings.tool_choice = None  # type: ignore
 
     # clear any extension data
     if hasattr(req_settings, "extension_data"):
-        req_settings.extension_data = {}
+        req_settings.extension_data = {}  # type: ignore
 
     kernel_function = kernel.add_function(
         prompt=final_update_template,
         function_name="final_update_plan_function",
         plugin_name="final_update_plan",
-        template_format="handlebars",
+        template_format="jinja2",
         prompt_execution_settings=req_settings,
     )
+    if isinstance(kernel_function, KernelPlugin):
+        raise ValueError("Invalid kernel function type.")
 
     arguments = KernelArguments(
         conversation_history=chat_history.get_repr_for_prompt(),
@@ -98,5 +98,6 @@ async def final_update_plan_function(
     )
 
     result = await kernel.invoke(function=kernel_function, arguments=arguments)
-
+    if result is None:
+        raise ValueError("Invalid kernel result.")
     return result

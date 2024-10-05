@@ -3,16 +3,15 @@
 # FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
 # type: ignore
 
-import datetime
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Union
 
 from semantic_kernel.contents import ChatMessageContent
 
 
-class ConversationMessageType(Enum):
+class ConversationMessageType(StrEnum):
     DEFAULT = "default"
     ARTIFACT_UPDATE = "artifact-update"
     REASONING = "reasoning"
@@ -119,7 +118,7 @@ class Conversation:
         for message in self.conversation_messages:
             message.metadata["turn_number"] = turn_number
 
-    def message_to_json(message: ChatMessageContent) -> dict:
+    def message_to_json(self, message: ChatMessageContent) -> dict:
         """
         Convert a ChatMessageContent object to a JSON serializable dictionary.
 
@@ -160,9 +159,9 @@ class Conversation:
                     content=message["content"],
                     name=message["name"],
                     metadata={
-                        "turn_number": message["turn_number"],
-                        "type": ConversationMessageType(message["type"]),
-                        "timestamp": datetime.datetime.fromisoformat(message["timestamp"]),
+                        "turn_number": message["metadata"]["turn_number"],
+                        "type": ConversationMessageType(message["metadata"]["type"]),
+                        # "timestamp": datetime.datetime.fromisoformat(message["timestamp"]),
                     },
                 )
             )

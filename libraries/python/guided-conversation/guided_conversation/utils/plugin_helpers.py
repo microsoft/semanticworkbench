@@ -65,7 +65,7 @@ async def fix_error(
         prompt=prompt_template,
         function_name="error_correction",
         plugin_name="error_correction",
-        template_format="handlebars",
+        template_format="jinja2",
         prompt_execution_settings=req_settings,
     )
 

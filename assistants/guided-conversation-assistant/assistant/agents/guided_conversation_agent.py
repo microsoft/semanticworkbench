@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING, Annotated, Literal
 from assistant.agents.guided_conversation.artifact_poem_feedback import ArtifactPoemFeedback
 from guided_conversation.guided_conversation_agent import GuidedConversation
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
-from openai import AsyncAzureOpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from semantic_kernel import Kernel
-from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
-from semantic_workbench_api_model.workbench_model import ConversationMessage, ParticipantRole
+from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
+from semantic_workbench_api_model.workbench_model import ParticipantRole
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
     BaseModelAssistantConfig,
@@ -20,7 +20,7 @@ from semantic_workbench_assistant.assistant_app import (
 from semantic_workbench_assistant.config import UISchema
 
 if TYPE_CHECKING:
-    from ..config import AssistantConfigModel
+    from ..config import AssistantConfigModel, RequestConfig
 
 
 #
@@ -136,10 +136,10 @@ class GuidedConversationAgent:
     @staticmethod
     async def step_conversation(
         conversation_context: ConversationContext,
-        conversation: list[ConversationMessage],
-        openai_client: AsyncAzureOpenAI,
+        openai_client: AsyncOpenAI,
+        request_config: "RequestConfig",
         agent_config: GuidedConversationAgentConfigModel,
-    ) -> None:
+    ) -> str | None:
         """
         Step the conversation to the next turn.
         """
@@ -177,8 +177,10 @@ class GuidedConversationAgent:
         kernel = Kernel()
         service_id = "gc_main"
 
-        chat_service = AzureChatCompletion(
+        chat_service = OpenAIChatCompletion(
+            service_id=service_id,
             async_client=openai_client,
+            ai_model_id=request_config.openai_model,
         )
         kernel.add_service(chat_service)
 
@@ -189,6 +191,11 @@ class GuidedConversationAgent:
             guided_conversation_agent = GuidedConversation.from_json(
                 json_data=state,
                 kernel=kernel,
+                artifact=ArtifactPoemFeedback,  # type: ignore
+                conversation_flow=conversation_flow,
+                context=context,
+                rules=rules,
+                resource_constraint=resource_constraint,
                 service_id=service_id,
             )
         else:
@@ -208,10 +215,11 @@ class GuidedConversationAgent:
 
         # Step the conversation to start the conversation with the agent
         result = await guided_conversation_agent.step_conversation(last_user_message)
-        print(f"Assistant: {result.ai_message}")
 
         # Save the state of the guided conversation agent
         _write_guided_conversation_state(conversation_context, guided_conversation_agent.to_json())
+
+        return result.ai_message
 
 
 # endregion
@@ -264,7 +272,12 @@ def _write_guided_conversation_state(context: ConversationContext, state: dict) 
     """
     Write the state of the guided conversation agent to a file.
     """
-    _get_guided_conversation_storage_path(context, "state.json").write_text(json.dumps(state))
+    json_data = json.dumps(state)
+    path = _get_guided_conversation_storage_path(context)
+    if not path.exists():
+        path.mkdir(parents=True)
+    path = path / "state.json"
+    path.write_text(json_data)
 
 
 def _read_guided_conversation_state(context: ConversationContext) -> dict | None:
@@ -274,7 +287,8 @@ def _read_guided_conversation_state(context: ConversationContext) -> dict | None
     path = _get_guided_conversation_storage_path(context, "state.json")
     if path.exists():
         try:
-            return json.loads(path.read_text())
+            json_data = path.read_text()
+            return json.loads(json_data)
         except Exception:
             pass
     return None

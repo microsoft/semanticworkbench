@@ -71,7 +71,7 @@ class GuidedConversation:
         Args:
             kernel (Kernel): An instance of Kernel. Must come initialized with a AzureOpenAI or OpenAI service.
             artifact (BaseModel): The artifact to be used as the goal/working memory/output of the conversation.
-            rules (list[str]): The rules to be used in the guided conversation (dos and donts).
+            rules (list[str]): The rules to be used in the guided conversation (dos and dont's).
             conversation_flow (str | None): The conversation flow to be used in the guided conversation.
             context (str | None): The scene-setting for the conversation.
             resource_constraint (ResourceConstraint | None): The limit on the conversation length (for ex: number of turns).
@@ -330,18 +330,18 @@ class GuidedConversation:
                 ):
                     # Check if tool_args contains the field and value to update
                     plugin_output = await self.artifact.update_artifact(
-                        field_name=tool_args["field_name"],
-                        field_value=tool_args["field_value"],
+                        field_name=tool_args["field"],
+                        field_value=tool_args["value"],
                         conversation=self.conversation,
                     )
                     if plugin_output.update_successful:
-                        self.logger.info(f"Artifact field {tool_args['field_name']} successfully updated.")
+                        self.logger.info(f"Artifact field {tool_args['field']} successfully updated.")
                         # Set turn numbers
                         for message in plugin_output.messages:
-                            message.turn_number = self.resource.turn_number
+                            message.metadata.turn_number = self.resource.turn_number
                         self.conversation.add_messages(plugin_output.messages)
                     else:
-                        self.logger.error(f"Final artifact field update of {tool_args['field_name']} failed.")
+                        self.logger.error(f"Final artifact field update of {tool_args['field']} failed.")
 
     def to_json(self) -> dict:
         return {
@@ -371,24 +371,41 @@ class GuidedConversation:
         cls,
         json_data: dict,
         kernel: Kernel,
+        artifact: BaseModel,
+        rules: list[str],
+        conversation_flow: str | None,
+        context: str | None,
+        resource_constraint: ResourceConstraint | None,
         service_id: str = "gc_main",
     ) -> "GuidedConversation":
-        artifact = Artifact.from_json(
+        loaded_artifact = Artifact.from_json(
             json_data["artifact"],
             kernel=kernel,
             service_id=service_id,
-            input_artifact=cls.artifact,
+            input_artifact=artifact,
             max_artifact_field_retries=MAX_DECISION_RETRIES,
         )
-        agenda = Agenda.from_json(
+        loaded_agenda = Agenda.from_json(
             json_data["agenda"],
             kernel=kernel,
             service_id=service_id,
-            resource_constraint_mode=cls.resource_constraint.mode,
+            resource_constraint_mode=resource_constraint.mode if resource_constraint else None,
         )
-        chat_history = Conversation.from_json(json_data["chat_history"])
-        resource = GCResource.from_json(json_data["resource"])
+        loaded_conversation = Conversation.from_json(json_data["chat_history"])
+        loaded_resource = GCResource.from_json(json_data["resource"])
 
-        gc = cls(kernel, artifact, agenda, chat_history, resource, service_id)
+        gc = cls(
+            kernel=kernel,
+            artifact=artifact,
+            rules=rules,
+            conversation_flow=conversation_flow,
+            context=context,
+            resource_constraint=resource_constraint,
+            service_id=service_id,
+        )
+        gc.agenda = loaded_agenda
+        gc.artifact = loaded_artifact
+        gc.conversation = loaded_conversation
+        gc.resource = loaded_resource
 
         return gc

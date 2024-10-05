@@ -1,24 +1,24 @@
-# Copyright (c) Microsoft. All rights reserved.
-
-# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
-# type: ignore
-
 from typing import Annotated
 
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
 from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
-from semantic_kernel.functions import FunctionResult, KernelArguments
+from semantic_kernel.functions import FunctionResult, KernelArguments, KernelPlugin
 from semantic_kernel.functions.kernel_function_decorator import kernel_function
 
 execution_template = """<message role="system">You are a helpful, thoughtful, and meticulous assistant.
-You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation.
-You will be given some reasoning about the best possible action(s) to take next given the state of the conversation as well as the artifact schema.
+You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the
+end of the conversation.
+You will be given some reasoning about the best possible action(s) to take next given the state of the conversation
+as well as the artifact schema.
 The reasoning is supposed to state the recommended action(s) to take next, along with all required parameters for each action.
 Your task is to execute ALL actions recommended in the reasoning in the order they are listed.
-If the reasoning's specification of an action is incomplete (e.g. it doesn't include all required parameters for the action, \
-or some parameters are specified implicitly, such as "send a message that contains a greeting" instead of explicitly providing \
-the value of the "message" parameter), do not execute the action. You should never fill in missing or imprecise parameters yourself.
+If the reasoning's specification of an action is incomplete (e.g. it doesn't include all required parameters for the
+action, \
+or some parameters are specified implicitly, such as "send a message that contains a greeting" instead of explicitly
+providing \
+the value of the "message" parameter), do not execute the action. You should never fill in missing or imprecise
+parameters yourself.
 If the reasoning is not clear about which actions to take, or all actions are specified in an incomplete way, \
 return 'None' without selecting any action.</message>
 
@@ -58,16 +58,19 @@ async def execution(
     Returns:
         FunctionResult: The result of the execution.
     """
-    filter = {"included_plugins": filter}
-    req_settings.function_choice_behavior = FunctionChoiceBehavior.Auto(auto_invoke=False, filters=filter)
+    req_settings.function_choice_behavior = FunctionChoiceBehavior.Auto(
+        auto_invoke=False, filters={"included_plugins": filter}
+    )
 
     kernel_function = kernel.add_function(
         prompt=execution_template,
         function_name="execution",
         plugin_name="execution",
-        template_format="handlebars",
+        template_format="jinja2",
         prompt_execution_settings=req_settings,
     )
+    if isinstance(kernel_function, KernelPlugin):
+        raise ValueError("Invalid kernel function type.")
 
     arguments = KernelArguments(
         artifact_schema=artifact_schema,
@@ -75,4 +78,6 @@ async def execution(
     )
 
     result = await kernel.invoke(function=kernel_function, arguments=arguments)
+    if result is None:
+        raise ValueError("Invalid kernel result.")
     return result

@@ -1,10 +1,8 @@
-# Copyright (c) Microsoft. All rights reserved.
-
 # FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
-# type: ignore
+# TODO: Search for and find the `# type: ignore` comments in the copied code and remove them
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import Field, ValidationError
 from semantic_kernel import Kernel
@@ -136,6 +134,8 @@ class Agenda:
                 else:
                     self.logger.info(f"Attempting to fix the agenda error. Attempt {len(previous_attempts)}.")
                     response = await self._fix_agenda_error(llm_formatted_attempts, conversation)
+                    if response is None:
+                        raise ValueError("Invalid response from the LLM.")
                     if response["validation_result"] != ToolValidationResult.SUCCESS:
                         self.logger.warning(
                             f"Failed to fix the agenda error due to a failure in the LLM tool call: {response['validation_result']}"
@@ -178,11 +178,11 @@ class Agenda:
     ):
         pass
 
-    async def _fix_agenda_error(self, previous_attempts: str, conversation: Conversation) -> None:
+    async def _fix_agenda_error(self, previous_attempts: str, conversation: Conversation) -> dict[Any, Any]:
         """Calls an LLM to try and fix an error in the agenda update."""
         req_settings = self.kernel.get_prompt_execution_settings_from_service_id(self.service_id)
         req_settings.max_tokens = 2000  # type: ignore
-
+        req_settings.tool_choice = "auto"  # type: ignore
         self.kernel.add_function(plugin_name=self.id, function=self.update_agenda_items)
         req_settings.function_choice_behavior = FunctionChoiceBehavior.Auto(
             auto_invoke=False, filters={"included_plugins": [self.id]}
@@ -196,7 +196,7 @@ class Agenda:
         return await fix_error(
             kernel=self.kernel,
             prompt_template=AGENDA_ERROR_CORRECTION_SYSTEM_TEMPLATE,
-            req_settings=req_settings,
+            req_settings=req_settings,  # type: ignore
             arguments=arguments,
         )
 
@@ -211,7 +211,7 @@ class Agenda:
             ValueError: If any validation checks fail.
         """
         # The total, proposed allocation of resources.
-        total_resources = sum([item["resource"] for item in items])
+        total_resources = sum([item["resource"] for item in items])  # type: ignore
 
         violations = []
         # In maximum mode, the total resources should not exceed the remaining turns
@@ -229,7 +229,7 @@ class Agenda:
             violations.append(f"{total_resource_instruction}; but the current total is {total_resources}.")
 
         # Check if any item has a resource value of 0
-        if any(item["resource"] <= 0 for item in items):
+        if any(item["resource"] <= 0 for item in items):  # type: ignore
             violations.append("All items must have a resource value greater than 0.")
 
         # Raise an error if any violations were found
