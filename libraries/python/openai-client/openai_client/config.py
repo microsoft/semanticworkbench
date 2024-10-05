@@ -31,8 +31,7 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
         },
     )
 
-    auth_method: Annotated[Literal[AuthMethodType.APIKey],
-                           UISchema(widget="hidden")] = AuthMethodType.APIKey
+    auth_method: Annotated[Literal[AuthMethodType.APIKey], UISchema(widget="hidden")] = AuthMethodType.APIKey
 
     azure_openai_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -42,7 +41,7 @@ class AzureOpenAIApiKeyAuthConfig(BaseModel):
             title="Azure OpenAI API Key",
             description="The Azure OpenAI API key for your resource instance.",
         ),
-    ] = ""
+    ]
 
 
 class AzureOpenAIServiceConfig(BaseModel):
@@ -53,17 +52,17 @@ class AzureOpenAIServiceConfig(BaseModel):
         },
     )
 
-    service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(
-        widget="hidden")] = ServiceType.AzureOpenAI
+    service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(widget="hidden")] = ServiceType.AzureOpenAI
 
     auth_config: Annotated[
         AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
         Field(
             title="Authentication method",
             description="The authentication method to use for the Azure OpenAI API.",
+            default=AzureOpenAIAzureIdentityAuthConfig(),
         ),
         UISchema(widget="radio", hide_title=True),
-    ] = AzureOpenAIAzureIdentityAuthConfig()
+    ]
 
     azure_openai_endpoint: Annotated[
         HttpUrl,
@@ -73,8 +72,7 @@ class AzureOpenAIServiceConfig(BaseModel):
                 "The Azure OpenAI endpoint for your resource instance. If not provided, the service default will"
                 " be used."
             ),
-            default=first_env_var("azure_openai_endpoint",
-                                  "assistant__azure_openai_endpoint") or "",
+            default=first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or "",
         ),
     ]
 
@@ -83,18 +81,15 @@ class AzureOpenAIServiceConfig(BaseModel):
         Field(
             title="Azure OpenAI Deployment",
             description="The Azure OpenAI deployment to use.",
-            default=first_env_var(
-                "azure_openai_deployment", "assistant__azure_openai_deployment") or "gpt-4o",
+            default=first_env_var("azure_openai_deployment", "assistant__azure_openai_deployment") or "gpt-4o",
         ),
     ]
 
 
 class OpenAIServiceConfig(BaseModel):
-    model_config = ConfigDict(title="OpenAI", json_schema_extra={
-                              "required": ["openai_api_key"]})
+    model_config = ConfigDict(title="OpenAI", json_schema_extra={"required": ["openai_api_key"]})
 
-    service_type: Annotated[Literal[ServiceType.OpenAI],
-                            UISchema(widget="hidden")] = ServiceType.OpenAI
+    service_type: Annotated[Literal[ServiceType.OpenAI], UISchema(widget="hidden")] = ServiceType.OpenAI
 
     openai_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -104,7 +99,7 @@ class OpenAIServiceConfig(BaseModel):
             title="OpenAI API Key",
             description="The API key to use for the OpenAI API.",
         ),
-    ] = ""
+    ]
 
     # spell-checker: ignore rocrupyvzgcl4yf25rqq6d1v
     openai_organization_id: Annotated[
@@ -116,9 +111,10 @@ class OpenAIServiceConfig(BaseModel):
                 " name. If you do not specify an organization ID, the default organization will be used. Example:"
                 " org-rocrupyvzgcl4yf25rqq6d1v"
             ),
+            default="",
         ),
         UISchema(placeholder="[optional]"),
-    ] = ""
+    ]
 
 
 ServiceConfig = Annotated[
