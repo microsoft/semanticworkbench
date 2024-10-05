@@ -35,9 +35,6 @@ start-semantic-workbench-assistant = "semantic_workbench_assistant.start:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.pyright]
-exclude = [".venv"]
-
 [tool.pytest.ini_options]
 addopts = "-vv"
 log_cli = true

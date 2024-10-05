@@ -26,6 +26,7 @@ import re
 from typing import Any
 
 import deepmerge
+import openai_client
 import tiktoken
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
@@ -327,10 +328,10 @@ async def respond_to_conversation(
     #     return
 
     # generate a response from the AI model
-    async with config.service_config.new_client(api_version="2024-06-01") as openai_client:
+    async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
         try:
             # call the OpenAI chat completion endpoint to get a response
-            completion = await openai_client.chat.completions.create(
+            completion = await client.chat.completions.create(
                 messages=completion_messages,
                 model=config.request_config.openai_model,
                 max_tokens=config.request_config.response_tokens,

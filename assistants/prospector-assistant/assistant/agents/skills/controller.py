@@ -2,11 +2,10 @@ import asyncio
 import logging
 from pathlib import Path
 
+import openai_client
 from chat_driver import ChatDriverConfig
-from chat_driver import client as chat_driver_client
 from document_skill import DocumentContext, DocumentSkill
 from events import events as skill_events
-from openai import AsyncOpenAI
 from posix_skill import PosixSkill
 from prospector_skill import ProspectorSkill
 from semantic_workbench_api_model.workbench_model import (
@@ -19,10 +18,6 @@ from semantic_workbench_assistant.assistant_app import (
 )
 from skill_library import Assistant
 
-from ...config import (
-    AzureOpenAIServiceConfig,
-    OpenAIServiceConfig,
-)
 from . import config as agent_config
 
 logger = logging.getLogger(__name__)
@@ -72,20 +67,6 @@ async def _event_mapper(
             logger.warning("Unhandled event: %s", skill_event)
 
 
-def _openai_client_for_instance(
-    service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
-) -> AsyncOpenAI:
-    """
-    We don't create an OpenAI client in the constructor, because each
-    assistant instance can have it's own configuration.
-    """
-
-    # Create an OpenAI client from the service configuration.
-    if isinstance(service_config, AzureOpenAIServiceConfig):
-        return service_config.new_client()
-    return service_config.new_client()
-
-
 class AssistantRegistry:
     """
     This class handles the creation and management of skill assistant instances
@@ -103,7 +84,7 @@ class AssistantRegistry:
         self,
         conversation_context: ConversationContext,
         chat_driver_config: agent_config.ChatDriverConfig,
-        service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
+        service_config: openai_client.ServiceConfig,
     ) -> Assistant | None:
         # If the assistant already exists, return it.
         if conversation_context.id in self.assistants:
@@ -137,7 +118,7 @@ class AssistantRegistry:
         self,
         conversation_context: ConversationContext,
         chat_driver_config: agent_config.ChatDriverConfig,
-        service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
+        service_config: openai_client.ServiceConfig,
     ) -> Assistant | None:
         """
         Define the skill assistant that you want to have backing this assistant
@@ -146,7 +127,7 @@ class AssistantRegistry:
         """
         # Get an OpenAI client.
         try:
-            async_client = _openai_client_for_instance(service_config)
+            async_client = openai_client.create_client(service_config)
         except Exception as e:
             logging.exception("Failed to create OpenAI client")
             await conversation_context.send_messages(
@@ -159,7 +140,7 @@ class AssistantRegistry:
             name="Assistant",
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                model=chat_driver_client.OpenAIModel(chat_driver_config.openai_model),
+                model=chat_driver_config.openai_model,
                 instructions=chat_driver_config.instructions,
             ),
             session_id=str(conversation_context.id),
@@ -172,7 +153,7 @@ class AssistantRegistry:
             context=DocumentContext(),
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                model=chat_driver_client.OpenAIModel(chat_driver_config.openai_model),
+                model=chat_driver_config.openai_model,
             ),
         )
 
@@ -182,7 +163,7 @@ class AssistantRegistry:
             mount_dir="/mnt/data",
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                model=chat_driver_client.OpenAIModel(chat_driver_config.openai_model),
+                model=chat_driver_config.openai_model,
             ),
         )
 
@@ -190,7 +171,7 @@ class AssistantRegistry:
             context=assistant.context,
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                model=chat_driver_client.OpenAIModel(chat_driver_config.openai_model),
+                model=chat_driver_config.openai_model,
             ),
         )
 

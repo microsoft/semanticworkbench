@@ -282,10 +282,16 @@ async def respond_to_conversation(
             if content.startswith("/"):
                 message_type = MessageType.command_response
 
+        response_content = content
+        if not response_content and "error" in metadata:
+            response_content = f"[error from {config.service_config.service_type}: {metadata['error']}]"
+        if not response_content:
+            response_content = f"[no response from {config.service_config.service_type}]"
+
         # send the response to the conversation
         await context.send_messages(
             NewConversationMessage(
-                content=content or f"[no response from {config.service_config.service_type}]",
+                content=response_content,
                 message_type=message_type,
                 metadata=metadata,
             )

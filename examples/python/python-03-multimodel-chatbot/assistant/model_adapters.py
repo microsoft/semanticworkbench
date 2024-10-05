@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from .config import (
     AnthropicServiceConfig,
+    AzureOpenAIServiceConfig,
     GeminiServiceConfig,
     OllamaServiceConfig,
     OpenAIServiceConfig,
@@ -77,7 +78,7 @@ class OpenAIAdapter(ModelAdapter):
         self,
         messages: List[Message],
         request_config: RequestConfig,
-        service_config: OpenAIServiceConfig | OllamaServiceConfig,
+        service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig | OllamaServiceConfig,
     ) -> GenerateResponseResult:
         formatted_messages = self._format_messages(messages)
 

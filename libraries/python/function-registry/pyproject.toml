@@ -30,6 +30,3 @@ context = { path = "../context", editable = true }
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.pyright]
-exclude = [".venv"]

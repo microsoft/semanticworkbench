@@ -17,8 +17,6 @@ The Skill Assistant serves as a demonstration of integrating the Skill Library w
 
 [config.py](assistant/config.py) file defines the configuration model for the Skill Assistant. It includes settings for both Azure OpenAI and OpenAI services, along with request-specific settings such as max_tokens and response_tokens.
 
-- AzureOpenAIServiceConfig: Configuration for Azure OpenAI services.
-- OpenAIServiceConfig: Configuration for OpenAI services.
 - RequestConfig: Defines parameters for generating responses, including tokens settings.
 
 ## Responsible AI
