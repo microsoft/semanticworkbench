@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, mergeClasses, tokens } from '@fluentui/react-components';
 import debug from 'debug';
 import React from 'react';
 import { Constants } from '../../../Constants';
@@ -10,10 +10,9 @@ import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
 import { useAppSelector } from '../../../redux/app/hooks';
-import { AssistantCanvasList } from './AssistantCanvasList';
+import { AssistantDrawer } from './AssistantDrawer';
 import { CanvasControls } from './CanvasControls';
-import { CanvasDrawer } from './CanvasDrawer';
-import { ConversationCanvas } from './ConversationCanvas';
+import { ConversationDrawer } from './ConversationDrawer';
 
 const log = debug(Constants.debug.root).extend('InteractCanvas');
 
@@ -30,37 +29,7 @@ const useClasses = makeStyles({
     controlsOverlay: {
         position: 'fixed',
     },
-    drawer: {
-        height: '100%',
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
-    },
-    drawerContent: {
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'auto',
-        ...shorthands.padding(0, tokens.spacingHorizontalM, tokens.spacingVerticalM),
-        boxSizing: 'border-box',
-        '::-webkit-scrollbar-track': {
-            backgroundColor: tokens.colorNeutralBackground1,
-        },
-        '::-webkit-scrollbar-thumb': {
-            backgroundColor: tokens.colorNeutralStencil1Alpha,
-        },
-    },
-    drawerOpenInlineNarrow: {
-        width: 'min(50vw, 500px)',
-    },
-    drawerOpenInlineWide: {
-        width: 'calc(200vw - 300px)',
-    },
-    drawerOpenOverlay: {
-        width: '100%',
-    },
 });
-
-const drawerResponsiveBreakpoint = '900px';
 
 interface InteractCanvasProps {
     conversationAssistants: Assistant[];
@@ -84,7 +53,7 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
     const { interactCanvasState } = useAppSelector((state) => state.app);
     const interactCanvasController = useInteractCanvasController();
     const [firstRun, setFirstRun] = React.useState(true);
-    const [selectedAssistant, setSelectedAssistant] = React.useState<Assistant | null>(null);
+    const [selectedAssistant, setSelectedAssistant] = React.useState<Assistant>();
     const [drawerMode, setDrawerMode] = React.useState<'inline' | 'overlay'>('inline');
 
     const onMediaQueryChange = React.useCallback(
@@ -93,7 +62,7 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
     );
 
     React.useEffect(() => {
-        const mediaQuery = window.matchMedia(`(max-width: ${drawerResponsiveBreakpoint})`);
+        const mediaQuery = window.matchMedia(`(max-width: ${Constants.app.responsiveBreakpoints.interactCanvas})`);
 
         if (mediaQuery.matches) {
             setDrawerMode('overlay');
@@ -194,41 +163,23 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
             <div className={controlsClassName}>
                 <CanvasControls conversationId={conversation.id} />
             </div>
-            <CanvasDrawer
-                openClassName={drawerMode === 'inline' ? classes.drawerOpenInlineNarrow : classes.drawerOpenOverlay}
-                className={classes.drawer}
+            <ConversationDrawer
                 open={openDrawer === 'conversation'}
                 mode={drawerMode}
-                side="right"
-                title="Conversation"
-            >
-                <ConversationCanvas
-                    readOnly={readOnly}
-                    conversation={conversation}
-                    conversationParticipants={conversationParticipants}
-                    conversationFiles={conversationFiles}
-                    conversationAssistants={conversationAssistants}
-                    preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
-                />
-            </CanvasDrawer>
-            <CanvasDrawer
-                openClassName={drawerMode === 'inline' ? classes.drawerOpenInlineWide : classes.drawerOpenOverlay}
-                className={classes.drawer}
+                readOnly={readOnly}
+                conversation={conversation}
+                conversationParticipants={conversationParticipants}
+                conversationFiles={conversationFiles}
+                conversationAssistants={conversationAssistants}
+                preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
+            />
+            <AssistantDrawer
                 open={openDrawer === 'assistant'}
                 mode={drawerMode}
-                side="right"
-                title="Assistants"
-            >
-                {selectedAssistant ? (
-                    <AssistantCanvasList
-                        selectedAssistant={selectedAssistant}
-                        conversation={conversation}
-                        conversationAssistants={conversationAssistants}
-                    />
-                ) : (
-                    'No assistant selected.'
-                )}
-            </CanvasDrawer>
+                conversation={conversation}
+                conversationAssistants={conversationAssistants}
+                selectedAssistant={selectedAssistant}
+            />
         </>
     );
 };

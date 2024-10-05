@@ -10,6 +10,14 @@ const useClasses = makeStyles({
         backgroundColor: tokens.colorNeutralBackground1,
         zIndex: tokens.zIndexOverlay,
         boxShadow: tokens.shadow8Brand,
+        display: 'flex',
+        flexDirection: 'column',
+        '::-webkit-scrollbar-track': {
+            backgroundColor: tokens.colorNeutralBackground1,
+        },
+        '::-webkit-scrollbar-thumb': {
+            backgroundColor: tokens.colorNeutralStencil1Alpha,
+        },
     },
     drawerTitle: {
         ...shorthands.padding(

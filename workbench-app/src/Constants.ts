@@ -10,6 +10,9 @@ export const Constants = {
         defaultChatWidthPercent: 33,
         maxFileAttachmentsPerMessage: 10,
         speechIdleTimeoutMs: 2000,
+        responsiveBreakpoints: {
+            interactCanvas: '900px',
+        },
     },
     workflow: {
         maxOutlets: 5,
