@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { Button, Card, Divider, makeStyles, shorthands, Text, tokens } from '@fluentui/react-components';
+import { Warning24Filled } from '@fluentui/react-icons';
 import Form from '@rjsf/fluentui-rc';
 import { RegistryWidgetsType, RJSFSchema } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
@@ -34,6 +35,13 @@ const useClasses = makeStyles({
         padding: '8px',
         ...shorthands.border(tokens.strokeWidthThin, 'solid', tokens.colorNeutralStroke1),
     },
+    warning: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        fontWeight: tokens.fontWeightSemibold,
+        color: tokens.colorPaletteRedForeground1,
+    },
 });
 
 interface AssistantInstanceEditProps {
@@ -51,6 +59,7 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
     const [updateConfig] = useUpdateConfigMutation();
     const [formData, setFormData] = React.useState<object>();
     const [isDirty, setDirty] = React.useState(false);
+    const [isValid, setValid] = React.useState(true);
 
     if (configError) {
         const errorMessage = JSON.stringify(configError);
@@ -62,9 +71,8 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
         setFormData(config?.config);
     }, [isLoadingConfig, config]);
 
-    const handleChange = async (updatedConfig: object) => {
+    const handleSubmit = async (updatedConfig: object) => {
         if (!config) return;
-        setFormData(updatedConfig);
         await updateConfig({ assistantId: assistant.id, config: { ...config, config: updatedConfig } });
         setDirty(false);
     };
@@ -81,6 +89,18 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
             // Compare the current form data with the original config to determine if the form is dirty
             const diff = Utility.deepDiff(config.config, formData);
             setDirty(Object.keys(diff).length > 0);
+        }
+
+        if (config?.jsonSchema && formData) {
+            // Validate the form data against the JSON schema
+            const { errors } = validator.validateFormData(
+                formData,
+                config.jsonSchema,
+                undefined,
+                undefined,
+                config.uiSchema,
+            );
+            setValid(errors.length === 0);
         }
     }, [config, formData]);
 
@@ -121,7 +141,7 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
             <Divider />
             <ConfirmLeave isDirty={isDirty} />
             <div className={classes.actions}>
-                <Button appearance="primary" onClick={() => handleChange(formData ?? {})} disabled={!isDirty}>
+                <Button appearance="primary" form="assistant-config-form" type="submit" disabled={!isDirty}>
                     Save
                 </Button>
                 <ApplyConfigButton
@@ -138,8 +158,14 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
                     newConfig={defaults}
                     onApply={restoreConfig}
                 />
+                {!isValid && (
+                    <div className={classes.warning}>
+                        <Warning24Filled /> Configuration has missing or invalid values
+                    </div>
+                )}
             </div>
             <Form
+                id="assistant-config-form"
                 aria-autocomplete="none"
                 autoComplete="off"
                 widgets={widgets}
@@ -157,13 +183,15 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
                     },
                 }}
                 validator={validator}
+                liveValidate={true}
+                showErrorList={false}
                 formData={formData}
                 onChange={(data) => {
                     setFormData(data.formData);
                 }}
                 onSubmit={(data, event) => {
                     event.preventDefault();
-                    handleChange(data.formData);
+                    handleSubmit(data.formData);
                 }}
             />
         </Card>

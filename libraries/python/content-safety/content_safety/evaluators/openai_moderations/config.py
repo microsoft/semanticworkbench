@@ -60,7 +60,6 @@ class OpenAIContentSafetyEvaluatorConfig(BaseModel):
     openai_api_key: Annotated[
         ConfigSecretStr,
         Field(
-            default="",
             title="OpenAI API Key",
             description="The API key to use for the OpenAI API.",
         ),

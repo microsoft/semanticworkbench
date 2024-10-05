@@ -31,7 +31,7 @@ class AssistantApp:
         assistant_service_id: str,
         assistant_service_name: str,
         assistant_service_description: str,
-        config_provider: AssistantConfigProvider = BaseModelAssistantConfig(EmptyConfigModel()).provider,
+        config_provider: AssistantConfigProvider = BaseModelAssistantConfig(EmptyConfigModel).provider,
         data_exporter: AssistantDataExporter = FileStorageAssistantDataExporter(),
         conversation_data_exporter: ConversationDataExporter = FileStorageConversationDataExporter(),
         inspector_state_providers: Mapping[str, AssistantConversationInspectorStateProvider] | None = None,

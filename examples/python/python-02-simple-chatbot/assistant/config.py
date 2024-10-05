@@ -135,7 +135,7 @@ class AssistantConfigModel(BaseModel):
         ),
     ] = RequestConfig()
 
-    service_config: openai_client.ServiceConfig = openai_client.AzureOpenAIServiceConfig()
+    service_config: openai_client.ServiceConfig
 
     content_safety_config: Annotated[
         CombinedContentSafetyEvaluatorConfig,

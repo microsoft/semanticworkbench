@@ -57,9 +57,7 @@ service_description = "A starter for building a chat assistant using the Semanti
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfig(
-    default=AssistantConfigModel(),
-)
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 content_safety = ContentSafety(AlwaysWarnContentSafetyEvaluator.factory)
 

@@ -226,6 +226,7 @@ class AssistantService(FastAPIAssistantService):
             description=self.service_description,
             default_config=assistant_model.ConfigResponseModel(
                 config=default_config.config,
+                errors=default_config.errors,
                 json_schema=default_config.json_schema,
                 ui_schema=default_config.ui_schema,
             ),
@@ -307,6 +308,7 @@ class AssistantService(FastAPIAssistantService):
         config = await self.assistant_app._config_provider.get(assistant_context)
         return assistant_model.ConfigResponseModel(
             config=config.config,
+            errors=config.errors,
             json_schema=config.json_schema,
             ui_schema=config.ui_schema,
         )

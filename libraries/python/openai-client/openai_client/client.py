@@ -1,12 +1,16 @@
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from openai.lib.azure import AsyncAzureADTokenProvider
-from .config import ServiceConfig, AzureOpenAIApiKeyAuthConfig, AzureOpenAIAzureIdentityAuthConfig, AzureOpenAIServiceConfig, OpenAIServiceConfig
+from .config import (
+    ServiceConfig,
+    AzureOpenAIApiKeyAuthConfig,
+    AzureOpenAIAzureIdentityAuthConfig,
+    AzureOpenAIServiceConfig,
+    OpenAIServiceConfig,
+)
 
 
-def create_client(
-    service_config: ServiceConfig, *, api_version: str = "2024-08-01-preview"
-) -> AsyncOpenAI:
+def create_client(service_config: ServiceConfig, *, api_version: str = "2024-08-01-preview") -> AsyncOpenAI:
     """
     Creates an AsyncOpenAI client based on the provided service configuration.
     """
@@ -30,8 +34,7 @@ def create_client(
                     )
 
                 case _:
-                    raise ValueError(
-                        f"Invalid auth method type: {type(service_config.auth_config)}")
+                    raise ValueError(f"Invalid auth method type: {type(service_config.auth_config)}")
 
         case OpenAIServiceConfig():
             return AsyncOpenAI(
@@ -40,8 +43,7 @@ def create_client(
             )
 
         case _:
-            raise ValueError(
-                f"Invalid service config type: {type(service_config)}")
+            raise ValueError(f"Invalid service config type: {type(service_config)}")
 
 
 _lazy_initialized_azure_bearer_token_provider = None

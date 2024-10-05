@@ -42,6 +42,7 @@ class StatePutRequestModel(BaseModel):
 
 class ConfigResponseModel(BaseModel):
     config: dict[str, Any]
+    errors: list[str] | None
     json_schema: dict[str, Any] | None
     ui_schema: dict[str, Any] | None
 

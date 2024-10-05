@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from azure.core.credentials import AzureKeyCredential
 from azure.identity import DefaultAzureCredential
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from semantic_workbench_assistant import config
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
@@ -61,11 +61,9 @@ class AzureServiceKeyAuthConfig(BaseModel):
         # It will hide the value in the UI.
         ConfigSecretStr,
         Field(
-            default="",
             title="Azure Service API Key",
             description="The service API key for your resource instance.",
         ),
-        UISchema(placeholder="[optional]"),
     ]
 
 
@@ -87,7 +85,9 @@ def get_azure_default_credential() -> DefaultAzureCredential:
 
 
 class AzureContentSafetyEvaluatorConfig(BaseModel):
-    model_config = ConfigDict(title="Azure Content Safety Evaluator")
+    model_config = ConfigDict(
+        title="Azure Content Safety Evaluator", json_schema_extra={"required": ["azure_content_safety_endpoint"]}
+    )
 
     service_type: Annotated[Literal["azure-content-safety"], UISchema(widget="hidden")] = "azure-content-safety"
 
@@ -129,12 +129,14 @@ class AzureContentSafetyEvaluatorConfig(BaseModel):
     ] = AzureIdentityAuthConfig()
 
     azure_content_safety_endpoint: Annotated[
-        str,
+        HttpUrl,
         Field(
             title="Azure Content Safety Service Endpoint",
             description="The endpoint to use for the Azure Content Safety service.",
+            default=config.first_env_var("azure_content_safety_endpoint", "assistant__azure_content_safety_endpoint")
+            or "",
         ),
-    ] = config.first_env_var("azure_content_safety_endpoint", "assistant__azure_content_safety_endpoint") or ""
+    ]
 
     # set on the class to avoid re-authenticating for each request
     _azure_default_credential: DefaultAzureCredential | None = None
