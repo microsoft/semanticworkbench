@@ -6,20 +6,15 @@ const useClasses = makeStyles({
         top: 0,
         height: '100%',
         transition: `width ${tokens.durationNormal} ${tokens.curveEasyEase}`,
-        overflow: 'auto',
+        overflow: 'hidden',
         backgroundColor: tokens.colorNeutralBackground1,
         zIndex: tokens.zIndexOverlay,
         boxShadow: tokens.shadow8Brand,
         display: 'flex',
         flexDirection: 'column',
-        '::-webkit-scrollbar-track': {
-            backgroundColor: tokens.colorNeutralBackground1,
-        },
-        '::-webkit-scrollbar-thumb': {
-            backgroundColor: tokens.colorNeutralStencil1Alpha,
-        },
     },
     drawerTitle: {
+        flexShrink: 0,
         ...shorthands.padding(
             tokens.spacingVerticalXXL,
             tokens.spacingHorizontalXXL,
@@ -28,8 +23,15 @@ const useClasses = makeStyles({
         ),
     },
     drawerContent: {
+        flexGrow: 1,
         padding: tokens.spacingHorizontalM,
         overflow: 'auto',
+        '::-webkit-scrollbar-track': {
+            backgroundColor: tokens.colorNeutralBackground1,
+        },
+        '::-webkit-scrollbar-thumb': {
+            backgroundColor: tokens.colorNeutralStencil1Alpha,
+        },
     },
 });
 

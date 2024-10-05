@@ -7,7 +7,6 @@ import { CanvasDrawer } from './CanvasDrawer';
 
 const useClasses = makeStyles({
     drawer: {
-        height: '100%',
         backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
     },
     drawerOpenInline: {
@@ -16,9 +15,8 @@ const useClasses = makeStyles({
     drawerOpenOverlay: {
         width: '100%',
     },
-    drawerContent: {
+    noContent: {
         padding: tokens.spacingHorizontalM,
-        overflow: 'auto',
     },
 });
 
@@ -49,7 +47,7 @@ export const AssistantDrawer: React.FC<AssistantDrawerProps> = (props) => {
                 conversationAssistants={conversationAssistants}
             />
         ) : (
-            <div className={classes.drawerContent}>No assistants participating in conversation.</div>
+            <div className={classes.noContent}>No assistants participating in conversation.</div>
         );
 
     return (

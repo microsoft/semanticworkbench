@@ -19,12 +19,12 @@ import { AssistantInspector } from './AssistantInspector';
 
 const useClasses = makeStyles({
     root: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gridTemplateRows: 'auto 1fr',
+        display: 'flex',
+        flexDirection: 'column',
         height: '100%',
     },
     header: {
+        flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -40,9 +40,8 @@ const useClasses = makeStyles({
         ...shorthands.borderBottom(tokens.strokeWidthThin, 'solid', tokens.colorNeutralStroke1),
     },
     body: {
+        flexGrow: 1,
         overflowY: 'auto',
-        height: '100%',
-        maxHeight: '100%',
     },
 });
 

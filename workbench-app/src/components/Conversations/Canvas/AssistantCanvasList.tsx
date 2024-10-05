@@ -8,6 +8,11 @@ import { Conversation } from '../../../models/Conversation';
 import { AssistantCanvas } from './AssistantCanvas';
 
 const useClasses = makeStyles({
+    root: {
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+    },
     noAssistants: {
         display: 'flex',
         flexDirection: 'row',
@@ -45,7 +50,7 @@ export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) =
 
     // Multiple assistants, show tabs
     return (
-        <>
+        <div className={classes.root}>
             <div className={classes.headerContent}>
                 <TabList
                     selectedValue={assistant.id}
@@ -72,6 +77,6 @@ export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) =
                 </TabList>
             </div>
             <AssistantCanvas assistant={assistant} conversationId={conversation.id} />
-        </>
+        </div>
     );
 };

@@ -8,7 +8,6 @@ import { ConversationCanvas } from './ConversationCanvas';
 
 const useClasses = makeStyles({
     drawer: {
-        height: '100%',
         backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
     },
     drawerOpenInline: {

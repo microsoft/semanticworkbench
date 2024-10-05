@@ -23,17 +23,18 @@ import { DebugInspector } from '../DebugInspector';
 
 const useClasses = makeStyles({
     root: {
-        display: 'grid',
-        gridTemplateRows: 'auto 1fr',
-        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
     },
     header: {
+        flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalM,
         ...shorthands.padding(tokens.spacingVerticalM),
     },
     body: {
+        flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'auto',
