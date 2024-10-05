@@ -63,7 +63,7 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
     const {
         data: state,
         error: stateError,
-        isLoading: isLoadingState,
+        isFetching: isFetchingState,
         refetch: refetchState,
     } = useGetConversationStateQuery(
         { assistantId, stateId: stateDescription.id, conversationId },
@@ -101,9 +101,9 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
     }, [environment, assistantId, stateDescription.id, conversationId, refetchState]);
 
     React.useEffect(() => {
-        if (isLoadingState) return;
+        if (isFetchingState) return;
         setFormData(state?.data);
-    }, [isLoadingState, state]);
+    }, [isFetchingState, state]);
 
     const handleChange = async (updatedState: object) => {
         if (!state || isSubmitting) return;
@@ -113,7 +113,10 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
         setIsSubmitting(false);
     };
 
-    if (isLoadingState) {
+    // if we are fetching the state, show a loading spinner
+    // this includes the initial load and any refetch such
+    // as after a state update
+    if (isFetchingState) {
         return <Loading />;
     }
 

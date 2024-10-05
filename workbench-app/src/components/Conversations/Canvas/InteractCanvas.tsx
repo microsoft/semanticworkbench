@@ -32,7 +32,7 @@ const useClasses = makeStyles({
 });
 
 interface InteractCanvasProps {
-    conversationAssistants: Assistant[];
+    conversationAssistants?: Assistant[];
     conversationParticipants: ConversationParticipant[];
     conversationFiles: ConversationFile[];
     conversation: Conversation;
@@ -75,67 +75,47 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
         };
     }, [onMediaQueryChange]);
 
-    // Verify the selected assistant is in the conversation
+    // Set the selected assistant based on the interact canvas state
     React.useEffect(() => {
-        // If the assistant drawer is open, set to assistant mode, an assistant is selected,
-        // and the assistant is not in the conversation, then close the assistant drawer
         if (
-            interactCanvasState?.open &&
-            interactCanvasState?.mode === 'assistant' &&
-            interactCanvasState?.assistantId &&
-            !conversationAssistants.some((assistant) => assistant.id === interactCanvasState.assistantId)
+            !interactCanvasState?.assistantId ||
+            !interactCanvasState?.open ||
+            interactCanvasState?.mode !== 'assistant'
         ) {
-            // Close the assistant drawer and reset the assistant state
-            log('Assistant id is not in the conversation, closing assistant drawer and resetting assistant state');
-            interactCanvasController.transitionToState({ open: false, assistantId: null, assistantStateId: null });
-        }
-    }, [conversationAssistants, interactCanvasState, interactCanvasController]);
-
-    // If no assistant is selected, select the first assistant in the list if available
-    React.useEffect(() => {
-        // If an assistant is selected, do not change the selection
-        if (interactCanvasState?.assistantId) {
+            // If the assistant id is not set, the canvas is closed, or the mode is not assistant, clear
+            // the selected assistant and exit early
+            setSelectedAssistant(undefined);
             return;
         }
 
-        // If there are no assistants, do not select an assistant
-        if (conversationAssistants.length === 0) {
-            log('No assistants in the conversation');
-
+        // If no assistants are in the conversation, unset the selected assistant
+        if (!conversationAssistants || conversationAssistants.length === 0) {
+            if (selectedAssistant) setSelectedAssistant(undefined);
             // If this is the first run, transition to the conversation mode to add an assistant
             if (firstRun) {
+                log('No assistants in the conversation on first run, transitioning to conversation mode');
                 interactCanvasController.transitionToState({ open: true, mode: 'conversation' });
                 setFirstRun(false);
             }
             return;
         }
 
-        // Select the first assistant in the list
-        log('Selecting the first assistant in the conversation');
-        interactCanvasController.setState({ assistantId: conversationAssistants[0].id });
-    }, [conversationAssistants, interactCanvasState, interactCanvasController, firstRun]);
+        // Find the assistant that corresponds to the selected assistant id
+        const assistant = conversationAssistants.find((assistant) => assistant.id === interactCanvasState?.assistantId);
 
-    // Set the selected assistant when the assistant id changes and the canvas is open and in assistant mode
-    React.useEffect(() => {
-        if (
-            selectedAssistant?.id !== interactCanvasState?.assistantId &&
-            interactCanvasState?.open &&
-            interactCanvasState?.mode === 'assistant'
-        ) {
-            const assistant = conversationAssistants.find(
-                (assistant) => assistant.id === interactCanvasState?.assistantId,
-            );
-            if (!assistant) {
-                // If the selected assistant is not in the conversation, close the assistant drawer
-                log(
-                    'Selected assistant is not in the conversation, closing assistant drawer and resetting assistant state',
-                );
-                interactCanvasController.transitionToState({ open: false, assistantId: null, assistantStateId: null });
-                return;
-            }
+        // If the selected assistant is not found in the conversation, select the first assistant in the conversation
+        if (!assistant) {
+            log('Selected assistant not found in conversation, selecting the first assistant in the conversation');
+            interactCanvasController.setState({ assistantId: conversationAssistants[0].id });
+            return;
+        }
+
+        // If the requested assistant is different from the selected assistant, set the selected assistant
+        if (selectedAssistant?.id !== assistant?.id) {
+            log(`Setting selected assistant to ${assistant.id}`);
             setSelectedAssistant(assistant);
         }
-    }, [conversationAssistants, interactCanvasController, interactCanvasState, selectedAssistant]);
+    }, [conversationAssistants, firstRun, interactCanvasController, interactCanvasState, selectedAssistant]);
 
     // Determine which drawer to open, default to none
     let openDrawer: 'conversation' | 'assistant' | 'none' = 'none';
@@ -145,8 +125,8 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
             openDrawer = 'conversation';
         }
 
-        // Open the assistant drawer if the mode is assistant and an assistant is selected
-        if (interactCanvasState?.mode === 'assistant' && interactCanvasState?.assistantId) {
+        // Open the assistant drawer if the mode is assistant
+        if (interactCanvasState?.mode === 'assistant') {
             openDrawer = 'assistant';
         }
 
@@ -170,7 +150,6 @@ export const InteractCanvas: React.FC<InteractCanvasProps> = (props) => {
                 conversation={conversation}
                 conversationParticipants={conversationParticipants}
                 conversationFiles={conversationFiles}
-                conversationAssistants={conversationAssistants}
                 preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
             />
             <AssistantDrawer

@@ -56,7 +56,7 @@ export const useInteractCanvasController = () => {
 
             if (fullTargetCanvasState.mode === 'assistant') {
                 log(
-                    `assistant state: ${fullTargetCanvasState.assistantStateId} [${fullTargetCanvasState.assistantId}]`,
+                    `assistant state: ${fullTargetCanvasState.assistantStateId} [assistant: ${fullTargetCanvasState.assistantId}]`,
                 );
             }
         },

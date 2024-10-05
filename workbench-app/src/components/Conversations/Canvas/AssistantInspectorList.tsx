@@ -12,6 +12,7 @@ import {
 } from '@fluentui/react-components';
 import React from 'react';
 import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
+import { Assistant } from '../../../models/Assistant';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
 import { useAppSelector } from '../../../redux/app/hooks';
 import { AssistantInspector } from './AssistantInspector';
@@ -47,11 +48,12 @@ const useClasses = makeStyles({
 
 interface AssistantInspectorListProps {
     conversationId: string;
+    assistant: Assistant;
     stateDescriptions: AssistantStateDescription[];
 }
 
 export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (props) => {
-    const { conversationId, stateDescriptions } = props;
+    const { conversationId, assistant, stateDescriptions } = props;
     const classes = useClasses();
     const { interactCanvasState } = useAppSelector((state) => state.app);
     const interactCanvasController = useInteractCanvasController();
@@ -59,11 +61,6 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
     const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
         interactCanvasController.transitionToState({ assistantStateId: data.value as string });
     };
-
-    const selectedTab = interactCanvasState?.assistantStateId ?? stateDescriptions[0].id;
-    const selectedStateDescription = stateDescriptions.find((stateDescription) => stateDescription.id === selectedTab);
-
-    if (!interactCanvasState?.assistantId) return null;
 
     if (stateDescriptions.length === 0) {
         return (
@@ -76,6 +73,11 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
             </div>
         );
     }
+
+    const selectedStateDescription =
+        stateDescriptions.find((stateDescription) => stateDescription.id === interactCanvasState?.assistantStateId) ??
+        stateDescriptions[0];
+    const selectedTab = selectedStateDescription.id;
 
     return (
         <div className={classes.root}>
@@ -92,15 +94,13 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
                     </TabList>
                 </div>
             </div>
-            {selectedStateDescription && (
-                <div className={classes.body}>
-                    <AssistantInspector
-                        assistantId={interactCanvasState?.assistantId}
-                        conversationId={conversationId}
-                        stateDescription={selectedStateDescription}
-                    />
-                </div>
-            )}
+            <div className={classes.body}>
+                <AssistantInspector
+                    assistantId={assistant.id}
+                    conversationId={conversationId}
+                    stateDescription={selectedStateDescription}
+                />
+            </div>
         </div>
     );
 };

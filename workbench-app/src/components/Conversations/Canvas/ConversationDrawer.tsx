@@ -1,6 +1,5 @@
 import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
@@ -27,7 +26,6 @@ interface ConversationDrawerProps {
     conversation: Conversation;
     conversationParticipants: ConversationParticipant[];
     conversationFiles: ConversationFile[];
-    conversationAssistants: Assistant[];
     preventAssistantModifyOnParticipantIds?: string[];
 }
 
@@ -39,7 +37,6 @@ export const ConversationDrawer: React.FC<ConversationDrawerProps> = (props) => 
         conversation,
         conversationParticipants,
         conversationFiles,
-        conversationAssistants,
         preventAssistantModifyOnParticipantIds,
     } = props;
     const classes = useClasses();
@@ -58,7 +55,6 @@ export const ConversationDrawer: React.FC<ConversationDrawerProps> = (props) => 
                 conversation={conversation}
                 conversationParticipants={conversationParticipants}
                 conversationFiles={conversationFiles}
-                conversationAssistants={conversationAssistants}
                 preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
             />
         </CanvasDrawer>

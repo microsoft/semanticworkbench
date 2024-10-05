@@ -16,19 +16,41 @@ const useClasses = makeStyles({
     drawerOpenOverlay: {
         width: '100%',
     },
+    drawerContent: {
+        padding: tokens.spacingHorizontalM,
+        overflow: 'auto',
+    },
 });
 
 interface AssistantDrawerProps {
     open: boolean;
     mode: 'inline' | 'overlay';
     conversation: Conversation;
-    conversationAssistants: Assistant[];
+    conversationAssistants?: Assistant[];
     selectedAssistant?: Assistant;
 }
 
 export const AssistantDrawer: React.FC<AssistantDrawerProps> = (props) => {
     const { open, mode, conversation, conversationAssistants, selectedAssistant } = props;
     const classes = useClasses();
+
+    let title = '';
+    if (!conversationAssistants || conversationAssistants.length === 0 || conversationAssistants.length > 1) {
+        title = 'Assistants';
+    } else {
+        title = conversationAssistants[0].name;
+    }
+
+    const canvasContent =
+        conversationAssistants && conversationAssistants.length > 0 ? (
+            <AssistantCanvasList
+                selectedAssistant={selectedAssistant}
+                conversation={conversation}
+                conversationAssistants={conversationAssistants}
+            />
+        ) : (
+            <div className={classes.drawerContent}>No assistants participating in conversation.</div>
+        );
 
     return (
         <CanvasDrawer
@@ -37,17 +59,9 @@ export const AssistantDrawer: React.FC<AssistantDrawerProps> = (props) => {
             open={open}
             mode={mode}
             side="right"
-            title="Assistants"
+            title={title}
         >
-            {selectedAssistant ? (
-                <AssistantCanvasList
-                    selectedAssistant={selectedAssistant}
-                    conversation={conversation}
-                    conversationAssistants={conversationAssistants}
-                />
-            ) : (
-                'No assistant selected.'
-            )}
+            {canvasContent}
         </CanvasDrawer>
     );
 };

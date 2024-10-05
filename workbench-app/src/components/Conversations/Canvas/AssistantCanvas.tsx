@@ -31,7 +31,7 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
     const {
         data: stateDescriptions,
         error: stateDescriptionsError,
-        isLoading: isLoadingStateDescriptions,
+        isFetching: isFetchingStateDescriptions,
     } = useGetConversationStateDescriptionsQuery({ assistantId: assistant.id, conversationId: conversationId });
 
     if (stateDescriptionsError) {
@@ -39,7 +39,8 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
         throw new Error(`Error loading assistant state descriptions: ${errorMessage}`);
     }
 
-    if (isLoadingStateDescriptions) {
+    // watching fetching instead of load, to avoid passing the old data on assistant id change
+    if (isFetchingStateDescriptions) {
         return <Loading />;
     }
 
@@ -48,7 +49,11 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
             {!stateDescriptions || stateDescriptions.length === 0 ? (
                 <div>No states found for this assistant</div>
             ) : (
-                <AssistantInspectorList conversationId={conversationId} stateDescriptions={stateDescriptions} />
+                <AssistantInspectorList
+                    conversationId={conversationId}
+                    assistant={assistant}
+                    stateDescriptions={stateDescriptions}
+                />
             )}
         </div>
     );

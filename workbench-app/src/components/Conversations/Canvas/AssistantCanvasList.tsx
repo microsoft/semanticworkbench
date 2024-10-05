@@ -26,7 +26,7 @@ const useClasses = makeStyles({
 });
 
 interface AssistantCanvasListProps {
-    selectedAssistant: Assistant;
+    selectedAssistant?: Assistant;
     conversationAssistants: Assistant[];
     conversation: Conversation;
 }
@@ -36,46 +36,42 @@ export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) =
     const classes = useClasses();
     const interactCanvasController = useInteractCanvasController();
 
-    if (!selectedAssistant) {
-        return null;
+    if (conversationAssistants.length === 1) {
+        // Only one assistant, no need to show tabs, just show the single assistant
+        return <AssistantCanvas assistant={conversationAssistants[0]} conversationId={conversation.id} />;
     }
 
-    if (conversationAssistants.length === 1) {
-        // Only one assistant, no need to show tabs
-        return <AssistantCanvas assistant={selectedAssistant} conversationId={conversation.id} />;
-    }
+    const assistant = selectedAssistant ?? conversationAssistants[0];
 
     // Multiple assistants, show tabs
     return (
         <>
             <div className={classes.headerContent}>
                 <TabList
-                    selectedValue={selectedAssistant?.id ?? conversationAssistants[0].id}
+                    selectedValue={assistant.id}
                     onTabSelect={(_event, selectedItem) => {
                         // Find the assistant that corresponds to the selected tab
-                        const assistant = conversationAssistants.find(
-                            (assistant) => assistant.id === selectedItem.value,
+                        const conversationAssistant = conversationAssistants.find(
+                            (conversationAssistant) => conversationAssistant.id === selectedItem.value,
                         );
 
                         // Set the new assistant as the active assistant
                         // If we can't find the assistant, we'll set the assistant to null
                         interactCanvasController.transitionToState({
-                            assistantId: assistant?.id ?? null,
+                            assistantId: conversationAssistant?.id ?? null,
+                            assistantStateId: null,
                         });
                     }}
                     size="small"
                 >
-                    {conversationAssistants
-                        .slice()
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((assistant) => (
-                            <Tab value={assistant.id} key={assistant.id}>
-                                {assistant.name}
-                            </Tab>
-                        ))}
+                    {conversationAssistants.slice().map((assistant) => (
+                        <Tab value={assistant.id} key={assistant.id}>
+                            {assistant.name}
+                        </Tab>
+                    ))}
                 </TabList>
             </div>
-            {selectedAssistant && <AssistantCanvas assistant={selectedAssistant} conversationId={conversation.id} />}
+            <AssistantCanvas assistant={assistant} conversationId={conversation.id} />
         </>
     );
 };

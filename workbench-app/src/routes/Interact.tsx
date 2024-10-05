@@ -13,6 +13,7 @@ import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
 import { useLocalUserAccount } from '../libs/useLocalUserAccount';
 import { useSiteUtility } from '../libs/useSiteUtility';
+import { Assistant } from '../models/Assistant';
 import {
     useGetAssistantsInConversationQuery,
     useGetConversationFilesQuery,
@@ -79,6 +80,7 @@ export const Interact: React.FC = () => {
         data: assistants,
         error: assistantsError,
         isLoading: isLoadingAssistants,
+        refetch: refetchAssistants,
     } = useGetAssistantsInConversationQuery(conversationId);
     const {
         data: conversation,
@@ -148,6 +150,35 @@ export const Interact: React.FC = () => {
         [updateConversation],
     );
 
+    const conversationAssistants = React.useMemo(() => {
+        const results: Assistant[] = [];
+
+        // If the conversation or assistants are not loaded, return early
+        if (!conversationParticipants || !assistants) {
+            return results;
+        }
+
+        for (let conversationParticipant of conversationParticipants) {
+            // Only include active assistants
+            if (!conversationParticipant.active || conversationParticipant.role !== 'assistant') continue;
+
+            // Find the assistant in the list of assistants
+            const assistant = assistants.find((assistant) => assistant.id === conversationParticipant.id);
+
+            if (assistant) {
+                // If the assistant is found, add it to the list of assistants
+                results.push(assistant);
+            } else {
+                // If the assistant is not found, refetch the assistants
+                refetchAssistants();
+                // Return early to avoid returning an incomplete list of assistants
+                return;
+            }
+        }
+
+        return results.sort((a, b) => a.name.localeCompare(b.name));
+    }, [assistants, conversationParticipants, refetchAssistants]);
+
     if (
         isLoadingAssistants ||
         isLoadingConversation ||
@@ -166,11 +197,6 @@ export const Interact: React.FC = () => {
     }
     const readOnly = conversation.conversationPermission === 'read';
 
-    const conversationAssistants = assistants.filter((assistant) =>
-        conversationParticipants.some(
-            (conversationParticipant) => conversationParticipant.active && conversationParticipant.id === assistant.id,
-        ),
-    );
     const actions = {
         items: [<ConversationShare key="share" iconOnly conversation={conversation} />],
     };
