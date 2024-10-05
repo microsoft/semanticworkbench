@@ -7,7 +7,7 @@
       "name": "assistants: skill-assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["assistant.skill_assistant:app", "--port", "3012"],
+      "args": ["assistant.skill_assistant:app"],
       "consoleTitle": "${workspaceFolderBasename}"
     }
   ]
