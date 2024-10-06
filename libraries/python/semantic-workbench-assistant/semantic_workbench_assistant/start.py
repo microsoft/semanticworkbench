@@ -23,7 +23,8 @@ def main():
         "--port",
         dest="port",
         type=int,
-        help="port to run service on; if not specified, a random port will be selected",
+        help="port to run service on; if not specified or 0, a random port will be selected",
+        default=settings.port,
     )
     parse_args.add_argument("--host", dest="host", type=str, default=settings.host, help="host IP to run service on")
     parse_args.add_argument(
