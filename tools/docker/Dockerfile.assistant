@@ -33,10 +33,10 @@ ENV PATH=/packages/assistants/assistant/.venv/bin:$PATH
 COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
 RUN chmod +x /scripts/docker-entrypoint.sh
 
-ENV port=3001
 ENV ASSISTANT_APP=${app}
-ENV ASSISTANT__HOST=0.0.0.0
-ENV ASSISTANT__PORT=${port}
+
+ENV assistant__host=0.0.0.0
+ENV assistant__port=3001
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
