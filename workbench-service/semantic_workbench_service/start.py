@@ -29,7 +29,7 @@ def main():
         "--host",
         dest="host",
         type=str,
-        default=settings.service.hostname,
+        default=settings.service.host,
         help="host IP to run service on",
     )
     parse_args.add_argument(
@@ -37,14 +37,14 @@ def main():
     )
     args = parse_args.parse_args()
 
-    settings.service.hostname = args.host
+    settings.service.host = args.host
     settings.service.port = args.port
 
     logger.info("Starting workbench service ...")
     app = create_app()
     uvicorn.run(
         app,
-        host=settings.service.hostname,
+        host=settings.service.host,
         port=settings.service.port,
         log_config={"version": 1, "disable_existing_loggers": False},
     )
