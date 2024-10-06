@@ -1,6 +1,6 @@
 # Using Semantic Workbench with python assistants
 
-This project provides an assistant to help mine artifacts for ideas, leveraging OpenAI or Azure OpenAI (or any OpenAI compatible service), allowing to use **Semantic Workbench** to test it.
+This project provides an assistant to demonstrate how to guide a user towards a goal, leveraging the [guided-conversation library](../../libraries/python/guided-conversation/), which is a modified copy of the [guided-conversation](https://github.com/microsoft/semantic-kernel/tree/main/python/samples/demos/guided_conversations) library from the [Semantic Kernel](https://github.com/microsoft/semantic-kernel) repository.
 
 ## Responsible AI
 
