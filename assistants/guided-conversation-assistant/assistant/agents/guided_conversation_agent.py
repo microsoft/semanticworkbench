@@ -1,13 +1,10 @@
 import json
-import pathlib
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING
 
-from assistant.agents.guided_conversation.artifact_poem_feedback import ArtifactPoemFeedback
+from assistant.agents.guided_conversation.config import GuidedConversationAgentConfigModel
 from guided_conversation.guided_conversation_agent import GuidedConversation
-from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 from semantic_workbench_api_model.workbench_model import ParticipantRole
@@ -17,110 +14,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
     FileStorageContext,
 )
-from semantic_workbench_assistant.config import UISchema
 
 if TYPE_CHECKING:
     from ..config import AssistantConfigModel, RequestConfig
-
-
-#
-# region Helpers
-#
-
-
-# helper for loading an include from a text file
-def load_text_include(filename) -> str:
-    # get directory relative to this module
-    directory = pathlib.Path(__file__).parent.parent
-
-    # get the file path for the prompt file
-    file_path = directory / "text_includes" / filename
-
-    # read the prompt from the file
-    return file_path.read_text()
-
-
-# endregion
-
-
-#
-# region Models
-#
-
-
-class GuidedConversationAgentConfigModel(BaseModel):
-    gc_rules: Annotated[
-        list[str],
-        Field(title="Rules", description="Do's and don'ts that the agent should attempt to follow"),
-    ] = []
-
-    gc_starter_message: Annotated[
-        str,
-        Field(
-            title="Starter Message",
-            description="The message that will be sent to the user when the conversation starts.",
-        ),
-    ] = "Welcome!"
-
-    gc_conversation_flow: Annotated[
-        str,
-        Field(
-            title="Conversation Flow",
-            description="A loose natural language description of the steps of the conversation",
-        ),
-        UISchema(placeholder="[optional]"),
-    ] = ""
-
-    gc_context: Annotated[
-        str,
-        Field(
-            title="Context",
-            description="General background context for the conversation.",
-        ),
-        UISchema(placeholder="[optional]"),
-    ] = ""
-
-    class ResourceConstraint(ResourceConstraint):
-        gc_resource_mode: Annotated[
-            Literal["maximum", "exact", "none"],
-            Field(
-                title="Resource Mode",
-                description=(
-                    'If "exact", the agents will try to pace the conversation to use exactly the resource quantity. If'
-                    ' "maximum", the agents will try to pace the conversation to use at most the resource quantity.'
-                ),
-            ),
-        ] = "exact"
-
-        gc_resource_unit: Annotated[
-            Literal["seconds", "minutes", "turns"],
-            Field(
-                title="Resource Unit",
-                description="The unit for the resource constraint.",
-            ),
-        ] = "turns"
-
-        gc_resource_quantity: Annotated[
-            float,
-            Field(
-                title="Resource Quantity",
-                description="The quantity for the resource constraint. If <=0, the resource constraint is disabled.",
-            ),
-        ] = 0.0
-
-    resource_constraint: Annotated[
-        ResourceConstraint,
-        Field(
-            title="Resource Constraint",
-        ),
-    ] = ResourceConstraint(
-        quantity=0,
-        unit=ResourceConstraintUnit.TURNS,
-        mode=ResourceConstraintMode.EXACT,
-    )
-
-
-# endregion
 
 
 #
@@ -134,6 +30,15 @@ class GuidedConversationAgent:
     """
 
     @staticmethod
+    def get_state(
+        conversation_context: ConversationContext,
+    ) -> dict | None:
+        """
+        Get the state of the guided conversation agent.
+        """
+        return _read_guided_conversation_state(conversation_context)
+
+    @staticmethod
     async def step_conversation(
         conversation_context: ConversationContext,
         openai_client: AsyncOpenAI,
@@ -144,35 +49,11 @@ class GuidedConversationAgent:
         Step the conversation to the next turn.
         """
 
-        rules = agent_config.gc_rules
-        conversation_flow = agent_config.gc_conversation_flow
-        context = agent_config.gc_context
-
-        if (
-            agent_config.resource_constraint.gc_resource_mode != "none"
-            and agent_config.resource_constraint.gc_resource_quantity > 0
-        ):
-            match agent_config.resource_constraint.gc_resource_mode:
-                case "maximum":
-                    mode = ResourceConstraintMode.MAXIMUM
-                case "exact":
-                    mode = ResourceConstraintMode.EXACT
-
-            match agent_config.resource_constraint.gc_resource_unit:
-                case "seconds":
-                    unit = ResourceConstraintUnit.SECONDS
-                case "minutes":
-                    unit = ResourceConstraintUnit.MINUTES
-                case "turns":
-                    unit = ResourceConstraintUnit.TURNS
-
-            resource_constraint = ResourceConstraint(
-                quantity=agent_config.resource_constraint.gc_resource_quantity,
-                unit=unit,
-                mode=mode,
-            )
-        else:
-            resource_constraint = None
+        rules = agent_config.rules
+        conversation_flow = agent_config.conversation_flow
+        context = agent_config.context
+        resource_constraint = agent_config.resource_constraint
+        artifact = agent_config.get_artifact_model()
 
         kernel = Kernel()
         service_id = "gc_main"
@@ -191,7 +72,7 @@ class GuidedConversationAgent:
             guided_conversation_agent = GuidedConversation.from_json(
                 json_data=state,
                 kernel=kernel,
-                artifact=ArtifactPoemFeedback,  # type: ignore
+                artifact=artifact,  # type: ignore
                 conversation_flow=conversation_flow,
                 context=context,
                 rules=rules,
@@ -201,7 +82,7 @@ class GuidedConversationAgent:
         else:
             guided_conversation_agent = GuidedConversation(
                 kernel=kernel,
-                artifact=ArtifactPoemFeedback,  # type: ignore
+                artifact=artifact,  # type: ignore
                 conversation_flow=conversation_flow,
                 context=context,
                 rules=rules,

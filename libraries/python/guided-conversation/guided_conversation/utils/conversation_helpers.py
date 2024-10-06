@@ -4,6 +4,7 @@
 # type: ignore
 
 import logging
+import time
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Union
@@ -107,17 +108,6 @@ class Conversation:
         conversation_string = "\n".join(to_join)
         return conversation_string
 
-    def set_turn_numbers(self, turn_number: int) -> None:
-        """Set all the turn numbers in the conversation to the given turn number.
-
-        Args:
-            turn_number (int): The turn number to set for all messages.
-
-        Returns:
-            None"""
-        for message in self.conversation_messages:
-            message.metadata["turn_number"] = turn_number
-
     def message_to_json(self, message: ChatMessageContent) -> dict:
         """
         Convert a ChatMessageContent object to a JSON serializable dictionary.
@@ -135,6 +125,7 @@ class Conversation:
             "metadata": {
                 "turn_number": message.metadata["turn_number"] if "turn_number" in message.metadata else None,
                 "type": message.metadata["type"] if "type" in message.metadata else ConversationMessageType.DEFAULT,
+                "timestamp": message.metadata["timestamp"] if "timestamp" in message.metadata else None,
             },
         }
 
@@ -161,9 +152,14 @@ class Conversation:
                     metadata={
                         "turn_number": message["metadata"]["turn_number"],
                         "type": ConversationMessageType(message["metadata"]["type"]),
-                        # "timestamp": datetime.datetime.fromisoformat(message["timestamp"]),
+                        "timestamp": message["metadata"]["timestamp"],
                     },
                 )
             )
 
         return conversation
+
+
+def create_formatted_timestamp() -> str:
+    """Create a formatted timestamp."""
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))

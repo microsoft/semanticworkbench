@@ -64,6 +64,7 @@
     "pydantic",
     "pyproject",
     "tiktoken",
+    "updown",
     "virtualenvs"
   ]
 }

@@ -1,11 +1,13 @@
+import json
+
+from assistant.agents.guided_conversation.config import GuidedConversationAgentConfigModel, pydantic_model_to_json
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
+
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
 # It can also be thought of as a working memory for the agent.
 # We allow any valid Pydantic BaseModel class to be used.
-
-
 class ArtifactPoemFeedback(BaseModel):
     student_poem: str = Field(description="The acrostic poem written by the student.")
     initial_feedback: str = Field(description="Feedback on the student's final revised poem.")
@@ -42,8 +44,7 @@ Have them revise their poem based on your feedback and then review it again.
 
 # Context (optional) - This is any additional information or the circumstances the agent is in that it should be aware of.
 # It can also include the high level goal of the conversation if needed.
-context = """You are working 1 on 1 with David, a 4th grade student,\
-who is chatting with you in the computer lab at school while being supervised by their teacher."""
+context = """You are working 1 on 1 a 4th grade student who is chatting with you in the computer lab at school while being supervised by their teacher."""
 
 
 # Resource Constraints (optional) - This defines the constraints on the conversation such as time or turns.
@@ -54,3 +55,17 @@ resource_constraint = ResourceConstraint(
     unit=ResourceConstraintUnit.TURNS,
     mode=ResourceConstraintMode.EXACT,
 )
+
+
+def get_poem_feedback_definition():
+    return GuidedConversationAgentConfigModel(
+        artifact=json.dumps(pydantic_model_to_json(ArtifactPoemFeedback)),  # type: ignore
+        rules=rules,
+        conversation_flow=conversation_flow,
+        context=context,
+        resource_constraint=GuidedConversationAgentConfigModel.ResourceConstraint(
+            mode=resource_constraint.mode,
+            unit=resource_constraint.unit,
+            quantity=resource_constraint.quantity,
+        ),
+    )

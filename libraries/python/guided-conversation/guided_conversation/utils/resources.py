@@ -6,12 +6,12 @@
 import logging
 import math
 import time
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class ResourceConstraintUnit(Enum):
+class ResourceConstraintUnit(StrEnum):
     """Choose the unit of the resource constraint.
     Seconds and Minutes are real-time and will be impacted by the latency of the model."""
 
@@ -20,7 +20,7 @@ class ResourceConstraintUnit(Enum):
     TURNS = "turns"
 
 
-class ResourceConstraintMode(Enum):
+class ResourceConstraintMode(StrEnum):
     """Choose how the agent should use the resource.
     Maximum: is an upper bound, i.e. the agent can end the conversation before the resource is exhausted
     Exact: the agent should aim to use exactly the given amount of the resource"""

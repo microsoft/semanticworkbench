@@ -19,7 +19,11 @@ from guided_conversation.functions.execution import end_conversation, execution,
 from guided_conversation.functions.final_update_plan import final_update_plan_function
 from guided_conversation.plugins.agenda import Agenda
 from guided_conversation.plugins.artifact import Artifact
-from guided_conversation.utils.conversation_helpers import Conversation, ConversationMessageType
+from guided_conversation.utils.conversation_helpers import (
+    Conversation,
+    ConversationMessageType,
+    create_formatted_timestamp,
+)
 from guided_conversation.utils.openai_tool_calling import (
     ToolValidationResult,
     parse_function_result,
@@ -138,7 +142,11 @@ class GuidedConversation:
                 ChatMessageContent(
                     role=AuthorRole.USER,
                     content=user_input,
-                    metadata={"turn_number": self.resource.turn_number, "type": ConversationMessageType.DEFAULT},
+                    metadata={
+                        "turn_number": self.resource.turn_number,
+                        "type": ConversationMessageType.DEFAULT,
+                        "timestamp": create_formatted_timestamp(),
+                    },
                 )
             )
 
@@ -221,7 +229,11 @@ class GuidedConversation:
             ChatMessageContent(
                 role=AuthorRole.ASSISTANT,
                 content=plan,
-                metadata={"turn_number": self.resource.turn_number, "type": ConversationMessageType.REASONING},
+                metadata={
+                    "turn_number": self.resource.turn_number,
+                    "type": ConversationMessageType.REASONING,
+                    "timestamp": create_formatted_timestamp(),
+                },
             )
         )
         return plan

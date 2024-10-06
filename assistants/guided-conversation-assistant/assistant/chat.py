@@ -8,9 +8,11 @@
 import logging
 from typing import Any
 
+import deepmerge
 import openai_client
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
+    AssistantStateEvent,
     ConversationEvent,
     ConversationMessage,
     MessageType,
@@ -126,7 +128,6 @@ async def on_message_created(
         # respond to the conversation message
         await respond_to_conversation(
             context,
-            message=message,
             metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
         )
 
@@ -147,15 +148,8 @@ async def on_conversation_created(context: ConversationContext) -> None:
         return
 
     # send a welcome message to the conversation
-    config = await assistant_config.get(context.assistant)
-    welcome_message = config.welcome_message
-    await context.send_messages(
-        NewConversationMessage(
-            content=welcome_message,
-            message_type=MessageType.chat,
-            metadata={"generated_content": False},
-        )
-    )
+    # don't wait for the response
+    _ = respond_to_conversation(context)
 
 
 # endregion
@@ -167,9 +161,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
 
 # demonstrates how to respond to a conversation message using the guided conversation library
-async def respond_to_conversation(
-    context: ConversationContext, message: ConversationMessage, metadata: dict[str, Any] = {}
-) -> None:
+async def respond_to_conversation(context: ConversationContext, metadata: dict[str, Any] = {}) -> None:
     """
     Respond to a conversation message.
 
@@ -178,7 +170,7 @@ async def respond_to_conversation(
     """
 
     # define the metadata key for any metadata created within this method
-    # method_metadata_key = "respond_to_conversation"
+    method_metadata_key = "respond_to_conversation"
 
     # get the assistant's configuration, supports overwriting defaults from environment variables
     config = await assistant_config.get(context.assistant)
@@ -195,38 +187,40 @@ async def respond_to_conversation(
             agent_config=config.agents_config.guided_conversation_agent,
         )
         # add the completion to the metadata for debugging
-        # deepmerge.always_merger.merge(
-        #     metadata,
-        #     {
-        #         "debug": {
-        #             f"{method_metadata_key}": {
-        #                 "request": {
-        #                     "model": config.request_config.openai_model,
-        #                     "messages": completion_messages,
-        #                     "max_tokens": config.request_config.response_tokens,
-        #                 },
-        #                 "response": completion.model_dump() if completion else "[no response from openai]",
-        #             },
-        #         }
-        #     },
-        # )
+        deepmerge.always_merger.merge(
+            metadata,
+            {
+                "debug": {
+                    f"{method_metadata_key}": {"response": content},
+                }
+            },
+        )
     except Exception as e:
         logger.exception(f"exception occurred processing guided conversation: {e}")
         content = "An error occurred while processing the guided conversation."
-        # deepmerge.always_merger.merge(
-        #     metadata,
-        #     {
-        #         "debug": {
-        #             f"{method_metadata_key}": {
-        #                 "request": {
-        #                     "model": config.request_config.openai_model,
-        #                     "messages": completion_messages,
-        #                 },
-        #                 "error": str(e),
-        #             },
-        #         }
-        #     },
-        # )
+        deepmerge.always_merger.merge(
+            metadata,
+            {
+                "debug": {
+                    f"{method_metadata_key}": {
+                        "error": str(e),
+                    },
+                }
+            },
+        )
+
+    # add the state to the metadata for debugging
+    state = guided_conversation.get_state(context)
+    deepmerge.always_merger.merge(
+        metadata,
+        {
+            "debug": {
+                f"{method_metadata_key}": {
+                    "state": state,
+                },
+            }
+        },
+    )
 
     # send the response to the conversation
     await context.send_messages(
@@ -234,6 +228,14 @@ async def respond_to_conversation(
             content=content or "[no response from assistant]",
             message_type=MessageType.chat if content else MessageType.note,
             metadata=metadata,
+        )
+    )
+
+    await context.send_conversation_state_event(
+        AssistantStateEvent(
+            state_id="guided_conversation",
+            event="updated",
+            state=None,
         )
     )
 

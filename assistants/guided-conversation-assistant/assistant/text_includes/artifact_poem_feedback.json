@@ -1,0 +1,22 @@
+{
+  "student_poem": {
+    "value": "",
+    "type": "str",
+    "description": "The acrostic poem written by the student."
+  },
+  "initial_feedback": {
+    "value": "",
+    "type": "str",
+    "description": "Feedback on the student's final revised poem."
+  },
+  "final_feedback": {
+    "value": "",
+    "type": "str",
+    "description": "Feedback on how the student was able to improve their poem."
+  },
+  "inappropriate_behavior": {
+    "value": [],
+    "type": "list",
+    "description": "List any inappropriate behavior the student attempted while chatting with you. It is ok to leave this field Unanswered if there was none."
+  }
+}
