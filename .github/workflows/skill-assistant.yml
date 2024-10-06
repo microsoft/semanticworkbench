@@ -26,6 +26,7 @@ on:
       - "libraries/python/context/**"
       - "libraries/python/events/**"
       - "libraries/python/skills/**"
+      - "tools/docker/**"
       - ".github/workflows/skill-assistant.yml"
 
   workflow_dispatch:
