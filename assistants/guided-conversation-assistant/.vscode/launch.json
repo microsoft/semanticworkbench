@@ -7,7 +7,7 @@
       "name": "assistants: guided-conversation-assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["assistant.chat:app", "--port", "3010"],
+      "args": ["assistant.chat:app"],
       "consoleTitle": "${workspaceFolderBasename}"
     }
   ]

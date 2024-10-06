@@ -1,6 +1,6 @@
 # Guided Conversation
 
-This library is a copy of the [guided-conversation](https://github.com/microsoft/semantic-kernel/tree/main/python/samples/demos/guided_conversations) library from the [Semantic Kernel](https://github.com/microsoft/semantic-kernel) repository.
+This library is a modified copy of the [guided-conversation](https://github.com/microsoft/semantic-kernel/tree/main/python/samples/demos/guided_conversations) library from the [Semantic Kernel](https://github.com/microsoft/semantic-kernel) repository.
 
 The guided conversation library supports scenarios where an agent with a goal and constraints leads a conversation. There are many of these scenarios where we hold conversations that are driven by an objective and constraints. For example:
 

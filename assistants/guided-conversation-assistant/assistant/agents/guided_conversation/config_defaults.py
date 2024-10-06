@@ -1,14 +1,16 @@
-import json
+from typing import TYPE_CHECKING
 
-from assistant.agents.guided_conversation.config import GuidedConversationAgentConfigModel, pydantic_model_to_json
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    pass
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
 # It can also be thought of as a working memory for the agent.
 # We allow any valid Pydantic BaseModel class to be used.
-class ArtifactPoemFeedback(BaseModel):
+class ArtifactModel(BaseModel):
     student_poem: str = Field(description="The acrostic poem written by the student.")
     initial_feedback: str = Field(description="Feedback on the student's final revised poem.")
     final_feedback: str = Field(description="Feedback on how the student was able to improve their poem.")
@@ -56,16 +58,10 @@ resource_constraint = ResourceConstraint(
     mode=ResourceConstraintMode.EXACT,
 )
 
-
-def get_poem_feedback_definition():
-    return GuidedConversationAgentConfigModel(
-        artifact=json.dumps(pydantic_model_to_json(ArtifactPoemFeedback)),  # type: ignore
-        rules=rules,
-        conversation_flow=conversation_flow,
-        context=context,
-        resource_constraint=GuidedConversationAgentConfigModel.ResourceConstraint(
-            mode=resource_constraint.mode,
-            unit=resource_constraint.unit,
-            quantity=resource_constraint.quantity,
-        ),
-    )
+__all__ = [
+    "ArtifactModel",
+    "rules",
+    "conversation_flow",
+    "context",
+    "resource_constraint",
+]
