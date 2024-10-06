@@ -245,11 +245,6 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         return <Loading />;
     }
 
-    const conversationAssistants =
-        workflowRunAssistants?.filter((assistant) =>
-            participants.some((participant) => participant.active && participant.id === assistant.id),
-        ) ?? [];
-
     const readOnly = conversation.conversationPermission === 'read';
 
     return (
@@ -310,7 +305,6 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                 {interactCanvasState?.open && (
                     <ConversationCanvas
                         readOnly={readOnly}
-                        conversationAssistants={conversationAssistants}
                         conversation={conversation}
                         conversationFiles={[]}
                         conversationParticipants={participants}
