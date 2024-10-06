@@ -49,7 +49,10 @@ class GuidedConversationAgentConfigModel(BaseModel):
         list[str],
         Field(title="Rules", description="Do's and don'ts that the agent should attempt to follow"),
         UISchema(schema={"items": {"ui:widget": "textarea"}}),
-    ] = []
+    ] = [
+        "DO NOT write the poem for the student."
+        "Terminate the conversation immediately if the students asks for harmful or inappropriate content.",
+    ]
 
     conversation_flow: Annotated[
         str,
@@ -58,7 +61,22 @@ class GuidedConversationAgentConfigModel(BaseModel):
             description="A loose natural language description of the steps of the conversation",
         ),
         UISchema(widget="textarea", placeholder="[optional]"),
-    ] = ""
+    ] = """1. Start by explaining interactively what an acrostic poem is.
+2. Then give the following instructions for how to go ahead and write one:
+    1. Choose a word or phrase that will be the subject of your acrostic poem.
+    2. Write the letters of your chosen word or phrase vertically down the page.
+    3. Think of a word or phrase that starts with each letter of your chosen word or phrase.
+    4. Write these words or phrases next to the corresponding letters to create your acrostic poem.
+3. Then give the following example of a poem where the word or phrase is HAPPY:
+    Having fun with friends all day,
+    Awesome games that we all play.
+    Pizza parties on the weekend,
+    Puppies we bend down to tend,
+    Yelling yay when we win the game
+4. Finally have the student write their own acrostic poem using the word or phrase of their choice. Encourage them to be creative and have fun with it.
+After they write it, you should review it and give them feedback on what they did well and what they could improve on.
+Have them revise their poem based on your feedback and then review it again.
+"""
 
     context: Annotated[
         str,
@@ -67,7 +85,7 @@ class GuidedConversationAgentConfigModel(BaseModel):
             description="General background context for the conversation.",
         ),
         UISchema(widget="textarea", placeholder="[optional]"),
-    ] = ""
+    ] = "You are working 1 on 1 with a student who is chatting with you in the computer lab at school while being supervised by their teacher."
 
     class ResourceConstraint(ResourceConstraint):
         mode: Annotated[
@@ -95,7 +113,7 @@ class GuidedConversationAgentConfigModel(BaseModel):
                 title="Resource Quantity",
                 description="The quantity for the resource constraint. If <=0, the resource constraint is disabled.",
             ),
-        ] = 0.0
+        ] = 10
 
     resource_constraint: Annotated[
         ResourceConstraint,
@@ -103,11 +121,7 @@ class GuidedConversationAgentConfigModel(BaseModel):
             title="Resource Constraint",
         ),
         UISchema(schema={"quantity": {"ui:widget": "updown"}}),
-    ] = ResourceConstraint(
-        quantity=0,
-        unit=ResourceConstraintUnit.TURNS,
-        mode=ResourceConstraintMode.EXACT,
-    )
+    ] = ResourceConstraint()
 
     def get_artifact_model(self) -> Type[BaseModel]:
         return create_pydantic_model_from_json(self.artifact)
