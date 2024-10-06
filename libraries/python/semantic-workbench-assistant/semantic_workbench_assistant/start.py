@@ -1,7 +1,9 @@
 import argparse
 import logging
 import os
+import socket
 import sys
+from contextlib import closing
 
 import uvicorn
 
@@ -21,8 +23,8 @@ def main():
         "--port",
         dest="port",
         type=int,
+        help="port to run service on; if not specified or 0, a random port will be selected",
         default=settings.port,
-        help="port to run service on",
     )
     parse_args.add_argument("--host", dest="host", type=str, default=settings.host, help="host IP to run service on")
     parse_args.add_argument(
@@ -90,7 +92,7 @@ def main():
         logger.info("Enabling auto-reload ...")
 
     settings.host = args.host
-    settings.port = args.port
+    settings.port = args.port or find_free_port(settings.host)
     settings.assistant_service_id = args.assistant_service_id
     settings.assistant_service_name = args.assistant_service_name
     settings.assistant_service_description = args.assistant_service_description
@@ -104,6 +106,13 @@ def main():
         reload=reload,
         log_config={"version": 1, "disable_existing_loggers": False},
     )
+
+
+def find_free_port(host: str):
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.bind((host, 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return s.getsockname()[1]
 
 
 if __name__ == "__main__":

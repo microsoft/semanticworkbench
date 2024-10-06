@@ -54,7 +54,7 @@ service_description = "An assistant that helps you mine ideas from artifacts."
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfig(AssistantConfigModel())
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
 # define the content safety evaluator factory

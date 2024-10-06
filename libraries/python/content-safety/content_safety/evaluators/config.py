@@ -16,4 +16,4 @@ class CombinedContentSafetyEvaluatorConfig(BaseModel):
             title="Content Safety Evaluator",
         ),
         UISchema(widget="radio", hide_title=True),
-    ] = AzureContentSafetyEvaluatorConfig()
+    ] = AzureContentSafetyEvaluatorConfig.model_construct()

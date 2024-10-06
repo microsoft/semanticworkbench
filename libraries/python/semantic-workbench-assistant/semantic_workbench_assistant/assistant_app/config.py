@@ -2,7 +2,6 @@ import logging
 import pathlib
 from typing import Any, Generic, TypeVar
 
-import deepmerge
 from pydantic import (
     BaseModel,
     ValidationError,
@@ -32,10 +31,9 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
     Assistant-config implementation that uses a BaseModel for default config.
     """
 
-    def __init__(self, default: ConfigModelT | type[ConfigModelT], ui_schema: dict[str, Any] = {}) -> None:
-        default = default() if isinstance(default, type) else default
-        self._default = default
-        self._ui_schema = deepmerge.always_merger.merge(get_ui_schema(default.__class__), ui_schema)
+    def __init__(self, cls: type[ConfigModelT]) -> None:
+        self._cls = cls
+        self._ui_schema = get_ui_schema(cls)
 
     def _private_path_for(self, assistant_context: AssistantContext) -> pathlib.Path:
         # store assistant config, including secrets, in a separate partition that is never exported
@@ -54,11 +52,11 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
 
         config = None
         try:
-            config = read_model(path, self._default.__class__)
+            config = read_model(path, self._cls)
         except ValidationError as e:
             logger.warning("exception reading config; path: %s", path, exc_info=e)
 
-        return config or self._default
+        return config or self._cls.model_construct()
 
     async def _set(self, assistant_context: AssistantContext, config: ConfigModelT) -> None:
         # save the config with secrets serialized with their actual values for the assistant
@@ -86,15 +84,23 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
 
             async def get(self, assistant_context: AssistantContext) -> AssistantConfigDataModel:
                 config = await self._provider.get(assistant_context)
+                errors = []
+                try:
+                    config.model_validate(config.model_dump())
+                except ValidationError as e:
+                    for error in e.errors(include_url=False):
+                        errors.append(str(error))
+
                 return AssistantConfigDataModel(
                     config=config.model_dump(mode="json"),
+                    errors=errors,
                     json_schema=config.model_json_schema(),
                     ui_schema=self._provider._ui_schema,
                 )
 
             async def set(self, assistant_context: AssistantContext, config: dict[str, Any]) -> None:
                 try:
-                    updated_config = self._provider._default.model_validate(config)
+                    updated_config = self._provider._cls.model_validate(config)
                 except ValidationError as e:
                     raise BadRequestError(str(e))
 

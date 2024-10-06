@@ -39,7 +39,8 @@ RUN chmod +x /scripts/docker-entrypoint.sh
 
 WORKDIR /workbench-service
 
-ENV WORKBENCH__SERVICE__HOSTNAME=0.0.0.0
+ENV workbench__service__host=0.0.0.0
+ENV workbench__service__port=3000
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
