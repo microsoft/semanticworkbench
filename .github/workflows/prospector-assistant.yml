@@ -8,6 +8,7 @@ on:
       - "libraries/python/semantic-workbench-api-model/**"
       - "libraries/python/semantic-workbench-assistant/**"
       - "libraries/python/content-safety/**"
+      - "tools/docker/**"
       - ".github/workflows/prospector-assistant.yml"
 
   push:
@@ -17,6 +18,7 @@ on:
       - "libraries/python/semantic-workbench-api-model/**"
       - "libraries/python/semantic-workbench-assistant/**"
       - "libraries/python/content-safety/**"
+      - "tools/docker/**"
       - ".github/workflows/prospector-assistant.yml"
 
   workflow_dispatch:
