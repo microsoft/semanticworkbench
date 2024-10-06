@@ -80,25 +80,14 @@ export const CanvasControls: React.FC<CanvasControlsProps> = (props) => {
                     disabled={conversationActive || interactCanvasController.isTransitioning}
                     icon={<AppsList24Regular />}
                     onClick={handleActivateConversation}
-                >
-                    {/* Conversation */}
-                </Button>
+                />
             </Tooltip>
-            <Tooltip
-                content={
-                    interactCanvasState?.assistantId ? 'Open assistant canvas' : 'No assistants in the conversation'
-                }
-                relationship="label"
-            >
+            <Tooltip content="Open assistant canvas" relationship="label">
                 <Button
-                    disabled={
-                        assistantActive || interactCanvasController.isTransitioning || !interactCanvasState?.assistantId
-                    }
+                    disabled={assistantActive || interactCanvasController.isTransitioning}
                     icon={<BookInformation24Regular />}
                     onClick={handleActivateAssistant}
-                >
-                    {/* Assistants */}
-                </Button>
+                />
             </Tooltip>
             {conversationActive || assistantActive ? (
                 <Tooltip content="Close canvas" relationship="label">

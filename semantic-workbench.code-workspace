@@ -18,6 +18,7 @@
           "examples: python-01-echo-bot",
           "examples: python-02-simple-chatbot",
           "examples: python-03-multimodel-chatbot",
+          "assistants: guided-conversation-assistant",
           "assistants: prospector-assistant",
           "assistants: skill-assistant"
         ]
@@ -28,31 +29,35 @@
   "folders": [
     {
       "name": "docs",
-      "path": "./docs"
+      "path": "docs"
     },
     {
       "name": "workbench-app",
-      "path": "./workbench-app"
+      "path": "workbench-app"
     },
     {
       "name": "workbench-service",
-      "path": "./workbench-service"
+      "path": "workbench-service"
     },
     {
       "name": "examples:python-01-echo-bot",
-      "path": "./examples/python/python-01-echo-bot"
+      "path": "examples/python/python-01-echo-bot"
     },
     {
       "name": "examples:python-02-simple-chatbot",
-      "path": "./examples/python/python-02-simple-chatbot"
+      "path": "examples/python/python-02-simple-chatbot"
     },
     {
       "name": "examples:python-03-multimodel-chatbot",
-      "path": "./examples/python/python-03-multimodel-chatbot"
+      "path": "examples/python/python-03-multimodel-chatbot"
+    },
+    {
+      "name": "assistants:guided-conversation-assistant",
+      "path": "assistants/guided-conversation-assistant"
     },
     {
       "name": "assistants:prospector-assistant",
-      "path": "./assistants/prospector-assistant"
+      "path": "assistants/prospector-assistant"
     },
     {
       "name": "assistants:skill-assistant",
@@ -64,31 +69,35 @@
     },
     {
       "name": "libraries:chat-driver",
-      "path": "./libraries/python/chat-driver"
+      "path": "libraries/python/chat-driver"
     },
     {
       "name": "libraries:content-safety",
-      "path": "./libraries/python/content-safety"
+      "path": "libraries/python/content-safety"
     },
     {
       "name": "libraries:context",
-      "path": "./libraries/python/context"
+      "path": "libraries/python/context"
     },
     {
       "name": "libraries:events",
-      "path": "./libraries/python/events"
+      "path": "libraries/python/events"
     },
     {
       "name": "libraries:function-registry",
-      "path": "./libraries/python/function-registry"
+      "path": "libraries/python/function-registry"
+    },
+    {
+      "name": "libraries:guided-conversation",
+      "path": "libraries/python/guided-conversation"
     },
     {
       "name": "libraries:semantic-workbench-api-model",
-      "path": "./libraries/python/semantic-workbench-api-model"
+      "path": "libraries/python/semantic-workbench-api-model"
     },
     {
       "name": "libraries:semantic-workbench-assistant",
-      "path": "./libraries/python/semantic-workbench-assistant"
+      "path": "libraries/python/semantic-workbench-assistant"
     },
     {
       "name": "libraries:skills:document-skill",
@@ -116,15 +125,15 @@
     },
     {
       "name": "tools",
-      "path": "./tools"
+      "path": "tools"
     },
     {
       "name": ".devcontainer",
-      "path": "./.devcontainer"
+      "path": ".devcontainer"
     },
     {
       "name": ".github",
-      "path": "./.github"
+      "path": ".github"
     }
   ],
   "settings": {
