@@ -13,4 +13,3 @@ touch = type nul >> $(call fix_path,$(1)) && copy /y /b $(call fix_path,$(1))+,,
 true_expression = VER>NUL
 null_stderr = 2>NUL
 endif
-
