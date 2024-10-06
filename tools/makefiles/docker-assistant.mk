@@ -15,3 +15,9 @@ DOCKER_BUILD_ARGS = app=$(ASSISTANT_APP) package=$(ASSISTANT_PACKAGE)
 DOCKER_IMAGE_NAME = $(ASSISTANT_IMAGE_NAME)
 
 include $(this_dir)/docker.mk
+
+
+ASSISTANT__WORKBENCH_SERVICE_URL ?= http://host.docker.internal:3000
+
+docker-run-local: docker-build
+	docker run --rm -it --add-host=host.docker.internal:host-gateway --env assistant__workbench_service_url=$(ASSISTANT__WORKBENCH_SERVICE_URL) $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)

@@ -32,9 +32,11 @@ ENV PATH=/packages/assistants/assistant/.venv/bin:$PATH
 
 COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
 RUN chmod +x /scripts/docker-entrypoint.sh
-ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
 
 ENV ASSISTANT_APP=${app}
 ENV ASSISTANT__HOST=0.0.0.0
+ENV ASSISTANT__PORT=3000
 
+SHELL ["/bin/bash", "-c"]
+ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
 CMD ["start-semantic-workbench-assistant"]

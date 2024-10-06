@@ -3,11 +3,17 @@ name: workbench-service continuous integration
 on:
   pull_request:
     branches: ["main"]
-    paths: ["workbench-service/**", ".github/workflows/workbench-service.yml"]
+    paths:
+      - "workbench-service/**"
+      - "tools/docker/**"
+      - ".github/workflows/workbench-service.yml"
 
   push:
     branches: ["main"]
-    paths: ["workbench-service/**", ".github/workflows/workbench-service.yml"]
+    paths:
+      - "workbench-service/**"
+      - "tools/docker/**"
+      - ".github/workflows/workbench-service.yml"
 
   workflow_dispatch:
 
