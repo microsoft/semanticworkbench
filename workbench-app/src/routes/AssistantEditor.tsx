@@ -3,7 +3,7 @@
 import { useAccount } from '@azure/msal-react';
 import { Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
 import { AssistantDelete } from '../components/Assistants/AssistantDelete';
@@ -70,6 +70,7 @@ export const AssistantEditor: React.FC = () => {
     const [createConversationMessage] = useCreateConversationMessageMutation();
     const account = useAccount();
     const siteUtility = useSiteUtility();
+    const navigate = useNavigate();
 
     if (assistantConversationsError) {
         const errorMessage = JSON.stringify(assistantConversationsError);
@@ -128,6 +129,9 @@ export const AssistantEditor: React.FC = () => {
 
         // add assistant to conversation
         await addConversationParticipant({ conversationId: conversation.id, participantId: assistantId });
+
+        // navigate to conversation
+        navigate(`/conversation/${conversation.id}`);
     };
 
     if (isLoadingAssistant || isLoadingAssistantConversations || !assistant) {
