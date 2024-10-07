@@ -20,6 +20,7 @@ dependencies = [
     "posix-skill>=0.1.0",
     "prospector-skill>=0.1.0",
     "document-skill>=0.1.0",
+    "guided-conversation>=0.1.0",
     "openai-client>=0.1.0",
 ]
 
@@ -29,6 +30,7 @@ package = true
 [tool.uv.sources]
 semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
 content-safety = { path = "../../libraries/python/content-safety/", editable = true }
+guided-conversation = { path = "../../libraries/python/guided-conversation", editable = true }
 chat-driver = { path = "../../libraries/python/chat-driver", editable = true }
 skill-library = { path = "../../libraries/python/skills/skill-library", editable = true }
 posix-skill = { path = "../../libraries/python/skills/skills/posix-skill", editable = true }

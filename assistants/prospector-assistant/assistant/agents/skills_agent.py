@@ -112,7 +112,7 @@ class SkillsAgentConversationInspectorStateProvider:
 
         # get the configuration for the artifact agent
         config = await self.config_provider.get(context.assistant)
-        if not config.agents_config.skills_agent.enable_skills:
+        if not config.agents_config.skills_agent.enabled:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "Skills Agent is disabled in assistant configuration."}
             )
