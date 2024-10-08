@@ -3,6 +3,7 @@ from io import BytesIO  # Import BytesIO
 import pytest
 from assistant_drive import Drive, DriveConfig
 from context import Context
+from pydantic import BaseModel
 
 file_content = BytesIO(b"Hello, World!")  # Convert byte string to BytesIO
 
@@ -68,9 +69,9 @@ def test_exists(drive):
     assert drive.file_exists("test.txt", "summaries")
 
 
-def test_read(drive):
+def test_open(drive):
     drive.add_bytes(file_content, "test.txt", "summaries")
-    with drive.read_file("test.txt", "summaries") as f:
+    with drive.open_file("test.txt", "summaries") as f:
         assert f.read() == b"Hello, World!"
 
 
@@ -82,9 +83,9 @@ def test_list(drive):
     assert sorted(list(drive.list(dir="summaries"))) == ["test.txt", "test2.txt"]
 
 
-def test_read_non_existent_file(drive):
+def test_open_non_existent_file(drive):
     with pytest.raises(FileNotFoundError):
-        with drive.read_file("test.txt", "summaries") as f:
+        with drive.open_file("test.txt", "summaries") as f:
             f.read()
 
 
@@ -99,7 +100,7 @@ def test_overwrite(drive):
     drive.add_bytes(file_content, "test.txt", "summaries")
     metadata = drive.add_bytes(BytesIO(b"XXX"), "test.txt", "summaries", overwrite=True)
     assert metadata.filename == "test.txt"
-    with drive.read_file("test.txt", "summaries") as f:
+    with drive.open_file("test.txt", "summaries") as f:
         assert f.read() == b"XXX"
     assert list(drive.list(dir="summaries")) == ["test.txt"]
 
@@ -113,5 +114,75 @@ def test_delete(drive):
     metadata = drive.add_bytes(file_content, "test.txt", "summaries", overwrite=True)
     assert metadata.filename == "test.txt"
     assert sorted(list(drive.list(dir="summaries"))) == sorted(["test.txt"])
+
+    drive.delete()
+
+
+def test_open_files_multiple_files(drive) -> None:
+    drive.add_bytes(file_content, "test.txt", "summaries")
+    drive.add_bytes(file_content, "test2.txt", "summaries")
+
+    files = list(drive.open_files("summaries"))
+    assert len(files) == 2
+
+    for file_context in files:
+        with file_context as file:
+            assert file.read() == b"Hello, World!"
+
+
+def test_open_files_empty_dir(drive) -> None:
+    files = list(drive.open_files("summaries"))
+    assert len(files) == 0
+
+
+def test_write_model(drive) -> None:
+    class TestModel(BaseModel):
+        name: str
+
+    model = TestModel(name="test")
+    drive.write_model(model, "test.json", "summaries")
+
+    with drive.open_file("test.json", "summaries") as f:
+        assert f.read() == b'{"name":"test"}'
+
+    drive.delete()
+
+
+def test_read_model(drive) -> None:
+    class TestModel(BaseModel):
+        name: str
+
+    model = TestModel(name="test")
+    drive.write_model(model, "test.json", "summaries")
+
+    model = drive.read_model(TestModel, "test.json", "summaries")
+    assert model.name == "test"
+
+    drive.delete()
+
+
+def test_read_models(drive) -> None:
+    class TestModel(BaseModel):
+        name: str
+
+    model_1 = TestModel(name="test1")
+    drive.write_model(model_1, "test1.json", "summaries")
+
+    model_2 = TestModel(name="test2")
+    drive.write_model(model_2, "test2.json", "summaries")
+
+    models = list(drive.read_models(TestModel, "summaries"))
+    assert len(models) == 2
+
+    assert models[0].name == "test1"
+    assert models[1].name == "test2"
+
+
+def test_read_model_non_existent_file(drive) -> None:
+    class TestModel(BaseModel):
+        name: str
+
+    with pytest.raises(FileNotFoundError):
+        drive.read_model(TestModel, "test.json", "summaries")
 
     drive.delete()

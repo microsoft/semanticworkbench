@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import os
@@ -5,7 +6,7 @@ import pathlib
 from contextlib import contextmanager
 from datetime import datetime
 from shutil import rmtree
-from typing import BinaryIO, Iterator
+from typing import Any, BinaryIO, ContextManager, Iterator, TypeVar
 
 import magic
 from context import Context
@@ -147,7 +148,7 @@ class Drive:
 
         return file.metadata
 
-    def delete(self, dir: str | None = None, filename: str | None = None) -> None:
+    def delete(self, filename: str | None = None, dir: str | None = None) -> None:
         file_path = self._path_for(filename, dir)
         if file_path.is_file():
             file_path.unlink()
@@ -161,14 +162,24 @@ class Drive:
             if metadata_path.is_dir():
                 rmtree(metadata_path)
 
-    def read_all_files(self, dir: str) -> Iterator[BinaryIO]:
-        dir_path = self._path_for("", dir)
+    def open_files(self, dir: str | None = None) -> Iterator[ContextManager[BinaryIO]]:
+        dir_path = self._path_for(None, dir)
         if not dir_path.is_dir():
             return
 
-        for file_path in dir_path.iterdir():
-            with open(file_path, "rb") as f:
+        @contextmanager
+        def open_file(file_path: pathlib.Path) -> Iterator[BinaryIO]:
+            f = open(file_path, "rb")
+            try:
                 yield f
+            finally:
+                f.close()
+
+        for file_path in dir_path.iterdir():
+            # Don't include directories
+            if file_path.is_dir():
+                continue
+            yield open_file(file_path)
 
     def list(self, dir: str = "") -> Iterator[str]:
         dir_path = self._path_for("", dir)
@@ -182,7 +193,7 @@ class Drive:
             yield file_path.name
 
     @contextmanager
-    def read_file(self, filename: str, dir: str | None = None) -> Iterator[BinaryIO]:
+    def open_file(self, filename: str, dir: str | None = None) -> Iterator[BinaryIO]:
         file_path = self._path_for(filename, dir)
         with open(file_path, "rb") as f:
             yield f
@@ -190,3 +201,41 @@ class Drive:
     def file_exists(self, filename: str, dir: str | None = None) -> bool:
         file_path = self._path_for(filename, dir)
         return file_path.exists()
+
+    def write_model(
+        self,
+        value: BaseModel,
+        filename: str,
+        dir: str | None = None,
+        serialization_context: dict[str, Any] | None = None,
+        overwrite: bool = False,
+    ) -> None:
+        """Write a pydantic model to a file."""
+        data_json = value.model_dump_json(context=serialization_context)
+        data_bytes = data_json.encode("utf-8")
+        self.add_bytes(io.BytesIO(data_bytes), filename, dir, overwrite)
+
+    ModelT = TypeVar("ModelT", bound=BaseModel)
+
+    def read_model(
+        self, cls: type[ModelT], filename: str, dir: str | None = None, strict: bool | None = None
+    ) -> ModelT:
+        """Read a pydantic model from a file."""
+        with self.open_file(filename, dir) as f:
+            data_json = f.read().decode("utf-8")
+
+        return cls.model_validate_json(data_json, strict=strict)
+
+    def read_models(self, cls: type[ModelT], dir: str | None = None) -> Iterator[ModelT]:
+        """Read pydantic models from all files in a directory."""
+        dir_path = self._path_for(None, dir)
+        if not dir_path.is_dir():
+            return
+
+        for file_path in dir_path.iterdir():
+            # Don't include directories
+            if file_path.is_dir():
+                continue
+            value = self.read_model(cls, file_path.name, dir)
+            if value is not None:
+                yield value

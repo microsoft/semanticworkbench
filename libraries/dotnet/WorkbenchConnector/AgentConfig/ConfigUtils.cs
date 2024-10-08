@@ -2,6 +2,7 @@
 
 using System.Collections.Generic;
 
+// ReSharper disable once CheckNamespace
 namespace Microsoft.SemanticWorkbench.Connector;
 
 public static class ConfigUtils

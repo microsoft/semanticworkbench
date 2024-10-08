@@ -48,13 +48,12 @@ internal static class Program
         IConfiguration config)
     {
         var authType = config.GetValue<string>("AuthType");
-        var endpoint = config.GetValue<string>("Endpoint");
+        var endpoint = new Uri(config.GetValue<string>("Endpoint")!);
         var apiKey = config.GetValue<string>("ApiKey");
 
         return services.AddSingleton<ContentSafetyClient>(_ => authType == "AzureIdentity"
-            ? new ContentSafetyClient(new Uri(endpoint!), new DefaultAzureCredential())
-            : new ContentSafetyClient(new Uri(endpoint!),
-                new AzureKeyCredential(apiKey!)));
+            ? new ContentSafetyClient(endpoint, new DefaultAzureCredential())
+            : new ContentSafetyClient(endpoint, new AzureKeyCredential(apiKey!)));
     }
 
     /*

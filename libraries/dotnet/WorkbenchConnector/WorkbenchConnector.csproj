@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>0.1.0</Version>
+        <Version>0.2.0</Version>
         <AssemblyName>Microsoft.SemanticWorkbench.Connector</AssemblyName>
         <RootNamespace>Microsoft.SemanticWorkbench.Connector</RootNamespace>
         <TargetFramework>net8.0</TargetFramework>
@@ -9,7 +9,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
         <RollForward>LatestMajor</RollForward>
-        <NoWarn>$(NoWarn);IDE0130;CA2254;CA1812;</NoWarn>
+        <NoWarn>$(NoWarn);IDE0130;CA2254;CA1812;CA1813;</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,11 +1,12 @@
 import base64
 import io
 import logging
-from pathlib import Path
 from typing import Annotated, Any
 
 import docx2txt
 import pdfplumber
+from assistant_drive import Drive, DriveConfig
+from context import Context
 from openai.types import chat
 from pydantic import BaseModel, Field
 from semantic_workbench_api_model.workbench_model import File
@@ -14,11 +15,6 @@ from semantic_workbench_assistant.assistant_app import (
     FileStorageContext,
 )
 from semantic_workbench_assistant.config import UISchema
-from semantic_workbench_assistant.storage import (
-    read_model,
-    read_models_in_dir,
-    write_model,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -84,15 +80,16 @@ class AttachmentAgent:
         content = await _file_to_str(context, file)
 
         # see if there is already an attachment with this filename
-        attachment = read_model(_get_attachment_storage_path(context, filename), Attachment)
-        if attachment:
+        try:
+            attachment = _get_attachment_drive(context).read_model(Attachment, filename)
             # if there is, update the content
             attachment.content = content
-        else:
+        except FileNotFoundError:
             # if there isn't, create a new attachment
             attachment = Attachment(filename=filename, content=content, metadata=metadata)
 
-        write_model(_get_attachment_storage_path(context, filename), attachment)
+        # write the attachment to the storage
+        _get_attachment_drive(context).write_model(attachment, filename)
 
     @staticmethod
     def delete_attachment_for_file(context: ConversationContext, file: File) -> None:
@@ -101,7 +98,7 @@ class AttachmentAgent:
         """
 
         filename = file.filename
-        _get_attachment_storage_path(context, filename).unlink(missing_ok=True)
+        _get_attachment_drive(context).delete(filename)
 
     @staticmethod
     def generate_attachment_messages(
@@ -120,7 +117,7 @@ class AttachmentAgent:
         """
 
         # get all attachments and exit early if there are none
-        attachments = read_models_in_dir(_get_attachment_storage_path(context), Attachment)
+        attachments = _get_attachment_drive(context).read_models(Attachment)
         if not attachments:
             return []
 
@@ -233,14 +230,13 @@ class AttachmentAgent:
 #
 
 
-def _get_attachment_storage_path(context: ConversationContext, filename: str | None = None) -> Path:
+def _get_attachment_drive(context: ConversationContext) -> Drive:
     """
-    Get the path where attachments are stored.
+    Get the Drive instance for the attachments.
     """
-    path = FileStorageContext.get(context).directory / "attachments"
-    if filename:
-        path /= filename
-    return path
+    drive_context = Context(session_id=context.id)
+    drive_root = str(FileStorageContext.get(context).directory / "attachments")
+    return Drive(DriveConfig(context=drive_context, root=drive_root))
 
 
 async def _raw_content_from_file(context: ConversationContext, file: File) -> bytes:

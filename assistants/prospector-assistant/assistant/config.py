@@ -1,4 +1,3 @@
-import pathlib
 from typing import Annotated
 
 import openai_client
@@ -6,8 +5,10 @@ from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import UISchema
 
+from . import helpers
 from .agents.artifact_agent import ArtifactAgentConfigModel
 from .agents.attachment_agent import AttachmentAgentConfigModel
+from .agents.guided_conversation.config import GuidedConversationAgentConfigModel
 from .agents.skills_agent import SkillsAgentConfigModel
 
 # The semantic workbench app uses react-jsonschema-form for rendering
@@ -18,26 +19,6 @@ from .agents.skills_agent import SkillsAgentConfigModel
 # The UI schema can be used to customize the appearance of the form. Use
 # the UISchema class to define the UI schema for specific fields in the
 # configuration model.
-
-
-#
-# region Helpers
-#
-
-
-# helper for loading an include from a text file
-def load_text_include(filename) -> str:
-    # get directory relative to this module
-    directory = pathlib.Path(__file__).parent
-
-    # get the file path for the prompt file
-    file_path = directory / "text_includes" / filename
-
-    # read the prompt from the file
-    return file_path.read_text()
-
-
-# endregion
 
 
 #
@@ -61,6 +42,14 @@ class AgentsConfigModel(BaseModel):
             description="Configuration for the attachment agent.",
         ),
     ] = AttachmentAgentConfigModel()
+
+    guided_conversation_agent: Annotated[
+        GuidedConversationAgentConfigModel,
+        Field(
+            title="Guided Conversation Agent Configuration",
+            description="Configuration for the guided conversation agent.",
+        ),
+    ] = GuidedConversationAgentConfigModel()
 
     skills_agent: Annotated[
         SkillsAgentConfigModel,
@@ -187,7 +176,7 @@ class AssistantConfigModel(BaseModel):
             ),
         ),
         UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = load_text_include("guardrails_prompt.txt")
+    ] = helpers.load_text_include("guardrails_prompt.txt")
 
     welcome_message: Annotated[
         str,
