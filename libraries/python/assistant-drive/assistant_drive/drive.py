@@ -1,12 +1,11 @@
-import hashlib
 import json
 import logging
 import os
 import pathlib
 from contextlib import contextmanager
 from datetime import datetime
-from typing import BinaryIO, Iterator, TypeVar
-from uuid import UUID, uuid4
+from shutil import rmtree
+from typing import BinaryIO, Iterator
 
 import magic
 from context import Context
@@ -20,7 +19,6 @@ logger = logging.getLogger(__name__)
 class DriveConfig(BaseModel):
     root: str = Field(default=".data/drive")
     context: Context | None = Field(default=None)
-    ensure_safe_filenames: bool = Field(default=True)
 
     class Config:
         arbitrary_types_allowed = True
@@ -50,38 +48,35 @@ class FileMetadata:
             "updated_at": self.updated_at.isoformat(),
         }
 
-    @staticmethod
-    def from_bytes(content: BinaryIO, filename: str | None = None, dir: str | None = None) -> "FileMetadata":
-        # Create a hash of the content to use as the filename if none is provided.
-        if filename is None:
-            sha256_hash = hashlib.sha256()
-            for chunk in iter(lambda: content.read(4096), b""):
-                sha256_hash.update(chunk)
-            filename = sha256_hash.hexdigest()
-            content.seek(0)
+    def __str__(self) -> str:
+        if self.dir is None:
+            path = self.filename
+        else:
+            path = f"{self.dir}/{self.filename}"
+        return f"{path}\t{self.content_type}\t{self.size} bytes\t{self.created_at}\t{self.updated_at}"
 
+    @staticmethod
+    def from_bytes(content: BinaryIO, filename: str, dir: str | None = None) -> "FileMetadata":
         mime = magic.Magic(mime=True)
         content_type = mime.from_buffer(content.read())
         content.seek(0)
         size = len(content.read())
-
         return FileMetadata(filename=filename, dir=dir, content_type=content_type, size=size)
 
 
 class File:
-    id: UUID
     metadata: FileMetadata
     content: BinaryIO
 
-    def __init__(self, id: UUID, metadata: FileMetadata, content: BinaryIO) -> None:
+    def __init__(self, metadata: FileMetadata, content: BinaryIO) -> None:
         self.id = id
         self.metadata = metadata
         self.content = content
 
     @staticmethod
-    def from_bytes(content: BinaryIO, filename: str | None, dir: str | None) -> "File":
+    def from_bytes(content: BinaryIO, filename: str, dir: str | None) -> "File":
         metadata = FileMetadata.from_bytes(content, filename, dir)
-        return File(id=uuid4(), content=content, metadata=metadata)
+        return File(content=content, metadata=metadata)
 
 
 class Drive:
@@ -91,40 +86,74 @@ class Drive:
         self.metadata_path = self.root_path / ".metadata"
         if not self.metadata_path.exists():
             self.metadata_path.mkdir(parents=True)
-        self._ensure_safe_filenames = settings.ensure_safe_filenames
 
-    def _path_for(self, filename: str, dir: str | None = None) -> pathlib.Path:
+    def _path_for(self, filename: str | None = None, dir: str | None = None) -> pathlib.Path:
+        """Return the actual path for a dir/file combo, creating the dir as needed."""
         namespace_path = self.root_path / (dir or "")
         namespace_path.mkdir(parents=True, exist_ok=True)
-        if not filename:
+        if filename is None:
             return namespace_path
-
         return namespace_path / filename
+
+    def _metadata_path_for(self, filename: str | None = None, dir: str | None = None) -> pathlib.Path:
+        """Return the actual path for a dir/file combo, creating the dir as needed."""
+        namespace_path = self.metadata_path / (dir or "")
+        namespace_path.mkdir(parents=True, exist_ok=True)
+        if filename is None:
+            return namespace_path
+        return namespace_path / (filename + ".json")
+
+    def _unique_filename(self, filename: str, dir: str | None) -> str:
+        """Ensure filename is unique in the namespace by appending a counter."""
+        root_name, extension = os.path.splitext(filename)
+        counter = 1
+        while self.file_exists(dir, filename):
+            filename = f"{root_name}({counter}){extension}"
+            counter += 1
+
+        return filename
 
     def add_bytes(
         self,
         content: BinaryIO,
-        filename: str | None = None,
+        filename: str,
         dir: str | None = None,
-    ) -> UUID:
-        file = File.from_bytes(content, filename=filename, dir=dir)
+        overwrite: bool = False,
+    ) -> FileMetadata:
+        # If file exists, and asked to overwrite, use the same file id.
+        # If not asked to overwrite, generate a new file id and modified filename.
+        if self.file_exists(dir, filename):
+            if not overwrite:
+                filename = self._unique_filename(filename, dir)
+
+        file = File.from_bytes(content, filename, dir)
 
         # Write file.
-        file_path = self._path_for(str(file.id), file.metadata.dir)
+        file_path = self._path_for(file.metadata.filename, file.metadata.dir)
         with open(file_path, "wb") as f:
             content.seek(0)
             f.write(content.read())
 
         # Write metadata.
-        metadata_path = self.metadata_path / f"{file.id}.json"
+        metadata_path = self._metadata_path_for(file.metadata.filename, file.metadata.dir)
         with open(metadata_path, "w") as f:
             f.write(json.dumps(file.metadata.to_dict(), indent=2))
 
-        return file.id
+        return file.metadata
 
-    def delete_file(self, dir: str, filename: str) -> None:
+    def delete(self, dir: str | None = None, filename: str | None = None) -> None:
         file_path = self._path_for(dir, filename)
-        file_path.unlink(missing_ok=True)
+        if file_path.is_file():
+            file_path.unlink()
+            metadata_path = self._metadata_path_for(dir)
+            metadata_path.unlink()
+        else:
+            dir_path = self._path_for(dir)
+            if dir_path.is_dir():
+                rmtree(dir_path)
+            metadata_path = self._metadata_path_for(dir)
+            if metadata_path.is_dir():
+                rmtree(metadata_path)
 
     def read_all_files(self, dir: str) -> Iterator[BinaryIO]:
         dir_path = self._path_for(dir, "")
@@ -135,7 +164,7 @@ class Drive:
             with open(file_path, "rb") as f:
                 yield f
 
-    def list_files(self, dir: str = "") -> Iterator[str]:
+    def list(self, dir: str = "") -> Iterator[str]:
         dir_path = self._path_for(dir, "")
         if not dir_path.is_dir():
             return
@@ -152,62 +181,6 @@ class Drive:
         with open(file_path, "rb") as f:
             yield f
 
-    def file_exists(self, dir: str, filename: str) -> bool:
-        file_path = self._path_for(dir, filename)
+    def file_exists(self, dir: str | None, filename: str) -> bool:
+        file_path = self._path_for(filename, dir)
         return file_path.exists()
-
-
-ModelT = TypeVar("ModelT", bound=BaseModel)
-
-
-def model_write(file_path: os.PathLike, value: BaseModel) -> None:
-    path = pathlib.Path(file_path)
-    if not path.parent.exists():
-        path.parent.mkdir(parents=True)
-
-    data_json = value.model_dump_json()
-    path.write_text(data_json, encoding="utf-8")
-
-
-ModelT = TypeVar("ModelT", bound=BaseModel)
-
-
-def model_read(file_path: os.PathLike | str, cls: type[ModelT], strict: bool | None = None) -> ModelT | None:
-    path = pathlib.Path(file_path)
-    try:
-        data_json = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return None
-
-    value = cls.model_validate_json(data_json, strict=strict)
-    return value
-
-
-def model_delete(file_path: os.PathLike) -> None:
-    path = pathlib.Path(file_path)
-    path.unlink(missing_ok=True)
-
-
-def model_exists(file_path: os.PathLike) -> bool:
-    path = pathlib.Path(file_path)
-    return path.exists()
-
-
-def model_list_files(dir_path: os.PathLike) -> Iterator[str]:
-    path = pathlib.Path(dir_path)
-    if not path.is_dir():
-        return
-
-    for file_path in path.iterdir():
-        yield file_path.name
-
-
-def model_read_all_files(dir_path: os.PathLike, cls: type[ModelT]) -> Iterator[ModelT]:
-    path = pathlib.Path(dir_path)
-    if not path.is_dir():
-        return
-
-    for file_path in path.iterdir():
-        value = model_read(file_path, cls)
-        if value is not None:
-            yield value
