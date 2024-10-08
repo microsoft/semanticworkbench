@@ -64,8 +64,8 @@
       "path": "assistants/skill-assistant"
     },
     {
-      "name": "libraries:openai-client",
-      "path": "./libraries/python/openai-client"
+      "name": "libraries:assistant-drive",
+      "path": "libraries/python/assistant-drive"
     },
     {
       "name": "libraries:chat-driver",
@@ -90,6 +90,10 @@
     {
       "name": "libraries:guided-conversation",
       "path": "libraries/python/guided-conversation"
+    },
+    {
+      "name": "libraries:openai-client",
+      "path": "./libraries/python/openai-client"
     },
     {
       "name": "libraries:semantic-workbench-api-model",

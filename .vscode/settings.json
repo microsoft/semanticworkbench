@@ -219,5 +219,6 @@
     "winget",
     "workbenchservice"
   ],
-  "markdown.validate.enabled": true
+  "markdown.validate.enabled": true,
+  "makefile.configureOnOpen": false
 }
