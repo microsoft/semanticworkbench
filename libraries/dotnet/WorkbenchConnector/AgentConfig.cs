@@ -48,7 +48,7 @@ public class AgentConfig : IAgentConfig
         Dictionary<string, object> jsonSchema = new();
         Dictionary<string, object> uiSchema = new();
 
-        foreach (var property in GetType().GetProperties())
+        foreach (var property in this.GetType().GetProperties())
         {
             var config = new Dictionary<string, object>();
             var attributes = property.GetCustomAttributes<AgentConfigPropertyAttribute>();
