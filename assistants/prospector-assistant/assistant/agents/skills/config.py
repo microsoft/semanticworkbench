@@ -1,8 +1,9 @@
-import pathlib
 from typing import Annotated
 
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
+
+from ... import helpers
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -12,26 +13,6 @@ from semantic_workbench_assistant.config import UISchema
 # The UI schema can be used to customize the appearance of the form. Use
 # the UISchema class to define the UI schema for specific fields in the
 # configuration model.
-
-
-#
-# region Helpers
-#
-
-
-# helper for loading an include from a text file
-def load_text_include(filename) -> str:
-    # get directory relative to this module
-    directory = pathlib.Path(__file__).parent.parent.parent
-
-    # get the file path for the prompt file
-    file_path = directory / "text_includes" / filename
-
-    # read the prompt from the file
-    return file_path.read_text()
-
-
-# endregion
 
 
 #
@@ -56,10 +37,10 @@ class ChatDriverConfig(BaseModel):
 
 
 class SkillsAgentConfigModel(BaseModel):
-    enable_skills: Annotated[
+    enabled: Annotated[
         bool,
         Field(
-            description=load_text_include("skills_agent_enable_skills.md"),
+            description=helpers.load_text_include("skills_agent_enabled.md"),
         ),
         UISchema(enable_markdown_in_description=True),
     ] = False

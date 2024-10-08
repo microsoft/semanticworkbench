@@ -1,0 +1,11 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "assistants/skill-assistant"
+    },
+    {
+      "path": "../.."
+    }
+  ]
+}
