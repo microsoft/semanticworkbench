@@ -99,6 +99,8 @@ We use and recommend the following workflow:
 8. Wait for feedback or approval of your changes from the code maintainers.
 9. When area owners have signed off, and all checks are green, your PR will be merged.
 
+For a detailed walkthrough of this workflow, including how to set up forks and manage your Git workflow, refer to the [Detailed Workflow Walkthrough](#detailed-workflow-walkthrough) section.
+
 ### Adding Assistants
 
 We appreciate your interest in extending Semantic Workbench's functionality through
@@ -120,3 +122,99 @@ and test runs must be clean.
 
 If the CI build fails for any reason, the PR issue will be updated with a link
 that can be used to determine the cause of the failure.
+
+### Detailed Workflow Walkthrough
+
+This detailed guide walks you through the process of contributing to our repository via forking, cloning, and managing your Git workflow.
+
+Start by forking the repository on GitHub. This creates a copy of the repository under your GitHub account.
+
+Clone your forked repository to your local machine:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/semanticworkbench.git
+cd semanticworkbench
+```
+
+Add the original repository as an upstream remote:
+
+```bash
+git remote add upstream https://github.com/microsoft/semanticworkbench.git
+```
+
+Check your remotes to ensure you have both `origin` and `upstream`:
+
+```bash
+git remote -v
+```
+
+You should see something like this:
+
+```
+origin    https://github.com/YOUR_USERNAME/semanticworkbench.git (fetch)
+origin    https://github.com/YOUR_USERNAME/semanticworkbench.git (push)
+upstream  https://github.com/microsoft/semanticworkbench.git (fetch)
+upstream  https://github.com/microsoft/semanticworkbench.git (push)
+```
+
+To keep your fork updated with the latest changes from upstream, configure your local `main` branch to track the upstream `main` branch:
+
+```bash
+git branch -u upstream/main main
+```
+
+Alternatively, you can edit your `.git/config` file:
+
+```ini
+[branch "main"]
+    remote = upstream
+    merge = refs/heads/main
+```
+
+Before starting a new feature or bug fix, ensure that your fork is up-to-date with the latest changes from upstream:
+
+```bash
+git checkout main
+git pull upstream main
+```
+
+Create a new branch for your feature or bug fix:
+
+```bash
+git checkout -b feature-name
+```
+
+Make your changes in the codebase. Once you are satisfied, add and commit your changes:
+
+```bash
+git add .
+git commit -m "Description of your changes"
+```
+
+Push your changes to your fork:
+
+```bash
+git push origin feature-name
+```
+
+Go to your fork on GitHub, and you should see a `Compare & pull request` button. Click it and submit your pull request (PR) against the original repository’s `main` branch.
+
+If there are changes in the main repository after you created your branch, sync them to your branch:
+
+```bash
+git checkout main
+git pull upstream main
+git checkout feature-name
+git rebase main
+```
+
+Once your PR is merged, you can delete your branch both locally and from GitHub.
+
+**Locally:**
+
+```bash
+git branch -d feature-name
+```
+
+**On GitHub:**
+Go to your fork and delete the branch from the `Branches` section.
