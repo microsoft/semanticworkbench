@@ -5,7 +5,7 @@
       "name": "examples/python/python-01-echo-bot"
     },
     {
-      "path": "../../"
+      "path": "../../.."
     }
   ]
 }
