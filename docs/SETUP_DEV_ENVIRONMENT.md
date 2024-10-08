@@ -73,37 +73,10 @@ If you haven't already, enable long file paths on Windows.
 - Find the `LongPathsEnabled` key. If it doesn’t exist, right-click on the `FileSystem` key, select `New > DWORD (32-bit) Value`, and name it `LongPathsEnabled`.
 - Double-click on `LongPathsEnabled`, set its value to `1`, and click OK.
 
-### Configure and build the backend
+# Install and run the backend
 
-# Frontend Setup
+See [workbench-service/README.md](../workbench-service/README.md)
 
-The frontend for the Semantic Workbench is written in [Node 20](https://nodejs.org/en/download).
+# Install and run the frontend
 
-Linux ([latest instructions](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating)):
-
-      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-
-macOS:
-
-      brew install nvm
-
-Windows:
-
-      winget install CoreyButler.NVMforWindows
-
-Once you have nvm installed:
-
-```
-nvm install 20 lts
-nvm use 20
-npm install -g pnpm
-```
-
-### Build the frontend
-
-Within the [`v1/app`](../workbench-app/) directory, install packages.
-
-```
-cd workbench-app
-make
-```
+See [workbench-app/README.md](../workbench-app/README.md)

@@ -5,7 +5,7 @@ using Microsoft.SemanticWorkbench.Connector;
 
 namespace AgentExample;
 
-public class MyAgentConfig : IAgentConfig
+public class MyAgentConfig : AgentConfig
 {
     // Define safety and behavioral guardrails.
     // See https://learn.microsoft.com/azure/ai-services/openai/concepts/system-message for more information and examples.
@@ -22,198 +22,93 @@ public class MyAgentConfig : IAgentConfig
 
     [JsonPropertyName(nameof(this.SystemPromptSafety))]
     [JsonPropertyOrder(0)]
+    [AgentConfigProperty("type", "string")]
+    [AgentConfigProperty("title", "Safety guardrails")]
+    [AgentConfigProperty("description", "Instructions used to define safety and behavioral guardrails. See https://learn.microsoft.com/azure/ai-services/openai/concepts/system-message.")]
+    [AgentConfigProperty("maxLength", 2048)]
+    [AgentConfigProperty("default", DefaultPromptSafety)]
+    [AgentConfigProperty("uischema", "textarea")]
     public string SystemPromptSafety { get; set; } = DefaultPromptSafety;
 
     [JsonPropertyName(nameof(this.SystemPrompt))]
     [JsonPropertyOrder(1)]
+    [AgentConfigProperty("type", "string")]
+    [AgentConfigProperty("title", "System prompt")]
+    [AgentConfigProperty("description", "Initial system message used to define the assistant behavior.")]
+    [AgentConfigProperty("maxLength", 32768)]
+    [AgentConfigProperty("default", DefaultSystemPrompt)]
+    [AgentConfigProperty("uischema", "textarea")]
     public string SystemPrompt { get; set; } = DefaultSystemPrompt;
 
     [JsonPropertyName(nameof(this.ReplyToAgents))]
     [JsonPropertyOrder(10)]
+    [AgentConfigProperty("type", "boolean")]
+    [AgentConfigProperty("title", "Reply to other assistants in conversations")]
+    [AgentConfigProperty("description", "Reply to assistants")]
+    [AgentConfigProperty("default", false)]
     public bool ReplyToAgents { get; set; } = false;
 
     [JsonPropertyName(nameof(this.CommandsEnabled))]
     [JsonPropertyOrder(20)]
+    [AgentConfigProperty("type", "boolean")]
+    [AgentConfigProperty("title", "Support commands")]
+    [AgentConfigProperty("description", "Support commands, e.g. /say")]
+    [AgentConfigProperty("default", false)]
     public bool CommandsEnabled { get; set; } = false;
 
     [JsonPropertyName(nameof(this.MaxMessagesCount))]
     [JsonPropertyOrder(30)]
+    [AgentConfigProperty("type", "integer")]
+    [AgentConfigProperty("title", "Max conversation messages")]
+    [AgentConfigProperty("description", "How many messages to answer in a conversation before ending and stopping replies.")]
+    [AgentConfigProperty("minimum", 1)]
+    [AgentConfigProperty("maximum", int.MaxValue)]
+    [AgentConfigProperty("default", 100)]
     public int MaxMessagesCount { get; set; } = 100;
 
     [JsonPropertyName(nameof(this.Temperature))]
     [JsonPropertyOrder(40)]
+    [AgentConfigProperty("type", "number")]
+    [AgentConfigProperty("title", "LLM temperature")]
+    [AgentConfigProperty("description", "The temperature value ranges from 0 to 1. Lower values indicate greater determinism and higher values indicate more randomness.")]
+    [AgentConfigProperty("minimum", 0.0)]
+    [AgentConfigProperty("maximum", 1.0)]
+    [AgentConfigProperty("default", 0.0)]
     public double Temperature { get; set; } = 0.0;
 
     [JsonPropertyName(nameof(this.NucleusSampling))]
     [JsonPropertyOrder(50)]
+    [AgentConfigProperty("type", "number")]
+    [AgentConfigProperty("title", "LLM nucleus sampling")]
+    [AgentConfigProperty("description", "Nucleus sampling probability ranges from 0 to 1. Lower values result in more deterministic outputs by limiting the choice to the most probable words, and higher values allow for more randomness by including a larger set of potential words.")]
+    [AgentConfigProperty("minimum", 0.0)]
+    [AgentConfigProperty("maximum", 1.0)]
+    [AgentConfigProperty("default", 1.0)]
     public double NucleusSampling { get; set; } = 1.0;
 
     [JsonPropertyName(nameof(this.LLMProvider))]
     [JsonPropertyOrder(60)]
+    [AgentConfigProperty("type", "string")]
+    [AgentConfigProperty("default", "openai")]
+    [AgentConfigProperty("enum", new[] { "openai", "azure-openai" })]
+    [AgentConfigProperty("title", "LLM provider")]
+    [AgentConfigProperty("description", "AI service providing the LLM.")]
+    [AgentConfigProperty("uischema", "radiobutton")]
     public string LLMProvider { get; set; } = "openai";
-
-    // [JsonPropertyName(nameof(this.LLMEndpoint))]
-    // [JsonPropertyOrder(70)]
-    // public string LLMEndpoint { get; set; } = "https://api.openai.com/v1";
 
     [JsonPropertyName(nameof(this.ModelName))]
     [JsonPropertyOrder(80)]
+    [AgentConfigProperty("type", "string")]
+    [AgentConfigProperty("title", "OpenAI Model (or Azure Deployment)")]
+    [AgentConfigProperty("description", "Model used to generate text.")]
+    [AgentConfigProperty("maxLength", 256)]
+    [AgentConfigProperty("default", "GPT-4o")]
     public string ModelName { get; set; } = "gpt-4o";
-
-    public void Update(object? config)
-    {
-        if (config == null)
-        {
-            throw new ArgumentException("Incompatible or empty configuration");
-        }
-
-        if (config is not MyAgentConfig cfg)
-        {
-            throw new ArgumentException("Incompatible configuration type");
-        }
-
-        this.SystemPrompt = cfg.SystemPrompt;
-        this.SystemPromptSafety = cfg.SystemPromptSafety;
-        this.ReplyToAgents = cfg.ReplyToAgents;
-        this.CommandsEnabled = cfg.CommandsEnabled;
-        this.MaxMessagesCount = cfg.MaxMessagesCount;
-        this.Temperature = cfg.Temperature;
-        this.NucleusSampling = cfg.NucleusSampling;
-        this.LLMProvider = cfg.LLMProvider;
-        // this.LLMEndpoint = cfg.LLMEndpoint;
-        this.ModelName = cfg.ModelName;
-    }
 
     public string RenderSystemPrompt()
     {
         return string.IsNullOrWhiteSpace(this.SystemPromptSafety)
             ? this.SystemPrompt
             : $"{this.SystemPromptSafety}\n{this.SystemPrompt}";
-    }
-
-    public object ToWorkbenchFormat()
-    {
-        Dictionary<string, object> result = new();
-        Dictionary<string, object> defs = new();
-        Dictionary<string, object> properties = new();
-        Dictionary<string, object> jsonSchema = new();
-        Dictionary<string, object> uiSchema = new();
-
-        // AI Safety configuration. See https://learn.microsoft.com/azure/ai-services/openai/concepts/system-message
-        properties[nameof(this.SystemPromptSafety)] = new Dictionary<string, object>
-        {
-            { "type", "string" },
-            { "title", "Safety guardrails" },
-            {
-                "description",
-                "Instructions used to define safety and behavioral guardrails. See https://learn.microsoft.com/azure/ai-services/openai/concepts/system-message."
-            },
-            { "maxLength", 2048 },
-            { "default", DefaultPromptSafety }
-        };
-        ConfigUtils.UseTextAreaFor(nameof(this.SystemPromptSafety), uiSchema);
-
-        // Initial AI instructions, aka System prompt or Meta-prompt.
-        properties[nameof(this.SystemPrompt)] = new Dictionary<string, object>
-        {
-            { "type", "string" },
-            { "title", "System prompt" },
-            { "description", "Initial system message used to define the assistant behavior." },
-            { "maxLength", 32768 },
-            { "default", DefaultSystemPrompt }
-        };
-        ConfigUtils.UseTextAreaFor(nameof(this.SystemPrompt), uiSchema);
-
-        properties[nameof(this.ReplyToAgents)] = new Dictionary<string, object>
-        {
-            { "type", "boolean" },
-            { "title", "Reply to other assistants in conversations" },
-            { "description", "Reply to assistants" },
-            { "default", false }
-        };
-
-        properties[nameof(this.CommandsEnabled)] = new Dictionary<string, object>
-        {
-            { "type", "boolean" },
-            { "title", "Support commands" },
-            { "description", "Support commands, e.g. /say" },
-            { "default", false }
-        };
-
-        properties[nameof(this.MaxMessagesCount)] = new Dictionary<string, object>
-        {
-            { "type", "integer" },
-            { "title", "Max conversation messages" },
-            { "description", "How many messages to answer in a conversation before ending and stopping replies." },
-            { "minimum", 1 },
-            { "maximum", int.MaxValue },
-            { "default", 100 }
-        };
-
-        properties[nameof(this.Temperature)] = new Dictionary<string, object>
-        {
-            { "type", "number" },
-            { "title", "LLM temperature" },
-            {
-                "description",
-                "The temperature value ranges from 0 to 1. Lower values indicate greater determinism and higher values indicate more randomness."
-            },
-            { "minimum", 0.0 },
-            { "maximum", 1.0 },
-            { "default", 0.0 }
-        };
-
-        properties[nameof(this.NucleusSampling)] = new Dictionary<string, object>
-        {
-            { "type", "number" },
-            { "title", "LLM nucleus sampling" },
-            {
-                "description",
-                "Nucleus sampling probability ranges from 0 to 1. Lower values result in more deterministic outputs by limiting the choice to the most probable words, and higher values allow for more randomness by including a larger set of potential words."
-            },
-            { "minimum", 0.0 },
-            { "maximum", 1.0 },
-            { "default", 1.0 }
-        };
-
-        properties[nameof(this.LLMProvider)] = new Dictionary<string, object>
-        {
-            { "type", "string" },
-            { "default", "openai" },
-            { "enum", new[] { "openai", "azure-openai" } },
-            { "title", "LLM provider" },
-            { "description", "AI service providing the LLM." },
-        };
-        ConfigUtils.UseRadioButtonsFor(nameof(this.LLMProvider), uiSchema);
-
-        // properties[nameof(this.LLMEndpoint)] = new Dictionary<string, object>
-        // {
-        //     { "type", "string" },
-        //     { "title", "LLM endpoint" },
-        //     { "description", "OpenAI/Azure OpenAI endpoint." },
-        //     { "maxLength", 256 },
-        //     { "default", "https://api.openai.com/v1" }
-        // };
-
-        properties[nameof(this.ModelName)] = new Dictionary<string, object>
-        {
-            { "type", "string" },
-            { "title", "OpenAI Model (or Azure Deployment)" },
-            { "description", "Model used to generate text." },
-            { "maxLength", 256 },
-            { "default", "GPT-4o" }
-        };
-
-        jsonSchema["type"] = "object";
-        jsonSchema["title"] = "ConfigStateModel";
-        jsonSchema["additionalProperties"] = false;
-        jsonSchema["properties"] = properties;
-        jsonSchema["$defs"] = defs;
-
-        result["json_schema"] = jsonSchema;
-        result["ui_schema"] = uiSchema;
-        result["config"] = this;
-
-        return result;
     }
 }

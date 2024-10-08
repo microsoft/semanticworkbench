@@ -27,6 +27,20 @@ FROM ${python_image}
 
 ARG app
 
+# BEGIN: enable ssh in azure web app - comment out if not needed
+########
+# install sshd and set password for root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-server \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "root:Docker!" | chpasswd
+
+# azure sshd config
+COPY ./tools/docker/azure_website_sshd.conf /etc/ssh/sshd_config
+ENV SSHD_PORT=2222
+########
+# END: enable ssh in azure web app
+
 COPY --from=build /packages/assistants/assistant/.venv /packages/assistants/assistant/.venv
 ENV PATH=/packages/assistants/assistant/.venv/bin:$PATH
 
