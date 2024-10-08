@@ -1,12 +1,13 @@
 import asyncio
 import logging
-from pathlib import Path
 
 from chat_driver import ChatDriverConfig
 from chat_driver.client import (
     OpenAIModel,
 )
 from events import events as skill_events
+from document_skill import DocumentSkill
+from pathlib import Path
 from posix_skill import PosixSkill
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
@@ -163,7 +164,11 @@ class AssistantRegistry:
             ),
         )
 
+        document_skill = DocumentSkill(
+            context=assistant.context,
+        )
+
         # Register the skills with the assistant.
-        assistant.register_skills([posix_skill])
+        assistant.register_skills([posix_skill, document_skill])
 
         return assistant
