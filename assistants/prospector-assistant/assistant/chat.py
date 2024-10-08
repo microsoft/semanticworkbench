@@ -35,6 +35,10 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.attachment_agent import AttachmentAgent
+from .agents.guided_conversation_agent import (
+    GuidedConversationAgent,
+    GuidedConversationConversationInspectorStateProvider,
+)
 from .agents.skills_agent import SkillsAgent, SkillsAgentConversationInspectorStateProvider
 from .config import AssistantConfigModel
 
@@ -66,6 +70,9 @@ async def content_evaluator_factory(context: ConversationContext) -> ContentSafe
 content_safety = ContentSafety(content_evaluator_factory)
 
 artifact_conversation_inspector_state_provider = ArtifactConversationInspectorStateProvider(assistant_config)
+guided_conversation_conversation_inspector_state_provider = GuidedConversationConversationInspectorStateProvider(
+    assistant_config
+)
 skills_agent_conversation_inspector_state_provider = SkillsAgentConversationInspectorStateProvider(assistant_config)
 
 # create the AssistantApp instance
@@ -77,6 +84,7 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": artifact_conversation_inspector_state_provider,
+        "guided_conversation": guided_conversation_conversation_inspector_state_provider,
         "skills_agent": skills_agent_conversation_inspector_state_provider,
     },
 )
@@ -131,22 +139,40 @@ async def on_message_created(
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
     try:
         #
-        # NOTE: we're experimenting with skills, if enabled pass control to the skills agent
+        # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
         #
         config = await assistant_config.get(context.assistant)
 
-        if config.agents_config.skills_agent.enable_skills:
+        metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
+
+        if config.agents_config.guided_conversation_agent.enabled:
+            # create the guided conversation agent instance
+            guided_conversation_agent = GuidedConversationAgent(config_provider=assistant_config)
+
+            additional_messages: list[ChatCompletionMessageParam] = []
+            # add the attachment agent messages to the completion messages
+            if config.agents_config.attachment_agent.include_in_response_generation:
+                # generate the attachment messages from the attachment agent
+                attachment_messages = AttachmentAgent.generate_attachment_messages(context)
+
+                # add the attachment messages to the completion messages
+                if len(attachment_messages) > 0:
+                    additional_messages.append({
+                        "role": "system",
+                        "content": config.agents_config.attachment_agent.context_description,
+                    })
+                    additional_messages.extend(attachment_messages)
+
+            await guided_conversation_agent.respond_to_conversation(context, metadata, additional_messages)
+
+        elif config.agents_config.skills_agent.enabled:
             # create the skills agent instance
             skills_agent = SkillsAgent(config_provider=assistant_config)
             await skills_agent.respond_to_conversation(context, event, message)
 
         else:
             # respond to the conversation message
-            await respond_to_conversation(
-                context,
-                message=message,
-                metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
-            )
+            await respond_to_conversation(context, message, metadata)
 
     finally:
         # update the participant status to indicate the assistant is done thinking
@@ -288,7 +314,7 @@ async def respond_to_conversation(
         )
 
     # add the artifact agent instruction prompt to the system message content
-    if config.agents_config.artifact_agent.enable_artifacts:
+    if config.agents_config.artifact_agent.enabled:
         system_message_content += f"\n\n{config.agents_config.artifact_agent.instruction_prompt}"
 
     # add the guardrails prompt to the system message content
@@ -372,7 +398,7 @@ async def respond_to_conversation(
 
     # TODO: DRY up this code by moving the OpenAI API call to a shared method and calling it from both branches
     # use structured response support to create or update artifacts, if artifacts are enabled
-    if config.agents_config.artifact_agent.enable_artifacts:
+    if config.agents_config.artifact_agent.enabled:
         # define the structured response format for the AI model
         class StructuredResponseFormat(BaseModel):
             class Config:
@@ -473,7 +499,7 @@ async def respond_to_conversation(
                 )
 
     # fallback to prior approach to generate a response from the AI model when artifacts are not enabled
-    if not config.agents_config.artifact_agent.enable_artifacts:
+    if not config.agents_config.artifact_agent.enabled:
         # generate a response from the AI model
         completion_total_tokens: int | None = None
         async with openai_client.create_client(config.service_config) as client:

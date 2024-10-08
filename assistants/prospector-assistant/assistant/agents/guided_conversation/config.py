@@ -1,16 +1,13 @@
 import json
-from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type, get_type_hints
+from typing import Annotated, Any, Dict, List, Type, get_type_hints
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field, create_model
 from pydantic_core import PydanticUndefinedType
 from semantic_workbench_assistant.config import UISchema
 
-from . import config_defaults as config_defaults
-
-if TYPE_CHECKING:
-    pass
-
+from ... import helpers
+from . import draft_grant_proposal_config_defaults as config_defaults
 
 #
 # region Helpers
@@ -68,6 +65,12 @@ def pydantic_model_to_json(model: BaseModel) -> Dict[str, Any]:
 
 
 class GuidedConversationAgentConfigModel(BaseModel):
+    enabled: Annotated[
+        bool,
+        Field(description=helpers.load_text_include("guided_conversation_agent_enabled.md")),
+        UISchema(enable_markdown_in_description=True),
+    ] = False
+
     artifact: Annotated[
         str,
         Field(
