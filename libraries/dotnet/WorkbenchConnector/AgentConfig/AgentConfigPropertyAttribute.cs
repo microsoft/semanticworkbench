@@ -2,6 +2,7 @@
 
 using System;
 
+// ReSharper disable once CheckNamespace
 namespace Microsoft.SemanticWorkbench.Connector;
 
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = true)]

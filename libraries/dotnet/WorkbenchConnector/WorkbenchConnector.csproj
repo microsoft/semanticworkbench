@@ -9,7 +9,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
         <RollForward>LatestMajor</RollForward>
-        <NoWarn>$(NoWarn);IDE0130;CA2254;CA1812;</NoWarn>
+        <NoWarn>$(NoWarn);IDE0130;CA2254;CA1812;CA1813;</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

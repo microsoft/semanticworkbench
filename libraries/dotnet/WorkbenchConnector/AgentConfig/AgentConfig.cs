@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text.Json.Serialization;
 
+// ReSharper disable once CheckNamespace
 namespace Microsoft.SemanticWorkbench.Connector;
 
 public class AgentConfig : IAgentConfig
@@ -60,10 +61,10 @@ public class AgentConfig : IAgentConfig
             }
 
             properties[property.Name] = config;
-            var isUISchemaDefined = config.TryGetValue("uischema", out var uischema);
-            if (isUISchemaDefined)
+
+            if (config.TryGetValue("uischema", out var uiSchemaValue))
             {
-                switch (config["uischema"])
+                switch (uiSchemaValue)
                 {
                     case "textarea":
                         ConfigUtils.UseTextAreaFor(property.Name, uiSchema);
@@ -114,5 +115,4 @@ public class AgentConfig : IAgentConfig
             ? this.SystemPrompt
             : $"{this.SystemPromptSafety}\n{this.SystemPrompt}";
     }
-
 }
