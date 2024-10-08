@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 # from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
+mime = magic.Magic(mime=True)
 
 
 class DriveConfig(BaseModel):
@@ -57,7 +58,6 @@ class FileMetadata:
 
     @staticmethod
     def from_bytes(content: BinaryIO, filename: str, dir: str | None = None) -> "FileMetadata":
-        mime = magic.Magic(mime=True)
         content_type = mime.from_buffer(content.read())
         content.seek(0)
         size = len(content.read())
@@ -105,10 +105,10 @@ class Drive:
 
     def _unique_filename(self, filename: str, dir: str | None) -> str:
         """Ensure filename is unique in the namespace by appending a counter."""
-        root_name, extension = os.path.splitext(filename)
+        base, extension = os.path.splitext(filename)
         counter = 1
-        while self.file_exists(dir, filename):
-            filename = f"{root_name}({counter}){extension}"
+        while self.file_exists(filename, dir):
+            filename = f"{base}({counter}){extension}"
             counter += 1
 
         return filename
@@ -120,9 +120,12 @@ class Drive:
         dir: str | None = None,
         overwrite: bool = False,
     ) -> FileMetadata:
+        # Find index of stream.
+        idx = content.tell()
+
         # If file exists, and asked to overwrite, use the same file id.
         # If not asked to overwrite, generate a new file id and modified filename.
-        if self.file_exists(dir, filename):
+        if self.file_exists(filename, dir):
             if not overwrite:
                 filename = self._unique_filename(filename, dir)
 
@@ -139,24 +142,27 @@ class Drive:
         with open(metadata_path, "w") as f:
             f.write(json.dumps(file.metadata.to_dict(), indent=2))
 
+        # Return the stream to the original index.
+        content.seek(idx)
+
         return file.metadata
 
     def delete(self, dir: str | None = None, filename: str | None = None) -> None:
-        file_path = self._path_for(dir, filename)
+        file_path = self._path_for(filename, dir)
         if file_path.is_file():
             file_path.unlink()
-            metadata_path = self._metadata_path_for(dir)
+            metadata_path = self._metadata_path_for(filename, dir)
             metadata_path.unlink()
         else:
-            dir_path = self._path_for(dir)
+            dir_path = self._path_for(dir=dir)
             if dir_path.is_dir():
                 rmtree(dir_path)
-            metadata_path = self._metadata_path_for(dir)
+            metadata_path = self._metadata_path_for(dir=dir)
             if metadata_path.is_dir():
                 rmtree(metadata_path)
 
     def read_all_files(self, dir: str) -> Iterator[BinaryIO]:
-        dir_path = self._path_for(dir, "")
+        dir_path = self._path_for("", dir)
         if not dir_path.is_dir():
             return
 
@@ -165,7 +171,7 @@ class Drive:
                 yield f
 
     def list(self, dir: str = "") -> Iterator[str]:
-        dir_path = self._path_for(dir, "")
+        dir_path = self._path_for("", dir)
         if not dir_path.is_dir():
             return
 
@@ -176,11 +182,11 @@ class Drive:
             yield file_path.name
 
     @contextmanager
-    def read_file(self, dir: str, filename: str) -> Iterator[BinaryIO]:
-        file_path = self._path_for(dir, filename)
+    def read_file(self, filename: str, dir: str | None = None) -> Iterator[BinaryIO]:
+        file_path = self._path_for(filename, dir)
         with open(file_path, "rb") as f:
             yield f
 
-    def file_exists(self, dir: str | None, filename: str) -> bool:
+    def file_exists(self, filename: str, dir: str | None = None) -> bool:
         file_path = self._path_for(filename, dir)
         return file_path.exists()
