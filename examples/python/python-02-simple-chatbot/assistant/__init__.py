@@ -1,4 +1,0 @@
-import semantic_workbench_assistant
-import semantic_workbench_assistant.storage
-
-file_storage = semantic_workbench_assistant.storage.FileStorage(settings=semantic_workbench_assistant.settings.storage)

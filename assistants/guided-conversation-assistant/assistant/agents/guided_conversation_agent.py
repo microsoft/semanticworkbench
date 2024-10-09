@@ -12,7 +12,7 @@ from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
     BaseModelAssistantConfig,
     ConversationContext,
-    FileStorageContext,
+    storage_directory_for_context,
 )
 
 if TYPE_CHECKING:
@@ -143,7 +143,7 @@ def _get_guided_conversation_storage_path(context: ConversationContext, filename
     """
     Get the path to the directory for storing guided conversation files.
     """
-    path = FileStorageContext.get(context).directory / "guided-conversation"
+    path = storage_directory_for_context(context) / "guided-conversation"
     if filename:
         path /= filename
     return path

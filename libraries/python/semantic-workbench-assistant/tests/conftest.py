@@ -12,10 +12,3 @@ def storage_settings(request: pytest.FixtureRequest) -> Iterator[storage.FileSto
     with tempfile.TemporaryDirectory() as temp_dir:
         storage_settings.root = temp_dir
         yield storage_settings
-
-
-@pytest.fixture
-def file_storage(monkeypatch: pytest.MonkeyPatch, storage_settings: storage.FileStorageSettings) -> storage.FileStorage:
-    monkeypatch.setattr(settings, "storage", storage_settings)
-
-    return storage.FileStorage(settings.storage)

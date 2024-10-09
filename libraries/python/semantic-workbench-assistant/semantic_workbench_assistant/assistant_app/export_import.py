@@ -9,7 +9,7 @@ from typing import (
     AsyncIterator,
 )
 
-from .context import AssistantContext, ConversationContext, FileStorageContext
+from .context import AssistantContext, ConversationContext, storage_directory_for_context
 from .error import BadRequestError
 
 logger = logging.getLogger(__name__)
@@ -70,11 +70,11 @@ class FileStorageAssistantDataExporter:
 
     @asynccontextmanager
     async def export(self, context: AssistantContext) -> AsyncIterator[IO[bytes]]:
-        async with zip_directory(FileStorageContext.get(context).directory) as stream:
+        async with zip_directory(storage_directory_for_context(context)) as stream:
             yield stream
 
     async def import_(self, context: AssistantContext, stream: IO[bytes]) -> None:
-        await unzip_to_directory(stream, FileStorageContext.get(context).directory)
+        await unzip_to_directory(stream, storage_directory_for_context(context))
 
 
 class FileStorageConversationDataExporter:
@@ -85,8 +85,8 @@ class FileStorageConversationDataExporter:
 
     @asynccontextmanager
     async def export(self, context: ConversationContext) -> AsyncIterator[IO[bytes]]:
-        async with zip_directory(FileStorageContext.get(context).directory) as stream:
+        async with zip_directory(storage_directory_for_context(context)) as stream:
             yield stream
 
     async def import_(self, context: ConversationContext, stream: IO[bytes]) -> None:
-        await unzip_to_directory(stream, FileStorageContext.get(context).directory)
+        await unzip_to_directory(stream, storage_directory_for_context(context))
