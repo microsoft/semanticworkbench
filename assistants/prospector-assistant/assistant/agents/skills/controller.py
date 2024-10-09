@@ -4,7 +4,7 @@ from pathlib import Path
 
 import openai_client
 from chat_driver import ChatDriverConfig
-from document_skill import DocumentContext, DocumentSkill
+from document_skill import DocumentSkillContext, DocumentSkill
 from events import events as skill_events
 from posix_skill import PosixSkill
 from prospector_skill import ProspectorSkill
@@ -150,7 +150,7 @@ class AssistantRegistry:
         document_skill = DocumentSkill(
             # FIXME: This is a temporary solution to get the file to be saved - we need to implement a proper solution
             # context=assistant.context,
-            context=DocumentContext(),
+            context=DocumentSkillContext(),
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
                 model=chat_driver_config.openai_model,

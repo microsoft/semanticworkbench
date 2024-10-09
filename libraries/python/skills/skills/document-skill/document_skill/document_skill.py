@@ -23,7 +23,6 @@ class Content(BaseModel):
     # data associated with it... not sure what more at this point.
 
 
-
 class Paper(BaseModel):
     version: int = 0
     contents: list[Content] = []
@@ -43,6 +42,7 @@ class DocumentSkill(Skill):
     def __init__(
         self,
         context: Context,
+        chat_driver_config: ChatDriverConfig,
     ) -> None:
         self.document_skill_context: DocumentSkillContext = DocumentSkillContext()
 
@@ -73,7 +73,6 @@ class DocumentSkill(Skill):
         # the skill's chat driver is used to forward available skill commands and functions to
         # any higher level assistant that has those skills registered.
         #####
-        chat_driver_config = ChatDriverConfig()
         chat_driver_config.commands = actions
         chat_driver_config.functions = actions
 
