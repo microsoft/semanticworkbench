@@ -5,13 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "assistants/skill-assistant/**"
-      - "libraries/python/semantic-workbench-api-model/**"
-      - "libraries/python/semantic-workbench-assistant/**"
-      - "libraries/python/content-safety/**"
-      - "libraries/python/chat-driver/**"
-      - "libraries/python/context/**"
-      - "libraries/python/events/**"
-      - "libraries/python/skills/**"
+      - "libraries/python/**"
       - "tools/docker/**"
       - ".github/workflows/skill-assistant.yml"
 
@@ -19,13 +13,7 @@ on:
     branches: ["main"]
     paths:
       - "assistants/skill-assistant/**"
-      - "libraries/python/semantic-workbench-api-model/**"
-      - "libraries/python/semantic-workbench-assistant/**"
-      - "libraries/python/content-safety/**"
-      - "libraries/python/chat-driver/**"
-      - "libraries/python/context/**"
-      - "libraries/python/events/**"
-      - "libraries/python/skills/**"
+      - "libraries/python/**"
       - "tools/docker/**"
       - ".github/workflows/skill-assistant.yml"
 
@@ -52,13 +40,12 @@ jobs:
       id-token: write # for OIDC login
       contents: read
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-skill-assistant
+      group: ${{ github.workflow }}-${{ github.ref }}
     needs: build
     if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.DEPLOYMENT_ENABLED == 'true' }}
     env:
       DOCKER_IMAGE_TAG: ${{ github.sha }}
       DOCKER_REGISTRY_NAME: ${{ secrets.AZURE_CONTAINER_REGISTRY_NAME }}
-      AZURE_WEBSITE_NAME: ${{ secrets.AZURE_SKILL_ASSISTANT_SERVICE_NAME }}
       AZURE_WEBSITE_RESOURCE_GROUP: ${{ secrets.AZURE_WEBSITE_RESOURCE_GROUP }}
       AZURE_WEBSITE_SUBSCRIPTION: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 

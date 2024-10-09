@@ -14,6 +14,8 @@ DOCKER_FILE = $(repo_root)/tools/docker/Dockerfile.assistant
 DOCKER_BUILD_ARGS = app=$(ASSISTANT_APP) package=$(ASSISTANT_PACKAGE)
 DOCKER_IMAGE_NAME = $(ASSISTANT_IMAGE_NAME)
 
+AZURE_WEBSITE_NAME ?= $(ASSISTANT_PACKAGE)-service
+
 include $(this_dir)/docker.mk
 
 
