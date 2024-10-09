@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Iterable, List
+from typing import Any, Callable, Iterable, List, Protocol
 
 from context.context import Context, ContextProtocol
 from events import BaseEvent, MessageEvent
@@ -28,6 +28,51 @@ JSON_OBJECT_RESPONSE_FORMAT: ResponseFormat = {"type": "json_object"}
 # {"type": "json_schema", "json_schema": {"name": "test", "schema": {}}}
 
 
+class MessageHistoryProviderProtocol(Protocol):
+    """
+    We'll supply you with a local provider to manage your message history, but
+    if you want to use your own message history storage, just pass in something
+    that implements this protocol and we'll use that instead.
+    """
+
+    def get(self) -> list[ChatCompletionMessageParam]: ...
+
+    def set(self, messages: list[ChatCompletionMessageParam]) -> None: ...
+
+    def append(self, message: ChatCompletionMessageParam) -> None: ...
+
+    def extend(self, messages: list[ChatCompletionMessageParam]) -> None: ...
+
+    def delete_all(self) -> None: ...
+
+
+class LocalMessageHistoryProvider:
+    def __init__(self, session_dir: Path) -> None:
+        self.session_dir = session_dir
+        self.messages_file = self.session_dir / "messages.json"
+        if not self.messages_file.exists():
+            self.messages_file.write_text("[]")
+
+    def get(self) -> list[ChatCompletionMessageParam]:
+        return json.loads(self.messages_file.read_text())
+
+    def set(self, messages: list[ChatCompletionMessageParam]) -> None:
+        self.messages_file.write_text(json.dumps(messages, indent=2))
+
+    def append(self, message: ChatCompletionMessageParam) -> None:
+        messages = self.get()
+        messages.append(message)
+        self.messages_file.write_text(json.dumps(messages, indent=2))
+
+    def extend(self, messages: list[ChatCompletionMessageParam]) -> None:
+        existing_messages = self.get()
+        existing_messages.extend(messages)
+        self.messages_file.write_text(json.dumps(existing_messages, indent=2))
+
+    def delete_all(self) -> None:
+        self.messages_file.write_text("[]")
+
+
 @dataclass
 class ChatDriverConfig:
     openai_client: AsyncOpenAI
@@ -38,6 +83,7 @@ class ChatDriverConfig:
     data_dir: Path | None = None  # Override the default data dir.
     commands: list[Callable] = field(default_factory=list)
     functions: list[Callable] = field(default_factory=list)
+    message_provider: MessageHistoryProviderProtocol | None = None
 
 
 class ChatDriver:
@@ -59,16 +105,10 @@ class ChatDriver:
         # Set up logging.
         self.logger = Logger(__name__, self.context)
 
-        # Load messages from file if they exist.
+        # Load messages from message provider if they exist.
         init_messages: list[ChatCompletionMessageParam] = config.messages or []
-        self.messages_file = self.session_dir / "messages.json"
-        if not self.messages_file.exists():
-            self.messages_file.write_text(json.dumps(init_messages, indent=2))
-            self.messages = init_messages
-        else:
-            messages = json.loads(self.messages_file.read_text())
-            messages.extend(init_messages)
-            self.messages = messages
+        self.messages_provider = config.message_provider or LocalMessageHistoryProvider(self.session_dir)
+        self.messages_provider.extend(init_messages)
 
         # Now set up the OpenAI client, model, and instructions.
         self.client = config.openai_client
@@ -91,12 +131,10 @@ class ChatDriver:
         self.commands = self.command_registry.functions
 
     def clear_session_data(self) -> None:
-        self.messages = []
-        self.messages_file.write_text(json.dumps(self.messages, indent=2))
+        self.messages_provider.delete_all()
 
     def add_message(self, message: ChatCompletionMessageParam) -> None:
-        self.messages.append(message)
-        self.messages_file.write_text(json.dumps(self.messages, indent=2))
+        self.messages_provider.append(message)
 
     def add_error_message(self, message: str) -> None:
         error_message: ChatCompletionSystemMessageParam = {
@@ -186,15 +224,16 @@ class ChatDriver:
         the rest of the messages are preserved."""
 
         # If the first message is a system message, delete it:
-        if self.messages and self.messages[0]["role"] == "system":
-            self.messages = self.messages[1:]
+        messages = self.messages_provider.get()
+        if messages and messages[0]["role"] == "system":
+            messages = messages[1:]
 
         # Add a new system message with the new instructions.
         system_message: ChatCompletionSystemMessageParam = {
             "role": "system",
             "content": instructions,
         }
-        self.messages = [system_message, *self.messages]
+        self.messages_provider.set([system_message, *messages])
 
     async def respond(
         self,
@@ -233,9 +272,9 @@ class ChatDriver:
 
         completion_args = {
             "messages": (
-                self._format_instructions(self.messages, instruction_parameters)
+                self._format_instructions(self.messages_provider.get(), instruction_parameters)
                 if instruction_parameters
-                else self.messages
+                else self.messages_provider.get()
             ),
             "model": "gpt-4o",
             "tools": self._get_tools(),
@@ -279,6 +318,7 @@ class ChatDriver:
         tool_calls = response_message.tool_calls
         assistant_response = ChatCompletionAssistantMessageParam(**response_message.model_dump())
         self.add_message(assistant_response)
+        message_for_return = assistant_response
         metadata["assistant_response"] = assistant_response
 
         # If the response includes function tool calls, execute them and pass
@@ -314,9 +354,9 @@ class ChatDriver:
             # Call assistant for final response.
             assistant_tool_completion_args = {
                 "messages": (
-                    self._format_instructions(self.messages, instruction_parameters)
+                    self._format_instructions(self.messages_provider.get(), instruction_parameters)
                     if instruction_parameters
-                    else self.messages
+                    else self.messages_provider.get()
                 ),
                 "model": "gpt-4o",
             }
@@ -327,15 +367,15 @@ class ChatDriver:
             # Add assistant response to messages.
             assistant_tool_response = ChatCompletionAssistantMessageParam(**completion.choices[0].message.model_dump())
             self.add_message(assistant_tool_response)
+            message_for_return = assistant_tool_response
             self.logger.debug("Assistant tool response.", data=assistant_tool_response)
             metadata["assistant_tool_response"] = assistant_tool_response
 
             # TODO: Check if it's another tool call?
 
         # Return the last message.
-        last_message: ChatCompletionMessageParam = self.messages[-1]
-        if last_message.get("role") == "assistant":
-            content = last_message.get("content")
+        if message_for_return.get("role") == "assistant":
+            content = message_for_return.get("content")
             return MessageEvent(message=str(content), metadata=metadata)
 
         return MessageEvent(message="No response.", metadata=metadata)
