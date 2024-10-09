@@ -39,10 +39,7 @@ export const AppFooter: React.FC = () => {
                 Trademarks
             </Link>{' '}
             |{' '}
-            <Link
-                href="https://github.com/microsoft/semanticworkbench"
-                target="_blank"
-            >
+            <Link href="https://github.com/microsoft/semanticworkbench" target="_blank">
                 @GitHub
             </Link>{' '}
             | <Caption1>© Microsoft 2024</Caption1>

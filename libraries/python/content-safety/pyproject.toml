@@ -22,6 +22,3 @@ semantic-workbench-assistant = { path = "../semantic-workbench-assistant", edita
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.pyright]
-exclude = ["venv", ".venv"]

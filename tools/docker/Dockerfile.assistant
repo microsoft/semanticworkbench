@@ -21,20 +21,37 @@ COPY ./libraries/python /packages/libraries/python
 COPY ./assistants/${package} /packages/assistants/assistant
 
 # install the assistant and dependencies to /.venv
-RUN uv sync --directory /packages/assistants/assistant --no-editable --no-dev
+RUN uv sync --directory /packages/assistants/assistant --no-editable --no-dev --locked
 
 FROM ${python_image}
 
 ARG app
+
+# BEGIN: enable ssh in azure web app - comment out if not needed
+########
+# install sshd and set password for root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssh-server \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "root:Docker!" | chpasswd
+
+# azure sshd config
+COPY ./tools/docker/azure_website_sshd.conf /etc/ssh/sshd_config
+ENV SSHD_PORT=2222
+########
+# END: enable ssh in azure web app
 
 COPY --from=build /packages/assistants/assistant/.venv /packages/assistants/assistant/.venv
 ENV PATH=/packages/assistants/assistant/.venv/bin:$PATH
 
 COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
 RUN chmod +x /scripts/docker-entrypoint.sh
-ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
 
 ENV ASSISTANT_APP=${app}
-ENV ASSISTANT__HOST=0.0.0.0
 
+ENV assistant__host=0.0.0.0
+ENV assistant__port=3001
+
+SHELL ["/bin/bash", "-c"]
+ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
 CMD ["start-semantic-workbench-assistant"]

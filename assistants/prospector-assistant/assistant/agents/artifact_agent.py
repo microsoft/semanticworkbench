@@ -1,4 +1,3 @@
-import pathlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, Union
 
@@ -12,29 +11,10 @@ from semantic_workbench_assistant.assistant_app import (
 from semantic_workbench_assistant.config import UISchema
 from semantic_workbench_assistant.storage import read_model, write_model
 
+from .. import helpers
+
 if TYPE_CHECKING:
-    from assistant import AssistantConfigModel
-
-
-#
-# region Helpers
-#
-
-
-# helper for loading an include from a text file
-def load_text_include(filename) -> str:
-    # get directory relative to this module
-    directory = pathlib.Path(__file__).parent.parent
-
-    # get the file path for the prompt file
-    file_path = directory / "text_includes" / filename
-
-    # read the prompt from the file
-    return file_path.read_text()
-
-
-# endregion
-
+    from ..config import AssistantConfigModel
 
 #
 # region Models
@@ -42,10 +22,10 @@ def load_text_include(filename) -> str:
 
 
 class ArtifactAgentConfigModel(BaseModel):
-    enable_artifacts: Annotated[
+    enabled: Annotated[
         bool,
         Field(
-            description=load_text_include("artifact_agent_enable_artifacts.md"),
+            description=helpers.load_text_include("artifact_agent_enabled.md"),
         ),
         UISchema(enable_markdown_in_description=True),
     ] = False
@@ -283,7 +263,7 @@ class ArtifactConversationInspectorStateProvider:
 
         # get the configuration for the artifact agent
         config = await self.config_provider.get(context.assistant)
-        if not config.agents_config.artifact_agent.enable_artifacts:
+        if not config.agents_config.artifact_agent.enabled:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "Artifacts are disabled in assistant configuration."}
             )

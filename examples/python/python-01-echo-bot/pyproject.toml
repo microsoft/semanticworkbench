@@ -16,6 +16,3 @@ semantic-workbench-assistant = { path = "../../../libraries/python/semantic-work
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.pyright]
-exclude = ["venv", ".venv"]

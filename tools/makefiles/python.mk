@@ -1,4 +1,5 @@
 this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
+include $(this_dir)/shell.mk
 
 .DEFAULT_GOAL ?= install
 
@@ -15,6 +16,10 @@ endif
 install:
 	uv sync $(uv_project_args) $(UV_SYNC_ARGS)
 
+.PHONY: lock
+lock:
+	uv lock $(uv_project_args) $(UV_LOCK_ARGS)
+
 .PHONY: clean
 clean:
 	$(rm) $(venv_dir)
@@ -27,11 +32,8 @@ lint:
 format:
 	uvx ruff format .
 
-ifneq ($(findstring pytest,$(shell uv tree --depth 1)),)
+ifneq ($(findstring pytest,$(if $(shell command -v uv $(null_stderr)),$(shell uv tree --depth 1),)),)
 .PHONY: test
 test:
 	uv run pytest $(PYTEST_ARGS)
 endif
-
-
-include $(this_dir)/shell.mk

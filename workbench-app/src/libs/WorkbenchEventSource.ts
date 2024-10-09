@@ -146,7 +146,7 @@ export class WorkbenchEventSource {
                 signal: abortSignal,
                 openWhenHidden: true,
                 headers: {
-                    'Authorization': `Bearer ${accessToken}`,
+                    Authorization: `Bearer ${accessToken}`,
                     'X-OpenIdToken': idToken,
                 },
                 onmessage(event: EventSourceMessage) {

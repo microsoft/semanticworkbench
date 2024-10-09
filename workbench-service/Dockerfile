@@ -8,7 +8,7 @@ COPY ./libraries/python/semantic-workbench-api-model /libraries/python/semantic-
 COPY ./libraries/python/semantic-workbench-assistant /libraries/python/semantic-workbench-assistant
 COPY ./workbench-service /workbench-service
 
-RUN uv sync --directory /workbench-service --no-editable --no-dev
+RUN uv sync --directory /workbench-service --no-editable --no-dev --locked
 
 FROM ${python_image}
 
@@ -39,7 +39,8 @@ RUN chmod +x /scripts/docker-entrypoint.sh
 
 WORKDIR /workbench-service
 
-ENV WORKBENCH__SERVICE__HOSTNAME=0.0.0.0
+ENV workbench__service__host=0.0.0.0
+ENV workbench__service__port=3000
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]

@@ -2,6 +2,7 @@
 
 import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppMenu } from '../components/App/AppMenu';
 import { AppView } from '../components/App/AppView';
 import { ExperimentalNotice } from '../components/App/ExperimentalNotice';
@@ -11,6 +12,7 @@ import { MyConversations } from '../components/Conversations/MyConversations';
 import { MyWorkflows } from '../components/Workflows/MyWorkflows';
 import { useLocalUserAccount } from '../libs/useLocalUserAccount';
 import { useSiteUtility } from '../libs/useSiteUtility';
+import { Conversation } from '../models/Conversation';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../services/workbench';
 import { useGetWorkflowDefinitionsQuery } from '../services/workbench/workflow';
 
@@ -36,6 +38,7 @@ export const Dashboard: React.FC = () => {
         isLoading: isLoadingWorkflowDefinitions,
     } = useGetWorkflowDefinitionsQuery();
     const { getUserId } = useLocalUserAccount();
+    const navigate = useNavigate();
 
     const siteUtility = useSiteUtility();
     siteUtility.setDocumentTitle('Dashboard');
@@ -54,6 +57,13 @@ export const Dashboard: React.FC = () => {
         const errorMessage = JSON.stringify(workflowDefinitionsError);
         throw new Error(`Error loading workflow definitions: ${errorMessage}`);
     }
+
+    const handleConversationCreate = React.useCallback(
+        (conversation: Conversation) => {
+            navigate(`/conversation/${conversation.id}`);
+        },
+        [navigate],
+    );
 
     const appMenuAction = <AppMenu />;
 
@@ -74,12 +84,17 @@ export const Dashboard: React.FC = () => {
             <div className={classes.root}>
                 <ExperimentalNotice />
                 <MyAssistants assistants={assistants} />
-                <MyConversations conversations={myConversations} participantId="me" />
+                <MyConversations
+                    conversations={myConversations}
+                    participantId="me"
+                    onCreate={handleConversationCreate}
+                />
                 {conversationsSharedWithMe.length > 0 && (
                     <MyConversations
                         title="Conversations Shared with Me"
                         conversations={conversationsSharedWithMe}
                         participantId="me"
+                        onCreate={handleConversationCreate}
                     />
                 )}
                 <MyWorkflows workflowDefinitions={workflowDefinitions} />

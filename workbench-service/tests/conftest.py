@@ -1,4 +1,5 @@
 import asyncio
+import os
 import pathlib
 import tempfile
 import uuid
@@ -49,19 +50,29 @@ def test_user_2(monkeypatch: pytest.MonkeyPatch) -> MockUser:
     return create_test_user(monkeypatch)
 
 
+def env_var(name: str) -> str | None:
+    if name in os.environ:
+        return os.environ[name]
+    dotenv_path = dotenv.find_dotenv(usecwd=True)
+    if not dotenv_path:
+        return None
+    dotenv_values = dotenv.dotenv_values(dotenv_path)
+    return dotenv_values.get(name)
+
+
 def pytest_addoption(parser: pytest.Parser):
     parser.addoption(
         "--echosql",
         action="store_true",
         help="echo db sql statements",
-        default=(dotenv.dotenv_values().get("WORKBENCH_PYTEST_ECHOSQL") or "").lower() in ["true", "1"],
+        default=(env_var("WORKBENCH_PYTEST_ECHOSQL") or "").lower() in ["true", "1"],
     )
     parser.addoption(
         "--dbtype",
         action="store",
         help="database type",
         choices=["sqlite", "postgresql"],
-        default=dotenv.dotenv_values().get("WORKBENCH_PYTEST_DBTYPE") or "sqlite",
+        default=env_var("WORKBENCH_PYTEST_DBTYPE") or "sqlite",
     )
 
 

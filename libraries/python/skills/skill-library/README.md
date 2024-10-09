@@ -43,7 +43,7 @@ but will be adding several more in the upcoming weeks.
 
 This library provides an [Assistant](./skill_library/assistant.py) class that
 allows you to configure the conversational assistant (relying on our [chat
-driver](../../libraries/chat-driver/README.md) library) and the skills that the
+driver](../../chat-driver/README.md) library) and the skills that the
 assistant should have.
 
 Oftentimes, a truly capable assistant will need to have many skills.
@@ -63,7 +63,7 @@ functions can include any of your assistant's skill's actions or routines.
 This Assistant class can be easily wrapped inside our Semantic Workbench
 assistant allowing it to be exposed as an assistant in the workbench. See our
 [Semantic Workbench Skill
-Assistant](../../semantic-workbench-assistants/skill-assistant/README.md)
+Assistant](../../../../assistants/skill-assistant/README.md)
 package that does exactly this.
 
 In the future, individual conversations might be handled in this library as

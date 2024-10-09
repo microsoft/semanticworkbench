@@ -23,6 +23,7 @@ class Content(BaseModel):
     # data associated with it... not sure what more at this point.
 
 
+
 class Paper(BaseModel):
     version: int = 0
     contents: list[Content] = []

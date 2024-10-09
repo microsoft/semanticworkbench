@@ -7,7 +7,7 @@
       "name": "examples: python-02-simple-chatbot",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["assistant.chat:app", "--port", "3002"],
+      "args": ["assistant.chat:app"],
       "consoleTitle": "${workspaceFolderBasename}"
     }
   ]

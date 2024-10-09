@@ -207,8 +207,8 @@ async def test_assistant_with_inspector(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda: AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -280,8 +280,8 @@ async def test_assistant_with_state_exporter(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda: AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -340,7 +340,7 @@ async def test_assistant_with_config_provider(
         test_key: str = "test_value"
         secret_field: ConfigSecretStr = "secret_default"
 
-    config_provider = BaseModelAssistantConfig(TestConfigModel()).provider
+    config_provider = BaseModelAssistantConfig(TestConfigModel).provider
     # wrap the provider so we can check calls to it
     config_provider_wrapper = mock.Mock(wraps=config_provider)
 
@@ -355,8 +355,8 @@ async def test_assistant_with_config_provider(
 
     service = app.fastapi_app()
 
-    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda:httpx.ASGITransport(app=service))
-    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda:AllOKTransport())
+    monkeypatch.setattr(assistant_service_client, "httpx_transport_factory", lambda: httpx.ASGITransport(app=service))
+    monkeypatch.setattr(workbench_service_client, "httpx_transport_factory", lambda: AllOKTransport())
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
@@ -373,6 +373,7 @@ async def test_assistant_with_config_provider(
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
             config={"test_key": "test_value", "secret_field": "**********"},
+            errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
         )
@@ -385,6 +386,7 @@ async def test_assistant_with_config_provider(
         )
         assert response == assistant_model.ConfigResponseModel(
             config={"test_key": "new_value", "secret_field": "**********"},
+            errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
         )
@@ -399,6 +401,7 @@ async def test_assistant_with_config_provider(
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
             config={"test_key": "new_value", "secret_field": "**********"},
+            errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
         )
@@ -432,6 +435,7 @@ async def test_assistant_with_config_provider(
         )
         assert response == assistant_model.ConfigResponseModel(
             config={"test_key": "new_value", "secret_field": ""},
+            errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
         )

@@ -24,16 +24,10 @@
       "nvmVersion": "latest"
     },
     "ghcr.io/devcontainers/features/azure-cli:1": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/robbert229/devcontainer-features/postgresql-client:1": {
-      "version": 15
-    }
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
-  "forwardPorts": [
-    3000,
-    4000
-  ],
+  "forwardPorts": [3000, 4000],
   // Use 'portsAttributes' to configure the behavior of specific port forwarding instances.
   "portsAttributes": {
     "3000": {
@@ -46,14 +40,12 @@
   // Use 'otherPortsAttributes' to set the defaults that are applied to all ports, unless overridden
   // with port-specific entries in 'portsAttributes'.
   // "otherPortsAttributes": {},
-  "updateContentCommand": "make -C ${containerWorkspaceFolder} && chown -R vscode:vscode ${containerWorkspaceFolder}",
+  "updateContentCommand": "make -C ${containerWorkspaceFolder}",
   "postCreateCommand": "git config --global push.autoSetupRemote true",
   // Configure tool-specific properties.
   "customizations": {
     "codespaces": {
-      "openFiles": [
-        ".devcontainer/POST_SETUP_README.md"
-      ]
+      "openFiles": [".devcontainer/POST_SETUP_README.md"]
     },
     "vscode": {
       "extensions": [
@@ -65,7 +57,6 @@
         "epivision.vscode-file-header",
         "esbenp.prettier-vscode",
         "github.vscode-github-actions",
-        "matt-rudge.auto-open-preview-panel",
         "ms-azuretools.vscode-docker",
         "ms-python.debugpy",
         "ms-python.python",
@@ -82,7 +73,7 @@
     // Ensure the cache is on the same disk for optimal uv performance. https://docs.astral.sh/uv/concepts/cache/#cache-directory
     // ${containerWorkspaceFolder} == /workspaces/repo-name
     "UV_CACHE_DIR": "${containerWorkspaceFolder}/../.cache/uv"
-  },
+  }
   // Connect as root instead. More info: https://aka.ms/dev-containers-non-root.
   // "remoteUser": "root"
 }

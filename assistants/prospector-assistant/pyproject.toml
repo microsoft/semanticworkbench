@@ -15,6 +15,14 @@ dependencies = [
     "tiktoken>=0.7.0",
     "semantic-workbench-assistant>=0.1.0",
     "content-safety>=0.1.0",
+    "chat-driver>=0.1.0",
+    "skill-library>=0.1.0",
+    "posix-skill>=0.1.0",
+    "prospector-skill>=0.1.0",
+    "document-skill>=0.1.0",
+    "guided-conversation>=0.1.0",
+    "openai-client>=0.1.0",
+    "assistant-drive>=0.1.0",
 ]
 
 [tool.uv]
@@ -23,10 +31,15 @@ package = true
 [tool.uv.sources]
 semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
 content-safety = { path = "../../libraries/python/content-safety/", editable = true }
+guided-conversation = { path = "../../libraries/python/guided-conversation", editable = true }
+chat-driver = { path = "../../libraries/python/chat-driver", editable = true }
+skill-library = { path = "../../libraries/python/skills/skill-library", editable = true }
+posix-skill = { path = "../../libraries/python/skills/skills/posix-skill", editable = true }
+prospector-skill = { path = "../../libraries/python/skills/skills/prospector-skill", editable = true }
+document-skill = { path = "../../libraries/python/skills/skills/document-skill", editable = true }
+openai-client = { path = "../../libraries/python/openai-client", editable = true }
+assistant-drive = { path = "../../libraries/python/assistant-drive", editable = true }
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.pyright]
-exclude = ["venv", ".venv"]

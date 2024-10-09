@@ -7,22 +7,22 @@ The code here is only meant to **show the basics**, to **familiarize with code s
 
 ## Suggested Development Environment
 
-- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
+- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../../.devcontainer/README.md)
 - VS Code is recommended for development
 
 ## Pre-requisites
 
 - Set up your dev environment
   - SUGGESTED: Use GitHub Codespaces for a quick, easy, and consistent dev
-    environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
-  - ALTERNATIVE: Local setup following the [main README](../../README.md#quick-start---local-development-environment)
-- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench.code-workspace)
+    environment: [/.devcontainer/README.md](../../../.devcontainer/README.md)
+  - ALTERNATIVE: Local setup following the [main README](../../../README.md#quick-start---local-development-environment)
+- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../../semantic-workbench.code-workspace)
 
 ## Steps
 
 - Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `semantic-workbench` to start the app and service from this workspace
 - Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `launch assistant` to start the assistant.
-- If running in a devcontainer, follow the instructions in [GitHub Codespaces / devcontainer README](../../.devcontainer/README.md#start-the-app-and-service) for any additional steps.
+- If running in a devcontainer, follow the instructions in [.devcontainer/POST_SETUP_README.md](../../../.devcontainer/POST_SETUP_README.md#start-the-app-and-service) for any additional steps.
 - Return to the workbench app to interact with the assistant
 - Add a new assistant from the main menu of the app, choose the assistant name as defined by the `service_name` in [chat.py](./assistant/chat.py)
 - Click the newly created assistant to configure and interact with it

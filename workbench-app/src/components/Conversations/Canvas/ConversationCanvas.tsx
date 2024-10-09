@@ -2,7 +2,6 @@
 
 import { Card, Text, makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
@@ -23,10 +22,9 @@ const useClasses = makeStyles({
 });
 
 interface ConversationCanvasProps {
-    conversationAssistants: Assistant[];
+    conversation: Conversation;
     conversationParticipants: ConversationParticipant[];
     conversationFiles: ConversationFile[];
-    conversation: Conversation;
     preventAssistantModifyOnParticipantIds?: string[];
     readOnly: boolean;
 }

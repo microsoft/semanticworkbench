@@ -1,10 +1,8 @@
 import asyncio
 import logging
 
+import openai_client
 from chat_driver import ChatDriverConfig
-from chat_driver.client import (
-    OpenAIModel,
-)
 from events import events as skill_events
 from document_skill import DocumentSkill
 from pathlib import Path
@@ -86,7 +84,7 @@ class AssistantRegistry:
         self,
         conversation_context: ConversationContext,
         chat_driver_config: config.ChatDriverConfig,
-        service_config: config.AzureOpenAIServiceConfig | config.OpenAIServiceConfig,
+        service_config: openai_client.ServiceConfig,
     ) -> Assistant | None:
         # If the assistant already exists, return it.
         if conversation_context.id in self.assistants:
@@ -120,7 +118,7 @@ class AssistantRegistry:
         self,
         conversation_context: ConversationContext,
         chat_driver_config: config.ChatDriverConfig,
-        service_config: config.AzureOpenAIServiceConfig | config.OpenAIServiceConfig,
+        service_config: openai_client.ServiceConfig,
     ) -> Assistant | None:
         """
         Define the skill assistant that you want to have backing this assistant
@@ -129,8 +127,7 @@ class AssistantRegistry:
         """
         # Get an OpenAI client.
         try:
-            # async_client = _openai_client_for_instance(service_config)
-            async_client = service_config.new_client()
+            async_client = openai_client.create_client(service_config)
         except Exception as e:
             logging.exception("Failed to create OpenAI client")
             await conversation_context.send_messages(
@@ -146,7 +143,7 @@ class AssistantRegistry:
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
                 data_dir=data_dir / "assistant-chat-driver",
-                model=OpenAIModel(chat_driver_config.openai_model),
+                model=chat_driver_config.openai_model,
                 instructions=chat_driver_config.instructions,
             ),
             session_id=str(conversation_context.id),
@@ -160,7 +157,7 @@ class AssistantRegistry:
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
                 data_dir=data_dir / "posix-skill-chat-driver",
-                model=OpenAIModel(chat_driver_config.openai_model),
+                model=chat_driver_config.openai_model,
             ),
         )
 

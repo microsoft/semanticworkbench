@@ -103,7 +103,7 @@ class AzureContentSafetyEvaluator(ContentSafetyEvaluator):
         # send the text to the Azure Content Safety service for evaluation
         try:
             response = ContentSafetyClient(
-                endpoint=self.config.azure_content_safety_endpoint,
+                endpoint=str(self.config.azure_content_safety_endpoint),
                 credential=self.config._get_azure_credentials(),
             ).analyze_text(AnalyzeTextOptions(text=text))
         except Exception as e:

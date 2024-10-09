@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 import deepmerge
+import openai_client
 import tiktoken
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
@@ -32,7 +33,13 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .agents import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider, AttachmentAgent
+from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
+from .agents.attachment_agent import AttachmentAgent
+from .agents.guided_conversation_agent import (
+    GuidedConversationAgent,
+    GuidedConversationConversationInspectorStateProvider,
+)
+from .agents.skills_agent import SkillsAgent, SkillsAgentConversationInspectorStateProvider
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -51,7 +58,7 @@ service_description = "An assistant that helps you mine ideas from artifacts."
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfig(AssistantConfigModel())
+assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
 # define the content safety evaluator factory
@@ -63,7 +70,10 @@ async def content_evaluator_factory(context: ConversationContext) -> ContentSafe
 content_safety = ContentSafety(content_evaluator_factory)
 
 artifact_conversation_inspector_state_provider = ArtifactConversationInspectorStateProvider(assistant_config)
-
+guided_conversation_conversation_inspector_state_provider = GuidedConversationConversationInspectorStateProvider(
+    assistant_config
+)
+skills_agent_conversation_inspector_state_provider = SkillsAgentConversationInspectorStateProvider(assistant_config)
 
 # create the AssistantApp instance
 assistant = AssistantApp(
@@ -74,6 +84,8 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": artifact_conversation_inspector_state_provider,
+        "guided_conversation": guided_conversation_conversation_inspector_state_provider,
+        "skills_agent": skills_agent_conversation_inspector_state_provider,
     },
 )
 
@@ -126,12 +138,42 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
     try:
-        # respond to the conversation message
-        await respond_to_conversation(
-            context,
-            message=message,
-            metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
-        )
+        #
+        # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
+        #
+        config = await assistant_config.get(context.assistant)
+
+        metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
+
+        if config.agents_config.guided_conversation_agent.enabled:
+            # create the guided conversation agent instance
+            guided_conversation_agent = GuidedConversationAgent(config_provider=assistant_config)
+
+            additional_messages: list[ChatCompletionMessageParam] = []
+            # add the attachment agent messages to the completion messages
+            if config.agents_config.attachment_agent.include_in_response_generation:
+                # generate the attachment messages from the attachment agent
+                attachment_messages = AttachmentAgent.generate_attachment_messages(context)
+
+                # add the attachment messages to the completion messages
+                if len(attachment_messages) > 0:
+                    additional_messages.append({
+                        "role": "system",
+                        "content": config.agents_config.attachment_agent.context_description,
+                    })
+                    additional_messages.extend(attachment_messages)
+
+            await guided_conversation_agent.respond_to_conversation(context, metadata, additional_messages)
+
+        elif config.agents_config.skills_agent.enabled:
+            # create the skills agent instance
+            skills_agent = SkillsAgent(config_provider=assistant_config)
+            await skills_agent.respond_to_conversation(context, event, message)
+
+        else:
+            # respond to the conversation message
+            await respond_to_conversation(context, message, metadata)
+
     finally:
         # update the participant status to indicate the assistant is done thinking
         await context.update_participant_me(UpdateParticipant(status=None))
@@ -142,6 +184,11 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
     """
+
+    assistant_sent_messages = await context.get_messages(participant_ids=[context.assistant.id], limit=1)
+    welcome_sent_before = len(assistant_sent_messages.messages) > 0
+    if welcome_sent_before:
+        return
 
     # send a welcome message to the conversation
     config = await assistant_config.get(context.assistant)
@@ -267,7 +314,7 @@ async def respond_to_conversation(
         )
 
     # add the artifact agent instruction prompt to the system message content
-    if config.agents_config.artifact_agent.enable_artifacts:
+    if config.agents_config.artifact_agent.enabled:
         system_message_content += f"\n\n{config.agents_config.artifact_agent.instruction_prompt}"
 
     # add the guardrails prompt to the system message content
@@ -351,7 +398,7 @@ async def respond_to_conversation(
 
     # TODO: DRY up this code by moving the OpenAI API call to a shared method and calling it from both branches
     # use structured response support to create or update artifacts, if artifacts are enabled
-    if config.agents_config.artifact_agent.enable_artifacts:
+    if config.agents_config.artifact_agent.enabled:
         # define the structured response format for the AI model
         class StructuredResponseFormat(BaseModel):
             class Config:
@@ -370,10 +417,10 @@ async def respond_to_conversation(
 
         # generate a response from the AI model
         completion_total_tokens: int | None = None
-        async with config.service_config.new_client(api_version="2024-02-15-preview") as openai_client:
+        async with openai_client.create_client(config.service_config) as client:
             try:
                 # call the OpenAI API to generate a completion
-                completion = await openai_client.beta.chat.completions.parse(
+                completion = await client.beta.chat.completions.parse(
                     messages=completion_messages,
                     model=config.request_config.openai_model,
                     max_tokens=config.request_config.response_tokens,
@@ -452,13 +499,13 @@ async def respond_to_conversation(
                 )
 
     # fallback to prior approach to generate a response from the AI model when artifacts are not enabled
-    if not config.agents_config.artifact_agent.enable_artifacts:
+    if not config.agents_config.artifact_agent.enabled:
         # generate a response from the AI model
         completion_total_tokens: int | None = None
-        async with config.service_config.new_client() as openai_client:
+        async with openai_client.create_client(config.service_config) as client:
             try:
                 # call the OpenAI API to generate a completion
-                completion = await openai_client.chat.completions.create(
+                completion = await client.chat.completions.create(
                     messages=completion_messages,
                     model=config.request_config.openai_model,
                     max_tokens=config.request_config.response_tokens,
@@ -484,6 +531,7 @@ async def respond_to_conversation(
                         }
                     },
                 )
+
             except Exception as e:
                 logger.exception(f"exception occurred calling openai chat completion: {e}")
                 content = (
@@ -504,6 +552,9 @@ async def respond_to_conversation(
                         }
                     },
                 )
+
+    # once done with the response generation, reduce the metadata debug payload
+    metadata = _reduce_metadata_debug_payload(metadata)
 
     # set the message type based on the content
     message_type = MessageType.chat
@@ -626,6 +677,60 @@ async def delete_attachment_for_file(context: ConversationContext, file: File, m
                 metadata={**metadata, "attribution": "system"},
             )
         )
+
+
+def _reduce_metadata_debug_payload(metadata: dict[str, Any]) -> dict[str, Any]:
+    """
+    Reduce the size of the metadata debug payload.
+    """
+
+    # map of payload reducers and keys they should be called for
+    # each reducer should take a value and return a reduced value
+    payload_reducers: dict[str, list[Any]] = {
+        "content": [
+            AttachmentAgent.reduce_attachment_payload_from_content,
+        ]
+    }
+
+    # NOTE: use try statements around each recursive call to reduce_metadata to report the parent key in case of error
+
+    # now iterate recursively over all metadata keys and call the payload reducers for the matching keys
+    def reduce_metadata(metadata: dict[str, Any] | Any) -> dict[str, Any] | Any:
+        # check if the metadata is not a dictionary
+        if not isinstance(metadata, dict):
+            return metadata
+
+        # iterate over the metadata keys
+        for key, value in metadata.items():
+            # check if the key is in the payload reducers
+            if key in payload_reducers:
+                # call the payload reducer for the key
+                for reducer in payload_reducers[key]:
+                    metadata[key] = reducer(value)
+            # check if the value is a dictionary
+            if isinstance(value, dict):
+                try:
+                    # recursively reduce the metadata
+                    metadata[key] = reduce_metadata(value)
+                except Exception as e:
+                    logger.exception(f"exception occurred reducing metadata for key '{key}': {e}")
+            # check if the value is a list
+            elif isinstance(value, list):
+                try:
+                    # recursively reduce the metadata for each item in the list
+                    metadata[key] = [reduce_metadata(item) for item in value]
+                except Exception as e:
+                    logger.exception(f"exception occurred reducing metadata for key '{key}': {e}")
+
+        # return the reduced metadata
+        return metadata
+
+    try:
+        # reduce the metadata
+        return reduce_metadata(metadata)
+    except Exception as e:
+        logger.exception(f"exception occurred reducing metadata: {e}")
+        return metadata
 
 
 # endregion

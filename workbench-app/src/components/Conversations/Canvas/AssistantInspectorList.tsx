@@ -12,18 +12,19 @@ import {
 } from '@fluentui/react-components';
 import React from 'react';
 import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
+import { Assistant } from '../../../models/Assistant';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
 import { useAppSelector } from '../../../redux/app/hooks';
 import { AssistantInspector } from './AssistantInspector';
 
 const useClasses = makeStyles({
     root: {
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gridTemplateRows: 'auto 1fr',
+        display: 'flex',
+        flexDirection: 'column',
         height: '100%',
     },
     header: {
+        flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -39,31 +40,37 @@ const useClasses = makeStyles({
         ...shorthands.borderBottom(tokens.strokeWidthThin, 'solid', tokens.colorNeutralStroke1),
     },
     body: {
+        flexGrow: 1,
         overflowY: 'auto',
-        height: '100%',
-        maxHeight: '100%',
     },
 });
 
 interface AssistantInspectorListProps {
     conversationId: string;
+    assistant: Assistant;
     stateDescriptions: AssistantStateDescription[];
 }
 
 export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (props) => {
-    const { conversationId, stateDescriptions } = props;
+    const { conversationId, assistant, stateDescriptions } = props;
     const classes = useClasses();
     const { interactCanvasState } = useAppSelector((state) => state.app);
     const interactCanvasController = useInteractCanvasController();
 
+    if (stateDescriptions.length === 1) {
+        // Only one assistant state, no need to show tabs, just show the single assistant state
+        return (
+            <AssistantInspector
+                assistantId={assistant.id}
+                conversationId={conversationId}
+                stateDescription={stateDescriptions[0]}
+            />
+        );
+    }
+
     const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
         interactCanvasController.transitionToState({ assistantStateId: data.value as string });
     };
-
-    const selectedTab = interactCanvasState?.assistantStateId ?? stateDescriptions[0].id;
-    const selectedStateDescription = stateDescriptions.find((stateDescription) => stateDescription.id === selectedTab);
-
-    if (!interactCanvasState?.assistantId) return null;
 
     if (stateDescriptions.length === 0) {
         return (
@@ -76,6 +83,11 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
             </div>
         );
     }
+
+    const selectedStateDescription =
+        stateDescriptions.find((stateDescription) => stateDescription.id === interactCanvasState?.assistantStateId) ??
+        stateDescriptions[0];
+    const selectedTab = selectedStateDescription.id;
 
     return (
         <div className={classes.root}>
@@ -92,15 +104,13 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
                     </TabList>
                 </div>
             </div>
-            {selectedStateDescription && (
-                <div className={classes.body}>
-                    <AssistantInspector
-                        assistantId={interactCanvasState?.assistantId}
-                        conversationId={conversationId}
-                        stateDescription={selectedStateDescription}
-                    />
-                </div>
-            )}
+            <div className={classes.body}>
+                <AssistantInspector
+                    assistantId={assistant.id}
+                    conversationId={conversationId}
+                    stateDescription={selectedStateDescription}
+                />
+            </div>
         </div>
     );
 };
