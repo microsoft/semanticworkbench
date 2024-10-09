@@ -1,11 +1,12 @@
 import asyncio
 import logging
+from pathlib import Path
 
 import openai_client
 from chat_driver import ChatDriverConfig
 from events import events as skill_events
 from document_skill import DocumentSkill
-from pathlib import Path
+
 from posix_skill import PosixSkill
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
