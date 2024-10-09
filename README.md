@@ -20,6 +20,18 @@ Assistants integrate with the workbench via a RESTful API, allowing for flexibil
 
 ![Semantic Workbench architecture](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/architecture-animation.gif)
 
+# Workbench interface examples
+
+![Configured dashboard example](docs/images/dashboard_configured_view.png)
+
+![Prospector Assistant example](docs/images/prospector_example.png)
+
+![Message debug inspection](docs/images/message_inspection.png)
+
+![Mermaid graph example](examples/dotnet/dotnet-02-message-types-demo/docs/mermaid.png)
+
+![ABC music example](examples/dotnet/dotnet-02-message-types-demo/docs/abc.png)
+
 # Quick start (Recommended) - GitHub Codespaces for turn-key development environment
 
 GitHub Codespaces provides a cloud-based development environment for your repository. It allows you to develop, build, and test your code
@@ -60,15 +72,13 @@ Open the app in your browser at [`https://localhost:4000`](https://localhost:400
 
 1. **Create an Assistant**: On the dashboard, click the `New Assistant` button. Select your assistant service, provide a name, and click `Save`.
 
-   ![Create Assistant](docs/images/new_assistant_dialog.png)
-
 2. **Start a Conversation**: On the dashboard, click the `New Conversation` button. Provide a title for the conversation and click `Save`.
 
-3. **Open the Conversation Canvas**: In the conversation window, click the conversation canvas icon to manage participants and files.
+3. **Add the Assistant**: In the conversation window, click the conversation canvas icon and add your assistant to the conversation from the conversation canvas. Now you can converse with your assistant using the message box at the bottom of the conversation window.
+
+   ![Open Conversation Canvas](docs/images/conversation_canvas_open.png)
 
    ![Open Canvas](docs/images/open_conversation_canvas.png)
-
-4. **Add the Assistant**: Add your assistant to the conversation from the conversation canvas. Now you can converse with your assistant using the message box at the bottom of the conversation window.
 
 Expected: You get a response from your assistant!
 
@@ -101,18 +111,6 @@ To develop new assistants and connect existing ones, see the [Assistant Developm
   - From repo root, run `make clean`
   - From `~/workbench-app`, run `make install`
   - From `~/workbench-service`, run `make install`
-
-# Workbench interface examples
-
-![Configured dashboard example](docs/images/dashboard_configured_view.png)
-
-![Prospector Assistant example](docs/images/prospector_example.png)
-
-![Message debug inspection](docs/images/message_inspection.png)
-
-![Mermaid graph example](examples/dotnet/dotnet-02-message-types-demo/docs/mermaid.png)
-
-![ABC music example](examples/dotnet/dotnet-02-message-types-demo/docs/abc.png)
 
 # Contributing
 
