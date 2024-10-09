@@ -13,6 +13,7 @@ dependencies = [
     "semantic-workbench-assistant>=0.1.0",
     "content-safety>=0.1.0",
     "posix-skill>=0.1.0",
+    "document-skill>=0.1.0",
     "openai-client>=0.1.0",
 ]
 
@@ -25,6 +26,7 @@ dev-dependencies = ["pytest>=8.3.1", "pytest-asyncio>=0.23.8"]
 semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
 content-safety = { path = "../../libraries/python/content-safety", editable = true }
 posix-skill = { path = "../../libraries/python/skills/skills/posix-skill", editable = true }
+document-skill = { path = "../../libraries/python/skills/skills/document-skill", editable = true }
 openai-client = { path = "../../libraries/python/openai-client", editable = true }
 
 [build-system]

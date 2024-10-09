@@ -5,6 +5,8 @@ from pathlib import Path
 import openai_client
 from chat_driver import ChatDriverConfig
 from events import events as skill_events
+from document_skill import DocumentSkill
+
 from posix_skill import PosixSkill
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
@@ -160,7 +162,11 @@ class AssistantRegistry:
             ),
         )
 
+        document_skill = DocumentSkill(
+            context=assistant.context,
+        )
+
         # Register the skills with the assistant.
-        assistant.register_skills([posix_skill])
+        assistant.register_skills([posix_skill, document_skill])
 
         return assistant
