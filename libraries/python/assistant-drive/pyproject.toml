@@ -9,7 +9,7 @@ dependencies = [
     "context>=0.1.0",
     "pydantic>=2.6.1",
     "pydantic-settings>=2.5.2",
-    "python-magic>=0.4.27",
+    # "python-magic>=0.4.27",
     # "python-magic-bin>=0.4.14",
 ]
 
