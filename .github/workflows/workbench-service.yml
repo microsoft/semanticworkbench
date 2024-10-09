@@ -60,7 +60,7 @@ jobs:
       id-token: write # for OIDC login
       contents: read
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-workbench
+      group: ${{ github.workflow }}-${{ github.ref }}
     needs: [build, test]
     if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.DEPLOYMENT_ENABLED == 'true' }}
     env:

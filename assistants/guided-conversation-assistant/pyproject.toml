@@ -1,7 +1,7 @@
 [project]
 name = "assistant"
 version = "0.1.0"
-description = "Demonstrates how to guide a user towards a goal using the guided-conversation library."
+description = "An assistant that will guide users through a conversation towards a specific goal."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
