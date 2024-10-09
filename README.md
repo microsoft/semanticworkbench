@@ -34,9 +34,10 @@ with Semantic Workbench.
 See the [setup guide](docs/SETUP_DEV_ENVIRONMENT.md) on how to configure your dev environment. Or if you have Docker installed you can use dev containers with VS Code which will function similarly to Codespaces.
 
 ## Using VS Code
-Codespaces will is configured to use ```semantic-workbench.code-workspace```, if you are working locally that is recommended over opening the repo root. This ensures that all project configurations, such as tools, formatters, and linters, are correctly applied in VS Code. This avoids issues like incorrect error reporting and non-functional tools.
 
-Workspace files allow us to manage multiple projects within a monorepo more effectively. Each project can use its own virtual environment (venv), maintaining isolation and avoiding dependency conflicts. Multi-root workspaces (*.code-workspace files) can point to multiple projects, each configured with its own Python interpreter, ensuring seamless functionality of Python tools and extensions.
+Codespaces will is configured to use `semantic-workbench.code-workspace`, if you are working locally that is recommended over opening the repo root. This ensures that all project configurations, such as tools, formatters, and linters, are correctly applied in VS Code. This avoids issues like incorrect error reporting and non-functional tools.
+
+Workspace files allow us to manage multiple projects within a monorepo more effectively. Each project can use its own virtual environment (venv), maintaining isolation and avoiding dependency conflicts. Multi-root workspaces (\*.code-workspace files) can point to multiple projects, each configured with its own Python interpreter, ensuring seamless functionality of Python tools and extensions.
 
 ### Start the app and service
 
@@ -76,6 +77,7 @@ Note that the workbench provides capabilities that not all examples use, for exa
 # Developing your own assistants
 
 To develop new assistants and connect existing ones, see the [Assistant Development Guide](docs/ASSISTANT_DEVELOPMENT_GUIDE.md) or any check out one of the [examples](examples).
+
 - [Python example 1](examples/python/python-01-echo-bot/README.md): a simple assistant echoing text back.
 - [Python example 2](examples/python/python-02-simple-chatbot/README.md): a simple chatbot implementing metaprompt guardrails and content moderation.
 - [Python example 3](examples/python/python-03-multimodel-chatbot/README.md): an extension of the simple chatbot that supports configuration against additional llms.
@@ -85,25 +87,28 @@ To develop new assistants and connect existing ones, see the [Assistant Developm
 
 ## Starting the workbench from the command line
 
-- Run the script ```tools\run-workbench-chatbot.sh``` or ```tools\run-workbench-chatbot.ps``` which does the following:
+- Run the script `tools\run-workbench-chatbot.sh` or `tools\run-workbench-chatbot.ps` which does the following:
   - Starts the backend service, see [here for instructions](workbench-service/README.md).
   - Starts the frontend app, see [here for instructions](workbench-app/README.md).
   - Starts the [Python chatbot example](examples/python/python-02-simple-chatbot/README.md)
 
 ## Refreshing Dev Environment
-- Use the ```tools\reset-service-data.sh``` or ```tools\reset-service-data.sh``` script to reset all service data. You can also delete `~/workbench-service/.data` or specific files if you know which one(s).
+
+- Use the `tools\reset-service-data.sh` or `tools\reset-service-data.sh` script to reset all service data. You can also delete `~/workbench-service/.data` or specific files if you know which one(s).
 - From repo root, run `make clean install`.
   - This will perform a `git clean` and run installs in all sub-directories
 - Or a faster option if you just want to install semantic workbench related stuff:
   - From repo root, run `make clean`
   - From `~/workbench-app`, run `make install`
   - From `~/workbench-service`, run `make install`
+
 # Workbench interface examples
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme1.png)
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme2.png)
+![Configured dashboard example](docs/images/dashboard_configured_view.png)
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme3.png)
+![Prospector Assistant example](docs/images/prospector_example.png)
+
+![Message debug inspection](docs/images/message_inspection.png)
 
 ![Mermaid graph example](examples/dotnet/dotnet-02-message-types-demo/docs/mermaid.png)
 
