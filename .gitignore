@@ -8,7 +8,6 @@
 .data
 .idea/
 appsettings.*.json
-mystuff/
 
 # Dependencies and build cache
 node_modules
