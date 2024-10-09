@@ -13,7 +13,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
-    FileStorageContext,
+    storage_directory_for_context,
 )
 from skill_library import Assistant
 
@@ -134,7 +134,7 @@ class AssistantRegistry:
             )
             return
 
-        data_dir = FileStorageContext.get(conversation_context).directory
+        data_dir = storage_directory_for_context(conversation_context)
 
         # Create the assistant.
         assistant = Assistant(
