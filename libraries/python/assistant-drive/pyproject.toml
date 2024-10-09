@@ -25,6 +25,7 @@ dev-dependencies = [
 
 [tool.uv.sources]
 context = { path = "../../python/context", editable = true }
+# python-magic = { git = "https://github.com/julian-r/python-magic.git#egg=python-magic" }
 
 [build-system]
 requires = ["hatchling"]
