@@ -32,7 +32,7 @@ JSON_OBJECT_RESPONSE_FORMAT: ResponseFormat = {"type": "json_object"}
 class ChatDriverConfig:
     openai_client: AsyncOpenAI
     model: str
-    instructions: str  = "You are a helpful assistant."
+    instructions: str = "You are a helpful assistant."
     messages: list[ChatCompletionMessageParam] = field(default_factory=list)
     context: ContextProtocol | None = None
     data_dir: Path | None = None  # Override the default data dir.
