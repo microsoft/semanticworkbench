@@ -1,4 +1,3 @@
-from . import settings, storage
+from . import settings
 
 settings = settings.Settings()
-file_storage = storage.FileStorage(settings=settings.storage)

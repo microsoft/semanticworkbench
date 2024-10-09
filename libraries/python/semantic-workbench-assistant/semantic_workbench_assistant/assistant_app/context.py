@@ -95,20 +95,15 @@ class ConversationContext:
         return await self._workbench_client.delete_file(filename)
 
 
-@dataclass
-class FileStorageContext:
-    directory: pathlib.Path
+def storage_directory_for_context(context: AssistantContext | ConversationContext, partition: str = "") -> pathlib.Path:
+    match context:
+        case AssistantContext():
+            directory = context.id
 
-    @staticmethod
-    def get(context: AssistantContext | ConversationContext, partition: str = "") -> "FileStorageContext":
-        match context:
-            case AssistantContext():
-                directory = context.id
+        case ConversationContext():
+            directory = f"{context.assistant.id}-{context.id}"
 
-            case ConversationContext():
-                directory = f"{context.assistant.id}-{context.id}"
+    if partition:
+        directory = f"{directory}_{partition}"
 
-        if partition:
-            directory = f"{directory}_{partition}"
-
-        return FileStorageContext(directory=pathlib.Path(settings.storage.root) / directory)
+    return pathlib.Path(settings.storage.root) / directory

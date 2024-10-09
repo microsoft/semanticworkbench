@@ -14,7 +14,7 @@ from ..config import (
     replace_config_secret_str_masked_values,
 )
 from ..storage import read_model, write_model
-from .context import AssistantContext, FileStorageContext
+from .context import AssistantContext, storage_directory_for_context
 from .error import BadRequestError
 from .protocol import (
     AssistantConfigDataModel,
@@ -37,11 +37,11 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
 
     def _private_path_for(self, assistant_context: AssistantContext) -> pathlib.Path:
         # store assistant config, including secrets, in a separate partition that is never exported
-        return FileStorageContext.get(assistant_context, partition="private").directory / "config.json"
+        return storage_directory_for_context(assistant_context, partition="private") / "config.json"
 
     def _export_import_path_for(self, assistant_context: AssistantContext) -> pathlib.Path:
         # store a copy of the config for export in the standard partition
-        return FileStorageContext.get(assistant_context).directory / "config.json"
+        return storage_directory_for_context(assistant_context) / "config.json"
 
     async def get(self, assistant_context: AssistantContext) -> ConfigModelT:
         path = self._private_path_for(assistant_context)

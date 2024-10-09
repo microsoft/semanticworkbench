@@ -1,7 +1,7 @@
 [project]
 name = "assistant"
 version = "0.1.0"
-description = "Exploration of a python Semantic Workbench OpenAI assistant to help mine artifacts for ideas."
+description = "Demonstrates how to guide a user towards a goal using the guided-conversation library."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"

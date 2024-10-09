@@ -7,7 +7,7 @@ from .content_safety import (
     ContentSafetyEvaluationResult,
     ContentSafetyEvaluator,
 )
-from .context import AssistantContext, ConversationContext, FileStorageContext
+from .context import AssistantContext, ConversationContext, storage_directory_for_context
 from .error import BadRequestError, ConflictError, NotFoundError
 from .export_import import FileStorageAssistantDataExporter, FileStorageConversationDataExporter
 from .protocol import (
@@ -36,5 +36,5 @@ __all__ = [
     "BadRequestError",
     "NotFoundError",
     "ConflictError",
-    "FileStorageContext",
+    "storage_directory_for_context",
 ]
