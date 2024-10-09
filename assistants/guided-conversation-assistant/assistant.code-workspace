@@ -2,7 +2,7 @@
   "folders": [
     {
       "path": ".",
-      "name": "assistants/prospector-assistant"
+      "name": "assistants/guided-conversation-assistant"
     },
     {
       "path": "../.."

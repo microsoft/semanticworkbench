@@ -32,10 +32,10 @@ from semantic_workbench_assistant.assistant_app import (
     BaseModelAssistantConfig,
     ConflictError,
     ConversationContext,
-    FileStorageContext,
     FileStorageConversationDataExporter,
     NotFoundError,
 )
+from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
 from semantic_workbench_assistant.assistant_app.service import (
     translate_assistant_errors,
 )
@@ -455,125 +455,116 @@ async def test_assistant_with_config_provider(
         assert e.value.status_code == 400
 
 
-async def test_file_system_storage_state_data_provider_to_empty_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    with tempfile.TemporaryDirectory() as src_temp_dir, tempfile.TemporaryDirectory() as dest_temp_dir:
-        src_dir_path = pathlib.Path(src_temp_dir)
+async def test_file_system_storage_state_data_provider_to_empty_dir(
+    storage_settings: storage.FileStorageSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "storage", storage_settings)
 
-        (src_dir_path / "test.txt").write_text("Hello, world")
-
-        sub_dir_path = src_dir_path / "subdir"
-
-        sub_dir_path.mkdir()
-
-        (sub_dir_path / "test.bin").write_bytes(bytes([1, 2, 3, 4]))
-
-        src_conversation_context = ConversationContext(
+    src_conversation_context = ConversationContext(
+        id=str(uuid.uuid4()),
+        title="My conversation",
+        assistant=AssistantContext(
+            _assistant_service_id="",
             id=str(uuid.uuid4()),
-            title="My conversation",
-            assistant=AssistantContext(
-                _assistant_service_id="",
-                id=str(uuid.uuid4()),
-                name="my assistant",
-            ),
-        )
+            name="my assistant",
+        ),
+    )
 
-        dest_dir_path = pathlib.Path(dest_temp_dir)
-
-        dest_conversation_context = ConversationContext(
+    dest_conversation_context = ConversationContext(
+        id=str(uuid.uuid4()),
+        title="My conversation",
+        assistant=AssistantContext(
+            _assistant_service_id="",
             id=str(uuid.uuid4()),
-            title="My conversation",
-            assistant=AssistantContext(
-                _assistant_service_id="",
-                id=str(uuid.uuid4()),
-                name="my assistant",
-            ),
-        )
+            name="my assistant",
+        ),
+    )
 
-        def file_storage_context_get_mock(conversation_context: ConversationContext) -> FileStorageContext:
-            if conversation_context == src_conversation_context:
-                return FileStorageContext(directory=src_dir_path)
-            return FileStorageContext(directory=dest_dir_path)
+    src_dir_path = storage_directory_for_context(src_conversation_context)
+    src_dir_path.mkdir(parents=True)
 
-        with mock.patch(
-            "semantic_workbench_assistant.assistant_app.FileStorageContext.get",
-            side_effect=file_storage_context_get_mock,
-        ):
-            data_provider = FileStorageConversationDataExporter()
+    (src_dir_path / "test.txt").write_text("Hello, world")
 
-            async with data_provider.export(src_conversation_context) as stream:
-                await data_provider.import_(dest_conversation_context, stream)
+    sub_dir_path = src_dir_path / "subdir"
 
-            assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
+    sub_dir_path.mkdir()
 
-            assert (dest_dir_path / "subdir" / "test.bin").read_bytes() == bytes([1, 2, 3, 4])
+    (sub_dir_path / "test.bin").write_bytes(bytes([1, 2, 3, 4]))
+
+    data_provider = FileStorageConversationDataExporter()
+
+    async with data_provider.export(src_conversation_context) as stream:
+        await data_provider.import_(dest_conversation_context, stream)
+
+    dest_dir_path = storage_directory_for_context(dest_conversation_context)
+
+    assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
+
+    assert (dest_dir_path / "subdir" / "test.bin").read_bytes() == bytes([1, 2, 3, 4])
 
 
-async def test_file_system_storage_state_data_provider_to_non_empty_dir():
-    with tempfile.TemporaryDirectory() as src_temp_dir, tempfile.TemporaryDirectory() as dest_temp_dir:
-        # set up contents of the non-empty destination directory
-        dest_dir_path = pathlib.Path(dest_temp_dir)
+async def test_file_system_storage_state_data_provider_to_non_empty_dir(
+    storage_settings: storage.FileStorageSettings, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(settings, "storage", storage_settings)
 
-        (dest_dir_path / "test.txt").write_text("this file will be overwritten")
-
-        dest_sub_dir_path = dest_dir_path / "subdir-gets-deleted"
-
-        dest_sub_dir_path.mkdir()
-
-        (dest_sub_dir_path / "test.bin").write_bytes(bytes([1, 2, 3, 4]))
-
-        # set up contents of the source directory
-
-        src_dir_path = pathlib.Path(src_temp_dir)
-
-        (src_dir_path / "test.txt").write_text("Hello, world")
-
-        sub_dir_path = src_dir_path / "subdir"
-
-        sub_dir_path.mkdir()
-
-        (sub_dir_path / "test.bin").write_bytes(bytes([1, 2, 3, 4]))
-
-        # export and import
-
-        src_conversation_context = ConversationContext(
+    src_conversation_context = ConversationContext(
+        id=str(uuid.uuid4()),
+        title="My conversation",
+        assistant=AssistantContext(
+            _assistant_service_id="",
             id=str(uuid.uuid4()),
-            title="My conversation",
-            assistant=AssistantContext(
-                _assistant_service_id="",
-                id=str(uuid.uuid4()),
-                name="my assistant",
-            ),
-        )
+            name="my assistant",
+        ),
+    )
 
-        dest_conversation_context = ConversationContext(
+    dest_conversation_context = ConversationContext(
+        id=str(uuid.uuid4()),
+        title="My conversation",
+        assistant=AssistantContext(
+            _assistant_service_id="",
             id=str(uuid.uuid4()),
-            title="My conversation",
-            assistant=AssistantContext(
-                _assistant_service_id="",
-                id=str(uuid.uuid4()),
-                name="my assistant",
-            ),
-        )
+            name="my assistant",
+        ),
+    )
 
-        def file_storage_context_get_mock(conversation_context: ConversationContext) -> FileStorageContext:
-            if conversation_context == src_conversation_context:
-                return FileStorageContext(directory=src_dir_path)
-            return FileStorageContext(directory=dest_dir_path)
+    # set up contents of the non-empty destination directory
+    dest_dir_path = storage_directory_for_context(dest_conversation_context)
+    dest_dir_path.mkdir(parents=True)
 
-        with mock.patch(
-            "semantic_workbench_assistant.assistant_app.FileStorageContext.get",
-            side_effect=file_storage_context_get_mock,
-        ):
-            data_provider = FileStorageConversationDataExporter()
+    (dest_dir_path / "test.txt").write_text("this file will be overwritten")
 
-            async with data_provider.export(src_conversation_context) as stream:
-                await data_provider.import_(dest_conversation_context, stream)
+    dest_sub_dir_path = dest_dir_path / "subdir-gets-deleted"
 
-            assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
+    dest_sub_dir_path.mkdir()
 
-            assert (dest_dir_path / "subdir" / "test.bin").read_bytes() == bytes([1, 2, 3, 4])
+    (dest_sub_dir_path / "test.bin").write_bytes(bytes([1, 2, 3, 4]))
 
-            assert dest_sub_dir_path.exists() is False
+    # set up contents of the source directory
+
+    src_dir_path = storage_directory_for_context(src_conversation_context)
+    src_dir_path.mkdir(parents=True)
+
+    (src_dir_path / "test.txt").write_text("Hello, world")
+
+    sub_dir_path = src_dir_path / "subdir"
+
+    sub_dir_path.mkdir()
+
+    (sub_dir_path / "test.bin").write_bytes(bytes([1, 2, 3, 4]))
+
+    # export and import
+
+    data_provider = FileStorageConversationDataExporter()
+
+    async with data_provider.export(src_conversation_context) as stream:
+        await data_provider.import_(dest_conversation_context, stream)
+
+    assert (dest_dir_path / "test.txt").read_text() == "Hello, world"
+
+    assert (dest_dir_path / "subdir" / "test.bin").read_bytes() == bytes([1, 2, 3, 4])
+
+    assert dest_sub_dir_path.exists() is False
 
 
 class UnknownErrorForTest(Exception):
