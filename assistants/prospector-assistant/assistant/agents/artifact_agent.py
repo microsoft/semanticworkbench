@@ -6,7 +6,7 @@ from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
     BaseModelAssistantConfig,
     ConversationContext,
-    FileStorageContext,
+    storage_directory_for_context,
 )
 from semantic_workbench_assistant.config import UISchema
 from semantic_workbench_assistant.storage import read_model, write_model
@@ -294,10 +294,12 @@ def _get_artifact_storage_path(context: ConversationContext, filename: str | Non
     """
     Get the path to the directory for storing artifacts.
     """
-    path = FileStorageContext.get(context).directory / "artifacts"
-    if filename:
-        path /= filename
-    return path
+    path = storage_directory_for_context(context) / "artifacts"
+
+    if not filename:
+        return path
+
+    return path / filename
 
 
 # endregion

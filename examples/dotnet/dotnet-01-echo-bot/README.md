@@ -26,8 +26,8 @@ Project Structure
 2. `MyAgentConfig.cs`:
    * Purpose: contains your agent settings.
    * Key Points:
-     * Extend `IAgentConfig` to integrate with the workbench connector.
-     * Implement `ToWorkbenchFormat()` to visualize and edit configurations in the Semantic Workbench UI.
+     * Extend `AgentConfig` to integrate with the workbench connector.
+     * Describe the configuration properties using `[AgentConfigProperty(...)]` attributes.
 3. `MyAgent.cs`:
     * Purpose: contains your agent logic.
     * Key Points:
