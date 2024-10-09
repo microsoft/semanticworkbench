@@ -16,10 +16,21 @@ The Semantic Workbench is composed of three main components:
 
 Designed to be agnostic of any agent framework, language, or platform, the Semantic Workbench
 facilitates experimentation, development, testing, and measurement of agent behaviors and workflows.
-Assistants integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability
-in various development environments.
+Assistants integrate with the workbench via a RESTful API, allowing for flexibility and broad applicability in various development environments.
 
 ![Semantic Workbench architecture](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/architecture-animation.gif)
+
+# Workbench interface examples
+
+![Configured dashboard example](docs/images/dashboard_configured_view.png)
+
+![Prospector Assistant example](docs/images/prospector_example.png)
+
+![Message debug inspection](docs/images/message_inspection.png)
+
+![Mermaid graph example](examples/dotnet/dotnet-02-message-types-demo/docs/mermaid.png)
+
+![ABC music example](examples/dotnet/dotnet-02-message-types-demo/docs/abc.png)
 
 # Quick start (Recommended) - GitHub Codespaces for turn-key development environment
 
@@ -30,62 +41,70 @@ browser and internet connection, including Windows, MacOS, Linux, Chromebooks, t
 See the [GitHub Codespaces / devcontainer README](.devcontainer/README.md) for more information on how to set up and use GitHub Codespaces
 with Semantic Workbench.
 
-# Quick start - Local development environment
+## Local development environment
 
-- Configure your dev environment, [setup guide](docs/SETUP_DEV_ENVIRONMENT.md).
-- Start the backend service, see [here for instructions](workbench-service/README.md).
-- Start the frontend app, see [here for instructions](workbench-app/README.md).
-- Start the [Python chatbot example](examples/python/python-02-simple-chatbot/README.md), or one of the other [examples](examples).
+See the [setup guide](docs/SETUP_DEV_ENVIRONMENT.md) on how to configure your dev environment. Or if you have Docker installed you can use dev containers with VS Code which will function similarly to Codespaces.
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme1.png)
+## Using VS Code
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme2.png)
+Codespaces will is configured to use `semantic-workbench.code-workspace`, if you are working locally that is recommended over opening the repo root. This ensures that all project configurations, such as tools, formatters, and linters, are correctly applied in VS Code. This avoids issues like incorrect error reporting and non-functional tools.
 
-![image](https://raw.githubusercontent.com/microsoft/semanticworkbench/main/docs/images/readme3.png)
+Workspace files allow us to manage multiple projects within a monorepo more effectively. Each project can use its own virtual environment (venv), maintaining isolation and avoiding dependency conflicts. Multi-root workspaces (\*.code-workspace files) can point to multiple projects, each configured with its own Python interpreter, ensuring seamless functionality of Python tools and extensions.
 
-# Connecting your assistants
+### Start the app and service
 
-To develop new assistants and connect existing ones, see the [Assistant Development Guide](docs/ASSISTANT_DEVELOPMENT_GUIDE.md)
+- Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `semantic-workbench` to start the project
+- Open your browser and navigate to `https://127.0.0.1:4000`
+  - You may receive a warning about the app not being secure; click `Advanced` and `Proceed to localhost` to continue
+- You can now interact with the app and service in the browser
 
-The repository contains a few examples that can be used to create custom assistants:
+### Start an assistant service:
 
-- [Python Canonical Assistant](libraries/python/semantic-workbench-assistant/semantic_workbench_assistant/canonical.py)
+- Launch an example an [example](examples/) assistant service:
+  - No llm api keys needed
+    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `examples: python-01-echo-bot` to start the example assistant that echos your messages. This is a good base to understand the basics of building your own assistant.
+  - Bring your own llm api keys
+    - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `examples: python-02-simple-chatbot` to start the example chatbot assistant. Either set your keys in your .env file or after creating the assistant as described below, select it and provide the keys in the configuration page.
+
+## Open the Workbench and create an Assistant instance
+
+Open the app in your browser at [`https://localhost:4000`](https://localhost:4000). When you first log into the Semantic Workbench, follow these steps to get started:
+
+1. **Create an Assistant**: On the dashboard, click the `New Assistant` button. Select your assistant service, provide a name, and click `Save`.
+
+2. **Start a Conversation**: On the dashboard, click the `New Conversation` button. Provide a title for the conversation and click `Save`.
+
+3. **Add the Assistant**: In the conversation window, click the conversation canvas icon and add your assistant to the conversation from the conversation canvas. Now you can converse with your assistant using the message box at the bottom of the conversation window.
+
+   ![Open Conversation Canvas](docs/images/conversation_canvas_open.png)
+
+   ![Open Canvas](docs/images/open_conversation_canvas.png)
+
+Expected: You get a response from your assistant!
+
+Note that the workbench provides capabilities that not all examples use, for example providing attachments. See the [Semantic Workbench](docs/WORKBENCH_APP.md) for more details.
+
+# Developing your own assistants
+
+To develop new assistants and connect existing ones, see the [Assistant Development Guide](docs/ASSISTANT_DEVELOPMENT_GUIDE.md) or any check out one of the [examples](examples).
+
 - [Python example 1](examples/python/python-01-echo-bot/README.md): a simple assistant echoing text back.
 - [Python example 2](examples/python/python-02-simple-chatbot/README.md): a simple chatbot implementing metaprompt guardrails and content moderation.
-- [Python example 3](examples/python/python-03-multimodel-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
+- [Python example 3](examples/python/python-03-multimodel-chatbot/README.md): an extension of the simple chatbot that supports configuration against additional llms.
 - [.NET example 1](examples/dotnet/dotnet-01-echo-bot/README.md): a simple agent with echo and support for a basic `/say` command.
 - [.NET example 2](examples/dotnet/dotnet-02-message-types-demo/README.md): a simple assistants showcasing Azure AI Content Safety integration and some workbench features like Mermaid graphs.
 - [.NET example 3](examples/dotnet/dotnet-03-simple-chatbot/README.md): a functional chatbot implementing metaprompt guardrails and content moderation.
 
-![Mermaid graph example](examples/dotnet/dotnet-02-message-types-demo/docs/mermaid.png)
-![ABC music example](examples/dotnet/dotnet-02-message-types-demo/docs/abc.png)
+## Starting the workbench from the command line
 
-## Open the Workbench and create an assistant instance
-
-Open the app in your browser at [`https://localhost:4000`](https://localhost:4000):
-
-- Click `Sign in`
-- Add and Assistant:
-  - Click +Add Assistant Button
-  - Click Instance of Assistant
-- Give it a name.
-- Enter the assistant service URL in the combobox, e.g. `http://127.0.0.1:3010`.
-- Click the assistant name to configure the instance.
-- Create a new conversation from the assistant configuration screen, then click the conversation name to interact with the assistant.
-- Type a message and hit send.
-- If you see "Please set the OpenAI API key in the config."
-  - Click Edit icon in upper right.
-  - Paste in your OpenAI Key.
-  - Paste in your OrgID.
-  - Click Save.
-  - Hit Back button in UI.
-- Type another message and hit send.
-
-Expected: You get a response from your assistant!
+- Run the script `tools\run-workbench-chatbot.sh` or `tools\run-workbench-chatbot.ps` which does the following:
+  - Starts the backend service, see [here for instructions](workbench-service/README.md).
+  - Starts the frontend app, see [here for instructions](workbench-app/README.md).
+  - Starts the [Python chatbot example](examples/python/python-02-simple-chatbot/README.md)
 
 ## Refreshing Dev Environment
 
-- Delete `~/workbench-service/.data` or specific files if you know which one(s).
+- Use the `tools\reset-service-data.sh` or `tools\reset-service-data.sh` script to reset all service data. You can also delete `~/workbench-service/.data` or specific files if you know which one(s).
 - From repo root, run `make clean install`.
   - This will perform a `git clean` and run installs in all sub-directories
 - Or a faster option if you just want to install semantic workbench related stuff:
