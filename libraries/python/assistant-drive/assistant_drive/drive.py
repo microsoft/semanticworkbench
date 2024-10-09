@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import mimetypes
 import os
 import pathlib
 from contextlib import contextmanager
@@ -8,14 +9,12 @@ from datetime import datetime
 from shutil import rmtree
 from typing import Any, BinaryIO, ContextManager, Iterator, TypeVar
 
-import magic
 from context import Context
 from pydantic import BaseModel, Field
 
 # from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
-mime = magic.Magic(mime=True)
 
 
 class DriveConfig(BaseModel):
@@ -59,8 +58,8 @@ class FileMetadata:
 
     @staticmethod
     def from_bytes(content: BinaryIO, filename: str, dir: str | None = None) -> "FileMetadata":
-        content_type = mime.from_buffer(content.read())
-        content.seek(0)
+        mime_type, _ = mimetypes.guess_type(filename)
+        content_type = mime_type or "application/octet-stream"
         size = len(content.read())
         return FileMetadata(filename=filename, dir=dir, content_type=content_type, size=size)
 
