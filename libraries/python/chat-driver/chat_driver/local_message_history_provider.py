@@ -45,12 +45,12 @@ class LocalMessageHistoryProvider:
         messages.append(message)
         self.messages_file.write_text(json.dumps(messages, indent=2))
 
+    # Additional methods.
+
     async def extend(self, messages: list[ChatCompletionMessageParam]) -> None:
         existing_messages = await self.get()
         existing_messages.extend(messages)
         self.messages_file.write_text(json.dumps(existing_messages, indent=2))
-
-    # Additional methods.
 
     async def set(self, messages: list[ChatCompletionMessageParam], vars: dict[str, Any]) -> None:
         self.messages_file.write_text(json.dumps(messages, indent=2))
