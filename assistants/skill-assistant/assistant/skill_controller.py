@@ -142,7 +142,6 @@ class AssistantRegistry:
             name="Assistant",
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                data_dir=data_dir / "assistant-chat-driver",
                 model=chat_driver_config.openai_model,
                 instructions=chat_driver_config.instructions,
             ),
@@ -156,7 +155,6 @@ class AssistantRegistry:
             mount_dir="/mnt/data",
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                data_dir=data_dir / "posix-skill-chat-driver",
                 model=chat_driver_config.openai_model,
             ),
         )

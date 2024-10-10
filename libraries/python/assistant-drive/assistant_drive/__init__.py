@@ -1,6 +1,7 @@
-from .drive import Drive, DriveConfig
+from .drive import Drive, DriveConfig, IfDriveFileExistsBehavior
 
 __all__ = [
     "Drive",
     "DriveConfig",
+    "IfDriveFileExistsBehavior",
 ]

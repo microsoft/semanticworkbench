@@ -6,7 +6,6 @@ from typing import Annotated, Any
 import docx2txt
 import pdfplumber
 from assistant_drive import Drive, DriveConfig
-from context import Context
 from openai.types import chat
 from pydantic import BaseModel, Field
 from semantic_workbench_api_model.workbench_model import File
@@ -234,9 +233,8 @@ def _get_attachment_drive(context: ConversationContext) -> Drive:
     """
     Get the Drive instance for the attachments.
     """
-    drive_context = Context(session_id=context.id)
-    drive_root = str(storage_directory_for_context(context) / "attachments")
-    return Drive(DriveConfig(context=drive_context, root=drive_root))
+    drive_root = storage_directory_for_context(context) / "attachments"
+    return Drive(DriveConfig(root=drive_root))
 
 
 async def _raw_content_from_file(context: ConversationContext, file: File) -> bytes:

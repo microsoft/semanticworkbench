@@ -1,8 +1,10 @@
-from io import BytesIO  # Import BytesIO
+from io import BytesIO
 
 import pytest
-from assistant_drive import Drive, DriveConfig
-from context import Context
+from assistant_drive import Drive
+from assistant_drive.drive import DriveConfig, IfDriveFileExistsBehavior
+
+# from context import Context
 from pydantic import BaseModel
 
 file_content = BytesIO(b"Hello, World!")  # Convert byte string to BytesIO
@@ -10,9 +12,7 @@ file_content = BytesIO(b"Hello, World!")  # Convert byte string to BytesIO
 
 @pytest.fixture
 def drive():
-    context: Context = Context(session_id="test_session")
-    config = DriveConfig(context=context)
-    drive = Drive(config)
+    drive = Drive(DriveConfig(root="./data/drive/test"))
     drive.delete()
 
     yield drive
@@ -20,9 +20,9 @@ def drive():
     drive.delete()
 
 
-def test_add_bytes_to_root(drive):
+def test_write_to_root(drive):
     # Add a file with a directory.
-    metadata = drive.add_bytes(file_content, "test.txt")
+    metadata = drive.write(file_content, "test.txt")
 
     assert metadata.filename == "test.txt"
     assert metadata.dir is None
@@ -34,8 +34,8 @@ def test_add_bytes_to_root(drive):
     assert list(drive.list()) == ["test.txt"]
 
 
-def test_add_bytes_to_directory(drive):
-    metadata = drive.add_bytes(file_content, "test.txt", "summaries")
+def test_write_to_directory(drive):
+    metadata = drive.write(file_content, "test.txt", "summaries")
 
     assert metadata.filename == "test.txt"
     assert metadata.dir == "summaries"
@@ -48,8 +48,8 @@ def test_add_bytes_to_directory(drive):
     assert list(drive.list(dir="summaries")) == ["test.txt"]
 
 
-def test_add_bytes_to_nested_directory(drive):
-    metadata = drive.add_bytes(file_content, "test.txt", "abc/summaries")
+def test_write_to_nested_directory(drive):
+    metadata = drive.write(file_content, "test.txt", "abc/summaries")
 
     assert metadata.filename == "test.txt"
     assert metadata.dir == "abc/summaries"
@@ -65,21 +65,21 @@ def test_add_bytes_to_nested_directory(drive):
 
 def test_exists(drive):
     assert not drive.file_exists("test.txt", "summaries")
-    drive.add_bytes(file_content, "test.txt", "summaries")
+    drive.write(file_content, "test.txt", "summaries")
     assert drive.file_exists("test.txt", "summaries")
 
 
 def test_open(drive):
-    drive.add_bytes(file_content, "test.txt", "summaries")
+    drive.write(file_content, "test.txt", "summaries")
     with drive.open_file("test.txt", "summaries") as f:
         assert f.read() == b"Hello, World!"
 
 
 def test_list(drive):
-    drive.add_bytes(file_content, "test.txt", "summaries")
+    drive.write(file_content, "test.txt", "summaries")
     assert list(drive.list(dir="summaries")) == ["test.txt"]
 
-    drive.add_bytes(file_content, "test2.txt", "summaries")
+    drive.write(file_content, "test2.txt", "summaries")
     assert sorted(list(drive.list(dir="summaries"))) == ["test.txt", "test2.txt"]
 
 
@@ -89,29 +89,35 @@ def test_open_non_existent_file(drive):
             f.read()
 
 
-def test_no_overwrite(drive):
-    drive.add_bytes(file_content, "test.txt", "summaries")
-    metadata = drive.add_bytes(file_content, "test.txt", "summaries")
+def test_auto_rename(drive, if_exists=IfDriveFileExistsBehavior.AUTO_RENAME):
+    drive.write(file_content, "test.txt", "summaries")
+    metadata = drive.write(file_content, "test.txt", "summaries")
     assert metadata.filename == "test(1).txt"
     assert sorted(list(drive.list(dir="summaries"))) == sorted(["test.txt", "test(1).txt"])
 
 
 def test_overwrite(drive):
-    drive.add_bytes(file_content, "test.txt", "summaries")
-    metadata = drive.add_bytes(BytesIO(b"XXX"), "test.txt", "summaries", overwrite=True)
+    drive.write(file_content, "test.txt", "summaries")
+    metadata = drive.write(BytesIO(b"XXX"), "test.txt", "summaries", if_exists=IfDriveFileExistsBehavior.OVERWRITE)
     assert metadata.filename == "test.txt"
     with drive.open_file("test.txt", "summaries") as f:
         assert f.read() == b"XXX"
     assert list(drive.list(dir="summaries")) == ["test.txt"]
 
 
+def test_fail(drive):
+    drive.write(file_content, "test.txt", "summaries")
+    with pytest.raises(FileExistsError):
+        drive.write(file_content, "test.txt", "summaries", if_exists=IfDriveFileExistsBehavior.FAIL)
+
+
 def test_delete(drive):
-    drive.add_bytes(file_content, "test.txt", "summaries")
+    drive.write(file_content, "test.txt", "summaries")
     drive.delete(dir="summaries", filename="test.txt")
     assert list(drive.list(dir="summaries")) == []
 
     # Add a file with the same name but overwrite.
-    metadata = drive.add_bytes(file_content, "test.txt", "summaries", overwrite=True)
+    metadata = drive.write(file_content, "test.txt", "summaries", if_exists=IfDriveFileExistsBehavior.OVERWRITE)
     assert metadata.filename == "test.txt"
     assert sorted(list(drive.list(dir="summaries"))) == sorted(["test.txt"])
 
@@ -119,8 +125,8 @@ def test_delete(drive):
 
 
 def test_open_files_multiple_files(drive) -> None:
-    drive.add_bytes(file_content, "test.txt", "summaries")
-    drive.add_bytes(file_content, "test2.txt", "summaries")
+    drive.write(file_content, "test.txt", "summaries")
+    drive.write(file_content, "test2.txt", "summaries")
 
     files = list(drive.open_files("summaries"))
     assert len(files) == 2
