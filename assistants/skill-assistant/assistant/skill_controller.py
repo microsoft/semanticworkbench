@@ -4,9 +4,8 @@ from pathlib import Path
 
 import openai_client
 from chat_driver import ChatDriverConfig
-from events import events as skill_events
 from document_skill import DocumentSkill
-
+from events import events as skill_events
 from posix_skill import PosixSkill
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
@@ -143,7 +142,6 @@ class AssistantRegistry:
             name="Assistant",
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                data_dir=data_dir / "assistant-chat-driver",
                 model=chat_driver_config.openai_model,
                 instructions=chat_driver_config.instructions,
             ),
@@ -157,7 +155,6 @@ class AssistantRegistry:
             mount_dir="/mnt/data",
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                data_dir=data_dir / "posix-skill-chat-driver",
                 model=chat_driver_config.openai_model,
             ),
         )

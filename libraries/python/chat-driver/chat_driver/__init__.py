@@ -2,13 +2,18 @@
 # the chat_driver package.
 from context import Context, ContextProtocol
 
+from .local_message_history_provider import LocalMessageHistoryProvider, LocalMessageHistoryProviderConfig
+from .message_history_provider import MessageHistoryProviderProtocol
 from .openai_chat_completion_driver import TEXT_RESPONSE_FORMAT, ChatDriver, ChatDriverConfig, ResponseFormat
 
 __all__ = [
-    "Context",
-    "ContextProtocol",
     "ChatDriver",
     "ChatDriverConfig",
-    "TEXT_RESPONSE_FORMAT",
+    "Context",
+    "ContextProtocol",
+    "LocalMessageHistoryProvider",
+    "LocalMessageHistoryProviderConfig",
+    "MessageHistoryProviderProtocol",
     "ResponseFormat",
+    "TEXT_RESPONSE_FORMAT",
 ]

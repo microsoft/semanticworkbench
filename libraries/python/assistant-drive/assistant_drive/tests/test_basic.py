@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 from assistant_drive import Drive
-from assistant_drive.drive import DriveConfig, IfExistsBehavior
+from assistant_drive.drive import DriveConfig, IfDriveFileExistsBehavior
 
 # from context import Context
 from pydantic import BaseModel
@@ -89,7 +89,7 @@ def test_open_non_existent_file(drive):
             f.read()
 
 
-def test_auto_rename(drive, if_exists=IfExistsBehavior.AUTO_RENAME):
+def test_auto_rename(drive, if_exists=IfDriveFileExistsBehavior.AUTO_RENAME):
     drive.write(file_content, "test.txt", "summaries")
     metadata = drive.write(file_content, "test.txt", "summaries")
     assert metadata.filename == "test(1).txt"
@@ -98,7 +98,7 @@ def test_auto_rename(drive, if_exists=IfExistsBehavior.AUTO_RENAME):
 
 def test_overwrite(drive):
     drive.write(file_content, "test.txt", "summaries")
-    metadata = drive.write(BytesIO(b"XXX"), "test.txt", "summaries", if_exists=IfExistsBehavior.OVERWRITE)
+    metadata = drive.write(BytesIO(b"XXX"), "test.txt", "summaries", if_exists=IfDriveFileExistsBehavior.OVERWRITE)
     assert metadata.filename == "test.txt"
     with drive.open_file("test.txt", "summaries") as f:
         assert f.read() == b"XXX"
@@ -108,7 +108,7 @@ def test_overwrite(drive):
 def test_fail(drive):
     drive.write(file_content, "test.txt", "summaries")
     with pytest.raises(FileExistsError):
-        drive.write(file_content, "test.txt", "summaries", if_exists=IfExistsBehavior.FAIL)
+        drive.write(file_content, "test.txt", "summaries", if_exists=IfDriveFileExistsBehavior.FAIL)
 
 
 def test_delete(drive):
@@ -117,7 +117,7 @@ def test_delete(drive):
     assert list(drive.list(dir="summaries")) == []
 
     # Add a file with the same name but overwrite.
-    metadata = drive.write(file_content, "test.txt", "summaries", if_exists=IfExistsBehavior.OVERWRITE)
+    metadata = drive.write(file_content, "test.txt", "summaries", if_exists=IfDriveFileExistsBehavior.OVERWRITE)
     assert metadata.filename == "test.txt"
     assert sorted(list(drive.list(dir="summaries"))) == sorted(["test.txt"])
 
