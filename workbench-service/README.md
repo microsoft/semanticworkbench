@@ -6,7 +6,7 @@ The Semantic Workbench service consists of several key components that interact 
 
 **Workbench Service**: A backend Python service that handles state management, user interactions, and assists in broker functionalities.
 
-[**Workbench App**](../workbench-app/): A single-page web application written in TypeScript and React, compiled into static HTML that runs in the user’s browser.
+[**Workbench App**](../workbench-app): A single-page web application written in TypeScript and React, compiled into static HTML that runs in the user’s browser.
 
 **FastAPI Framework**: Utilized for the HTTP API, providing endpoints and continuous communication between the Workbench and assistants.
 
