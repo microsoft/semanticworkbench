@@ -105,7 +105,7 @@ class Assistant(SQLModel, table=True):
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_owner: User = Relationship()
     related_assistant_service_registration: sqlalchemy.orm.Mapped[AssistantServiceRegistration] = Relationship(
-        sa_relationship_kwargs={"lazy": "selectin"},
+        sa_relationship_kwargs={"lazy": "joined"},
     )
 
     def on_update(self, session: Session) -> None:
