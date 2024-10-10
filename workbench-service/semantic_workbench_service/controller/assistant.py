@@ -32,6 +32,7 @@ from semantic_workbench_api_model.workbench_model import (
     NewAssistant,
     UpdateAssistant,
 )
+from sqlalchemy.orm import joinedload
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -128,7 +129,11 @@ class AssistantController:
     async def forward_event_to_assistant(self, assistant_id: uuid.UUID, event: ConversationEvent) -> None:
         async with self._get_session() as session:
             assistant = (
-                await session.exec(select(db.Assistant).where(db.Assistant.assistant_id == assistant_id))
+                await session.exec(
+                    select(db.Assistant)
+                    .where(db.Assistant.assistant_id == assistant_id)
+                    .options(joinedload(db.Assistant.related_assistant_service_registration, innerjoin=True))
+                )
             ).one()
 
         try:
