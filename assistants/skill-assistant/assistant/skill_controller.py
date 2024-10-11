@@ -14,7 +14,6 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
-    storage_directory_for_context,
 )
 from skill_library import Assistant
 
@@ -135,8 +134,6 @@ class AssistantRegistry:
             )
             return
 
-        data_dir = storage_directory_for_context(conversation_context)
-
         # Create the assistant.
         assistant = Assistant(
             name="Assistant",
@@ -163,7 +160,6 @@ class AssistantRegistry:
             context=assistant.context,
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
-                data_dir=data_dir / "document-skill-chat-driver",
                 model=chat_driver_config.openai_model,
             ),
         )
