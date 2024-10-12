@@ -52,7 +52,7 @@ class AzureSpeechSettings(BaseSettings):
     )
 
     resource_id: str = ""
-    region: str = "westus2"
+    region: str = ""
 
 
 class Settings(BaseSettings):
