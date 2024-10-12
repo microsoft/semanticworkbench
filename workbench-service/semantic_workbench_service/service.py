@@ -89,6 +89,8 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
+from semantic_workbench_service import azure_speech
+
 from . import assistant_api_key, auth, controller, db, files, middleware, settings
 from .event import ConversationEventQueueItem
 
@@ -1056,3 +1058,7 @@ def init(
             user_principal=user_principal,
             workflow_run_id=workflow_run_id,
         )
+
+    @app.get("/azure-speech/service-access")
+    async def get_azure_speech_service_access() -> dict[str, str]:
+        return azure_speech.get_service_access()

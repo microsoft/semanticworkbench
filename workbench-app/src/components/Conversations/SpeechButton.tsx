@@ -6,7 +6,7 @@ import debug from 'debug';
 import * as speechSdk from 'microsoft-cognitiveservices-speech-sdk';
 import React from 'react';
 import { Constants } from '../../Constants';
-import { useAppSelector } from '../../redux/app/hooks';
+import { useGetAzureSpeechServiceAccessQuery } from '../../services/workbench/azureSpeech';
 
 const log = debug(Constants.debug.root).extend('SpeechButton');
 
@@ -19,16 +19,28 @@ interface SpeechButtonProps {
 
 export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
     const { disabled, onListeningChange, onSpeechRecognizing, onSpeechRecognized } = props;
-    const { speechKey, speechRegion } = useAppSelector((state) => state.settings);
+    const {
+        data: azureSpeechServiceAccess,
+        error: azureSpeechServiceAccessError,
+        isLoading: isAzureSpeechServiceAccessLoading,
+    } = useGetAzureSpeechServiceAccessQuery();
     const [recognizer, setRecognizer] = React.useState<speechSdk.SpeechRecognizer>();
     const [isListening, setIsListening] = React.useState(false);
     const [lastSpeechResultTimestamp, setLastSpeechResultTimestamp] = React.useState(0);
 
+    if (azureSpeechServiceAccessError) {
+        log('Failed to get Azure Speech service access', azureSpeechServiceAccessError);
+    }
+
     React.useEffect(() => {
         if (recognizer) return;
-        if (!speechKey || !speechRegion) return;
+        if (isAzureSpeechServiceAccessLoading || !azureSpeechServiceAccess?.token || !azureSpeechServiceAccess.region)
+            return;
 
-        const speechConfig = speechSdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
+        const speechConfig = speechSdk.SpeechConfig.fromAuthorizationToken(
+            azureSpeechServiceAccess.token,
+            azureSpeechServiceAccess.region,
+        );
         speechConfig.outputFormat = speechSdk.OutputFormat.Detailed;
         const speechRecognizer = new speechSdk.SpeechRecognizer(speechConfig);
 
@@ -87,7 +99,13 @@ export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
         };
 
         setRecognizer(speechRecognizer);
-    }, [onSpeechRecognized, onSpeechRecognizing, recognizer, speechKey, speechRegion]);
+    }, [
+        onSpeechRecognized,
+        onSpeechRecognizing,
+        recognizer,
+        azureSpeechServiceAccess,
+        isAzureSpeechServiceAccessLoading,
+    ]);
 
     React.useEffect(() => {
         onListeningChange(isListening);
@@ -118,25 +136,19 @@ export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
         return () => clearInterval(interval);
     }, [isListening, lastSpeechResultTimestamp, stopListening]);
 
-    const speechButton = (
-        <Button
-            appearance="transparent"
-            // should ignore the disabled prop when isListening is true so that
-            // the button can still be clicked to stop listening
-            disabled={(!isListening && disabled) || !recognizer}
-            style={{ color: isListening ? 'red' : undefined }}
-            icon={<Mic20Regular color={isListening ? 'green' : undefined} />}
-            onClick={isListening ? stopListening : recognizeContinuously}
-        />
-    );
+    if (!recognizer) return null;
 
-    return recognizer ? (
+    return (
         <Tooltip content={isListening ? 'Click to stop listening.' : 'Click to start listening.'} relationship="label">
-            {speechButton}
-        </Tooltip>
-    ) : (
-        <Tooltip content="Enable speech in settings" relationship="label">
-            {speechButton}
+            <Button
+                appearance="transparent"
+                // should ignore the disabled prop when isListening is true so that
+                // the button can still be clicked to stop listening
+                disabled={(!isListening && disabled) || !recognizer}
+                style={{ color: isListening ? 'red' : undefined }}
+                icon={<Mic20Regular color={isListening ? 'green' : undefined} />}
+                onClick={isListening ? stopListening : recognizeContinuously}
+            />
         </Tooltip>
     );
 };

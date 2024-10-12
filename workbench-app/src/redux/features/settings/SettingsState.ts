@@ -3,7 +3,4 @@
 export interface SettingsState {
     theme?: string;
     environmentId?: string;
-    openAIApiKey?: string;
-    speechKey?: string;
-    speechRegion?: string;
 }

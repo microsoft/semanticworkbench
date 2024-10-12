@@ -17,8 +17,6 @@ const initialState: SettingsState = {
     environmentId:
         AppStorage.getInstance().loadObject<string>(storageKeys.environmentId) ??
         Constants.service.defaultEnvironmentId,
-    speechKey: AppStorage.getInstance().loadObject<string>(storageKeys.speechKey),
-    speechRegion: AppStorage.getInstance().loadObject<string>(storageKeys.speechRegion),
 };
 
 export const settingsSlice = createSlice({
@@ -41,17 +39,9 @@ export const settingsSlice = createSlice({
                 window.location.reload();
             }
         },
-        setSpeechKey: (state: SettingsState, action: PayloadAction<string>) => {
-            AppStorage.getInstance().saveObject(storageKeys.speechKey, action.payload);
-            state.speechKey = action.payload;
-        },
-        setSpeechRegion: (state: SettingsState, action: PayloadAction<string>) => {
-            AppStorage.getInstance().saveObject(storageKeys.speechRegion, action.payload);
-            state.speechRegion = action.payload;
-        },
     },
 });
 
-export const { setTheme, setEnvironmentId, setSpeechKey, setSpeechRegion } = settingsSlice.actions;
+export const { setTheme, setEnvironmentId } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
