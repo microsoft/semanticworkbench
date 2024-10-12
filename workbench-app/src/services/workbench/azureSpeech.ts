@@ -1,16 +1,14 @@
-import { AzureSpeechServiceAccess } from '../../models/AzureSpeechServiceAccess';
+import { AzureSpeechToken } from '../../models/AzureSpeechToken';
 import { workbenchApi } from './workbench';
 
 export const azureSpeechApi = workbenchApi.injectEndpoints({
     endpoints: (builder) => ({
-        getAzureSpeechServiceToken: builder.query<string, void>({
+        getAzureSpeechServiceToken: builder.query<AzureSpeechToken, void>({
             query: () => '/azure-speech/token',
-        }),
-        getAzureSpeechServiceAccess: builder.query<AzureSpeechServiceAccess, void>({
-            query: () => '/azure-speech/service-access',
+            providesTags: ['AzureSpeechServiceToken'],
         }),
     }),
     overrideExisting: false,
 });
 
-export const { useGetAzureSpeechServiceTokenQuery, useGetAzureSpeechServiceAccessQuery } = azureSpeechApi;
+export const { useGetAzureSpeechServiceTokenQuery } = azureSpeechApi;

@@ -6,7 +6,8 @@ import debug from 'debug';
 import * as speechSdk from 'microsoft-cognitiveservices-speech-sdk';
 import React from 'react';
 import { Constants } from '../../Constants';
-import { useGetAzureSpeechServiceAccessQuery } from '../../services/workbench/azureSpeech';
+import { workbenchApi } from '../../services/workbench';
+import { useGetAzureSpeechServiceTokenQuery } from '../../services/workbench/azureSpeech';
 
 const log = debug(Constants.debug.root).extend('SpeechButton');
 
@@ -20,26 +21,39 @@ interface SpeechButtonProps {
 export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
     const { disabled, onListeningChange, onSpeechRecognizing, onSpeechRecognized } = props;
     const {
-        data: azureSpeechServiceAccess,
-        error: azureSpeechServiceAccessError,
-        isLoading: isAzureSpeechServiceAccessLoading,
-    } = useGetAzureSpeechServiceAccessQuery();
+        data: azureSpeechServiceToken,
+        error: azureSpeechServiceTokenError,
+        isLoading: isAzureSpeechServiceTokenLoading,
+        refetch: refetchAzureSpeechServiceToken,
+    } = useGetAzureSpeechServiceTokenQuery();
     const [recognizer, setRecognizer] = React.useState<speechSdk.SpeechRecognizer>();
     const [isListening, setIsListening] = React.useState(false);
     const [lastSpeechResultTimestamp, setLastSpeechResultTimestamp] = React.useState(0);
 
-    if (azureSpeechServiceAccessError) {
-        log('Failed to get Azure Speech service access', azureSpeechServiceAccessError);
+    if (azureSpeechServiceTokenError) {
+        log('Failed to get Azure Speech token', azureSpeechServiceTokenError);
     }
 
     React.useEffect(() => {
+        if (isAzureSpeechServiceTokenLoading) return;
+        if (!azureSpeechServiceToken?.token || !azureSpeechServiceToken?.region) return;
+
+        const timer = setTimeout(() => {
+            // Invalidate the token after the refresh interval to force a new token to be fetched
+            workbenchApi.util.invalidateTags(['AzureSpeechServiceToken']);
+        }, Constants.app.azureSpeechTokenRefreshIntervalMs);
+
+        return () => clearTimeout(timer);
+    }, [azureSpeechServiceToken?.region, azureSpeechServiceToken?.token, isAzureSpeechServiceTokenLoading]);
+
+    React.useEffect(() => {
         if (recognizer) return;
-        if (isAzureSpeechServiceAccessLoading || !azureSpeechServiceAccess?.token || !azureSpeechServiceAccess.region)
+        if (isAzureSpeechServiceTokenLoading || !azureSpeechServiceToken?.token || !azureSpeechServiceToken.region)
             return;
 
         const speechConfig = speechSdk.SpeechConfig.fromAuthorizationToken(
-            azureSpeechServiceAccess.token,
-            azureSpeechServiceAccess.region,
+            azureSpeechServiceToken.token,
+            azureSpeechServiceToken.region,
         );
         speechConfig.outputFormat = speechSdk.OutputFormat.Detailed;
         const speechRecognizer = new speechSdk.SpeechRecognizer(speechConfig);
@@ -103,8 +117,8 @@ export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
         onSpeechRecognized,
         onSpeechRecognizing,
         recognizer,
-        azureSpeechServiceAccess,
-        isAzureSpeechServiceAccessLoading,
+        azureSpeechServiceToken,
+        isAzureSpeechServiceTokenLoading,
     ]);
 
     React.useEffect(() => {
@@ -119,10 +133,19 @@ export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
     }, [isListening, recognizer]);
 
     // Call this function to start the speech recognizer to recognize speech continuously until stopped
-    const recognizeContinuously = React.useCallback(() => {
-        if (isListening) return;
-        recognizer?.startContinuousRecognitionAsync();
-    }, [isListening, recognizer]);
+    const recognizeContinuously = React.useCallback(async () => {
+        if (isListening || !recognizer) return;
+
+        let token = azureSpeechServiceToken?.token;
+        if (!azureSpeechServiceToken?.token) {
+            token = (await refetchAzureSpeechServiceToken()).data?.token;
+        }
+        if (!token) return;
+
+        // Use the latest token
+        recognizer.authorizationToken = token;
+        recognizer.startContinuousRecognitionAsync();
+    }, [isListening, recognizer, azureSpeechServiceToken?.token, refetchAzureSpeechServiceToken]);
 
     // check if the last speech result is too old, if so, stop listening
     React.useEffect(() => {

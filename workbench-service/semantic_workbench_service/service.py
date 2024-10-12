@@ -1059,6 +1059,6 @@ def init(
             workflow_run_id=workflow_run_id,
         )
 
-    @app.get("/azure-speech/service-access")
-    async def get_azure_speech_service_access() -> dict[str, str]:
-        return azure_speech.get_service_access()
+    @app.get("/azure-speech/token")
+    async def get_azure_speech_token() -> dict[str, str]:
+        return azure_speech.get_token()

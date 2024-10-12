@@ -9,11 +9,12 @@ export const Constants = {
         minChatWidthPercent: 20,
         defaultChatWidthPercent: 33,
         maxFileAttachmentsPerMessage: 10,
-        speechIdleTimeoutMs: 2000,
         loaderDelayMs: 100,
         responsiveBreakpoints: {
             interactCanvas: '900px',
         },
+        speechIdleTimeoutMs: 4000,
+        azureSpeechTokenRefreshIntervalMs: 540000, // 540000 ms = 9 minutes
     },
     workflow: {
         maxOutlets: 5,
