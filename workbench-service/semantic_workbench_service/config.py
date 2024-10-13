@@ -46,6 +46,15 @@ class WorkflowSettings(BaseSettings):
     azure_openai_api_version: str = "2023-05-15"
 
 
+class AzureSpeechSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="azure_speech__", env_nested_delimiter="_", env_file=".env", extra="allow"
+    )
+
+    resource_id: str = ""
+    region: str = ""
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="workbench__", env_nested_delimiter="__", env_file=".env", extra="allow"
@@ -56,6 +65,7 @@ class Settings(BaseSettings):
     logging: LoggingSettings = LoggingSettings()
     service: WebServiceSettings = WebServiceSettings()
     workflow: WorkflowSettings = WorkflowSettings()
+    azure_speech: AzureSpeechSettings = AzureSpeechSettings()
     auth: AuthSettings = AuthSettings()
 
 

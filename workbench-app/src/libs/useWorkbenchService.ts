@@ -126,6 +126,12 @@ export const useWorkbenchService = () => {
         };
     };
 
+    const getAzureSpeechTokenAsync = async (): Promise<{ token: string; region: string }> => {
+        const response = await tryFetchAsync('Get Azure Speech token', `${environment.url}/azure-speech/token`);
+        const json = await response.json();
+        return { token: json.token, region: json.region };
+    };
+
     const downloadConversationFileAsync = async (
         conversationId: string,
         conversationFile: ConversationFile,
@@ -234,6 +240,7 @@ export const useWorkbenchService = () => {
     };
 
     return {
+        getAzureSpeechTokenAsync,
         downloadConversationFileAsync,
         exportConversationsAsync,
         importConversationsAsync,
