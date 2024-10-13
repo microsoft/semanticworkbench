@@ -54,7 +54,6 @@ export const workbenchApi = createApi({
     tagTypes: [
         'AssistantServiceRegistration',
         'AssistantServiceInfo',
-        'AzureSpeechServiceToken',
         'Assistant',
         'Conversation',
         'ConversationShare',
