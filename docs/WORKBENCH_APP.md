@@ -146,6 +146,20 @@ You can choose to invite participants to engage in the conversation or provide t
 
 ![Share Conversation Dialog](images/conversation_share_dialog.png)
 
+### Copying conversations
+When you provide someone with a link to copy a conversation it will copy the conversation, all associated data, and an assistant configured the same as the one in the conversation. This copy occurs from when they follow the link. So if you create a copy link, share it, and then continue the conversation and add more documents the following can happen and is by design:
+* First person follows the link immediately, they do not get the continued conversation and data you added later.
+* Second person follows the link later, they get the additional messages and data you added before they followed the link.
+
+### Duplicating conversation
+From the conversation list you can also duplicate them. This is useful for experimenting with taking conversations in different directions, or using one as a common base for further explorations. 
+
+![Duplicate Conversation](images/conversation_duplicate.png)
+
+Note that this will also copy the assistant instance the conversation is a part of as there is some state associated between the assistant and the conversation.
+
+### Exporting and importing conversations
+
 You can also export conversations for later use and import them back into the workbench. From the conversation menu, select the export option to save the conversation data to your local device. To import a conversation, use the import option on the dashboard and upload the saved data.
 
 ![Open Conversation Canvas](images/conversation_canvas_open.png)
