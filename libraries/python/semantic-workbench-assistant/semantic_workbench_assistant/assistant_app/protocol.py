@@ -30,8 +30,10 @@ class AssistantConversationInspectorStateDataModel:
 
 
 class ReadOnlyAssistantConversationInspectorStateProvider(Protocol):
-    display_name: str
-    description: str
+    @property
+    def display_name(self) -> str: ...
+    @property
+    def description(self) -> str: ...
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel: ...
 
@@ -225,14 +227,35 @@ class ContentInterceptor(Protocol):
 
 
 class AssistantAppProtocol(Protocol):
-    _assistant_service_id: str
-    _assistant_service_name: str
-    _assistant_service_description: str
+    @property
+    def events(self) -> Events: ...
 
-    _config_provider: AssistantConfigProvider
-    _data_exporter: AssistantDataExporter
-    _conversation_data_exporter: ConversationDataExporter
-    _inspector_state_providers: Mapping[str, AssistantConversationInspectorStateProvider]
-    _content_interceptor: ContentInterceptor | None
+    @property
+    def assistant_service_id(self) -> str: ...
 
-    events: Events
+    @property
+    def assistant_service_name(self) -> str: ...
+
+    @property
+    def assistant_service_description(self) -> str: ...
+
+    @property
+    def config_provider(self) -> AssistantConfigProvider: ...
+
+    @property
+    def data_exporter(self) -> AssistantDataExporter: ...
+
+    @property
+    def conversation_data_exporter(self) -> ConversationDataExporter: ...
+
+    @property
+    def content_interceptor(self) -> ContentInterceptor | None: ...
+
+    @property
+    def inspector_state_providers(self) -> Mapping[str, AssistantConversationInspectorStateProvider]: ...
+
+    def add_inspector_state_provider(
+        self,
+        state_id: str,
+        provider: AssistantConversationInspectorStateProvider,
+    ) -> None: ...

@@ -1,13 +1,13 @@
 from typing import Annotated
 
 import openai_client
+from assistant_extensions.attachments import AttachmentsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import UISchema
 
 from . import helpers
 from .agents.artifact_agent import ArtifactAgentConfigModel
-from .agents.attachment_agent import AttachmentAgentConfigModel
 from .agents.guided_conversation.config import GuidedConversationAgentConfigModel
 from .agents.skills_agent import SkillsAgentConfigModel
 
@@ -36,12 +36,12 @@ class AgentsConfigModel(BaseModel):
     ] = ArtifactAgentConfigModel()
 
     attachment_agent: Annotated[
-        AttachmentAgentConfigModel,
+        AttachmentsConfigModel,
         Field(
             title="Attachment Agent Configuration",
             description="Configuration for the attachment agent.",
         ),
-    ] = AttachmentAgentConfigModel()
+    ] = AttachmentsConfigModel()
 
     guided_conversation_agent: Annotated[
         GuidedConversationAgentConfigModel,
