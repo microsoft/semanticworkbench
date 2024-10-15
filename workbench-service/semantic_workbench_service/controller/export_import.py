@@ -175,6 +175,11 @@ async def import_files(session: AsyncSession, owner_id: str, files: Iterable[IO[
                 # user participants should always be inactive on import
                 participant.active_participant = False
                 participant.status = None
+
+                await db.insert_if_not_exists(
+                    session, db.User(user_id=participant.user_id, name="unknown imported user", service_user=False)
+                )
+
                 session.add(participant)
 
             case db.Conversation.__name__:

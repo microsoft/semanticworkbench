@@ -31,4 +31,4 @@ class Attachment(BaseModel):
     filename: str
     content: str
     metadata: dict[str, Any]
-    updated_datetime: datetime.datetime = Field(default=datetime.datetime.min)
+    updated_datetime: datetime.datetime = Field(default=datetime.datetime.fromtimestamp(0, datetime.timezone.utc))
