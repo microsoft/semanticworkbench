@@ -6,6 +6,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from typing import (
     IO,
     Annotated,
+    Any,
     AsyncContextManager,
     AsyncGenerator,
     AsyncIterator,
@@ -67,10 +68,12 @@ class FastAPIAssistantService(ABC):
         service_name: str,
         service_description: str,
         register_lifespan_handler: Callable[[Callable[[], AsyncContextManager[None]]], None],
+        service_metadata: dict[str, Any] = {},
     ) -> None:
         self._service_id = service_id
         self._service_name = service_name
         self._service_description = service_description
+        self._service_metadata = service_metadata
 
         @asynccontextmanager
         async def lifespan() -> AsyncIterator[None]:
@@ -177,6 +180,10 @@ class FastAPIAssistantService(ABC):
             if settings.assistant_service_description is not None
             else self._service_description
         )
+
+    @property
+    def service_metadata(self) -> dict[str, Any]:
+        return self._service_metadata
 
     @property
     def workbench_client(self) -> workbench_service_client.WorkbenchServiceClientBuilder:

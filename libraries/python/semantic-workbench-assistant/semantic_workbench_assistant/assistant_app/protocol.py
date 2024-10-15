@@ -240,6 +240,9 @@ class AssistantAppProtocol(Protocol):
     def assistant_service_description(self) -> str: ...
 
     @property
+    def assistant_service_metadata(self) -> dict[str, Any]: ...
+
+    @property
     def config_provider(self) -> AssistantConfigProvider: ...
 
     @property

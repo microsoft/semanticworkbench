@@ -123,6 +123,7 @@ class AssistantService(FastAPIAssistantService):
             service_id=self.assistant_app.assistant_service_id,
             service_name=self.assistant_app.assistant_service_name,
             service_description=self.assistant_app.assistant_service_description,
+            service_metadata=self.assistant_app.assistant_service_metadata,
             register_lifespan_handler=register_lifespan_handler,
         )
 
@@ -230,6 +231,7 @@ class AssistantService(FastAPIAssistantService):
                 json_schema=default_config.json_schema,
                 ui_schema=default_config.ui_schema,
             ),
+            metadata=self.service_metadata,
         )
 
     @translate_assistant_errors

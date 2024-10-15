@@ -1,4 +1,5 @@
 from typing import (
+    Any,
     Mapping,
 )
 
@@ -31,6 +32,7 @@ class AssistantApp:
         assistant_service_id: str,
         assistant_service_name: str,
         assistant_service_description: str,
+        assistant_service_metadata: dict[str, Any] = {},
         config_provider: AssistantConfigProvider = BaseModelAssistantConfig(EmptyConfigModel).provider,
         data_exporter: AssistantDataExporter = FileStorageAssistantDataExporter(),
         conversation_data_exporter: ConversationDataExporter = FileStorageConversationDataExporter(),
@@ -40,6 +42,7 @@ class AssistantApp:
         self.assistant_service_id = assistant_service_id
         self.assistant_service_name = assistant_service_name
         self.assistant_service_description = assistant_service_description
+        self.assistant_service_metadata = assistant_service_metadata
 
         self.config_provider = config_provider
         self.data_exporter = data_exporter
