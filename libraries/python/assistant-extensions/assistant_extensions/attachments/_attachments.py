@@ -145,7 +145,7 @@ class AttachmentsExtension:
             exclude_filenames=exclude_filenames,
         )
 
-        if attachments:
+        if not attachments:
             return []
 
         messages: list[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam] = [
