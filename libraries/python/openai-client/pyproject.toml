@@ -10,6 +10,7 @@ dependencies = [
     "azure-core[aio]>=1.30.0",
     "azure-identity>=1.17.1",
     "openai>=1.3.9",
+    "tiktoken>=0.7.0",
     "semantic-workbench-assistant>=0.1.0",
 ]
 

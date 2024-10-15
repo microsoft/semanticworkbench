@@ -127,44 +127,36 @@ name = "assistant"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "assistant-drive" },
+    { name = "assistant-extensions", extra = ["attachments"] },
     { name = "chat-driver" },
     { name = "content-safety" },
     { name = "deepmerge" },
     { name = "document-skill" },
-    { name = "docx2txt" },
     { name = "guided-conversation" },
     { name = "html2docx" },
     { name = "markdown" },
     { name = "openai" },
     { name = "openai-client" },
-    { name = "pdfplumber" },
     { name = "posix-skill" },
     { name = "prospector-skill" },
-    { name = "semantic-workbench-assistant" },
     { name = "skill-library" },
-    { name = "tiktoken" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
+    { name = "assistant-extensions", extras = ["attachments"], editable = "../../libraries/python/assistant-extensions" },
     { name = "chat-driver", editable = "../../libraries/python/chat-driver" },
     { name = "content-safety", editable = "../../libraries/python/content-safety" },
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "document-skill", editable = "../../libraries/python/skills/skills/document-skill" },
-    { name = "docx2txt", specifier = ">=0.8" },
     { name = "guided-conversation", editable = "../../libraries/python/guided-conversation" },
     { name = "html2docx", specifier = ">=1.6.0" },
     { name = "markdown", specifier = ">=3.6" },
     { name = "openai", specifier = ">=1.3.9" },
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
-    { name = "pdfplumber", specifier = ">=0.11.2" },
     { name = "posix-skill", editable = "../../libraries/python/skills/skills/posix-skill" },
     { name = "prospector-skill", editable = "../../libraries/python/skills/skills/prospector-skill" },
-    { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
     { name = "skill-library", editable = "../../libraries/python/skills/skill-library" },
-    { name = "tiktoken", specifier = ">=0.7.0" },
 ]
 
 [[package]]
@@ -191,6 +183,29 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.23.8" },
     { name = "pytest-repeat", specifier = ">=0.9.3" },
     { name = "ruff", specifier = ">=0.6.4" },
+]
+
+[[package]]
+name = "assistant-extensions"
+version = "0.1.0"
+source = { editable = "../../libraries/python/assistant-extensions" }
+dependencies = [
+    { name = "assistant-drive" },
+    { name = "semantic-workbench-assistant" },
+]
+
+[package.optional-dependencies]
+attachments = [
+    { name = "docx2txt" },
+    { name = "pdfplumber" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
+    { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
+    { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
+    { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
 ]
 
 [[package]]
@@ -1238,6 +1253,7 @@ dependencies = [
     { name = "azure-identity" },
     { name = "openai" },
     { name = "semantic-workbench-assistant" },
+    { name = "tiktoken" },
 ]
 
 [package.metadata]
@@ -1247,6 +1263,7 @@ requires-dist = [
     { name = "azure-identity", specifier = ">=1.17.1" },
     { name = "openai", specifier = ">=1.3.9" },
     { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
+    { name = "tiktoken", specifier = ">=0.7.0" },
 ]
 
 [[package]]

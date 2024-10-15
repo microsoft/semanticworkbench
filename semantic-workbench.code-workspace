@@ -68,6 +68,10 @@
       "path": "libraries/python/assistant-drive"
     },
     {
+      "name": "libraries:assistant-extensions",
+      "path": "libraries/python/assistant-extensions"
+    },
+    {
       "name": "libraries:chat-driver",
       "path": "libraries/python/chat-driver"
     },

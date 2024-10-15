@@ -312,6 +312,9 @@ async def test_assistant_with_state_exporter(
             id=str(conversation_id),
             title="My conversation",
             assistant=mock.ANY,
+            _status_lock=mock.ANY,
+            _status_stack=mock.ANY,
+            _prior_status=mock.ANY,
         )
 
         assert state_exporter.data == import_bytes
@@ -326,6 +329,9 @@ async def test_assistant_with_state_exporter(
             id=str(conversation_id),
             title="My conversation",
             assistant=mock.ANY,
+            _status_lock=mock.ANY,
+            _status_stack=mock.ANY,
+            _prior_status=mock.ANY,
         )
 
         assert bytes_out == import_bytes
