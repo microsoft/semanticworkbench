@@ -1,4 +1,5 @@
 import logging
+from os import path
 from typing import Any, Callable
 
 import deepmerge
@@ -16,7 +17,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
-    #    storage_directory_for_context,
+    storage_directory_for_context,
 )
 
 from ..config import AssistantConfigModel
@@ -56,12 +57,12 @@ class DocumentAgent:
         command_found = False
         for command in self.commands:
             if command.__name__ == msg_command_name:
-                print(f"Found command {message.command_name}")
+                logger.info(f"Found command {message.command_name}")
                 command_found = True
                 await command(config, context, message, metadata)  # TO DO, handle commands with args
                 break
         if not command_found:
-            print(f"Could not find command {message.command_name}")
+            logger.warning(f"Could not find command {message.command_name}")
 
     async def draft_outline(
         self,
@@ -83,13 +84,20 @@ class DocumentAgent:
             context, config=config.agents_config.attachment_agent
         )
 
+        # get outline related info
+        outline: str | None = None
+        if path.exists(storage_directory_for_context(context) / "outline.txt"):
+            outline = (storage_directory_for_context(context) / "outline.txt").read_text()
+
         # create chat completion messages
         chat_completion_messages: list[ChatCompletionMessageParam] = []
-        _add_main_system_message(chat_completion_messages, draft_outline_main_system_message)
-        _add_chat_history_system_message(
-            chat_completion_messages, conversation.messages, participants_list.participants
+        chat_completion_messages.append(_main_system_message())
+        chat_completion_messages.append(
+            _chat_history_system_message(conversation.messages, participants_list.participants)
         )
         chat_completion_messages.extend(attachment_messages)
+        if outline is not None:
+            chat_completion_messages.append(_outline_system_message(outline))
 
         # make completion call to openai
         async with openai_client.create_client(config.service_config) as client:
@@ -110,6 +118,9 @@ class DocumentAgent:
                     "View the debug inspector for more information."
                 )
                 _on_error_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, e)
+
+        # store only latest version for now (will keep all versions later as need arises)
+        (storage_directory_for_context(context) / "outline.txt").write_text(content)
 
         # send the response to the conversation
         message_type = MessageType.chat
@@ -132,16 +143,15 @@ class DocumentAgent:
 #
 
 
-def _add_main_system_message(chat_completion_messages: list[ChatCompletionMessageParam], prompt: str) -> None:
-    message: ChatCompletionSystemMessageParam = {"role": "system", "content": prompt}
-    chat_completion_messages.append(message)
+def _main_system_message() -> ChatCompletionSystemMessageParam:
+    message: ChatCompletionSystemMessageParam = {"role": "system", "content": draft_outline_main_system_message}
+    return message
 
 
-def _add_chat_history_system_message(
-    chat_completion_messages: list[ChatCompletionMessageParam],
+def _chat_history_system_message(
     conversation_messages: list[ConversationMessage],
     participants: list[ConversationParticipant],
-) -> None:
+) -> ChatCompletionSystemMessageParam:
     chat_history_message_list = []
     for conversation_message in conversation_messages:
         chat_history_message = _format_message(conversation_message, participants)
@@ -152,7 +162,16 @@ def _add_chat_history_system_message(
         "role": "system",
         "content": f"<CONVERSATION>{chat_history_str}</CONVERSATION>",
     }
-    chat_completion_messages.append(message)
+    return message
+
+
+def _outline_system_message(outline: str) -> ChatCompletionSystemMessageParam:
+    if outline is not None:
+        message: ChatCompletionSystemMessageParam = {
+            "role": "system",
+            "content": (f"<EXISTING_OUTLINE>{outline}</EXISTING_OUTLINE>"),
+        }
+    return message
 
 
 draft_outline_main_system_message = (
@@ -161,7 +180,8 @@ draft_outline_main_system_message = (
     " were uploaded. Consider the conversation that has taken place. If a prior version of the outline exists,"
     " consider the prior outline. The new outline should be a hierarchical structure with multiple levels of"
     " detail, and it should be clear and easy to understand. The outline should be generated in a way that is"
-    " consistent with the document that will be generated from it."
+    " consistent with the document that will be generated from it. Do not include any explanation before or after"
+    " the outline, as the generated outline will be stored as its own document."
 )
 # ("You are an AI assistant that helps draft outlines for a future flushed-out document."
 # " You use information from a chat history between a user and an assistant, a prior version of a draft"
@@ -183,7 +203,7 @@ def _on_success_metadata_update(
                 f"{method_metadata_key}": {
                     "request": {
                         "model": config.request_config.openai_model,
-                        "messages": chat_completion_messages,
+                        "messages": openai_client.truncate_messages_for_logging(chat_completion_messages),
                         "max_tokens": config.request_config.response_tokens,
                     },
                     "response": completion.model_dump() if completion else "[no response from openai]",
@@ -207,7 +227,7 @@ def _on_error_metadata_update(
                 f"{method_metadata_key}": {
                     "request": {
                         "model": config.request_config.openai_model,
-                        "messages": chat_completion_messages,
+                        "messages": openai_client.truncate_messages_for_logging(chat_completion_messages),
                     },
                     "error": str(e),
                 },
