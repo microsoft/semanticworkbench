@@ -56,6 +56,7 @@ class ServiceInfoModel(BaseModel):
     name: str
     description: str
     default_config: ConfigResponseModel
+    metadata: dict[str, Any] = {}
 
 
 class ConversationPutRequestModel(BaseModel):

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import (
     IO,
     Any,
@@ -240,6 +241,9 @@ class AssistantAppProtocol(Protocol):
     def assistant_service_description(self) -> str: ...
 
     @property
+    def assistant_service_metadata(self) -> dict[str, Any]: ...
+
+    @property
     def config_provider(self) -> AssistantConfigProvider: ...
 
     @property
@@ -259,3 +263,22 @@ class AssistantAppProtocol(Protocol):
         state_id: str,
         provider: AssistantConversationInspectorStateProvider,
     ) -> None: ...
+
+
+class AssistantCapability(StrEnum):
+    """Enum for the capabilities of the assistant."""
+
+    supports_conversation_files = "supports_conversation_files"
+    """Advertise support for awareness of files in the conversation."""
+
+    supports_conversation_messages_directed_at = "supports_conversation_messages_directed_at"
+    """
+    Advertise support for the directed_at attribute in message metadata, and only respond to
+    messages that are directed to the assistant.
+    """
+
+    supports_conversation_messages_chat = "supports_conversation_messages_chat"
+    """Advertise support for responding to messages of type 'chat'."""
+
+    supports_conversation_messages_command = "supports_conversation_messages_command"
+    """Advertise support for responding to messages of type 'command'."""

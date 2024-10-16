@@ -29,6 +29,7 @@ import React from 'react';
 import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
+import { AssistantCapability } from '../../models/AssistantCapability';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
 import { addError } from '../../redux/features/app/appSlice';
@@ -108,6 +109,7 @@ interface InteractInputProps {
     conversationId: string;
     additionalContent?: React.ReactNode;
     readOnly: boolean;
+    assistantCapabilities: Set<AssistantCapability>;
 }
 
 interface SerializedTemporaryTextNode extends SerializedTextNode {}
@@ -131,7 +133,7 @@ class TemporaryTextNode extends TextNode {
 }
 
 export const InteractInput: React.FC<InteractInputProps> = (props) => {
-    const { conversationId, additionalContent, readOnly } = props;
+    const { conversationId, additionalContent, readOnly, assistantCapabilities } = props;
     const classes = useClasses();
     const dropTargetRef = React.useRef<HTMLDivElement>(null);
     const isDraggingOverBody = useAppSelector((state) => state.app.isDraggingOverBody);
@@ -471,6 +473,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
     const disableSend = readOnly || isSubmitting || tokenCount === 0;
     const disableInputs = readOnly || isSubmitting || isListening;
+    const disableAttachments =
+        readOnly || isSubmitting || !assistantCapabilities.has(AssistantCapability.SupportsConversationFiles);
 
     return (
         <div className={classes.root}>
@@ -537,7 +541,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                                         />
                                         <Button
                                             appearance="transparent"
-                                            disabled={disableInputs}
+                                            disabled={disableAttachments}
                                             icon={<Attach20Regular />}
                                             onClick={onAttachment}
                                         />

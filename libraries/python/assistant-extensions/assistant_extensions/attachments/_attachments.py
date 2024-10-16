@@ -14,6 +14,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
+    AssistantCapability,
     ConversationContext,
     storage_directory_for_context,
 )
@@ -89,6 +90,10 @@ class AttachmentsExtension:
         """
 
         self._error_handler = error_handler
+
+        # add the 'supports_conversation_files' capability to the assistant, to indicate that this
+        # assistant supports files in the conversation
+        assistant.add_capability(AssistantCapability.supports_conversation_files)
 
         # listen for file events for to pro-actively update and delete attachments
 

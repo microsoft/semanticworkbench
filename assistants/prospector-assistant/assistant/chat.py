@@ -25,6 +25,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
+    AssistantCapability,
     BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
@@ -71,6 +72,10 @@ assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
     assistant_service_description=service_description,
+    capabilities={
+        AssistantCapability.supports_conversation_messages_chat,
+        AssistantCapability.supports_conversation_messages_command,
+    },
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
     inspector_state_providers={
@@ -425,7 +430,7 @@ async def respond_to_conversation(
                 logger.exception(f"exception occurred calling openai chat completion: {e}")
                 content = (
                     "An error occurred while calling the OpenAI API. Is it configured correctly?"
-                    "View the debug inspector for more information."
+                    " View the debug inspector for more information."
                 )
                 deepmerge.always_merger.merge(
                     metadata,
@@ -480,7 +485,7 @@ async def respond_to_conversation(
                 logger.exception(f"exception occurred calling openai chat completion: {e}")
                 content = (
                     "An error occurred while calling the OpenAI API. Is it configured correctly?"
-                    "View the debug inspector for more information."
+                    " View the debug inspector for more information."
                 )
                 deepmerge.always_merger.merge(
                     metadata,
