@@ -14,7 +14,7 @@ import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     ConversationEvent,
@@ -348,16 +348,17 @@ async def respond_to_conversation(
     if config.agents_config.artifact_agent.enabled:
         # define the structured response format for the AI model
         class StructuredResponseFormat(BaseModel):
-            class Config:
-                extra = "forbid"
-                schema_extra = {
+            model_config = ConfigDict(
+                extra="forbid",
+                json_schema_extra={
                     "description": (
                         "The response format for the assistant. Use the assistant_response field for the"
                         " response content and the artifacts_to_create_or_update field for any artifacts"
                         " to create or update."
                     ),
                     "required": ["assistant_response", "artifacts_to_create_or_update"],
-                }
+                },
+            )
 
             assistant_response: str
             artifacts_to_create_or_update: list[Artifact]
