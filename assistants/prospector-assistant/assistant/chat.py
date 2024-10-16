@@ -115,16 +115,10 @@ async def on_command_message_created(
     config = await assistant_config.get(context.assistant)
     metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
-    config = await assistant_config.get(context.assistant)
-    metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
-
     # For now, handling only commands from Document Agent for exploration of implementation
     # We assume Document Agent is available and future logic would determine which agent
     # the command is intended for. Assumption made in order to make doc agent available asap.
 
-    # if config.agents_config.document_agent.enabled:
-    doc_agent = DocumentAgent(attachments_extension)
-    await doc_agent.receive_command(config, context, message, metadata)
     # if config.agents_config.document_agent.enabled:
     doc_agent = DocumentAgent(attachments_extension)
     await doc_agent.receive_command(config, context, message, metadata)
