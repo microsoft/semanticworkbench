@@ -10,9 +10,9 @@ import {
     Textarea,
     tokens,
 } from '@fluentui/react-components';
-import { Add16Regular, Delete16Regular } from '@fluentui/react-icons';
+import { Add16Regular, Delete16Regular, Edit16Regular } from '@fluentui/react-icons';
 import { WidgetProps } from '@rjsf/utils';
-import React from 'react';
+import React, { useRef } from 'react';
 
 const useClasses = makeStyles({
     root: {
@@ -40,6 +40,11 @@ const useClasses = makeStyles({
         gap: tokens.spacingVerticalL,
         ...shorthands.margin(tokens.spacingVerticalS, 0, tokens.spacingVerticalS, tokens.spacingHorizontalM),
     },
+    keyRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: tokens.spacingHorizontalS,
+    },
 });
 
 interface ModelSchema {
@@ -58,11 +63,14 @@ interface ModelSchema {
 export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
     const { label, value, onChange } = props;
     const classes = useClasses();
+    const inputRef = useRef<HTMLInputElement | null>(null);
 
     // Define the schema type
     const [modelSchema, setModelSchema] = React.useState<ModelSchema>(() => {
         return typeof value === 'string' ? JSON.parse(value) : value || {};
     });
+
+    const [editingKey, setEditingKey] = React.useState<{ oldKey: string; newKey: string } | null>(null);
 
     // Update the modelSchema when the value changes
     React.useEffect(() => {
@@ -95,6 +103,49 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
         onChange(JSON.stringify(updatedModelSchema));
     };
 
+    // Helper function to update the property key
+    const handleKeyEditStart = (oldKey: string) => {
+        const keySegments = oldKey.split('.');
+        const displayedKey = keySegments[keySegments.length - 1]; // Use only the last part for editing
+
+        setEditingKey({ oldKey, newKey: displayedKey });
+        setTimeout(() => inputRef.current?.focus(), 0);
+    };
+
+    const handleKeyEditChange = (newKey: string) => {
+        setEditingKey((prev) => (prev ? { ...prev, newKey } : null));
+    };
+
+    const handleKeyEditEnd = () => {
+        if (editingKey && modelSchema.properties) {
+            const { oldKey, newKey } = editingKey;
+            const keySegments = oldKey.split('.');
+
+            if (newKey !== keySegments[keySegments.length - 1]) {
+                const updatedModelSchema = { ...modelSchema };
+                let current = updatedModelSchema.properties;
+
+                // Traverse the key path up to the second-to-last segment
+                for (let i = 0; i < keySegments.length - 1; i++) {
+                    if (!current || !current[keySegments[i]] || !current[keySegments[i]].properties) return;
+                    current = current[keySegments[i]].properties;
+                }
+
+                const oldKeyLastSegment = keySegments[keySegments.length - 1];
+                if (current && current[oldKeyLastSegment]) {
+                    // Update the key while maintaining the rest of the properties
+                    const property = current[oldKeyLastSegment];
+                    delete current[oldKeyLastSegment];
+                    current[newKey] = property;
+
+                    setModelSchema(updatedModelSchema);
+                    onChange(JSON.stringify(updatedModelSchema));
+                }
+            }
+        }
+        setEditingKey(null);
+    };
+
     // Helper function to add a new property
     const handleAddProperty = () => {
         const newKey = `new_property_${Object.keys(modelSchema.properties || {}).length + 1}`;
@@ -112,6 +163,7 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
         };
         setModelSchema(updatedModelSchema);
         onChange(JSON.stringify(updatedModelSchema));
+        handleKeyEditStart(newKey);
     };
 
     // Helper function to remove a property
@@ -187,11 +239,39 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
             items?: { type: string };
         },
     ) => {
+        const keySegments = key.split('.');
+        const displayedKey = keySegments[keySegments.length - 1]; // Extract the last part of the key for display
+
+        const isEditingKey = editingKey && editingKey.oldKey === key;
+
         return (
             <div className={classes.property}>
                 <Field label="Key">
-                    <div>
-                        <Input value={key} />
+                    <div className={classes.keyRow}>
+                        {isEditingKey ? (
+                            <Input
+                                ref={inputRef}
+                                value={editingKey ? editingKey.newKey : displayedKey}
+                                onChange={(_, data) => handleKeyEditChange(data.value)}
+                                onBlur={handleKeyEditEnd}
+                                onFocus={(e) => e.target.select()}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        handleKeyEditEnd();
+                                    }
+                                }}
+                            />
+                        ) : (
+                            <>
+                                <Text>{displayedKey}</Text>
+                                <Button
+                                    onClick={() => handleKeyEditStart(key)}
+                                    appearance="subtle"
+                                    size="small"
+                                    icon={<Edit16Regular />}
+                                />
+                            </>
+                        )}
                     </div>
                 </Field>
                 <Field label="Description">
