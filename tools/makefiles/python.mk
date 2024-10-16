@@ -10,6 +10,8 @@ else
 venv_dir = .venv
 endif
 
+UV_SYNC_ARGS ?= --all-extras
+
 ## Rules
 
 .PHONY: install
@@ -35,5 +37,5 @@ format:
 ifneq ($(findstring pytest,$(if $(shell command -v uv $(null_stderr)),$(shell uv tree --depth 1),)),)
 .PHONY: test
 test:
-	uv run pytest $(PYTEST_ARGS)
+	uv run $(uv_project_args) pytest $(PYTEST_ARGS)
 endif
