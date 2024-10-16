@@ -7,13 +7,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "deepmerge>=2.0",
-    "docx2txt>=0.8",
     "html2docx>=1.6.0",
     "markdown>=3.6",
     "openai>=1.3.9",
-    "pdfplumber>=0.11.2",
-    "tiktoken>=0.7.0",
-    "semantic-workbench-assistant>=0.1.0",
     "content-safety>=0.1.0",
     "chat-driver>=0.1.0",
     "skill-library>=0.1.0",
@@ -22,14 +18,13 @@ dependencies = [
     "document-skill>=0.1.0",
     "guided-conversation>=0.1.0",
     "openai-client>=0.1.0",
-    "assistant-drive>=0.1.0",
+    "assistant-extensions[attachments]>=0.1.0",
 ]
 
 [tool.uv]
 package = true
 
 [tool.uv.sources]
-semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
 content-safety = { path = "../../libraries/python/content-safety/", editable = true }
 guided-conversation = { path = "../../libraries/python/guided-conversation", editable = true }
 chat-driver = { path = "../../libraries/python/chat-driver", editable = true }
@@ -39,6 +34,7 @@ prospector-skill = { path = "../../libraries/python/skills/skills/prospector-ski
 document-skill = { path = "../../libraries/python/skills/skills/document-skill", editable = true }
 openai-client = { path = "../../libraries/python/openai-client", editable = true }
 assistant-drive = { path = "../../libraries/python/assistant-drive", editable = true }
+assistant-extensions = { path = "../../libraries/python/assistant-extensions", editable = true }
 
 [build-system]
 requires = ["hatchling"]

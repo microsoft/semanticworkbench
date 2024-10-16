@@ -11,6 +11,7 @@ import { ConversationRename } from '../components/Conversations/ConversationRena
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
+import { useGetAssistantCapabilitiesSet } from '../libs/useAssistantCapabilities';
 import { useLocalUserAccount } from '../libs/useLocalUserAccount';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Assistant } from '../models/Assistant';
@@ -99,6 +100,7 @@ export const Interact: React.FC = () => {
     } = useGetConversationFilesQuery(conversationId);
     const [updateConversation] = useUpdateConversationMutation();
     const { getUserId } = useLocalUserAccount();
+    const assistantCapabilities = useGetAssistantCapabilitiesSet(assistants ?? []);
 
     const siteUtility = useSiteUtility();
 
@@ -185,6 +187,7 @@ export const Interact: React.FC = () => {
         isLoadingConversationParticipants ||
         isLoadingConversationFiles ||
         !assistants ||
+        !assistantCapabilities ||
         !conversation ||
         !conversationParticipants ||
         !conversationFiles
@@ -231,7 +234,11 @@ export const Interact: React.FC = () => {
                         </div>
                     </div>
                     <div className={classes.input}>
-                        <InteractInput readOnly={readOnly} conversationId={conversationId} />
+                        <InteractInput
+                            readOnly={readOnly}
+                            conversationId={conversationId}
+                            assistantCapabilities={assistantCapabilities}
+                        />
                     </div>
                 </div>
                 <InteractCanvas

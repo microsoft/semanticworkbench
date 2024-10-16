@@ -4,4 +4,7 @@ import { Config } from './Config';
 
 export interface AssistantServiceInfo {
     defaultConfig: Config;
+    metadata?: {
+        [key: string]: any;
+    };
 }

@@ -37,6 +37,12 @@ export const InputOptionsControl: React.FC<InputOptionsControlProps> = (props) =
     const [directedAtId, setDirectedAtId] = React.useState<string>(directedAtDefaultKey);
     const [directedAtName, setDirectedAtName] = React.useState<string>(directedAtDefaultValue);
 
+    const assistantParticipants =
+        participants
+            ?.filter((participant) => participant.role === 'assistant')
+            .filter((participant) => participant.active)
+            .toSorted((a, b) => a.name.localeCompare(b.name)) ?? [];
+
     const handleDirectedToChange = (participantId?: string, participantName?: string) => {
         setDirectedAtId(participantId ?? directedAtDefaultKey);
         setDirectedAtName(participantName ?? directedAtDefaultValue);
@@ -51,11 +57,7 @@ export const InputOptionsControl: React.FC<InputOptionsControlProps> = (props) =
                 <div>Directed to:</div>
                 <div>
                     <Dropdown
-                        disabled={
-                            disabled ||
-                            participants?.filter((participant) => participant.role === 'assistant').length === 0 ||
-                            messageTypeValue !== 'Command'
-                        }
+                        disabled={disabled || assistantParticipants.length < 2 || messageTypeValue !== 'Command'}
                         className={classes.fullWidth}
                         placeholder="Select participant"
                         value={directedAtName}
@@ -65,15 +67,11 @@ export const InputOptionsControl: React.FC<InputOptionsControlProps> = (props) =
                         <Option key={directedAtDefaultKey} value={directedAtDefaultKey}>
                             {directedAtDefaultValue}
                         </Option>
-                        {participants
-                            ?.slice()
-                            .sort((a, b) => a.name.localeCompare(b.name))
-                            .filter((participant) => participant.role === 'assistant')
-                            .map((participant) => (
-                                <Option key={participant.id} value={participant.id}>
-                                    {participant.name}
-                                </Option>
-                            ))}
+                        {assistantParticipants.map((participant) => (
+                            <Option key={participant.id} value={participant.id}>
+                                {participant.name}
+                            </Option>
+                        ))}
                     </Dropdown>
                 </div>
             </div>

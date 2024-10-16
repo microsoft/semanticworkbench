@@ -120,9 +120,9 @@ class AssistantService(FastAPIAssistantService):
         self.assistant_app = assistant_app
 
         super().__init__(
-            service_id=self.assistant_app._assistant_service_id,
-            service_name=self.assistant_app._assistant_service_name,
-            service_description=self.assistant_app._assistant_service_description,
+            service_id=self.assistant_app.assistant_service_id,
+            service_name=self.assistant_app.assistant_service_name,
+            service_description=self.assistant_app.assistant_service_description,
             register_lifespan_handler=register_lifespan_handler,
         )
 
@@ -195,7 +195,7 @@ class AssistantService(FastAPIAssistantService):
             title=conversation_state.title,
         )
 
-        content_interceptor = self.assistant_app._content_interceptor
+        content_interceptor = self.assistant_app.content_interceptor
         if content_interceptor is not None:
             original_send_messages = context.send_messages
 
@@ -219,7 +219,7 @@ class AssistantService(FastAPIAssistantService):
     @translate_assistant_errors
     async def get_service_info(self) -> assistant_model.ServiceInfoModel:
         non_existent_assistant = self._build_assistant_context(str(uuid.uuid4()), "")
-        default_config = await self.assistant_app._config_provider.get(non_existent_assistant)
+        default_config = await self.assistant_app.config_provider.get(non_existent_assistant)
         return assistant_model.ServiceInfoModel(
             assistant_service_id=self.service_id,
             name=self.service_name,
@@ -230,6 +230,7 @@ class AssistantService(FastAPIAssistantService):
                 json_schema=default_config.json_schema,
                 ui_schema=default_config.ui_schema,
             ),
+            metadata=self.assistant_app.assistant_service_metadata,
         )
 
     @translate_assistant_errors
@@ -259,7 +260,7 @@ class AssistantService(FastAPIAssistantService):
             await self.assistant_app.events.assistant._on_updated_handlers(assistant_context)
 
         if from_export is not None:
-            await self.assistant_app._data_exporter.import_(assistant_context, from_export)
+            await self.assistant_app.data_exporter.import_(assistant_context, from_export)
 
         return await self.get_assistant(assistant_id)
 
@@ -268,7 +269,7 @@ class AssistantService(FastAPIAssistantService):
         assistant_context = require_found(self.get_assistant_context(assistant_id))
 
         async def iterate_stream() -> AsyncIterator[bytes]:
-            async with self.assistant_app._data_exporter.export(assistant_context) as stream:
+            async with self.assistant_app.data_exporter.export(assistant_context) as stream:
                 for chunk in stream:
                     yield chunk
 
@@ -305,7 +306,7 @@ class AssistantService(FastAPIAssistantService):
     async def get_config(self, assistant_id: str) -> assistant_model.ConfigResponseModel:
         assistant_context = require_found(self.get_assistant_context(assistant_id))
 
-        config = await self.assistant_app._config_provider.get(assistant_context)
+        config = await self.assistant_app.config_provider.get(assistant_context)
         return assistant_model.ConfigResponseModel(
             config=config.config,
             errors=config.errors,
@@ -319,7 +320,7 @@ class AssistantService(FastAPIAssistantService):
     ) -> assistant_model.ConfigResponseModel:
         assistant_context = require_found(self.get_assistant_context(assistant_id))
 
-        await self.assistant_app._config_provider.set(assistant_context, updated_config.config)
+        await self.assistant_app.config_provider.set(assistant_context, updated_config.config)
         return await self.get_config(assistant_id)
 
     @translate_assistant_errors
@@ -352,7 +353,7 @@ class AssistantService(FastAPIAssistantService):
             await self.assistant_app.events.conversation._on_updated_handlers(conversation_context)
 
         if from_export is not None:
-            await self.assistant_app._conversation_data_exporter.import_(conversation_context, from_export)
+            await self.assistant_app.conversation_data_exporter.import_(conversation_context, from_export)
 
         return assistant_model.ConversationResponseModel(id=conversation_context.id)
 
@@ -361,7 +362,7 @@ class AssistantService(FastAPIAssistantService):
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
         async def iterate_stream() -> AsyncIterator[bytes]:
-            async with self.assistant_app._conversation_data_exporter.export(conversation_context) as stream:
+            async with self.assistant_app.conversation_data_exporter.export(conversation_context) as stream:
                 for chunk in stream:
                     yield chunk
 
@@ -459,7 +460,7 @@ class AssistantService(FastAPIAssistantService):
     ) -> None:
         updated_event = event
 
-        content_interceptor = self.assistant_app._content_interceptor
+        content_interceptor = self.assistant_app.content_interceptor
         if content_interceptor is not None:
             try:
                 updated_event = await content_interceptor.intercept_incoming_event(conversation_context, event)
@@ -586,7 +587,7 @@ class AssistantService(FastAPIAssistantService):
                     display_name=provider.display_name,
                     description=provider.description,
                 )
-                for id, provider in self.assistant_app._inspector_state_providers.items()
+                for id, provider in self.assistant_app.inspector_state_providers.items()
             ]
         )
 
@@ -596,7 +597,7 @@ class AssistantService(FastAPIAssistantService):
     ) -> assistant_model.StateResponseModel:
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
-        provider = self.assistant_app._inspector_state_providers.get(state_id)
+        provider = self.assistant_app.inspector_state_providers.get(state_id)
         if provider is None:
             raise NotFoundError(f"inspector {state_id} not found")
 
@@ -618,7 +619,7 @@ class AssistantService(FastAPIAssistantService):
     ) -> assistant_model.StateResponseModel:
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
-        provider = self.assistant_app._inspector_state_providers.get(state_id)
+        provider = self.assistant_app.inspector_state_providers.get(state_id)
         if provider is None:
             raise NotFoundError(f"inspector {state_id} not found")
 

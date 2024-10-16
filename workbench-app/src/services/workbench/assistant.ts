@@ -16,7 +16,7 @@ export const assistantApi = workbenchApi.injectEndpoints({
         }),
         getAssistantsInConversation: builder.query<Assistant[], string>({
             query: (conversationId: string) => `/assistants?conversation_id=${conversationId}`,
-            providesTags: ['Assistant'],
+            providesTags: ['Assistant', 'Conversation'],
             transformResponse: (response: any) => response.assistants.map(transformResponseToAssistant),
         }),
         getAssistant: builder.query<Assistant, string>({
@@ -73,6 +73,7 @@ const transformResponseToAssistantServiceDescription = (response: any): Assistan
         jsonSchema: response.default_config.json_schema,
         uiSchema: response.default_config.ui_schema,
     },
+    metadata: response.metadata,
 });
 
 const transformAssistantForRequest = (assistant: Partial<Assistant>) => ({
