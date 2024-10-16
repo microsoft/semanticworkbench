@@ -1,30 +1,75 @@
-import { Button, Dropdown, Input, Label, Option, Text } from '@fluentui/react-components';
+import {
+    Button,
+    Dropdown,
+    Field,
+    Input,
+    makeStyles,
+    Option,
+    shorthands,
+    Text,
+    Textarea,
+    tokens,
+} from '@fluentui/react-components';
+import { Add16Regular, Delete16Regular } from '@fluentui/react-icons';
 import { WidgetProps } from '@rjsf/utils';
 import React from 'react';
 
-export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }) => {
-    // Define the schema type
-    interface ModelSchema {
-        properties?: {
-            [key: string]: {
-                title?: string;
-                type?: string;
-                description?: string;
-                enum?: string[]; // For handling dropdowns
-                properties?: ModelSchema['properties']; // For nested objects
-                items?: { type: string }; // For handling arrays (lists)
-            };
-        };
-    }
+const useClasses = makeStyles({
+    root: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalXXS,
+    },
+    properties: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalL,
+        ...shorthands.margin(tokens.spacingVerticalS, 0),
+    },
+    property: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalL,
+        padding: tokens.spacingHorizontalM,
+        border: '1px solid #ccc',
+        borderRadius: tokens.borderRadiusMedium,
+    },
+    nestedProperties: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalL,
+        ...shorthands.margin(tokens.spacingVerticalS, 0, tokens.spacingVerticalS, tokens.spacingHorizontalM),
+    },
+});
 
+interface ModelSchema {
+    properties?: {
+        [key: string]: {
+            title?: string;
+            type?: string;
+            description?: string;
+            enum?: string[]; // For handling dropdowns
+            properties?: ModelSchema['properties']; // For nested objects
+            items?: { type: string }; // For handling arrays (lists)
+        };
+    };
+}
+
+export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
+    const { label, schema, value, onChange } = props;
+    const classes = useClasses();
+
+    // Define the schema type
     const [modelSchema, setModelSchema] = React.useState<ModelSchema>(() => {
         return typeof value === 'string' ? JSON.parse(value) : value || {};
     });
 
+    // Update the modelSchema when the value changes
     React.useEffect(() => {
         setModelSchema(typeof value === 'string' ? JSON.parse(value) : value || {});
     }, [value]);
 
+    // Helper function to update the modelSchema
     const handleSchemaChange = (
         keyPath: string,
         propertyKey: keyof NonNullable<ModelSchema['properties']>[string],
@@ -50,6 +95,7 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }
         onChange(JSON.stringify(updatedModelSchema));
     };
 
+    // Helper function to add a new property
     const handleAddProperty = () => {
         const newKey = `new_property_${Object.keys(modelSchema.properties || {}).length + 1}`;
         const updatedProperties = {
@@ -68,6 +114,7 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }
         onChange(JSON.stringify(updatedModelSchema));
     };
 
+    // Helper function to remove a property
     const handleRemoveProperty = (key: string) => {
         const { [key]: _, ...remainingProperties } = modelSchema.properties || {};
         const updatedModelSchema = {
@@ -78,6 +125,7 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }
         onChange(JSON.stringify(updatedModelSchema));
     };
 
+    // Helper function to add a new nested property
     const handleAddNestedProperty = (parentKey: string) => {
         const keys = parentKey.split('.');
         const updatedModelSchema = { ...modelSchema };
@@ -106,19 +154,28 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }
         onChange(JSON.stringify(updatedModelSchema));
     };
 
+    // Helper function to render nested properties
     const renderNestedProperties = (properties: ModelSchema['properties'], parentKey: string) => {
         return (
-            <div style={{ marginLeft: '20px', borderLeft: '2px solid #ccc', paddingLeft: '10px' }}>
+            <div className={classes.nestedProperties}>
                 {Object.entries(properties || {}).map(([key, property]) => (
                     <div key={key}>{renderSchemaFieldEditor(`${parentKey}.${key}`, property)}</div>
                 ))}
-                <Button onClick={() => handleAddNestedProperty(parentKey)} style={{ marginTop: '10px' }}>
-                    Add Nested Property
-                </Button>
+                <div>
+                    <Button
+                        onClick={() => handleAddNestedProperty(parentKey)}
+                        appearance="outline"
+                        size="small"
+                        icon={<Add16Regular />}
+                    >
+                        Add Nested Property
+                    </Button>
+                </div>
             </div>
         );
     };
 
+    // Helper function to render the schema field editor
     const renderSchemaFieldEditor = (
         key: string,
         property: {
@@ -131,72 +188,36 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }
         },
     ) => {
         return (
-            <div style={{ border: '1px solid #ccc', padding: '10px', borderRadius: '4px', marginBottom: '10px' }}>
-                <Label>Title</Label>
-                <Input
-                    value={property.title || ''}
-                    onChange={(_, data) => handleSchemaChange(key, 'title', data.value)}
-                    style={{ marginBottom: '10px' }}
-                />
-                <Label>Type</Label>
-                <Dropdown
-                    placeholder="Select a type"
-                    selectedOptions={property.type ? [property.type] : []}
-                    value={property.type ? property.type.charAt(0).toUpperCase() + property.type.slice(1) : ''}
-                    onOptionSelect={(_, item) => {
-                        handleSchemaChange(key, 'type', item.optionValue);
-                        if (item.optionValue === 'array') {
-                            handleSchemaChange(key, 'items', { type: 'string' });
-                        } else if (item.optionValue === 'object') {
-                            handleSchemaChange(key, 'properties', {});
-                        } else {
-                            handleSchemaChange(key, 'items', undefined);
-                            handleSchemaChange(key, 'properties', undefined);
-                        }
-                    }}
-                    style={{ marginBottom: '10px' }}
-                >
-                    <Option key="string" value="string">
-                        String
-                    </Option>
-                    <Option key="number" value="number">
-                        Number
-                    </Option>
-                    <Option key="boolean" value="boolean">
-                        Boolean
-                    </Option>
-                    <Option key="object" value="object">
-                        Object
-                    </Option>
-                    <Option key="array" value="array">
-                        Array
-                    </Option>
-                </Dropdown>
-                <Label>Description</Label>
-                <Input
-                    value={property.description || ''}
-                    onChange={(_, data) => handleSchemaChange(key, 'description', data.value)}
-                    style={{ marginBottom: '10px' }}
-                />
-                {property.type === 'object' && property.properties && (
+            <div className={classes.property}>
+                <Field label="Key">
                     <div>
-                        <Text>Nested Properties:</Text>
-                        {renderNestedProperties(property.properties, key)}
+                        <Input value={key} />
                     </div>
-                )}
-                {property.type === 'array' && property.items && (
+                </Field>
+                <Field label="Description">
+                    <Textarea
+                        value={property.description || ''}
+                        onChange={(_, data) => handleSchemaChange(key, 'description', data.value)}
+                        rows={2}
+                    />
+                </Field>
+                <Field label="Type">
                     <div>
-                        <Label>Array Item Type</Label>
                         <Dropdown
-                            placeholder="Select an item type"
-                            selectedOptions={property.items.type ? [property.items.type] : []}
-                            value={
-                                property.items?.type
-                                    ? property.items.type.charAt(0).toUpperCase() + property.items.type.slice(1)
-                                    : ''
-                            }
-                            onOptionSelect={(_, item) => handleSchemaChange(key, 'items', { type: item.optionValue })}
-                            style={{ marginBottom: '10px' }}
+                            placeholder="Select a type"
+                            selectedOptions={property.type ? [property.type] : []}
+                            value={property.type ? property.type.charAt(0).toUpperCase() + property.type.slice(1) : ''}
+                            onOptionSelect={(_, item) => {
+                                handleSchemaChange(key, 'type', item.optionValue);
+                                if (item.optionValue === 'array') {
+                                    handleSchemaChange(key, 'items', { type: 'string' });
+                                } else if (item.optionValue === 'object') {
+                                    handleSchemaChange(key, 'properties', {});
+                                } else {
+                                    handleSchemaChange(key, 'items', undefined);
+                                    handleSchemaChange(key, 'properties', undefined);
+                                }
+                            }}
                         >
                             <Option key="string" value="string">
                                 String
@@ -210,27 +231,77 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }
                             <Option key="object" value="object">
                                 Object
                             </Option>
+                            <Option key="array" value="array">
+                                Array
+                            </Option>
                         </Dropdown>
                     </div>
+                </Field>
+                {property.type === 'object' && property.properties && (
+                    <div className={classes.root}>
+                        <Text>Nested Properties:</Text>
+                        {renderNestedProperties(property.properties, key)}
+                    </div>
                 )}
-                <Button onClick={() => handleRemoveProperty(key)} style={{ marginTop: '10px' }}>
-                    Remove Property
-                </Button>
+                {property.type === 'array' && property.items && (
+                    <Field label="Array Item Type">
+                        <div>
+                            <Dropdown
+                                placeholder="Select an item type"
+                                selectedOptions={property.items.type ? [property.items.type] : []}
+                                value={
+                                    property.items?.type
+                                        ? property.items.type.charAt(0).toUpperCase() + property.items.type.slice(1)
+                                        : ''
+                                }
+                                onOptionSelect={(_, item) =>
+                                    handleSchemaChange(key, 'items', { type: item.optionValue })
+                                }
+                            >
+                                <Option key="string" value="string">
+                                    String
+                                </Option>
+                                <Option key="number" value="number">
+                                    Number
+                                </Option>
+                                <Option key="boolean" value="boolean">
+                                    Boolean
+                                </Option>
+                                <Option key="object" value="object">
+                                    Object
+                                </Option>
+                            </Dropdown>
+                        </div>
+                    </Field>
+                )}
+                <div>
+                    <Button
+                        onClick={() => handleRemoveProperty(key)}
+                        appearance="outline"
+                        size="small"
+                        icon={<Delete16Regular />}
+                    >
+                        Remove Property
+                    </Button>
+                </div>
             </div>
         );
     };
 
+    // Render the component
     return (
-        <div className="base-model-editor-widget">
-            <Text>Edit Model Schema</Text>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className={classes.root}>
+            <Text>{label}</Text>
+            <div className={classes.properties}>
                 {Object.entries(modelSchema.properties || {}).map(([key, property]) => (
                     <div key={key}>{renderSchemaFieldEditor(key, property)}</div>
                 ))}
             </div>
-            <Button onClick={handleAddProperty} style={{ marginTop: '16px' }}>
-                Add New Property
-            </Button>
+            <div>
+                <Button onClick={handleAddProperty} appearance="outline" size="small" icon={<Add16Regular />}>
+                    Add New Property
+                </Button>
+            </div>
         </div>
     );
 };
