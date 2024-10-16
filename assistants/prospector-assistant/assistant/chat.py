@@ -119,9 +119,6 @@ async def on_command_message_created(
     # We assume Document Agent is available and future logic would determine which agent
     # the command is intended for. Assumption made in order to make doc agent available asap.
 
-    # We should not be creating agent instances for commands and conversation separately.
-    # This will need to be resolved.
-
     # if config.agents_config.document_agent.enabled:
     doc_agent = DocumentAgent(attachments_extension)
     await doc_agent.receive_command(config, context, message, metadata)
