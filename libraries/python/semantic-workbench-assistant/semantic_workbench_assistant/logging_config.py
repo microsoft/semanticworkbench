@@ -40,18 +40,6 @@ class CustomJSONFormatter(jsonlogger.JsonFormatter):
         return log_record
 
 
-class JSONHandler(logging.StreamHandler):
-    def __init__(self, max_message_length: int):
-        super().__init__()
-        self.setFormatter(
-            CustomJSONFormatter(
-                "%(name)s %(filename)s %(module)s %(lineno)s %(levelname)s %(correlation_id)s %(message)s",
-                timestamp=True,
-                max_message_length=max_message_length,
-            )
-        )
-
-
 class DebugLevelForNoisyLogFilter(logging.Filter):
     """Lowers log level to DEBUG for logs that match specific logger names and message patterns."""
 
