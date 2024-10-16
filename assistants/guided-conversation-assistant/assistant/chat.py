@@ -184,7 +184,7 @@ async def respond_to_conversation(context: ConversationContext, metadata: dict[s
             conversation_context=context,
             openai_client=openai_client.create_client(config.service_config),
             request_config=config.request_config,
-            agent_config=config.agents_config.guided_conversation_agent,
+            agent_config=config.guided_conversation_agent,
         )
         # add the completion to the metadata for debugging
         deepmerge.always_merger.merge(

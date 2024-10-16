@@ -21,7 +21,7 @@ from semantic_workbench_api_model.workbench_model import (
     UpdateConversation,
     UpdateParticipant,
 )
-from sqlmodel import col, or_, select
+from sqlmodel import and_, col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .. import auth, db, query
@@ -734,6 +734,10 @@ class ConversationController:
                         or_(
                             db.Conversation.owner_id == user_principal.user_id,
                             db.ConversationMessage.sender_participant_id == user_principal.user_id,
+                            and_(
+                                col(db.UserParticipant.active_participant).is_(True),
+                                db.UserParticipant.conversation_permission == "read_write",
+                            ),
                         ),
                     )
                 )

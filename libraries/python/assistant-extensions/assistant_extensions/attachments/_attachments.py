@@ -1,10 +1,10 @@
+import asyncio
 import contextlib
-import datetime
 import io
 import logging
 from typing import Any, Awaitable, Callable, Sequence
 
-from assistant_drive import Drive, DriveConfig
+from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
 from openai.types import chat
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -14,6 +14,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
+    AssistantCapability,
     ConversationContext,
     storage_directory_for_context,
 )
@@ -24,20 +25,20 @@ from ._model import Attachment, AttachmentsConfigModel
 logger = logging.getLogger(__name__)
 
 
-AttachmentProcessingErrorHandler = Callable[[ConversationContext, Exception], Awaitable]
+AttachmentProcessingErrorHandler = Callable[[ConversationContext, str, Exception], Awaitable]
 
 
-async def log_and_send_message_on_error(context: ConversationContext, e: Exception) -> None:
+async def log_and_send_message_on_error(context: ConversationContext, filename: str, e: Exception) -> None:
     """
     Default error handler for attachment processing, which logs the exception and sends
     a message to the conversation.
     """
 
-    logger.exception("exception occurred processing attachment")
+    logger.exception("exception occurred processing attachment", exc_info=e)
     await context.send_messages(
         NewConversationMessage(
-            content=f"There was an error processing the attachment: {e}",
-            message_type=MessageType.chat,
+            content=f"There was an error processing the attachment ({filename}): {e}",
+            message_type=MessageType.notice,
             metadata={"attribution": "system"},
         )
     )
@@ -46,6 +47,7 @@ async def log_and_send_message_on_error(context: ConversationContext, e: Excepti
 attachment_tag = "ATTACHMENT"
 filename_tag = "FILENAME"
 content_tag = "CONTENT"
+error_tag = "ERROR"
 image_tag = "IMAGE"
 
 
@@ -90,6 +92,10 @@ class AttachmentsExtension:
 
         self._error_handler = error_handler
 
+        # add the 'supports_conversation_files' capability to the assistant, to indicate that this
+        # assistant supports files in the conversation
+        assistant.add_capability(AssistantCapability.supports_conversation_files)
+
         # listen for file events for to pro-actively update and delete attachments
 
         @assistant.events.conversation.file.on_created
@@ -110,7 +116,7 @@ class AttachmentsExtension:
             """
 
             # delete the attachment for the file
-            _delete_attachment_for_file(context, file)
+            await _delete_attachment_for_file(context, file)
 
     async def get_completion_messages_for_attachments(
         self,
@@ -145,7 +151,7 @@ class AttachmentsExtension:
             exclude_filenames=exclude_filenames,
         )
 
-        if attachments:
+        if not attachments:
             return []
 
         messages: list[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam] = [
@@ -157,7 +163,8 @@ class AttachmentsExtension:
 
         # process each attachment
         for attachment in attachments:
-            content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
+            error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
+            content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}>{error_element}<{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
 
             # if the content is a data URI, include it as an image type within the message content
             if attachment.content.startswith("data:image/"):
@@ -212,12 +219,12 @@ async def _get_attachments(
 
     # delete cached attachments that are no longer in the conversation
     filenames = {file.filename for file in files_response.files}
-    _delete_attachments_not_in(context, filenames)
+    await _delete_attachments_not_in(context, filenames)
 
     return attachments
 
 
-def _delete_attachments_not_in(context: ConversationContext, filenames: set[str]) -> None:
+async def _delete_attachments_not_in(context: ConversationContext, filenames: set[str]) -> None:
     """Deletes cached attachments that are not in the filenames argument."""
     drive = _attachment_drive_for_context(context)
     for filename in drive.list():
@@ -226,6 +233,33 @@ def _delete_attachments_not_in(context: ConversationContext, filenames: set[str]
 
         with contextlib.suppress(FileNotFoundError):
             drive.delete(filename)
+
+        await _delete_lock_for_context_file(context, filename)
+
+
+_file_locks_lock = asyncio.Lock()
+_file_locks: dict[str, asyncio.Lock] = {}
+
+
+async def _delete_lock_for_context_file(context: ConversationContext, filename: str) -> None:
+    async with _file_locks_lock:
+        key = f"{context.assistant.id}/{context.id}/{filename}"
+        if key not in _file_locks:
+            return
+
+        del _file_locks[key]
+
+
+async def _lock_for_context_file(context: ConversationContext, filename: str) -> asyncio.Lock:
+    """
+    Get a lock for the given file in the given context.
+    """
+    async with _file_locks_lock:
+        key = f"{context.assistant.id}/{context.id}/{filename}"
+        if key not in _file_locks:
+            _file_locks[key] = asyncio.Lock()
+
+        return _file_locks[key]
 
 
 async def _get_attachment_for_file(
@@ -238,37 +272,48 @@ async def _get_attachment_for_file(
     """
     drive = _attachment_drive_for_context(context)
 
-    with contextlib.suppress(FileNotFoundError):
-        attachment = drive.read_model(Attachment, file.filename)
+    # ensure that only one async task is updating the attachment for the file
+    file_lock = await _lock_for_context_file(context, file.filename)
+    async with file_lock:
+        with contextlib.suppress(FileNotFoundError):
+            attachment = drive.read_model(Attachment, file.filename)
 
-        if attachment.updated_datetime.astimezone(datetime.UTC) >= file.updated_datetime.astimezone(datetime.UTC):
-            # if the attachment is up-to-date, return it
-            return attachment
+            if attachment.updated_datetime.timestamp() >= file.updated_datetime.timestamp():
+                # if the attachment is up-to-date, return it
+                return attachment
 
-    # process the file to create an attachment
-    async with context.set_status_for_block(f"updating attachment {file.filename} ..."):
         content = ""
-        try:
-            # read the content of the file
-            file_bytes = await _read_conversation_file(context, file)
-            # convert the content of the file to a string
-            content = await convert.bytes_to_str(file_bytes, filename=file.filename)
-        except Exception as e:
-            await error_handler(context, e)
+        error = ""
+        # process the file to create an attachment
+        async with context.set_status_for_block(f"updating attachment {file.filename} ..."):
+            try:
+                # read the content of the file
+                file_bytes = await _read_conversation_file(context, file)
+                # convert the content of the file to a string
+                content = await convert.bytes_to_str(file_bytes, filename=file.filename)
+            except Exception as e:
+                await error_handler(context, file.filename, e)
+                error = f"error processing file: {e}"
 
-    attachment = Attachment(
-        filename=file.filename, content=content, metadata=metadata, updated_datetime=file.updated_datetime
-    )
-    drive.write_model(attachment, file.filename)
+        attachment = Attachment(
+            filename=file.filename,
+            content=content,
+            metadata=metadata,
+            updated_datetime=file.updated_datetime,
+            error=error,
+        )
+        drive.write_model(attachment, file.filename, if_exists=IfDriveFileExistsBehavior.OVERWRITE)
 
-    return attachment
+        return attachment
 
 
-def _delete_attachment_for_file(context: ConversationContext, file: File) -> None:
+async def _delete_attachment_for_file(context: ConversationContext, file: File) -> None:
     drive = _attachment_drive_for_context(context)
 
     with contextlib.suppress(FileNotFoundError):
         drive.delete(file.filename)
+
+    await _delete_lock_for_context_file(context, file.filename)
 
 
 def _attachment_drive_for_context(context: ConversationContext) -> Drive:

@@ -43,6 +43,10 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'end',
+        // first item should take as much width as possible
+        '& > *:first-child': {
+            flexGrow: 1,
+        },
         gap: tokens.spacingHorizontalS,
         ...shorthands.padding(tokens.spacingVerticalS, 0),
     },
@@ -126,7 +130,7 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
     const isSimpleArray = items.every(
         (item) => item.schema.type === 'string' || item.schema.type === 'number' || item.schema.type === 'integer',
     );
-    if (isSimpleArray) {
+    if (isSimpleArray && !collapsed) {
         content = (
             <div>
                 {items.map((element, index) => {
@@ -153,7 +157,7 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
                 {items.map((element, index) => {
                     const { children, hasRemove, hasMoveUp, hasMoveDown } = element;
 
-                    let itemTitle = 'untitled';
+                    let itemTitle = `${schema.title}: ${index + 1}`;
                     const titleField = uiSchema?.items?.['ui:options']?.['title_field']?.toString() ?? 'title';
                     if (titleField && formData[index][titleField]) {
                         itemTitle = formData[index][titleField];

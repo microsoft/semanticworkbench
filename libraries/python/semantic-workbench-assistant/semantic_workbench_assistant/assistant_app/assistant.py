@@ -3,6 +3,7 @@ from typing import (
     Mapping,
 )
 
+import deepmerge
 from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict
 
@@ -12,6 +13,7 @@ from .config import BaseModelAssistantConfig
 from .content_safety import AlwaysWarnContentSafetyEvaluator, ContentSafety
 from .export_import import FileStorageAssistantDataExporter, FileStorageConversationDataExporter
 from .protocol import (
+    AssistantCapability,
     AssistantConfigProvider,
     AssistantConversationInspectorStateProvider,
     AssistantDataExporter,
@@ -33,6 +35,7 @@ class AssistantApp:
         assistant_service_name: str,
         assistant_service_description: str,
         assistant_service_metadata: dict[str, Any] = {},
+        capabilities: set[AssistantCapability] = set(),
         config_provider: AssistantConfigProvider = BaseModelAssistantConfig(EmptyConfigModel).provider,
         data_exporter: AssistantDataExporter = FileStorageAssistantDataExporter(),
         conversation_data_exporter: ConversationDataExporter = FileStorageConversationDataExporter(),
@@ -42,7 +45,8 @@ class AssistantApp:
         self.assistant_service_id = assistant_service_id
         self.assistant_service_name = assistant_service_name
         self.assistant_service_description = assistant_service_description
-        self.assistant_service_metadata = assistant_service_metadata
+        self._assistant_service_metadata = assistant_service_metadata
+        self._capabilities = capabilities
 
         self.config_provider = config_provider
         self.data_exporter = data_exporter
@@ -52,6 +56,13 @@ class AssistantApp:
 
         self.events = Events()
 
+    @property
+    def assistant_service_metadata(self) -> dict[str, Any]:
+        return deepmerge.always_merger.merge(
+            self._assistant_service_metadata,
+            {"capabilities": {capability: True for capability in self._capabilities}},
+        )
+
     def add_inspector_state_provider(
         self,
         state_id: str,
@@ -60,6 +71,9 @@ class AssistantApp:
         if state_id in self.inspector_state_providers:
             raise ValueError(f"Inspector state provider with id {state_id} already exists")
         self.inspector_state_providers[state_id] = provider
+
+    def add_capability(self, capability: AssistantCapability) -> None:
+        self._capabilities.add(capability)
 
     def fastapi_app(self) -> FastAPI:
         return create_app(

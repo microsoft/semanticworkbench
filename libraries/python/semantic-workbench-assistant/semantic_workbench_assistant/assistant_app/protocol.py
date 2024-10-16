@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import (
     IO,
     Any,
@@ -262,3 +263,10 @@ class AssistantAppProtocol(Protocol):
         state_id: str,
         provider: AssistantConversationInspectorStateProvider,
     ) -> None: ...
+
+
+class AssistantCapability(StrEnum):
+    """Enum for the capabilities of the assistant."""
+
+    supports_conversation_files = "supports_conversation_files"
+    """Advertise support for awareness of files in the conversation."""

@@ -29,6 +29,7 @@ import React from 'react';
 import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
+import { AssistantCapability } from '../../models/AssistantCapability';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
 import { addError } from '../../redux/features/app/appSlice';
@@ -108,6 +109,7 @@ interface InteractInputProps {
     conversationId: string;
     additionalContent?: React.ReactNode;
     readOnly: boolean;
+    assistantCapabilities: Set<AssistantCapability>;
 }
 
 interface SerializedTemporaryTextNode extends SerializedTextNode {}
@@ -131,7 +133,7 @@ class TemporaryTextNode extends TextNode {
 }
 
 export const InteractInput: React.FC<InteractInputProps> = (props) => {
-    const { conversationId, additionalContent, readOnly } = props;
+    const { conversationId, additionalContent, readOnly, assistantCapabilities } = props;
     const classes = useClasses();
     const dropTargetRef = React.useRef<HTMLDivElement>(null);
     const isDraggingOverBody = useAppSelector((state) => state.app.isDraggingOverBody);
@@ -331,6 +333,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             const files = attachmentFiles.size > 0 ? [...attachmentFiles.values()] : undefined;
             // reset the attachment files so that the same files are not uploaded again
             setAttachmentFiles(new Map());
+            // reset the files form input
+            if (attachmentInputRef.current) {
+                attachmentInputRef.current.value = '';
+            }
             if (files) {
                 await uploadConversationFiles({ conversationId, files });
             }
@@ -471,6 +477,17 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
     const disableSend = readOnly || isSubmitting || tokenCount === 0;
     const disableInputs = readOnly || isSubmitting || isListening;
+    const disableAttachments =
+        readOnly || isSubmitting || !assistantCapabilities.has(AssistantCapability.SupportsConversationFiles);
+
+    const tokenCounts = `${tokenCount} token${tokenCount !== 1 ? 's' : ''}`;
+    const attachmentCount = disableAttachments
+        ? ''
+        : `${attachmentFiles.size} attachments (max ${Constants.app.maxFileAttachmentsPerMessage})`;
+    const inputCounts = [tokenCounts, attachmentCount].filter((count) => count !== '').join(' | ');
+    const attachFilesButtonTitle = disableAttachments
+        ? 'Attachments are not supported by the assistants in this conversation'
+        : 'Attach files';
 
     return (
         <div className={classes.root}>
@@ -512,12 +529,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                             charactersRemainingMessage={(charactersRemaining) =>
                                 `${charactersRemaining} characters remaining`
                             }
-                            count={
-                                <span>
-                                    {tokenCount} tokens | {attachmentFiles.size} attachments (max{' '}
-                                    {Constants.app.maxFileAttachmentsPerMessage})
-                                </span>
-                            }
+                            count={<span>{inputCounts}</span>}
                             disabled={readOnly}
                             placeholderValue="Ask a question or request assistance or type / to enter a command."
                             customNodes={[ChatInputTokenNode, ChatInputEntityNode, LineBreakNode, TemporaryTextNode]}
@@ -537,7 +549,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                                         />
                                         <Button
                                             appearance="transparent"
-                                            disabled={disableInputs}
+                                            title={attachFilesButtonTitle}
+                                            disabled={disableAttachments}
                                             icon={<Attach20Regular />}
                                             onClick={onAttachment}
                                         />

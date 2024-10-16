@@ -43,17 +43,15 @@ def create_pydantic_model_from_json(json_data: str) -> Type[BaseModel]:
 
 
 def pydantic_model_to_json(model: BaseModel) -> Dict[str, Any]:
-    def get_type_str(py_type: Any) -> str:
-        type_mapping = {str: "str", int: "int", float: "float", bool: "bool", list: "list", dict: "dict"}
-        return type_mapping.get(py_type, "any")
-
     json_dict = {}
     for field_name, field in model.model_fields.items():
         field_type = get_type_hints(model)[field_name]
+        if field_type is PydanticUndefinedType:
+            raise ValueError(f"Field {field_name} has an undefined type")
         default_value = field.default if not isinstance(field.default, PydanticUndefinedType) else ""
         json_dict[field_name] = {
             "value": default_value,
-            "type": get_type_str(field_type),
+            "type": field_type.__name__,
             "description": field.description or "",
         }
     return json_dict
@@ -74,13 +72,13 @@ class GuidedConversationAgentConfigModel(BaseModel):
             title="Artifact",
             description="The artifact that the agent will manage.",
         ),
-        UISchema(widget="textarea"),
-    ] = json.dumps(pydantic_model_to_json(config_defaults.ArtifactModel), indent=2)  # type: ignore
+        UISchema(widget="baseModelEditor"),
+    ] = json.dumps(config_defaults.ArtifactModel.model_json_schema(), indent=2)
 
     rules: Annotated[
         list[str],
         Field(title="Rules", description="Do's and don'ts that the agent should attempt to follow"),
-        UISchema(schema={"items": {"ui:widget": "textarea"}}),
+        UISchema(schema={"items": {"ui:widget": "textarea", "ui:options": {"rows": 2}}}),
     ] = config_defaults.rules
 
     conversation_flow: Annotated[
@@ -89,7 +87,7 @@ class GuidedConversationAgentConfigModel(BaseModel):
             title="Conversation Flow",
             description="A loose natural language description of the steps of the conversation",
         ),
-        UISchema(widget="textarea", placeholder="[optional]"),
+        UISchema(widget="textarea", schema={"ui:options": {"rows": 10}}, placeholder="[optional]"),
     ] = config_defaults.conversation_flow.strip()
 
     context: Annotated[
@@ -138,7 +136,7 @@ class GuidedConversationAgentConfigModel(BaseModel):
     ] = ResourceConstraint()
 
     def get_artifact_model(self) -> Type[BaseModel]:
-        return create_pydantic_model_from_json(self.artifact)
+        return self.artifact  # type: ignore
 
 
 # endregion

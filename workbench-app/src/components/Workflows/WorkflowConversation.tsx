@@ -17,6 +17,7 @@ import { Constants } from '../../Constants';
 import { InteractHistory } from '../../components/Conversations/InteractHistory';
 import { InteractInput } from '../../components/Conversations/InteractInput';
 import { WorkbenchEventSource } from '../../libs/WorkbenchEventSource';
+import { useGetAssistantCapabilitiesSet } from '../../libs/useAssistantCapabilities';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { useInteractCanvasController } from '../../libs/useInteractCanvasController';
 import { useSiteUtility } from '../../libs/useSiteUtility';
@@ -151,6 +152,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoading: isLoadingParticipants,
         error: participantsError,
     } = useGetConversationParticipantsQuery(conversationId, { refetchOnMountOrArgChange: true });
+    const assistantCapabilities = useGetAssistantCapabilitiesSet(workflowRunAssistants ?? []);
 
     const [isResizing, setIsResizing] = React.useState(false);
     const siteUtility = useSiteUtility();
@@ -238,6 +240,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoadingWorkflowRunAssistants ||
         isLoadingConversation ||
         isLoadingParticipants ||
+        !assistantCapabilities ||
         !conversation ||
         !participants ||
         !workflowRunAssistants
@@ -272,6 +275,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                     <InteractInput
                         readOnly={readOnly}
                         conversationId={conversation.id}
+                        assistantCapabilities={assistantCapabilities}
                         additionalContent={
                             <>
                                 <MessageBar intent="warning" layout="multiline">
