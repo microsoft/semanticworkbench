@@ -1,12 +1,13 @@
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from openai.lib.azure import AsyncAzureADTokenProvider
+
 from .config import (
-    ServiceConfig,
     AzureOpenAIApiKeyAuthConfig,
     AzureOpenAIAzureIdentityAuthConfig,
     AzureOpenAIServiceConfig,
     OpenAIServiceConfig,
+    ServiceConfig,
 )
 
 
@@ -51,6 +52,7 @@ _lazy_initialized_azure_bearer_token_provider = None
 
 def _get_azure_bearer_token_provider() -> AsyncAzureADTokenProvider:
     global _lazy_initialized_azure_bearer_token_provider
+
     if _lazy_initialized_azure_bearer_token_provider is None:
         _lazy_initialized_azure_bearer_token_provider = get_bearer_token_provider(
             DefaultAzureCredential(),

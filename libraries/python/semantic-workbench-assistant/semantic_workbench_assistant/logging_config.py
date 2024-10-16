@@ -1,10 +1,10 @@
 import logging
+import logging.config
 import re
 
 import asgi_correlation_id
 from pydantic_settings import BaseSettings
 from pythonjsonlogger import jsonlogger
-from rich.logging import RichHandler
 
 
 class LoggingSettings(BaseSettings):
@@ -55,7 +55,7 @@ class JSONHandler(logging.StreamHandler):
 class DebugLevelForNoisyLogFilter(logging.Filter):
     """Lowers log level to DEBUG for logs that match specific logger names and message patterns."""
 
-    def __init__(self, log_level: int, *names_and_patterns: tuple[str, re.Pattern]):
+    def __init__(self, log_level: int, names_and_patterns: list[tuple[str, re.Pattern]]):
         self._log_level = log_level
         self._names_and_patterns = names_and_patterns
 
@@ -74,22 +74,60 @@ class DebugLevelForNoisyLogFilter(logging.Filter):
 def config(settings: LoggingSettings):
     log_level = logging.getLevelNamesMapping()[settings.log_level.upper()]
 
-    handler = RichHandler(rich_tracebacks=True)
+    handler = "rich"
     if settings.json_format:
-        handler = JSONHandler(max_message_length=settings.json_format_maximum_message_length)
+        handler = "json"
 
-    handler.addFilter(asgi_correlation_id.CorrelationIdFilter(uuid_length=8, default_value="-"))
-    handler.addFilter(
-        DebugLevelForNoisyLogFilter(
-            log_level,
-            # noisy assistant-service ping requests
-            ("httpx", re.compile(r"PUT .+/assistant-service-registrations/[^\s]+ \"HTTP")),
-        )
-    )
-
-    logging.basicConfig(
-        level=log_level,
-        format="%(name)35s [%(correlation_id)s] %(message)s",
-        datefmt="[%X]",
-        handlers=[handler],
-    )
+    logging.config.dictConfig({
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(name)35s [%(correlation_id)s] %(message)s",
+                "datefmt": "[%X]",
+            },
+            "json": {
+                "()": CustomJSONFormatter,
+                "format": "%(name)s %(filename)s %(module)s %(lineno)s %(levelname)s %(correlation_id)s %(message)s",
+                "timestamp": True,
+                "max_message_length": settings.json_format_maximum_message_length,
+            },
+        },
+        "handlers": {
+            "rich": {
+                "class": "rich.logging.RichHandler",
+                "rich_tracebacks": True,
+                "formatter": "default",
+                "filters": ["asgi_correlation_id", "debug_level_for_noisy_logs"],
+            },
+            "json": {
+                "class": "logging.StreamHandler",
+                "formatter": "json",
+                "filters": ["asgi_correlation_id", "debug_level_for_noisy_logs"],
+            },
+        },
+        "loggers": {
+            "azure.core.pipeline.policies.http_logging_policy": {
+                "level": "WARNING",
+            },
+        },
+        "root": {
+            "handlers": [handler],
+            "level": log_level,
+        },
+        "filters": {
+            "debug_level_for_noisy_logs": {
+                "()": DebugLevelForNoisyLogFilter,
+                "log_level": log_level,
+                "names_and_patterns": [
+                    # noisy assistant-service ping requests
+                    ("httpx", re.compile(r"PUT .+/assistant-service-registrations/[^\s]+ \"HTTP")),
+                ],
+            },
+            "asgi_correlation_id": {
+                "()": asgi_correlation_id.CorrelationIdFilter,
+                "uuid_length": 8,
+                "default_value": "-",
+            },
+        },
+    })
