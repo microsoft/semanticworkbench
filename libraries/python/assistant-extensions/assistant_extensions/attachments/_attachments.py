@@ -59,7 +59,7 @@ class AttachmentsExtension:
     ) -> None:
         """
         AttachmentsExtension produces chat completion messages for the files in a conversation. These
-        messages include the text represenations of the files ("attachments"), and their filenames.
+        messages include the text representations of the files ("attachments"), and their filenames.
         These messages can be included in chat-completion API calls, providing context to the LLM about
         the files in the conversation.
 
