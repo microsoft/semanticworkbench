@@ -16,29 +16,22 @@ async def bytes_to_str(file_bytes: bytes, filename: str) -> str:
     """
     filename_extension = pathlib.Path(filename).suffix.lower().strip(".")
 
-    try:
-        match filename_extension:
-            # if the file has .docx extension, convert it to text
-            case "docx":
-                content = await _docx_bytes_to_str(file_bytes)
+    match filename_extension:
+        # if the file has .docx extension, convert it to text
+        case "docx":
+            return await _docx_bytes_to_str(file_bytes)
 
-            # if the file has .pdf extension, convert it to text
-            case "pdf":
-                content = await _pdf_bytes_to_str(file_bytes)
+        # if the file has .pdf extension, convert it to text
+        case "pdf":
+            return await _pdf_bytes_to_str(file_bytes)
 
-            # if the file has an image extension, convert it to a data URI
-            case _ if filename_extension in ["png", "jpg", "jpeg", "gif", "bmp", "tiff", "tif"]:
-                content = _image_bytes_to_str(file_bytes, filename_extension)
+        # if the file has an image extension, convert it to a data URI
+        case _ if filename_extension in ["png", "jpg", "jpeg", "gif", "bmp", "tiff", "tif"]:
+            return _image_bytes_to_str(file_bytes, filename_extension)
 
-            # otherwise, try to convert the file to text
-            case _:
-                content = file_bytes.decode("utf-8")
-
-    except Exception:
-        logger.exception("error converting %s to text", filename)
-        content = ""
-
-    return content
+        # otherwise, try to convert the file to text
+        case _:
+            return file_bytes.decode("utf-8")
 
 
 async def _docx_bytes_to_str(file_bytes: bytes) -> str:

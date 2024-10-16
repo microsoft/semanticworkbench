@@ -333,6 +333,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             const files = attachmentFiles.size > 0 ? [...attachmentFiles.values()] : undefined;
             // reset the attachment files so that the same files are not uploaded again
             setAttachmentFiles(new Map());
+            // reset the files form input
+            if (attachmentInputRef.current) {
+                attachmentInputRef.current.value = '';
+            }
             if (files) {
                 await uploadConversationFiles({ conversationId, files });
             }

@@ -53,7 +53,7 @@ export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
                 const metadataCapabilities = info.metadata?.capabilities;
 
                 // If there are no capabilities specified at all, default to all capabilities
-                if (metadataCapabilities === undefined || Object.keys(metadataCapabilities).length === 0) {
+                if (metadataCapabilities === undefined) {
                     acc.union(allCapabilities);
                     return acc;
                 }
