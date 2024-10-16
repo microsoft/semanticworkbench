@@ -476,6 +476,15 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const disableAttachments =
         readOnly || isSubmitting || !assistantCapabilities.has(AssistantCapability.SupportsConversationFiles);
 
+    const tokenCounts = `${tokenCount} token${tokenCount !== 1 ? 's' : ''}`;
+    const attachmentCount = disableAttachments
+        ? ''
+        : `${attachmentFiles.size} attachments (max ${Constants.app.maxFileAttachmentsPerMessage})`;
+    const inputCounts = [tokenCounts, attachmentCount].filter((count) => count !== '').join(' | ');
+    const attachFilesButtonTitle = disableAttachments
+        ? 'Attachments are not supported by the assistants in this conversation'
+        : 'Attach files';
+
     return (
         <div className={classes.root}>
             {readOnly ? (
@@ -516,12 +525,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                             charactersRemainingMessage={(charactersRemaining) =>
                                 `${charactersRemaining} characters remaining`
                             }
-                            count={
-                                <span>
-                                    {tokenCount} tokens | {attachmentFiles.size} attachments (max{' '}
-                                    {Constants.app.maxFileAttachmentsPerMessage})
-                                </span>
-                            }
+                            count={<span>{inputCounts}</span>}
                             disabled={readOnly}
                             placeholderValue="Ask a question or request assistance or type / to enter a command."
                             customNodes={[ChatInputTokenNode, ChatInputEntityNode, LineBreakNode, TemporaryTextNode]}
@@ -541,6 +545,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                                         />
                                         <Button
                                             appearance="transparent"
+                                            title={attachFilesButtonTitle}
                                             disabled={disableAttachments}
                                             icon={<Attach20Regular />}
                                             onClick={onAttachment}
