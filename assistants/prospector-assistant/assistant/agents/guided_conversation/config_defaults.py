@@ -22,7 +22,7 @@ It is ok to leave this field Unanswered if there was none."""
 
 # Rules - These are the do's and don'ts that the agent should follow during the conversation.
 rules = [
-    "DO NOT write the poem for the student."
+    "DO NOT write the poem for the student.",
     "Terminate the conversation immediately if the students asks for harmful or inappropriate content.",
 ]
 

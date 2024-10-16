@@ -71,17 +71,6 @@ class ServiceConfig(BaseModel):
 # region Assistant Configuration
 #
 
-
-class AgentsConfigModel(BaseModel):
-    guided_conversation_agent: Annotated[
-        GuidedConversationAgentConfigModel,
-        Field(
-            title="Guided Conversation Agent Configuration",
-            description="Configuration for the guided conversation agent.",
-        ),
-    ] = GuidedConversationAgentConfigModel()
-
-
 class HighTokenUsageWarning(BaseModel):
     enabled: Annotated[
         bool,
@@ -154,51 +143,13 @@ class RequestConfig(BaseModel):
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
-    enable_debug_output: Annotated[
-        bool,
+    guided_conversation_agent: Annotated[
+        GuidedConversationAgentConfigModel,
         Field(
-            title="Include Debug Output",
-            description="Include debug output on conversation messages.",
+            title="Guided Conversation Agent Configuration",
+            description="Configuration for the guided conversation agent.",
         ),
-    ] = False
-
-    # instruction_prompt: Annotated[
-    #     str,
-    #     Field(
-    #         title="Instruction Prompt",
-    #         description="The prompt used to instruct the behavior of the AI assistant.",
-    #     ),
-    #     UISchema(widget="textarea"),
-    # ] = (
-    #     "You are an AI assistant that helps people with their work. In addition to text, you can also produce markdown,"
-    #     " code snippets, and other types of content. If you wrap your response in triple backticks, you can specify the"
-    #     " language for syntax highlighting. For example, ```python print('Hello, World!')``` will produce a code"
-    #     " snippet in Python. Mermaid markdown is supported if you wrap the content in triple backticks and specify"
-    #     " 'mermaid' as the language. For example, ```mermaid graph TD; A-->B;``` will render a flowchart for the"
-    #     " user.ABC markdown is supported if you wrap the content in triple backticks and specify 'abc' as the"
-    #     " language.For example, ```abc C4 G4 A4 F4 E4 G4``` will render a music score and an inline player with a link"
-    #     " to download the midi file."
-    # )
-
-    # # "You are an AI assistant that helps teams synthesize information from conversations and documents to create"
-    # #     " a shared understanding of complex topics. As you do so, there are tools observing the conversation and"
-    # #     " they will automatically create an outline and a document based on the conversation, you don't need to do"
-    # #     " anything special to trigger this, just have a conversation with the user. Focus on assisting the user and"
-    # #     " drawing out the info needed in order to bring clarity to the topic at hand."
-
-    guardrails_prompt: Annotated[
-        str,
-        Field(
-            title="Guardrails Prompt",
-            description=(
-                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
-                " recommendations from: [Microsoft OpenAI Service: System message templates]"
-                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
-                "#define-additional-safety-and-behavioral-guardrails)"
-            ),
-        ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = load_text_include("guardrails_prompt.txt")
+    ] = GuidedConversationAgentConfigModel()
 
     request_config: Annotated[
         RequestConfig,
@@ -216,14 +167,6 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
-
-    agents_config: Annotated[
-        AgentsConfigModel,
-        Field(
-            title="Agents Configuration",
-            description="Configuration for the assistant agents.",
-        ),
-    ] = AgentsConfigModel()
 
     # add any additional configuration fields
 
