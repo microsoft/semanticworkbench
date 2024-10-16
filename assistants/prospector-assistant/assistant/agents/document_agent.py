@@ -3,6 +3,7 @@ from typing import Any, Callable
 
 import deepmerge
 import openai_client
+from assistant_extensions.attachments import AttachmentsExtension
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionSystemMessageParam
 from semantic_workbench_api_model.workbench_model import (
     #    AssistantStateEvent,
@@ -17,7 +18,6 @@ from semantic_workbench_assistant.assistant_app import (
     #    storage_directory_for_context,
 )
 
-from ..agents.attachment_agent import AttachmentAgent
 from ..config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,9 @@ class DocumentAgent:
     An agent for working on document content: creation, editing, translation, etc.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, attachments_extension: AttachmentsExtension) -> None:
         self._commands = [self.draft_outline]
+        self._attachments_extension = attachments_extension
 
     @property
     def commands(self) -> list[Callable]:
@@ -54,12 +55,12 @@ class DocumentAgent:
         command_found = False
         for command in self.commands:
             if command.__name__ == msg_command_name:
-                print(f"Found command {message.command_name}")
+                logger.info("Found command %s", message.command_name)
                 command_found = True
                 await command(config, context, message, metadata)  # TO DO, handle commands with args
                 break
         if not command_found:
-            print(f"Could not find command {message.command_name}")
+            logger.warning("Could not find command %s", message.command_name)
 
     async def draft_outline(
         self,
@@ -82,8 +83,10 @@ class DocumentAgent:
         _add_chat_history_system_message(
             chat_completion_messages, conversation.messages, participants_list.participants
         )
-        _add_attachments_system_message(
-            chat_completion_messages, config, AttachmentAgent.generate_attachment_messages(context)
+        chat_completion_messages.extend(
+            await self._attachments_extension.get_completion_messages_for_attachments(
+                context, config=config.agents_config.attachment_agent
+            )
         )
 
         # make completion call to openai
@@ -150,19 +153,6 @@ def _add_chat_history_system_message(
     chat_completion_messages.append(message)
 
 
-def _add_attachments_system_message(
-    chat_completion_messages: list[ChatCompletionMessageParam],
-    config: AssistantConfigModel,
-    attachment_messages: list[ChatCompletionMessageParam],
-) -> None:
-    if len(attachment_messages) > 0:
-        chat_completion_messages.append({
-            "role": "system",
-            "content": config.agents_config.attachment_agent.context_description,
-        })
-        chat_completion_messages.extend(attachment_messages)
-
-
 draft_outline_main_system_message = (
     "Generate an outline for the document, including title. The outline should include the key points that will"
     " be covered in the document. If attachments exist, consider the attachments and the rationale for why they"
@@ -191,7 +181,7 @@ def _on_success_metadata_update(
                 f"{method_metadata_key}": {
                     "request": {
                         "model": config.request_config.openai_model,
-                        "messages": chat_completion_messages,
+                        "messages": openai_client.truncate_messages_for_logging(chat_completion_messages),
                         "max_tokens": config.request_config.response_tokens,
                     },
                     "response": completion.model_dump() if completion else "[no response from openai]",
@@ -199,7 +189,6 @@ def _on_success_metadata_update(
             }
         },
     )
-    metadata = _reduce_metadata_debug_payload(metadata)
 
 
 def _on_error_metadata_update(
@@ -216,14 +205,13 @@ def _on_error_metadata_update(
                 f"{method_metadata_key}": {
                     "request": {
                         "model": config.request_config.openai_model,
-                        "messages": chat_completion_messages,
+                        "messages": openai_client.truncate_messages_for_logging(chat_completion_messages),
                     },
                     "error": str(e),
                 },
             }
         },
     )
-    metadata = _reduce_metadata_debug_payload(metadata)
 
 
 # endregion
@@ -245,60 +233,6 @@ def _format_message(message: ConversationMessage, participants: list[Conversatio
     participant_name = conversation_participant.name if conversation_participant else "unknown"
     message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
     return f"[{participant_name} - {message_datetime}]: {message.content}"
-
-
-def _reduce_metadata_debug_payload(metadata: dict[str, Any]) -> dict[str, Any]:
-    """
-    Reduce the size of the metadata debug payload.
-    """
-
-    # map of payload reducers and keys they should be called for
-    # each reducer should take a value and return a reduced value
-    payload_reducers: dict[str, list[Any]] = {
-        "content": [
-            AttachmentAgent.reduce_attachment_payload_from_content,
-        ]
-    }
-
-    # NOTE: use try statements around each recursive call to reduce_metadata to report the parent key in case of error
-
-    # now iterate recursively over all metadata keys and call the payload reducers for the matching keys
-    def reduce_metadata(metadata: dict[str, Any] | Any) -> dict[str, Any] | Any:
-        # check if the metadata is not a dictionary
-        if not isinstance(metadata, dict):
-            return metadata
-
-        # iterate over the metadata keys
-        for key, value in metadata.items():
-            # check if the key is in the payload reducers
-            if key in payload_reducers:
-                # call the payload reducer for the key
-                for reducer in payload_reducers[key]:
-                    metadata[key] = reducer(value)
-            # check if the value is a dictionary
-            if isinstance(value, dict):
-                try:
-                    # recursively reduce the metadata
-                    metadata[key] = reduce_metadata(value)
-                except Exception as e:
-                    logger.exception(f"exception occurred reducing metadata for key '{key}': {e}")
-            # check if the value is a list
-            elif isinstance(value, list):
-                try:
-                    # recursively reduce the metadata for each item in the list
-                    metadata[key] = [reduce_metadata(item) for item in value]
-                except Exception as e:
-                    logger.exception(f"exception occurred reducing metadata for key '{key}': {e}")
-
-        # return the reduced metadata
-        return metadata
-
-    try:
-        # reduce the metadata
-        return reduce_metadata(metadata)
-    except Exception as e:
-        logger.exception(f"exception occurred reducing metadata: {e}")
-        return metadata
 
 
 # endregion

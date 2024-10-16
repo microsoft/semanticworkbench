@@ -119,7 +119,7 @@ async def on_command_message_created(
 
     config = await assistant_config.get(context.assistant)
     if config.agents_config.attachment_agent.include_in_response_generation:
-        doc_agent = DocumentAgent()
+        doc_agent = DocumentAgent(attachments_extension=attachments_extension)
         await doc_agent.receive_command(config, context, message, metadata)
     else:
         pass  # for now
