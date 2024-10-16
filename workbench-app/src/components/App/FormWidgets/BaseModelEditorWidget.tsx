@@ -1,4 +1,10 @@
 import {
+    Accordion,
+    AccordionHeader,
+    AccordionItem,
+    AccordionItemValue,
+    AccordionPanel,
+    AccordionToggleEventHandler,
     Button,
     Dropdown,
     Field,
@@ -34,10 +40,7 @@ const useClasses = makeStyles({
         border: '1px solid #ccc',
         borderRadius: tokens.borderRadiusMedium,
     },
-    nestedProperties: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: tokens.spacingVerticalL,
+    addNestedProperty: {
         ...shorthands.margin(tokens.spacingVerticalS, 0, tokens.spacingVerticalS, tokens.spacingHorizontalM),
     },
     keyRow: {
@@ -64,6 +67,7 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
     const { label, value, onChange } = props;
     const classes = useClasses();
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const [openItems, setOpenItems] = React.useState<AccordionItemValue[]>([]);
 
     // Define the schema type
     const [modelSchema, setModelSchema] = React.useState<ModelSchema>(() => {
@@ -249,26 +253,33 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
         onChange(JSON.stringify(updatedModelSchema));
     };
 
-    // Helper function to render nested properties
-    const renderNestedProperties = (properties: ModelSchema['properties'], parentKey: string) => {
-        return (
-            <div className={classes.nestedProperties}>
-                {Object.entries(properties || {}).map(([key, property]) => (
-                    <div key={key}>{renderSchemaFieldEditor(`${parentKey}.${key}`, property)}</div>
-                ))}
-                <div>
-                    <Button
-                        onClick={() => handleAddNestedProperty(parentKey)}
-                        appearance="outline"
-                        size="small"
-                        icon={<Add16Regular />}
-                    >
-                        Add Nested Property
-                    </Button>
-                </div>
-            </div>
-        );
+    const handleToggle: AccordionToggleEventHandler<unknown> = (_, data) => {
+        setOpenItems(data.openItems);
     };
+
+    // Helper function to render nested properties
+    const renderNestedProperties = (properties: ModelSchema['properties'], parentKey: string) => (
+        <div>
+            <Accordion multiple collapsible>
+                {Object.entries(properties || {}).map(([key, property], index) => (
+                    <AccordionItem value={index} key={key}>
+                        <AccordionHeader>{`${key} (${property.type ? property.type : 'unknown'})`}</AccordionHeader>
+                        <AccordionPanel>{renderSchemaFieldEditor(`${parentKey}.${key}`, property)}</AccordionPanel>
+                    </AccordionItem>
+                ))}
+            </Accordion>
+            <div className={classes.addNestedProperty}>
+                <Button
+                    onClick={() => handleAddNestedProperty(parentKey)}
+                    appearance="outline"
+                    size="small"
+                    icon={<Add16Regular />}
+                >
+                    Add Nested Property
+                </Button>
+            </div>
+        </div>
+    );
 
     // Helper function to render the schema field editor
     const renderSchemaFieldEditor = (
@@ -415,11 +426,14 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
     return (
         <div className={classes.root}>
             <Text>{label}</Text>
-            <div className={classes.properties}>
-                {Object.entries(modelSchema.properties || {}).map(([key, property]) => (
-                    <div key={key}>{renderSchemaFieldEditor(key, property)}</div>
+            <Accordion openItems={openItems} onToggle={handleToggle} multiple collapsible>
+                {Object.entries(modelSchema.properties || {}).map(([key, property], index) => (
+                    <AccordionItem value={index} key={key}>
+                        <AccordionHeader>{`${key} (${property.type ? property.type : 'unknown'})`}</AccordionHeader>
+                        <AccordionPanel>{renderSchemaFieldEditor(key, property)}</AccordionPanel>
+                    </AccordionItem>
                 ))}
-            </div>
+            </Accordion>
             <div>
                 <Button onClick={handleAddProperty} appearance="outline" size="small" icon={<Add16Regular />}>
                     Add New Property
