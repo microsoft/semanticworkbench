@@ -71,6 +71,7 @@ class ServiceConfig(BaseModel):
 # region Assistant Configuration
 #
 
+
 class HighTokenUsageWarning(BaseModel):
     enabled: Annotated[
         bool,
@@ -120,7 +121,7 @@ class RequestConfig(BaseModel):
             ),
         ),
         UISchema(enable_markdown_in_description=True),
-    ] = 128_000
+    ] = 50_000
 
     response_tokens: Annotated[
         int,
