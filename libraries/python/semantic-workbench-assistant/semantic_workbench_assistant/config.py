@@ -57,6 +57,7 @@ class UISchema:
         placeholder: str | None = None,
         hide_title: Literal[True] | None = None,
         enable_markdown_in_description: bool | None = None,
+        readonly: bool | None = None,
     ) -> None:
         """
         UISchema defines the uiSchema for a field on a Pydantic config model. The uiSchema
@@ -102,6 +103,9 @@ class UISchema:
             ui_options.update({"enableMarkdownInDescription": enable_markdown_in_description})
         if placeholder is not None:
             ui_options.update({"placeholder": placeholder})
+        if readonly is not None:
+            ui_options.update({"readonly": readonly})
+
         if ui_options:
             self.schema.update({"ui:options": ui_options})
 
@@ -126,6 +130,13 @@ def get_ui_schema(type_: Type[BaseModel]) -> dict[str, Any]:
             field_types = field_type.__args__
 
         for field_type in field_types:
+            origin = get_origin(field_type)
+            if origin is not None and origin is list:
+                list_item_schema = get_ui_schema(field_type.__args__[0])
+                if list_item_schema:
+                    field_ui_schema = deepmerge.always_merger.merge(field_ui_schema, {"items": list_item_schema})
+                continue
+
             type_ui_schema = get_ui_schema(field_type)
             field_ui_schema = deepmerge.always_merger.merge(field_ui_schema, type_ui_schema)
 

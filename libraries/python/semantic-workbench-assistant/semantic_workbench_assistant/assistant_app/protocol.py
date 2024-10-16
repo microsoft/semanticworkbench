@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import (
     IO,
     Any,
@@ -30,8 +31,10 @@ class AssistantConversationInspectorStateDataModel:
 
 
 class ReadOnlyAssistantConversationInspectorStateProvider(Protocol):
-    display_name: str
-    description: str
+    @property
+    def display_name(self) -> str: ...
+    @property
+    def description(self) -> str: ...
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel: ...
 
@@ -225,14 +228,57 @@ class ContentInterceptor(Protocol):
 
 
 class AssistantAppProtocol(Protocol):
-    _assistant_service_id: str
-    _assistant_service_name: str
-    _assistant_service_description: str
+    @property
+    def events(self) -> Events: ...
 
-    _config_provider: AssistantConfigProvider
-    _data_exporter: AssistantDataExporter
-    _conversation_data_exporter: ConversationDataExporter
-    _inspector_state_providers: Mapping[str, AssistantConversationInspectorStateProvider]
-    _content_interceptor: ContentInterceptor | None
+    @property
+    def assistant_service_id(self) -> str: ...
 
-    events: Events
+    @property
+    def assistant_service_name(self) -> str: ...
+
+    @property
+    def assistant_service_description(self) -> str: ...
+
+    @property
+    def assistant_service_metadata(self) -> dict[str, Any]: ...
+
+    @property
+    def config_provider(self) -> AssistantConfigProvider: ...
+
+    @property
+    def data_exporter(self) -> AssistantDataExporter: ...
+
+    @property
+    def conversation_data_exporter(self) -> ConversationDataExporter: ...
+
+    @property
+    def content_interceptor(self) -> ContentInterceptor | None: ...
+
+    @property
+    def inspector_state_providers(self) -> Mapping[str, AssistantConversationInspectorStateProvider]: ...
+
+    def add_inspector_state_provider(
+        self,
+        state_id: str,
+        provider: AssistantConversationInspectorStateProvider,
+    ) -> None: ...
+
+
+class AssistantCapability(StrEnum):
+    """Enum for the capabilities of the assistant."""
+
+    supports_conversation_files = "supports_conversation_files"
+    """Advertise support for awareness of files in the conversation."""
+
+    supports_conversation_messages_directed_at = "supports_conversation_messages_directed_at"
+    """
+    Advertise support for the directed_at attribute in message metadata, and only respond to
+    messages that are directed to the assistant.
+    """
+
+    supports_conversation_messages_chat = "supports_conversation_messages_chat"
+    """Advertise support for responding to messages of type 'chat'."""
+
+    supports_conversation_messages_command = "supports_conversation_messages_command"
+    """Advertise support for responding to messages of type 'command'."""

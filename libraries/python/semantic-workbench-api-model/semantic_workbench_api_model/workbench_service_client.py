@@ -234,6 +234,24 @@ class ConversationAPIClient:
             finally:
                 await http_response.aclose()
 
+    async def get_file(self, filename: str) -> workbench_model.File | None:
+        async with self._client as client:
+            params = {"prefix": filename}
+            http_response = await client.get(f"/conversations/{self._conversation_id}/files", params=params)
+            http_response.raise_for_status()
+
+            files_response = workbench_model.FileList.model_validate(http_response.json())
+            if not files_response.files:
+                return None
+
+            for file in files_response.files:
+                if file.filename != filename:
+                    continue
+
+                return file
+
+            return None
+
     async def get_files(self, prefix: str | None = None) -> workbench_model.FileList:
         async with self._client as client:
             params = {"prefix": prefix} if prefix else {}
