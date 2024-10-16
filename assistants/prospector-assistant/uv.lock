@@ -191,6 +191,9 @@ version = "0.1.0"
 source = { editable = "../../libraries/python/assistant-extensions" }
 dependencies = [
     { name = "assistant-drive" },
+    { name = "docx2txt" },
+    { name = "openai" },
+    { name = "pdfplumber" },
     { name = "semantic-workbench-assistant" },
 ]
 
@@ -203,7 +206,10 @@ attachments = [
 [package.metadata]
 requires-dist = [
     { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
+    { name = "docx2txt", specifier = ">=0.8" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
+    { name = "openai", specifier = ">=1.51.2" },
+    { name = "pdfplumber", specifier = ">=0.11.4" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
     { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
 ]
@@ -1226,7 +1232,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.51.0"
+version = "1.51.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1238,9 +1244,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/af/cc59b1447f5a02bb1f25b9b0cd94b607aa2c969a81d9a244d4067f91f6fe/openai-1.51.0.tar.gz", hash = "sha256:8dc4f9d75ccdd5466fc8c99a952186eddceb9fd6ba694044773f3736a847149d", size = 306880 }
+sdist = { url = "https://files.pythonhosted.org/packages/95/64/9a5279138b5ea6c2f0e5443d5d93b4510cb87fa6fe7be0c92b837087124e/openai-1.51.2.tar.gz", hash = "sha256:c6a51fac62a1ca9df85a522e462918f6bb6bc51a8897032217e453a0730123a6", size = 307755 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c7/08/9f22356d4fbd273f734db1e6663b7ca6987943080567f5580471022e57ca/openai-1.51.0-py3-none-any.whl", hash = "sha256:d9affafb7e51e5a27dce78589d4964ce4d6f6d560307265933a94b2e3f3c5d2c", size = 383533 },
+    { url = "https://files.pythonhosted.org/packages/3d/49/72198d0941b3a0264b6d13033823025c01c497f1cbfd83db310392c49c0e/openai-1.51.2-py3-none-any.whl", hash = "sha256:5c5954711cba931423e471c37ff22ae0fd3892be9b083eee36459865fbbb83fa", size = 383687 },
 ]
 
 [[package]]

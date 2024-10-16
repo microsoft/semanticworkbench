@@ -18,6 +18,8 @@ import { CustomizedObjectFieldTemplate } from '../App/FormWidgets/CustomizedObje
 import { InspectableWidget } from '../App/FormWidgets/InspectableWidget';
 import { Loading } from '../App/Loading';
 import { ApplyConfigButton } from './ApplyConfigButton';
+import { AssistantConfigExportButton } from './AssistantConfigExportButton';
+import { AssistantConfigImportButton } from './AssistantConfigImportButton';
 
 const log = debug(Constants.debug.root).extend('AssistantEdit');
 
@@ -114,6 +116,13 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
         setFormData(config);
     };
 
+    const mergeConfigurations = (uploadedConfig: object) => {
+        if (!config) return;
+
+        const updatedConfig = Utility.deepMerge(config.config, uploadedConfig);
+        setFormData(updatedConfig);
+    };
+
     const widgets: RegistryWidgetsType = {
         inspectable: InspectableWidget,
         baseModelEditor: BaseModelEditorWidget,
@@ -160,6 +169,8 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
                     newConfig={defaults}
                     onApply={restoreConfig}
                 />
+                <AssistantConfigExportButton config={config?.config || {}} assistantId={assistant.id} />
+                <AssistantConfigImportButton onImport={mergeConfigurations} />
                 {!isValid && (
                     <div className={classes.warning}>
                         <Warning24Filled /> Configuration has missing or invalid values
