@@ -78,12 +78,43 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }
         onChange(JSON.stringify(updatedModelSchema));
     };
 
+    const handleAddNestedProperty = (parentKey: string) => {
+        const keys = parentKey.split('.');
+        const updatedModelSchema = { ...modelSchema };
+        let current = updatedModelSchema.properties;
+
+        for (let i = 0; i < keys.length; i++) {
+            if (!current || !current[keys[i]]) return;
+            current = current[keys[i]].properties;
+        }
+
+        const newKey = `new_nested_property_${Object.keys(current || {}).length + 1}`;
+        const updatedNestedProperties = {
+            ...current,
+            [newKey]: {
+                title: 'New Nested Property',
+                type: 'string',
+                description: '',
+            },
+        };
+
+        if (current) {
+            Object.assign(current, updatedNestedProperties);
+        }
+
+        setModelSchema(updatedModelSchema);
+        onChange(JSON.stringify(updatedModelSchema));
+    };
+
     const renderNestedProperties = (properties: ModelSchema['properties'], parentKey: string) => {
         return (
             <div style={{ marginLeft: '20px', borderLeft: '2px solid #ccc', paddingLeft: '10px' }}>
                 {Object.entries(properties || {}).map(([key, property]) => (
                     <div key={key}>{renderSchemaFieldEditor(`${parentKey}.${key}`, property)}</div>
                 ))}
+                <Button onClick={() => handleAddNestedProperty(parentKey)} style={{ marginTop: '10px' }}>
+                    Add Nested Property
+                </Button>
             </div>
         );
     };
@@ -116,8 +147,11 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = ({ value, onChange }
                         handleSchemaChange(key, 'type', item.optionValue);
                         if (item.optionValue === 'array') {
                             handleSchemaChange(key, 'items', { type: 'string' });
+                        } else if (item.optionValue === 'object') {
+                            handleSchemaChange(key, 'properties', {});
                         } else {
                             handleSchemaChange(key, 'items', undefined);
+                            handleSchemaChange(key, 'properties', undefined);
                         }
                     }}
                     style={{ marginBottom: '10px' }}
