@@ -1,5 +1,4 @@
 import json
-from enum import Enum
 from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type, get_type_hints
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
@@ -16,39 +15,6 @@ if TYPE_CHECKING:
 #
 # region Helpers
 #
-class ArtifactFieldType(str, Enum):
-    STR = "str"
-    INT = "int"
-    FLOAT = "float"
-    BOOL = "bool"
-    LIST = "list"
-    DICT = "dict"
-
-
-def validate_field_type(type_: str) -> ArtifactFieldType:
-    return ArtifactFieldType(type_)
-
-
-class ArtifactModelChild(BaseModel):
-    name: str = ""
-    type: Annotated[
-        ArtifactFieldType,
-        Field(
-            title="Type",
-            description="The type of the field",
-        ),
-    ] = ArtifactFieldType.STR
-    value: Annotated[
-        Any,
-        Field(
-            title="Value",
-            description="The default value of the field",
-        ),
-    ] = ""
-    description: str = ""
-
-
-ArtifactModel = List[ArtifactModelChild]
 
 
 def determine_type(type_str: str) -> Type:
@@ -91,41 +57,6 @@ def pydantic_model_to_json(model: BaseModel) -> Dict[str, Any]:
     return json_dict
 
 
-def create_pydantic_model_from_artifact_model(artifact_model: ArtifactModel) -> Type[BaseModel]:
-    def create_fields(artifact_model: ArtifactModel) -> Dict[str, Any]:
-        fields = {}
-        for child in artifact_model:
-            if child.type == "dict":
-                nested_model = create_pydantic_model_from_json(child.value)
-                fields[child.name] = (nested_model, Field(description=child.description))
-            else:
-                fields[child.name] = (determine_type(child.type), Field(description=child.description))
-        return fields
-
-    fields = create_fields(artifact_model)
-    return create_model("DynamicModel", **fields)
-
-
-def pydantic_model_to_artifact_model(model: BaseModel) -> ArtifactModel:
-    children: ArtifactModel = []
-
-    for field_name, field in model.model_fields.items():
-        field_type = get_type_hints(model)[field_name]
-        if field_type is PydanticUndefinedType:
-            raise ValueError(f"Field {field_name} has an undefined type")
-        default_value = field.default if not isinstance(field.default, PydanticUndefinedType) else ""
-        children.append(
-            ArtifactModelChild(
-                name=field_name,
-                type=validate_field_type(field_type.__name__),
-                value=default_value,
-                description=field.description or "",
-            )
-        )
-
-    return children
-
-
 # endregion
 
 
@@ -143,9 +74,6 @@ class GuidedConversationAgentConfigModel(BaseModel):
         ),
         UISchema(widget="baseModelEditor"),
     ] = json.dumps(config_defaults.ArtifactModel.model_json_schema(), indent=2)
-    # UISchema(schema={"items": {"ui:options": {"title_field": "name"}}}),
-    # ] = pydantic_model_to_artifact_model(config_defaults.ArtifactModel)  # type: ignore
-    # ] = json.dumps(pydantic_model_to_json(config_defaults.ArtifactModel), indent=2)  # type: ignore
 
     rules: Annotated[
         list[str],
@@ -209,8 +137,6 @@ class GuidedConversationAgentConfigModel(BaseModel):
 
     def get_artifact_model(self) -> Type[BaseModel]:
         return self.artifact  # type: ignore
-        # return create_pydantic_model_from_artifact_model(self.artifact)
-        # return create_pydantic_model_from_json(self.artifact)
 
 
 # endregion
