@@ -257,7 +257,7 @@ class RequestConfig(BaseModel):
                 " is 128k tokens, but varies by model (https://platform.openai.com/docs/models)"
             ),
         ),
-    ] = 128_000
+    ] = 50_000
 
     response_tokens: Annotated[
         int,
