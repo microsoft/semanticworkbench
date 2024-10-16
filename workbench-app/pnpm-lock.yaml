@@ -104,6 +104,9 @@ importers:
       js-tiktoken:
         specifier: ^1.0.12
         version: 1.0.14
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.1.0
       lexical:
         specifier: ^0.17.1
         version: 0.17.1
@@ -162,6 +165,9 @@ importers:
       '@types/diff':
         specifier: ^5.2.2
         version: 5.2.2
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/node':
         specifier: ^20.10.3
         version: 20.16.10
@@ -2562,6 +2568,9 @@ packages:
 
   '@types/hoist-non-react-statics@3.3.5':
     resolution: {integrity: sha512-SbcrWzkKBw2cdwRTwQAswfpB9g9LJWfjtUeW/jvNwbhC8cpmmNYVePa+ncbUe0rGTQ7G3Ff6mYUN2VMfLVr+Sg==}
+
+  '@types/js-yaml@4.0.9':
+    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
@@ -8837,6 +8846,8 @@ snapshots:
     dependencies:
       '@types/react': 18.3.10
       hoist-non-react-statics: 3.3.2
+
+  '@types/js-yaml@4.0.9': {}
 
   '@types/json-schema@7.0.15': {}
 
