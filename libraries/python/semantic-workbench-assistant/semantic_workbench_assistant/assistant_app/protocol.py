@@ -270,15 +270,3 @@ class AssistantCapability(StrEnum):
 
     supports_conversation_files = "supports_conversation_files"
     """Advertise support for awareness of files in the conversation."""
-
-    supports_conversation_messages_directed_at = "supports_conversation_messages_directed_at"
-    """
-    Advertise support for the directed_at attribute in message metadata, and only respond to
-    messages that are directed to the assistant.
-    """
-
-    supports_conversation_messages_chat = "supports_conversation_messages_chat"
-    """Advertise support for responding to messages of type 'chat'."""
-
-    supports_conversation_messages_command = "supports_conversation_messages_command"
-    """Advertise support for responding to messages of type 'command'."""

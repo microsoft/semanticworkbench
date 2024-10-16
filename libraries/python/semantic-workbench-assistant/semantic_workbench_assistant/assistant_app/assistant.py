@@ -35,7 +35,7 @@ class AssistantApp:
         assistant_service_name: str,
         assistant_service_description: str,
         assistant_service_metadata: dict[str, Any] = {},
-        capabilities: set[AssistantCapability] = {AssistantCapability.supports_conversation_messages_chat},
+        capabilities: set[AssistantCapability] = set(),
         config_provider: AssistantConfigProvider = BaseModelAssistantConfig(EmptyConfigModel).provider,
         data_exporter: AssistantDataExporter = FileStorageAssistantDataExporter(),
         conversation_data_exporter: ConversationDataExporter = FileStorageConversationDataExporter(),
