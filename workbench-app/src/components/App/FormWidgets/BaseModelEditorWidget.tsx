@@ -56,7 +56,7 @@ interface ModelSchema {
 }
 
 export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
-    const { label, schema, value, onChange } = props;
+    const { label, value, onChange } = props;
     const classes = useClasses();
 
     // Define the schema type
