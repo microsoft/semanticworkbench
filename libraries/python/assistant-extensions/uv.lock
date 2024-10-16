@@ -70,26 +70,22 @@ name = "assistant-extensions"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "assistant-drive" },
-    { name = "docx2txt" },
     { name = "openai" },
-    { name = "pdfplumber" },
     { name = "semantic-workbench-assistant" },
 ]
 
 [package.optional-dependencies]
 attachments = [
+    { name = "assistant-drive" },
     { name = "docx2txt" },
     { name = "pdfplumber" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "assistant-drive", editable = "../assistant-drive" },
-    { name = "docx2txt", specifier = ">=0.8" },
+    { name = "assistant-drive", marker = "extra == 'attachments'", editable = "../assistant-drive" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
     { name = "openai", specifier = ">=1.51.2" },
-    { name = "pdfplumber", specifier = ">=0.11.4" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
     { name = "semantic-workbench-assistant", editable = "../semantic-workbench-assistant" },
 ]
