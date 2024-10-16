@@ -61,6 +61,8 @@ Below is an explanation using the YAML example for a guided conversation agent d
 guided_conversation_agent:
   artifact: |-
     {
+      "title": "ArtifactModel",
+      "type": "object",
       "properties": {
         "student_poem": {"description": "The acrostic poem written by the student."},
         "initial_feedback": {"description": "Feedback on the student's initial poem."},
@@ -101,6 +103,8 @@ guided_conversation_agent:
     ```yaml
     artifact: |-
       {
+        "title": "ArtifactModel",
+        "type": "object",
         "properties": {
           "string_field": {
             "type": "string",
@@ -392,6 +396,8 @@ required:
 
 ### JSON Schema
 
+Note: When serializing the artifact model within a configuration, ensure the JSON schema is represented as a string. Set the title to "ArtifactModel" and the type to "object" for clarity and consistency.
+
 ```json
 {
   "type": "object",
@@ -417,6 +423,8 @@ required:
 ```
 
 ### YAML Schema
+
+Note: When serializing the artifact model to a string format within YAML, set the title to "ArtifactModel" and the type to "object" for clarity and consistency.
 
 ```yaml
 type: object
