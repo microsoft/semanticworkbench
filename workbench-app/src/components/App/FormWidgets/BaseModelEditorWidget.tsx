@@ -116,31 +116,74 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
         setEditingKey((prev) => (prev ? { ...prev, newKey } : null));
     };
 
+    const reconstructPropertiesWithUpdatedKey = (
+        properties: { [key: string]: any },
+        oldKey: string,
+        newKey: string,
+    ) => {
+        const updatedProperties: { [key: string]: any } = {};
+
+        // Reconstruct the properties object maintaining the original order
+        Object.entries(properties).forEach(([key, value]) => {
+            if (key === oldKey) {
+                updatedProperties[newKey] = value; // Replace the old key with the new key
+            } else {
+                updatedProperties[key] = value;
+            }
+        });
+
+        return updatedProperties;
+    };
+
     const handleKeyEditEnd = () => {
         if (editingKey && modelSchema.properties) {
             const { oldKey, newKey } = editingKey;
             const keySegments = oldKey.split('.');
 
-            if (newKey !== keySegments[keySegments.length - 1]) {
+            if (newKey !== keySegments[keySegments.length - 1] && newKey.trim() !== '') {
                 const updatedModelSchema = { ...modelSchema };
-                let current = updatedModelSchema.properties;
 
-                // Traverse the key path up to the second-to-last segment
-                for (let i = 0; i < keySegments.length - 1; i++) {
-                    if (!current || !current[keySegments[i]] || !current[keySegments[i]].properties) return;
-                    current = current[keySegments[i]].properties;
+                if (keySegments.length === 1) {
+                    // Handle root-level key
+                    if (updatedModelSchema.properties) {
+                        updatedModelSchema.properties = reconstructPropertiesWithUpdatedKey(
+                            updatedModelSchema.properties,
+                            oldKey,
+                            newKey,
+                        );
+                    }
+                } else {
+                    // Handle nested key
+                    let current = updatedModelSchema.properties;
+                    let parent = null;
+
+                    // Traverse to the second-to-last segment
+                    for (let i = 0; i < keySegments.length - 1; i++) {
+                        if (!current || !current[keySegments[i]] || !current[keySegments[i]].properties) return;
+                        parent = current;
+                        current = current[keySegments[i]].properties;
+                    }
+
+                    const oldKeyLastSegment = keySegments[keySegments.length - 1];
+                    if (current && current[oldKeyLastSegment]) {
+                        // Update the key while maintaining the rest of the properties
+                        const updatedNestedProperties = reconstructPropertiesWithUpdatedKey(
+                            current,
+                            oldKeyLastSegment,
+                            newKey,
+                        );
+
+                        // Assign the updated nested properties back to the parent
+                        if (parent && parent[keySegments[keySegments.length - 2]]) {
+                            parent[keySegments[keySegments.length - 2]].properties = updatedNestedProperties;
+                        } else if (updatedModelSchema.properties) {
+                            updatedModelSchema.properties[keySegments[0]].properties = updatedNestedProperties;
+                        }
+                    }
                 }
 
-                const oldKeyLastSegment = keySegments[keySegments.length - 1];
-                if (current && current[oldKeyLastSegment]) {
-                    // Update the key while maintaining the rest of the properties
-                    const property = current[oldKeyLastSegment];
-                    delete current[oldKeyLastSegment];
-                    current[newKey] = property;
-
-                    setModelSchema(updatedModelSchema);
-                    onChange(JSON.stringify(updatedModelSchema));
-                }
+                setModelSchema(updatedModelSchema);
+                onChange(JSON.stringify(updatedModelSchema));
             }
         }
         setEditingKey(null);
