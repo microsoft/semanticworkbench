@@ -19,6 +19,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
+    AssistantCapability,
     BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
@@ -61,6 +62,10 @@ assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
     assistant_service_description=service_description,
+    capabilities={
+        AssistantCapability.supports_conversation_messages_chat,
+        AssistantCapability.supports_conversation_messages_command,
+    },
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
 )

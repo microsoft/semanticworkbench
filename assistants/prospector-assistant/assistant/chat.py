@@ -25,6 +25,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
+    AssistantCapability,
     BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
@@ -71,6 +72,10 @@ assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
     assistant_service_description=service_description,
+    capabilities={
+        AssistantCapability.supports_conversation_messages_chat,
+        AssistantCapability.supports_conversation_messages_command,
+    },
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
     inspector_state_providers={
@@ -340,6 +345,9 @@ async def respond_to_conversation(
     content: str | None = None
     completion_total_tokens: int | None = None
 
+    # set default response message type
+    message_type = MessageType.chat
+
     # TODO: DRY up this code by moving the OpenAI API call to a shared method and calling it from both branches
     # use structured response support to create or update artifacts, if artifacts are enabled
     if config.agents_config.artifact_agent.enabled:
@@ -425,8 +433,9 @@ async def respond_to_conversation(
                 logger.exception(f"exception occurred calling openai chat completion: {e}")
                 content = (
                     "An error occurred while calling the OpenAI API. Is it configured correctly?"
-                    "View the debug inspector for more information."
+                    " View the debug inspector for more information."
                 )
+                message_type = MessageType.notice
                 deepmerge.always_merger.merge(
                     metadata,
                     {
@@ -480,8 +489,9 @@ async def respond_to_conversation(
                 logger.exception(f"exception occurred calling openai chat completion: {e}")
                 content = (
                     "An error occurred while calling the OpenAI API. Is it configured correctly?"
-                    "View the debug inspector for more information."
+                    " View the debug inspector for more information."
                 )
+                message_type = MessageType.notice
                 deepmerge.always_merger.merge(
                     metadata,
                     {
@@ -496,9 +506,6 @@ async def respond_to_conversation(
                         }
                     },
                 )
-
-    # set the message type based on the content
-    message_type = MessageType.chat
 
     if content:
         # strip out the username from the response

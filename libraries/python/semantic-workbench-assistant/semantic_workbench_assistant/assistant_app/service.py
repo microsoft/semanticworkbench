@@ -230,6 +230,7 @@ class AssistantService(FastAPIAssistantService):
                 json_schema=default_config.json_schema,
                 ui_schema=default_config.ui_schema,
             ),
+            metadata=self.assistant_app.assistant_service_metadata,
         )
 
     @translate_assistant_errors
