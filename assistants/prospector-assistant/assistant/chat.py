@@ -35,6 +35,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.attachment_agent import AttachmentAgent
+from .agents.document_agent import DocumentAgent
 from .agents.guided_conversation_agent import (
     GuidedConversationAgent,
     GuidedConversationConversationInspectorStateProvider,
@@ -114,8 +115,25 @@ app = assistant.fastapi_app()
 #
 
 
+@assistant.events.conversation.message.command.on_created
+async def on_command_message_created(
+    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
+) -> None:
+    # For now, handling only commands from Document Agent for exploration of implementation
+    # We assume Document Agent is available and future logic would determine which agent
+    # the command is intended for. Hacking to make available asap.
+    config = await assistant_config.get(context.assistant)
+    if config.agents_config.attachment_agent.include_in_response_generation:
+        doc_agent = DocumentAgent()
+        await doc_agent.receive_command(config, context, message)
+    else:
+        pass
+        # send message back here
+        # attachment agent must be turned on to correctly use DocumentAgent.
+
+
 @assistant.events.conversation.message.chat.on_created
-async def on_message_created(
+async def on_chat_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     """
