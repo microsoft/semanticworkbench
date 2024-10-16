@@ -12,6 +12,7 @@ import { Utility } from '../../libs/Utility';
 import { Assistant } from '../../models/Assistant';
 import { useGetConfigQuery, useUpdateConfigMutation } from '../../services/workbench';
 import { ConfirmLeave } from '../App/ConfirmLeave';
+import { BaseModelEditorWidget } from '../App/FormWidgets/BaseModelEditorWidget';
 import { CustomizedArrayFieldTemplate } from '../App/FormWidgets/CustomizedArrayFieldTemplate';
 import { CustomizedObjectFieldTemplate } from '../App/FormWidgets/CustomizedObjectFieldTemplate';
 import { InspectableWidget } from '../App/FormWidgets/InspectableWidget';
@@ -115,6 +116,7 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
 
     const widgets: RegistryWidgetsType = {
         inspectable: InspectableWidget,
+        baseModelEditor: BaseModelEditorWidget,
     };
 
     const templates = {
