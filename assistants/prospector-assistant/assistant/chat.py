@@ -121,15 +121,15 @@ async def on_command_message_created(
 ) -> None:
     # For now, handling only commands from Document Agent for exploration of implementation
     # We assume Document Agent is available and future logic would determine which agent
-    # the command is intended for. Hacking to make available asap.
+    # the command is intended for. Assumption made in order to make doc agent available asap.
+    metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
+
     config = await assistant_config.get(context.assistant)
     if config.agents_config.attachment_agent.include_in_response_generation:
         doc_agent = DocumentAgent()
-        await doc_agent.receive_command(config, context, message)
+        await doc_agent.receive_command(config, context, message, metadata)
     else:
-        pass
-        # send message back here
-        # attachment agent must be turned on to correctly use DocumentAgent.
+        pass  # for now
 
 
 @assistant.events.conversation.message.chat.on_created
