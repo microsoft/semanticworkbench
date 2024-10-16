@@ -14,7 +14,7 @@ import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     ConversationEvent,
@@ -112,17 +112,19 @@ app = assistant.fastapi_app()
 async def on_command_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
+    config = await assistant_config.get(context.assistant)
+    metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
+
     # For now, handling only commands from Document Agent for exploration of implementation
     # We assume Document Agent is available and future logic would determine which agent
     # the command is intended for. Assumption made in order to make doc agent available asap.
-    metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
-    config = await assistant_config.get(context.assistant)
-    if config.agents_config.attachment_agent.include_in_response_generation:
-        doc_agent = DocumentAgent()
-        await doc_agent.receive_command(config, context, message, metadata)
-    else:
-        pass  # for now
+    # We should not be creating agent instances for commands and conversation separately.
+    # This will need to be resolved.
+
+    # if config.agents_config.document_agent.enabled:
+    doc_agent = DocumentAgent(attachments_extension)
+    await doc_agent.receive_command(config, context, message, metadata)
 
 
 @assistant.events.conversation.message.chat.on_created
@@ -366,16 +368,17 @@ async def respond_to_conversation(
     if config.agents_config.artifact_agent.enabled:
         # define the structured response format for the AI model
         class StructuredResponseFormat(BaseModel):
-            class Config:
-                extra = "forbid"
-                schema_extra = {
+            model_config = ConfigDict(
+                extra="forbid",
+                json_schema_extra={
                     "description": (
                         "The response format for the assistant. Use the assistant_response field for the"
                         " response content and the artifacts_to_create_or_update field for any artifacts"
                         " to create or update."
                     ),
                     "required": ["assistant_response", "artifacts_to_create_or_update"],
-                }
+                },
+            )
 
             assistant_response: str
             artifacts_to_create_or_update: list[Artifact]
