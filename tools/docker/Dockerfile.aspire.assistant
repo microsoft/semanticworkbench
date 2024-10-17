@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1
+
+# Dockerfile for assistants
+# Context root is expected to be the root of the repo
+ARG python_image=python:3.11-slim
+
+# These build arguments will differ per assistant:
+# package is the directory name of the assistant package under /assistants
+ARG package
+ARG app
+
+FROM ${python_image} AS build
+
+ARG package
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# copy all library packages
+COPY ./libraries/python /packages/libraries/python
+# copy the assistant package
+COPY ./assistants/${package} /packages/assistants/assistant
+
+# install the assistant and dependencies to /.venv
+RUN uv sync --directory /packages/assistants/assistant --no-editable --no-dev --locked
+
+FROM ${python_image}
+
+ARG app
+
+COPY --from=build /packages/assistants/assistant/.venv /packages/assistants/assistant/.venv
+ENV PATH=/packages/assistants/assistant/.venv/bin:$PATH
+
+COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
+RUN chmod +x /scripts/docker-entrypoint.sh
+
+ENV ASSISTANT_APP=${app}
+
+ENV assistant__host=0.0.0.0
+ENV assistant__port=3001
+
+SHELL ["/bin/bash", "-c"]
+ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
+CMD ["start-assistant"]
