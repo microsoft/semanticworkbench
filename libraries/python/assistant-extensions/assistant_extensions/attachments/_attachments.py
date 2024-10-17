@@ -13,7 +13,7 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import (
-    AssistantApp,
+    AssistantAppProtocol,
     AssistantCapability,
     ConversationContext,
     storage_directory_for_context,
@@ -54,7 +54,7 @@ image_tag = "IMAGE"
 class AttachmentsExtension:
     def __init__(
         self,
-        assistant: AssistantApp,
+        assistant: AssistantAppProtocol,
         error_handler: AttachmentProcessingErrorHandler = log_and_send_message_on_error,
     ) -> None:
         """

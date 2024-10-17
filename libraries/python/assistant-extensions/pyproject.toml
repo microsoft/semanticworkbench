@@ -9,20 +9,19 @@ description = "Add your description here"
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-    "assistant-drive>=0.1.0",
-    "docx2txt>=0.8",
-    "openai>=1.51.2",
-    "pdfplumber>=0.11.4",
-    "semantic-workbench-assistant>=0.1.0",
-]
+dependencies = ["openai>=1.51.2", "semantic-workbench-assistant>=0.1.0"]
 
 [project.optional-dependencies]
-attachments = ["docx2txt>=0.8", "pdfplumber>=0.11.2"]
+attachments = ["docx2txt>=0.8", "pdfplumber>=0.11.2", "assistant-drive>=0.1.0"]
 
 [tool.uv]
 package = true
+dev-dependencies = ["pytest>=8.3.1", "pytest-asyncio>=0.23.8"]
 
 [tool.uv.sources]
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
 assistant-drive = { path = "../assistant-drive", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "fixture"
+asyncio_mode = "auto"
