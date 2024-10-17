@@ -1,9 +1,8 @@
 import json
-from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type, get_type_hints
+from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field, create_model
-from pydantic_core import PydanticUndefinedType
 from semantic_workbench_assistant.config import UISchema
 
 from . import config_defaults as config_defaults
@@ -16,45 +15,43 @@ if TYPE_CHECKING:
 # region Helpers
 #
 
-
-def determine_type(type_str: str) -> Type:
-    type_mapping = {"str": str, "int": int, "float": float, "bool": bool, "list": List[Any], "dict": Dict[str, Any]}
-    return type_mapping.get(type_str, Any)
+# take a full json schema and return a pydantic model, including support for
+# nested objects and typed arrays
 
 
-def create_pydantic_model_from_json(json_data: str) -> Type[BaseModel]:
-    data = json.loads(json_data)
+def json_type_to_python_type(json_type: str) -> Type:
+    # Mapping JSON types to Python types
+    type_mapping = {"integer": int, "string": str, "number": float, "boolean": bool, "object": dict, "array": list}
+    return type_mapping.get(json_type, Any)
 
-    def create_fields(data: Dict[str, Any]) -> Dict[str, Any]:
+
+def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="DynamicModel") -> Type[BaseModel]:
+    # Nested function to parse properties from the schema
+    def parse_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
         fields = {}
-        for key, value in data.items():
-            if value["type"] == "dict":
-                nested_model = create_pydantic_model_from_json(json.dumps(value["value"]))
-                fields[key] = (nested_model, Field(description=value["description"]))
+        for prop_name, prop_attrs in properties.items():
+            prop_type = prop_attrs.get("type")
+            description = prop_attrs.get("description", None)
+
+            if prop_type == "object":
+                nested_model = create_pydantic_model_from_json_schema(prop_attrs, model_name=prop_name.capitalize())
+                fields[prop_name] = (nested_model, Field(..., description=description))
+            elif prop_type == "array":
+                items = prop_attrs.get("items", {})
+                if items.get("type") == "object":
+                    nested_model = create_pydantic_model_from_json_schema(items)
+                    fields[prop_name] = (List[nested_model], Field(..., description=description))
+                else:
+                    nested_type = json_type_to_python_type(items.get("type"))
+                    fields[prop_name] = (List[nested_type], Field(..., description=description))
             else:
-                fields[key] = (
-                    determine_type(value["type"]),
-                    Field(default=value["value"], description=value["description"]),
-                )
+                python_type = json_type_to_python_type(prop_type)
+                fields[prop_name] = (python_type, Field(..., description=description))
         return fields
 
-    fields = create_fields(data)
-    return create_model("DynamicModel", **fields)
-
-
-def pydantic_model_to_json(model: BaseModel) -> Dict[str, Any]:
-    json_dict = {}
-    for field_name, field in model.model_fields.items():
-        field_type = get_type_hints(model)[field_name]
-        if field_type is PydanticUndefinedType:
-            raise ValueError(f"Field {field_name} has an undefined type")
-        default_value = field.default if not isinstance(field.default, PydanticUndefinedType) else ""
-        json_dict[field_name] = {
-            "value": default_value,
-            "type": field_type.__name__,
-            "description": field.description or "",
-        }
-    return json_dict
+    properties = schema.get("properties", {})
+    fields = parse_properties(properties)
+    return create_model(model_name, **fields)
 
 
 # endregion
@@ -136,7 +133,8 @@ class GuidedConversationAgentConfigModel(BaseModel):
     ] = ResourceConstraint()
 
     def get_artifact_model(self) -> Type[BaseModel]:
-        return self.artifact  # type: ignore
+        schema = json.loads(self.artifact)
+        return create_pydantic_model_from_json_schema(schema)
 
 
 # endregion
