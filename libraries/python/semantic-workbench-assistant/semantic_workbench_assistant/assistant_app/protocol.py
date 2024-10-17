@@ -227,6 +227,13 @@ class ContentInterceptor(Protocol):
     ) -> list[workbench_model.NewConversationMessage]: ...
 
 
+class AssistantCapability(StrEnum):
+    """Enum for the capabilities of the assistant."""
+
+    supports_conversation_files = "supports_conversation_files"
+    """Advertise support for awareness of files in the conversation."""
+
+
 class AssistantAppProtocol(Protocol):
     @property
     def events(self) -> Events: ...
@@ -258,15 +265,10 @@ class AssistantAppProtocol(Protocol):
     @property
     def inspector_state_providers(self) -> Mapping[str, AssistantConversationInspectorStateProvider]: ...
 
+    def add_capability(self, capability: AssistantCapability) -> None: ...
+
     def add_inspector_state_provider(
         self,
         state_id: str,
         provider: AssistantConversationInspectorStateProvider,
     ) -> None: ...
-
-
-class AssistantCapability(StrEnum):
-    """Enum for the capabilities of the assistant."""
-
-    supports_conversation_files = "supports_conversation_files"
-    """Advertise support for awareness of files in the conversation."""

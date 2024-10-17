@@ -210,6 +210,12 @@ requires-dist = [
     { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
 ]
 
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.23.8" },
+]
+
 [[package]]
 name = "attrs"
 version = "24.2.0"
