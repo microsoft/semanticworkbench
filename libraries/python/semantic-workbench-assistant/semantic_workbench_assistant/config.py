@@ -177,7 +177,8 @@ def _config_secret_str_serialization_mode_from_context(
     )
 
 
-_MASKED_VALUE = "*" * 10
+def _mask(value: str) -> str:
+    return "*" * len(value)
 
 
 def _config_secret_str_json_serializer(value: str, info: SerializationInfo) -> str:
@@ -195,7 +196,7 @@ def _config_secret_str_json_serializer(value: str, info: SerializationInfo) -> s
             return value
 
         case ConfigSecretStrJsonSerializationMode.serialize_masked_value:
-            return _MASKED_VALUE
+            return _mask(value)
 
 
 def replace_config_secret_str_masked_values(model_values: ModelT, original_model_values: ModelT) -> ModelT:
@@ -211,7 +212,7 @@ def replace_config_secret_str_masked_values(model_values: ModelT, original_model
             continue
 
         if field_info.annotation is ConfigSecretStr:
-            if getattr(updated_model_values, field_name) == _MASKED_VALUE:
+            if getattr(updated_model_values, field_name) == _mask(getattr(original_model_values, field_name)):
                 setattr(updated_model_values, field_name, getattr(original_model_values, field_name))
             continue
 
