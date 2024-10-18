@@ -26,19 +26,19 @@ from semantic_workbench_assistant.config import (
         ("dict_python", ConfigSecretStrJsonSerializationMode.serialize_value, "super-secret", "super-secret"),
         ("dict_python", ConfigSecretStrJsonSerializationMode.serialize_value, "", ""),
         # json serialization should return the expected value based on the serialization mode
-        ("dict_json", None, "super-secret", "**********"),
+        ("dict_json", None, "super-secret", "************"),
         ("dict_json", None, "", ""),
         ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "super-secret", ""),
         ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "", ""),
-        ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "super-secret", "**********"),
+        ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "super-secret", "************"),
         ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "", ""),
         ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_value, "super-secret", "super-secret"),
         ("dict_json", ConfigSecretStrJsonSerializationMode.serialize_value, "", ""),
-        ("str_json", None, "super-secret", "**********"),
+        ("str_json", None, "super-secret", "************"),
         ("str_json", None, "", ""),
         ("str_json", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "super-secret", ""),
         ("str_json", ConfigSecretStrJsonSerializationMode.serialize_as_empty, "", ""),
-        ("str_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "super-secret", "**********"),
+        ("str_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "super-secret", "************"),
         ("str_json", ConfigSecretStrJsonSerializationMode.serialize_masked_value, "", ""),
         ("str_json", ConfigSecretStrJsonSerializationMode.serialize_value, "super-secret", "super-secret"),
         ("str_json", ConfigSecretStrJsonSerializationMode.serialize_value, "", ""),
@@ -92,8 +92,8 @@ def test_config_secret_str_deserialization() -> None:
 
     serialized_config = model.model_dump(mode="json")
 
-    assert serialized_config["secret"] == "**********"
-    assert serialized_config["sub_model"]["secret"] == "**********"
+    assert serialized_config["secret"] == "*" * len(secret_value)
+    assert serialized_config["sub_model"]["secret"] == "*" * len(secret_value)
 
     deserialized_config = TestModel.model_validate(serialized_config)
 
