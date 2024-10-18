@@ -87,7 +87,9 @@ async def fix_error(
     return parsed_result
 
 
-def update_attempts(error: Exception, attempt_id: str, previous_attempts: list) -> str:
+def update_attempts(
+    error: Exception, attempt_id: str, previous_attempts: list[tuple[str, str]]
+) -> tuple[list[tuple[str, str]], str]:
     """
     Updates the plugin class attribute list of previous attempts with the current attempt and error message
     (including duplicates).
@@ -111,8 +113,7 @@ def update_attempts(error: Exception, attempt_id: str, previous_attempts: list) 
 
     # Format previous attempts to be more friendly for the LLM
     attempts_list = []
-    unique_attempts = set(previous_attempts)
-    for attempt, error in unique_attempts:
+    for attempt, error in previous_attempts:
         attempts_list.append(f"Attempt: {attempt}\nError: {error}")
     llm_formatted_attempts = "\n".join(attempts_list)
 
