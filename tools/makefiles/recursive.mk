@@ -11,15 +11,22 @@ ifndef IS_RECURSIVE_MAKE
 
 .DEFAULT_GOAL := install
 
+# make with VERBOSE=1 to print all outputs of recursive makes
+VERBOSE ?= 0
+
 # You can pass in a list of files or directories to retain when running `clean/git-clean`
 # ex: make clean GIT_CLEAN_RETAIN=".env .data"
 # As always with make, you can also set this as an environment variable
 GIT_CLEAN_RETAIN ?= .env
-GIT_CLEAN_EXCLUDE = $(foreach v,$(GIT_CLEAN_RETAIN),--exclude !$(v))
+GIT_CLEAN_EXTRA_ARGS = $(foreach v,$(GIT_CLEAN_RETAIN),--exclude !$(v))
+ifeq ($(VERBOSE),0)
+GIT_CLEAN_EXTRA_ARGS += --quiet
+endif
+
 
 .PHONY: git-clean
 git-clean:
-	git clean -dffX . $(GIT_CLEAN_EXCLUDE)
+	git clean -dffX . $(GIT_CLEAN_EXTRA_ARGS)
 
 FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
 MAKE_FILES = $(shell find . -mindepth 2 -name Makefile)
@@ -62,9 +69,6 @@ clean: git-clean
 
 clean install test format lint: .clean-error-log $(MAKE_DIRS) .print-error-log
 
-# make with VERBOSE=1 to print all outputs of recursive makes
-VERBOSE ?= 0
-
 $(MAKE_DIRS):
 ifdef FAIL_ON_ERROR
 	$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1
@@ -74,7 +78,7 @@ else
 ifeq ($(suffix $(SHELL)),.exe)
 	@$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 1>$(call fix_path,$@/make.log) $(stderr_redirect_stdout) || \
 		( \
-			grep -qF "No rule to make target" $(call fix_path,$@/make.log) || ( \
+			grep -qF "*** No" $(call fix_path,$@/make.log) || ( \
 				echo $@ >> $(call fix_path,$(mkfile_dir)/make_error_dirs.log) && \
 				$(call touch,$@/make_error.log) \
 			) \
@@ -86,8 +90,8 @@ ifeq ($(suffix $(SHELL)),.exe)
 else
 	@$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 1>$(call fix_path,$@/make.log) $(stderr_redirect_stdout) || \
 		( \
-			grep -qF "No rule to make target" $(call fix_path,$@/make.log) || ( \
-				echo "\t$@"" >> $(call fix_path,$(mkfile_dir)/make_error_dirs.log) ; \
+			grep -qF "*** No" $(call fix_path,$@/make.log) || ( \
+				echo "\t$@" >> $(call fix_path,$(mkfile_dir)/make_error_dirs.log) ; \
 				$(call touch,$@/make_error.log) ; \
 			) \
 		)
