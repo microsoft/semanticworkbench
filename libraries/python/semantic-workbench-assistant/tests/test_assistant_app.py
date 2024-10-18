@@ -378,7 +378,7 @@ async def test_assistant_with_config_provider(
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
-            config={"test_key": "test_value", "secret_field": "**********"},
+            config={"test_key": "test_value", "secret_field": len("secret_default") * "*"},
             errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
@@ -391,7 +391,7 @@ async def test_assistant_with_config_provider(
             assistant_model.ConfigPutRequestModel(config={"test_key": "new_value", "secret_field": "new_secret"})
         )
         assert response == assistant_model.ConfigResponseModel(
-            config={"test_key": "new_value", "secret_field": "**********"},
+            config={"test_key": "new_value", "secret_field": len("new_secret") * "*"},
             errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
@@ -406,7 +406,7 @@ async def test_assistant_with_config_provider(
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
-            config={"test_key": "new_value", "secret_field": "**********"},
+            config={"test_key": "new_value", "secret_field": len("new_secret") * "*"},
             errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
