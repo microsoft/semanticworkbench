@@ -5,6 +5,10 @@
 # ex: make install (runs install)
 mkfile_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
 
+# if IS_RECURSIVE_MAKE is set, then this is being invoked by another recursive.mk.
+# in that case, we don't want any targets
+ifndef IS_RECURSIVE_MAKE
+
 .DEFAULT_GOAL := install
 
 # You can pass in a list of files or directories to retain when running `clean/git-clean`
@@ -27,24 +31,30 @@ endif
 
 MAKE_DIRS := $(call FILTER_OUT,site-packages,$(call FILTER_OUT,node_modules,$(ALL_MAKE_DIRS)))
 
-ifndef IS_RECURSIVE_MAKE
-
 .PHONY: .clean-error-log .print-error-log
 
 MAKE_CMD_MESSAGE = $(if $(MAKECMDGOALS), $(MAKECMDGOALS),)
 
 .clean-error-log:
-	@$(rm) $(mkfile_dir)/.make_error_dirs $(stdout_redirect_null) $(stderr_redirect_stdout) || $(true_expression)
+	@$(rm_file) $(call fix_path,$(mkfile_dir)/make*.log) $(ignore_output) $(ignore_failure)
 
 .print-error-log:
-	@if [ -s $(call fix_path,$(mkfile_dir)/.make_error_dirs) ]; then \
+ifeq ($(suffix $(SHELL)),.exe)
+	@if exist $(call fix_path,$(mkfile_dir)/make_error_dirs.log) ( \
+		echo Directories failed to make$(MAKE_CMD_MESSAGE): && \
+		type $(call fix_path,$(mkfile_dir)/make_error_dirs.log) && \
+		($(rm_file) $(call fix_path,$(mkfile_dir)/make*.log) $(ignore_output) $(ignore_failure)) && \
+		exit 1 \
+	)
+else
+	@if [ -e $(call fix_path,$(mkfile_dir)/make_error_dirs.log) ]; then \
 		echo "\n\033[31;1mDirectories failed to make$(MAKE_CMD_MESSAGE):\033[0m\n"; \
-		cat $(call fix_path,$(mkfile_dir)/.make_error_dirs); \
+		cat $(call fix_path,$(mkfile_dir)/make_error_dirs.log); \
 		echo ""; \
-		$(rm) $(call fix_path,$(mkfile_dir)/.make_error_log) $(stdout_redirect_null) $(stderr_redirect_stdout) || $(true_expression); \
-		$(rm) $(call fix_path,$(mkfile_dir)/.make_error_dirs) $(stdout_redirect_null) $(stderr_redirect_stdout) || $(true_expression); \
+		$(rm_file) $(call fix_path,$(mkfile_dir)/make*.log) $(ignore_output) $(ignore_failure); \
 		exit 1; \
 	fi
+endif
 
 .PHONY: clean install test format lint $(MAKE_DIRS)
 
@@ -52,31 +62,45 @@ clean: git-clean
 
 clean install test format lint: .clean-error-log $(MAKE_DIRS) .print-error-log
 
-endif
-
+# make with VERBOSE=1 to print all outputs of recursive makes
 VERBOSE ?= 0
 
 $(MAKE_DIRS):
 ifdef FAIL_ON_ERROR
 	$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1
 else
-	@$(rm) $@.make_log
-	@echo $(MAKE) -C $@ $(MAKECMDGOALS)
-	@$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 1>$(call fix_path,$@.make_log) $(stderr_redirect_stdout) || \
+	@$(rm_file) $(call fix_path,$@/make*.log) $(ignore_output) $(ignore_failure)
+	@echo make -C $@ $(MAKECMDGOALS)
+ifeq ($(suffix $(SHELL)),.exe)
+	@$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 1>$(call fix_path,$@/make.log) $(stderr_redirect_stdout) || \
 		( \
-			grep -qF 'No rule to make target' $(call fix_path,$@.make_log) || ( \
-				touch $@.make_error; \
-				echo "\t$@" >> $(call fix_path,$(mkfile_dir)/.make_error_dirs); \
+			grep -qF "No rule to make target" $(call fix_path,$@/make.log) || ( \
+				echo $@ >> $(call fix_path,$(mkfile_dir)/make_error_dirs.log) && \
+				$(call touch,$@/make_error.log) \
 			) \
 		)
-	@if [ -e $@.make_error ]; then \
+	@if exist $(call fix_path,$@/make_error.log) echo make -C $@$(MAKE_CMD_MESSAGE) failed:
+	@if exist $(call fix_path,$@/make_error.log) $(call touch,$@/make_print.log)
+	@if "$(VERBOSE)" neq "0" $(call touch,$@/make_print.log)
+	@if exist $(call fix_path,$@/make_print.log) type $(call fix_path,$@/make.log)
+else
+	@$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 1>$(call fix_path,$@/make.log) $(stderr_redirect_stdout) || \
+		( \
+			grep -qF "No rule to make target" $(call fix_path,$@/make.log) || ( \
+				echo "\t$@"" >> $(call fix_path,$(mkfile_dir)/make_error_dirs.log) ; \
+				$(call touch,$@/make_error.log) ; \
+			) \
+		)
+	@if [ -e $(call fix_path,$@/make_error.log) ]; then \
 		echo "\n\033[31;1mmake -C $@$(MAKE_CMD_MESSAGE) failed:\033[0m\n" ; \
 	fi
-	@if [ "$(VERBOSE)" != "0" -o -e $@.make_error ]; then \
-		cat $(call fix_path,$@.make_log); \
+	@if [ "$(VERBOSE)" != "0" -o -e $(call fix_path,$@/make_error.log) ]; then \
+		cat $(call fix_path,$@/make.log); \
 	fi
-	@$(rm) $@.make_log
-	@$(rm) $@.make_error
 endif
+	@$(rm_file) $(call fix_path,$@/make*.log) $(ignore_output) $(ignore_failure)
+endif # ifdef FAIL_ON_ERROR
+
+endif # ifndef IS_RECURSIVE_MAKE
 
 include $(mkfile_dir)/shell.mk
