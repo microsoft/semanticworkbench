@@ -27,7 +27,7 @@ lock:
 
 .PHONY: clean
 clean:
-	$(rm) $(venv_dir)
+	$(rm_dir) $(venv_dir) $(ignore_failure)
 
 .PHONY: lint
 lint:
@@ -37,7 +37,7 @@ lint:
 format:
 	uvx ruff format .
 
-ifneq ($(findstring pytest,$(if $(shell command -v uv $(stderr_redirect_null)),$(shell uv tree --depth 1),)),)
+ifneq ($(findstring pytest,$(if $(shell $(call command_exists,uv) $(stderr_redirect_null)),$(shell uv tree --depth 1 $(stderr_redirect_null)),)),)
 .PHONY: test
 test:
 	uv run $(uv_project_args) $(UV_RUN_ARGS) pytest $(PYTEST_ARGS)
