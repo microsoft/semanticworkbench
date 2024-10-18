@@ -3,7 +3,7 @@
 # ex: make (runs DEFAULT_GOAL)
 # ex: make clean (runs clean)
 # ex: make install (runs install)
-this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
+mkfile_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
 
 .DEFAULT_GOAL := install
 
@@ -27,17 +27,56 @@ endif
 
 MAKE_DIRS := $(call FILTER_OUT,site-packages,$(call FILTER_OUT,node_modules,$(ALL_MAKE_DIRS)))
 
+ifndef IS_RECURSIVE_MAKE
+
+.PHONY: .clean-error-log .print-error-log
+
+MAKE_CMD_MESSAGE = $(if $(MAKECMDGOALS), $(MAKECMDGOALS),)
+
+.clean-error-log:
+	@$(rm) $(mkfile_dir)/.make_error_dirs $(stdout_redirect_null) $(stderr_redirect_stdout) || $(true_expression)
+
+.print-error-log:
+	@if [ -s $(call fix_path,$(mkfile_dir)/.make_error_dirs) ]; then \
+		echo "\n\033[31;1mDirectories failed to make$(MAKE_CMD_MESSAGE):\033[0m\n"; \
+		cat $(call fix_path,$(mkfile_dir)/.make_error_dirs); \
+		echo ""; \
+		$(rm) $(call fix_path,$(mkfile_dir)/.make_error_log) $(stdout_redirect_null) $(stderr_redirect_stdout) || $(true_expression); \
+		$(rm) $(call fix_path,$(mkfile_dir)/.make_error_dirs) $(stdout_redirect_null) $(stderr_redirect_stdout) || $(true_expression); \
+		exit 1; \
+	fi
+
 .PHONY: clean install test format lint $(MAKE_DIRS)
+
 clean: git-clean
-clean install test format lint: $(MAKE_DIRS)
+
+clean install test format lint: .clean-error-log $(MAKE_DIRS) .print-error-log
+
+endif
+
+VERBOSE ?= 0
 
 $(MAKE_DIRS):
-ifndef IS_RECURSIVE_MAKE
 ifdef FAIL_ON_ERROR
 	$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1
 else
-	$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 || $(true_expression)
-endif
+	@$(rm) $@.make_log
+	@echo $(MAKE) -C $@ $(MAKECMDGOALS)
+	@$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 1>$(call fix_path,$@.make_log) $(stderr_redirect_stdout) || \
+		( \
+			grep -qF 'No rule to make target' $(call fix_path,$@.make_log) || ( \
+				touch $@.make_error; \
+				echo "\t$@" >> $(call fix_path,$(mkfile_dir)/.make_error_dirs); \
+			) \
+		)
+	@if [ -e $@.make_error ]; then \
+		echo "\n\033[31;1mmake -C $@$(MAKE_CMD_MESSAGE) failed:\033[0m\n" ; \
+	fi
+	@if [ "$(VERBOSE)" != "0" -o -e $@.make_error ]; then \
+		cat $(call fix_path,$@.make_log); \
+	fi
+	@$(rm) $@.make_log
+	@$(rm) $@.make_error
 endif
 
-include $(this_dir)/shell.mk
+include $(mkfile_dir)/shell.mk

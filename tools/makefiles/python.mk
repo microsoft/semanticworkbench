@@ -1,5 +1,5 @@
-this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
-include $(this_dir)/shell.mk
+mkfile_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
+include $(mkfile_dir)/shell.mk
 
 .DEFAULT_GOAL ?= install
 
@@ -12,6 +12,8 @@ endif
 
 UV_SYNC_ARGS ?= --all-extras
 UV_RUN_ARGS ?= --all-extras
+
+PYTEST_ARGS ?= --color=yes
 
 ## Rules
 
@@ -35,7 +37,7 @@ lint:
 format:
 	uvx ruff format .
 
-ifneq ($(findstring pytest,$(if $(shell command -v uv $(null_stderr)),$(shell uv tree --depth 1),)),)
+ifneq ($(findstring pytest,$(if $(shell command -v uv $(stderr_redirect_null)),$(shell uv tree --depth 1),)),)
 .PHONY: test
 test:
 	uv run $(uv_project_args) $(UV_RUN_ARGS) pytest $(PYTEST_ARGS)
