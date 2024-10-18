@@ -1,27 +1,27 @@
-name: skill assistant continuous integration
+name: prospector-assistant continuous integration
 
 on:
   pull_request:
     branches: ["main"]
     paths:
-      - "assistants/skill-assistant/**"
+      - "assistants/prospector-assistant/**"
       - "libraries/python/**"
       - "tools/docker/**"
-      - ".github/workflows/skill-assistant.yml"
+      - ".github/workflows/assistants-prospector-assistant.yml"
 
   push:
     branches: ["main"]
     paths:
-      - "assistants/skill-assistant/**"
+      - "assistants/prospector-assistant/**"
       - "libraries/python/**"
       - "tools/docker/**"
-      - ".github/workflows/skill-assistant.yml"
+      - ".github/workflows/assistants-prospector-assistant.yml"
 
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: assistants/skill-assistant
+    working-directory: assistants/prospector-assistant
 
 jobs:
   build:
