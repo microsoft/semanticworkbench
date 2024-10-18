@@ -20,8 +20,6 @@
   "python.analysis.typeCheckingMode": "basic",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python.testing.cwd": "${workspaceFolder}",
-  "python.testing.pytestArgs": ["--color", "yes"],
-  "python.testing.pytestEnabled": true,
   "search.exclude": {
     "**/.venv": true,
     "**/data": true
