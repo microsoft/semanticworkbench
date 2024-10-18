@@ -6,6 +6,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SemanticWorkench.Aspire.App
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SemanticWorkench.Aspire.ServiceDefaults", "SemanticWorkench.Aspire.ServiceDefaults\SemanticWorkench.Aspire.ServiceDefaults.csproj", "{1A1BA42B-F071-42ED-BF6D-4BD51F2D7A41}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dotnet-03-simple-chatbot", "..\examples\dotnet\dotnet-03-simple-chatbot\dotnet-03-simple-chatbot.csproj", "{670F22E3-71CC-4A9B-8BB8-DA855CFC0EEC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +22,10 @@ Global
 		{1A1BA42B-F071-42ED-BF6D-4BD51F2D7A41}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1A1BA42B-F071-42ED-BF6D-4BD51F2D7A41}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1A1BA42B-F071-42ED-BF6D-4BD51F2D7A41}.Release|Any CPU.Build.0 = Release|Any CPU
+		{670F22E3-71CC-4A9B-8BB8-DA855CFC0EEC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{670F22E3-71CC-4A9B-8BB8-DA855CFC0EEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{670F22E3-71CC-4A9B-8BB8-DA855CFC0EEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{670F22E3-71CC-4A9B-8BB8-DA855CFC0EEC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
