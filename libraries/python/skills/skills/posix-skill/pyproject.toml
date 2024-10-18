@@ -14,7 +14,6 @@ dependencies = [
 
 [tool.uv]
 package = true
-dev-dependencies = ["pytest"]
 
 [tool.uv.sources]
 skill-library = { path = "../../skill-library", editable= true }

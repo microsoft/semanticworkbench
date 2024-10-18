@@ -1130,9 +1130,6 @@ requires-dist = [
     { name = "skill-library", editable = "../skill-library" },
 ]
 
-[package.metadata.requires-dev]
-dev = [{ name = "pytest" }]
-
 [[package]]
 name = "prompt-toolkit"
 version = "3.0.48"
