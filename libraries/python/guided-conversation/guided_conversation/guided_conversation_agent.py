@@ -263,7 +263,7 @@ class GuidedConversation:
         result = await execution(
             kernel=self.kernel,
             reasoning=plan,
-            filter=functions,
+            functions=functions,
             req_settings=req_settings,
             artifact_schema=self.artifact.get_schema_for_prompt(),
         )
@@ -318,7 +318,7 @@ class GuidedConversation:
         execution_response = await execution(
             kernel=self.kernel,
             reasoning=reasoning_response.value[0].content,
-            filter=functions,
+            functions=functions,
             req_settings=req_settings,
             artifact_schema=self.artifact.get_schema_for_prompt(),
         )
