@@ -153,7 +153,7 @@ class Artifact:
                 # Check if there have been too many previous failed attempts to update the field
                 if len(self.failed_artifact_fields.get(field_name, [])) >= self.max_artifact_field_retries:
                     self.logger.warning(f"Updating field {field_name} has failed too many times. Skipping.")
-                    return False, conversation_messages
+                    return PluginOutput(False, conversation_messages)
 
                 # Attempt to update the artifact
                 msg = self._execute_update_artifact(field_name, field_value)
@@ -403,7 +403,7 @@ Remember that when updating the artifact, the field will be the original field n
         self,
         field_name: Annotated[str, "The name of the field to update in the artifact"],
         field_value: Annotated[Any, "The value to set the field to"],
-    ) -> None:
+    ) -> ChatMessageContent:
         """Update a field in the artifact with a new value. This will raise an error if the field_value is invalid."""
         setattr(self.artifact, field_name, field_value)
         msg = ChatMessageContent(
