@@ -19,7 +19,6 @@ dependencies = [
 
 [tool.uv]
 package = true
-dev-dependencies = ["pytest>=8.3.1", "pytest-asyncio>=0.23.8"]
 
 [tool.uv.sources]
 # If you copy this file to your project, you should verify the relative path to the following:

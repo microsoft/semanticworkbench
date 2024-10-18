@@ -73,6 +73,8 @@ async def test_get_completion_messages_for_attachments(
             ),
         )
     )
+    mock_conversation_context.id = "conversation_id"
+    mock_conversation_context.assistant.id = "assistant_id"
 
     mock_conversation_context.get_files.return_value = FileList(
         files=[
