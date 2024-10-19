@@ -14,6 +14,7 @@ import { useGetConfigQuery, useUpdateConfigMutation } from '../../services/workb
 import { ConfirmLeave } from '../App/ConfirmLeave';
 import { BaseModelEditorWidget } from '../App/FormWidgets/BaseModelEditorWidget';
 import { CustomizedArrayFieldTemplate } from '../App/FormWidgets/CustomizedArrayFieldTemplate';
+import CustomizedFieldTemplate from '../App/FormWidgets/CustomizedFieldTemplate';
 import { CustomizedObjectFieldTemplate } from '../App/FormWidgets/CustomizedObjectFieldTemplate';
 import { InspectableWidget } from '../App/FormWidgets/InspectableWidget';
 import { Loading } from '../App/Loading';
@@ -130,6 +131,7 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
 
     const templates = {
         ArrayFieldTemplate: CustomizedArrayFieldTemplate,
+        FieldTemplate: CustomizedFieldTemplate,
         ObjectFieldTemplate: CustomizedObjectFieldTemplate,
     };
 

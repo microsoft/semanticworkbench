@@ -49,11 +49,11 @@ class GuidedConversationAgent:
         Step the conversation to the next turn.
         """
 
-        rules = agent_config.rules
-        conversation_flow = agent_config.conversation_flow
-        context = agent_config.context
-        resource_constraint = agent_config.resource_constraint
-        artifact = agent_config.get_artifact_model()
+        rules = agent_config.definition.rules
+        conversation_flow = agent_config.definition.conversation_flow
+        context = agent_config.definition.context
+        resource_constraint = agent_config.definition.resource_constraint
+        artifact = agent_config.definition.get_artifact_model()
 
         kernel = Kernel()
         service_id = "gc_main"
