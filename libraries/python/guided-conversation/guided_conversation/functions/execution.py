@@ -3,7 +3,7 @@ from typing import Annotated
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
 from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
-from semantic_kernel.functions import FunctionResult, KernelArguments, KernelPlugin
+from semantic_kernel.functions import FunctionResult, KernelArguments, KernelFunction
 from semantic_kernel.functions.kernel_function_decorator import kernel_function
 
 execution_template = """<message role="system">You are a helpful, thoughtful, and meticulous assistant.
@@ -44,14 +44,14 @@ def end_conversation() -> None:
 
 
 async def execution(
-    kernel: Kernel, reasoning: str, filter: list[str], req_settings: PromptExecutionSettings, artifact_schema: str
+    kernel: Kernel, reasoning: str, functions: list[str], req_settings: PromptExecutionSettings, artifact_schema: str
 ) -> FunctionResult:
     """Executes the actions recommended by the reasoning/planning call in the given context.
 
     Args:
         kernel (Kernel): The kernel object.
         reasoning (str): The reasoning from a previous model call.
-        filter (list[str]): The list of plugins to INCLUDE for the tool call.
+        functions (list[str]): The list of plugins to INCLUDE for the tool call.
         req_settings (PromptExecutionSettings): The prompt execution settings.
         artifact (str): The artifact schema for the execution prompt.
 
@@ -59,7 +59,7 @@ async def execution(
         FunctionResult: The result of the execution.
     """
     req_settings.function_choice_behavior = FunctionChoiceBehavior.Auto(
-        auto_invoke=False, filters={"included_plugins": filter}
+        auto_invoke=False, filters={"included_plugins": functions}
     )
 
     kernel_function = kernel.add_function(
@@ -69,7 +69,7 @@ async def execution(
         template_format="jinja2",
         prompt_execution_settings=req_settings,
     )
-    if isinstance(kernel_function, KernelPlugin):
+    if not isinstance(kernel_function, KernelFunction):
         raise ValueError("Invalid kernel function type.")
 
     arguments = KernelArguments(
