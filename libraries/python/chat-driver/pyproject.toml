@@ -20,11 +20,6 @@ dependencies = [
 
 [tool.uv]
 package = true
-dev-dependencies = [
-    "pytest>=8.3.1",
-    "pytest-asyncio>=0.23.8",
-    "pytest-repeat>=0.9.3",
-]
 
 [tool.uv.sources]
 context = { path = "../context", editable = true }

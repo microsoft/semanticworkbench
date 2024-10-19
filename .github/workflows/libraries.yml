@@ -1,27 +1,19 @@
-name: assistant-extensions tests
+name: libraries tests
 
 on:
   pull_request:
     branches: ["main"]
-    paths:
-      [
-        "libraries/python/assistant-extensions/**",
-        ".github/workflows/libraries-assistant-extensions.yml",
-      ]
+    paths: ["libraries/**", ".github/workflows/libraries.yml"]
 
   push:
     branches: ["main"]
-    paths:
-      [
-        "libraries/python/assistant-extensions/**",
-        ".github/workflows/libraries-assistant-extensions.yml",
-      ]
+    paths: ["libraries/**", ".github/workflows/libraries.yml"]
 
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: libraries/python/assistant-extensions
+    working-directory: libraries
 
 jobs:
   test:

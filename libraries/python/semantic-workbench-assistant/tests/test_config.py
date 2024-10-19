@@ -76,10 +76,10 @@ def test_config_secret_str_serialization(
 
 def test_config_secret_str_deserialization() -> None:
     class SubModel1(BaseModel):
-        secret: ConfigSecretStr
+        submodel1_secret: ConfigSecretStr
 
     class SubModel2(BaseModel):
-        secret: ConfigSecretStr
+        submodel2_secret: ConfigSecretStr
 
     class TestModel(BaseModel):
         secret: ConfigSecretStr
@@ -87,19 +87,21 @@ def test_config_secret_str_deserialization() -> None:
 
     secret_value = uuid.uuid4().hex
 
-    model = TestModel(secret=secret_value, sub_model=SubModel2(secret=secret_value))
+    sub_model = SubModel2(submodel2_secret=secret_value)
+    model = TestModel(secret=secret_value, sub_model=sub_model)
     assert model.secret == secret_value
 
     serialized_config = model.model_dump(mode="json")
 
     assert serialized_config["secret"] == "*" * len(secret_value)
-    assert serialized_config["sub_model"]["secret"] == "*" * len(secret_value)
+    assert serialized_config["sub_model"]["submodel2_secret"] == "*" * len(secret_value)
 
     deserialized_config = TestModel.model_validate(serialized_config)
 
     masked_reverted = replace_config_secret_str_masked_values(deserialized_config, model)
     assert masked_reverted.secret == model.secret
-    assert masked_reverted.sub_model.secret == model.sub_model.secret
+    assert isinstance(masked_reverted.sub_model, SubModel2)
+    assert masked_reverted.sub_model.submodel2_secret == sub_model.submodel2_secret
 
     deserialized_model = TestModel.model_validate(masked_reverted)
 

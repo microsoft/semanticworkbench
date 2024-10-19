@@ -182,7 +182,6 @@ dev = [
     { name = "pytest", specifier = ">=8.3.1" },
     { name = "pytest-asyncio", specifier = ">=0.23.8" },
     { name = "pytest-repeat", specifier = ">=0.9.3" },
-    { name = "ruff", specifier = ">=0.6.4" },
 ]
 
 [[package]]
@@ -415,13 +414,6 @@ requires-dist = [
     { name = "tiktoken", specifier = ">=0.7.0" },
 ]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
-
 [[package]]
 name = "click"
 version = "8.1.7"
@@ -578,13 +570,6 @@ requires-dist = [
     { name = "skill-library", editable = "../../libraries/python/skills/skill-library" },
 ]
 
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
-
 [[package]]
 name = "docx2txt"
 version = "0.8"
@@ -614,13 +599,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "pydantic", specifier = ">=2.6.1" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
 
 [[package]]
 name = "fastapi"
@@ -747,13 +725,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "semantic-kernel", specifier = ">=1.11.0" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
 
 [[package]]
 name = "h11"
@@ -1486,13 +1457,6 @@ requires-dist = [
     { name = "context", editable = "../../libraries/python/context" },
     { name = "events", editable = "../../libraries/python/events" },
     { name = "skill-library", editable = "../../libraries/python/skills/skill-library" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
 ]
 
 [[package]]
