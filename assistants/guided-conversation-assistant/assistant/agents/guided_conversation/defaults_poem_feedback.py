@@ -1,10 +1,9 @@
-from typing import TYPE_CHECKING
+import json
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
 
-if TYPE_CHECKING:
-    pass
+from .definition import GuidedConversationDefinition
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
@@ -64,10 +63,15 @@ resource_constraint = ResourceConstraint(
     mode=ResourceConstraintMode.EXACT,
 )
 
-__all__ = [
-    "ArtifactModel",
-    "rules",
-    "conversation_flow",
-    "context",
-    "resource_constraint",
-]
+# Create instance of the GuidedConversationDefinition model with the above configuration.
+poem_feedback = GuidedConversationDefinition(
+    artifact=json.dumps(ArtifactModel.model_json_schema(), indent=2),
+    rules=rules,
+    conversation_flow=conversation_flow.strip(),
+    context=context.strip(),
+    resource_constraint=GuidedConversationDefinition.ResourceConstraint(
+        quantity=10,
+        unit=ResourceConstraintUnit.TURNS,
+        mode=ResourceConstraintMode.EXACT,
+    ),
+)

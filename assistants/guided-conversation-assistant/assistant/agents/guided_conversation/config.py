@@ -1,11 +1,11 @@
-import json
 from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type
 
-from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field, create_model
 from semantic_workbench_assistant.config import UISchema
 
-from . import config_defaults as config_defaults
+from .defaults_patient_intake import patient_intake
+from .defaults_poem_feedback import poem_feedback
+from .definition import GuidedConversationDefinition
 
 if TYPE_CHECKING:
     pass
@@ -63,78 +63,25 @@ def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="D
 
 
 class GuidedConversationAgentConfigModel(BaseModel):
-    artifact: Annotated[
-        str,
+    defaults: Annotated[
+        Dict[str, GuidedConversationDefinition],
         Field(
-            title="Artifact",
-            description="The artifact that the agent will manage.",
+            title="Defaults",
+            description="Default values for the agent configuration.",
         ),
-        UISchema(widget="baseModelEditor"),
-    ] = json.dumps(config_defaults.ArtifactModel.model_json_schema(), indent=2)
+        UISchema(),
+    ] = {
+        "Poem_Feedback": poem_feedback,
+        "Patient_Intake": patient_intake,
+    }
 
-    rules: Annotated[
-        list[str],
-        Field(title="Rules", description="Do's and don'ts that the agent should attempt to follow"),
-        UISchema(schema={"items": {"ui:widget": "textarea", "ui:options": {"rows": 2}}}),
-    ] = config_defaults.rules
-
-    conversation_flow: Annotated[
-        str,
+    definition: Annotated[
+        GuidedConversationDefinition,
         Field(
-            title="Conversation Flow",
-            description="A loose natural language description of the steps of the conversation",
+            title="Definition",
+            description="The definition of the guided conversation agent.",
         ),
-        UISchema(widget="textarea", schema={"ui:options": {"rows": 10}}, placeholder="[optional]"),
-    ] = config_defaults.conversation_flow.strip()
-
-    context: Annotated[
-        str,
-        Field(
-            title="Context",
-            description="General background context for the conversation.",
-        ),
-        UISchema(widget="textarea", placeholder="[optional]"),
-    ] = config_defaults.context.strip()
-
-    class ResourceConstraint(ResourceConstraint):
-        mode: Annotated[
-            ResourceConstraintMode,
-            Field(
-                title="Resource Mode",
-                description=(
-                    'If "exact", the agents will try to pace the conversation to use exactly the resource quantity. If'
-                    ' "maximum", the agents will try to pace the conversation to use at most the resource quantity.'
-                ),
-            ),
-        ] = config_defaults.resource_constraint.mode
-
-        unit: Annotated[
-            ResourceConstraintUnit,
-            Field(
-                title="Resource Unit",
-                description="The unit for the resource constraint.",
-            ),
-        ] = config_defaults.resource_constraint.unit
-
-        quantity: Annotated[
-            float,
-            Field(
-                title="Resource Quantity",
-                description="The quantity for the resource constraint. If <=0, the resource constraint is disabled.",
-            ),
-        ] = config_defaults.resource_constraint.quantity
-
-    resource_constraint: Annotated[
-        ResourceConstraint,
-        Field(
-            title="Resource Constraint",
-        ),
-        UISchema(schema={"quantity": {"ui:widget": "updown"}}),
-    ] = ResourceConstraint()
-
-    def get_artifact_model(self) -> Type[BaseModel]:
-        schema = json.loads(self.artifact)
-        return create_pydantic_model_from_json_schema(schema)
+    ] = poem_feedback
 
 
 # endregion
