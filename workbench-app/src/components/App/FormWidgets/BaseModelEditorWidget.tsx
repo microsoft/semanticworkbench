@@ -17,7 +17,7 @@ import {
     tokens,
 } from '@fluentui/react-components';
 import { Add16Regular, Delete16Regular, Edit16Regular } from '@fluentui/react-icons';
-import { WidgetProps } from '@rjsf/utils';
+import { findSchemaDefinition, WidgetProps } from '@rjsf/utils';
 import React, { useRef } from 'react';
 
 const useClasses = makeStyles({
@@ -63,6 +63,47 @@ interface ModelSchema {
     };
 }
 
+const valueToModelSchema = (value: any): ModelSchema => {
+    // if value is a string, parse it as JSON to get the schema
+    // traverse the schema and replace all $refs with the actual definition
+    const schema = JSON.parse(value);
+    const traverse = (obj: any) => {
+        if (obj && typeof obj === 'object') {
+            if (obj.$ref) {
+                return findSchemaDefinition(obj.$ref, schema);
+            }
+            Object.entries(obj).forEach(([key, value]) => {
+                obj[key] = traverse(value);
+            });
+        }
+        return obj;
+    };
+    return traverse(schema);
+};
+
+const modelSchemaToValue = (modelSchema: ModelSchema): string => {
+    // convert the model schema back to a string
+    // traverse the schema and replace all definitions with $refs
+    const refs = new Map<string, string>();
+    const traverse = (obj: any) => {
+        if (obj && typeof obj === 'object') {
+            Object.entries(obj).forEach(([key, value]) => {
+                obj[key] = traverse(value);
+            });
+        }
+        if (obj && obj.$id) {
+            refs.set(obj.$id, obj);
+            return { $ref: obj.$id };
+        }
+        return obj;
+    };
+    const schema = traverse(modelSchema);
+    refs.forEach((value, key) => {
+        schema[key] = value;
+    });
+    return JSON.stringify(schema);
+};
+
 export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
     const { label, value, onChange } = props;
     const classes = useClasses();
@@ -70,15 +111,13 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
     const [openItems, setOpenItems] = React.useState<AccordionItemValue[]>([]);
 
     // Define the schema type
-    const [modelSchema, setModelSchema] = React.useState<ModelSchema>(() => {
-        return typeof value === 'string' ? JSON.parse(value) : value || {};
-    });
+    const [modelSchema, setModelSchema] = React.useState<ModelSchema>(() => valueToModelSchema(value));
 
     const [editingKey, setEditingKey] = React.useState<{ oldKey: string; newKey: string } | null>(null);
 
     // Update the modelSchema when the value changes
     React.useEffect(() => {
-        setModelSchema(typeof value === 'string' ? JSON.parse(value) : value || {});
+        setModelSchema(valueToModelSchema(value));
     }, [value]);
 
     // Helper function to update the modelSchema
@@ -104,7 +143,7 @@ export const BaseModelEditorWidget: React.FC<WidgetProps> = (props) => {
         }
 
         setModelSchema(updatedModelSchema);
-        onChange(JSON.stringify(updatedModelSchema));
+        onChange(modelSchemaToValue(updatedModelSchema));
     };
 
     // Helper function to update the property key
