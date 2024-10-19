@@ -124,7 +124,7 @@ class Agenda:
                 previous_attempts, llm_formatted_attempts = update_attempts(
                     error=e,
                     attempt_id=str(items),
-                    previous_attempts=previous_attempts,  # type: ignore
+                    previous_attempts=previous_attempts,
                 )
 
                 # If we have reached the maximum number of retries return a failure

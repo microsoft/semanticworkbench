@@ -32,6 +32,7 @@ class ToolValidationResult(Enum):
     INVALID_TOOL_CALLED = "A tool was called with an unexpected name"
     MISSING_REQUIRED_ARGUMENT = "The tool called is missing a required argument"
     INVALID_ARGUMENT_TYPE = "The value of an argument is of an unexpected type"
+    INVALID_ARGUMENT = "The tool called has an unexpected argument"
     SUCCESS = "success"
 
 
@@ -157,5 +158,10 @@ def validate_tool_calling(response: dict[str, Any], request_tool_param: dict) ->
             if arg.required and arg.argument_name not in tool_args:
                 logger.warning(f"Missing required argument '{arg.argument_name}' for tool '{tool_name}'.")
                 return ToolValidationResult.MISSING_REQUIRED_ARGUMENT
+
+        for tool_arg_name in tool_args.keys():
+            if tool_arg_name not in [arg.argument_name for arg in tool.args]:
+                logger.warning(f"Unexpected argument '{tool_arg_name}' for tool '{tool_name}'.")
+                return ToolValidationResult.INVALID_ARGUMENT
 
     return ToolValidationResult.SUCCESS
