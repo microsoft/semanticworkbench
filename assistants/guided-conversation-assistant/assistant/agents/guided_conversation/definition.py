@@ -1,5 +1,5 @@
 import json
-from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type
+from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Optional, Type, Union
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field, create_model
@@ -17,38 +17,91 @@ if TYPE_CHECKING:
 # nested objects and typed arrays
 
 
-def json_type_to_python_type(json_type: str) -> Type:
-    # Mapping JSON types to Python types
-    type_mapping = {"integer": int, "string": str, "number": float, "boolean": bool, "object": dict, "array": list}
-    return type_mapping.get(json_type, Any)
+def parse_json_schema_type(schema_type: Union[str, List[str]]) -> Any:
+    """Map JSON schema types to Python (Pydantic) types."""
+    if isinstance(schema_type, list):
+        if "null" in schema_type:
+            schema_type = [t for t in schema_type if t != "null"]
+            return Optional[parse_json_schema_type(schema_type[0])]
+
+    if schema_type == "string":
+        return str
+    elif schema_type == "integer":
+        return int
+    elif schema_type == "number":
+        return float
+    elif schema_type == "boolean":
+        return bool
+    elif schema_type == "array":
+        return List[Any]
+    elif schema_type == "object":
+        return Dict[str, Any]
+
+    return Any
 
 
-def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="DynamicModel") -> Type[BaseModel]:
-    # Nested function to parse properties from the schema
-    def parse_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
-        fields = {}
-        for prop_name, prop_attrs in properties.items():
-            prop_type = prop_attrs.get("type")
-            description = prop_attrs.get("description", None)
+def resolve_ref(ref: str, schema: Dict[str, Any], definitions: Dict[str, Any] | None) -> Dict[str, Any]:
+    """
+    Resolves a $ref to the corresponding definition in the schema or definitions.
+    """
+    if definitions is None:
+        raise ValueError("Definitions must be provided to resolve $ref")
 
-            if prop_type == "object":
-                nested_model = create_pydantic_model_from_json_schema(prop_attrs, model_name=prop_name.capitalize())
-                fields[prop_name] = (nested_model, Field(..., description=description))
-            elif prop_type == "array":
-                items = prop_attrs.get("items", {})
-                if items.get("type") == "object":
-                    nested_model = create_pydantic_model_from_json_schema(items)
-                    fields[prop_name] = (List[nested_model], Field(..., description=description))
-                else:
-                    nested_type = json_type_to_python_type(items.get("type"))
-                    fields[prop_name] = (List[nested_type], Field(..., description=description))
+    ref_path = ref.split("/")  # Ref paths are typically '#/$defs/SomeType'
+    if ref_path[0] == "#":  # Local reference
+        ref_path = ref_path[1:]  # Strip the '#'
+
+    current = schema  # Start from the root schema
+    for part in ref_path:
+        if part == "$defs" and part in definitions:
+            current = definitions  # Switch to definitions when we hit $defs
+        else:
+            current = current[part]  # Walk down the path
+
+    return current
+
+
+def create_pydantic_model_from_json_schema(
+    schema: Dict[str, Any], model_name: str = "GeneratedModel", definitions: Dict[str, Any] | None = None
+) -> Type[BaseModel]:
+    """
+    Recursively converts a JSON schema to a Pydantic BaseModel.
+    Handles $defs for local definitions and $ref for references.
+    """
+    if definitions is None:
+        definitions = schema.get("$defs", {})  # Gather $defs if they exist
+
+    fields = {}
+
+    if "properties" in schema:
+        for field_name, field_schema in schema["properties"].items():
+            if "$ref" in field_schema:  # Resolve $ref
+                ref_schema = resolve_ref(field_schema["$ref"], schema, definitions)
+                field_type = create_pydantic_model_from_json_schema(
+                    ref_schema, model_name=field_name.capitalize(), definitions=definitions
+                )
+
             else:
-                python_type = json_type_to_python_type(prop_type)
-                fields[prop_name] = (python_type, Field(..., description=description))
-        return fields
+                field_type = parse_json_schema_type(field_schema.get("type", "any"))
 
-    properties = schema.get("properties", {})
-    fields = parse_properties(properties)
+                if "items" in field_schema:  # If array, handle item type
+                    item_type = parse_json_schema_type(field_schema["items"].get("type", "any"))
+                    field_type = List[item_type]
+
+                if "properties" in field_schema:  # If object, generate sub-model
+                    sub_model = create_pydantic_model_from_json_schema(
+                        field_schema, model_name=field_name.capitalize(), definitions=definitions
+                    )
+                    field_type = sub_model
+
+            # Check if field is required
+            is_required = field_name in schema.get("required", [])
+            if is_required:
+                fields[field_name] = (field_type, ...)
+            else:
+                fields[field_name] = (Optional[field_type], None)
+
+    # Dynamically create the Pydantic model
     return create_model(model_name, **fields)
 
 

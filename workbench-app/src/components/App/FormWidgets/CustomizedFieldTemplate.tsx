@@ -1,11 +1,11 @@
-import { Dropdown, Field, Option, Text } from '@fluentui/react-components';
+import { Dropdown, Field, Option, Text, tokens } from '@fluentui/react-components';
 import {
     FieldTemplateProps,
     FormContextType,
-    RJSFSchema,
-    StrictRJSFSchema,
     getTemplate,
     getUiOptions,
+    RJSFSchema,
+    StrictRJSFSchema,
 } from '@rjsf/utils';
 import React from 'react';
 
@@ -73,7 +73,7 @@ export default function CustomizedFieldTemplate<
             const selectedOptions = selectedKey ? [selectedKey] : [];
 
             return (
-                <Field label="Select Configuration">
+                <Field label={`${label}: Select Configuration`} style={{ padding: `${tokens.spacingVerticalM} 0` }}>
                     <div>
                         <Dropdown
                             value={selectedKey}
@@ -92,7 +92,7 @@ export default function CustomizedFieldTemplate<
             );
         }
         return null;
-    }, [formData, onChange, uiOptions]);
+    }, [formData, label, onChange, uiOptions]);
 
     if (hidden) {
         return <div style={{ display: 'none' }}>{children}</div>;
