@@ -3,7 +3,7 @@ import json
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
 
-from .definition import GuidedConversationDefinition
+from ..definition import GuidedConversationDefinition
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.

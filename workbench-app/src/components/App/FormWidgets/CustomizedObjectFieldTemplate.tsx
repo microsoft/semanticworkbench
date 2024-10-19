@@ -1,14 +1,11 @@
-// Copyright (c) Microsoft. All rights reserved.
-
 import {
     Accordion,
     AccordionHeader,
     AccordionItem,
     AccordionPanel,
     Divider,
-    Text,
     makeStyles,
-    tokens,
+    Text,
 } from '@fluentui/react-components';
 import { ObjectFieldTemplateProps } from '@rjsf/utils';
 import React from 'react';
@@ -17,63 +14,49 @@ const useClasses = makeStyles({
     heading: {
         display: 'flex',
         flexDirection: 'column',
-        gap: tokens.spacingVerticalS,
+        gap: '10px',
     },
     items: {
         display: 'flex',
         flexDirection: 'column',
-        paddingLeft: tokens.spacingHorizontalM,
-        gap: tokens.spacingVerticalS,
+        paddingLeft: '20px',
+        gap: '10px',
     },
 });
 
 export const CustomizedObjectFieldTemplate: React.FC<ObjectFieldTemplateProps> = (props) => {
-    const { title, description, properties, uiSchema, idSchema, schema } = props;
+    const { properties, title, description, uiSchema } = props;
     const classes = useClasses();
-
-    const hideTitle = uiSchema?.['ui:options']?.['hide_title'];
 
     const isCollapsed = uiSchema?.['ui:options']?.['collapsed'] === true;
     const isCollapsible = isCollapsed || uiSchema?.['ui:options']?.['collapsible'] === true;
     const openItems = isCollapsed ? [] : properties.map((_, index) => index);
 
-    if (isCollapsible) {
-        return (
-            <Accordion multiple collapsible defaultOpenItems={openItems}>
-                <AccordionItem value={idSchema.$id}>
-                    <AccordionHeader>
-                        <Text>{title}</Text>
-                    </AccordionHeader>
-                    <AccordionPanel>
-                        <div className={classes.items}>
-                            {properties.map((element, index) => {
-                                return <div key={index}>{element.content}</div>;
-                            })}
-                        </div>
-                    </AccordionPanel>
-                </AccordionItem>
-            </Accordion>
-        );
-    }
-
-    const descriptionValue = description ?? schema.description;
-
     return (
         <div>
             <div className={classes.heading}>
-                {!hideTitle && (
-                    <>
-                        <Text>{title}</Text>
-                        <Divider />
-                    </>
-                )}
-                {descriptionValue && <Text italic>{descriptionValue}</Text>}
+                <Text>{title}</Text>
+                {description && <Text italic>{description}</Text>}
+                <Divider />
             </div>
-            <div className={classes.items}>
-                {properties.map((element, index) => {
-                    return <div key={index}>{element.content}</div>;
-                })}
-            </div>
+            {isCollapsible ? (
+                <Accordion multiple collapsible defaultOpenItems={openItems}>
+                    {properties.map((element, index) => (
+                        <AccordionItem key={index} value={element.name}>
+                            <AccordionHeader>
+                                <Text>{element.name}</Text>
+                            </AccordionHeader>
+                            <AccordionPanel>{element.content}</AccordionPanel>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
+            ) : (
+                <div className={classes.items}>
+                    {properties.map((element, index) => (
+                        <div key={index}>{element.content}</div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

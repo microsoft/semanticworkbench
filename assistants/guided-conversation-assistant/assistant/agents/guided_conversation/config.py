@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type
 from pydantic import BaseModel, Field, create_model
 from semantic_workbench_assistant.config import UISchema
 
-from .defaults_patient_intake import patient_intake
-from .defaults_poem_feedback import poem_feedback
 from .definition import GuidedConversationDefinition
+from .definitions.patient_intake import patient_intake
+from .definitions.poem_feedback import poem_feedback
 
 if TYPE_CHECKING:
     pass
@@ -63,23 +63,21 @@ def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="D
 
 
 class GuidedConversationAgentConfigModel(BaseModel):
-    defaults: Annotated[
-        Dict[str, GuidedConversationDefinition],
-        Field(
-            title="Defaults",
-            description="Default values for the agent configuration.",
-        ),
-        UISchema(),
-    ] = {
-        "Poem_Feedback": poem_feedback,
-        "Patient_Intake": patient_intake,
-    }
-
     definition: Annotated[
         GuidedConversationDefinition,
         Field(
             title="Definition",
             description="The definition of the guided conversation agent.",
+        ),
+        UISchema(
+            schema={
+                "ui:options": {
+                    "configurations": {
+                        "Poem Feedback": poem_feedback.model_dump(mode="json"),
+                        "Patient Intake": patient_intake.model_dump(mode="json"),
+                    },
+                },
+            },
         ),
     ] = poem_feedback
 
