@@ -38,11 +38,11 @@ logger = logging.getLogger(__name__)
 #
 
 # the service id to be registered in the workbench to identify the assistant
-service_id = "prospector-assistant.made-exploration"
+service_id = "explorer-assistant.made-exploration"
 # the name of the assistant service, as it will appear in the workbench UI
-service_name = "Prospector Assistant"
+service_name = "Explorer Assistant"
 # a description of the assistant service, as it will appear in the workbench UI
-service_description = "An assistant that helps you mine ideas from artifacts."
+service_description = "An assistant for exploring capabilities."
 
 #
 # create the configuration provider, using the extended configuration model
