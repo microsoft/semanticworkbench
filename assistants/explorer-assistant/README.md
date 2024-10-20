@@ -1,6 +1,6 @@
-# Using Semantic Workbench with different AI models
+# Using Semantic Workbench with python assistants
 
-This project provides a functional chatbot example that can be configured to use models from OpenAI, Anthropic, or Google Gemini that can be used in the **Semantic Workbench**. This example provides a general message model that adapts to the configured model at runtime. Each model is called using their own native Python SDK.
+This project provides an assistant to help explore assistant ideas and capabilities, leveraging OpenAI or Azure OpenAI (or any OpenAI compatible service), allowing to use **Semantic Workbench** to test it.
 
 ## Responsible AI
 
@@ -15,20 +15,20 @@ The chatbot includes some important best practices for AI development, such as:
 - **Content moderation**, via [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety)
   or [OpenAI Content Moderation](https://platform.openai.com/docs/guides/moderation).
 
-See the [Responsible AI FAQ](../../../RESPONSIBLE_AI_FAQ.md) for more information.
+See the [Responsible AI FAQ](../../RESPONSIBLE_AI_FAQ.md) for more information.
 
-## Suggested Development Environment
+# Suggested Development Environment
 
-- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../../.devcontainer/README.md)
+- Use GitHub Codespaces for a quick, turn-key dev environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
 - VS Code is recommended for development
 
 ## Pre-requisites
 
 - Set up your dev environment
   - SUGGESTED: Use GitHub Codespaces for a quick, easy, and consistent dev
-    environment: [/.devcontainer/README.md](../../../.devcontainer/README.md)
-  - ALTERNATIVE: Local setup following the [main README](../../../README.md#local-development-environment)
-- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../../semantic-workbench.code-workspace)
+    environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
+  - ALTERNATIVE: Local setup following the [main README](../../README.md#local-development-environment)
+- Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench.code-workspace)
 - If using Azure OpenAI, set up an Azure account and create a Content Safety resource
   - See [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety) for more information
   - Copy the `.env.example` to `.env` and update the `ASSISTANT__AZURE_CONTENT_SAFETY_ENDPOINT` value with the endpoint of your Azure Content Safety resource
@@ -38,9 +38,9 @@ See the [Responsible AI FAQ](../../../RESPONSIBLE_AI_FAQ.md) for more informatio
 
 - Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `semantic-workbench` to start the app and service from this workspace
 - Use VS Code > `Run and Debug` (ctrl/cmd+shift+d) > `launch assistant` to start the assistant.
-- If running in a devcontainer, follow the instructions in [.devcontainer/POST_SETUP_README.md](../../../.devcontainer/POST_SETUP_README.md#start-the-app-and-service) for any additional steps.
+- If running in a devcontainer, follow the instructions in [.devcontainer/POST_SETUP_README.md](../../.devcontainer/POST_SETUP_README.md#start-the-app-and-service) for any additional steps.
 - Return to the workbench app to interact with the assistant
-- Add a new assistant from the main menu of the app, choose the assistant name as defined by the `service_name` in [chat.py](./assistant/chat.py)
+- Add a new assistant from the main menu of the app, choose the assistant name as defined by the `service_name` in [chat.py](./explorer_assistant/chat.py)
 - Click the newly created assistant to configure and interact with it
 
 ## Starting the example from CLI

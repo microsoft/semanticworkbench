@@ -52,6 +52,10 @@
       "path": "examples/python/python-03-multimodel-chatbot"
     },
     {
+      "name": "assistants:explorer-assistant",
+      "path": "assistants/explorer-assistant"
+    },
+    {
       "name": "assistants:guided-conversation-assistant",
       "path": "assistants/guided-conversation-assistant"
     },
