@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "assistants: explorer-assistant",
+      "cwd": "${workspaceFolder}",
+      "module": "semantic_workbench_assistant.start",
+      "args": ["explorer_assistant.chat:app"],
+      "consoleTitle": "${workspaceFolderBasename}"
+    }
+  ]
+}
