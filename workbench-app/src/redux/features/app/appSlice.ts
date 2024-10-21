@@ -94,6 +94,9 @@ export const appSlice = createSlice({
             // merge with existing state
             state.interactCanvasState = { ...state.interactCanvasState, ...action.payload };
         },
+        setActiveConversationId: (state: AppState, action: PayloadAction<string | undefined>) => {
+            state.activeConversationId = action.payload;
+        },
     },
 });
 
@@ -106,6 +109,7 @@ export const {
     setChatWidthPercent,
     setCompletedFirstRun,
     setInteractCanvasState,
+    setActiveConversationId,
 } = appSlice.actions;
 
 export default appSlice.reducer;

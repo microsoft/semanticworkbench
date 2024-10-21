@@ -20,6 +20,7 @@ import { AssistantEditor } from './routes/AssistantEditor';
 import { AssistantServiceRegistrationEditor } from './routes/AssistantServiceRegistrationEditor';
 import { Dashboard } from './routes/Dashboard';
 import { ErrorPage } from './routes/ErrorPage';
+import { FrontDoor } from './routes/FrontDoor';
 import { Interact } from './routes/Interact';
 import { Login } from './routes/Login';
 import { Settings } from './routes/Settings';
@@ -67,6 +68,10 @@ const authenticatedRouter = createBrowserRouter([
             {
                 index: true,
                 element: <Dashboard />,
+            },
+            {
+                path: '/frontdoor/:conversationId?',
+                element: <FrontDoor />,
             },
             {
                 path: '/settings',
