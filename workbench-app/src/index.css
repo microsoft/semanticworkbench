@@ -9,7 +9,6 @@
 body {
     margin: 0;
     overscroll-behavior: none;
-    background-image: url('/assets/background-1.jpg');
     background-size: cover;
     background-repeat: no-repeat;
     background-position: center;

@@ -297,7 +297,10 @@ async def respond_to_conversation(
             content = completion.choices[0].message.content
 
             # get the total tokens used for the completion
-            completion_total_tokens = completion.usage.total_tokens if completion.usage else None
+            completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
+            footer_items = [
+                _get_token_usage_message(config.request_config.max_tokens, completion_total_tokens),
+            ]
 
             # add the completion to the metadata for debugging
             deepmerge.always_merger.merge(
@@ -312,7 +315,8 @@ async def respond_to_conversation(
                             },
                             "response": completion.model_dump() if completion else "[no response from openai]",
                         },
-                    }
+                    },
+                    "footer_items": footer_items,
                 },
             )
 
@@ -418,6 +422,32 @@ async def respond_to_conversation(
 #
 # region Helpers
 #
+
+
+# TODO: move to a common module, such as either the openai_client or attachment module for easy re-use in other assistants
+def _get_token_usage_message(
+    max_tokens: int,
+    completion_total_tokens: int,
+) -> str:
+    """
+    Generate a display friendly message for the token usage, to be added to the footer items.
+    """
+
+    def get_display_count(tokens: int) -> str:
+        # if less than 1k, return the number of tokens
+        # if greater than or equal to 1k, return the number of tokens in k
+        # use 1 decimal place for k
+        # drop the decimal place if the number of tokens in k is a whole number
+        if tokens < 1000:
+            return str(tokens)
+        else:
+            tokens_in_k = tokens / 1000
+            if tokens_in_k.is_integer():
+                return f"{int(tokens_in_k)}k"
+            else:
+                return f"{tokens_in_k:.1f}k"
+
+    return f"Tokens used: {get_display_count(completion_total_tokens)} of {get_display_count(max_tokens)} ({int(completion_total_tokens / max_tokens * 100)}%)"
 
 
 def _format_message(message: ConversationMessage, participants: list[ConversationParticipant]) -> str:
