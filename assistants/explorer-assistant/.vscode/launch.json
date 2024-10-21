@@ -7,7 +7,7 @@
       "name": "assistants: explorer-assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["explorer_assistant.chat:app"],
+      "args": ["assistant.chat:app"],
       "consoleTitle": "${workspaceFolderBasename}"
     }
   ]
