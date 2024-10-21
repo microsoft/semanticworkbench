@@ -4,6 +4,7 @@ import { Button, Card, Checkbox, Field, Input, Textarea, makeStyles, tokens } fr
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
+import { CopyButton } from '../components/App/CopyButton';
 import { Loading } from '../components/App/Loading';
 import { AssistantServiceRegistrationApiKeyReset } from '../components/AssistantServiceRegistrations/AssistantServiceRegistrationApiKeyReset';
 import {
@@ -103,14 +104,28 @@ export const AssistantServiceRegistrationEditor: React.FC = () => {
                 <Field label="Name">
                     <Input className={classes.input} value={name} onChange={(_event, data) => setName(data.value)} />
                 </Field>
-                <Field label="API Key (read-only)">
-                    <div className={classes.row}>
-                        <Input className={classes.input} value={assistantServiceRegistration.apiKey} readOnly />
-                        <AssistantServiceRegistrationApiKeyReset
-                            assistantServiceRegistration={assistantServiceRegistration}
-                        />
-                    </div>
-                </Field>
+                {assistantServiceRegistration.apiKeyName && (
+                    <>
+                        <Field label="API Key (read-only)">
+                            <div className={classes.row}>
+                                <Input className={classes.input} value={assistantServiceRegistration.apiKey} readOnly />
+                                <AssistantServiceRegistrationApiKeyReset
+                                    assistantServiceRegistration={assistantServiceRegistration}
+                                />
+                            </div>
+                        </Field>
+                        <Field label="API Key secret name (read-only)">
+                            <div className={classes.row}>
+                                <Input
+                                    className={classes.input}
+                                    value={assistantServiceRegistration.apiKeyName}
+                                    readOnly
+                                />
+                                <CopyButton data={assistantServiceRegistration.apiKeyName} />
+                            </div>
+                        </Field>
+                    </>
+                )}
                 <Checkbox
                     label="Include this assistant service in everyone's create assistant list"
                     checked={includeInListing}

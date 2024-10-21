@@ -52,6 +52,7 @@ def user_list_from_db(models: Iterable[db.User]) -> UserList:
 
 def assistant_service_registration_from_db(
     model: db.AssistantServiceRegistration,
+    include_api_key_name: bool,
     api_key: str | None = None,
 ) -> AssistantServiceRegistration:
     return AssistantServiceRegistration(
@@ -62,7 +63,7 @@ def assistant_service_registration_from_db(
         name=model.name,
         description=model.description,
         include_in_listing=model.include_in_listing,
-        api_key_name=model.api_key_name,
+        api_key_name=model.api_key_name if include_api_key_name else "",
         api_key=api_key,
         assistant_service_url=model.assistant_service_url,
         assistant_service_online=model.assistant_service_online,
@@ -71,10 +72,12 @@ def assistant_service_registration_from_db(
 
 
 def assistant_service_registration_list_from_db(
-    models: Iterable[db.AssistantServiceRegistration],
+    models: Iterable[db.AssistantServiceRegistration], include_api_key_name: bool
 ) -> AssistantServiceRegistrationList:
     return AssistantServiceRegistrationList(
-        assistant_service_registrations=[assistant_service_registration_from_db(model=a) for a in models]
+        assistant_service_registrations=[
+            assistant_service_registration_from_db(model=a, include_api_key_name=include_api_key_name) for a in models
+        ]
     )
 
 
