@@ -16,6 +16,10 @@ dependencies = [
 
 [tool.uv]
 package = true
+dev-dependencies = [
+    "pillow>=11.0.0",
+    "pytest>=8.3.3",
+]
 
 [tool.uv.sources]
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
@@ -23,3 +27,10 @@ semantic-workbench-assistant = { path = "../semantic-workbench-assistant", edita
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = ["-vv"]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+testpaths = ["tests"]

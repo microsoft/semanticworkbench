@@ -305,7 +305,7 @@ async def respond_to_conversation(
     for completion_message in completion_messages:
         completion_message_content = completion_message.get("content")
         if isinstance(completion_message_content, str):
-            token_count += openai_client.count_tokens(
+            token_count += openai_client.num_tokens_from_str(
                 model=config.request_config.openai_model, value=completion_message_content
             )
 
@@ -318,7 +318,7 @@ async def respond_to_conversation(
     # add the messages in reverse order to get the most recent messages first
     for message in reversed(messages):
         # calculate the token count for the message and check if it exceeds the available tokens
-        token_count += openai_client.count_tokens(
+        token_count += openai_client.num_tokens_from_str(
             model=config.request_config.openai_model, value=_format_message(message, participants_response.participants)
         )
         if token_count > available_tokens:
