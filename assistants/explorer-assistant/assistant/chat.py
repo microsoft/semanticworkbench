@@ -296,8 +296,23 @@ async def respond_to_conversation(
             )
             content = completion.choices[0].message.content
 
+            def get_display_count(tokens: int) -> str:
+                # if less than 1k, return the number of tokens
+                # if greater than or equal to 1k, return the number of tokens in k
+                # use 1 decimal place for k
+                # drop the decimal place if the number of tokens in k is a whole number
+                if tokens < 1000:
+                    return str(tokens)
+                else:
+                    tokens_in_k = tokens / 1000
+                    if tokens_in_k.is_integer():
+                        return f"{int(tokens_in_k)}k"
+                    else:
+                        return f"{tokens_in_k:.1f}k"
+
             # get the total tokens used for the completion
-            completion_total_tokens = completion.usage.total_tokens if completion.usage else None
+            completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
+            completion_percentage_tokens = int(completion_total_tokens / config.request_config.max_tokens * 100)
 
             # add the completion to the metadata for debugging
             deepmerge.always_merger.merge(
@@ -312,7 +327,14 @@ async def respond_to_conversation(
                             },
                             "response": completion.model_dump() if completion else "[no response from openai]",
                         },
-                    }
+                    },
+                    "footer_items": [
+                        (
+                            f"{get_display_count(completion_total_tokens)} of "
+                            f"{get_display_count(config.request_config.max_tokens)} "
+                            f"({completion_percentage_tokens}%) tokens used for request"
+                        )
+                    ],
                 },
             )
 
