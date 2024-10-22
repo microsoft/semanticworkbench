@@ -1,5 +1,4 @@
 import base64
-import json
 import logging
 import math
 import re
@@ -14,18 +13,9 @@ from PIL import Image
 logger = logging.getLogger(__name__)
 
 
-def num_tokens_from_str(model: str, value: str | list[str]) -> int:
-    """
-    Get the token count for a string or list of strings.
-    """
-    value = json.dumps(value)
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(value))
-
-
 def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> int:
     """
-    Return the number of tokens used by a list of messages.
+    Return the number of tokens used by a single message.
 
     Note that the exact way that tokens are counted from messages may change from model to model.
     Consider the counts from this function an estimate, not a timeless guarantee.
@@ -100,9 +90,7 @@ def num_tokens_from_messages(messages: Iterable[ChatCompletionMessageParam], mod
     Reference: https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken#6-counting-tokens-for-chat-completions-api-calls
     """
 
-    num_tokens = 0
-    for message in messages:
-        num_tokens += num_tokens_from_message(message, model)
+    num_tokens = sum((num_tokens_from_message(message, model) for message in messages))
     num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
 
     return num_tokens
