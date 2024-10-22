@@ -33,11 +33,6 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
-from .agents.guided_conversation_agent import (
-    GuidedConversationAgent,
-    GuidedConversationConversationInspectorStateProvider,
-)
-from .agents.skills_agent import SkillsAgent, SkillsAgentConversationInspectorStateProvider
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -76,8 +71,6 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": ArtifactConversationInspectorStateProvider(assistant_config),
-        "guided_conversation": GuidedConversationConversationInspectorStateProvider(assistant_config),
-        "skills_agent": SkillsAgentConversationInspectorStateProvider(assistant_config),
     },
 )
 
@@ -155,14 +148,6 @@ async def on_message_created(
         # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
         #
 
-        # Guided conversation agent response
-        if config.agents_config.guided_conversation_agent.enabled:
-            return await guided_conversation_agent_respond_to_conversation(context, config, metadata)
-
-        # Skills agent response
-        if config.agents_config.skills_agent.enabled:
-            return await skills_agent_respond_to_conversation(context, event, message)
-
         # Prospector assistant response
         await respond_to_conversation(context, config, message, metadata)
 
@@ -196,35 +181,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
 #
 # region Response
 #
-
-
-async def guided_conversation_agent_respond_to_conversation(
-    context: ConversationContext, config: AssistantConfigModel, metadata: dict[str, Any] = {}
-) -> None:
-    """
-    Respond to a conversation message using the guided conversation agent.
-    """
-    # create the guided conversation agent instance
-    guided_conversation_agent = GuidedConversationAgent(config_provider=assistant_config)
-
-    # add the attachment agent messages to the completion messages
-    attachment_messages = await attachments_extension.get_completion_messages_for_attachments(
-        context, config=config.agents_config.attachment_agent
-    )
-    additional_messages: list[ChatCompletionMessageParam] = list(attachment_messages)
-
-    return await guided_conversation_agent.respond_to_conversation(context, metadata, additional_messages)
-
-
-async def skills_agent_respond_to_conversation(
-    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
-) -> None:
-    """
-    Respond to a conversation message using the skills agent.
-    """
-    # create the skills agent instance
-    skills_agent = SkillsAgent(config_provider=assistant_config)
-    return await skills_agent.respond_to_conversation(context, event, message)
 
 
 # demonstrates how to respond to a conversation message using the OpenAI API.
@@ -301,13 +257,9 @@ async def respond_to_conversation(
     messages = messages_response.messages + [message]
 
     # calculate the token count for the messages so far
-    token_count = 0
-    for completion_message in completion_messages:
-        completion_message_content = completion_message.get("content")
-        if isinstance(completion_message_content, str):
-            token_count += openai_client.num_tokens_from_str(
-                model=config.request_config.openai_model, value=completion_message_content
-            )
+    token_count = openai_client.num_tokens_from_messages(
+        model=config.request_config.openai_model, messages=completion_messages
+    )
 
     # calculate the total available tokens for the response generation
     available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
@@ -317,35 +269,39 @@ async def respond_to_conversation(
 
     # add the messages in reverse order to get the most recent messages first
     for message in reversed(messages):
-        # calculate the token count for the message and check if it exceeds the available tokens
-        token_count += openai_client.num_tokens_from_str(
-            model=config.request_config.openai_model, value=_format_message(message, participants_response.participants)
-        )
-        if token_count > available_tokens:
-            # stop processing messages if the token count exceeds the available tokens
-            break
+        messages_to_add: list[ChatCompletionMessageParam] = []
 
         # add the message to the completion messages, treating any message from a source other than the assistant
         # as a user message
         if message.sender.participant_id == context.assistant.id:
-            history_messages.append({
+            messages_to_add.append({
                 "role": "assistant",
                 "content": _format_message(message, participants_response.participants),
             })
-            continue
-
-        # we are working with the messages in reverse order, so include any attachments before the message
-        if message.filenames and len(message.filenames) > 0:
-            # add a system message to indicate the attachments
-            history_messages.append({
-                "role": "system",
-                "content": f"Attachment(s): {', '.join(message.filenames)}",
+        else:
+            # we are working with the messages in reverse order, so include any attachments before the message
+            if message.filenames and len(message.filenames) > 0:
+                # add a system message to indicate the attachments
+                messages_to_add.append({
+                    "role": "system",
+                    "content": f"Attachment(s): {', '.join(message.filenames)}",
+                })
+            # add the user message to the completion messages
+            messages_to_add.append({
+                "role": "user",
+                "content": _format_message(message, participants_response.participants),
             })
-        # add the user message to the completion messages
-        history_messages.append({
-            "role": "user",
-            "content": _format_message(message, participants_response.participants),
-        })
+
+        # calculate the token count for the message and check if it exceeds the available tokens
+        messages_to_add_token_count = openai_client.num_tokens_from_messages(
+            model=config.request_config.openai_model, messages=messages_to_add
+        )
+        if (token_count + messages_to_add_token_count) > available_tokens:
+            # stop processing messages if the token count exceeds the available tokens
+            break
+
+        token_count += messages_to_add_token_count
+        history_messages.extend(messages_to_add)
 
     # reverse the history messages to get them back in the correct order
     history_messages.reverse()

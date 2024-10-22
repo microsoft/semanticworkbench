@@ -14,14 +14,12 @@ from .messages import (
 from .tokens import (
     num_tokens_from_message,
     num_tokens_from_messages,
-    num_tokens_from_str,
     num_tokens_from_tools_and_messages,
 )
 
 __all__ = [
     "create_client",
     "truncate_messages_for_logging",
-    "num_tokens_from_str",
     "num_tokens_from_message",
     "num_tokens_from_messages",
     "num_tokens_from_tools_and_messages",
