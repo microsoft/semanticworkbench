@@ -1,27 +1,27 @@
-name: guided-conversation assistant continuous integration
+name: prospector-assistant continuous integration
 
 on:
   pull_request:
     branches: ["main"]
     paths:
-      - "assistants/guided-conversation-assistant/**"
+      - "assistants/prospector-assistant/**"
       - "libraries/python/**"
       - "tools/docker/**"
-      - ".github/workflows/guided-conversation-assistant.yml"
+      - ".github/workflows/assistants-prospector-assistant.yml"
 
   push:
     branches: ["main"]
     paths:
-      - "assistants/guided-conversation-assistant/**"
+      - "assistants/prospector-assistant/**"
       - "libraries/python/**"
       - "tools/docker/**"
-      - ".github/workflows/guided-conversation-assistant.yml"
+      - ".github/workflows/assistants-prospector-assistant.yml"
 
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: assistants/guided-conversation-assistant
+    working-directory: assistants/prospector-assistant
 
 jobs:
   build:

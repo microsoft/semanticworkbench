@@ -182,27 +182,47 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         setEditorIsInitialized(true);
     }, []);
 
-    // add an attachment to the list of attachments
-    const addAttachment = React.useCallback(
-        (file: File) => {
-            // limit the number of attachments to the maximum allowed
-            if (attachmentFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
-                dispatch(
-                    addError({
-                        title: 'Attachment limit reached',
-                        message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
-                    }),
-                );
-                return;
-            }
-
+    // add a set of attachments to the list of attachments
+    const addAttachments = React.useCallback(
+        (files: Iterable<File>) => {
             setAttachmentFiles((prevFiles) => {
                 const updatedFiles = new Map(prevFiles);
-                updatedFiles.set(file.name, file);
+                const duplicates = new Map<string, number>();
+
+                for (const file of files) {
+                    // limit the number of attachments to the maximum allowed
+                    if (updatedFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
+                        dispatch(
+                            addError({
+                                title: 'Attachment limit reached',
+                                message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
+                            }),
+                        );
+                        return updatedFiles;
+                    }
+
+                    if (updatedFiles.has(file.name)) {
+                        duplicates.set(file.name, (duplicates.get(file.name) || 0) + 1);
+                        continue;
+                    }
+
+                    updatedFiles.set(file.name, file);
+                }
+
+                for (const [filename, count] of duplicates.entries()) {
+                    dispatch(
+                        addError({
+                            title: `Attachments with duplicate filenames`,
+                            message: `${count} attachment${count !== 1 ? 's' : ''} with filename '${filename}' ${
+                                count !== 1 ? 'were' : 'was'
+                            } ignored`,
+                        }),
+                    );
+                }
                 return updatedFiles;
             });
         },
-        [attachmentFiles, dispatch, setAttachmentFiles],
+        [dispatch, setAttachmentFiles],
     );
 
     React.useEffect(() => {
@@ -223,31 +243,29 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 if (!clipboardItems) return false;
 
                 for (const item of clipboardItems) {
-                    if (item.kind === 'file') {
-                        const file = item.getAsFile();
-                        if (file) {
-                            // ensure the filename is unique by appending a timestamp before the extension
-                            const timestamp = new Date().getTime();
-                            const filename = `${file.name.replace(/\.[^/.]+$/, '')}_${timestamp}${file.name.match(
-                                /\.[^/.]+$/,
-                            )}`;
+                    if (item.kind !== 'file') continue;
+                    const file = item.getAsFile();
+                    if (!file) continue;
+                    // ensure the filename is unique by appending a timestamp before the extension
+                    const timestamp = new Date().getTime();
+                    const filename = `${file.name.replace(/\.[^/.]+$/, '')}_${timestamp}${file.name.match(
+                        /\.[^/.]+$/,
+                    )}`;
 
-                            // file.name is read-only, so create a new file object with the new name
-                            // make sure to use the same file contents, content type, etc.
-                            const updatedFile =
-                                filename !== file.name ? new File([file], filename, { type: file.type }) : file;
+                    // file.name is read-only, so create a new file object with the new name
+                    // make sure to use the same file contents, content type, etc.
+                    const updatedFile = filename !== file.name ? new File([file], filename, { type: file.type }) : file;
 
-                            // add the file to the list of attachments
-                            addAttachment(updatedFile);
+                    // add the file to the list of attachments
+                    log('calling add attachment from paste', file);
+                    addAttachments([updatedFile]);
 
-                            // Prevent default paste for file items
-                            event.preventDefault();
-                            event.stopPropagation();
+                    // Prevent default paste for file items
+                    event.preventDefault();
+                    event.stopPropagation();
 
-                            // Indicate command was handled
-                            return true;
-                        }
-                    }
+                    // Indicate command was handled
+                    return true;
                 }
 
                 // Allow default handling for non-file paste
@@ -260,9 +278,24 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             // Clean up listeners on unmount
             removePasteListener();
         };
-    }, [editorIsInitialized, addAttachment]);
+    }, [editorIsInitialized, addAttachments]);
 
     const tokenizer = React.useMemo(() => getEncoding('cl100k_base'), []);
+
+    const onAttachmentChanged = React.useCallback(() => {
+        if (!attachmentInputRef.current) {
+            return;
+        }
+        addAttachments(attachmentInputRef.current.files ?? []);
+        attachmentInputRef.current.value = '';
+    }, [addAttachments]);
+
+    const handleDrop = React.useCallback(
+        (event: React.DragEvent) => {
+            addAttachments(event.dataTransfer.files);
+        },
+        [addAttachments],
+    );
 
     if (isConversationMessagesLoading || isParticipantsLoading) {
         return null;
@@ -369,20 +402,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
     const onAttachment = () => {
         attachmentInputRef.current?.click();
-    };
-
-    const onAttachmentChanged = () => {
-        for (let file of attachmentInputRef.current?.files ?? []) {
-            addAttachment(file);
-        }
-    };
-
-    const handleDrop = (event: React.DragEvent) => {
-        log('drop event', event);
-
-        for (let file of event.dataTransfer.files) {
-            addAttachment(file);
-        }
     };
 
     // update the listening state when the speech recognizer starts or stops

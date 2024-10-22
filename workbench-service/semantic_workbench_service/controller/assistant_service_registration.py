@@ -93,7 +93,9 @@ class AssistantServiceRegistrationController:
 
             await session.commit()
 
-        return convert.assistant_service_registration_from_db(registration, api_key=api_key)
+        return convert.assistant_service_registration_from_db(
+            registration, api_key=api_key, include_api_key_name=self._registration_is_secured
+        )
 
     async def get_registrations(
         self, user_ids: set[str], assistant_service_online: bool | None = None
@@ -117,7 +119,9 @@ class AssistantServiceRegistrationController:
 
             assistant_services = await session.exec(query_registrations)
 
-            return convert.assistant_service_registration_list_from_db(assistant_services)
+            return convert.assistant_service_registration_list_from_db(
+                assistant_services, include_api_key_name=self._registration_is_secured
+            )
 
     async def get_registration(self, assistant_service_id: str) -> AssistantServiceRegistration:
         async with self._get_session() as session:
@@ -134,7 +138,9 @@ class AssistantServiceRegistrationController:
             api_key = await self._api_key_store.get(registration.api_key_name)
             masked_api_key = self.mask_api_key(api_key)
 
-            return convert.assistant_service_registration_from_db(registration, api_key=masked_api_key)
+            return convert.assistant_service_registration_from_db(
+                registration, api_key=masked_api_key, include_api_key_name=self._registration_is_secured
+            )
 
     @staticmethod
     def mask_api_key(api_key: str | None) -> str | None:
@@ -187,7 +193,9 @@ class AssistantServiceRegistrationController:
             await session.commit()
             await session.refresh(registration)
 
-        return convert.assistant_service_registration_from_db(registration)
+        return convert.assistant_service_registration_from_db(
+            registration, include_api_key_name=self._registration_is_secured
+        )
 
     async def update_assistant_service_url(
         self,
@@ -238,7 +246,9 @@ class AssistantServiceRegistrationController:
             await session.commit()
             await session.refresh(registration)
 
-        return convert.assistant_service_registration_from_db(registration), background_task_args
+        return convert.assistant_service_registration_from_db(
+            registration, include_api_key_name=self._registration_is_secured
+        ), background_task_args
 
     async def _update_participants(
         self,
@@ -290,7 +300,9 @@ class AssistantServiceRegistrationController:
 
             api_key = await self._api_key_store.reset(registration.api_key_name)
 
-        return convert.assistant_service_registration_from_db(registration, api_key=api_key)
+        return convert.assistant_service_registration_from_db(
+            registration, api_key=api_key, include_api_key_name=self._registration_is_secured
+        )
 
     async def check_assistant_service_online_expired(self) -> None:
         async with self._get_session() as session:

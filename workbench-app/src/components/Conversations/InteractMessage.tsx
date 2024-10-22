@@ -103,6 +103,14 @@ const useClasses = makeStyles({
         alignItems: 'center',
         ...shorthands.padding(tokens.spacingVerticalXXS, 0, tokens.spacingVerticalXXS, tokens.spacingHorizontalS),
     },
+    footer: {
+        display: 'flex',
+        color: tokens.colorNeutralForeground3,
+        flexDirection: 'row',
+        gap: tokens.spacingHorizontalS,
+        alignItems: 'center',
+        ...shorthands.padding(tokens.spacingVerticalXS, 0, tokens.spacingVerticalXS, tokens.spacingHorizontalS),
+    },
     userContent: {
         alignItems: 'end',
     },
@@ -296,31 +304,41 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 </AiGeneratedDisclaimer>
             );
 
+        let footerItems: React.ReactNode | null = null;
+        if (message.metadata?.['footer_items']) {
+            // may either be a string or an array of strings
+            const footerItemsArray = Array.isArray(message.metadata['footer_items'])
+                ? message.metadata['footer_items']
+                : [message.metadata['footer_items']];
+
+            footerItems = (
+                <>
+                    {footerItemsArray.map((item) => (
+                        <AiGeneratedDisclaimer key={item} className={classes.generated}>
+                            {item}
+                        </AiGeneratedDisclaimer>
+                    ))}
+                </>
+            );
+        }
+        const footerContent = (
+            <div className={classes.footer}>
+                {aiGeneratedDisclaimer}
+                {footerItems}
+            </div>
+        );
+
         return (
             <>
                 <div className={classes.actions}>
                     {(message.messageType !== 'notice' || (message.messageType === 'notice' && !isUser)) && actions}
                 </div>
                 <div className={contentClassName}>{renderedContent}</div>
-                {aiGeneratedDisclaimer}
+                {footerContent}
                 {attachmentList}
             </>
         );
-    }, [
-        actions,
-        classes.actions,
-        classes.attachments,
-        classes.generated,
-        classes.innerContent,
-        classes.noteContent,
-        classes.noticeContent,
-        content,
-        contentClassName,
-        isUser,
-        message.filenames,
-        message.messageType,
-        message.metadata,
-    ]);
+    }, [actions, classes, content, contentClassName, isUser, message.filenames, message.messageType, message.metadata]);
 
     const renderedContent = getRenderedMessage();
 

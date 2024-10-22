@@ -21,7 +21,8 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from ..config import AssistantConfigModel
-from .document.guided_conversation import GuidedConversationAgent, GuidedConversationAgentConfigModel
+from .document.config import GuidedConversationAgentConfigModel
+from .document.guided_conversation import GuidedConversationAgent
 
 logger = logging.getLogger(__name__)
 

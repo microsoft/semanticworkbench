@@ -35,7 +35,7 @@ This service is now a FastAPIAssistantService containing all the assistant metho
 - Set up your dev environment
   - SUGGESTED: Use GitHub Codespaces for a quick, easy, and consistent dev
     environment: [/.devcontainer/README.md](../.devcontainer/README.md)
-  - ALTERNATIVE: Local setup following the [main README](../README.md#quick-start---local-development-environment)
+  - ALTERNATIVE: Local setup following the [main README](../README.md#local-development-environment)
 - Create a directory for your projects. If you create this in the repo root, any assistant example projects will already have the correct relative paths set up to access the `semantic-workbench-*` packages or libraries.
 - Create a project for your new assistant in your projects directory, e.g. `/<your_projects>/<your_assistant_name>`
 - Getting started with the assistant service

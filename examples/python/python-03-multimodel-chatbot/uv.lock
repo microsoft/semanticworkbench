@@ -1029,6 +1029,12 @@ requires-dist = [
     { name = "tiktoken", specifier = ">=0.7.0" },
 ]
 
+[package.metadata.requires-dev]
+dev = [
+    { name = "pillow", specifier = ">=11.0.0" },
+    { name = "pytest", specifier = ">=8.3.3" },
+]
+
 [[package]]
 name = "packaging"
 version = "24.1"

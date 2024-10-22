@@ -2,7 +2,6 @@ import json
 import logging
 from pathlib import Path
 
-from assistant.agents.guided_conversation.config import GuidedConversationAgentConfigModel
 from guided_conversation.guided_conversation_agent import GuidedConversation
 from openai import AsyncOpenAI
 from semantic_kernel import Kernel
@@ -13,6 +12,7 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from ...config import AssistantConfigModel
+from .config import GuidedConversationAgentConfigModel
 
 logger = logging.getLogger(__name__)
 

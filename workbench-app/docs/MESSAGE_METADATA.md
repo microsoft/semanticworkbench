@@ -8,6 +8,8 @@ The app has built-in support for a few metadata child properties, which can be u
 
 -   `debug`: A dictionary that can contain additional information that can be used for debugging purposes. If included, it will cause the app to display a button that will allow the user to see the contents of the dictionary in a popup for further inspection.
 
+-   `footer_items`: A list of strings that will be displayed in the footer of the message. The intent is to allow the sender to include additional information that is not part of the message body, but is still relevant to the message.
+
 Example:
 
 ```json
@@ -39,7 +41,10 @@ Example:
                     "content": ...
                 }
             }
-        }
+        },
+        "footer_items": [
+            "6.8k of 50k (13%) tokens used for request",
+        ]
     }
 }
 ```

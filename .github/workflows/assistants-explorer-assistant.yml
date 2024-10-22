@@ -1,27 +1,27 @@
-name: prospector assistant continuous integration
+name: explorer-assistant continuous integration
 
 on:
   pull_request:
     branches: ["main"]
     paths:
-      - "assistants/prospector-assistant/**"
+      - "assistants/explorer-assistant/**"
       - "libraries/python/**"
       - "tools/docker/**"
-      - ".github/workflows/prospector-assistant.yml"
+      - ".github/workflows/assistants-explorer-assistant.yml"
 
   push:
     branches: ["main"]
     paths:
-      - "assistants/prospector-assistant/**"
+      - "assistants/explorer-assistant/**"
       - "libraries/python/**"
       - "tools/docker/**"
-      - ".github/workflows/prospector-assistant.yml"
+      - ".github/workflows/assistants-explorer-assistant.yml"
 
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: assistants/prospector-assistant
+    working-directory: assistants/explorer-assistant
 
 jobs:
   build:
