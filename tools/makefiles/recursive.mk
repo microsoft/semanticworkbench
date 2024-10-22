@@ -78,7 +78,7 @@ else
 ifeq ($(suffix $(SHELL)),.exe)
 	@$(MAKE) -C $@ $(MAKECMDGOALS) IS_RECURSIVE_MAKE=1 1>$(call fix_path,$@/make.log) $(stderr_redirect_stdout) || \
 		( \
-			grep -qF "*** No" $(call fix_path,$@/make.log) || ( \
+			(findstr /c:"*** No" $(call fix_path,$@/make.log) ${ignore_output}) || ( \
 				echo $@ >> $(call fix_path,$(mkfile_dir)/make_error_dirs.log) && \
 				$(call touch,$@/make_error.log) \
 			) \
