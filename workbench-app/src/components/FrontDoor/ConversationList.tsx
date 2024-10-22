@@ -20,10 +20,10 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { Conversation } from '../../models/Conversation';
-import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { setActiveConversationId } from '../../redux/features/app/appSlice';
+import { useAppSelector } from '../../redux/app/hooks';
 import { useGetConversationsQuery, useUpdateConversationMutation } from '../../services/workbench';
 import { Loading } from '../App/Loading';
 import { PresenceMotionList } from '../App/PresenceMotionList';
@@ -37,6 +37,8 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.guess();
 
+const redirectPath = '/frontdoor/';
+
 const useClasses = makeStyles({
     conversationButton: {
         width: '250px',
@@ -47,13 +49,11 @@ const useClasses = makeStyles({
     },
 });
 
-interface ConversationsProps {}
-
-export const Conversations: React.FC<ConversationsProps> = () => {
+export const ConversationList: React.FC = () => {
     const classes = useClasses();
     const { getUserId } = useLocalUserAccount();
     const { activeConversationId } = useAppSelector((state) => state.app);
-    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
     const {
         data: conversations,
         error: conversationsError,
@@ -113,14 +113,13 @@ export const Conversations: React.FC<ConversationsProps> = () => {
                         {(triggerProps: MenuButtonProps) => (
                             <SplitButton
                                 appearance="subtle"
-                                size="large"
                                 menuButton={triggerProps}
                                 primaryActionButton={{
                                     className: mergeClasses(
                                         classes.conversationButton,
                                         activeConversationId === conversation.id ? classes.active : '',
                                     ),
-                                    onClick: () => dispatch(setActiveConversationId(conversation.id)),
+                                    onClick: () => navigate([redirectPath, conversation.id].join('')),
                                 }}
                             >
                                 {conversation.title}

@@ -1,9 +1,15 @@
 import { Button, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import { PanelLeftContractRegular, PanelLeftExpandRegular } from '@fluentui/react-icons';
 import React from 'react';
+import { useDispatch } from 'react-redux';
+import { useParams } from 'react-router-dom';
+import { Loading } from '../components/App/Loading';
 import { NewConversationButton } from '../components/FrontDoor/Controls/NewConversationButton';
 import { SiteMenuButton } from '../components/FrontDoor/Controls/SiteMenuButton';
-import { Conversations } from '../components/FrontDoor/Conversations';
+import { GlobalContent } from '../components/FrontDoor/GlobalContent';
+import { MainContent } from '../components/FrontDoor/MainContent';
+import { useAppSelector } from '../redux/app/hooks';
+import { setActiveConversationId } from '../redux/features/app/appSlice';
 
 const useClasses = makeStyles({
     root: {
@@ -12,15 +18,11 @@ const useClasses = makeStyles({
         flexDirection: 'column',
         height: '100vh',
     },
-    header: {
+    body: {
+        flex: '1 1 auto',
         display: 'flex',
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    body: {
-        display: 'flex',
-        flex: '1 1 auto',
+        height: '100%',
     },
     sideRailLeft: {
         width: '0px',
@@ -32,17 +34,6 @@ const useClasses = makeStyles({
         '&.open': {
             width: '300px',
         },
-    },
-    sideRailLeftContent: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: tokens.spacingVerticalM,
-        ...shorthands.padding(
-            tokens.spacingVerticalM,
-            tokens.spacingHorizontalM,
-            tokens.spacingVerticalM,
-            tokens.spacingHorizontalM,
-        ),
     },
     fade: {
         opacity: 0,
@@ -59,27 +50,33 @@ const useClasses = makeStyles({
             transitionTimingFunction: tokens.curveEasyEase,
         },
     },
-    main: {
-        position: 'relative',
+    mainContent: {
         flex: '1 1 auto',
-        overflow: 'auto',
-        backgroundColor: tokens.colorNeutralBackground1,
-        padding: tokens.spacingHorizontalM,
+        display: 'flex',
+        flexDirection: 'column',
     },
     controls: {
-        display: 'inline-flex',
+        display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
         gap: tokens.spacingHorizontalS,
-    },
-    sideRailRightOpen: {
-        width: '50vw',
     },
 });
 
 export const FrontDoor: React.FC = () => {
     const classes = useClasses();
-    const [sideRailLeftOpen, setSideRailLeftOpen] = React.useState(false);
+    const { conversationId } = useParams();
+    const { activeConversationId } = useAppSelector((state) => state.app);
+    const dispatch = useDispatch();
+    const [sideRailLeftOpen, setSideRailLeftOpen] = React.useState(!activeConversationId && !conversationId);
+    const [isInitialized, setIsInitialized] = React.useState(false);
+
+    React.useEffect(() => {
+        if (conversationId && conversationId !== activeConversationId) {
+            dispatch(setActiveConversationId(conversationId));
+        }
+        setIsInitialized(true);
+    }, [conversationId, activeConversationId, dispatch]);
 
     const sideRailLeftButton = (
         <Button
@@ -92,37 +89,30 @@ export const FrontDoor: React.FC = () => {
         <div className={classes.root}>
             <div className={classes.body}>
                 <div className={mergeClasses(classes.sideRailLeft, sideRailLeftOpen ? 'open' : undefined)}>
-                    <div
-                        className={mergeClasses(
-                            classes.sideRailLeftContent,
-                            classes.fade,
-                            sideRailLeftOpen ? 'in' : undefined,
-                        )}
-                    >
-                        <div className={classes.header}>
-                            {sideRailLeftButton}
-                            <NewConversationButton />
-                        </div>
-                        <Conversations />
+                    <div className={mergeClasses(classes.fade, sideRailLeftOpen ? 'in' : undefined)}>
+                        <GlobalContent headerBefore={sideRailLeftButton} headerAfter={<NewConversationButton />} />
                     </div>
                 </div>
-                <div className={classes.main}>
-                    <div className={classes.header}>
-                        <div
-                            className={mergeClasses(
-                                classes.controls,
-                                classes.fade,
-                                !sideRailLeftOpen ? 'in' : undefined,
-                            )}
-                        >
-                            {sideRailLeftButton}
-                            <NewConversationButton />
-                        </div>
-                        <div className={classes.controls}>
-                            <SiteMenuButton />
-                        </div>
-                    </div>
-                    <h1>Main Content Area</h1>
+                <div className={classes.mainContent}>
+                    {!isInitialized ? (
+                        <Loading />
+                    ) : (
+                        <MainContent
+                            headerBefore={
+                                <div
+                                    className={mergeClasses(
+                                        classes.controls,
+                                        classes.fade,
+                                        !sideRailLeftOpen ? 'in' : undefined,
+                                    )}
+                                >
+                                    {sideRailLeftButton}
+                                    <NewConversationButton />
+                                </div>
+                            }
+                            headerAfter={<SiteMenuButton />}
+                        />
+                    )}
                 </div>
             </div>
         </div>

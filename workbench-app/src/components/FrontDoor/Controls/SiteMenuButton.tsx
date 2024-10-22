@@ -1,5 +1,6 @@
 import { useIsAuthenticated, useMsal } from '@azure/msal-react';
 import {
+    Caption1,
     Label,
     Menu,
     MenuDivider,
@@ -15,8 +16,8 @@ import {
 import {
     ArrowEnterRegular,
     ArrowExitRegular,
-    InfoRegular,
     NavigationRegular,
+    OpenRegular,
     SettingsRegular,
     ShareRegular,
 } from '@fluentui/react-icons';
@@ -101,7 +102,47 @@ export const SiteMenuButton: React.FC = () => {
                     >
                         Settings
                     </MenuItem>
-                    <MenuItem icon={<InfoRegular />}>About</MenuItem>
+                    <MenuDivider />
+                    <MenuItem
+                        icon={<OpenRegular />}
+                        onClick={() => window.open('https://go.microsoft.com/fwlink/?LinkId=521839')}
+                    >
+                        {' '}
+                        Privacy &amp; Cookies
+                    </MenuItem>
+                    <MenuItem
+                        icon={<OpenRegular />}
+                        onClick={() => window.open('https://go.microsoft.com/fwlink/?linkid=2259814')}
+                    >
+                        {' '}
+                        Consumer Health Privacy
+                    </MenuItem>
+                    <MenuItem
+                        icon={<OpenRegular />}
+                        onClick={() => window.open('https://go.microsoft.com/fwlink/?LinkID=246338')}
+                    >
+                        {' '}
+                        Terms of Use
+                    </MenuItem>
+                    <MenuItem
+                        icon={<OpenRegular />}
+                        onClick={() =>
+                            window.open(
+                                'https://www.microsoft.com/en-us/legal/intellectualproperty/Trademarks/EN-US.aspx',
+                            )
+                        }
+                    >
+                        {' '}
+                        Trademarks
+                    </MenuItem>
+                    <MenuItem
+                        icon={<OpenRegular />}
+                        onClick={() => window.open('http://github.com/microsoft/semanticworkbench')}
+                    >
+                        {' '}
+                        @GitHub
+                    </MenuItem>
+                    <MenuDivider />
                     {account ? (
                         <MenuItem icon={<ArrowExitRegular />} onClick={handleSignOut}>
                             Sign Out
@@ -111,6 +152,10 @@ export const SiteMenuButton: React.FC = () => {
                             Sign In
                         </MenuItem>
                     )}
+                    <MenuDivider />
+                    <div className={classes.accountInfo}>
+                        <Caption1>© Microsoft {new Date().getFullYear()}</Caption1>
+                    </div>
                 </MenuList>
             </MenuPopover>
         </Menu>
