@@ -33,10 +33,6 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
-from .agents.guided_conversation_agent import (
-    GuidedConversationAgent,
-    GuidedConversationConversationInspectorStateProvider,
-)
 from .agents.skills_agent import SkillsAgent, SkillsAgentConversationInspectorStateProvider
 from .config import AssistantConfigModel
 
@@ -76,7 +72,6 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": ArtifactConversationInspectorStateProvider(assistant_config),
-        "guided_conversation": GuidedConversationConversationInspectorStateProvider(assistant_config),
         "skills_agent": SkillsAgentConversationInspectorStateProvider(assistant_config),
     },
 )
@@ -106,6 +101,7 @@ app = assistant.fastapi_app()
 # - @assistant.events.conversation.message.on_created (event triggered when a new message of any type is created)
 # - @assistant.events.conversation.message.chat.on_created (event triggered when a new chat message is created)
 #
+doc_agent_running = False
 
 
 @assistant.events.conversation.message.command.on_created
@@ -119,7 +115,10 @@ async def on_command_message_created(
     # We assume Document Agent is available and future logic would determine which agent
     # the command is intended for. Assumption made in order to make doc agent available asap.
 
-    # if config.agents_config.document_agent.enabled:
+    # config.agents_config.document_agent.enabled = True  # To do... tie into config.
+    global doc_agent_running
+    doc_agent_running = True
+
     doc_agent = DocumentAgent(attachments_extension)
     await doc_agent.receive_command(config, context, message, metadata)
 
@@ -155,9 +154,10 @@ async def on_message_created(
         # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
         #
 
-        # Guided conversation agent response
-        if config.agents_config.guided_conversation_agent.enabled:
-            return await guided_conversation_agent_respond_to_conversation(context, config, metadata)
+        # if config.agents_config.document_agent.enabled:  # To do... tie into config.
+        global doc_agent_running
+        if doc_agent_running:
+            return document_agent_respond_to_conversation(config, context, message, metadata)
 
         # Skills agent response
         if config.agents_config.skills_agent.enabled:
@@ -198,22 +198,18 @@ async def on_conversation_created(context: ConversationContext) -> None:
 #
 
 
-async def guided_conversation_agent_respond_to_conversation(
-    context: ConversationContext, config: AssistantConfigModel, metadata: dict[str, Any] = {}
+def document_agent_respond_to_conversation(
+    config: AssistantConfigModel,
+    context: ConversationContext,
+    message: ConversationMessage,
+    metadata: dict[str, Any] = {},
 ) -> None:
     """
-    Respond to a conversation message using the guided conversation agent.
+    Respond to a conversation message using the document agent.
     """
-    # create the guided conversation agent instance
-    guided_conversation_agent = GuidedConversationAgent(config_provider=assistant_config)
-
-    # add the attachment agent messages to the completion messages
-    attachment_messages = await attachments_extension.get_completion_messages_for_attachments(
-        context, config=config.agents_config.attachment_agent
-    )
-    additional_messages: list[ChatCompletionMessageParam] = list(attachment_messages)
-
-    return await guided_conversation_agent.respond_to_conversation(context, metadata, additional_messages)
+    # create the document agent instance
+    document_agent = DocumentAgent(attachments_extension)
+    return document_agent.respond_to_conversation(config, context, message, metadata)
 
 
 async def skills_agent_respond_to_conversation(
