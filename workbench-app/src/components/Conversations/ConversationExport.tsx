@@ -8,10 +8,11 @@ interface ConversationExportProps {
     conversationId: string;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    asMenuItem?: boolean;
 }
 
 export const ConversationExport: React.FC<ConversationExportProps> = (props) => {
-    const { conversationId, iconOnly, asToolbarButton } = props;
+    const { conversationId, iconOnly, asToolbarButton, asMenuItem } = props;
     const workbenchService = useWorkbenchService();
 
     const exportConversation = async (conversationId: string) => {
@@ -25,6 +26,7 @@ export const ConversationExport: React.FC<ConversationExportProps> = (props) => 
             exportFunction={exportConversation}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
+            asMenuItem={asMenuItem}
         />
     );
 };

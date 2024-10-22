@@ -12,6 +12,7 @@ import {
     DialogSurface,
     DialogTitle,
     DialogTrigger,
+    MenuItem,
     ToolbarButton,
     Tooltip,
 } from '@fluentui/react-components';
@@ -31,6 +32,7 @@ type CommandButtonProps = ButtonProps & {
     };
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    asMenuItem?: boolean;
     classNames?: {
         dialogSurface?: string;
         dialogContent?: string;
@@ -49,6 +51,7 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
         dialogContent,
         iconOnly,
         asToolbarButton,
+        asMenuItem,
         appearance,
         size,
         classNames,
@@ -81,6 +84,12 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
             <ToolbarButton disabled={disabled} icon={icon} onClick={onClick}>
                 {label}
             </ToolbarButton>
+        );
+    } else if (asMenuItem) {
+        commandButton = (
+            <MenuItem disabled={disabled} icon={icon} onClick={onClick}>
+                {label}
+            </MenuItem>
         );
     } else {
         commandButton = (

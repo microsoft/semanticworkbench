@@ -10,10 +10,13 @@ interface ConversationRenameProps {
     id: string;
     value: string;
     onRename: (id: string, value: string) => Promise<void>;
+    iconOnly?: boolean;
+    asToolbarButton?: boolean;
+    asMenuItem?: boolean;
 }
 
 export const ConversationRename: React.FC<ConversationRenameProps> = (props) => {
-    const { id, value, onRename, disabled } = props;
+    const { id, value, onRename, disabled, iconOnly, asToolbarButton, asMenuItem } = props;
     const [name, setName] = React.useState(value);
     const [submitted, setSubmitted] = React.useState(false);
 
@@ -28,11 +31,13 @@ export const ConversationRename: React.FC<ConversationRenameProps> = (props) => 
 
     return (
         <CommandButton
-            iconOnly
+            iconOnly={iconOnly}
             icon={<EditRegular />}
             label="Rename"
             disabled={disabled}
             description="Rename conversation"
+            asToolbarButton={asToolbarButton}
+            asMenuItem={asMenuItem}
             dialogContent={{
                 title: 'Rename conversation',
                 content: (

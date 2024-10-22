@@ -1,197 +1,129 @@
-// Copyright (c) Microsoft. All rights reserved.
-
-import {
-    Button,
-    makeStyles,
-    Menu,
-    MenuItem,
-    MenuList,
-    MenuPopover,
-    MenuTrigger,
-    tokens,
-} from '@fluentui/react-components';
+import { Button, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import { PanelLeftContractRegular, PanelLeftExpandRegular } from '@fluentui/react-icons';
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { AppMenu } from '../components/App/AppMenu';
-import { ExperimentalNotice } from '../components/App/ExperimentalNotice';
-import { Loading } from '../components/App/Loading';
-import { MyAssistants } from '../components/Assistants/MyAssistants';
-import { MyConversations } from '../components/Conversations/MyConversations';
-import { useLocalUserAccount } from '../libs/useLocalUserAccount';
-import { useSiteUtility } from '../libs/useSiteUtility';
-import { Conversation } from '../models/Conversation';
-import { useAppSelector } from '../redux/app/hooks';
-import { setActiveConversationId } from '../redux/features/app/appSlice';
-import { useGetAssistantsQuery, useGetConversationsQuery } from '../services/workbench';
+import { NewConversationButton } from '../components/FrontDoor/Controls/NewConversationButton';
+import { SiteMenuButton } from '../components/FrontDoor/Controls/SiteMenuButton';
+import { Conversations } from '../components/FrontDoor/Conversations';
 
 const useClasses = makeStyles({
     root: {
         position: 'relative',
-        display: 'grid',
-        gridTemplateColumns: 'auto 1fr auto',
-        height: '100vh',
-        gridTemplateAreas: `
-            "leftRail main rightRail"
-        `,
-    },
-    flyoutButton: {
-        position: 'absolute',
-        top: tokens.spacingVerticalXS,
-        right: tokens.spacingHorizontalXS,
-        zIndex: tokens.zIndexFloating,
-    },
-    loading: {
-        gridArea: 'leftRail main rightRail',
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        bottom: '0',
-        right: '0',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        flexDirection: 'column',
+        height: '100vh',
     },
-    leftRail: {
-        gridArea: 'leftRail',
-        borderRight: `1px solid ${tokens.colorNeutralBackground2}`,
-        transition: 'width 0.2s',
-        overflow: 'auto',
-        minWidth: '200px',
-        maxWidth: '300px',
-        flexShrink: 0,
+    header: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    body: {
+        display: 'flex',
+        flex: '1 1 auto',
+    },
+    sideRailLeft: {
+        width: '0px',
+        flex: '0 0 auto',
+        overflow: 'hidden',
+        backgroundColor: tokens.colorNeutralBackground2,
+        ...shorthands.transition('width', tokens.durationSlow, '0', tokens.curveEasyEase),
+
+        '&.open': {
+            width: '300px',
+        },
+    },
+    sideRailLeftContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+        ...shorthands.padding(
+            tokens.spacingVerticalM,
+            tokens.spacingHorizontalM,
+            tokens.spacingVerticalM,
+            tokens.spacingHorizontalM,
+        ),
+    },
+    fade: {
+        opacity: 0,
+        transitionProperty: 'opacity',
+        transitionDuration: tokens.durationFast,
+        transitionDelay: '0',
+        transitionTimingFunction: tokens.curveEasyEase,
+
+        '&.in': {
+            opacity: 1,
+            transitionProperty: 'opacity',
+            transitionDuration: tokens.durationNormal,
+            transitionDelay: tokens.durationNormal,
+            transitionTimingFunction: tokens.curveEasyEase,
+        },
     },
     main: {
-        gridArea: 'main',
+        position: 'relative',
+        flex: '1 1 auto',
         overflow: 'auto',
+        backgroundColor: tokens.colorNeutralBackground1,
         padding: tokens.spacingHorizontalM,
     },
-    rightRail: {
-        gridArea: 'rightRail',
-        borderLeft: `1px solid ${tokens.colorNeutralBackground2}`,
-        transition: 'width 0.2s',
-        overflow: 'auto',
-        minWidth: '200px',
-        maxWidth: '300px',
-        flexShrink: 0,
+    controls: {
+        display: 'inline-flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: tokens.spacingHorizontalS,
     },
-    collapse: {
-        width: '60px', // narrow view
+    sideRailRightOpen: {
+        width: '50vw',
     },
 });
 
 export const FrontDoor: React.FC = () => {
-    const { conversationId } = useParams();
     const classes = useClasses();
-    const { activeConversationId, completedFirstRun } = useAppSelector((state) => state.app);
-    const navigate = useNavigate();
+    const [sideRailLeftOpen, setSideRailLeftOpen] = React.useState(false);
 
-    const [leftRailCollapsed, setLeftRailCollapsed] = React.useState(false);
-    const [rightRailCollapsed, setRightRailCollapsed] = React.useState(false);
-
-    const { data: assistants, error: assistantsError, isLoading: isLoadingAssistants } = useGetAssistantsQuery();
-    const {
-        data: conversations,
-        error: conversationsError,
-        isLoading: isLoadingConversations,
-    } = useGetConversationsQuery();
-    const { getUserId } = useLocalUserAccount();
-
-    React.useEffect(() => {
-        if (!completedFirstRun?.app && window.location.pathname !== '/terms') {
-            navigate('/terms');
-        }
-    }, [completedFirstRun, navigate]);
-
-    const siteUtility = useSiteUtility();
-    siteUtility.setDocumentTitle('Dashboard');
-
-    if (conversationId) {
-        if (activeConversationId !== conversationId) {
-            setActiveConversationId(conversationId);
-        }
-    }
-
-    if (assistantsError) {
-        const errorMessage = JSON.stringify(assistantsError);
-        throw new Error(`Error loading assistants: ${errorMessage}`);
-    }
-
-    if (conversationsError) {
-        const errorMessage = JSON.stringify(conversationsError);
-        throw new Error(`Error loading conversations: ${errorMessage}`);
-    }
-
-    const handleConversationCreate = React.useCallback(
-        (conversation: Conversation) => {
-            navigate(`/conversation/${conversation.id}`);
-        },
-        [navigate],
+    const sideRailLeftButton = (
+        <Button
+            icon={sideRailLeftOpen ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
+            onClick={() => setSideRailLeftOpen((prev) => !prev)}
+        />
     );
 
-    const appMenuAction = <AppMenu />;
-
-    if (isLoadingAssistants || isLoadingConversations) {
-        return (
-            <div id="app" className={classes.root}>
-                <div className={classes.loading}>
-                    <Loading />
-                </div>
-            </div>
-        );
-    }
-
-    const userId = getUserId();
-    const myConversations = conversations?.filter((conversation) => conversation.ownerId === userId) || [];
-    const conversationsSharedWithMe = conversations?.filter((conversation) => conversation.ownerId !== userId) || [];
-
     return (
-        <div id="app" className={classes.root}>
-            <Menu>
-                <MenuTrigger disableButtonEnhancement>
-                    <Button className={classes.flyoutButton} appearance="primary">
-                        Menu
-                    </Button>
-                </MenuTrigger>
-                <MenuPopover>
-                    <MenuList>
-                        <MenuItem>Profile</MenuItem>
-                        <MenuItem>Settings</MenuItem>
-                        <MenuItem>Privacy & Cookies</MenuItem>
-                        <MenuItem>Sign Out</MenuItem>
-                    </MenuList>
-                </MenuPopover>
-            </Menu>
-            <div
-                className={`${classes.leftRail} ${leftRailCollapsed ? classes.collapse : ''}`}
-                onMouseEnter={() => setLeftRailCollapsed(false)}
-                onMouseLeave={() => setLeftRailCollapsed(true)}
-            >
-                <MyAssistants assistants={assistants} />
-                <MyConversations
-                    conversations={myConversations}
-                    participantId="me"
-                    onCreate={handleConversationCreate}
-                />
-                {conversationsSharedWithMe.length > 0 && (
-                    <MyConversations
-                        title="Conversations Shared with Me"
-                        conversations={conversationsSharedWithMe}
-                        participantId="me"
-                        onCreate={handleConversationCreate}
-                    />
-                )}
-                <button onClick={() => setLeftRailCollapsed(!leftRailCollapsed)}>Toggle Left Rail</button>
-            </div>
-            <div className={classes.main}>
-                <ExperimentalNotice />
-                <h1>Main Content Area</h1>
-            </div>
-            <div
-                className={`${classes.rightRail} ${rightRailCollapsed ? classes.collapse : ''}`}
-                onMouseEnter={() => setRightRailCollapsed(false)}
-                onMouseLeave={() => setRightRailCollapsed(true)}
-            >
-                <button onClick={() => setRightRailCollapsed(!rightRailCollapsed)}>Toggle Right Rail</button>
+        <div className={classes.root}>
+            <div className={classes.body}>
+                <div className={mergeClasses(classes.sideRailLeft, sideRailLeftOpen ? 'open' : undefined)}>
+                    <div
+                        className={mergeClasses(
+                            classes.sideRailLeftContent,
+                            classes.fade,
+                            sideRailLeftOpen ? 'in' : undefined,
+                        )}
+                    >
+                        <div className={classes.header}>
+                            {sideRailLeftButton}
+                            <NewConversationButton />
+                        </div>
+                        <Conversations />
+                    </div>
+                </div>
+                <div className={classes.main}>
+                    <div className={classes.header}>
+                        <div
+                            className={mergeClasses(
+                                classes.controls,
+                                classes.fade,
+                                !sideRailLeftOpen ? 'in' : undefined,
+                            )}
+                        >
+                            {sideRailLeftButton}
+                            <NewConversationButton />
+                        </div>
+                        <div className={classes.controls}>
+                            <SiteMenuButton />
+                        </div>
+                    </div>
+                    <h1>Main Content Area</h1>
+                </div>
             </div>
         </div>
     );

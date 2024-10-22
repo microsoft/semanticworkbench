@@ -215,6 +215,7 @@ export const Interact: React.FC = () => {
                         value={conversation.title}
                         disabled={conversation.ownerId !== userId}
                         onRename={handleConversationRename}
+                        iconOnly
                     />
                     <Title3>{conversation.title}</Title3>
                 </div>

@@ -13,10 +13,11 @@ interface ConversationRemoveProps {
     onRemove?: () => void;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    asMenuItem?: boolean;
 }
 
 export const ConversationRemove: React.FC<ConversationRemoveProps> = (props) => {
-    const { conversation, onRemove, iconOnly, asToolbarButton, participantId } = props;
+    const { conversation, onRemove, iconOnly, asToolbarButton, asMenuItem, participantId } = props;
     const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
 
     const handleRemove = React.useCallback(async () => {
@@ -33,6 +34,7 @@ export const ConversationRemove: React.FC<ConversationRemoveProps> = (props) => 
             icon={<PlugDisconnected24Regular />}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
+            asMenuItem={asMenuItem}
             label="Remove"
             dialogContent={{
                 title: 'Remove Conversation',

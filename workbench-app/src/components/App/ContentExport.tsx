@@ -10,10 +10,11 @@ interface ContentExportProps {
     exportFunction: (id: string) => Promise<{ blob: Blob; filename: string }>;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    asMenuItem?: boolean;
 }
 
 export const ContentExport: React.FC<ContentExportProps> = (props) => {
-    const { id, contentTypeLabel, exportFunction, iconOnly, asToolbarButton } = props;
+    const { id, contentTypeLabel, exportFunction, iconOnly, asToolbarButton, asMenuItem } = props;
 
     const exportContent = async () => {
         const { blob, filename } = await exportFunction(id);
@@ -31,6 +32,7 @@ export const ContentExport: React.FC<ContentExportProps> = (props) => {
             icon={<ArrowDownload24Regular />}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
+            asMenuItem={asMenuItem}
             label="Export"
             onClick={exportContent}
         />

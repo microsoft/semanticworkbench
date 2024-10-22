@@ -10,10 +10,11 @@ interface ConversationShareProps {
     conversation: Conversation;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    asMenuItem?: boolean;
 }
 
 export const ConversationShare: React.FC<ConversationShareProps> = (props) => {
-    const { conversation, iconOnly, asToolbarButton } = props;
+    const { conversation, iconOnly, asToolbarButton, asMenuItem } = props;
     if (!conversation) {
         throw new Error('ConversationId is required');
     }
@@ -37,6 +38,7 @@ export const ConversationShare: React.FC<ConversationShareProps> = (props) => {
             iconOnly={iconOnly}
             disabled={readOnly}
             asToolbarButton={asToolbarButton}
+            asMenuItem={asMenuItem}
             label="Share"
             description="Share conversation"
             dialogContent={dialogContent}

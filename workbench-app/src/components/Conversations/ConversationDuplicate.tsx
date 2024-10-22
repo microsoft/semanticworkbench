@@ -11,12 +11,13 @@ interface ConversationDuplicateProps {
     conversation: Conversation;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    asMenuItem?: boolean;
     onDuplicate?: (conversationId: string) => void;
     onDuplicateError?: (error: Error) => void;
 }
 
 export const ConversationDuplicate: React.FC<ConversationDuplicateProps> = (props) => {
-    const { conversation, iconOnly, asToolbarButton, onDuplicate, onDuplicateError } = props;
+    const { conversation, iconOnly, asToolbarButton, asMenuItem, onDuplicate, onDuplicateError } = props;
     const workbenchService = useWorkbenchService();
 
     const duplicateConversation = async () => {
@@ -34,6 +35,7 @@ export const ConversationDuplicate: React.FC<ConversationDuplicateProps> = (prop
             icon={<SaveCopy24Regular />}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
+            asMenuItem={asMenuItem}
             label="Duplicate"
             dialogContent={{
                 title: 'Duplicate conversation',

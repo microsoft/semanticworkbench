@@ -2,6 +2,7 @@
 
 import { Chat24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { Conversation } from '../../models/Conversation';
 import {
     useGetAssistantsQuery,
@@ -18,7 +19,6 @@ import { ConversationRemove } from './ConversationRemove';
 import { ConversationRename } from './ConversationRename';
 import { ConversationShare } from './ConversationShare';
 import { ConversationsImport } from './ConversationsImport';
-import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 
 interface MyConversationsProps {
     conversations?: Conversation[];
@@ -73,6 +73,7 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
                                     id={conversation.id}
                                     value={conversation.title}
                                     onRename={handleConversationRename}
+                                    iconOnly
                                 />
                                 <ConversationExport conversationId={conversation.id} iconOnly />
                                 <ConversationDuplicate conversation={conversation} iconOnly />
