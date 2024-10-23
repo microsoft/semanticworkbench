@@ -99,6 +99,7 @@ app = assistant.fastapi_app()
 # - @assistant.events.conversation.message.on_created (event triggered when a new message of any type is created)
 # - @assistant.events.conversation.message.chat.on_created (event triggered when a new chat message is created)
 #
+doc_agent_running = False
 
 
 @assistant.events.conversation.message.command.on_created
@@ -108,11 +109,10 @@ async def on_command_message_created(
     config = await assistant_config.get(context.assistant)
     metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
-    # For now, handling only commands from Document Agent for exploration of implementation
-    # We assume Document Agent is available and future logic would determine which agent
-    # the command is intended for. Assumption made in order to make doc agent available asap.
+    # config.agents_config.document_agent.enabled = True  # To do... tie into config.
+    global doc_agent_running
+    doc_agent_running = True
 
-    # if config.agents_config.document_agent.enabled:
     doc_agent = DocumentAgent(attachments_extension)
     await doc_agent.receive_command(config, context, message, metadata)
 
@@ -148,6 +148,11 @@ async def on_message_created(
         # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
         #
 
+        # if config.agents_config.document_agent.enabled:  # To do... tie into config.
+        global doc_agent_running
+        if doc_agent_running:
+            return document_agent_respond_to_conversation(config, context, message, metadata)
+
         # Prospector assistant response
         await respond_to_conversation(context, config, message, metadata)
 
@@ -181,6 +186,20 @@ async def on_conversation_created(context: ConversationContext) -> None:
 #
 # region Response
 #
+
+
+def document_agent_respond_to_conversation(
+    config: AssistantConfigModel,
+    context: ConversationContext,
+    message: ConversationMessage,
+    metadata: dict[str, Any] = {},
+) -> None:
+    """
+    Respond to a conversation message using the document agent.
+    """
+    # create the document agent instance
+    document_agent = DocumentAgent(attachments_extension)
+    return document_agent.respond_to_conversation(config, context, message, metadata)
 
 
 # demonstrates how to respond to a conversation message using the OpenAI API.
