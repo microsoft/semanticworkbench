@@ -100,7 +100,9 @@ export const Interact: React.FC = () => {
     } = useGetConversationFilesQuery(conversationId);
     const [updateConversation] = useUpdateConversationMutation();
     const { getUserId } = useLocalUserAccount();
-    const assistantCapabilities = useGetAssistantCapabilitiesSet(assistants ?? []);
+    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilitiesSet(
+        assistants ?? [],
+    );
 
     const siteUtility = useSiteUtility();
 
@@ -186,6 +188,7 @@ export const Interact: React.FC = () => {
         isLoadingConversation ||
         isLoadingConversationParticipants ||
         isLoadingConversationFiles ||
+        isFetchingAssistantCapabilities ||
         !assistants ||
         !assistantCapabilities ||
         !conversation ||

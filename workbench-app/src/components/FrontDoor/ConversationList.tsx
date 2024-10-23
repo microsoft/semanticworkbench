@@ -43,6 +43,7 @@ const useClasses = makeStyles({
     conversationButton: {
         width: '250px',
         justifyContent: 'start',
+        textAlign: 'start',
     },
     active: {
         backgroundColor: tokens.colorBrandBackgroundInvertedSelected,
@@ -160,7 +161,10 @@ export const ConversationList: React.FC = () => {
                 value={filter}
                 onChange={(_event, data) => setFilter(data.value)}
             />
-            <Select defaultValue="date" onChange={(_event, data) => setSortByName(data.value === 'Sort by name')}>
+            <Select
+                defaultValue={sortByName ? 'Sort by name' : 'Sort by date'}
+                onChange={(_event, data) => setSortByName(data.value === 'Sort by name')}
+            >
                 <option>Sort by name</option>
                 <option>Sort by date</option>
             </Select>

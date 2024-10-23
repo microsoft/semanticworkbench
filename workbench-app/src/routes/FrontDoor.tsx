@@ -34,6 +34,14 @@ const useClasses = makeStyles({
         '&.open': {
             width: '300px',
         },
+
+        '&.overlay': {
+            position: 'absolute',
+            zIndex: tokens.zIndexFloating,
+            height: '100%',
+            ...shorthands.borderRight(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
+            boxShadow: tokens.shadow8Brand,
+        },
     },
     fade: {
         opacity: 0,
@@ -66,10 +74,12 @@ const useClasses = makeStyles({
 export const FrontDoor: React.FC = () => {
     const classes = useClasses();
     const { conversationId } = useParams();
-    const { activeConversationId } = useAppSelector((state) => state.app);
+    const { activeConversationId, interactCanvasState } = useAppSelector((state) => state.app);
     const dispatch = useDispatch();
     const [sideRailLeftOpen, setSideRailLeftOpen] = React.useState(!activeConversationId && !conversationId);
+    const [sideRailLeftOverlay, setSideRailLeftOverlay] = React.useState(false);
     const [isInitialized, setIsInitialized] = React.useState(false);
+    const sideRailLeftRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
         if (conversationId && conversationId !== activeConversationId) {
@@ -77,6 +87,30 @@ export const FrontDoor: React.FC = () => {
         }
         setIsInitialized(true);
     }, [conversationId, activeConversationId, dispatch]);
+
+    React.useEffect(() => {
+        if (!interactCanvasState) return;
+
+        if (interactCanvasState.open) {
+            setSideRailLeftOpen(false);
+        }
+        setSideRailLeftOverlay(interactCanvasState.open ?? false);
+    }, [interactCanvasState, interactCanvasState?.open]);
+
+    React.useEffect(() => {
+        if (!sideRailLeftRef.current) return;
+
+        const handleOutsideClick = (event: MouseEvent) => {
+            if (sideRailLeftOpen && sideRailLeftOverlay && !sideRailLeftRef.current?.contains(event.target as Node)) {
+                setSideRailLeftOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+        };
+    }, [sideRailLeftOpen, sideRailLeftOverlay]);
 
     const sideRailLeftButton = (
         <Button
@@ -88,7 +122,14 @@ export const FrontDoor: React.FC = () => {
     return (
         <div className={classes.root}>
             <div className={classes.body}>
-                <div className={mergeClasses(classes.sideRailLeft, sideRailLeftOpen ? 'open' : undefined)}>
+                <div
+                    className={mergeClasses(
+                        classes.sideRailLeft,
+                        sideRailLeftOpen ? 'open' : undefined,
+                        sideRailLeftOverlay ? 'overlay' : undefined,
+                    )}
+                    ref={sideRailLeftRef}
+                >
                     <div className={mergeClasses(classes.fade, sideRailLeftOpen ? 'in' : undefined)}>
                         <GlobalContent headerBefore={sideRailLeftButton} headerAfter={<NewConversationButton />} />
                     </div>

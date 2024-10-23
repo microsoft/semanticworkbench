@@ -40,7 +40,7 @@ const useClasses = makeStyles({
         left: 0,
         right: 0,
         pointerEvents: 'none',
-        zIndex: tokens.zIndexFloating,
+        zIndex: tokens.zIndexOverlay,
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
@@ -130,7 +130,9 @@ export const Chat: React.FC<ChatProps> = (props) => {
         isLoading: conversationFilesIsLoading,
     } = useGetConversationFilesQuery(conversationId);
 
-    const assistantCapabilities = useGetAssistantCapabilitiesSet(assistants ?? []);
+    const { data: assistantCapabilities, isFetching: assistantCapabilitiesIsFetching } = useGetAssistantCapabilitiesSet(
+        assistants ?? [],
+    );
 
     if (conversationError) {
         const errorMessage = JSON.stringify(conversationError);
@@ -185,7 +187,8 @@ export const Chat: React.FC<ChatProps> = (props) => {
         conversationIsFetching ||
         conversationParticipantsIsLoading ||
         assistantsIsLoading ||
-        conversationFilesIsLoading
+        conversationFilesIsLoading ||
+        assistantCapabilitiesIsFetching
     ) {
         return <Loading />;
     }

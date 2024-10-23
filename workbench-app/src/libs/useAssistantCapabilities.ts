@@ -4,6 +4,7 @@ import { AssistantCapability } from '../models/AssistantCapability';
 import { useWorkbenchService } from './useWorkbenchService';
 
 export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
+    const [isFetching, setIsFetching] = React.useState<boolean>(false);
     const [assistantCapabilities, setAssistantCapabilities] = React.useState<Set<AssistantCapability> | undefined>();
     const workbenchService = useWorkbenchService();
 
@@ -22,23 +23,20 @@ export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
     React.useEffect(() => {
         let ignore = false;
 
-        loadCapabilities();
-
-        return () => {
-            ignore = true;
-        };
-
-        async function loadCapabilities() {
-            if (assistants.length === 0) {
-                if (ignore) {
-                    return;
-                }
-                // only update the state if the capabilities have changed
-                if (!assistantCapabilities || allCapabilities.symmetricDifference(assistantCapabilities).size > 0) {
-                    setAssistantCapabilities(allCapabilities);
-                }
+        if (assistants.length === 0) {
+            if (ignore) {
                 return;
             }
+            // only update the state if the capabilities have changed
+            if (!assistantCapabilities || allCapabilities.symmetricDifference(assistantCapabilities).size > 0) {
+                setAssistantCapabilities(allCapabilities);
+            }
+            return;
+        }
+
+        (async () => {
+            setIsFetching(true);
+
             // Get the service info for each assistant
             const serviceInfos = (
                 await Promise.all(
@@ -67,16 +65,23 @@ export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
                 return acc;
             }, new Set<AssistantCapability>());
 
-            if (ignore) {
-                return;
+            if (!ignore) {
+                // only update the state if the capabilities have changed
+                if (!assistantCapabilities || capabilities.symmetricDifference(assistantCapabilities).size > 0) {
+                    setAssistantCapabilities(capabilities);
+                }
             }
 
-            // only update the state if the capabilities have changed
-            if (!assistantCapabilities || capabilities.symmetricDifference(assistantCapabilities).size > 0) {
-                setAssistantCapabilities(capabilities);
-            }
-        }
+            setIsFetching(false);
+        })();
+
+        return () => {
+            ignore = true;
+        };
     }, [allCapabilities, assistantCapabilities, assistants, workbenchService]);
 
-    return assistantCapabilities;
+    return {
+        data: assistantCapabilities,
+        isFetching,
+    };
 }
