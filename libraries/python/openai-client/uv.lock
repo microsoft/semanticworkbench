@@ -743,13 +743,13 @@ dependencies = [
     { name = "azure-core", extra = ["aio"] },
     { name = "azure-identity" },
     { name = "openai" },
+    { name = "pillow" },
     { name = "semantic-workbench-assistant" },
     { name = "tiktoken" },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "pillow" },
     { name = "pytest" },
 ]
 
@@ -759,15 +759,13 @@ requires-dist = [
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
     { name = "openai", specifier = ">=1.3.9" },
+    { name = "pillow", specifier = ">=11.0.0" },
     { name = "semantic-workbench-assistant", editable = "../semantic-workbench-assistant" },
     { name = "tiktoken", specifier = ">=0.7.0" },
 ]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "pillow", specifier = ">=11.0.0" },
-    { name = "pytest", specifier = ">=8.3.3" },
-]
+dev = [{ name = "pytest", specifier = ">=8.3.3" }]
 
 [[package]]
 name = "packaging"
