@@ -183,8 +183,8 @@ def get_image_dims(image_uri: str) -> tuple[int, int]:
     # From https://github.com/openai/openai-cookbook/pull/881/files
     if re.match(r"data:image\/\w+;base64", image_uri):
         image_uri = re.sub(r"data:image\/\w+;base64,", "", image_uri)
-        image = Image.open(BytesIO(base64.b64decode(image_uri)))
-        return image.size
+        with Image.open(BytesIO(base64.b64decode(image_uri))) as image:
+            return image.size
     else:
         raise ValueError("Image must be a base64 string.")
 

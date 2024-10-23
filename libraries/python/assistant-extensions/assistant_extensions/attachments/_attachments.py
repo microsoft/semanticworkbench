@@ -186,7 +186,7 @@ class AttachmentsExtension:
                 ]
 
             messages.append({
-                "role": "user",
+                "role": "system",
                 "content": content,
             })
 
