@@ -30,6 +30,11 @@ logger = logging.getLogger(__name__)
 #
 # region Agent
 #
+class Step(BaseModel):
+    function: Callable | None = None
+    is_completed: bool = False
+
+
 class RoutineMode(Enum):
     UNDEFINED = 1
     E2E_DRAFT_OUTLINE = 2  # change name later
@@ -37,7 +42,7 @@ class RoutineMode(Enum):
 
 class Routine(BaseModel):
     mode: RoutineMode = RoutineMode.UNDEFINED
-    step: Callable | None = None
+    step: Step = Step()
 
 
 class State(BaseModel):
@@ -81,21 +86,6 @@ class DocumentAgent:
         if not command_found:
             logger.warning(f"Could not find command {message.command_name}")
 
-    def respond_to_conversation(
-        self,
-        config: AssistantConfigModel,
-        context: ConversationContext,
-        message: ConversationMessage,
-        metadata: dict[str, Any] = {},
-    ) -> None:
-        # check state mode
-        match self.state.routine.mode:
-            case RoutineMode.UNDEFINED:
-                logger.info("Document Agent has no routine mode set. Returning.")
-                return
-            case RoutineMode.E2E_DRAFT_OUTLINE:
-                return self._run_e2e_draft_outline()
-
     @classmethod
     def set_draft_outline_mode(
         cls,
@@ -108,12 +98,90 @@ class DocumentAgent:
             cls.state.routine.mode = RoutineMode.E2E_DRAFT_OUTLINE
         else:
             logger.info(
-                f"Document Agent in the middle of routine: {cls.state.routine.mode}.  Cannot change routine modes."
+                f"Document Agent in the middle of routine: {cls.state.routine.mode}. Cannot change routine modes."
             )
 
-    def _run_e2e_draft_outline(self) -> None:
-        logger.info("In _run_e2e_draft_outline")
+    async def respond_to_conversation(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> None:
+        # check state mode
+        logger.info(f"Current routine: {self.state.routine.mode}")
+
+        match self.state.routine.mode:
+            case RoutineMode.UNDEFINED:
+                logger.info("Document Agent has no routine mode set. Returning.")
+                return
+            case RoutineMode.E2E_DRAFT_OUTLINE:
+                await self._run_e2e_draft_outline()
+                return
+
+    @classmethod
+    async def _run_e2e_draft_outline(cls) -> None:
+        # step flow defined below
+        step = cls.state.routine.step
+        if step.function is not None:
+            logger.info(f"Current routine step: {step.function.__name__}")
+
+        match cls.state.routine.step.function:
+            case None:  # Need to start at beginning
+                step.function = cls._gc_attachment_check
+                logger.info(f"Current routine step: {step.function.__name__}")
+                step.is_completed = await step.function()
+            case cls._gc_attachment_check:
+                if step.is_completed is False:
+                    step.is_completed = await step.function()
+                else:
+                    step.function = cls._draft_outline
+                    step.is_completed = await step.function()
+            case cls._draft_outline:
+                if step.is_completed is False:
+                    step.is_completed = await step.function()
+                else:
+                    step.function = cls._gc_get_outline_feedback
+                    step.is_completed = await step.function()
+            case cls._gc_get_outline_feedback:
+                if step.is_completed is False:
+                    step.is_completed = await step.function()
+                else:
+                    step.function = cls._final_outline
+                    step.is_completed = await step.function()
+            case cls._final_outline:
+                if step.is_completed is False:
+                    step.is_completed = await step.function()
+                else:
+                    # The end
+                    cls.state.routine.mode = RoutineMode.UNDEFINED
+
+        logger.info(f"Routine step completion status: {step.is_completed}")
+        logger.info(f"Current routine: {cls.state.routine.mode}")
         return
+
+    ###
+    # step functions for e2e_draft_outline routine.
+    ###
+    @classmethod
+    async def _gc_attachment_check(cls) -> bool:
+        # pretend completed
+        return True
+
+    @classmethod
+    async def _draft_outline(cls) -> bool:
+        # pretend completed
+        return True
+
+    @classmethod
+    async def _gc_get_outline_feedback(cls) -> bool:
+        # pretend completed
+        return True
+
+    @classmethod
+    async def _final_outline(cls) -> bool:
+        # pretend completed
+        return True
 
     async def _gc_respond_to_conversation(
         self,
