@@ -1,5 +1,4 @@
 import logging
-from enum import Enum
 from typing import Any, Callable
 
 import deepmerge
@@ -30,18 +29,19 @@ logger = logging.getLogger(__name__)
 #
 # region Agent
 #
-class RoutineMode(Enum):
-    UNDEFINED = 1
-    E2E_DRAFT_OUTLINE = 2  # change name later
+class Step(BaseModel):
+    function: Callable | None = None
+    is_completed: bool = True  # force logic to set this correctly.
 
 
-class Routine(BaseModel):
-    mode: RoutineMode = RoutineMode.UNDEFINED
-    step: Callable | None = None
+class Mode(BaseModel):
+    function: Callable | None = None
+    step: Step = Step()
+    is_completed: bool = True  # force logic to set this correctly.
 
 
 class State(BaseModel):
-    routine: Routine = Routine()
+    mode: Mode = Mode()
 
 
 class DocumentAgent:
@@ -53,7 +53,7 @@ class DocumentAgent:
 
     def __init__(self, attachments_extension: AttachmentsExtension) -> None:
         self.attachments_extension = attachments_extension
-        self._commands = [self.set_draft_outline_mode]  # self.draft_outline]
+        self._commands = [self.set_mode_draft_outline]  # self.draft_outline]
 
     @property
     def commands(self) -> list[Callable]:
@@ -81,39 +81,112 @@ class DocumentAgent:
         if not command_found:
             logger.warning(f"Could not find command {message.command_name}")
 
-    def respond_to_conversation(
-        self,
-        config: AssistantConfigModel,
-        context: ConversationContext,
-        message: ConversationMessage,
-        metadata: dict[str, Any] = {},
-    ) -> None:
-        # check state mode
-        match self.state.routine.mode:
-            case RoutineMode.UNDEFINED:
-                logger.info("Document Agent has no routine mode set. Returning.")
-                return
-            case RoutineMode.E2E_DRAFT_OUTLINE:
-                return self._run_e2e_draft_outline()
-
     @classmethod
-    def set_draft_outline_mode(
+    def set_mode_draft_outline(
         cls,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
     ) -> None:
-        if cls.state.routine.mode is RoutineMode.UNDEFINED:
-            cls.state.routine.mode = RoutineMode.E2E_DRAFT_OUTLINE
-        else:
-            logger.info(
-                f"Document Agent in the middle of routine: {cls.state.routine.mode}.  Cannot change routine modes."
-            )
+        # Pre-requisites
+        if cls.state.mode.function:
+            logger.error(f"Document Agent in mode: {cls.state.mode.function.__name__}. Cannot change modes.")
+            return
 
-    def _run_e2e_draft_outline(self) -> None:
-        logger.info("In _run_e2e_draft_outline")
-        return
+        # Run
+        cls.state.mode.function = cls._mode_draft_outline
+        cls.state.mode.is_completed = False
+
+    async def respond_to_conversation(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> None:
+        # Pre-requisites
+        if self.state.mode.function is None or self.state.mode.is_completed:
+            logger.error(
+                "Document Agent state mode: %s, state mode completion status: %s",
+                "None" if self.state.mode.function is None else self.state.mode.function.__name__,
+                self.state.mode.is_completed,
+            )
+            return
+
+        # Run
+        mode = self.state.mode
+        match self.state.mode.function:
+            case self._mode_draft_outline:
+                logger.info(f"Document Agent in mode: {mode.function.__name__}")
+                await mode.function()
+            case _:
+                logger.error("Document Agent failed to find a corresponding mode.")
+
+    @classmethod
+    async def _mode_draft_outline(cls) -> None:
+        # Pre-requisites
+        if cls.state.mode.function != cls._mode_draft_outline or cls.state.mode.is_completed:
+            logger.error(
+                "Document Agent state mode: %s, mode called: %s, state mode completion status: %s",
+                "None" if cls.state.mode.function is None else cls.state.mode.function.__name__,
+                cls._mode_draft_outline.__name__,
+                cls.state.mode.is_completed,
+            )
+            return
+
+        # Run
+        mode = cls.state.mode
+        step = cls.state.mode.step
+        if step.function is None:
+            logger.info("Document Agent mode (%s) at beginning.", cls._mode_draft_outline.__name__)
+            step.function = cls._gc_attachment_check
+            step.is_completed = False
+
+        if step.is_completed:  # Logic: what step to do next...
+            step.is_completed = False
+            match cls.state.mode.step.function:
+                case cls._gc_attachment_check:
+                    step.function = cls._draft_outline
+                case cls._draft_outline:
+                    step.function = cls._gc_get_outline_feedback
+                case cls._gc_get_outline_feedback:
+                    step.function = cls._final_outline
+                case cls._final_outline:  # The End. Reset.
+                    logger.info(f"Document Agent completing mode: {mode.function.__name__}")
+                    mode.function = None
+                    mode.is_completed = True
+                    step.function = None
+                    step.is_completed = True
+                    return
+
+        # Call step
+        logger.info(f"Document Agent running mode.step: {step.function.__name__}")
+        step.is_completed = await step.function()
+        logger.info("Document Agent mode.step status: %s", "completed" if step.is_completed else "not completed")
+
+    ###
+    # step functions for e2e_draft_outline routine.
+    ###
+    @classmethod
+    async def _gc_attachment_check(cls) -> bool:
+        # pretend completed
+        return True
+
+    @classmethod
+    async def _draft_outline(cls) -> bool:
+        # pretend completed
+        return True
+
+    @classmethod
+    async def _gc_get_outline_feedback(cls) -> bool:
+        # pretend completed
+        return True
+
+    @classmethod
+    async def _final_outline(cls) -> bool:
+        # pretend completed
+        return True
 
     async def _gc_respond_to_conversation(
         self,

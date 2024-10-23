@@ -151,7 +151,8 @@ async def on_message_created(
         # if config.agents_config.document_agent.enabled:  # To do... tie into config.
         global doc_agent_running
         if doc_agent_running:
-            return document_agent_respond_to_conversation(config, context, message, metadata)
+            await document_agent_respond_to_conversation(config, context, message, metadata)
+            return
 
         # Prospector assistant response
         await respond_to_conversation(context, config, message, metadata)
@@ -188,7 +189,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 #
 
 
-def document_agent_respond_to_conversation(
+async def document_agent_respond_to_conversation(
     config: AssistantConfigModel,
     context: ConversationContext,
     message: ConversationMessage,
@@ -199,7 +200,8 @@ def document_agent_respond_to_conversation(
     """
     # create the document agent instance
     document_agent = DocumentAgent(attachments_extension)
-    return document_agent.respond_to_conversation(config, context, message, metadata)
+    await document_agent.respond_to_conversation(config, context, message, metadata)
+    return
 
 
 # demonstrates how to respond to a conversation message using the OpenAI API.
