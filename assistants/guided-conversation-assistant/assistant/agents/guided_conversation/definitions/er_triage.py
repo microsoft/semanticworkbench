@@ -1,6 +1,6 @@
 import json
 
-from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
+from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
 
 from ..definition import GuidedConversationDefinition
@@ -58,7 +58,7 @@ Assisting patients in providing essential information during emergency room tria
 """
 
 # Resource Constraints - Defines the constraints like time for the conversation
-resource_constraint = ResourceConstraint(
+resource_constraint = GuidedConversationDefinition.ResourceConstraint(
     quantity=10,
     unit=ResourceConstraintUnit.MINUTES,
     mode=ResourceConstraintMode.MAXIMUM,
@@ -70,9 +70,5 @@ er_triage = GuidedConversationDefinition(
     rules=rules,
     conversation_flow=conversation_flow,
     context=context,
-    resource_constraint=GuidedConversationDefinition.ResourceConstraint(
-        quantity=10,
-        unit=ResourceConstraintUnit.MINUTES,
-        mode=ResourceConstraintMode.MAXIMUM,
-    ),
+    resource_constraint=resource_constraint,
 )
