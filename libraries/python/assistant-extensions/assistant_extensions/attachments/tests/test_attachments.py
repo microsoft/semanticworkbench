@@ -1,3 +1,4 @@
+import base64
 import datetime
 import uuid
 from contextlib import asynccontextmanager
@@ -52,6 +53,38 @@ from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, Ass
                 {
                     "role": "system",
                     "content": "<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
+                },
+            ],
+        ),
+        (
+            {
+                "img.png": lambda: base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+                ),
+            },
+            [
+                {
+                    "role": "system",
+                    "content": AttachmentsConfigModel().context_description,
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "<ATTACHMENT><FILENAME>img.png</FILENAME><IMAGE>",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": "</IMAGE></ATTACHMENT>",
+                        },
+                    ],
                 },
             ],
         ),
