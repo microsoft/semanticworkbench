@@ -168,27 +168,30 @@ class AttachmentsExtension:
 
             # if the content is a data URI, include it as an image type within the message content
             if attachment.content.startswith("data:image/"):
-                content = [
-                    {
-                        "type": "text",
-                        "text": f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": attachment.content,
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
                         },
-                    },
-                    {
-                        "type": "text",
-                        "text": f"</{image_tag}></{attachment_tag}>",
-                    },
-                ]
-
-            messages.append({
-                "role": "system",
-                "content": content,
-            })
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": attachment.content,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": f"</{image_tag}></{attachment_tag}>",
+                        },
+                    ],
+                })
+            else:
+                messages.append({
+                    "role": "system",
+                    "content": content,
+                })
 
         return messages
 
