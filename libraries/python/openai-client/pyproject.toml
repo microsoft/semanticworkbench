@@ -10,12 +10,14 @@ dependencies = [
     "azure-core[aio]>=1.30.0",
     "azure-identity>=1.17.1",
     "openai>=1.3.9",
+    "pillow>=11.0.0",
     "tiktoken>=0.7.0",
     "semantic-workbench-assistant>=0.1.0",
 ]
 
 [tool.uv]
 package = true
+dev-dependencies = ["pytest>=8.3.3"]
 
 [tool.uv.sources]
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
@@ -23,3 +25,10 @@ semantic-workbench-assistant = { path = "../semantic-workbench-assistant", edita
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = ["-vv"]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+testpaths = ["tests"]

@@ -225,13 +225,10 @@ async def respond_to_conversation(
     messages = messages_response.messages + [message]
 
     # calculate the token count for the messages so far
-    token_count = 0
-    for completion_message in completion_messages:
-        completion_message_content = completion_message.get("content")
-        if isinstance(completion_message_content, str):
-            token_count += openai_client.count_tokens(
-                model=config.request_config.openai_model, value=completion_message_content
-            )
+    token_count = sum([
+        openai_client.num_tokens_from_message(model=config.request_config.openai_model, message=completion_message)
+        for completion_message in completion_messages
+    ])
 
     # calculate the total available tokens for the response generation
     available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
@@ -241,35 +238,41 @@ async def respond_to_conversation(
 
     # add the messages in reverse order to get the most recent messages first
     for message in reversed(messages):
-        # calculate the token count for the message and check if it exceeds the available tokens
-        token_count += openai_client.count_tokens(
-            model=config.request_config.openai_model, value=_format_message(message, participants_response.participants)
-        )
-        if token_count > available_tokens:
-            # stop processing messages if the token count exceeds the available tokens
-            break
+        chat_completion_messages: list[ChatCompletionMessageParam] = []
 
         # add the message to the completion messages, treating any message from a source other than the assistant
         # as a user message
         if message.sender.participant_id == context.assistant.id:
-            history_messages.append({
+            chat_completion_messages.append({
                 "role": "assistant",
                 "content": _format_message(message, participants_response.participants),
             })
-            continue
 
-        # we are working with the messages in reverse order, so include any attachments before the message
-        if message.filenames and len(message.filenames) > 0:
-            # add a system message to indicate the attachments
-            history_messages.append({
-                "role": "system",
-                "content": f"Attachment(s): {', '.join(message.filenames)}",
+        else:
+            # we are working with the messages in reverse order, so include any attachments before the message
+            if message.filenames and len(message.filenames) > 0:
+                # add a system message to indicate the attachments
+                chat_completion_messages.append({
+                    "role": "system",
+                    "content": f"Attachment(s): {', '.join(message.filenames)}",
+                })
+
+            # add the user message to the completion messages
+            chat_completion_messages.append({
+                "role": "user",
+                "content": _format_message(message, participants_response.participants),
             })
-        # add the user message to the completion messages
-        history_messages.append({
-            "role": "user",
-            "content": _format_message(message, participants_response.participants),
-        })
+
+        # calculate the token count for the messages and check if it exceeds the available tokens
+        token_count += sum([
+            openai_client.num_tokens_from_message(model=config.request_config.openai_model, message=message)
+            for message in chat_completion_messages
+        ])
+        if token_count > available_tokens:
+            # stop processing messages if the token count exceeds the available tokens
+            break
+
+        history_messages.extend(chat_completion_messages)
 
     # reverse the history messages to get them back in the correct order
     history_messages.reverse()
@@ -277,15 +280,30 @@ async def respond_to_conversation(
     # add the history messages to the completion messages
     completion_messages.extend(history_messages)
 
+    estimated_token_count = openai_client.num_tokens_from_messages(
+        messages=completion_messages, model=config.request_config.openai_model
+    )
+    if estimated_token_count > config.request_config.max_tokens:
+        await context.send_messages(
+            NewConversationMessage(
+                content=(
+                    f"You've exceeded the token limit of {config.request_config.max_tokens} in this conversation ({estimated_token_count})."
+                    " This assistant does not support recovery from this state."
+                    " Please start a new conversation and let us know you ran into this."
+                ),
+                message_type=MessageType.chat,
+            )
+        )
+        return
+
     # initialize variables for the response content and total tokens used
-    content: str | None = None
-    completion_total_tokens: int | None = None
+    content = ""
+    completion_total_tokens = 0
 
     # set default response message type
     message_type = MessageType.chat
 
     # generate a response from the AI model
-    completion_total_tokens: int | None = None
     async with openai_client.create_client(config.service_config) as client:
         try:
             # call the OpenAI API to generate a completion
@@ -389,7 +407,7 @@ async def respond_to_conversation(
     )
 
     # check the token usage and send a warning if it is high
-    if completion_total_tokens is not None and config.high_token_usage_warning.enabled:
+    if completion_total_tokens and config.high_token_usage_warning.enabled:
         # calculate the token count for the warning threshold
         token_count_for_warning = config.request_config.max_tokens * (config.high_token_usage_warning.threshold / 100)
 

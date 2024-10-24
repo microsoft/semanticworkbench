@@ -26,11 +26,11 @@ from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, Ass
                     "content": AttachmentsConfigModel().context_description,
                 },
                 {
-                    "role": "user",
+                    "role": "system",
                     "content": "<ATTACHMENT><FILENAME>file1.txt</FILENAME><CONTENT>file 1</CONTENT></ATTACHMENT>",
                 },
                 {
-                    "role": "user",
+                    "role": "system",
                     "content": "<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
                 },
             ],
@@ -46,11 +46,11 @@ from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, Ass
                     "content": AttachmentsConfigModel().context_description,
                 },
                 {
-                    "role": "user",
+                    "role": "system",
                     "content": "<ATTACHMENT><FILENAME>file1.txt</FILENAME><ERROR>error processing file: file 1 error</ERROR><CONTENT></CONTENT></ATTACHMENT>",
                 },
                 {
-                    "role": "user",
+                    "role": "system",
                     "content": "<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
                 },
             ],

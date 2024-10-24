@@ -8,8 +8,6 @@ from semantic_workbench_assistant.config import UISchema
 
 from . import helpers
 from .agents.artifact_agent import ArtifactAgentConfigModel
-from .agents.guided_conversation.config import GuidedConversationAgentConfigModel
-from .agents.skills_agent import SkillsAgentConfigModel
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -42,22 +40,6 @@ class AgentsConfigModel(BaseModel):
             description="Configuration for the attachment agent.",
         ),
     ] = AttachmentsConfigModel()
-
-    guided_conversation_agent: Annotated[
-        GuidedConversationAgentConfigModel,
-        Field(
-            title="Guided Conversation Agent Configuration",
-            description="Configuration for the guided conversation agent.",
-        ),
-    ] = GuidedConversationAgentConfigModel()
-
-    skills_agent: Annotated[
-        SkillsAgentConfigModel,
-        Field(
-            title="Skills Agent Configuration",
-            description="Configuration for the skills agent.",
-        ),
-    ] = SkillsAgentConfigModel()
 
 
 class HighTokenUsageWarning(BaseModel):

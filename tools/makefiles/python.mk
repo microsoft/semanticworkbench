@@ -11,7 +11,7 @@ venv_dir = .venv
 endif
 
 UV_SYNC_ARGS ?= --all-extras
-UV_RUN_ARGS ?= --all-extras
+UV_RUN_ARGS ?= --all-extras --locked
 
 PYTEST_ARGS ?= --color=yes
 
