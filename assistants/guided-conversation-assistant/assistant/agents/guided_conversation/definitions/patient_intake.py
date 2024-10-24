@@ -1,6 +1,6 @@
 import json
 
-from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
+from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
 
 from ..definition import GuidedConversationDefinition
@@ -53,8 +53,8 @@ and confidential manner to ensure patient comfort and compliance.
 
 # Resource Constraints (optional) - This defines the constraints on the conversation such as time or turns.
 # It can also help with pacing the conversation,
-# For example, here we have set an exact time limit of 10 turns which the agent will try to fill.
-resource_constraint = ResourceConstraint(
+# For example, here we have set a time limit of 15 minutes which the agent will try to fill.
+resource_constraint = GuidedConversationDefinition.ResourceConstraint(
     quantity=15,
     unit=ResourceConstraintUnit.MINUTES,
     mode=ResourceConstraintMode.MAXIMUM,
@@ -66,9 +66,5 @@ patient_intake = GuidedConversationDefinition(
     rules=rules,
     conversation_flow=conversation_flow.strip(),
     context=context.strip(),
-    resource_constraint=GuidedConversationDefinition.ResourceConstraint(
-        quantity=15,
-        unit=ResourceConstraintUnit.MINUTES,
-        mode=ResourceConstraintMode.MAXIMUM,
-    ),
+    resource_constraint=resource_constraint,
 )

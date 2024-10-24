@@ -1,6 +1,6 @@
 import json
 
-from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
+from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
 
 from ..definition import GuidedConversationDefinition
@@ -49,7 +49,7 @@ Feedback and observations will be used to make informed hiring decisions.
 """
 
 # Resource Constraints - Defines time limits for the conversation
-resource_constraint = ResourceConstraint(
+resource_constraint = GuidedConversationDefinition.ResourceConstraint(
     quantity=30,
     unit=ResourceConstraintUnit.MINUTES,
     mode=ResourceConstraintMode.MAXIMUM,
@@ -61,9 +61,5 @@ interview = GuidedConversationDefinition(
     rules=rules,
     conversation_flow=conversation_flow,
     context=context,
-    resource_constraint=GuidedConversationDefinition.ResourceConstraint(
-        quantity=30,
-        unit=ResourceConstraintUnit.MINUTES,
-        mode=ResourceConstraintMode.MAXIMUM,
-    ),
+    resource_constraint=resource_constraint,
 )
