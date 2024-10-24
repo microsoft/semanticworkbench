@@ -350,7 +350,7 @@ class GuidedConversation:
                         self.logger.info(f"Artifact field {tool_args['field']} successfully updated.")
                         # Set turn numbers
                         for message in plugin_output.messages:
-                            message.metadata.turn_number = self.resource.turn_number
+                            message.metadata["turn_number"] = self.resource.turn_number
                         self.conversation.add_messages(plugin_output.messages)
                     else:
                         self.logger.error(f"Final artifact field update of {tool_args['field']} failed.")
