@@ -48,6 +48,12 @@ class DocumentAgent:
     An agent for working on document content: creation, editing, translation, etc.
     """
 
+    ### MAJOR PROBLEM TO FIX
+    ### Cannot tie agent state to the class, needs to be tied to the conversation context... otherwise a new agent in a different conversation will be using same state info.
+    ### Like how gc state is tied to the conversation context.
+    ### Problem for gc state, is that being tied to conversation context, it persists to ANY gc call, even ones later... So need to either remove gc state once a gc convo is done,
+    ### or set each state more specifically, so can start a new one per that gc convo, or "rewrite" the state for the new gc convo.
+
     state: State = State()
 
     def __init__(self, attachments_extension: AttachmentsExtension) -> None:
@@ -86,24 +92,29 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> None:
+    ) -> bool:
+        is_mode_running = False
+
         # Pre-requisites
         if self.state.mode.function is None or self.state.mode.is_completed:
-            logger.error(
+            logger.warning(
                 "Document Agent state mode: %s, state mode completion status: %s",
                 "None" if self.state.mode.function is None else self.state.mode.function.__name__,
                 self.state.mode.is_completed,
             )
-            return
+            return is_mode_running
 
         # Run
         mode = self.state.mode
         match self.state.mode.function:
             case self._mode_draft_outline:
                 logger.info(f"Document Agent in mode: {mode.function.__name__}")
-                await mode.function(self, config, context, message, metadata)
+                is_mode_running = await mode.function(self, config, context, message, metadata)
             case _:
                 logger.error("Document Agent failed to find a corresponding mode.")
+                is_mode_running = False
+
+        return is_mode_running
 
     @classmethod
     def set_mode_draft_outline(
@@ -130,7 +141,9 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> None:
+    ) -> bool:
+        mode_running = True
+
         # Pre-requisites
         if cls.state.mode.function != cls._mode_draft_outline or cls.state.mode.is_completed:
             logger.error(
@@ -139,7 +152,7 @@ class DocumentAgent:
                 cls._mode_draft_outline.__name__,
                 cls.state.mode.is_completed,
             )
-            return
+            return not mode_running
 
         # Run
         mode = cls.state.mode
@@ -159,17 +172,20 @@ class DocumentAgent:
                 case cls._gc_get_outline_feedback:
                     step.function = cls._final_outline
                 case cls._final_outline:  # The End. Reset.
+                    # This isn't quite right.  upon the last step completeing, everthing should be reset.
+                    # We shouldn't have to come back in after we are done with another user message to reset stuff.
                     logger.info(f"Document Agent completing mode: {mode.function.__name__}")
                     mode.function = None
                     mode.is_completed = True
                     step.function = None
                     step.is_completed = True
-                    return
+                    return not mode_running
 
         # Call step
         logger.info(f"Document Agent running mode.step: {step.function.__name__}")
         step.is_completed = await step.function(instance, config, context, message, metadata)
         logger.info("Document Agent mode.step status: %s", "completed" if step.is_completed else "not completed")
+        return mode_running
 
     ###
     # step functions for _mode_draft_outline.
@@ -244,31 +260,24 @@ class DocumentAgent:
                 conversation_context=context,
                 last_user_message=message.content,
             )
+            if is_conversation_over:
+                return is_conversation_over  # Do not send the hard-coded response message from gc
+
             if response_message is None:
                 # need to double check this^^ None logic, when it would occur in GC. Make "" for now.
                 agent_message = ""
             else:
                 agent_message = response_message
 
-            if not is_conversation_over:
-                # add the completion to the metadata for debugging
-                deepmerge.always_merger.merge(
-                    metadata,
-                    {
-                        "debug": {
-                            f"{method_metadata_key}": {"response": agent_message},
-                        }
-                    },
-                )
-
-                # send the response to the conversation
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=agent_message,
-                        message_type=MessageType.chat,
-                        metadata=metadata,
-                    )
-                )
+            # add the completion to the metadata for debugging
+            deepmerge.always_merger.merge(
+                metadata,
+                {
+                    "debug": {
+                        f"{method_metadata_key}": {"response": agent_message},
+                    }
+                },
+            )
 
         except Exception as e:
             logger.exception(f"exception occurred processing guided conversation: {e}")
@@ -283,6 +292,17 @@ class DocumentAgent:
                     }
                 },
             )
+
+        await context.send_messages(
+            NewConversationMessage(
+                content=agent_message,
+                message_type=MessageType.chat,
+                metadata=metadata,
+            )
+        )
+
+        # Need to add a good way to stop mode if an exception occurs.
+        # Also need to update the gc state turn count to 0 (and any thing else that needs to be reset) once conversation is over... or exception occurs?)
 
         return is_conversation_over
 

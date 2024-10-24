@@ -53,7 +53,7 @@ context = """You are working 1 on 1 a 4th grade student who is chatting with you
 # It can also help with pacing the conversation,
 # For example, here we have set an exact time limit of 10 turns which the agent will try to fill.
 resource_constraint = ResourceConstraint(
-    quantity=10,
+    quantity=3,
     unit=ResourceConstraintUnit.TURNS,
     mode=ResourceConstraintMode.EXACT,
 )
