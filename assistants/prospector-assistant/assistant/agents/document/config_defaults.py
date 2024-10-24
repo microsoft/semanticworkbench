@@ -55,7 +55,7 @@ context = """You are working 1 on 1 a 4th grade student who is chatting with you
 resource_constraint = ResourceConstraint(
     quantity=3,
     unit=ResourceConstraintUnit.TURNS,
-    mode=ResourceConstraintMode.EXACT,
+    mode=ResourceConstraintMode.MAXIMUM,
 )
 
 __all__ = [
