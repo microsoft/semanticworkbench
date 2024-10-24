@@ -163,29 +163,34 @@ class AttachmentsExtension:
 
         # process each attachment
         for attachment in attachments:
-            error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
-            content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}>{error_element}<{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
-
             # if the content is a data URI, include it as an image type within the message content
             if attachment.content.startswith("data:image/"):
-                content = [
-                    {
-                        "type": "text",
-                        "text": f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": attachment.content,
+                messages.append({
+                    # role of user is required for image_url messages
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
                         },
-                    },
-                    {
-                        "type": "text",
-                        "text": f"</{image_tag}></{attachment_tag}>",
-                    },
-                ]
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": attachment.content,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": f"</{image_tag}></{attachment_tag}>",
+                        },
+                    ],
+                })
+                continue
 
+            error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
+            content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}>{error_element}<{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
             messages.append({
+                # role of system seems to get better results in the chat completion
                 "role": "system",
                 "content": content,
             })
@@ -227,14 +232,15 @@ async def _get_attachments(
 async def _delete_attachments_not_in(context: ConversationContext, filenames: set[str]) -> None:
     """Deletes cached attachments that are not in the filenames argument."""
     drive = _attachment_drive_for_context(context)
-    for filename in drive.list():
-        if filename in filenames:
+    for attachment_filename in drive.list():
+        original_file_name = _attachment_to_original_filename(attachment_filename)
+        if original_file_name in filenames:
             continue
 
         with contextlib.suppress(FileNotFoundError):
-            drive.delete(filename)
+            drive.delete(attachment_filename)
 
-        await _delete_lock_for_context_file(context, filename)
+        await _delete_lock_for_context_file(context, original_file_name)
 
 
 _file_locks_lock = asyncio.Lock()
@@ -262,6 +268,14 @@ async def _lock_for_context_file(context: ConversationContext, filename: str) ->
         return _file_locks[key]
 
 
+def _original_to_attachment_filename(filename: str) -> str:
+    return filename + ".json"
+
+
+def _attachment_to_original_filename(filename: str) -> str:
+    return filename.removesuffix(".json")
+
+
 async def _get_attachment_for_file(
     context: ConversationContext, file: File, metadata: dict[str, Any], error_handler: AttachmentProcessingErrorHandler
 ) -> Attachment:
@@ -276,7 +290,7 @@ async def _get_attachment_for_file(
     file_lock = await _lock_for_context_file(context, file.filename)
     async with file_lock:
         with contextlib.suppress(FileNotFoundError):
-            attachment = drive.read_model(Attachment, file.filename)
+            attachment = drive.read_model(Attachment, _original_to_attachment_filename(file.filename))
 
             if attachment.updated_datetime.timestamp() >= file.updated_datetime.timestamp():
                 # if the attachment is up-to-date, return it
@@ -302,7 +316,9 @@ async def _get_attachment_for_file(
             updated_datetime=file.updated_datetime,
             error=error,
         )
-        drive.write_model(attachment, file.filename, if_exists=IfDriveFileExistsBehavior.OVERWRITE)
+        drive.write_model(
+            attachment, _original_to_attachment_filename(file.filename), if_exists=IfDriveFileExistsBehavior.OVERWRITE
+        )
 
         return attachment
 
