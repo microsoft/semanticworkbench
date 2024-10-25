@@ -1,0 +1,26 @@
+[project]
+name = "form-filler-skill"
+version = "0.1.0"
+description = "MADE:Exploration Form-filler skill"
+authors = [{name="MADE:Explorers"}]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "skill-library>=0.1.0",
+    "chat-driver>=0.1.0",
+    "context>=0.1.0",
+    "events>=0.1.0",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+skill-library = { path = "../../skill-library", editable= true }
+chat-driver = { path = "../../../chat-driver", editable = true }
+context = { path = "../../../context", editable = true }
+events = { path = "../../../events", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
