@@ -99,7 +99,7 @@ app = assistant.fastapi_app()
 # - @assistant.events.conversation.message.on_created (event triggered when a new message of any type is created)
 # - @assistant.events.conversation.message.chat.on_created (event triggered when a new chat message is created)
 #
-doc_agent_running = False
+is_doc_agent_running = False
 
 
 @assistant.events.conversation.message.command.on_created
@@ -110,8 +110,8 @@ async def on_command_message_created(
     metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
     # config.agents_config.document_agent.enabled = True  # To do... tie into config.
-    global doc_agent_running
-    doc_agent_running = True
+    global is_doc_agent_running
+    is_doc_agent_running = True
 
     doc_agent = DocumentAgent(attachments_extension)
     await doc_agent.receive_command(config, context, message, metadata)
@@ -149,9 +149,9 @@ async def on_message_created(
         #
 
         # if config.agents_config.document_agent.enabled:  # To do... tie into config.
-        global doc_agent_running
-        if doc_agent_running:
-            await document_agent_respond_to_conversation(config, context, message, metadata)
+        global is_doc_agent_running
+        if is_doc_agent_running:
+            is_doc_agent_running = await document_agent_respond_to_conversation(config, context, message, metadata)
             return
 
         # Prospector assistant response
@@ -194,14 +194,14 @@ async def document_agent_respond_to_conversation(
     context: ConversationContext,
     message: ConversationMessage,
     metadata: dict[str, Any] = {},
-) -> None:
+) -> bool:
     """
     Respond to a conversation message using the document agent.
     """
     # create the document agent instance
     document_agent = DocumentAgent(attachments_extension)
-    await document_agent.respond_to_conversation(config, context, message, metadata)
-    return
+    is_doc_agent_running = await document_agent.respond_to_conversation(config, context, message, metadata)
+    return is_doc_agent_running
 
 
 # demonstrates how to respond to a conversation message using the OpenAI API.
