@@ -1,5 +1,3 @@
-from typing import Literal
-
 from pydantic import Field, HttpUrl
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,7 +25,6 @@ class Settings(BaseSettings):
 
     assistant_service_url: HttpUrl | None = None
 
-    protocol: Literal["http", "https"] = "http"
     host: str = "127.0.0.1"
     port: int = 0
 
@@ -40,6 +37,10 @@ class Settings(BaseSettings):
 
     @property
     def callback_url(self) -> str:
+        # use the configured assistant service url if available
+        if self.assistant_service_url:
+            return str(self.assistant_service_url)
+
         # use config from Azure App Service if available
         if self.website_hostname:
             url = f"{self.website_protocol}://{self.website_hostname}"
@@ -47,12 +48,8 @@ class Settings(BaseSettings):
                 return url
             return f"{url}:{self.website_port}"
 
-        # fallback to the configured assistant service url if available
-        if self.assistant_service_url:
-            return str(self.assistant_service_url)
-
-        # finally, fallback to the local service name
-        url = f"{self.protocol}://{self.host}"
+        # finally, fallback to the host name/ip and port the app is running on
+        url = f"http://{self.host}"
         if self.port is None:
             return url
         return f"{url}:{self.port}"
