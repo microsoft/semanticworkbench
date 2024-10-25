@@ -2,20 +2,13 @@ import json
 from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from context.context import ContextProtocol
 from openai.types.chat import (
     ChatCompletionMessageParam,
-    ChatCompletionMessageToolCallParam,
 )
-from openai_client.messages import (
-    MessageFormatter,
-    create_assistant_message,
-    create_system_message,
-    create_user_message,
-    format_with_dict,
-)
+from openai_client.messages import MessageFormatter, format_with_liquid
 
 from .message_history_provider import MessageHistoryProviderProtocol
 
@@ -36,7 +29,7 @@ class LocalMessageHistoryProvider(MessageHistoryProviderProtocol):
             self.data_dir = DEFAULT_DATA_DIR / "chat_driver" / config.context.session_id
         else:
             self.data_dir = Path(config.data_dir)
-        self.formatter: MessageFormatter = config.formatter or format_with_dict
+        self.formatter = config.formatter or format_with_liquid
 
         # Create the messages file if it doesn't exist.
         if not self.data_dir.exists():
@@ -77,18 +70,3 @@ class LocalMessageHistoryProvider(MessageHistoryProviderProtocol):
 
     def delete_all(self) -> None:
         self.messages_file.write_text("[]")
-
-    async def append_system_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        await self.append(create_system_message(content, var, self.formatter))
-
-    async def append_user_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        await self.append(create_user_message(content, var, self.formatter))
-
-    async def append_assistant_message(
-        self,
-        content: str,
-        refusal: str,
-        tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
-        var: dict[str, Any] | None = None,
-    ) -> None:
-        await self.append(create_assistant_message(content, refusal, tool_calls, var, self.formatter))
