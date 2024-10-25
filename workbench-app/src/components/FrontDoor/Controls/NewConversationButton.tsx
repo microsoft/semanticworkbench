@@ -1,5 +1,6 @@
 import {
     Button,
+    Checkbox,
     DialogTrigger,
     Divider,
     Dropdown,
@@ -28,6 +29,7 @@ import {
     useGetAssistantsQuery,
 } from '../../../services/workbench';
 import { CommandButton } from '../../App/CommandButton';
+import { AssistantImport } from '../../Assistants/AssistantImport';
 
 const useClasses = makeStyles({
     content: {
@@ -45,6 +47,11 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalXS,
+    },
+    serviceOptions: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
     },
 });
 
@@ -258,7 +265,7 @@ export const NewConversationButton: React.FC = () => {
                         <div className={classes.content}>
                             <Field label="Title">
                                 <Input
-                                    disabled={submitted}
+                                    disabled={disabled}
                                     value={title}
                                     onChange={(_event, data) => setTitle(data?.value)}
                                     aria-autocomplete="none"
@@ -267,6 +274,7 @@ export const NewConversationButton: React.FC = () => {
                             <Field label="Assistant">
                                 <Dropdown
                                     placeholder="Select an assistant"
+                                    disabled={disabled}
                                     onOptionSelect={(_event, data) => setAssistantId(data.optionValue)}
                                 >
                                     {assistantOptions}
@@ -278,7 +286,7 @@ export const NewConversationButton: React.FC = () => {
                                         <Field label="Assistant Service">
                                             <Dropdown
                                                 placeholder="Select an assistant service"
-                                                disabled={submitted}
+                                                disabled={disabled}
                                                 onOptionSelect={(_event, data) => {
                                                     if (data.optionValue) {
                                                         setAssistantServiceId(data.optionValue as string);
@@ -296,7 +304,7 @@ export const NewConversationButton: React.FC = () => {
                                     {manualEntry && (
                                         <Field label="Assistant Service ID">
                                             <Input
-                                                disabled={submitted}
+                                                disabled={disabled}
                                                 value={assistantServiceId}
                                                 onChange={(_event, data) => setAssistantServiceId(data?.value)}
                                                 aria-autocomplete="none"
@@ -305,12 +313,21 @@ export const NewConversationButton: React.FC = () => {
                                     )}
                                     <Field label="Name">
                                         <Input
-                                            disabled={submitted}
+                                            disabled={disabled}
                                             value={name}
                                             onChange={(_event, data) => setName(data?.value)}
                                             aria-autocomplete="none"
                                         />
                                     </Field>
+                                    <div className={classes.serviceOptions}>
+                                        <Checkbox
+                                            style={{ whiteSpace: 'nowrap' }}
+                                            label="Enter Assistant Service ID"
+                                            checked={manualEntry}
+                                            onChange={(_event, data) => setManualEntry(data.checked === true)}
+                                        />
+                                        <AssistantImport label="Import Assistant" disabled={disabled} />
+                                    </div>
                                 </>
                             )}
                             <button disabled={disabled} type="submit" hidden />
@@ -320,7 +337,7 @@ export const NewConversationButton: React.FC = () => {
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="create">
-                        <Button appearance="primary" onClick={handleCreate}>
+                        <Button appearance="primary" onClick={handleCreate} disabled={disabled}>
                             New Conversation
                         </Button>
                     </DialogTrigger>,
