@@ -16,7 +16,10 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 
-from .local_message_history_provider import LocalMessageHistoryProvider, LocalMessageHistoryProviderConfig
+from .local_message_history_provider import (
+    LocalMessageHistoryProvider,
+    LocalMessageHistoryProviderConfig,
+)
 from .logger import Logger
 from .message_formatter import MessageFormatter, format_message
 from .message_history_provider import MessageHistoryProviderProtocol
@@ -34,12 +37,28 @@ JSON_OBJECT_RESPONSE_FORMAT: ResponseFormat = {"type": "json_object"}
 class ChatDriverConfig:
     openai_client: AsyncOpenAI
     model: str
-    instructions: str = "You are a helpful assistant."
+    instructions: str | list[str] = "You are a helpful assistant."
     instruction_formatter: MessageFormatter | None = None
     context: ContextProtocol | None = None
     message_provider: MessageHistoryProviderProtocol | None = None
     commands: list[Callable] = field(default_factory=list)
     functions: list[Callable] = field(default_factory=list)
+
+
+def format_instructions(
+    instructions: list[str],
+    vars: dict[str, Any] | None = None,
+    formatter: MessageFormatter | None = None,
+) -> list[ChatCompletionSystemMessageParam]:
+    formatter = formatter or format_message
+    instruction_messages: list[ChatCompletionSystemMessageParam] = []
+    for instruction in instructions:
+        if vars:
+            formatted_instruction = formatter(instruction, vars)
+        else:
+            formatted_instruction = instruction
+        instruction_messages.append({"role": "system", "content": formatted_instruction})
+    return instruction_messages
 
 
 class ChatDriver:
@@ -48,7 +67,7 @@ class ChatDriver:
         # the session ID, the user ID, and the conversation ID. It also provides
         # a method to emit events. If you do not supply one, one will be created
         # for you with a random session ID.
-        self.context = config.context or Context()
+        self.context: ContextProtocol = config.context or Context()
 
         # Set up logging.
         self.logger = Logger(__name__, self.context)
@@ -60,7 +79,9 @@ class ChatDriver:
             LocalMessageHistoryProviderConfig(context=self.context)
         )
 
-        self.instructions = config.instructions
+        self.instructions: list[str] = (
+            config.instructions if isinstance(config.instructions, list) else [config.instructions]
+        )
         self.instruction_formatter = config.instruction_formatter or format_message
 
         # Now set up the OpenAI client and model.
@@ -82,14 +103,10 @@ class ChatDriver:
         self.command_registry = FunctionRegistry(self.context, config.commands)
         self.commands = self.command_registry.functions
 
-    def _formatted_instruction(self, vars: dict[str, Any] | None) -> ChatCompletionSystemMessageParam | None:
-        if not self.instructions:
-            return
-        if vars:
-            formatted_instruction = self.instruction_formatter(self.instructions, vars)
-        else:
-            formatted_instruction = self.instructions
-        return {"role": "system", "content": formatted_instruction}
+    def _formatted_instructions(
+        self, vars: dict[str, Any] | None
+    ) -> list[ChatCompletionSystemMessageParam]:
+        return format_instructions(self.instructions, vars, self.instruction_formatter)
 
     async def add_message(self, message: ChatCompletionMessageParam) -> None:
         await self.message_provider.append(message)
@@ -150,7 +167,7 @@ class ChatDriver:
 
     async def respond(
         self,
-        message: str,
+        message: str | None = None,
         response_format: ResponseFormat = TEXT_RESPONSE_FORMAT,
         instruction_parameters: dict[str, Any] | None = None,
     ) -> BaseEvent:
@@ -170,24 +187,30 @@ class ChatDriver:
             instruction_parameters = {}
 
         # If the message contains a command, execute it.
-        if message.startswith("/"):
+        if message and message.startswith("/"):
             command_string = message[1:]
             try:
-                results = await self.command_registry.execute_function_string_with_string_response(command_string)
+                results = await self.command_registry.execute_function_string_with_string_response(
+                    command_string
+                )
                 return MessageEvent(message=results)
             except Exception as e:
                 await self.add_error_message(f"Error: {e}")
                 return MessageEvent(message="Error!", metadata={"error": str(e)})
 
         # Otherwise, generate a response.
-        user_message: ChatCompletionUserMessageParam = {
-            "role": "user",
-            "content": message,
-        }
-        await self.add_message(user_message)
+        if message is not None:
+            user_message: ChatCompletionUserMessageParam = {
+                "role": "user",
+                "content": message,
+            }
+            await self.add_message(user_message)
 
         completion_args = {
-            "messages": [self._formatted_instruction(instruction_parameters), *(await self.message_provider.get())],
+            "messages": [
+                *self._formatted_instructions(instruction_parameters),
+                *(await self.message_provider.get()),
+            ],
             "model": "gpt-4o",
             "tools": self._get_tools(),
             "response_format": response_format,
@@ -240,10 +263,15 @@ class ChatDriver:
                 function = tool_call.function
                 if self.function_registry.has_function(function.name):
                     # Call function.
-                    self.logger.debug("Function call.", data={"name": function.name, "arguments": function.arguments})
+                    self.logger.debug(
+                        "Function call.",
+                        data={"name": function.name, "arguments": function.arguments},
+                    )
                     try:
                         kwargs: dict[str, Any] = json.loads(function.arguments)
-                        value = await self.function_registry.execute_function(function.name, (), kwargs)
+                        value = await self.function_registry.execute_function(
+                            function.name, (), kwargs
+                        )
                     except Exception as e:
                         self.logger.error("Error.", data={"error": e})
                         value = f"Error: {e}"
@@ -265,15 +293,22 @@ class ChatDriver:
 
             # Call assistant for final response.
             assistant_tool_completion_args = {
-                "messages": [self._formatted_instruction(instruction_parameters), *(await self.message_provider.get())],
+                "messages": [
+                    *self._formatted_instructions(instruction_parameters),
+                    *(await self.message_provider.get()),
+                ],
                 "model": "gpt-4o",
             }
-            self.logger.debug("Calling Completions API with tool response.", data=assistant_tool_completion_args)
+            self.logger.debug(
+                "Calling Completions API with tool response.", data=assistant_tool_completion_args
+            )
             metadata["assistant_tool_completion_args"] = assistant_tool_completion_args
             completion = await self.client.chat.completions.create(**assistant_tool_completion_args)
 
             # Add assistant response to messages.
-            assistant_tool_response = ChatCompletionAssistantMessageParam(**completion.choices[0].message.model_dump())
+            assistant_tool_response = ChatCompletionAssistantMessageParam(
+                **completion.choices[0].message.model_dump()
+            )
             await self.add_message(assistant_tool_response)
             message_for_return = assistant_tool_response
             self.logger.debug("Assistant tool response.", data=assistant_tool_response)

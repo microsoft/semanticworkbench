@@ -16,6 +16,7 @@ dependencies = [
     "context>=0.1.0",
     "events>=0.1.0",
     "function-registry>=0.1.0",
+    "python-liquid>=1.12.1",
 ]
 
 [tool.uv]
