@@ -178,6 +178,7 @@ class DocumentAgent:
         state = _get_state(context)
 
         # Pre-requisites
+        # We can't be here if the mode doesn't match (or is complete).  This needs to be updated prior.
         if state.mode.name != ModeEnum.DRAFT_OUTLINE or state.mode.is_completed:
             logger.error(
                 "Document Agent state mode: %s, mode called: %s, state mode completion status: %s",
