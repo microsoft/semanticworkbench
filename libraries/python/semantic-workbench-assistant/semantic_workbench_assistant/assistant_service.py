@@ -76,16 +76,20 @@ class FastAPIAssistantService(ABC):
         async def lifespan() -> AsyncIterator[None]:
             # connect to workbench on startup
             logger.info(
-                "connecting to semantic-workbench-service on startup; workbench_service_url: %s",
+                "connecting to semantic-workbench-service on startup; workbench_service_url: %s, assistant_service_id: %s, callback_url: %s",
                 settings.workbench_service_url,
+                self.service_id,
+                settings.callback_url,
             )
 
             async with self.workbench_client.for_service() as service_client:
                 try:
                     await self._ping_semantic_workbench(service_client)
                     logger.info(
-                        "connected to semantic-workbench-service on startup; workbench_service_url: %s",
+                        "connected to semantic-workbench-service on startup; workbench_service_url: %s, assistant_service_id: %s, callback_url: %s",
                         settings.workbench_service_url,
+                        self.service_id,
+                        settings.callback_url,
                     )
                 except httpx.HTTPError:
                     logger.warning("failed to connect workbench on startup", exc_info=True)
@@ -149,16 +153,18 @@ class FastAPIAssistantService(ABC):
                     logger.warning(
                         "authentication failed with semantic-workbench service, configured assistant_service_id and/or"
                         " workbench_service_api_key are incorrect; workbench_service_url: %s,"
-                        " assistant_service_id: %s",
+                        " assistant_service_id: %s, callback_url: %s",
                         settings.workbench_service_url,
                         self.service_id,
+                        settings.callback_url,
                     )
                 case 404:
                     logger.warning(
                         "configured assistant_service_id does not exist in the semantic-workbench-service;"
-                        " workbench_service_url: %s, assistant_service_id: %s",
+                        " workbench_service_url: %s, assistant_service_id: %s, callback_url: %s",
                         settings.workbench_service_url,
                         self.service_id,
+                        settings.callback_url,
                     )
             raise
 
