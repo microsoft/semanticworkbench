@@ -41,7 +41,7 @@ async def test_auth_middleware_rejects_disallowed_algo(monkeypatch: pytest.Monke
 def test_auth_middleware_rejects_disallowed_app_id(monkeypatch: pytest.MonkeyPatch) -> None:
     algo = "HS256"
 
-    monkeypatch.setattr(settings.auth, "allowed_app_ids", {})
+    monkeypatch.setattr(settings.auth, "allowed_app_id", "fake-app-id")
     monkeypatch.setattr(settings.auth, "allowed_jwt_algorithms", {algo})
 
     token = jwt.encode(
