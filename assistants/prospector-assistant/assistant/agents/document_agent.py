@@ -206,13 +206,15 @@ class DocumentAgent:
             step.is_completed = False
             match state.mode.step.name:
                 case StepEnum.DO_GC_ATTACHMENT_CHECK:
+                    # also noticing, if this is done or on complete, not necessarily a message sent out... same as issue below?
+                    # so have to do a new user input to ick off next step.
                     step.name = StepEnum.DO_DRAFT_OUTLINE
                 case StepEnum.DO_DRAFT_OUTLINE:
                     step.name = StepEnum.DO_GC_GET_OUTLINE_FEEDBACK
                 case StepEnum.DO_GC_GET_OUTLINE_FEEDBACK:
                     step.name = StepEnum.DO_FINAL_OUTLINE
                 case StepEnum.DO_FINAL_OUTLINE:  # The End. Reset.
-                    # This isn't quite right.  upon the last step completeing, everthing should be reset.
+                    # This isn't quite right.  upon the last step completing, everything should be reset.
                     # We shouldn't have to come back in after we are done with another user message to reset stuff.
                     logger.info("Document Agent completing mode: %s", ModeEnum.DRAFT_OUTLINE)
                     mode.name = None
@@ -288,7 +290,7 @@ class DocumentAgent:
     ####
 
     async def _gc_respond_to_conversation(
-        self,
+        cls,
         config: AssistantConfigModel,
         gc_config: GuidedConversationAgentConfigModel,
         message: ConversationMessage,

@@ -42,9 +42,7 @@ class Settings(BaseSettings):
     def callback_url(self) -> str:
         # use config from Azure App Service if available
         if self.website_hostname:
-            # small hack to always use the non-staging hostname in the callback url
-            hostname = self.website_hostname.replace("-staging", "")
-            url = f"{self.website_protocol}://{hostname}"
+            url = f"{self.website_protocol}://{self.website_hostname}"
             if self.website_port is None:
                 return url
             return f"{url}:{self.website_port}"
