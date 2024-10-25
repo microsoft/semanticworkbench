@@ -3,7 +3,7 @@ import React from 'react';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { AssistantCanvasList } from '../../Conversations/Canvas/AssistantCanvasList';
-import { CanvasDrawer } from '../../Conversations/Canvas/CanvasDrawer';
+import { CanvasDrawer } from './CanvasDrawer';
 
 const useClasses = makeStyles({
     drawer: {

@@ -9,8 +9,8 @@ import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
 import { useAppSelector } from '../../../redux/app/hooks';
-import { ConversationDrawer } from '../../Conversations/Canvas/ConversationDrawer';
 import { AssistantDrawer } from './AssistantDrawer';
+import { ConversationDrawer } from './ConversationDrawer';
 
 const log = debug(Constants.debug.root).extend('ChatCanvas');
 

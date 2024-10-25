@@ -43,7 +43,7 @@ const useClasses = makeStyles({
             boxShadow: tokens.shadow8Brand,
         },
     },
-    fade: {
+    transitionFade: {
         opacity: 0,
         transitionProperty: 'opacity',
         transitionDuration: tokens.durationFast,
@@ -130,7 +130,7 @@ export const FrontDoor: React.FC = () => {
                     )}
                     ref={sideRailLeftRef}
                 >
-                    <div className={mergeClasses(classes.fade, sideRailLeftOpen ? 'in' : undefined)}>
+                    <div className={mergeClasses(classes.transitionFade, sideRailLeftOpen ? 'in' : undefined)}>
                         <GlobalContent headerBefore={sideRailLeftButton} headerAfter={<NewConversationButton />} />
                     </div>
                 </div>
@@ -143,7 +143,7 @@ export const FrontDoor: React.FC = () => {
                                 <div
                                     className={mergeClasses(
                                         classes.controls,
-                                        classes.fade,
+                                        classes.transitionFade,
                                         !sideRailLeftOpen ? 'in' : undefined,
                                     )}
                                 >

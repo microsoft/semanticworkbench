@@ -45,7 +45,7 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundImage: `linear-gradient(to bottom, ${tokens.colorNeutralBackground1}, transparent)`,
+        backgroundImage: `linear-gradient(to bottom, ${tokens.colorNeutralBackground1}, ${tokens.colorNeutralBackground1}, transparent, transparent)`,
         ...shorthands.padding(tokens.spacingVerticalS, tokens.spacingHorizontalM, tokens.spacingVerticalXXXL),
     },
     headerControls: {
