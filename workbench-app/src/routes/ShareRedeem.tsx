@@ -34,7 +34,6 @@ export const ShareRedeem: React.FC = () => {
     const [createConversationMessage] = useCreateConversationMessageMutation();
     const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
     const [submitted, setSubmitted] = React.useState(false);
-    const [messageId, setMessageId] = React.useState<string | undefined>(undefined);
     const [joinAttempted, setJoinAttempted] = React.useState(false);
     const conversationUtility = useConversationUtility();
     const account = useAccount();
@@ -59,30 +58,33 @@ export const ShareRedeem: React.FC = () => {
     const title = 'Open a shared conversation';
     siteUtility.setDocumentTitle(title);
 
-    const handleClickJoin = React.useCallback(async () => {
-        if (!conversationShare) {
-            return;
-        }
-        setSubmitted(true);
-        try {
-            await redeemShare(conversationShare.id);
-            const hash = messageId ? `#${messageId}` : '';
-
-            // send event to notify the conversation that the user has joined
-            const accountName = account?.name;
-            if (conversationShare.conversationPermission === 'read_write' && accountName) {
-                await createConversationMessage({
-                    conversationId: conversationShare.conversationId,
-                    content: `${accountName} joined the conversation`,
-                    messageType: 'notice',
-                });
+    const handleClickJoin = React.useCallback(
+        async (messageId?: string) => {
+            if (!conversationShare) {
+                return;
             }
+            setSubmitted(true);
+            try {
+                await redeemShare(conversationShare.id);
+                const hash = messageId ? `#${messageId}` : '';
 
-            navigate(`/conversation/${conversationShare.conversationId}${hash}`, { replace: true });
-        } finally {
-            setSubmitted(false);
-        }
-    }, [conversationShare, redeemShare, messageId, account?.name, navigate, createConversationMessage]);
+                // send event to notify the conversation that the user has joined
+                const accountName = account?.name;
+                if (conversationShare.conversationPermission === 'read_write' && accountName) {
+                    await createConversationMessage({
+                        conversationId: conversationShare.conversationId,
+                        content: `${accountName} joined the conversation`,
+                        messageType: 'notice',
+                    });
+                }
+
+                navigate(`/conversation/${conversationShare.conversationId}${hash}`, { replace: true });
+            } finally {
+                setSubmitted(false);
+            }
+        },
+        [conversationShare, redeemShare, account?.name, navigate, createConversationMessage],
+    );
 
     const handleClickDuplicate = React.useCallback(async () => {
         if (!conversationShare) {
@@ -130,9 +132,8 @@ export const ShareRedeem: React.FC = () => {
             return;
         }
 
-        setMessageId(linkToMessageId);
         setJoinAttempted(true);
-        handleClickJoin();
+        handleClickJoin(linkToMessageId);
     }, [conversationShare, conversationUtility, handleClickJoin, readyToCheckForMessageLink]);
 
     const renderAppView = React.useCallback(
