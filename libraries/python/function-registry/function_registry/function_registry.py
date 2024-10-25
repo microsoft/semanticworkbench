@@ -1,10 +1,11 @@
-from typing import Any, Callable
+import ast
 import inspect
-from pydantic import BaseModel
 import json
 import logging
+from typing import Any, Callable
+
 from context.context import ContextProtocol
-import ast
+from pydantic import BaseModel
 
 from .function import Function, Parameter
 
@@ -30,8 +31,7 @@ class FunctionRegistry:
     Additional utilities are provided, such as generating JSON schemas and
     returning results as strings."""
 
-    def __init__(self, context: ContextProtocol, functions: list[Callable] = []) -> None:
-        self.context = context
+    def __init__(self, functions: list[Callable] = []) -> None:
         self.function_map: dict[str, Function] = {}
 
         # By default, every registry has a help function.
