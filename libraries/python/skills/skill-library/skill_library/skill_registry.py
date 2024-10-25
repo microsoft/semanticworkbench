@@ -1,8 +1,11 @@
-from .routine import RoutineTypes
-from .skill import Skill
-import os
 import importlib
+import os
 from typing import Any
+
+from .routine import FunctionRoutine, InstructionRoutine, ProgramRoutine, RoutineTypes
+from .routine_runners import FunctionRoutineRunner, InstructionRoutineRunner, ProgramRoutineRunner
+from .run_context import RunContext
+from .skill import Skill
 
 
 class SkillRegistry:
@@ -82,15 +85,79 @@ class SkillRegistry:
             return False
         return skill.has_routine(routine)
 
-    def get_routine(self, routine_name: str) -> tuple[Skill | None, RoutineTypes | None]:
+    def get_routine(self, routine_name: str) -> RoutineTypes | None:
         """
         Get a routine by name.
         """
         skill_name, routine = routine_name.split(".")
         skill = self.get_skill(skill_name)
         if not skill:
-            return None, None
-        return skill, skill.get_routine(routine)
+            return None
+        return skill.get_routine(routine)
+
+    async def run_routine_by_name(
+        self, context: RunContext, name: str, vars: dict[str, Any] | None = None
+    ) -> Any:
+        """
+        Run an assistant routine by name (<skill_name>.<routine_name>).
+        """
+        routine = self.get_routine(name)
+        if not routine:
+            raise ValueError(f"Routine {name} not found.")
+        response = await self.run_routine(context, routine, vars)
+        return response
+
+    async def run_routine(
+        self, context: RunContext, routine: RoutineTypes, vars: dict[str, Any] | None = None
+    ) -> Any:
+        """
+        Run an assistant routine. This is going to be much of the
+        magic of the assistant. Currently, is just runs through the
+        steps of a routine, but this will get much more sophisticated.
+        It will need to handle configuration, managing results of steps,
+        handling errors and retries, etc. ALso, this is where we will put
+        meta-cognitive functions such as having the assistant create a plan
+        from the routine and executing it dynamically while monitoring progress.
+        name = <skill_name>.<routine_name>
+        """
+        await context.routine_stack.push(routine.fullname())
+        match routine:
+            case InstructionRoutine():
+                runner = InstructionRoutineRunner()
+                done = await runner.run(context, routine, vars)
+            case ProgramRoutine():
+                runner = ProgramRoutineRunner()
+                done = await runner.run(context, routine, vars)
+            case FunctionRoutine():
+                runner = FunctionRoutineRunner()
+                done = await runner.run(context, routine, vars)
+        if done:
+            _ = await context.routine_stack.pop()
+
+    async def step_active_routine(self, context: RunContext, message: str) -> None:
+        """Run another step in the current routine."""
+        routine_frame = await context.routine_stack.peek()
+        if not routine_frame:
+            raise ValueError("No routine to run.")
+
+        routine = self.get_routine(routine_frame.name)
+        if not routine:
+            raise ValueError(f"Routine {routine_frame.name} not found.")
+
+        match routine:
+            case InstructionRoutine():
+                runner = InstructionRoutineRunner()
+                done = await runner.next(context, routine, message)
+            case ProgramRoutine():
+                runner = ProgramRoutineRunner()
+                done = await runner.next(context, routine, message)
+            case FunctionRoutine():
+                runner = FunctionRoutineRunner()
+                done = await runner.next(context, routine, message)
+
+        if done:
+            await context.routine_stack.pop()
+            # TODO: Manage return state for composition in parent steps.
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
