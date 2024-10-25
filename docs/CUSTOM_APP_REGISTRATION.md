@@ -32,10 +32,7 @@ Edit the following files with the new app registration details:
   - Copy the `.env.example` file to `.env`
   - Update the `VITE_SEMANTIC_WORKBENCH_CLIENT_ID` with the `Application (client) ID`
 
-- Semantic Workbench service: [config.py](../workbench-service/semantic_workbench_service/config.py)
+- Semantic Workbench service: [.env.example](../workbench-service/.env.example)
 
-  - Update the `AuthSettings.allowed_app_ids` with the `Application (client) ID`
-
-## TODO
-
-- [ ] Update the service config to allow app registration details to be passed in as environment variables
+  - Copy the `.env.example` file to `.env`
+  - Update the `WORKBENCH__AUTH__ALLOWED_APP_ID` with the `Application (client) ID`
