@@ -1718,6 +1718,7 @@ name = "skill-library"
 version = "0.1.0"
 source = { editable = "../skill-library" }
 dependencies = [
+    { name = "assistant-drive" },
     { name = "chat-driver" },
     { name = "context" },
     { name = "events" },
@@ -1732,6 +1733,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "assistant-drive", editable = "../../assistant-drive" },
     { name = "chat-driver", editable = "../../chat-driver" },
     { name = "context", editable = "../../context" },
     { name = "events", editable = "../../events" },
@@ -1742,6 +1744,13 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "requests", specifier = ">=2.32.0" },
     { name = "tiktoken", specifier = ">=0.7.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.23.8" },
+    { name = "pytest-repeat", specifier = ">=0.9.3" },
 ]
 
 [[package]]

@@ -10,9 +10,7 @@ class InstructionRoutineRunner:
     def __init__(self) -> None:
         pass
 
-    async def run(
-        self, context: RunContext, routine: InstructionRoutine, vars: dict[str, Any] | None = None
-    ) -> Any:
+    async def run(self, context: RunContext, routine: InstructionRoutine, vars: dict[str, Any] | None = None) -> Any:
         """
         Run an Instruction routine. This just runs through the steps of a
         routine, sending each one to a skill's response endpoint. Note, this

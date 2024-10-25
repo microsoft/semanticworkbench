@@ -27,7 +27,7 @@ class ContextProtocol(Protocol):
     # The emit function is used to send events to the event bus. The component
     # that creates this context object will be responsible for instantiating an
     # event bus and handling the events sent to it with this function.
-    emit: Optional[Callable[[EventProtocol], None]]
+    emit: Callable[[EventProtocol], None]
 
 
 class LogEmitter:
@@ -38,7 +38,7 @@ class LogEmitter:
         logging.info(event.to_json())
 
 
-class Context:
+class Context(ContextProtocol):
     """A default context object that implements the ContextProtocol. The context
     object that is passed to all components (functions, action, routines, etc.).
     The context object is used to pass information between these components,

@@ -24,9 +24,7 @@ class RunContext(ContextProtocol):
         session_id: str,
         assistant_drive: Drive,
         emit: Callable[[EventProtocol], None],
-        run_routine: Callable[
-            ["RunContext", str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]
-        ],
+        run_routine: Callable[["RunContext", str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]],
         drive_root: PathLike | None = None,
     ) -> None:
         # A session id is useful for maintaining consistent session state across all
@@ -48,7 +46,7 @@ class RunContext(ContextProtocol):
         # The emit function is used to send events to the event bus. The component
         # that creates this context object will be responsible for instantiating an
         # event bus and handling the events sent to it with this function.
-        self.emit = emit
+        self.emit = emit or LogEmitter().emit
 
         # A metadrive to be used for managing assistant metadata. This can be
         # useful for storing session data, logs, and other information that

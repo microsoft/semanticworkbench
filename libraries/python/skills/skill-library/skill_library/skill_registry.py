@@ -95,9 +95,7 @@ class SkillRegistry:
             return None
         return skill.get_routine(routine)
 
-    async def run_routine_by_name(
-        self, context: RunContext, name: str, vars: dict[str, Any] | None = None
-    ) -> Any:
+    async def run_routine_by_name(self, context: RunContext, name: str, vars: dict[str, Any] | None = None) -> Any:
         """
         Run an assistant routine by name (<skill_name>.<routine_name>).
         """
@@ -107,9 +105,7 @@ class SkillRegistry:
         response = await self.run_routine(context, routine, vars)
         return response
 
-    async def run_routine(
-        self, context: RunContext, routine: RoutineTypes, vars: dict[str, Any] | None = None
-    ) -> Any:
+    async def run_routine(self, context: RunContext, routine: RoutineTypes, vars: dict[str, Any] | None = None) -> Any:
         """
         Run an assistant routine. This is going to be much of the
         magic of the assistant. Currently, is just runs through the

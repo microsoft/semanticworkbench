@@ -1,4 +1,4 @@
-from chat_driver import ChatDriverConfig
+from chat_driver import ChatDriverConfig, ContextProtocol
 from context import Context
 from pydantic import BaseModel  # temp to have something to experiment with
 from skill_library import RoutineTypes, Skill
@@ -41,7 +41,7 @@ class DocumentSkillContext(Context):
 class DocumentSkill(Skill):
     def __init__(
         self,
-        context: Context,
+        context: ContextProtocol,
         chat_driver_config: ChatDriverConfig,
     ) -> None:
         self.document_skill_context: DocumentSkillContext = DocumentSkillContext()
@@ -97,6 +97,7 @@ class DocumentSkill(Skill):
             name="test_instruction_routine",
             description="Description of what the routine does.",
             routine=("test_action"),
+            skill=self,
         )
 
     def template_example_routine(self) -> ProgramRoutine:
@@ -107,6 +108,7 @@ class DocumentSkill(Skill):
             name="template_example_routine",
             description="Description of what the routine does.",
             program=("TBD"),
+            skill=self,
         )
 
     ##################################

@@ -147,7 +147,7 @@ class AssistantRegistry:
 
         # Define the skills this assistant should have.
         posix_skill = PosixSkill(
-            context=assistant.context,
+            context=assistant.run_context,
             sandbox_dir=Path(".data"),
             mount_dir="/mnt/data",
             chat_driver_config=ChatDriverConfig(
@@ -157,7 +157,7 @@ class AssistantRegistry:
         )
 
         document_skill = DocumentSkill(
-            context=assistant.context,
+            context=assistant.run_context,
             chat_driver_config=ChatDriverConfig(
                 openai_client=async_client,
                 model=chat_driver_config.openai_model,
