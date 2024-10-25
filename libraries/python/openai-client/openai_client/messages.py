@@ -5,8 +5,12 @@ from openai.types.chat import ChatCompletionMessageParam
 
 def truncate_messages_for_logging(
     messages: list[ChatCompletionMessageParam],
-    truncate_messages_for_roles: set[Literal["user", "system", "assistant", "tool", "function"]] = {"user"},
-    maximum_content_length: int = 200,
+    truncate_messages_for_roles: set[Literal["user", "system", "assistant", "tool", "function"]] = {
+        "user",
+        "system",
+        "assistant",
+    },
+    maximum_content_length: int = 500,
     filler_text: str = " ...truncated... ",
 ) -> list[dict]:
     """
