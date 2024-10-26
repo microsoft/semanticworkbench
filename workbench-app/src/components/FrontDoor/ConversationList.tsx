@@ -5,39 +5,47 @@ import {
     Input,
     Menu,
     MenuButtonProps,
+    MenuItem,
     MenuList,
     MenuPopover,
     MenuTrigger,
     Select,
     SplitButton,
     Text,
+    Tooltip,
     makeStyles,
     mergeClasses,
     tokens,
 } from '@fluentui/react-components';
-import { DismissRegular, FilterRegular } from '@fluentui/react-icons';
+import {
+    ArrowDownloadRegular,
+    DismissRegular,
+    EditRegular,
+    FilterRegular,
+    PlugDisconnectedRegular,
+    SaveCopyRegular,
+    ShareRegular,
+} from '@fluentui/react-icons';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { Conversation } from '../../models/Conversation';
 import { useAppSelector } from '../../redux/app/hooks';
-import { useGetConversationsQuery, useUpdateConversationMutation } from '../../services/workbench';
+import { useGetConversationsQuery } from '../../services/workbench';
 import { Loading } from '../App/Loading';
 import { PresenceMotionList } from '../App/PresenceMotionList';
-import { ConversationDuplicate } from '../Conversations/ConversationDuplicate';
-import { ConversationExport } from '../Conversations/ConversationExport';
-import { ConversationRemove } from '../Conversations/ConversationRemove';
-import { ConversationRename } from '../Conversations/ConversationRename';
-import { ConversationShare } from '../Conversations/ConversationShare';
+import { ConversationDuplicateDialog } from '../Conversations/ConversationDuplicate';
+import { useConversationExport } from '../Conversations/ConversationExport';
+import { ConversationRemoveDialog } from '../Conversations/ConversationRemove';
+import { ConversationRenameDialog } from '../Conversations/ConversationRename';
+import { ConversationShareDialog } from '../Conversations/ConversationShare';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.guess();
-
-const redirectPath = '/frontdoor/';
 
 const useClasses = makeStyles({
     conversationButton: {
@@ -54,27 +62,25 @@ export const ConversationList: React.FC = () => {
     const classes = useClasses();
     const { getUserId } = useLocalUserAccount();
     const { activeConversationId } = useAppSelector((state) => state.app);
-    const navigate = useNavigate();
+    const { navigateToConversation } = useConversationUtility();
     const {
         data: conversations,
         error: conversationsError,
         isLoading: conversationsLoading,
     } = useGetConversationsQuery();
-    const [updateConversation] = useUpdateConversationMutation();
     const [filter, setFilter] = React.useState<string>('');
     const [sortByName, setSortByName] = React.useState<boolean>(false);
+
+    const [renameConversation, setRenameConversation] = React.useState<Conversation>();
+    const { exportConversation } = useConversationExport();
+    const [duplicateConversation, setDuplicateConversation] = React.useState<Conversation>();
+    const [shareConversation, setShareConversation] = React.useState<Conversation>();
+    const [removeConversation, setRemoveConversation] = React.useState<Conversation>();
 
     if (conversationsError) {
         const errorMessage = JSON.stringify(conversationsError);
         throw new Error(`Error loading conversations: ${errorMessage}`);
     }
-
-    const handleConversationRename = React.useCallback(
-        async (id: string, newTitle: string) => {
-            await updateConversation({ id, title: newTitle });
-        },
-        [updateConversation],
-    );
 
     if (conversationsLoading) {
         return <Loading />;
@@ -120,7 +126,7 @@ export const ConversationList: React.FC = () => {
                                         classes.conversationButton,
                                         activeConversationId === conversation.id ? classes.active : '',
                                     ),
-                                    onClick: () => navigate([redirectPath, conversation.id].join('')),
+                                    onClick: () => navigateToConversation(conversation.id),
                                 }}
                             >
                                 {conversation.title}
@@ -129,17 +135,38 @@ export const ConversationList: React.FC = () => {
                     </MenuTrigger>
                     <MenuPopover>
                         <MenuList>
-                            <ConversationRename
+                            <MenuItem
+                                icon={<EditRegular />}
+                                onClick={() => setRenameConversation(conversation)}
                                 disabled={conversation.ownerId !== userId}
-                                id={conversation.id}
-                                value={conversation.title}
-                                onRename={handleConversationRename}
-                                asMenuItem
-                            />
-                            <ConversationExport conversationId={conversation.id} asMenuItem />
-                            <ConversationDuplicate conversation={conversation} asMenuItem />
-                            <ConversationShare conversation={conversation} asMenuItem />
-                            <ConversationRemove conversation={conversation} participantId={userId} asMenuItem />
+                            >
+                                Rename
+                            </MenuItem>
+                            <MenuItem
+                                icon={<ArrowDownloadRegular />}
+                                onClick={() => exportConversation(conversation.id)}
+                            >
+                                Export
+                            </MenuItem>
+                            <MenuItem icon={<SaveCopyRegular />} onClick={() => setDuplicateConversation(conversation)}>
+                                Duplicate
+                            </MenuItem>
+                            <MenuItem icon={<ShareRegular />} onClick={() => setShareConversation(conversation)}>
+                                Share
+                            </MenuItem>
+                            <MenuItem
+                                icon={<PlugDisconnectedRegular />}
+                                onClick={() => setRemoveConversation(conversation)}
+                                disabled={conversation.id === activeConversationId}
+                            >
+                                {conversation.id === activeConversationId ? (
+                                    <Tooltip content="Cannot remove currently active conversation" relationship="label">
+                                        <Text>Remove</Text>
+                                    </Tooltip>
+                                ) : (
+                                    'Remove'
+                                )}
+                            </MenuItem>
                         </MenuList>
                     </MenuPopover>
                 </Menu>
@@ -148,8 +175,41 @@ export const ConversationList: React.FC = () => {
 
     return (
         <>
+            {renameConversation && (
+                <ConversationRenameDialog
+                    id={renameConversation.id}
+                    value={renameConversation.title}
+                    onRename={async () => setRenameConversation(undefined)}
+                    onCancel={() => setRenameConversation(undefined)}
+                />
+            )}
+            {duplicateConversation && (
+                <ConversationDuplicateDialog
+                    id={duplicateConversation.id}
+                    onDuplicate={(id) => navigateToConversation(id)}
+                    onCancel={() => setDuplicateConversation(undefined)}
+                />
+            )}
+            {shareConversation && (
+                <ConversationShareDialog
+                    conversation={shareConversation}
+                    onClose={() => setShareConversation(undefined)}
+                />
+            )}
+            {removeConversation && (
+                <ConversationRemoveDialog
+                    conversationId={removeConversation.id}
+                    participantId={userId}
+                    onRemove={() => {
+                        if (activeConversationId === removeConversation.id) {
+                            navigateToConversation(undefined);
+                        }
+                        setRemoveConversation(undefined);
+                    }}
+                    onCancel={() => setRemoveConversation(undefined)}
+                />
+            )}
             <Text weight="semibold">Conversations</Text>
-
             <Input
                 contentBefore={<FilterRegular />}
                 contentAfter={

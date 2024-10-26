@@ -65,10 +65,10 @@ export const AssistantConfigure: React.FC<AssistantConfigureProps> = (props) => 
                     </div>
                 ),
                 closeLabel: 'Close',
-            }}
-            classNames={{
-                dialogSurface: classes.dialogSurface,
-                dialogContent: classes.dialogContent,
+                classNames: {
+                    dialogSurface: classes.dialogSurface,
+                    dialogContent: classes.dialogContent,
+                },
             }}
         />
     );

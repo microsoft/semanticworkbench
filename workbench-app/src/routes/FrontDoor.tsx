@@ -12,6 +12,9 @@ import { useAppSelector } from '../redux/app/hooks';
 import { setActiveConversationId } from '../redux/features/app/appSlice';
 
 const useClasses = makeStyles({
+    documentBody: {
+        backgroundColor: `rgba(0, 0, 0, 0.1)`,
+    },
     root: {
         position: 'relative',
         display: 'flex',
@@ -29,6 +32,7 @@ const useClasses = makeStyles({
         flex: '0 0 auto',
         overflow: 'hidden',
         backgroundColor: tokens.colorNeutralBackground2,
+        ...shorthands.borderRight(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
         ...shorthands.transition('width', tokens.durationSlow, '0', tokens.curveEasyEase),
 
         '&.open': {
@@ -39,7 +43,7 @@ const useClasses = makeStyles({
             position: 'absolute',
             zIndex: tokens.zIndexFloating,
             height: '100%',
-            ...shorthands.borderRight(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
+            borderRight: 'none',
             boxShadow: tokens.shadow8Brand,
         },
     },
@@ -80,6 +84,13 @@ export const FrontDoor: React.FC = () => {
     const [sideRailLeftOverlay, setSideRailLeftOverlay] = React.useState(false);
     const [isInitialized, setIsInitialized] = React.useState(false);
     const sideRailLeftRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        document.body.className = classes.documentBody;
+        return () => {
+            document.body.className = '';
+        };
+    }, [classes.documentBody]);
 
     React.useEffect(() => {
         if (conversationId && conversationId !== activeConversationId) {

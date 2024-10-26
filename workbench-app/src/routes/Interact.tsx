@@ -20,7 +20,6 @@ import {
     useGetConversationFilesQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
-    useUpdateConversationMutation,
 } from '../services/workbench';
 
 const useClasses = makeStyles({
@@ -98,7 +97,6 @@ export const Interact: React.FC = () => {
         error: conversationFilesError,
         isLoading: isLoadingConversationFiles,
     } = useGetConversationFilesQuery(conversationId);
-    const [updateConversation] = useUpdateConversationMutation();
     const { getUserId } = useLocalUserAccount();
     const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilitiesSet(
         assistants ?? [],
@@ -146,13 +144,6 @@ export const Interact: React.FC = () => {
             siteUtility.setDocumentTitle(conversation.title);
         }
     }, [conversation, conversationParticipants, siteUtility]);
-
-    const handleConversationRename = React.useCallback(
-        async (id: string, newTitle: string) => {
-            await updateConversation({ id, title: newTitle });
-        },
-        [updateConversation],
-    );
 
     const conversationAssistants = React.useMemo(() => {
         const results: Assistant[] = [];
@@ -217,7 +208,6 @@ export const Interact: React.FC = () => {
                         id={conversation.id}
                         value={conversation.title}
                         disabled={conversation.ownerId !== userId}
-                        onRename={handleConversationRename}
                         iconOnly
                     />
                     <Title3>{conversation.title}</Title3>

@@ -8,7 +8,7 @@ import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 
 const useClasses = makeStyles({
-    body: {
+    documentBody: {
         backgroundImage: `url('/assets/background-1.jpg')`,
     },
     root: {
@@ -52,11 +52,11 @@ export const AppView: React.FC<AppViewProps> = (props) => {
     const navigate = useNavigate();
 
     React.useLayoutEffect(() => {
-        document.body.className = classes.body;
+        document.body.className = classes.documentBody;
         return () => {
             document.body.className = '';
         };
-    }, [classes.body]);
+    }, [classes.documentBody]);
 
     React.useEffect(() => {
         if (!completedFirstRun?.app && window.location.pathname !== '/terms') {

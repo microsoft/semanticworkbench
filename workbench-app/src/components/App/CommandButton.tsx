@@ -1,48 +1,21 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    Button,
-    ButtonProps,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
-    DialogOpenChangeData,
-    DialogOpenChangeEvent,
-    DialogSurface,
-    DialogTitle,
-    DialogTrigger,
-    MenuItem,
-    ToolbarButton,
-    Tooltip,
-} from '@fluentui/react-components';
+import { Button, ButtonProps, ToolbarButton, Tooltip } from '@fluentui/react-components';
 import React from 'react';
+import { DialogControl, DialogControlContent } from './DialogControl';
 
 type CommandButtonProps = ButtonProps & {
-    trigger?: React.ReactElement;
     label?: string;
     description?: string;
     onClick?: () => void;
-    dialogContent?: {
-        title: string;
-        content: React.ReactNode;
-        closeLabel?: string;
-        additionalActions?: React.ReactElement[];
-        onOpenChange?: (event: DialogOpenChangeEvent, data: DialogOpenChangeData) => void;
-    };
+    dialogContent?: DialogControlContent;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
-    asMenuItem?: boolean;
-    classNames?: {
-        dialogSurface?: string;
-        dialogContent?: string;
-    };
 };
 
 export const CommandButton: React.FC<CommandButtonProps> = (props) => {
     const {
         as,
-        trigger,
         disabled,
         icon,
         label,
@@ -51,23 +24,21 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
         dialogContent,
         iconOnly,
         asToolbarButton,
-        asMenuItem,
         appearance,
         size,
-        classNames,
     } = props;
 
     let commandButton = null;
 
-    if (trigger && dialogContent) {
+    if (dialogContent?.trigger) {
         if (description) {
             commandButton = (
                 <Tooltip content={description} relationship="label">
-                    {trigger}
+                    {dialogContent.trigger}
                 </Tooltip>
             );
         } else {
-            commandButton = trigger;
+            commandButton = dialogContent.trigger;
         }
     } else if (iconOnly) {
         if (description) {
@@ -84,12 +55,6 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
             <ToolbarButton disabled={disabled} icon={icon} onClick={onClick}>
                 {label}
             </ToolbarButton>
-        );
-    } else if (asMenuItem) {
-        commandButton = (
-            <MenuItem disabled={disabled} icon={icon} onClick={onClick}>
-                {label}
-            </MenuItem>
         );
     } else {
         commandButton = (
@@ -111,22 +76,14 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
     }
 
     return (
-        <Dialog onOpenChange={dialogContent.onOpenChange}>
-            <DialogTrigger>{commandButton}</DialogTrigger>
-            <DialogSurface className={classNames?.dialogSurface}>
-                <DialogBody>
-                    <DialogTitle>{dialogContent?.title}</DialogTitle>
-                    <DialogContent className={classNames?.dialogContent}>{dialogContent?.content}</DialogContent>
-                    <DialogActions>
-                        <DialogTrigger>
-                            <Button>{dialogContent.closeLabel ?? 'Close'}</Button>
-                        </DialogTrigger>
-                        {dialogContent?.additionalActions?.map((action, index) => (
-                            <DialogTrigger key={index}>{action}</DialogTrigger>
-                        ))}
-                    </DialogActions>
-                </DialogBody>
-            </DialogSurface>
-        </Dialog>
+        <DialogControl
+            trigger={commandButton}
+            classNames={dialogContent.classNames}
+            title={dialogContent.title}
+            content={dialogContent.content}
+            closeLabel={dialogContent.closeLabel}
+            additionalActions={dialogContent.additionalActions}
+            onOpenChange={dialogContent.onOpenChange}
+        />
     );
 };

@@ -3,15 +3,8 @@
 import { generateUuid } from '@azure/ms-rest-js';
 import {
     Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
-    DialogSurface,
-    DialogTitle,
-    DialogTrigger,
     Field,
     Input,
     makeStyles,
@@ -21,6 +14,7 @@ import React from 'react';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
 import { ConversationDefinition, WorkflowDefinition, WorkflowState } from '../../models/WorkflowDefinition';
 import { useCreateWorkflowDefinitionMutation } from '../../services/workbench/workflow';
+import { DialogControl } from '../App/DialogControl';
 
 const useClasses = makeStyles({
     dialogContent: {
@@ -110,40 +104,37 @@ export const WorkflowCreate: React.FC<WorkflowCreateProps> = (props) => {
     );
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogSurface>
+        <DialogControl
+            open={open}
+            onOpenChange={handleOpenChange}
+            classNames={{
+                dialogContent: classes.dialogContent,
+            }}
+            title="New Workflow"
+            content={
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
                         handleSave();
                     }}
                 >
-                    <DialogBody>
-                        <DialogTitle>New Workflow</DialogTitle>
-                        <DialogContent className={classes.dialogContent}>
-                            <Field label="Label">
-                                <Input
-                                    disabled={submitted}
-                                    value={label}
-                                    onChange={(_event, data) => setLabel(data.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
-                            <button disabled={submitted} type="submit" hidden />
-                        </DialogContent>
-                        <DialogActions>
-                            <DialogTrigger disableButtonEnhancement>
-                                <Button appearance="secondary">Cancel</Button>
-                            </DialogTrigger>
-                            <DialogTrigger>
-                                <Button disabled={!label || submitted} appearance="primary" onClick={handleSave}>
-                                    {submitted ? 'Saving...' : 'Save'}
-                                </Button>
-                            </DialogTrigger>
-                        </DialogActions>
-                    </DialogBody>
+                    <Field label="Label">
+                        <Input
+                            disabled={submitted}
+                            value={label}
+                            onChange={(_event, data) => setLabel(data.value)}
+                            aria-autocomplete="none"
+                        />
+                    </Field>
+                    <button disabled={submitted} type="submit" hidden />
                 </form>
-            </DialogSurface>
-        </Dialog>
+            }
+            closeLabel="Cancel"
+            additionalActions={[
+                <Button key="save" disabled={!label || submitted} appearance="primary" onClick={handleSave}>
+                    {submitted ? 'Saving...' : 'Save'}
+                </Button>,
+            ]}
+        />
     );
 };

@@ -1,17 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { generateUuid } from '@azure/ms-rest-js';
-import {
-    Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
-    DialogSurface,
-    DialogTitle,
-    DialogTrigger,
-    makeStyles,
-} from '@fluentui/react-components';
+import { Button, DialogTrigger, makeStyles } from '@fluentui/react-components';
 import React from 'react';
 import ReactFlow, {
     Background,
@@ -39,6 +29,7 @@ import {
     WorkflowDefinition,
     WorkflowState,
 } from '../../../models/WorkflowDefinition';
+import { DialogControl } from '../../App/DialogControl';
 import { WorkflowStateNode, WorkflowStateNodeData } from './WorkflowStateNode';
 
 const useClasses = makeStyles({
@@ -446,24 +437,21 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = (props) => {
 
     return (
         <div className={classes.canvas} ref={reactFlowWrapper}>
-            <Dialog open={showConfirmDelete} onOpenChange={() => setShowConfigDelete(false)}>
-                <DialogSurface>
-                    <DialogBody>
-                        <DialogTitle>Confirm Delete</DialogTitle>
-                        <DialogContent>
-                            <p>Are you sure you want to delete these items?</p>
-                        </DialogContent>
-                        <DialogActions>
-                            <DialogTrigger>
-                                <Button>Cancel</Button>
-                            </DialogTrigger>
-                            <DialogTrigger>
-                                <Button onClick={onDelete}>Delete</Button>
-                            </DialogTrigger>
-                        </DialogActions>
-                    </DialogBody>
-                </DialogSurface>
-            </Dialog>
+            <DialogControl
+                open={showConfirmDelete}
+                onOpenChange={() => setShowConfigDelete(false)}
+                trigger={<Button content="Delete" />}
+                title="Delete"
+                content="Are you sure you want to delete the selected items?"
+                closeLabel="Cancel"
+                additionalActions={[
+                    <DialogTrigger key="delete">
+                        <Button appearance="primary" onClick={onDelete}>
+                            Delete
+                        </Button>
+                    </DialogTrigger>,
+                ]}
+            />
             <ReactFlow
                 onSelectionChange={handleSelectionChange}
                 nodeTypes={nodeTypes}

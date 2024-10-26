@@ -13,7 +13,9 @@ import {
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
 } from '../../../services/workbench';
+import { ErrorList } from '../../App/ErrorList';
 import { Loading } from '../../App/Loading';
+import { ConversationShare } from '../../Conversations/ConversationShare';
 import { InteractHistory } from '../../Conversations/InteractHistory';
 import { InteractInput } from '../../Conversations/InteractInput';
 import { ChatCanvas } from './ChatCanvas';
@@ -87,6 +89,10 @@ const useClasses = makeStyles({
         // do not use flexbox here, it breaks the virtuoso
         width: '100%',
         maxWidth: '800px',
+    },
+    historyRoot: {
+        paddingTop: tokens.spacingVerticalXXXL,
+        boxSizing: 'border-box',
     },
     input: {
         flex: '0 0 auto',
@@ -219,7 +225,9 @@ export const Chat: React.FC<ChatProps> = (props) => {
         <div className={classes.root}>
             <div className={classes.header}>
                 <div className={`${classes.headerControls} before`}>{headerBefore}</div>
+                <ErrorList />
                 <div className={`${classes.headerControls} after`}>
+                    <ConversationShare iconOnly conversation={conversation} />
                     <ChatControls conversationId={conversation.id} />
                     {headerAfter}
                 </div>
@@ -228,6 +236,7 @@ export const Chat: React.FC<ChatProps> = (props) => {
                 <div className={classes.history}>
                     <div className={classes.historyContent}>
                         <InteractHistory
+                            className={classes.historyRoot}
                             readOnly={readOnly}
                             conversation={conversation}
                             participants={conversationParticipants}

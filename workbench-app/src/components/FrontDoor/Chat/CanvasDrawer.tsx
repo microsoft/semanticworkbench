@@ -9,11 +9,18 @@ const useClasses = makeStyles({
         overflow: 'hidden',
         backgroundColor: tokens.colorNeutralBackground1,
         zIndex: tokens.zIndexContent,
-        boxShadow: tokens.shadow8Brand,
         display: 'flex',
         flexDirection: 'column',
         paddingTop: tokens.spacingVerticalXXL,
         boxSizing: 'border-box',
+
+        '&.left': {
+            ...shorthands.borderRight(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
+        },
+
+        '&.right': {
+            ...shorthands.borderLeft(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
+        },
     },
     drawerTitle: {
         flexShrink: 0,
@@ -62,7 +69,7 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = (props) => {
     return (
         <div
             style={drawerStyle}
-            className={mergeClasses(className, open ? openClassName : '', classes.drawerContainer)}
+            className={mergeClasses(className, open ? openClassName : '', classes.drawerContainer, side || 'left')}
         >
             <div className={classes.drawerTitle}>{titleContent}</div>
             <div className={classes.drawerContent}>{children}</div>

@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { makeStyles, tokens } from '@fluentui/react-components';
+import { makeStyles, MessageBar, MessageBarBody, MessageBarTitle, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppMenu } from '../components/App/AppMenu';
 import { AppView } from '../components/App/AppView';
 import { ExperimentalNotice } from '../components/App/ExperimentalNotice';
@@ -10,6 +10,7 @@ import { Loading } from '../components/App/Loading';
 import { MyAssistants } from '../components/Assistants/MyAssistants';
 import { MyConversations } from '../components/Conversations/MyConversations';
 import { MyWorkflows } from '../components/Workflows/MyWorkflows';
+import { Constants } from '../Constants';
 import { useLocalUserAccount } from '../libs/useLocalUserAccount';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Conversation } from '../models/Conversation';
@@ -21,6 +22,11 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalXXXL,
+    },
+    messageBars: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalS,
     },
 });
 
@@ -82,7 +88,16 @@ export const Dashboard: React.FC = () => {
     return (
         <AppView title="Dashboard" actions={{ items: [appMenuAction], replaceExisting: true }}>
             <div className={classes.root}>
-                <ExperimentalNotice />
+                <div className={classes.messageBars}>
+                    <ExperimentalNotice />
+                    <MessageBar intent="info" layout="multiline">
+                        <MessageBarBody>
+                            <MessageBarTitle>New Feature</MessageBarTitle>
+                            Try out the new conversation-first UX. &nbsp;
+                            <Link to={Constants.app.conversationRedirectPath}>[view]</Link>
+                        </MessageBarBody>
+                    </MessageBar>
+                </div>
                 <MyAssistants assistants={assistants} />
                 <MyConversations
                     conversations={myConversations}

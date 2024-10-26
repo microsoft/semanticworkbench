@@ -4,6 +4,7 @@ import { makeStyles, shorthands, Title3, tokens } from '@fluentui/react-componen
 import React from 'react';
 import { useAppSelector } from '../../redux/app/hooks';
 import { Chat } from './Chat/Chat';
+import { useCreateConversationControls } from './Controls/useCreateConversationControls';
 
 const useClasses = makeStyles({
     root: {
@@ -19,13 +20,18 @@ const useClasses = makeStyles({
         justifyContent: 'space-between',
         ...shorthands.padding(tokens.spacingVerticalS, tokens.spacingHorizontalM),
     },
-    content: {
+    body: {
         flex: '1 1 auto',
-        overflow: 'auto',
-        padding: tokens.spacingHorizontalM,
+        display: 'flex',
+        justifyContent: 'center',
+    },
+    content: {
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalM,
+        width: '100%',
+        maxWidth: '550px',
+        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
     },
 });
 
@@ -37,6 +43,7 @@ interface MainContentProps {
 export const MainContent: React.FC<MainContentProps> = (props) => {
     const { headerBefore, headerAfter } = props;
     const { activeConversationId } = useAppSelector((state) => state.app);
+    const { createConversationForm, createConversationSubmitButton } = useCreateConversationControls();
     const classes = useClasses();
 
     if (activeConversationId) {
@@ -53,8 +60,12 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                         {headerBefore}
                         {headerAfter}
                     </div>
-                    <div className={classes.content}>
-                        <Title3>Select or create a new conversation</Title3>
+                    <div className={classes.body}>
+                        <div className={classes.content}>
+                            <Title3>Create a new conversation with an assistant</Title3>
+                            {createConversationForm()}
+                            <div>{createConversationSubmitButton()}</div>
+                        </div>
                     </div>
                 </>
             )}

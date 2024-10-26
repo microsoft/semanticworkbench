@@ -1,19 +1,11 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { useAccount } from '@azure/msal-react';
-import {
-    Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
-    DialogSurface,
-    DialogTitle,
-    DialogTrigger,
-} from '@fluentui/react-components';
+import { Button, DialogTrigger } from '@fluentui/react-components';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
+import { DialogControl } from '../components/App/DialogControl';
 import { Loading } from '../components/App/Loading';
 import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
 import { useSiteUtility } from '../libs/useSiteUtility';
@@ -145,20 +137,14 @@ export const ShareRedeem: React.FC = () => {
             const { dialogTitle, dialogContent, dialogActions, dismissLabel } = options;
             return (
                 <AppView title={title}>
-                    <Dialog open={true}>
-                        <DialogSurface>
-                            <DialogBody>
-                                {dialogTitle && <DialogTitle>{dialogTitle}</DialogTitle>}
-                                {dialogContent && <DialogContent>{dialogContent}</DialogContent>}
-                                <DialogActions>
-                                    <DialogTrigger>
-                                        <Button onClick={handleDismiss}>{dismissLabel ?? 'Cancel'}</Button>
-                                    </DialogTrigger>
-                                    {dialogActions}
-                                </DialogActions>
-                            </DialogBody>
-                        </DialogSurface>
-                    </Dialog>
+                    <DialogControl
+                        open={true}
+                        onOpenChange={handleDismiss}
+                        title={dialogTitle}
+                        content={dialogContent}
+                        closeLabel={dismissLabel ?? 'Close'}
+                        additionalActions={dialogActions ? [dialogActions] : undefined}
+                    />
                 </AppView>
             );
         },

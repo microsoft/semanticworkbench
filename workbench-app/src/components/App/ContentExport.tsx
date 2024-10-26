@@ -10,21 +10,10 @@ interface ContentExportProps {
     exportFunction: (id: string) => Promise<{ blob: Blob; filename: string }>;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
-    asMenuItem?: boolean;
 }
 
 export const ContentExport: React.FC<ContentExportProps> = (props) => {
-    const { id, contentTypeLabel, exportFunction, iconOnly, asToolbarButton, asMenuItem } = props;
-
-    const exportContent = async () => {
-        const { blob, filename } = await exportFunction(id);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
+    const { id, contentTypeLabel, exportFunction, iconOnly, asToolbarButton } = props;
 
     return (
         <CommandButton
@@ -32,9 +21,21 @@ export const ContentExport: React.FC<ContentExportProps> = (props) => {
             icon={<ArrowDownload24Regular />}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
-            asMenuItem={asMenuItem}
             label="Export"
-            onClick={exportContent}
+            onClick={() => exportContent(id, exportFunction)}
         />
     );
+};
+
+export const exportContent = async (
+    id: string,
+    exportFunction: (id: string) => Promise<{ blob: Blob; filename: string }>,
+) => {
+    const { blob, filename } = await exportFunction(id);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
 };
