@@ -8,13 +8,6 @@ import {
     AccordionPanel,
     Button,
     Card,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
-    DialogSurface,
-    DialogTitle,
-    DialogTrigger,
     Field,
     Input,
     Textarea,
@@ -36,6 +29,7 @@ import { Constants } from '../../../Constants';
 import { WorkflowDefinition } from '../../../models/WorkflowDefinition';
 import { CommandButton } from '../../App/CommandButton';
 import { CopyButton } from '../../App/CopyButton';
+import { DialogControl } from '../../App/DialogControl';
 import { LabelWithDescription } from '../../App/LabelWithDescription';
 
 const useClasses = makeStyles({
@@ -304,21 +298,13 @@ export const WorkflowStateOutlets: React.FC<WorkflowStateOutletsProps> = (props)
                 <Tooltip content="Paste an outlet from the clipboard" relationship="description">
                     <Button icon={<ClipboardPasteRegular />} onClick={handlePasteOutlet} />
                 </Tooltip>
-                <Dialog open={!!pasteError} onOpenChange={() => setPasteError(undefined)}>
-                    <DialogSurface>
-                        <DialogBody>
-                            <DialogTitle>Error Pasting Outlet</DialogTitle>
-                            <DialogContent>
-                                <p>{pasteError}</p>
-                            </DialogContent>
-                            <DialogActions>
-                                <DialogTrigger disableButtonEnhancement>
-                                    <Button appearance="secondary">Close</Button>
-                                </DialogTrigger>
-                            </DialogActions>
-                        </DialogBody>
-                    </DialogSurface>
-                </Dialog>
+                <DialogControl
+                    open={!!pasteError}
+                    onOpenChange={() => setPasteError(undefined)}
+                    title="Error Pasting Outlet"
+                    content={<p>{pasteError}</p>}
+                    closeLabel="Close"
+                />
             </div>
             <Accordion collapsible>
                 {stateToEdit.outlets.map((outlet, index) => (

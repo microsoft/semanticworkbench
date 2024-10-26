@@ -95,6 +95,7 @@ const transformResponseToConversation = (response: any): Conversation => {
             id: response.id,
             ownerId: response.owner_id,
             title: response.title,
+            created: response.created_datetime,
             metadata: response.metadata,
             conversationPermission: response.conversation_permission,
             importedFromConversationId: response.imported_from_conversation_id,

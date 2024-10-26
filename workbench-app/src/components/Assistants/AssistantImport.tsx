@@ -8,13 +8,14 @@ import { CommandButton } from '../App/CommandButton';
 interface AssistantImportProps {
     disabled?: boolean;
     iconOnly?: boolean;
+    label?: string;
     asToolbarButton?: boolean;
     onImport?: (result: { assistantIds: string[]; conversationIds: string[] }) => void;
     onError?: (error: Error) => void;
 }
 
 export const AssistantImport: React.FC<AssistantImportProps> = (props) => {
-    const { disabled, iconOnly, asToolbarButton, onImport, onError } = props;
+    const { disabled, iconOnly, label, asToolbarButton, onImport, onError } = props;
     const [uploading, setUploading] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const workbenchService = useWorkbenchService();
@@ -50,7 +51,7 @@ export const AssistantImport: React.FC<AssistantImportProps> = (props) => {
                 icon={<ArrowUpload24Regular />}
                 iconOnly={iconOnly}
                 asToolbarButton={asToolbarButton}
-                label="Import"
+                label={label ?? 'Import'}
                 onClick={onUpload}
             />
         </div>

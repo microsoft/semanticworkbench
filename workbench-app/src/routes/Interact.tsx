@@ -20,7 +20,6 @@ import {
     useGetConversationFilesQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
-    useUpdateConversationMutation,
 } from '../services/workbench';
 
 const useClasses = makeStyles({
@@ -98,9 +97,10 @@ export const Interact: React.FC = () => {
         error: conversationFilesError,
         isLoading: isLoadingConversationFiles,
     } = useGetConversationFilesQuery(conversationId);
-    const [updateConversation] = useUpdateConversationMutation();
     const { getUserId } = useLocalUserAccount();
-    const assistantCapabilities = useGetAssistantCapabilitiesSet(assistants ?? []);
+    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilitiesSet(
+        assistants ?? [],
+    );
 
     const siteUtility = useSiteUtility();
 
@@ -145,13 +145,6 @@ export const Interact: React.FC = () => {
         }
     }, [conversation, conversationParticipants, siteUtility]);
 
-    const handleConversationRename = React.useCallback(
-        async (id: string, newTitle: string) => {
-            await updateConversation({ id, title: newTitle });
-        },
-        [updateConversation],
-    );
-
     const conversationAssistants = React.useMemo(() => {
         const results: Assistant[] = [];
 
@@ -186,6 +179,7 @@ export const Interact: React.FC = () => {
         isLoadingConversation ||
         isLoadingConversationParticipants ||
         isLoadingConversationFiles ||
+        isFetchingAssistantCapabilities ||
         !assistants ||
         !assistantCapabilities ||
         !conversation ||
@@ -214,7 +208,7 @@ export const Interact: React.FC = () => {
                         id={conversation.id}
                         value={conversation.title}
                         disabled={conversation.ownerId !== userId}
-                        onRename={handleConversationRename}
+                        iconOnly
                     />
                     <Title3>{conversation.title}</Title3>
                 </div>

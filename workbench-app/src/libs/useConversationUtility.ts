@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom';
+import { Constants } from '../Constants';
 import { ConversationShare } from '../models/ConversationShare';
 
 // Share types to be used in the app.
@@ -9,6 +11,16 @@ export const enum ConversationShareType {
 }
 
 export const useConversationUtility = () => {
+    const navigate = useNavigate();
+
+    // region Navigation
+
+    const navigateToConversation = (conversationId?: string) => {
+        navigate([Constants.app.conversationRedirectPath, conversationId].join('/'));
+    };
+
+    // endregion
+
     // region Conversation Shares
     //
     // This region contains logic for handling conversation shares, including determining the share type
@@ -67,6 +79,7 @@ export const useConversationUtility = () => {
     // add more conversation related utility functions here, separated by region if applicable
 
     return {
+        navigateToConversation,
         getShareTypeMetadata,
         getShareType,
         getShareLink,

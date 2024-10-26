@@ -68,7 +68,6 @@ export const ApplyConfigButton: React.FC<ApplyConfigButtonProps> = (props) => {
                 disabled={diffCount === 0}
                 description="Apply configuration"
                 label={title}
-                classNames={{ dialogSurface: classes.dialogSurface, dialogContent: classes.dialogContent }}
                 dialogContent={{
                     title,
                     content: (
@@ -102,6 +101,7 @@ export const ApplyConfigButton: React.FC<ApplyConfigButtonProps> = (props) => {
                             </Button>
                         </DialogTrigger>,
                     ],
+                    classNames: { dialogSurface: classes.dialogSurface, dialogContent: classes.dialogContent },
                 }}
             />
         </>

@@ -17,4 +17,5 @@ export interface AppState {
     };
     chatWidthPercent: number;
     interactCanvasState?: InteractCanvasState;
+    activeConversationId?: string;
 }

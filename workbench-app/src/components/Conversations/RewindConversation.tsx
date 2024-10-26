@@ -74,11 +74,11 @@ export const RewindConversation: React.FC<RewindConversationProps> = (props) => 
     return (
         <CommandButton
             disabled={disabled || isLoadingMessages}
-            trigger={<Button appearance="subtle" icon={<RewindRegular />} size="small" />}
             description="Rewind conversation to before this message, with optional redo."
             icon={<RewindRegular />}
             iconOnly={true}
             dialogContent={{
+                trigger: <Button appearance="subtle" icon={<RewindRegular />} size="small" />,
                 title: 'Rewind Conversation',
                 content: (
                     <>

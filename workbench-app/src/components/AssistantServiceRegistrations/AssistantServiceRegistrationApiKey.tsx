@@ -1,21 +1,9 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
-    DialogSurface,
-    DialogTitle,
-    Field,
-    Input,
-    Text,
-    makeStyles,
-    tokens,
-} from '@fluentui/react-components';
+import { Button, Field, Input, Text, makeStyles, tokens } from '@fluentui/react-components';
 import { Copy24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { DialogControl } from '../App/DialogControl';
 
 const useClasses = makeStyles({
     dialogContent: {
@@ -63,39 +51,33 @@ export const AssistantServiceRegistrationApiKey: React.FC<AssistantServiceRegist
     }, [apiKey, copiedTimeout]);
 
     return (
-        <Dialog open={true} onOpenChange={onClose}>
-            <DialogSurface>
-                <DialogBody>
-                    <DialogTitle>Assistant Service Registration API Key</DialogTitle>
-                    <DialogContent className={classes.dialogContent}>
-                        <Field>
-                            <Input
-                                ref={inputRef}
-                                value={apiKey}
-                                readOnly
-                                contentAfter={
-                                    <div className={classes.row}>
-                                        {copiedTimeout && <Text>Copied to clipboard!</Text>}
-                                        <Button
-                                            appearance="transparent"
-                                            icon={<Copy24Regular />}
-                                            onClick={handleCopy}
-                                        />
-                                    </div>
-                                }
-                            />
-                        </Field>
-                        <Text>
-                            Make sure to copy the API key before closing this dialog, as it will not be displayed again.
-                        </Text>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button appearance="primary" onClick={onClose}>
-                            Close
-                        </Button>
-                    </DialogActions>
-                </DialogBody>
-            </DialogSurface>
-        </Dialog>
+        <DialogControl
+            open={true}
+            classNames={{
+                dialogContent: classes.dialogContent,
+            }}
+            title="Assistant Service Registration API Key"
+            content={
+                <>
+                    <Field>
+                        <Input
+                            ref={inputRef}
+                            value={apiKey}
+                            readOnly
+                            contentAfter={
+                                <div className={classes.row}>
+                                    {copiedTimeout && <Text>Copied to clipboard!</Text>}
+                                    <Button appearance="transparent" icon={<Copy24Regular />} onClick={handleCopy} />
+                                </div>
+                            }
+                        />
+                    </Field>
+                    <Text>
+                        Make sure to copy the API key before closing this dialog, as it will not be displayed again.
+                    </Text>
+                </>
+            }
+            onOpenChange={onClose}
+        />
     );
 };

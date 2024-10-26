@@ -8,6 +8,7 @@ import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAddConversationParticipantMutation, useCreateConversationMessageMutation } from '../../services/workbench';
 import { AssistantAdd } from '../Assistants/AssistantAdd';
+import { AssistantConfigure } from '../Assistants/AssistantConfigure';
 import { AssistantRemove } from '../Assistants/AssistantRemove';
 
 const useClasses = makeStyles({
@@ -21,6 +22,11 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+    },
+    actions: {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: tokens.spacingHorizontalS,
     },
 });
 
@@ -88,11 +94,17 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
                         }
                     />
                     {participant.role === 'assistant' && (
-                        <AssistantRemove
-                            conversation={conversation}
-                            participant={participant}
-                            disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
-                        />
+                        <div className={classes.actions}>
+                            <AssistantConfigure
+                                assistantId={participant.id}
+                                disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
+                            />
+                            <AssistantRemove
+                                conversation={conversation}
+                                participant={participant}
+                                disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
+                            />
+                        </div>
                     )}
                 </div>
             ))}

@@ -152,7 +152,9 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoading: isLoadingParticipants,
         error: participantsError,
     } = useGetConversationParticipantsQuery(conversationId, { refetchOnMountOrArgChange: true });
-    const assistantCapabilities = useGetAssistantCapabilitiesSet(workflowRunAssistants ?? []);
+    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilitiesSet(
+        workflowRunAssistants ?? [],
+    );
 
     const [isResizing, setIsResizing] = React.useState(false);
     const siteUtility = useSiteUtility();
@@ -240,6 +242,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoadingWorkflowRunAssistants ||
         isLoadingConversation ||
         isLoadingParticipants ||
+        isFetchingAssistantCapabilities ||
         !assistantCapabilities ||
         !conversation ||
         !participants ||
