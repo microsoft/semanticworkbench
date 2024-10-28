@@ -117,8 +117,8 @@ export const Chat: React.FC<ChatProps> = (props) => {
     const {
         data: conversation,
         error: conversationError,
-        isFetching: conversationIsFetching,
-    } = useGetConversationQuery(conversationId);
+        isLoading: conversationIsLoading,
+    } = useGetConversationQuery(conversationId, { refetchOnMountOrArgChange: true });
     const {
         data: conversationParticipants,
         error: conversationParticipantsError,
@@ -190,7 +190,7 @@ export const Chat: React.FC<ChatProps> = (props) => {
     }, [assistants, conversationParticipants, assistantsRefetch]);
 
     if (
-        conversationIsFetching ||
+        conversationIsLoading ||
         conversationParticipantsIsLoading ||
         assistantsIsLoading ||
         conversationFilesIsLoading ||
