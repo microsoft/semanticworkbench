@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -45,25 +45,33 @@ const useClasses = makeStyles({
         zIndex: tokens.zIndexOverlay,
         display: 'flex',
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
         backgroundImage: `linear-gradient(to bottom, ${tokens.colorNeutralBackground1}, ${tokens.colorNeutralBackground1}, transparent, transparent)`,
         ...shorthands.padding(tokens.spacingVerticalS, tokens.spacingHorizontalM, tokens.spacingVerticalXXXL),
     },
     headerControls: {
+        position: 'relative',
         pointerEvents: 'auto',
         display: 'flex',
         flexDirection: 'row',
-        alignItems: 'center',
         gap: tokens.spacingHorizontalM,
+        flex: '1 1 auto',
 
         '&.before': {
             left: 0,
+            flex: '0 0 auto',
         },
 
         '&.after': {
             right: 0,
+            flex: '0 0 auto',
         },
+    },
+    errorList: {
+        position: 'absolute',
+        top: 0,
+        left: tokens.spacingHorizontalM,
+        right: tokens.spacingHorizontalM,
     },
     content: {
         flex: '1 1 auto',
@@ -224,9 +232,11 @@ export const Chat: React.FC<ChatProps> = (props) => {
     return (
         <div className={classes.root}>
             <div className={classes.header}>
-                <div className={`${classes.headerControls} before`}>{headerBefore}</div>
-                <ErrorList />
-                <div className={`${classes.headerControls} after`}>
+                <div className={mergeClasses(classes.headerControls, 'before')}>{headerBefore}</div>
+                <div className={classes.headerControls}>
+                    <ErrorList className={classes.errorList} />
+                </div>
+                <div className={mergeClasses(classes.headerControls, 'after')}>
                     <ConversationShare iconOnly conversation={conversation} />
                     <ChatControls conversationId={conversation.id} />
                     {headerAfter}
