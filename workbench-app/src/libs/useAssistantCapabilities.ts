@@ -5,7 +5,7 @@ import { useWorkbenchService } from './useWorkbenchService';
 
 export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
     const [isFetching, setIsFetching] = React.useState<boolean>(false);
-    const [assistantCapabilities, setAssistantCapabilities] = React.useState<Set<AssistantCapability> | undefined>();
+    const [assistantCapabilities, setAssistantCapabilities] = React.useState(new Set<AssistantCapability>());
     const workbenchService = useWorkbenchService();
 
     // Build a memo-ized set of all capabilities to be used as a default for assistants that do not

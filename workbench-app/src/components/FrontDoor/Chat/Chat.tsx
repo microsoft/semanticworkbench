@@ -219,10 +219,6 @@ export const Chat: React.FC<ChatProps> = (props) => {
         throw new Error(`Assistants (${conversationId}) not found`);
     }
 
-    if (!assistantCapabilities) {
-        throw new Error(`Assistant capabilities (${conversationId}) not found`);
-    }
-
     if (!conversationFiles) {
         throw new Error(`Conversation files (${conversationId}) not found`);
     }
