@@ -147,6 +147,7 @@ def conversation_participant_list_from_db(
 
 def conversation_from_db(
     model: db.Conversation,
+    latest_message: db.ConversationMessage | None,
     permission: str,
 ) -> Conversation:
     return Conversation(
@@ -157,14 +158,22 @@ def conversation_from_db(
         metadata=model.meta_data,
         created_datetime=model.created_datetime,
         conversation_permission=ConversationPermission(permission),
+        latest_message=conversation_message_from_db(model=latest_message) if latest_message else None,
     )
 
 
 def conversation_list_from_db(
-    models: Iterable[db.Conversation], permissions: Mapping[uuid.UUID, str]
+    models: Iterable[tuple[db.Conversation, db.ConversationMessage | None, str]],
 ) -> ConversationList:
     return ConversationList(
-        conversations=[conversation_from_db(model=m, permission=permissions[m.conversation_id]) for m in models]
+        conversations=[
+            conversation_from_db(
+                model=conversation,
+                latest_message=latest_message,
+                permission=permission,
+            )
+            for conversation, latest_message, permission in models
+        ]
     )
 
 
