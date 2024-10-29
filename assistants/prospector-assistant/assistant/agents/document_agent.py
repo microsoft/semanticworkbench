@@ -29,8 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 #
-# re
+# region state, mode, and steps
 #
+
+
 class Status(StrEnum):
     UNDEFINED = "undefined"
     NOT_COMPLETED = "not_completed"
@@ -139,24 +141,24 @@ class Mode(BaseModel):
             return True
         return False  # UNDEFINED, USER_EXIT_EARLY, USER_COMPLETED
 
+    def set_step(self, step: Step) -> None:
+        self.current_step = step
+
+    def get_step(self) -> Step:
+        return self.current_step
+
     def set_step_order(self, steps: list[StepName]) -> None:
         self.step_order = steps
 
     def get_step_order(self) -> list[StepName]:
         return self.step_order
 
-    def set_current_step(self, step: Step) -> None:
-        self.current_step = step
-
-    def get_current_step(self) -> Step:
-        return self.current_step
-
     def get_next_step(self) -> Step | None:
         steps = self.step_order
         if len(steps) == 0:
             return None
 
-        current_step = self.get_current_step()
+        current_step = self.get_step()
         current_step_name = current_step.get_name()
         if current_step_name is steps[-1]:
             return None  # on final step
@@ -172,6 +174,55 @@ class Mode(BaseModel):
 class State(BaseModel):
     mode: Mode = Mode()
 
+    def set_mode(self, mode) -> None:
+        self.mode = mode
+
+
+@staticmethod
+def _get_document_agent_conversation_storage_path(context: ConversationContext, filename: str | None = None) -> Path:
+    """
+    Get the path to the directory for storing files.
+    """
+    path = storage_directory_for_context(context) / "document_agent"
+    if filename:
+        path /= filename
+    return path
+
+
+@staticmethod
+def _write_document_agent_conversation_state(context: ConversationContext, state_dict: dict) -> None:
+    """
+    Write the state to a file.
+    """
+    json_data = json.dumps(state_dict)
+    path = _get_document_agent_conversation_storage_path(context)
+    if not path.exists():
+        path.mkdir(parents=True)
+    path = path / "state.json"
+    path.write_text(json_data)
+
+
+@staticmethod
+def _read_document_agent_conversation_state(context: ConversationContext) -> dict | None:
+    """
+    Read the state from a file.
+    """
+    path = _get_document_agent_conversation_storage_path(context, "state.json")
+    if path.exists():
+        try:
+            json_data = path.read_text()
+            return json.loads(json_data)
+        except Exception:
+            pass
+    return None
+
+
+# endregion
+
+#
+# region document agent
+#
+
 
 class DocumentAgent:
     """
@@ -179,31 +230,40 @@ class DocumentAgent:
     """
 
     def __init__(self, attachments_extension: AttachmentsExtension) -> None:
-        self.attachments_extension = attachments_extension
-        self._commands = [self.set_mode_draft_outline]
-        self._mode_to_method: dict[ModeName, Callable] = {
-            ModeName.DRAFT_OUTLINE: self._mode_draft_outline,
-        }
-        self._step_to_method: dict[StepName, Callable] = {
-            StepName.DO_GC_ATTACHMENT_CHECK: self._step_gc_attachment_check,
-            StepName.DO_DRAFT_OUTLINE: self._step_draft_outline,
-            StepName.DO_GC_GET_OUTLINE_FEEDBACK: self._step_gc_get_outline_feedback,
-            StepName.DO_FINAL_OUTLINE: self._step_final_outline,
-        }
+        self._attachments_extension: AttachmentsExtension = attachments_extension
+        self._state: State | None = None
+        self._commands: list[Callable] = [self._set_mode_draft_outline]
+        self._mode_name_to_method: dict[ModeName, Callable] = {ModeName.DRAFT_OUTLINE: self._mode_draft_outline}
+        self._step_name_to_method: dict[StepName, Callable] = {}  # To be defined in mode method
 
     @property
     def commands(self) -> list[Callable]:
         return self._commands
 
-    def get_mode_method(self, mode: Mode | None) -> Callable | None:
+    def _write_state(self, context: ConversationContext) -> None:
+        if self._state is None:
+            logger.error("Document Agent: local state is None. Cannot write to storage.")
+            return
+        _write_document_agent_conversation_state(context, self._state.model_dump())
+
+    def _read_state(self, context: ConversationContext) -> State:
+        state_dict = _read_document_agent_conversation_state(context)
+        if state_dict is not None:
+            state = State(**state_dict)
+        else:
+            logger.info("Document Agent: no state found in storage. Returning a new state.")
+            state = State()
+        return state
+
+    def _get_mode_method(self, mode: Mode | None) -> Callable | None:
         if mode is None or mode.name is ModeName.UNDEFINED:
             return None
-        return self._mode_to_method.get(mode.name)
+        return self._mode_name_to_method.get(mode.name)
 
-    def get_step_method(self, step: Step | None) -> Callable | None:
+    def _get_step_method(self, step: Step | None) -> Callable | None:
         if step is None or step.name is StepName.UNDEFINED:
             return None
-        return self._step_to_method.get(step.name)
+        return self._step_name_to_method.get(step.name)
 
     async def receive_command(
         self,
@@ -212,6 +272,8 @@ class DocumentAgent:
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
     ) -> None:
+        self._state = self._read_state(context)
+
         # remove initial "/". This is not intuitive to me.
         msg_command_name = message.command_name
         msg_command_name = msg_command_name.replace("/", "")
@@ -220,12 +282,33 @@ class DocumentAgent:
         command_found = False
         for command in self.commands:
             if command.__name__ == msg_command_name:
-                logger.info(f"Found command {message.command_name}")
+                logger.info("Found command %s", message.command_name)
                 command_found = True
                 command(config, context, message, metadata)  # does not handle command with args or async commands
                 break
         if not command_found:
-            logger.warning(f"Could not find command {message.command_name}")
+            logger.warning("Could not find command %s", message.command_name)
+
+    def _set_mode_draft_outline(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> None:
+        # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return
+
+        mode = self._state.mode
+        if mode.is_running():
+            logger.warning("Document Agent already in mode: %s. Cannot change modes.", mode.get_name())
+            return
+
+        # Run
+        self._state.mode = Mode(name=ModeName.DRAFT_OUTLINE, status=Status.NOT_COMPLETED)
+        self._write_state(context)
 
     async def respond_to_conversation(
         self,
@@ -234,81 +317,130 @@ class DocumentAgent:
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
     ) -> bool:
-        # Retrieve Document Agent conversation state
-        state = _get_state(context)
-        mode = state.mode
-        mode_name = mode.get_name()
-        mode_status = mode.get_status()
+        self._state = self._read_state(context)
 
         # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return False
+
+        mode = self._state.mode
         if not mode.is_running():
             logger.warning(
                 "Document Agent must be running in a mode to respond. Current mode: %s and status: %s",
-                mode_name,
-                mode_status,
+                mode.get_name(),
+                mode.get_status(),
             )
             return mode.is_running()
 
         # Run
-        match mode_name:
-            case ModeName.DRAFT_OUTLINE:
-                mode_method = self.get_mode_method(mode)
-                if mode_method:
-                    logger.info(f"Document Agent in mode: {mode_name}")
-                    mode_status = await mode_method(config, context, message, metadata)
-                    if mode_status is Status.UNDEFINED:
-                        logger.error(
-                            "Calling corresponding mode method for %s resulted in status %s. Resetting mode.",
-                            mode_name,
-                            mode_status,
-                        )
-                        mode.reset()
-                else:
-                    logger.error(
-                        "Document Agent failed to find a corresponding mode method for %s. Resetting mode.", mode_name
-                    )
-                    mode.reset()
-            case _:
-                logger.error("Document Agent failed to find a corresponding mode for %s. Resetting mode.", mode_name)
-                mode.reset()
+        logger.info("Document Agent in mode %s", mode.get_name())
+        mode_method = self._get_mode_method(mode)
+        if mode_method:
+            mode_status = await mode_method(config, context, message, metadata)
+            self._state.mode.set_status(mode_status)
+            if mode_status is Status.UNDEFINED:
+                logger.error(
+                    "Calling corresponding mode method for %s resulted in status %s. Resetting mode.",
+                    mode.get_name(),
+                    mode_status,
+                )
+                self._state.mode.reset()
+        else:
+            logger.error(
+                "Document Agent failed to find a corresponding mode method for %s. Resetting mode.", mode.get_name()
+            )
+            self._state.mode.reset()
 
         # Update Document Agent conversation state
-        _set_state(context, state)
-
-        return mode.is_running()
-
-    def set_mode_draft_outline(
-        self,
-        config: AssistantConfigModel,
-        context: ConversationContext,
-        message: ConversationMessage,
-        metadata: dict[str, Any] = {},
-    ) -> None:
-        # Retrieve Document Agent conversation state
-        state = _get_state(context)
-        mode_name = state.mode.get_name()
-
-        # Pre-requisites
-        if state.mode.is_running():
-            logger.warning("Document Agent already in mode: %s. Cannot change modes.", mode_name)
-            return
-
-        # Run
-        state.mode = Mode(name=ModeName.DRAFT_OUTLINE, status=Status.NOT_COMPLETED)
-
-        # Update Document Agent conversation state
-        _set_state(context, state)
+        self._write_state(context)
+        return self._state.mode.is_running()
 
     # endregion
 
     #
     # region mode and step methods
     #
+    async def _run_mode(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> Status:
+        # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return Status.UNDEFINED
 
-    # For somewhere... will need to handle scenario that a step is considered "complete", but it is due to the user wanting to exit.
-    # This is particularly true for GC steps. This may involve needing to change some of the GC code return values to understand
-    # "WHY" the gc is considered complete.  This is valid for any of the steps.  So a RESULT (of a results reason enum) or something like that.
-    # not just a boolean for if completed or not.
+        # Run
+        mode = self._state.mode
+        mode_name = mode.get_name()
+
+        step = self._state.mode.get_step()
+        step_name = step.get_name()
+        step_status = step.get_status()
+
+        if step_name is StepName.UNDEFINED:
+            logger.info("Document Agent mode (%s) at beginning.", mode_name)
+            first_step_name = mode.get_step_order()[0]
+            self._state.mode.set_step(Step(name=first_step_name, status=Status.NOT_COMPLETED))
+            self._write_state(context)
+
+            step = self._state.mode.get_step()
+            step_name = step.get_name()
+            step_status = step.get_status()
+
+        while step_status is Status.NOT_COMPLETED:
+            step_method = self._get_step_method(step)
+            if step_method:
+                logger.info("Document Agent in step: %s", step_name)
+                step_status = await step_method(config, context, message, metadata)
+
+                match step_status:
+                    case Status.UNDEFINED:
+                        logger.error(
+                            "Calling corresponding step method for %s resulted in status %s. Resetting mode %s.",
+                            step_name,
+                            step_status,
+                            mode_name,
+                        )
+                        self._state.mode.reset()
+                        break  # problem
+
+                    case Status.NOT_COMPLETED:
+                        self._state.mode.get_step().set_status(step_status)
+                        break  # ok - get more user input
+
+                    case Status.USER_COMPLETED:
+                        next_step = self._state.mode.get_next_step()
+                        if next_step is not None:
+                            step = next_step
+                            step_name = next_step.get_name()
+                            step_status = next_step.get_status()
+                            self._state.mode.set_step(next_step)
+                            continue  # ok - don't need user input yet
+                        else:
+                            self._state.mode.get_step().set_status(step_status)
+                            self._state.mode.set_status(step_status)
+                            break  # ok - all done :)
+
+                    case Status.USER_EXIT_EARLY:
+                        self._state.mode.get_step().set_status(step_status)
+                        self._state.mode.set_status(step_status)
+                        break  # ok - done early :)
+            else:
+                logger.error(
+                    "Document Agent failed to find a corresponding step method for %s. Resetting mode %s.",
+                    step_name,
+                    mode_name,
+                )
+                self._state.mode.reset()
+                break
+
+        # Update Document Agent conversation state
+        self._write_state(context)
+        return self._state.mode.get_status()
 
     async def _mode_draft_outline(
         self,
@@ -317,13 +449,15 @@ class DocumentAgent:
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
     ) -> Status:
-        # Retrieve Document Agent conversation state
-        state = _get_state(context)
-        mode = state.mode
+        # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return Status.UNDEFINED
+
+        mode = self._state.mode
         mode_name = mode.get_name()
         mode_status = mode.get_status()
 
-        # Pre-requisites
         if mode_name is not ModeName.DRAFT_OUTLINE or mode_status is not Status.NOT_COMPLETED:
             logger.error(
                 "Document Agent state mode: %s, mode called: %s, state mode completion status: %s. Resetting Mode.",
@@ -331,15 +465,12 @@ class DocumentAgent:
                 ModeName.DRAFT_OUTLINE,
                 mode_status,
             )
-            mode.reset()
-            _set_state(context, state)
-            return mode.get_status()
+            self._state.mode.reset()
+            self._write_state(context)
+            return self._state.mode.get_status()
 
-        # Setup - Would like to do this earlier/separately at some point... here for now
-        # Or, perhaps this is what the mode function should only be doing, and there is a separate
-        # general "run the mode" function ... because the logic would be the same for each mode method, calling
-        # the separate step methods.
-        mode.set_step_order(
+        # Setup
+        self._state.mode.set_step_order(
             [
                 StepName.DO_GC_ATTACHMENT_CHECK,
                 StepName.DO_DRAFT_OUTLINE,
@@ -347,157 +478,110 @@ class DocumentAgent:
                 StepName.DO_FINAL_OUTLINE,
             ],
         )
-        _set_state(context, state)
+        self._write_state(context)
+
+        self._step_name_to_method: dict[StepName, Callable] = {
+            StepName.DO_GC_ATTACHMENT_CHECK: self._step_gc_attachment_check,
+            StepName.DO_DRAFT_OUTLINE: self._step_draft_outline,
+            StepName.DO_GC_GET_OUTLINE_FEEDBACK: self._step_gc_get_outline_feedback,
+            StepName.DO_FINAL_OUTLINE: self._step_final_outline,
+        }
 
         # Run
-        step = mode.get_current_step()
-        step_name = step.get_name()
-        step_status = step.get_status()
-
-        if step_name is StepName.UNDEFINED:
-            logger.info("Document Agent mode (%s) at beginning.", mode_name)
-            first_step_name = mode.get_step_order()[0]
-            mode.set_current_step(Step(name=first_step_name, status=Status.NOT_COMPLETED))
-            _set_state(context, state)
-
-            step = mode.get_current_step()
-            step_name = step.get_name()
-            step_status = step.get_status()
-
-        while step_status is Status.NOT_COMPLETED:
-            step_method = self.get_step_method(step)
-            if step_method:
-                logger.info(f"Document Agent in step: {step_name}")
-                step_status = await step_method(state, config, context, message, metadata)
-
-                match step_status:
-                    case Status.UNDEFINED:
-                        logger.error(
-                            "Calling corresponding step method for %s resulted in status %s. Resetting mode.",
-                            step_name,
-                            step_status,
-                        )
-                        mode.reset()
-                        break  # problem
-
-                    case Status.NOT_COMPLETED:
-                        step.set_status(step_status)
-                        break  # ok - get more user input
-
-                    case Status.USER_COMPLETED:
-                        next_step = mode.get_next_step()
-                        if next_step is not None:
-                            step = next_step
-                            mode.set_current_step(step)
-                            _set_state(context, state)
-                            step_name = step.get_name()
-                            step_status = step.get_status()
-                            continue  # ok - don't need user input yet
-                        else:
-                            step.set_status(step_status)
-                            mode.set_status(step_status)
-                            break  # ok - all done :)
-
-                    case Status.USER_EXIT_EARLY:
-                        step.set_status(step_status)
-                        mode.set_status(step_status)
-                        break  # ok - done early :)
-            else:
-                logger.error(
-                    "Document Agent failed to find a corresponding step method for %s. Resetting mode.",
-                    step_name,
-                )
-                mode.reset()
-                break
-
-        _set_state(context, state)
-        return mode.get_status()
+        return await self._run_mode(config, context, message, metadata)
 
     async def _step_gc_attachment_check(
         self,
-        state: State,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> None:
+    ) -> Status:
         # Pre-requisites
-        current_step_name = _get_current_step_name(state)
-        is_completed = _get_current_step_completed(state)
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return Status.UNDEFINED
 
-        if current_step_name is not StepEnum.DO_GC_ATTACHMENT_CHECK or is_completed:
+        step = self._state.mode.get_step()
+        step_name = step.get_name()
+        step_status = step.get_status()
+
+        # Pre-requisites
+        step_called = StepName.DO_GC_ATTACHMENT_CHECK
+        if step_name is not step_called or step_status is not Status.NOT_COMPLETED:
             logger.error(
-                "Document Agent state step: %s, step called: %s, state step completion status: %s",
-                "None" if current_step_name is None else current_step_name,
-                StepEnum.DO_GC_ATTACHMENT_CHECK,
-                is_completed,
+                "Document Agent state step: %s, step called: %s, state step completion status: %s. Resetting Mode.",
+                step_name,
+                step_called,
+                step_status,
             )
-            _reset_mode(state)  # For right now, we bail.
-            _set_state(context, state)
-
-        logger.info(f"Document Agent running current step: {StepEnum.DO_GC_ATTACHMENT_CHECK}")
+            self._state.mode.reset()
+            self._write_state(context)
+            return self._state.mode.get_status()
 
         # Run
-        is_completed = await self._gc_respond_to_conversation(config, gc_config, message, context, metadata)
-        _set_current_step_completed(state, is_completed)
-        _set_state(context, state)
-
-        if is_completed:
-            await self._call_next_step(state, config, context, message, metadata)
+        logger.info("Document Agent running step: %s", step_name)
+        status = await self._gc_respond_to_conversation(config, gc_config, context, message, metadata)
+        step.set_status(status)
+        self._state.mode.set_step(step)
+        self._write_state(context)
+        return step.get_status()
 
     async def _step_draft_outline(
         self,
-        state: State,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> None:
+    ) -> Status:
         # Pre-requisites
-        current_step_name = _get_current_step_name(state)
-        is_completed = _get_current_step_completed(state)
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return Status.UNDEFINED
 
-        if current_step_name is not StepEnum.DO_DRAFT_OUTLINE or is_completed:
+        step = self._state.mode.get_step()
+        step_name = step.get_name()
+        step_status = step.get_status()
+
+        step_called = StepName.DO_DRAFT_OUTLINE
+        if step_name is not step_called or step_status is not Status.NOT_COMPLETED:
             logger.error(
-                "Document Agent state step: %s, step called: %s, state step completion status: %s",
-                "None" if current_step_name is None else current_step_name,
-                StepEnum.DO_DRAFT_OUTLINE,
-                is_completed,
+                "Document Agent state step: %s, step called: %s, state step completion status: %s. Resetting Mode.",
+                step_name,
+                step_called,
+                step_status,
             )
-            _reset_mode(state)  # For right now, we bail.
-            _set_state(context, state)
-
-        logger.info(f"Document Agent running current step: {StepEnum.DO_DRAFT_OUTLINE}")
+            self._state.mode.reset()
+            self._write_state(context)
+            return self._state.mode.get_status()
 
         # Run
-        is_completed = await self._draft_outline(config, context, message, metadata)
-        _set_current_step_completed(state, is_completed)
-        _set_state(context, state)
-
-        if is_completed:
-            await self._call_next_step(state, config, context, message, metadata)
+        logger.info("Document Agent running step: %s", step_name)
+        status = await self._draft_outline(config, context, message, metadata)
+        step.set_status(status)
+        self._state.mode.set_step(step)
+        self._write_state(context)
+        return step.get_status()
 
     async def _step_gc_get_outline_feedback(
         self,
-        state: State,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> None:
+    ) -> Status:
         # pretend completed
-        return
+        return Status.USER_COMPLETED
 
     async def _step_final_outline(
         self,
-        state: State,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> None:
+    ) -> Status:
         # pretend completed
-        return
+        return Status.USER_COMPLETED
 
     # endregion
 
@@ -509,10 +593,10 @@ class DocumentAgent:
         self,
         config: AssistantConfigModel,
         gc_config: GuidedConversationAgentConfigModel,
-        message: ConversationMessage,
         context: ConversationContext,
+        message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> bool:
+    ) -> Status:
         method_metadata_key = "document_agent_gc_response"
         is_conversation_over = False
 
@@ -524,8 +608,8 @@ class DocumentAgent:
                 conversation_context=context,
                 last_user_message=message.content,
             )
-            if is_conversation_over:
-                return is_conversation_over  # Do not send the hard-coded response message from gc
+            if is_conversation_over:  # need to get info from gc on if user-ended early or actually completed
+                return Status.USER_COMPLETED  # Do not send the hard-coded response message from gc
 
             if response_message is None:
                 # need to double check this^^ None logic, when it would occur in GC. Make "" for now.
@@ -568,7 +652,7 @@ class DocumentAgent:
         # Need to add a good way to stop mode if an exception occurs.
         # Also need to update the gc state turn count to 0 (and any thing else that needs to be reset) once conversation is over... or exception occurs?)
 
-        return is_conversation_over
+        return Status.NOT_COMPLETED
 
     async def _draft_outline(
         self,
@@ -576,7 +660,7 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> bool:
+    ) -> Status:
         method_metadata_key = "draft_outline"
 
         # get conversation related info
@@ -586,7 +670,7 @@ class DocumentAgent:
         participants_list = await context.get_participants(include_inactive=True)
 
         # get attachments related info
-        attachment_messages = await self.attachments_extension.get_completion_messages_for_attachments(
+        attachment_messages = await self._attachments_extension.get_completion_messages_for_attachments(
             context, config=config.agents_config.attachment_agent
         )
 
@@ -641,7 +725,7 @@ class DocumentAgent:
             )
         )
 
-        return True
+        return Status.USER_COMPLETED
 
 
 # endregion
@@ -650,56 +734,6 @@ class DocumentAgent:
 #
 # region Helpers
 #
-
-
-def _get_state(context: ConversationContext) -> State:
-    state_dict = _read_document_agent_conversation_state(context)
-    if state_dict is not None:
-        state = State(**state_dict)
-    else:
-        logger.info("Document Agent: no state found. Creating new state.")
-        state = State()
-    return state
-
-
-def _set_state(context: ConversationContext, state: State) -> None:
-    _write_document_agent_conversation_state(context, state.model_dump())
-
-
-def _get_document_agent_conversation_storage_path(context: ConversationContext, filename: str | None = None) -> Path:
-    """
-    Get the path to the directory for storing files.
-    """
-    path = storage_directory_for_context(context) / "document_agent"
-    if filename:
-        path /= filename
-    return path
-
-
-def _write_document_agent_conversation_state(context: ConversationContext, state: dict) -> None:
-    """
-    Write the state to a file.
-    """
-    json_data = json.dumps(state)
-    path = _get_document_agent_conversation_storage_path(context)
-    if not path.exists():
-        path.mkdir(parents=True)
-    path = path / "state.json"
-    path.write_text(json_data)
-
-
-def _read_document_agent_conversation_state(context: ConversationContext) -> dict | None:
-    """
-    Read the state from a file.
-    """
-    path = _get_document_agent_conversation_storage_path(context, "state.json")
-    if path.exists():
-        try:
-            json_data = path.read_text()
-            return json.loads(json_data)
-        except Exception:
-            pass
-    return None
 
 
 def _main_system_message() -> ChatCompletionSystemMessageParam:
