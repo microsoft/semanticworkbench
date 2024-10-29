@@ -78,6 +78,9 @@ class ConversationContext:
                 workbench_model.UpdateParticipant(status=revert_to_status)
             )
 
+    async def get_conversation(self) -> workbench_model.Conversation:
+        return await self._workbench_client.get_conversation()
+
     async def get_participants(self, include_inactive=False) -> workbench_model.ConversationParticipantList:
         return await self._workbench_client.get_participants(include_inactive=include_inactive)
 

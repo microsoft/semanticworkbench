@@ -32,11 +32,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.agents.form_fill_agent.agent import FormFillAgentStateInspector
-
+from . import legacy
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
-from .agents.form_fill_agent import FormFillAgent, FormFillAgentConfig
+from .agents.form_fill_agent import FormFillAgent, FormFillAgentConfig, FormFillAgentStateInspector
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -104,6 +103,15 @@ app = assistant.fastapi_app()
 # - @assistant.events.conversation.message.on_created (event triggered when a new message of any type is created)
 # - @assistant.events.conversation.message.chat.on_created (event triggered when a new chat message is created)
 #
+
+
+@assistant.events.conversation.message.on_created
+async def on_message_created(
+    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
+) -> None:
+    await legacy.provide_guidance_if_necessary(context)
+
+
 is_doc_agent_running = False
 
 
@@ -123,7 +131,7 @@ async def on_command_message_created(
 
 
 @assistant.events.conversation.message.chat.on_created
-async def on_message_created(
+async def on_chat_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     """
