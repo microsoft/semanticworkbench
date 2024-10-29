@@ -98,6 +98,7 @@ class Conversation(BaseModel):
     metadata: dict[str, Any]
     created_datetime: datetime.datetime
     conversation_permission: ConversationPermission
+    latest_message: ConversationMessage | None
 
 
 class ConversationList(BaseModel):
