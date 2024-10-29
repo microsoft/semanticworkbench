@@ -121,15 +121,6 @@ def select_conversation_projections_for(
     include_all_owned: bool = False,
     include_observer: bool = False,
 ) -> Select[tuple[db.Conversation, db.ConversationMessage | None, str]]:
-    latest_message_subquery = (
-        select(
-            db.ConversationMessage.conversation_id,
-            func.max(db.ConversationMessage.sequence).label("latest_message_sequence"),
-        )
-        .group_by(col(db.ConversationMessage.conversation_id))
-        .subquery()
-    )
-
     match principal:
         case auth.UserPrincipal():
             select_query = select(
@@ -150,6 +141,15 @@ def select_conversation_projections_for(
         include_all_owned=include_all_owned,
         include_observer=include_observer,
         select_query=select_query,
+    )
+
+    latest_message_subquery = (
+        select(
+            db.ConversationMessage.conversation_id,
+            func.max(db.ConversationMessage.sequence).label("latest_message_sequence"),
+        )
+        .group_by(col(db.ConversationMessage.conversation_id))
+        .subquery()
     )
 
     return query.join_from(
