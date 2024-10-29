@@ -233,6 +233,9 @@ class AssistantCapability(StrEnum):
     supports_conversation_files = "supports_conversation_files"
     """Advertise support for awareness of files in the conversation."""
 
+    supports_artifacts = "supports_artifacts"
+    """Advertise support for artifacts in the conversation."""
+
 
 class AssistantAppProtocol(Protocol):
     @property

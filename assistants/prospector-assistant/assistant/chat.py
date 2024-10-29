@@ -550,7 +550,7 @@ async def respond_to_conversation(
 
         # check if the completion total tokens exceed the warning threshold
         if completion_total_tokens > token_count_for_warning:
-            content = f"{config.high_token_usage_warning.message}\n\n" f"Total tokens used: {completion_total_tokens}"
+            content = f"{config.high_token_usage_warning.message}\n\nTotal tokens used: {completion_total_tokens}"
 
             # send a notice message to the conversation that the token usage is high
             await context.send_messages(
