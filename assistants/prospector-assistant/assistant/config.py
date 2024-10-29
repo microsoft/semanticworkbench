@@ -168,10 +168,8 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = (
-        'Hello! I am a "co-intelligence" assistant that can help you synthesize information from conversations and'
-        " documents to create a shared understanding of complex topics. Let's get started by having a conversation!"
-        " You can also attach .docx, text, and image files to your chat messages to help me better understand the"
-        " context of our conversation. Where would you like to start?"
+        'Hello! I am a "form-filling" assistant that can help you fill out forms.'
+        " Upload a .docx with a form, and we'll get started!"
     )
 
     high_token_usage_warning: Annotated[
