@@ -5,9 +5,10 @@
 # This assistant helps you mine ideas from artifacts.
 #
 
+import asyncio
 import logging
 import re
-from typing import Any
+from typing import Any, Sequence
 
 import deepmerge
 import openai_client
@@ -31,8 +32,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from . import legacy
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
+from .agents.form_fill_agent import FormFillAgent, FormFillAgentConfig, FormFillAgentStateInspector
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -71,6 +74,7 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": ArtifactConversationInspectorStateProvider(assistant_config),
+        "form_fill_agent": FormFillAgentStateInspector(),
     },
 )
 
@@ -99,6 +103,15 @@ app = assistant.fastapi_app()
 # - @assistant.events.conversation.message.on_created (event triggered when a new message of any type is created)
 # - @assistant.events.conversation.message.chat.on_created (event triggered when a new chat message is created)
 #
+
+
+@assistant.events.conversation.message.on_created
+async def on_message_created(
+    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
+) -> None:
+    await legacy.provide_guidance_if_necessary(context)
+
+
 is_doc_agent_running = False
 
 
@@ -118,7 +131,7 @@ async def on_command_message_created(
 
 
 @assistant.events.conversation.message.chat.on_created
-async def on_message_created(
+async def on_chat_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     """
@@ -154,8 +167,39 @@ async def on_message_created(
             is_doc_agent_running = await document_agent_respond_to_conversation(config, context, message, metadata)
             return
 
-        # Prospector assistant response
-        await respond_to_conversation(context, config, message, metadata)
+        try:
+            await FormFillAgent.step(
+                config=FormFillAgentConfig(
+                    openai_client=openai_client.create_client(config.service_config),
+                    openai_model=config.request_config.openai_model,
+                    max_response_tokens=config.request_config.response_tokens,
+                ),
+                context=context,
+                latest_user_message=message.content,
+                get_attachment_messages=form_fill_agent_get_attachments(context, config),
+            )
+
+        except Exception as e:
+            await context.send_messages(
+                NewConversationMessage(content=f"An error occurred: {e}", message_type=MessageType.notice)
+            )
+
+        # # Prospector assistant response
+        # await respond_to_conversation(context, config, message, metadata)
+
+
+def form_fill_agent_get_attachments(context: ConversationContext, config: AssistantConfigModel):
+    async def get(filenames: Sequence[str]):
+        return await attachments_extension.get_completion_messages_for_attachments(
+            context,
+            config.agents_config.attachment_agent,
+            include_filenames=list(filenames),
+        )
+
+    return get
+
+
+background_tasks: set[asyncio.Task] = set()
 
 
 @assistant.events.conversation.on_created
@@ -170,15 +214,40 @@ async def on_conversation_created(context: ConversationContext) -> None:
         return
 
     # send a welcome message to the conversation
+    # welcome_message = config.welcome_message
+    # await context.send_messages(
+    #     NewConversationMessage(
+    #         content=welcome_message,
+    #         message_type=MessageType.chat,
+    #         metadata={"generated_content": False},
+    #     )
+    # )
+
+    task = asyncio.create_task(welcome_message(context))
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.remove)
+
+
+async def welcome_message(context: ConversationContext) -> None:
     config = await assistant_config.get(context.assistant)
-    welcome_message = config.welcome_message
-    await context.send_messages(
-        NewConversationMessage(
-            content=welcome_message,
-            message_type=MessageType.chat,
-            metadata={"generated_content": False},
-        )
-    )
+
+    async with context.set_status_for_block("thinking..."):
+        try:
+            await FormFillAgent.step(
+                config=FormFillAgentConfig(
+                    openai_client=openai_client.create_client(config.service_config),
+                    openai_model=config.request_config.openai_model,
+                    max_response_tokens=config.request_config.response_tokens,
+                ),
+                context=context,
+                latest_user_message=None,
+                get_attachment_messages=form_fill_agent_get_attachments(context, config),
+            )
+
+        except Exception as e:
+            await context.send_messages(
+                NewConversationMessage(content=f"An error occurred: {e}", message_type=MessageType.notice)
+            )
 
 
 # endregion

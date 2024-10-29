@@ -122,7 +122,7 @@ class AttachmentsExtension:
         self,
         context: ConversationContext,
         config: AttachmentsConfigModel,
-        include_filenames: list[str] = [],
+        include_filenames: list[str] | None = None,
         exclude_filenames: list[str] = [],
     ) -> Sequence[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam]:
         """
@@ -201,8 +201,8 @@ class AttachmentsExtension:
 async def _get_attachments(
     context: ConversationContext,
     error_handler: AttachmentProcessingErrorHandler,
-    include_filenames: list[str] = [],
-    exclude_filenames: list[str] = [],
+    include_filenames: list[str] | None,
+    exclude_filenames: list[str],
 ) -> Sequence[Attachment]:
     """
     Gets all attachments for the current state of the conversation, updating the cache as needed.
@@ -214,7 +214,7 @@ async def _get_attachments(
     attachments = []
     # for all files, get the attachment
     for file in files_response.files:
-        if include_filenames and file.filename not in include_filenames:
+        if include_filenames is not None and file.filename not in include_filenames:
             continue
         if file.filename in exclude_filenames:
             continue
