@@ -95,7 +95,7 @@ export const ApplyConfigButton: React.FC<ApplyConfigButtonProps> = (props) => {
                     ),
                     closeLabel: 'Cancel',
                     additionalActions: [
-                        <DialogTrigger key="apply">
+                        <DialogTrigger key="apply" disableButtonEnhancement>
                             <Button appearance="primary" onClick={handleApply}>
                                 Confirm
                             </Button>

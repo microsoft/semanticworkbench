@@ -5,6 +5,7 @@ import {
     Button,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
+    DialogTrigger,
     Field,
     Input,
     makeStyles,
@@ -131,9 +132,11 @@ export const WorkflowCreate: React.FC<WorkflowCreateProps> = (props) => {
             }
             closeLabel="Cancel"
             additionalActions={[
-                <Button key="save" disabled={!label || submitted} appearance="primary" onClick={handleSave}>
-                    {submitted ? 'Saving...' : 'Save'}
-                </Button>,
+                <DialogTrigger key="save" disableButtonEnhancement>
+                    <Button disabled={!label || submitted} appearance="primary" onClick={handleSave}>
+                        {submitted ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogTrigger>,
             ]}
         />
     );

@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { DialogTrigger } from '@fluentui/react-components';
 import { DeleteRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { AssistantServiceRegistration } from '../../models/AssistantServiceRegistration';
@@ -42,12 +43,13 @@ export const AssistantServiceRegistrationRemove: React.FC<AssistantServiceRegist
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <CommandButton
-                        key="delete"
-                        icon={<DeleteRegular />}
-                        label="Delete"
-                        onClick={handleAssistantServiceRegistrationRemove}
-                    />,
+                    <DialogTrigger key="delete" disableButtonEnhancement>
+                        <CommandButton
+                            icon={<DeleteRegular />}
+                            label="Delete"
+                            onClick={handleAssistantServiceRegistrationRemove}
+                        />
+                    </DialogTrigger>,
                 ],
             }}
         />

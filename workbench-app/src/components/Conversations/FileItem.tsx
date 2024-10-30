@@ -144,7 +144,7 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
                                 ),
                                 closeLabel: 'Cancel',
                                 additionalActions: [
-                                    <DialogTrigger key="delete">
+                                    <DialogTrigger key="delete" disableButtonEnhancement>
                                         <Button appearance="primary" onClick={handleDelete}>
                                             Delete
                                         </Button>

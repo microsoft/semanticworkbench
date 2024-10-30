@@ -16,7 +16,11 @@ export const NewConversationButton: React.FC = () => {
                 title: 'New Conversation',
                 content: createConversationForm(),
                 closeLabel: 'Cancel',
-                additionalActions: [<DialogTrigger key="create">{createConversationSubmitButton()}</DialogTrigger>],
+                additionalActions: [
+                    <DialogTrigger key="create" disableButtonEnhancement>
+                        {createConversationSubmitButton()}
+                    </DialogTrigger>,
+                ],
             }}
         />
     );

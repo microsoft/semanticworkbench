@@ -31,7 +31,7 @@ const useConversationRemoveControls = () => {
     const removeConversationForm = () => <p>Are you sure you want to remove this conversation from your list?</p>;
 
     const removeConversationButton = (conversationId: string, participantId: string, onRemove?: () => void) => (
-        <DialogTrigger>
+        <DialogTrigger disableButtonEnhancement>
             <Button appearance="primary" onClick={() => handleRemove(conversationId, participantId, onRemove)}>
                 Remove
             </Button>

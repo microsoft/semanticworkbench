@@ -33,19 +33,21 @@ export const DialogControl: React.FC<DialogControlContent> = (props) => {
 
     return (
         <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-            <DialogTrigger>{trigger}</DialogTrigger>
+            <DialogTrigger disableButtonEnhancement>{trigger}</DialogTrigger>
             <DialogSurface className={classNames?.dialogSurface}>
                 <DialogBody>
                     {title && <DialogTitle>{title}</DialogTitle>}
                     {content && <DialogContent className={classNames?.dialogContent}>{content}</DialogContent>}
-                    <DialogActions>
-                        <DialogTrigger>
+                    <DialogActions fluid>
+                        <DialogTrigger disableButtonEnhancement>
                             <Button appearance={additionalActions ? 'secondary' : 'primary'}>
                                 {closeLabel ?? 'Close'}
                             </Button>
                         </DialogTrigger>
                         {additionalActions?.map((action, index) => (
-                            <DialogTrigger key={index}>{action}</DialogTrigger>
+                            <DialogTrigger key={index} disableButtonEnhancement>
+                                {action}
+                            </DialogTrigger>
                         ))}
                     </DialogActions>
                 </DialogBody>

@@ -7,6 +7,7 @@ import {
     AccordionPanel,
     Button,
     Card,
+    DialogTrigger,
     Text,
     Tooltip,
     makeStyles,
@@ -185,15 +186,18 @@ export const WorkflowStateAssistants: React.FC<WorkflowStateAssistantsProps> = (
                                                 ),
                                                 closeLabel: 'Cancel',
                                                 additionalActions: [
-                                                    <Button
-                                                        key="remove"
-                                                        appearance="primary"
-                                                        onClick={() =>
-                                                            handleRemoveAssistant(assistantData.assistantDefinitionId)
-                                                        }
-                                                    >
-                                                        Remove Assistant
-                                                    </Button>,
+                                                    <DialogTrigger key="remove" disableButtonEnhancement>
+                                                        <Button
+                                                            appearance="primary"
+                                                            onClick={() =>
+                                                                handleRemoveAssistant(
+                                                                    assistantData.assistantDefinitionId,
+                                                                )
+                                                            }
+                                                        >
+                                                            Remove Assistant
+                                                        </Button>
+                                                    </DialogTrigger>,
                                                 ],
                                             }}
                                         />

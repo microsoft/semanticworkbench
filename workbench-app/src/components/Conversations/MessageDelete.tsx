@@ -49,7 +49,7 @@ export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="delete">
+                    <DialogTrigger key="delete" disableButtonEnhancement>
                         <Button appearance="primary" onClick={handleDelete}>
                             Delete
                         </Button>

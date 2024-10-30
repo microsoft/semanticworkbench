@@ -38,7 +38,7 @@ export const ShareRemove: React.FC<ShareRemoveProps> = (props) => {
                 content: <p>Are you sure you want to delete this share?</p>,
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="delete">
+                    <DialogTrigger key="delete" disableButtonEnhancement>
                         <Button appearance="primary" onClick={handleDelete}>
                             Delete
                         </Button>
