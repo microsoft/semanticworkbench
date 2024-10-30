@@ -27,7 +27,7 @@ export default defineConfig({
     ],
     server: {
         https: true,
-        host: 'localhost',
+        host: '127.0.0.1',
         port: JSON.parse(process.env.PORT || '4000'),
     },
     build: {

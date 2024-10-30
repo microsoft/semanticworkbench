@@ -28,7 +28,7 @@ class AuthSettings(BaseSettings):
 
 class WebServiceSettings(BaseSettings):
     protocol: str = "http"
-    host: str = "localhost"
+    host: str = "127.0.0.1"
     port: int = 3000
 
     assistant_api_key: ApiKeySettings = ApiKeySettings()

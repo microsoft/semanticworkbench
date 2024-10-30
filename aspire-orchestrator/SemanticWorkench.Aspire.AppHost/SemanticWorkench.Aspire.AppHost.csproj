@@ -22,6 +22,9 @@
   <ItemGroup>
     <ProjectReference
       Include="..\..\examples\dotnet\dotnet-03-simple-chatbot\dotnet-03-simple-chatbot.csproj" />
+    <ProjectReference
+      Include="..\CommunityToolkit.Aspire.Hosting.Uvicorn\CommunityToolkit.Aspire.Hosting.Uvicorn.csproj"
+      IsAspireProjectResource="false" />
   </ItemGroup>
 
 </Project>
