@@ -45,6 +45,16 @@ export const appSlice = createSlice({
             state.isDraggingOverBody = action.payload;
         },
         addError: (state: AppState, action: PayloadAction<{ title?: string; message?: string }>) => {
+            // exit if matching error already exists
+            if (
+                state.errors?.some(
+                    (error) => error.title === action.payload.title && error.message === action.payload.message,
+                )
+            ) {
+                return;
+            }
+
+            // add error
             state.errors?.push({
                 id: generateUuid(),
                 title: action.payload.title,
