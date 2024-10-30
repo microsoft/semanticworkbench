@@ -175,7 +175,13 @@ def init(
                 queue_item.event.id,
             )
 
-            if queue_item.event.event == ConversationEventType.message_created:
+            if queue_item.event.event in [
+                ConversationEventType.message_created,
+                ConversationEventType.message_deleted,
+                ConversationEventType.conversation_updated,
+                ConversationEventType.participant_created,
+                ConversationEventType.participant_updated,
+            ]:
                 task = asyncio.create_task(
                     _notify_user_event(queue_item.event.conversation_id), name="notify_user_event"
                 )
@@ -604,10 +610,12 @@ def init(
     async def get_assistant_conversations(
         assistant_id: uuid.UUID,
         user_principal: auth.DependsUserPrincipal,
+        latest_message_types: Annotated[list[MessageType], Query(alias="latest_message_type")] = [MessageType.chat],
     ) -> ConversationList:
         return await conversation_controller.get_assistant_conversations(
             user_principal=user_principal,
             assistant_id=assistant_id,
+            latest_message_types=set(latest_message_types),
         )
 
     @app.get("/conversations/{conversation_id}/events")
@@ -615,7 +623,9 @@ def init(
         conversation_id: uuid.UUID, request: Request, user_principal: auth.DependsUserPrincipal
     ) -> EventSourceResponse:
         # ensure the conversation exists
-        await conversation_controller.get_conversation(conversation_id=conversation_id, principal=user_principal)
+        await conversation_controller.get_conversation(
+            conversation_id=conversation_id, principal=user_principal, latest_message_types=set()
+        )
 
         logger.debug(
             "client connected to sse; user_id: %s, conversation_id: %s", user_principal.user_id, conversation_id
@@ -753,20 +763,24 @@ def init(
     async def list_conversations(
         principal: auth.DependsActorPrincipal,
         include_inactive: bool = False,
+        latest_message_types: Annotated[list[MessageType], Query(alias="latest_message_type")] = [MessageType.chat],
     ) -> ConversationList:
         return await conversation_controller.get_conversations(
             principal=principal,
             include_all_owned=include_inactive,
+            latest_message_types=set(latest_message_types),
         )
 
     @app.get("/conversations/{conversation_id}")
     async def get_conversation(
         conversation_id: uuid.UUID,
         principal: auth.DependsActorPrincipal,
+        latest_message_types: Annotated[list[MessageType], Query(alias="latest_message_type")] = [MessageType.chat],
     ) -> Conversation:
         return await conversation_controller.get_conversation(
             principal=principal,
             conversation_id=conversation_id,
+            latest_message_types=set(latest_message_types),
         )
 
     @app.patch("/conversations/{conversation_id}")
