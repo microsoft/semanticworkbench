@@ -295,10 +295,7 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> bool:
-        # Retrieve Document Agent conversation state
-        state = _get_state(context)
-
+    ) -> None:
         # Pre-requisites
         if self._state is None:
             logger.error("Document Agent state is None. Returning.")
@@ -858,59 +855,6 @@ gc_config = GuidedConversationAgentConfigModel()
 
 
 # endregion
-
-
-#
-# region Helpers
-#
-def _get_state(context: ConversationContext) -> State:
-    state_dict = _read_document_agent_conversation_state(context)
-    if state_dict is not None:
-        state = State(**state_dict)
-    else:
-        logger.info("Document Agent: no state found. Creating new state.")
-        state = State()
-    return state
-
-
-def _set_state(context: ConversationContext, state: State) -> None:
-    _write_document_agent_conversation_state(context, state.model_dump())
-
-
-def _get_document_agent_conversation_storage_path(context: ConversationContext, filename: str | None = None) -> Path:
-    """
-    Get the path to the directory for storing files.
-    """
-    path = storage_directory_for_context(context) / "document_agent"
-    if filename:
-        path /= filename
-    return path
-
-
-def _write_document_agent_conversation_state(context: ConversationContext, state: dict) -> None:
-    """
-    Write the state to a file.
-    """
-    json_data = json.dumps(state)
-    path = _get_document_agent_conversation_storage_path(context)
-    if not path.exists():
-        path.mkdir(parents=True)
-    path = path / "state.json"
-    path.write_text(json_data)
-
-
-def _read_document_agent_conversation_state(context: ConversationContext) -> dict | None:
-    """
-    Read the state from a file.
-    """
-    path = _get_document_agent_conversation_storage_path(context, "state.json")
-    if path.exists():
-        try:
-            json_data = path.read_text()
-            return json.loads(json_data)
-        except Exception:
-            pass
-    return None
 
 
 ##### FROM NOTEBOOK
