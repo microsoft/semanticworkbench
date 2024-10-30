@@ -278,7 +278,7 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
                             <DialogTrigger disableButtonEnhancement>
                                 <Button appearance="secondary">Cancel</Button>
                             </DialogTrigger>
-                            <DialogTrigger>
+                            <DialogTrigger disableButtonEnhancement>
                                 <Button
                                     disabled={!name || !assistantServiceId || submitted}
                                     appearance="primary"

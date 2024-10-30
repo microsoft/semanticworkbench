@@ -74,11 +74,11 @@ export const RewindConversation: React.FC<RewindConversationProps> = (props) => 
     return (
         <CommandButton
             disabled={disabled || isLoadingMessages}
-            trigger={<Button appearance="subtle" icon={<RewindRegular />} size="small" />}
             description="Rewind conversation to before this message, with optional redo."
             icon={<RewindRegular />}
             iconOnly={true}
             dialogContent={{
+                trigger: <Button appearance="subtle" icon={<RewindRegular />} size="small" />,
                 title: 'Rewind Conversation',
                 content: (
                     <>
@@ -111,12 +111,12 @@ export const RewindConversation: React.FC<RewindConversationProps> = (props) => 
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="rewind">
+                    <DialogTrigger key="rewind" disableButtonEnhancement>
                         <Button appearance="primary" onClick={handleRewind}>
                             Rewind
                         </Button>
                     </DialogTrigger>,
-                    <DialogTrigger key="rewindWithRedo">
+                    <DialogTrigger key="rewindWithRedo" disableButtonEnhancement>
                         <Button onClick={handleRewindWithRedo}>Rewind with Redo</Button>
                     </DialogTrigger>,
                 ],

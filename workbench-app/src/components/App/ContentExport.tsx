@@ -15,16 +15,6 @@ interface ContentExportProps {
 export const ContentExport: React.FC<ContentExportProps> = (props) => {
     const { id, contentTypeLabel, exportFunction, iconOnly, asToolbarButton } = props;
 
-    const exportContent = async () => {
-        const { blob, filename } = await exportFunction(id);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
     return (
         <CommandButton
             description={`Export ${contentTypeLabel}`}
@@ -32,7 +22,20 @@ export const ContentExport: React.FC<ContentExportProps> = (props) => {
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
             label="Export"
-            onClick={exportContent}
+            onClick={() => exportContent(id, exportFunction)}
         />
     );
+};
+
+export const exportContent = async (
+    id: string,
+    exportFunction: (id: string) => Promise<{ blob: Blob; filename: string }>,
+) => {
+    const { blob, filename } = await exportFunction(id);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
 };

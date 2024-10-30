@@ -1,6 +1,7 @@
 export const Constants = {
     app: {
         name: 'Semantic Workbench',
+        conversationRedirectPath: '/frontdoor',
         defaultTheme: 'light',
         defaultBrand: 'local',
         autoScrollThreshold: 100,
@@ -38,14 +39,14 @@ export const Constants = {
         ],
     },
     assistantCategories: {
-        Recommended: [''],
+        Recommended: ['explorer-assistant.made-exploration-team', 'guided-conversation-assistant.made-exploration'],
         'Example Implementations': [
             'python-01-echo-bot.workbench-explorer',
             'python-02-simple-chatbot.workbench-explorer',
             'python-03-multimodel-chatbot.workbench-explorer',
             'canonical-assistant.semantic-workbench',
         ],
-        Experimental: [''],
+        Experimental: ['prospector-assistant.made-exploration'],
     },
     msal: {
         method: 'redirect', // 'redirect' | 'popup'

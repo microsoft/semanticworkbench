@@ -1,4 +1,4 @@
-from typing import Literal, Sequence
+from typing import Literal
 
 from openai.types.chat import ChatCompletionMessageParam
 
@@ -50,8 +50,8 @@ def truncate_string(string: str, maximum_length: int, filler_text: str) -> str:
     return string[:head_tail_length] + filler_text + string[-head_tail_length:]
 
 
-def process_list(list: Sequence, maximum_length: int, filler_text: str) -> Sequence:
-    for part in list:
+def process_list(list_: list, maximum_length: int, filler_text: str) -> list:
+    for part in list_:
         for key, value in part.items():
             match value:
                 case str():
@@ -59,7 +59,7 @@ def process_list(list: Sequence, maximum_length: int, filler_text: str) -> Seque
 
                 case dict():
                     part[key] = process_dict(value, maximum_length, filler_text)
-    return list
+    return list_
 
 
 def process_dict(dict_: dict, maximum_length: int, filler_text: str) -> dict:

@@ -135,9 +135,13 @@ class AssistantService(FastAPIAssistantService):
 
     @asynccontextmanager
     async def lifespan(self) -> AsyncIterator[None]:
+        await self.assistant_app.events._on_service_start_handlers()
+
         try:
             yield
         finally:
+            await self.assistant_app.events._on_service_shutdown_handlers()
+
             for task in self._conversation_event_tasks:
                 task.cancel()
 

@@ -1,4 +1,5 @@
 import datetime
+import logging
 from typing import AsyncContextManager, Awaitable, Callable, Iterable
 
 from semantic_workbench_api_model.assistant_model import ServiceInfoModel
@@ -20,6 +21,8 @@ from . import convert, exceptions
 from . import participant as participant_
 from . import user as user_
 from .assistant_service_client_pool import AssistantServiceClientPool
+
+logger = logging.getLogger(__name__)
 
 
 class AssistantServiceRegistrationController:
@@ -233,7 +236,14 @@ class AssistantServiceRegistrationController:
             if self._registration_is_secured and update_assistant_service_url.url.scheme != "https":
                 raise exceptions.InvalidArgumentError("url must be https")
 
-            registration.assistant_service_url = str(update_assistant_service_url.url)
+            if registration.assistant_service_url != str(update_assistant_service_url.url):
+                registration.assistant_service_url = str(update_assistant_service_url.url)
+                logger.info(
+                    "updated assistant service url; assistant_service_id: %s, url: %s",
+                    assistant_service_id,
+                    registration.assistant_service_url,
+                )
+
             registration.assistant_service_online_expiration_datetime = datetime.datetime.now(
                 datetime.UTC
             ) + datetime.timedelta(seconds=update_assistant_service_url.online_expires_in_seconds)

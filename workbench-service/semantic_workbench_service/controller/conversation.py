@@ -93,34 +93,15 @@ class ConversationController:
         async with self._get_session() as session:
             include_all_owned = include_all_owned and isinstance(principal, auth.UserPrincipal)
 
-            conversations = (
+            conversation_projections = (
                 await session.exec(
-                    query.select_conversations_for(
+                    query.select_conversation_projections_for(
                         principal=principal, include_all_owned=include_all_owned, include_observer=True
                     ).order_by(col(db.Conversation.created_datetime).desc())
                 )
             ).all()
 
-            match principal:
-                case auth.UserPrincipal():
-                    user_permissions = (
-                        await session.exec(
-                            select(
-                                db.UserParticipant.conversation_id, db.UserParticipant.conversation_permission
-                            ).where(
-                                db.UserParticipant.user_id == principal.user_id,
-                                col(db.UserParticipant.conversation_id).in_([c.conversation_id for c in conversations]),
-                            )
-                        )
-                    ).all()
-                    permissions = {conversation_id: permission for conversation_id, permission in user_permissions}
-
-                    return convert.conversation_list_from_db(models=conversations, permissions=permissions)
-
-                case auth.AssistantPrincipal():
-                    return convert.conversation_list_from_db(
-                        models=conversations, permissions={c.conversation_id: "read_write" for c in conversations}
-                    )
+            return convert.conversation_list_from_db(models=conversation_projections)
 
     async def get_assistant_conversations(
         self,
@@ -140,7 +121,7 @@ class ConversationController:
 
             conversations = (
                 await session.exec(
-                    query.select_conversations_for(
+                    query.select_conversation_projections_for(
                         principal=auth.AssistantPrincipal(
                             assistant_service_id=assistant.assistant_service_id, assistant_id=assistant_id
                         ),
@@ -148,17 +129,7 @@ class ConversationController:
                 )
             ).all()
 
-            user_permissions = (
-                await session.exec(
-                    select(db.UserParticipant.conversation_id, db.UserParticipant.conversation_permission).where(
-                        db.UserParticipant.user_id == user_principal.user_id,
-                        col(db.UserParticipant.conversation_id).in_([c.conversation_id for c in conversations]),
-                    )
-                )
-            ).all()
-            permissions = {conversation_id: permission for conversation_id, permission in user_permissions}
-
-            return convert.conversation_list_from_db(models=conversations, permissions=permissions)
+            return convert.conversation_list_from_db(models=conversations)
 
     async def get_conversation(
         self,
@@ -168,31 +139,21 @@ class ConversationController:
         async with self._get_session() as session:
             include_all_owned = isinstance(principal, auth.UserPrincipal)
 
-            conversation = (
+            conversation_projection = (
                 await session.exec(
-                    query.select_conversations_for(
+                    query.select_conversation_projections_for(
                         principal=principal, include_all_owned=include_all_owned, include_observer=True
                     ).where(db.Conversation.conversation_id == conversation_id)
                 )
             ).one_or_none()
-            if conversation is None:
+            if conversation_projection is None:
                 raise exceptions.NotFoundError()
 
-            match principal:
-                case auth.UserPrincipal():
-                    permission = (
-                        await session.exec(
-                            select(db.UserParticipant.conversation_permission).where(
-                                db.UserParticipant.user_id == principal.user_id,
-                                db.UserParticipant.conversation_id == conversation.conversation_id,
-                            )
-                        )
-                    ).one()
+            conversation, latest_message, permission = conversation_projection
 
-                    return convert.conversation_from_db(model=conversation, permission=permission)
-
-                case auth.AssistantPrincipal():
-                    return convert.conversation_from_db(model=conversation, permission="read_write")
+            return convert.conversation_from_db(
+                model=conversation, latest_message=latest_message, permission=permission
+            )
 
     async def update_conversation(
         self,

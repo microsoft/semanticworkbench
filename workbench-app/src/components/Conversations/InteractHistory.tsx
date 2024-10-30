@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 import { CopilotChat, ResponseCount } from '@fluentui-copilot/react-copilot';
-import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -31,9 +31,7 @@ dayjs.tz.guess();
 
 const useClasses = makeStyles({
     root: {
-        // do not use flexbox here, it breaks the virtuoso
-        width: '100%',
-        maxWidth: `${Constants.app.maxContentWidth}px`,
+        height: '100%',
     },
     virtuoso: {
         '::-webkit-scrollbar-thumb': {
@@ -55,10 +53,11 @@ interface InteractHistoryProps {
     conversation: Conversation;
     participants: ConversationParticipant[];
     readOnly: boolean;
+    className?: string;
 }
 
 export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
-    const { conversation, participants, readOnly } = props;
+    const { conversation, participants, readOnly, className } = props;
     const classes = useClasses();
     const { hash } = useLocation();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
@@ -292,7 +291,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     }
 
     return (
-        <CopilotChat style={{ height: '100%' }}>
+        <CopilotChat className={mergeClasses(classes.root, className ?? '')}>
             <AutoSizer>
                 {({ height, width }: { height: number; width: number }) => (
                     <Virtuoso

@@ -5,8 +5,10 @@ import {
     MessageBar,
     MessageBarActions,
     MessageBarBody,
+    MessageBarGroup,
     MessageBarTitle,
     makeStyles,
+    mergeClasses,
     shorthands,
     tokens,
 } from '@fluentui/react-components';
@@ -25,14 +27,15 @@ const useClasses = makeStyles({
         backgroundColor: tokens.colorPaletteRedBackground2,
         gap: tokens.spacingVerticalM,
         ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
-        ...shorthands.borderBottom(tokens.strokeWidthThin, 'solid', tokens.colorNeutralStroke1),
-    },
-    actions: {
-        marginBottom: 0,
     },
 });
 
-export const ErrorList: React.FC = () => {
+interface ErrorListProps {
+    className?: string;
+}
+
+export const ErrorList: React.FC<ErrorListProps> = (props) => {
+    const { className } = props;
     const classes = useClasses();
     const { errors } = useAppSelector((state: RootState) => state.app);
     const dispatch = useAppDispatch();
@@ -42,15 +45,14 @@ export const ErrorList: React.FC = () => {
     }
 
     return (
-        <div className={classes.root}>
+        <MessageBarGroup className={mergeClasses(classes.root, className)}>
             {errors.map((error) => (
                 <MessageBar key={error.id} intent="error" layout="multiline">
                     <MessageBarBody>
-                        <MessageBarTitle>{error.title ?? 'Error'}</MessageBarTitle>
+                        <MessageBarTitle>{error.title ?? 'Error'}:</MessageBarTitle>
                         {error.message}
                     </MessageBarBody>
                     <MessageBarActions
-                        className={classes.actions}
                         containerAction={
                             <Button
                                 appearance="transparent"
@@ -61,6 +63,6 @@ export const ErrorList: React.FC = () => {
                     />
                 </MessageBar>
             ))}
-        </div>
+        </MessageBarGroup>
     );
 };

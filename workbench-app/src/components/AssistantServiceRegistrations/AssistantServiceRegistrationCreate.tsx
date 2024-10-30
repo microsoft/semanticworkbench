@@ -3,14 +3,9 @@
 import {
     Button,
     Checkbox,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
-    DialogSurface,
-    DialogTitle,
+    DialogTrigger,
     Field,
     Input,
     makeStyles,
@@ -18,7 +13,6 @@ import {
     tokens,
 } from '@fluentui/react-components';
 import React from 'react';
-import { Form } from 'react-router-dom';
 import {
     AssistantServiceRegistration,
     NewAssistantServiceRegistration,
@@ -27,6 +21,7 @@ import {
     useCreateAssistantServiceRegistrationMutation,
     useGetAssistantServiceRegistrationsQuery,
 } from '../../services/workbench';
+import { DialogControl } from '../App/DialogControl';
 import { AssistantServiceRegistrationApiKey } from './AssistantServiceRegistrationApiKey';
 
 const useClasses = makeStyles({
@@ -112,66 +107,69 @@ export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegist
     return (
         <>
             {apiKey && <AssistantServiceRegistrationApiKey apiKey={apiKey} onClose={() => setApiKey(undefined)} />}
-            <Dialog open={open} onOpenChange={handleOpenChange}>
-                <DialogSurface>
-                    <Form>
-                        <DialogBody>
-                            <DialogTitle>Create Assistant Service Registration</DialogTitle>
-                            <DialogContent className={classes.dialogContent}>
-                                <Field label="Assistant Service ID" required>
-                                    <Input
-                                        value={id}
-                                        onChange={(event, data) => {
-                                            // lowercase first
-                                            data.value = data.value.toLowerCase();
-                                            // limit to lowercase alphanumeric and hyphen
-                                            data.value = data.value.replace(/[^a-z0-9-.]/g, '');
+            <DialogControl
+                open={open}
+                classNames={{
+                    dialogContent: classes.dialogContent,
+                }}
+                onOpenChange={handleOpenChange}
+                title="Create Assistant Service Registration"
+                content={
+                    <>
+                        <Field label="Assistant Service ID" required>
+                            <Input
+                                value={id}
+                                onChange={(event, data) => {
+                                    // lowercase first
+                                    data.value = data.value.toLowerCase();
+                                    // limit to lowercase alphanumeric and hyphen
+                                    data.value = data.value.replace(/[^a-z0-9-.]/g, '');
 
-                                            setId(data.value);
-                                            setValid(event.currentTarget.form!.checkValidity());
-                                        }}
-                                        aria-autocomplete="none"
-                                        placeholder="Unique identifier for your assistant; eg: helpful-assistant.team-name"
-                                    />
-                                </Field>
-                                <Field label="Name" required>
-                                    <Input
-                                        value={name}
-                                        onChange={(event, data) => {
-                                            setName(data.value);
-                                            setValid(event.currentTarget.form!.checkValidity());
-                                        }}
-                                        aria-autocomplete="none"
-                                        placeholder="Display name for your assistant; eg: Helpful Assistant"
-                                    />
-                                </Field>
-                                <Checkbox
-                                    label="Include this assistant service in everyone's create assistant list"
-                                    checked={includeInListing}
-                                    onChange={(_, data) => setIncludeInListing(data.checked === true)}
-                                />
-                                <Field label="Description">
-                                    <Textarea
-                                        value={description}
-                                        onChange={(event, data) => {
-                                            setDescription(data.value);
-                                            setValid(event.currentTarget.form!.checkValidity());
-                                        }}
-                                        aria-autocomplete="none"
-                                        placeholder="Description of your assistant; eg: A helpful assistant that can answer questions and provide guidance."
-                                    />
-                                </Field>
-                            </DialogContent>
-                            <DialogActions>
-                                <Button appearance="primary" onClick={handleSave} disabled={!valid || submitted}>
-                                    Save
-                                </Button>
-                                <Button onClick={() => onOpenChange?.(false)}>Cancel</Button>
-                            </DialogActions>
-                        </DialogBody>
-                    </Form>
-                </DialogSurface>
-            </Dialog>
+                                    setId(data.value);
+                                    setValid(event.currentTarget.form!.checkValidity());
+                                }}
+                                aria-autocomplete="none"
+                                placeholder="Unique identifier for your assistant; eg: helpful-assistant.team-name"
+                            />
+                        </Field>
+                        <Field label="Name" required>
+                            <Input
+                                value={name}
+                                onChange={(event, data) => {
+                                    setName(data.value);
+                                    setValid(event.currentTarget.form!.checkValidity());
+                                }}
+                                aria-autocomplete="none"
+                                placeholder="Display name for your assistant; eg: Helpful Assistant"
+                            />
+                        </Field>
+                        <Checkbox
+                            label="Include this assistant service in everyone's create assistant list"
+                            checked={includeInListing}
+                            onChange={(_, data) => setIncludeInListing(data.checked === true)}
+                        />
+                        <Field label="Description">
+                            <Textarea
+                                value={description}
+                                onChange={(event, data) => {
+                                    setDescription(data.value);
+                                    setValid(event.currentTarget.form!.checkValidity());
+                                }}
+                                aria-autocomplete="none"
+                                placeholder="Description of your assistant; eg: A helpful assistant that can answer questions and provide guidance."
+                            />
+                        </Field>
+                    </>
+                }
+                additionalActions={[
+                    <DialogTrigger key="save" disableButtonEnhancement>
+                        <Button appearance="primary" onClick={handleSave} disabled={!valid || submitted}>
+                            Save
+                        </Button>
+                    </DialogTrigger>,
+                ]}
+                closeLabel="Cancel"
+            />
         </>
     );
 };
