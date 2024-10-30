@@ -92,7 +92,7 @@ def main():
         logger.info("Enabling auto-reload ...")
 
     settings.host = args.host
-    settings.port = int(os.getenv("PORT") or args.port or find_free_port(settings.host))
+    settings.port = args.port or int(os.getenv("PORT") or find_free_port(settings.host))
     settings.assistant_service_id = args.assistant_service_id
     settings.assistant_service_name = args.assistant_service_name
     settings.assistant_service_description = args.assistant_service_description
