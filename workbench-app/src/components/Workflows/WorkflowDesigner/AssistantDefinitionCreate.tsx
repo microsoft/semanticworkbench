@@ -5,6 +5,7 @@ import {
     Button,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
+    DialogTrigger,
     Divider,
     Dropdown,
     Field,
@@ -187,9 +188,11 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
             }
             closeLabel="Cancel"
             additionalActions={[
-                <Button key="save" disabled={!name || !assistantServiceId} appearance="primary" onClick={handleSave}>
-                    Save
-                </Button>,
+                <DialogTrigger key="save" disableButtonEnhancement>
+                    <Button disabled={!name || !assistantServiceId} appearance="primary" onClick={handleSave}>
+                        Save
+                    </Button>
+                </DialogTrigger>,
             ]}
         />
     );

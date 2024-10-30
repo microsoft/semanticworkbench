@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { DialogTrigger } from '@fluentui/react-components';
 import { PlugDisconnectedRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { Conversation } from '../../models/Conversation';
@@ -52,12 +53,13 @@ export const AssistantRemove: React.FC<AssistantRemoveProps> = (props) => {
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <CommandButton
-                        key="remove"
-                        icon={<PlugDisconnectedRegular />}
-                        label="Remove"
-                        onClick={handleAssistantRemove}
-                    />,
+                    <DialogTrigger key="remove" disableButtonEnhancement>
+                        <CommandButton
+                            icon={<PlugDisconnectedRegular />}
+                            label="Remove"
+                            onClick={handleAssistantRemove}
+                        />
+                    </DialogTrigger>,
                 ],
             }}
         />

@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Field, Input } from '@fluentui/react-components';
+import { DialogTrigger, Field, Input } from '@fluentui/react-components';
 import { EditRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { CommandButton } from '../App/CommandButton';
@@ -39,13 +39,14 @@ export const AssistantRename: React.FC<AssistantRenameProps> = (props) => {
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <CommandButton
-                        key="rename"
-                        disabled={!name || submitted}
-                        label={submitted ? 'Renaming...' : 'Rename'}
-                        onClick={handleRename}
-                        appearance="primary"
-                    />,
+                    <DialogTrigger key="rename" disableButtonEnhancement>
+                        <CommandButton
+                            disabled={!name || submitted}
+                            label={submitted ? 'Renaming...' : 'Rename'}
+                            onClick={handleRename}
+                            appearance="primary"
+                        />
+                    </DialogTrigger>,
                 ],
             }}
         />

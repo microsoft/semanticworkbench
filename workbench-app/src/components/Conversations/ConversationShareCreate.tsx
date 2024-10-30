@@ -4,6 +4,7 @@ import {
     Button,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
+    DialogTrigger,
     Field,
     Input,
     makeStyles,
@@ -126,9 +127,11 @@ export const ConversationShareCreate: React.FC<ConversationShareCreateProps> = (
             }
             closeLabel="Cancel"
             additionalActions={[
-                <Button key="create" disabled={!shareLabel || submitted} onClick={handleCreate} appearance="primary">
-                    {submitted ? 'Creating...' : 'Create'}
-                </Button>,
+                <DialogTrigger key="create" disableButtonEnhancement>
+                    <Button disabled={!shareLabel || submitted} onClick={handleCreate} appearance="primary">
+                        {submitted ? 'Creating...' : 'Create'}
+                    </Button>
+                </DialogTrigger>,
             ]}
         />
     );

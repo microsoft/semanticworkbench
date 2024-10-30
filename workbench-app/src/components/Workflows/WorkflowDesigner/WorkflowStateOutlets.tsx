@@ -8,6 +8,7 @@ import {
     AccordionPanel,
     Button,
     Card,
+    DialogTrigger,
     Field,
     Input,
     Textarea,
@@ -364,13 +365,14 @@ export const WorkflowStateOutlets: React.FC<WorkflowStateOutletsProps> = (props)
                                             ),
                                             closeLabel: 'Cancel',
                                             additionalActions: [
-                                                <Button
-                                                    key="remove"
-                                                    appearance="primary"
-                                                    onClick={() => handleRemoveOutlet(index)}
-                                                >
-                                                    Remove
-                                                </Button>,
+                                                <DialogTrigger key="remove" disableButtonEnhancement>
+                                                    <Button
+                                                        appearance="primary"
+                                                        onClick={() => handleRemoveOutlet(index)}
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                </DialogTrigger>,
                                             ],
                                         }}
                                     />

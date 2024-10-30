@@ -40,7 +40,7 @@ export const AssistantDuplicate: React.FC<AssistantDuplicateProps> = (props) => 
                 content: <p>Are you sure you want to duplicate this assistant?</p>,
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="duplicate">
+                    <DialogTrigger key="duplicate" disableButtonEnhancement>
                         <Button appearance="primary" onClick={duplicateAssistant}>
                             Duplicate
                         </Button>

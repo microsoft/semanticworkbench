@@ -131,8 +131,8 @@ export const ShareRedeem: React.FC = () => {
     const renderAppView = React.useCallback(
         (options: {
             dialogTitle?: string;
-            dialogContent?: JSX.Element;
-            dialogActions?: JSX.Element;
+            dialogContent?: React.ReactElement;
+            dialogActions?: React.ReactElement[];
             dismissLabel?: string;
         }) => {
             const { dialogTitle, dialogContent, dialogActions, dismissLabel } = options;
@@ -144,7 +144,7 @@ export const ShareRedeem: React.FC = () => {
                         title={dialogTitle}
                         content={dialogContent}
                         closeLabel={dismissLabel ?? 'Close'}
-                        additionalActions={dialogActions ? [dialogActions] : undefined}
+                        additionalActions={dialogActions}
                     />
                 </AppView>
             );
@@ -159,7 +159,7 @@ export const ShareRedeem: React.FC = () => {
             onClick: () => void;
         }) => {
             return (
-                <DialogTrigger>
+                <DialogTrigger disableButtonEnhancement>
                     <Button
                         style={{ width: 'max-content' }}
                         appearance={options?.appearance ?? 'primary'}
@@ -272,19 +272,17 @@ export const ShareRedeem: React.FC = () => {
                         <p>{copyNote}</p>
                     </>
                 ),
-                dialogActions: (
-                    <>
-                        {renderTrigger({
-                            label: 'Create copy',
-                            onClick: handleClickDuplicate,
-                            appearance: 'secondary',
-                        })}
-                        {renderTrigger({
-                            label: 'Join',
-                            onClick: handleClickJoin,
-                        })}
-                    </>
-                ),
+                dialogActions: [
+                    renderTrigger({
+                        label: 'Create copy',
+                        onClick: handleClickDuplicate,
+                        appearance: 'secondary',
+                    }),
+                    renderTrigger({
+                        label: 'Join',
+                        onClick: handleClickJoin,
+                    }),
+                ],
             });
 
         // Handle the case where the user has been invited to observe the conversation.
@@ -302,19 +300,17 @@ export const ShareRedeem: React.FC = () => {
                         <p>{copyNote}</p>
                     </>
                 ),
-                dialogActions: (
-                    <>
-                        {renderTrigger({
-                            label: 'Create copy',
-                            onClick: handleClickDuplicate,
-                            appearance: 'secondary',
-                        })}
-                        {renderTrigger({
-                            label: 'Observe',
-                            onClick: handleClickJoin,
-                        })}
-                    </>
-                ),
+                dialogActions: [
+                    renderTrigger({
+                        label: 'Create copy',
+                        onClick: handleClickDuplicate,
+                        appearance: 'secondary',
+                    }),
+                    renderTrigger({
+                        label: 'Observe',
+                        onClick: handleClickJoin,
+                    }),
+                ],
             });
 
         // Handle the case where the user has been invited to duplicate the conversation.
@@ -331,14 +327,12 @@ export const ShareRedeem: React.FC = () => {
                         <p>{copyNote}</p>
                     </>
                 ),
-                dialogActions: (
-                    <>
-                        {renderTrigger({
-                            label: 'Create copy',
-                            onClick: handleClickDuplicate,
-                        })}
-                    </>
-                ),
+                dialogActions: [
+                    renderTrigger({
+                        label: 'Create copy',
+                        onClick: handleClickDuplicate,
+                    }),
+                ],
             });
     }
 };

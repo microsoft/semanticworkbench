@@ -5,6 +5,7 @@ import {
     Checkbox,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
+    DialogTrigger,
     Field,
     Input,
     makeStyles,
@@ -161,9 +162,11 @@ export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegist
                     </>
                 }
                 additionalActions={[
-                    <Button key="save" appearance="primary" onClick={handleSave} disabled={!valid || submitted}>
-                        Save
-                    </Button>,
+                    <DialogTrigger key="save" disableButtonEnhancement>
+                        <Button appearance="primary" onClick={handleSave} disabled={!valid || submitted}>
+                            Save
+                        </Button>
+                    </DialogTrigger>,
                 ]}
                 closeLabel="Cancel"
             />
