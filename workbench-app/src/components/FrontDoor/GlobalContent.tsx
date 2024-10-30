@@ -14,9 +14,9 @@ dayjs.tz.guess();
 const useClasses = makeStyles({
     root: {
         flex: '1 1 auto',
-        overflow: 'auto',
         display: 'flex',
         flexDirection: 'column',
+        height: '100vh',
     },
     header: {
         flex: '0 0 auto',
@@ -29,7 +29,6 @@ const useClasses = makeStyles({
     content: {
         flex: '1 1 auto',
         overflow: 'auto',
-        padding: tokens.spacingHorizontalM,
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalM,

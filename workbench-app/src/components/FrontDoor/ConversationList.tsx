@@ -15,6 +15,7 @@ import {
     Tooltip,
     makeStyles,
     mergeClasses,
+    shorthands,
     tokens,
 } from '@fluentui/react-components';
 import {
@@ -48,6 +49,19 @@ dayjs.extend(timezone);
 dayjs.tz.guess();
 
 const useClasses = makeStyles({
+    actions: {
+        position: 'sticky',
+        top: 0,
+        zIndex: tokens.zIndexPriority,
+        backgroundColor: tokens.colorNeutralBackground2,
+        ...shorthands.padding(tokens.spacingVerticalS, tokens.spacingHorizontalM),
+    },
+    content: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+        ...shorthands.padding(0, tokens.spacingHorizontalM, tokens.spacingVerticalM, tokens.spacingHorizontalM),
+    },
     conversationButton: {
         width: '250px',
         justifyContent: 'start',
@@ -209,29 +223,33 @@ export const ConversationList: React.FC = () => {
                     onCancel={() => setRemoveConversation(undefined)}
                 />
             )}
-            <Text weight="semibold">Conversations</Text>
-            <Input
-                contentBefore={<FilterRegular />}
-                contentAfter={
-                    filter && (
-                        <Button icon={<DismissRegular />} appearance="transparent" onClick={() => setFilter('')} />
-                    )
-                }
-                placeholder="Filter"
-                value={filter}
-                onChange={(_event, data) => setFilter(data.value)}
-            />
-            <Select
-                defaultValue={sortByName ? 'Sort by name' : 'Sort by date'}
-                onChange={(_event, data) => setSortByName(data.value === 'Sort by name')}
-            >
-                <option>Sort by name</option>
-                <option>Sort by date</option>
-            </Select>
-            {myConversations.length === 0 && <Text>No Conversations found.</Text>}
-            <PresenceMotionList items={conversationsToItems(myConversations)} />
-            {conversationsSharedWithMe.length > 0 && <Text>Shared with me</Text>}
-            <PresenceMotionList items={conversationsToItems(conversationsSharedWithMe)} />
+            <div className={mergeClasses(classes.content, classes.actions)}>
+                <Text weight="semibold">Conversations</Text>
+                <Input
+                    contentBefore={<FilterRegular />}
+                    contentAfter={
+                        filter && (
+                            <Button icon={<DismissRegular />} appearance="transparent" onClick={() => setFilter('')} />
+                        )
+                    }
+                    placeholder="Filter"
+                    value={filter}
+                    onChange={(_event, data) => setFilter(data.value)}
+                />
+                <Select
+                    defaultValue={sortByName ? 'Sort by name' : 'Sort by date'}
+                    onChange={(_event, data) => setSortByName(data.value === 'Sort by name')}
+                >
+                    <option>Sort by name</option>
+                    <option>Sort by date</option>
+                </Select>
+            </div>
+            <div className={classes.content}>
+                {myConversations.length === 0 && <Text>No Conversations found.</Text>}
+                <PresenceMotionList items={conversationsToItems(myConversations)} />
+                {conversationsSharedWithMe.length > 0 && <Text>Shared with me</Text>}
+                <PresenceMotionList items={conversationsToItems(conversationsSharedWithMe)} />
+            </div>
         </>
     );
 };
