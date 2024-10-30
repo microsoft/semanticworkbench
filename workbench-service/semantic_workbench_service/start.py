@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 
 import uvicorn
 from fastapi import FastAPI
@@ -33,7 +34,7 @@ def main():
         help="host IP to run service on",
     )
     parse_args.add_argument(
-        "--port", dest="port", type=int, default=settings.service.port, help="port to run service on"
+        "--port", dest="port", type=int, default=int(os.getenv("PORT") or settings.service.port), help="port to run service on"
     )
     args = parse_args.parse_args()
 

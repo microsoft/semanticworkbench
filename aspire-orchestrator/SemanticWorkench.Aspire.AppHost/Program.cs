@@ -2,8 +2,8 @@ using CommunityToolkit.Aspire.Hosting.Uvicorn;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var workbenchService = builder.AddUvicornApp("service", projectDirectory: Path.Combine("..", "..", "workbench-service"), scriptPath: "start-semantic-workbench-service")
-    .WithHttpEndpoint(targetPort: 3000);
+var workbenchService = builder.AddUvicornApp("worbenchservice", projectDirectory: Path.Combine("..", "..", "workbench-service"), scriptPath: "start-semantic-workbench-service")
+    .WithHttpEndpoint(env: "PORT");
 
 // var workbenchService = builder.AddExecutable("worbenchservice", @".\.venv\Scripts\start-semantic-workbench-service.exe", Path.Combine("..", "..", "workbench-service"))
 //     .WithHttpEndpoint(targetPort: 3000, isProxied: true)
