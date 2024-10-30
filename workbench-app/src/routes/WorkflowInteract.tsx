@@ -29,7 +29,7 @@ import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
 import { WorkflowConversation } from '../components/Workflows/WorkflowConversation';
 import { WorkflowEdit } from '../components/Workflows/WorkflowEdit';
-import { WorkbenchEventSource } from '../libs/WorkbenchEventSource';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../libs/WorkbenchEventSource';
 import { useEnvironment } from '../libs/useEnvironment';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { conversationMessageFromJSON } from '../models/ConversationMessage';
@@ -211,7 +211,11 @@ export const WorkflowInteract: React.FC = () => {
 
         (async () => {
             // get the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
+            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversationId,
+            );
             workbenchEventSource.addEventListener('message.created', messageHandler);
         })();
 

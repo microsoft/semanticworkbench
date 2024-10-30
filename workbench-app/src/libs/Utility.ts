@@ -1,7 +1,13 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import dayjs from 'dayjs';
+import tz from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { diff } from 'deep-object-diff';
 import merge from 'deepmerge';
+
+dayjs.extend(utc);
+dayjs.extend(tz);
 
 const deepEqual = (object1: object, object2: object) => {
     const differences = diff(object1, object2);
@@ -58,18 +64,44 @@ const deepDiff = (obj1: ObjectLiteral, obj2: ObjectLiteral, parentKey = ''): Obj
 
 type ObjectLiteral = { [key: string]: any };
 
-const getTimestampForExport = () => {
-    // return in format YYYYMMDDHHmmss
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
+const toDayJs = (value?: string | Date, timezone: string = dayjs.tz.guess()) => {
+    return dayjs.utc(value).tz(timezone);
+};
 
-    const formattedMonth = month < 10 ? `0${month}` : month;
+const toDate = (value: string, timezone: string = dayjs.tz.guess()): Date => {
+    return toDayJs(value, timezone).toDate();
+};
 
-    return `${year}${formattedMonth}${day}${hours}${minutes}`;
+const toSimpleDateString = (value: string | Date, timezone: string = dayjs.tz.guess()): string => {
+    const now = dayjs.utc();
+    const date = toDayJs(value, timezone);
+
+    // If the date is today, return the time
+    if (date.isSame(now, 'day')) {
+        return date.format('h:mm A');
+    }
+
+    // If the date is within the last week, return the day of the week
+    if (date.isAfter(now.subtract(7, 'days'))) {
+        return date.format('ddd');
+    }
+
+    // Otherwise, return the month and day if it's within the current year
+    if (date.isSame(now, 'year')) {
+        return date.format('MMM D');
+    }
+
+    // Otherwise, return the month, day, and year
+    return date.format('MMM D, YYYY');
+};
+
+const toFormattedDateString = (value: string | Date, format: string, timezone: string = dayjs.tz.guess()): string => {
+    return toDayJs(value, timezone).format(format);
+};
+
+const toTimestampForFilename = (timezone: string = dayjs.tz.guess()) => {
+    // return in format YYYYMMDDHHmm
+    return toDayJs(timezone).format('YYYYMMDDHHmm');
 };
 
 const sortKeys = (obj: any): any => {
@@ -91,6 +123,9 @@ export const Utility = {
     deepCopy,
     deepMerge,
     deepDiff,
-    getTimestampForExport,
+    toDate,
+    toSimpleDateString,
+    toFormattedDateString,
+    toTimestampForFilename,
     sortKeys,
 };

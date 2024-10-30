@@ -10,7 +10,7 @@ import { useLocation } from 'react-router-dom';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
-import { WorkbenchEventSource } from '../../libs/WorkbenchEventSource';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { Conversation } from '../../models/Conversation';
 import { conversationMessageFromJSON } from '../../models/ConversationMessage';
@@ -268,7 +268,11 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
         (async () => {
             // create or update the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversation.id);
+            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversation.id,
+            );
             workbenchEventSource.addEventListener('message.created', messageHandler);
             workbenchEventSource.addEventListener('message.deleted', messageHandler);
             workbenchEventSource.addEventListener('participant.created', participantCreatedHandler);
@@ -277,7 +281,9 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
         return () => {
             (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance();
+                const workbenchEventSource = await WorkbenchEventSource.getInstance(
+                    WorkbenchEventSourceType.Conversation,
+                );
                 workbenchEventSource.removeEventListener('message.created', messageHandler);
                 workbenchEventSource.removeEventListener('message.deleted', messageHandler);
                 workbenchEventSource.removeEventListener('participant.created', participantCreatedHandler);

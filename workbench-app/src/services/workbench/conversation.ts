@@ -96,6 +96,7 @@ const transformResponseToConversation = (response: any): Conversation => {
             ownerId: response.owner_id,
             title: response.title,
             created: response.created_datetime,
+            latest_message: response.latest_message ? transformResponseToMessage(response.latest_message) : undefined,
             metadata: response.metadata,
             conversationPermission: response.conversation_permission,
             importedFromConversationId: response.imported_from_conversation_id,

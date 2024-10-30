@@ -32,10 +32,8 @@ import {
     PersonRegular,
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React from 'react';
+import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
@@ -47,10 +45,6 @@ import { DebugInspector } from './DebugInspector';
 import { MessageDelete } from './MessageDelete';
 import { MessageLink } from './MessageLink';
 import { RewindConversation } from './RewindConversation';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.tz.guess();
 
 const useClasses = makeStyles({
     root: {
@@ -160,8 +154,8 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
 
     const isUser = participant.role === 'user';
 
-    const date = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('dddd, MMMM D');
-    const time = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('h:mm A');
+    const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
+    const time = Utility.toFormattedDateString(message.timestamp, 'h:mm A');
 
     const attribution = React.useMemo(() => {
         if (message.metadata?.attribution) {

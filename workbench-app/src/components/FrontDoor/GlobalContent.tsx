@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import React from 'react';
-import { ConversationList } from './ConversationList';
+import { ConversationList } from './Controls/ConversationList';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -29,9 +29,6 @@ const useClasses = makeStyles({
     content: {
         flex: '1 1 auto',
         overflow: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: tokens.spacingVerticalM,
     },
     // footer: {
     //     flex: '0 0 auto',

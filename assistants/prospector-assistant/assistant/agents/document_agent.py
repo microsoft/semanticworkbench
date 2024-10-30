@@ -197,7 +197,7 @@ class DocumentAgent:
             step.name = StepEnum.DO_GC_ATTACHMENT_CHECK
             step.is_completed = False
 
-        # For somewhere... will need to handle scneraio that a step is considered "complete", but it is due to the user wanting to exit.
+        # For somewhere... will need to handle scenario that a step is considered "complete", but it is due to the user wanting to exit.
         # This is particularly true for GC steps. This may involve needing to change some of the GC code return values to understand
         # "WHY" the gc is considered complete.  This is valid for any of the steps.  So a RESULT (of a results reason enum) or something like that.
         # not just a boolean for if completed or not.
@@ -290,7 +290,7 @@ class DocumentAgent:
     ####
 
     async def _gc_respond_to_conversation(
-        cls,
+        self,
         config: AssistantConfigModel,
         gc_config: GuidedConversationAgentConfigModel,
         message: ConversationMessage,
