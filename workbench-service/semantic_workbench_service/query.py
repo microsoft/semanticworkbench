@@ -3,6 +3,7 @@ from typing import Any, TypeVar
 from sqlalchemy import Function
 from sqlmodel import String, and_, cast, col, func, literal, or_, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
+from semantic_workbench_api_model.workbench_model import MessageType
 
 from . import auth, db, settings
 
@@ -118,6 +119,7 @@ def select_conversations_for(
 
 def select_conversation_projections_for(
     principal: auth.ActorPrincipal,
+    latest_message_types: set[MessageType],
     include_all_owned: bool = False,
     include_observer: bool = False,
 ) -> Select[tuple[db.Conversation, db.ConversationMessage | None, str]]:
@@ -148,6 +150,7 @@ def select_conversation_projections_for(
             db.ConversationMessage.conversation_id,
             func.max(db.ConversationMessage.sequence).label("latest_message_sequence"),
         )
+        .where(col(db.ConversationMessage.message_type).in_(latest_message_types))
         .group_by(col(db.ConversationMessage.conversation_id))
         .subquery()
     )
