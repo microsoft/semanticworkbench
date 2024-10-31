@@ -221,7 +221,9 @@ export const WorkflowInteract: React.FC = () => {
 
         return () => {
             (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance();
+                const workbenchEventSource = await WorkbenchEventSource.getInstance(
+                    WorkbenchEventSourceType.Conversation,
+                );
                 workbenchEventSource.removeEventListener('message.created', messageHandler);
             })();
         };
