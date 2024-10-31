@@ -155,7 +155,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const [createConversationMessage] = useCreateConversationMessageMutation();
     const [updateConversation] = useUpdateConversationMutation();
     const [isVisibleRef, isVisible] = useIsVisible({
-        threshold: 1.0, // bottom of the element must be visible
+        threshold: 0.1, // percentage of the element that must be visible
     });
     const { getUserId } = useLocalUserAccount();
     const userId = getUserId();
@@ -355,7 +355,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             );
         }
         const footerContent = (
-            <div className={classes.footer}>
+            <div ref={isVisibleRef} className={classes.footer}>
                 {aiGeneratedDisclaimer}
                 {footerItems}
             </div>
@@ -371,12 +371,28 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 {attachmentList}
             </>
         );
-    }, [actions, classes, content, contentClassName, isUser, message.filenames, message.messageType, message.metadata]);
+    }, [
+        actions,
+        classes.actions,
+        classes.attachments,
+        classes.footer,
+        classes.generated,
+        classes.innerContent,
+        classes.noteContent,
+        classes.noticeContent,
+        content,
+        contentClassName,
+        isUser,
+        isVisibleRef,
+        message.filenames,
+        message.messageType,
+        message.metadata,
+    ]);
 
     const renderedContent = getRenderedMessage();
 
     return (
-        <div className={rootClassName} ref={isVisibleRef}>
+        <div className={rootClassName}>
             {displayDate && (
                 <Divider>
                     <Timestamp>{date}</Timestamp>
