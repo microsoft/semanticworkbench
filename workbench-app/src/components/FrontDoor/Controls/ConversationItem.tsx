@@ -31,15 +31,30 @@ import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 
 const useClasses = makeStyles({
-    root: {},
+    cardHeader: {
+        overflow: 'hidden',
+
+        // Required to prevent overflow of the header and description
+        // to support ellipsis and text overflow handling
+        '& .fui-CardHeader__header': {
+            overflow: 'hidden',
+        },
+
+        '& .fui-CardHeader__description': {
+            overflow: 'hidden',
+        },
+    },
     header: {
         display: 'flex',
         flexDirection: 'row',
         flex: 1,
-        gap: tokens.spacingHorizontalS,
+        gap: tokens.spacingHorizontalXS,
         alignItems: 'center',
         justifyContent: 'space-between',
-        width: '260px',
+        width: '100%',
+    },
+    pin: {
+        flex: '0 0 auto',
     },
     title: {
         flexGrow: 1,
@@ -49,6 +64,7 @@ const useClasses = makeStyles({
         minWidth: 0,
     },
     date: {
+        marginLeft: tokens.spacingHorizontalXS,
         flexShrink: 0,
     },
     hidden: {
@@ -62,7 +78,7 @@ const useClasses = makeStyles({
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        maxWidth: '260px',
+        width: '100%',
     },
 });
 
@@ -173,7 +189,11 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
 
         return (
             <div className={classes.header}>
-                {isPinned(conversation) && <Pin12Regular />}
+                {isPinned(conversation) && (
+                    <div className={classes.pin}>
+                        <Pin12Regular />
+                    </div>
+                )}
                 <Text className={classes.title} weight={unread ? 'bold' : 'regular'}>
                     {conversation.title}
                 </Text>
@@ -189,6 +209,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
             </div>
         );
     }, [
+        classes.pin,
         classes.date,
         classes.header,
         classes.hidden,
@@ -218,7 +239,6 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
 
     return (
         <Card
-            className={classes.root}
             size="small"
             appearance="subtle"
             selected={selected}
@@ -227,7 +247,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
             onMouseLeave={() => setIsHovered(false)}
             floatingAction={isHovered ? action : undefined}
         >
-            <CardHeader header={header} description={description} />
+            <CardHeader className={classes.cardHeader} header={header} description={description} />
         </Card>
     );
 };
