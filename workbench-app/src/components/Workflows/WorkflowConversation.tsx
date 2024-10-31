@@ -16,7 +16,7 @@ import React from 'react';
 import { Constants } from '../../Constants';
 import { InteractHistory } from '../../components/Conversations/InteractHistory';
 import { InteractInput } from '../../components/Conversations/InteractInput';
-import { WorkbenchEventSource } from '../../libs/WorkbenchEventSource';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
 import { useGetAssistantCapabilitiesSet } from '../../libs/useAssistantCapabilities';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { useInteractCanvasController } from '../../libs/useInteractCanvasController';
@@ -229,7 +229,11 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         };
 
         (async () => {
-            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
+            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversationId,
+            );
             workbenchEventSource.addEventListener('assistant.state.focus', handleFocusEvent);
         })();
 

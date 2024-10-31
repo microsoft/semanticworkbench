@@ -728,7 +728,7 @@ def init(
                         server_sent_event = ServerSentEvent(
                             id=uuid.uuid4().hex,
                             event="message.created",
-                            data={"conversation_id": str(conversation_id)},
+                            data=json.dumps({"conversation_id": str(conversation_id)}),
                             retry=1000,
                         )
                         yield server_sent_event
