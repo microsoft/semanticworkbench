@@ -67,6 +67,8 @@ async def test_assistant_with_event_handlers(
     assistant_created_calls = 0
     conversation_created_calls = 0
     message_created_calls = 0
+    message_created_with_parens_calls = 0
+    message_created_all_calls = 0
     message_chat_created_calls = 0
 
     @app.events.assistant.on_created
@@ -87,6 +89,24 @@ async def test_assistant_with_event_handlers(
     ) -> None:
         nonlocal message_created_calls
         message_created_calls += 1
+
+    @app.events.conversation.message.on_created()
+    def on_message_created_with_parens(
+        conversation_context: ConversationContext,
+        _: workbench_model.ConversationEvent,
+        message: workbench_model.ConversationMessage,
+    ) -> None:
+        nonlocal message_created_with_parens_calls
+        message_created_with_parens_calls += 1
+
+    @app.events.conversation.message.on_created("all")
+    def on_message_created_all(
+        conversation_context: ConversationContext,
+        _: workbench_model.ConversationEvent,
+        message: workbench_model.ConversationMessage,
+    ) -> None:
+        nonlocal message_created_all_calls
+        message_created_all_calls += 1
 
     @app.events.conversation.message.chat.on_created
     async def on_chat_message(
@@ -153,6 +173,8 @@ async def test_assistant_with_event_handlers(
         )
 
         assert message_created_calls == 1
+        assert message_created_all_calls == 1
+        assert message_created_with_parens_calls == 1
         assert message_chat_created_calls == 1
 
         # send a message of type "notice"
@@ -179,7 +201,40 @@ async def test_assistant_with_event_handlers(
         )
 
         assert message_created_calls == 2
+        assert message_created_with_parens_calls == 2
+        assert message_created_all_calls == 2
         assert message_chat_created_calls == 1
+
+        # send a message from this assistant
+        await instance_client.post_conversation_event(
+            event=workbench_model.ConversationEvent(
+                conversation_id=conversation_id,
+                correlation_id="",
+                event=workbench_model.ConversationEventType.message_created,
+                data={
+                    "message": workbench_model.ConversationMessage(
+                        id=message_id,
+                        sender=workbench_model.MessageSender(
+                            participant_role=workbench_model.ParticipantRole.assistant, participant_id=str(assistant_id)
+                        ),
+                        message_type=workbench_model.MessageType.chat,
+                        timestamp=datetime.datetime.now(),
+                        content_type="text/plain",
+                        content="Hello, world",
+                        filenames=[],
+                        metadata={},
+                    ).model_dump(mode="json")
+                },
+            )
+        )
+
+        # these should remain unchanged
+        assert message_chat_created_calls == 1
+        assert message_created_with_parens_calls == 2
+        assert message_created_calls == 2
+
+        # this should have been called
+        assert message_created_all_calls == 3
 
 
 async def test_assistant_with_inspector(
