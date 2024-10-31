@@ -8,6 +8,7 @@
 import asyncio
 import logging
 import re
+import traceback
 from typing import Any, Sequence
 
 import deepmerge
@@ -35,7 +36,13 @@ from semantic_workbench_assistant.assistant_app import (
 from . import legacy
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
-from .agents.form_fill_agent import FormFillAgent, FormFillAgentConfig, FormFillAgentStateInspector
+from .agents.form_fill_agent import (
+    AcquireFormGuidedConversationStateInspector,
+    FillFormGuidedConversationStateInspector,
+    FormFillAgent,
+    FormFillAgentStateInspector,
+    LLMConfig,
+)
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -74,7 +81,9 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": ArtifactConversationInspectorStateProvider(assistant_config),
-        "form_fill_agent": FormFillAgentStateInspector(),
+        "form_fill_agent": FormFillAgentStateInspector,
+        "acquire_form": AcquireFormGuidedConversationStateInspector,
+        "fill_form": FillFormGuidedConversationStateInspector,
     },
 )
 
@@ -169,11 +178,12 @@ async def on_chat_message_created(
 
         try:
             await FormFillAgent.step(
-                config=FormFillAgentConfig(
+                llm_config=LLMConfig(
                     openai_client=openai_client.create_client(config.service_config),
                     openai_model=config.request_config.openai_model,
                     max_response_tokens=config.request_config.response_tokens,
                 ),
+                config=config.agents_config.form_fill_agent,
                 context=context,
                 latest_user_message=message.content,
                 get_attachment_messages=form_fill_agent_get_attachments(context, config),
@@ -181,7 +191,11 @@ async def on_chat_message_created(
 
         except Exception as e:
             await context.send_messages(
-                NewConversationMessage(content=f"An error occurred: {e}", message_type=MessageType.notice)
+                NewConversationMessage(
+                    content=f"An error occurred: {e}",
+                    message_type=MessageType.notice,
+                    metadata={"debug": {"stack_trace": traceback.format_exc()}},
+                )
             )
 
         # # Prospector assistant response
@@ -234,11 +248,12 @@ async def welcome_message(context: ConversationContext) -> None:
     async with context.set_status_for_block("thinking..."):
         try:
             await FormFillAgent.step(
-                config=FormFillAgentConfig(
+                llm_config=LLMConfig(
                     openai_client=openai_client.create_client(config.service_config),
                     openai_model=config.request_config.openai_model,
                     max_response_tokens=config.request_config.response_tokens,
                 ),
+                config=config.agents_config.form_fill_agent,
                 context=context,
                 latest_user_message=None,
                 get_attachment_messages=form_fill_agent_get_attachments(context, config),
@@ -246,7 +261,11 @@ async def welcome_message(context: ConversationContext) -> None:
 
         except Exception as e:
             await context.send_messages(
-                NewConversationMessage(content=f"An error occurred: {e}", message_type=MessageType.notice)
+                NewConversationMessage(
+                    content=f"An error occurred: {e}",
+                    message_type=MessageType.notice,
+                    metadata={"debug": {"stack_trace": traceback.format_exc()}},
+                )
             )
 
 
