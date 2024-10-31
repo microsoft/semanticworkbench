@@ -99,7 +99,7 @@ const toFormattedDateString = (value: string | Date, format: string, timezone: s
     return toDayJs(value, timezone).format(format);
 };
 
-const toTimestampForFilename = (timezone: string = dayjs.tz.guess()) => {
+const getTimestampForFilename = (timezone: string = dayjs.tz.guess()) => {
     // return in format YYYYMMDDHHmm
     return toDayJs(timezone).format('YYYYMMDDHHmm');
 };
@@ -126,6 +126,6 @@ export const Utility = {
     toDate,
     toSimpleDateString,
     toFormattedDateString,
-    toTimestampForFilename,
+    getTimestampForFilename,
     sortKeys,
 };

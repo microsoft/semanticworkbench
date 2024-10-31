@@ -10,6 +10,7 @@ import { useLocation } from 'react-router-dom';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
+import { Utility } from '../../libs/Utility';
 import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { Conversation } from '../../models/Conversation';
@@ -150,7 +151,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         </>
                     );
                 }
-                const date = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('M/D/YY');
+                const date = Utility.toFormattedDateString(message.timestamp, 'M/D/YY');
                 let displayDate = false;
                 if (date !== lastDate) {
                     displayDate = true;

@@ -224,7 +224,7 @@ export const useWorkbenchService = () => {
         const filename = `workflow_${workflowDefinition.label.replace(
             ' ',
             '_',
-        )}_${Utility.toTimestampForFilename()}.json`;
+        )}_${Utility.getTimestampForFilename()}.json`;
         return { blob, filename };
     };
 
