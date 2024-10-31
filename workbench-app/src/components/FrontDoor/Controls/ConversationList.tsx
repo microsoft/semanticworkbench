@@ -1,7 +1,24 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Input, Select, Text, makeStyles, shorthands, tokens } from '@fluentui/react-components';
-import { DismissRegular, FilterRegular } from '@fluentui/react-icons';
+import {
+    Button,
+    Checkbox,
+    Input,
+    Link,
+    Select,
+    Text,
+    Tooltip,
+    makeStyles,
+    shorthands,
+    tokens,
+} from '@fluentui/react-components';
+import {
+    DismissRegular,
+    FilterRegular,
+    PinOffRegular,
+    PinRegular,
+    PlugDisconnectedRegular,
+} from '@fluentui/react-icons';
 
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
@@ -45,6 +62,11 @@ const useClasses = makeStyles({
     active: {
         backgroundColor: tokens.colorBrandBackgroundInvertedSelected,
     },
+    bulkActions: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
 });
 
 export const ConversationList: React.FC = () => {
@@ -52,7 +74,8 @@ export const ConversationList: React.FC = () => {
     const { getUserId } = useLocalUserAccount();
     const environment = useEnvironment();
     const { activeConversationId } = useAppSelector((state) => state.app);
-    const { navigateToConversation, isPinned } = useConversationUtility();
+    const { navigateToConversation, hasUnreadMessages, markAllAsRead, markAsUnread, isPinned, setPinned } =
+        useConversationUtility();
     const {
         data: conversations,
         error: conversationsError,
@@ -67,6 +90,7 @@ export const ConversationList: React.FC = () => {
     const [duplicateConversation, setDuplicateConversation] = React.useState<Conversation>();
     const [shareConversation, setShareConversation] = React.useState<Conversation>();
     const [removeConversation, setRemoveConversation] = React.useState<Conversation>();
+    const [selectedForActions, setSelectedForActions] = React.useState(new Set<string>());
 
     if (conversationsError) {
         const errorMessage = JSON.stringify(conversationsError);
@@ -136,6 +160,72 @@ export const ConversationList: React.FC = () => {
         return dateB.getTime() - dateA.getTime();
     };
 
+    const handleSelectedForActions = (conversationId: string, selected: boolean) => {
+        if (selected) {
+            setSelectedForActions((prev) => new Set(prev).add(conversationId));
+        } else {
+            setSelectedForActions((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete(conversationId);
+                return newSet;
+            });
+        }
+    };
+
+    const getSelectedConversations = () => {
+        return conversations?.filter((conversation) => selectedForActions.has(conversation.id)) ?? [];
+    };
+
+    const handleMarkAllAsReadForSelected = async () => {
+        await markAllAsRead(getSelectedConversations());
+        setSelectedForActions(new Set<string>());
+    };
+
+    const handleMarkAsUnreadForSelected = async () => {
+        await markAsUnread(getSelectedConversations());
+        setSelectedForActions(new Set<string>());
+    };
+
+    const handleRemoveForSelected = async () => {
+        // TODO: implement remove conversation
+        setSelectedForActions(new Set<string>());
+    };
+
+    const handlePinForSelected = async () => {
+        await setPinned(getSelectedConversations(), true);
+        setSelectedForActions(new Set<string>());
+    };
+
+    const handleUnpinForSelected = async () => {
+        await setPinned(getSelectedConversations(), false);
+        setSelectedForActions(new Set<string>());
+    };
+
+    const enableBulkActions =
+        selectedForActions.size > 0
+            ? {
+                  read: conversations?.some(
+                      (conversation) => selectedForActions.has(conversation.id) && hasUnreadMessages(conversation),
+                  ),
+                  unread: conversations?.some(
+                      (conversation) => selectedForActions.has(conversation.id) && !hasUnreadMessages(conversation),
+                  ),
+                  remove: true,
+                  pin: conversations?.some(
+                      (conversation) => selectedForActions.has(conversation.id) && !isPinned(conversation),
+                  ),
+                  unpin: conversations?.some(
+                      (conversation) => selectedForActions.has(conversation.id) && isPinned(conversation),
+                  ),
+              }
+            : {
+                  read: false,
+                  unread: false,
+                  remove: false,
+                  pin: false,
+                  unpin: false,
+              };
+
     const conversationsToItems = (conversationList: Conversation[]) => {
         const splitByPinned: Record<string, Conversation[]> = { pinned: [], unpinned: [] };
         conversationList.forEach((conversation) => {
@@ -163,7 +253,10 @@ export const ConversationList: React.FC = () => {
                 conversation={conversation}
                 owned={conversation.ownerId === userId}
                 selected={activeConversationId === conversation.id}
+                selectedForActions={selectedForActions?.has(conversation.id)}
                 onSelect={() => navigateToConversation(conversation.id)}
+                showSelectForActions={selectedForActions.size > 0}
+                onSelectForActions={(_, selected) => handleSelectedForActions(conversation.id, selected)}
                 onExport={() => exportConversation(conversation.id)}
                 onRename={setRenameConversation}
                 onDuplicate={setDuplicateConversation}
@@ -229,6 +322,52 @@ export const ConversationList: React.FC = () => {
                     <option>Sort by name</option>
                     <option>Sort by date</option>
                 </Select>
+                <div className={classes.bulkActions}>
+                    <Checkbox
+                        checked={selectedForActions.size > 0}
+                        onChange={(_event, data) => {
+                            setSelectedForActions(
+                                data.checked
+                                    ? new Set(myConversations.map((conversation) => conversation.id))
+                                    : new Set<string>(),
+                            );
+                        }}
+                    />
+                    <Link disabled={!enableBulkActions.read} onClick={handleMarkAllAsReadForSelected}>
+                        Read
+                    </Link>
+                    &nbsp;|&nbsp;
+                    <Link disabled={!enableBulkActions.unread} onClick={handleMarkAsUnreadForSelected}>
+                        Unread
+                    </Link>
+                    &nbsp;|&nbsp;
+                    <Tooltip content="Remove selected conversations" relationship="label">
+                        <Button
+                            // hide this until implemented
+                            style={{ display: 'none' }}
+                            appearance="subtle"
+                            icon={<PlugDisconnectedRegular />}
+                            disabled={!enableBulkActions.remove}
+                            onClick={handleRemoveForSelected}
+                        />
+                    </Tooltip>
+                    <Tooltip content="Pin selected conversations" relationship="label">
+                        <Button
+                            appearance="subtle"
+                            icon={<PinRegular />}
+                            disabled={!enableBulkActions.pin}
+                            onClick={handlePinForSelected}
+                        />
+                    </Tooltip>
+                    <Tooltip content="Unpin selected conversations" relationship="label">
+                        <Button
+                            appearance="subtle"
+                            icon={<PinOffRegular />}
+                            disabled={!enableBulkActions.unpin}
+                            onClick={handleUnpinForSelected}
+                        />
+                    </Tooltip>
+                </div>
             </div>
             {myConversations.length === 0 && <Text>No Conversations found.</Text>}
             <PresenceMotionList className={classes.list} items={conversationsToItems(myConversations)} />

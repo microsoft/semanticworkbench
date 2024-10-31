@@ -3,6 +3,7 @@ import {
     Caption1,
     Card,
     CardHeader,
+    Checkbox,
     makeStyles,
     Menu,
     MenuItem,
@@ -53,6 +54,11 @@ const useClasses = makeStyles({
         justifyContent: 'space-between',
         width: '100%',
     },
+    action: {
+        flex: '0 0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+    },
     pin: {
         flex: '0 0 auto',
     },
@@ -67,9 +73,6 @@ const useClasses = makeStyles({
         marginLeft: tokens.spacingHorizontalXS,
         flexShrink: 0,
     },
-    hidden: {
-        visibility: 'hidden',
-    },
     unread: {
         color: tokens.colorStrokeFocus2,
         fontWeight: '600',
@@ -80,25 +83,59 @@ const useClasses = makeStyles({
         textOverflow: 'ellipsis',
         width: '100%',
     },
+    showingActions: {
+        '& .fui-CardHeader__header': {
+            width: 'calc(100% - 40px)',
+        },
+
+        '& .fui-CardHeader__description': {
+            width: 'calc(100% - 40px)',
+        },
+    },
+    selectCheckbox: {
+        height: '24px',
+    },
+    moreButton: {
+        paddingTop: 0,
+        paddingBottom: 0,
+    },
 });
 
 interface ConversationItemProps {
     conversation: Conversation;
     owned?: boolean;
     selected?: boolean;
+    showSelectForActions?: boolean;
+    selectedForActions?: boolean;
     onSelect?: (conversation: Conversation) => void;
     onExport?: (conversation: Conversation) => void;
     onRename?: (conversation: Conversation) => void;
     onDuplicate?: (conversation: Conversation) => void;
     onShare?: (conversation: Conversation) => void;
     onRemove?: (conversation: Conversation) => void;
+    onSelectForActions?: (conversation: Conversation, selected: boolean) => void;
 }
 
 export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
-    const { conversation, owned, selected, onSelect, onExport, onRename, onDuplicate, onShare, onRemove } = props;
+    const {
+        conversation,
+        owned,
+        selected,
+        onSelect,
+        onExport,
+        onRename,
+        onDuplicate,
+        onShare,
+        onRemove,
+        showSelectForActions,
+        selectedForActions,
+        onSelectForActions,
+    } = props;
     const classes = useClasses();
     const [isHovered, setIsHovered] = React.useState(false);
     const { hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
+
+    const showActions = isHovered || showSelectForActions;
 
     const action = React.useMemo(() => {
         const handleMenuItemClick = (
@@ -115,70 +152,101 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         };
 
         return (
-            <Menu key={conversation.id} positioning="below-end">
-                <MenuTrigger disableButtonEnhancement>
-                    <Tooltip content="More options" relationship="label">
-                        <Button appearance="transparent" icon={<MoreHorizontalRegular />} />
-                    </Tooltip>
-                </MenuTrigger>
-                <MenuPopover>
-                    <MenuList>
-                        <MenuItem
-                            icon={isPinned(conversation) ? <PinOffRegular /> : <PinRegular />}
-                            onClick={(event) => handleMenuItemClick(event, onPinned)}
-                        >
-                            {isPinned(conversation) ? 'Unpin' : 'Pin'}
-                        </MenuItem>
-                        {onRename && (
+            <div className={classes.action}>
+                <Checkbox
+                    className={classes.selectCheckbox}
+                    checked={selectedForActions}
+                    onChange={() => onSelectForActions?.(conversation, !selectedForActions)}
+                />
+                <Menu key={conversation.id} positioning="below-end">
+                    <MenuTrigger disableButtonEnhancement>
+                        <Button
+                            appearance="transparent"
+                            className={classes.moreButton}
+                            icon={<MoreHorizontalRegular />}
+                        />
+                    </MenuTrigger>
+                    <MenuPopover>
+                        <MenuList>
                             <MenuItem
-                                icon={<EditRegular />}
-                                onClick={(event) => handleMenuItemClick(event, onRename)}
-                                disabled={!owned}
+                                icon={isPinned(conversation) ? <PinOffRegular /> : <PinRegular />}
+                                onClick={(event) => handleMenuItemClick(event, onPinned)}
                             >
-                                Rename
+                                {isPinned(conversation) ? 'Unpin' : 'Pin'}
                             </MenuItem>
-                        )}
-                        {onExport && (
-                            <MenuItem
-                                icon={<ArrowDownloadRegular />}
-                                onClick={(event) => handleMenuItemClick(event, onExport)}
-                            >
-                                Export
-                            </MenuItem>
-                        )}
-                        {onDuplicate && (
-                            <MenuItem
-                                icon={<SaveCopyRegular />}
-                                onClick={(event) => handleMenuItemClick(event, onDuplicate)}
-                            >
-                                Duplicate
-                            </MenuItem>
-                        )}
-                        {onShare && (
-                            <MenuItem icon={<ShareRegular />} onClick={(event) => handleMenuItemClick(event, onShare)}>
-                                Share
-                            </MenuItem>
-                        )}
-                        {onRemove && (
-                            <MenuItem
-                                icon={<PlugDisconnectedRegular />}
-                                onClick={(event) => handleMenuItemClick(event, onRemove)}
-                                disabled={selected}
-                            >
-                                {selected ? (
-                                    <Tooltip content="Cannot remove currently active conversation" relationship="label">
-                                        <Text>Remove</Text>
-                                    </Tooltip>
-                                ) : (
-                                    'Remove'
-                                )}
-                            </MenuItem>
-                        )}
-                    </MenuList>
-                </MenuPopover>
-            </Menu>
+                            {onRename && (
+                                <MenuItem
+                                    icon={<EditRegular />}
+                                    onClick={(event) => handleMenuItemClick(event, onRename)}
+                                    disabled={!owned}
+                                >
+                                    Rename
+                                </MenuItem>
+                            )}
+                            {onExport && (
+                                <MenuItem
+                                    icon={<ArrowDownloadRegular />}
+                                    onClick={(event) => handleMenuItemClick(event, onExport)}
+                                >
+                                    Export
+                                </MenuItem>
+                            )}
+                            {onDuplicate && (
+                                <MenuItem
+                                    icon={<SaveCopyRegular />}
+                                    onClick={(event) => handleMenuItemClick(event, onDuplicate)}
+                                >
+                                    Duplicate
+                                </MenuItem>
+                            )}
+                            {onShare && (
+                                <MenuItem
+                                    icon={<ShareRegular />}
+                                    onClick={(event) => handleMenuItemClick(event, onShare)}
+                                >
+                                    Share
+                                </MenuItem>
+                            )}
+                            {onRemove && (
+                                <MenuItem
+                                    icon={<PlugDisconnectedRegular />}
+                                    onClick={(event) => handleMenuItemClick(event, onRemove)}
+                                    disabled={selected}
+                                >
+                                    {selected ? (
+                                        <Tooltip
+                                            content="Cannot remove currently active conversation"
+                                            relationship="label"
+                                        >
+                                            <Text>Remove</Text>
+                                        </Tooltip>
+                                    ) : (
+                                        'Remove'
+                                    )}
+                                </MenuItem>
+                            )}
+                        </MenuList>
+                    </MenuPopover>
+                </Menu>
+            </div>
         );
-    }, [conversation, isPinned, onRename, owned, onExport, onDuplicate, onShare, onRemove, selected, setPinned]);
+    }, [
+        classes.action,
+        classes.selectCheckbox,
+        classes.moreButton,
+        selectedForActions,
+        conversation,
+        isPinned,
+        onRename,
+        owned,
+        onExport,
+        onDuplicate,
+        onShare,
+        onRemove,
+        selected,
+        setPinned,
+        onSelectForActions,
+    ]);
 
     const unread = hasUnreadMessages(conversation);
 
@@ -197,26 +265,21 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                 <Text className={classes.title} weight={unread ? 'bold' : 'regular'}>
                     {conversation.title}
                 </Text>
-                <Caption1
-                    className={mergeClasses(
-                        classes.date,
-                        unread ? classes.unread : undefined,
-                        isHovered ? classes.hidden : undefined,
-                    )}
-                >
-                    {formattedDate}
-                </Caption1>
+                {!showActions && (
+                    <Caption1 className={mergeClasses(classes.date, unread ? classes.unread : undefined)}>
+                        {formattedDate}
+                    </Caption1>
+                )}
             </div>
         );
     }, [
-        classes.pin,
-        classes.date,
-        classes.header,
-        classes.hidden,
-        classes.title,
-        classes.unread,
         conversation,
-        isHovered,
+        classes.header,
+        classes.pin,
+        classes.title,
+        classes.date,
+        classes.unread,
+        showActions,
         isPinned,
         unread,
     ]);
@@ -230,12 +293,8 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         const sender = conversation.participants.find((p) => p.id === participantId);
         const content = conversation.latest_message.content;
 
-        return (
-            <Caption1 className={mergeClasses(classes.description, unread ? classes.unread : undefined)}>
-                {sender ? `${sender.name}: ${content}` : content}
-            </Caption1>
-        );
-    }, [conversation.latest_message, conversation.participants, classes.description, classes.unread, unread]);
+        return <Caption1 className={classes.description}>{sender ? `${sender.name}: ${content}` : content}</Caption1>;
+    }, [conversation.latest_message, conversation.participants, classes.description]);
 
     return (
         <Card
@@ -245,9 +304,13 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
             onSelectionChange={() => onSelect?.(conversation)}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            floatingAction={isHovered ? action : undefined}
+            floatingAction={showActions ? action : undefined}
         >
-            <CardHeader className={classes.cardHeader} header={header} description={description} />
+            <CardHeader
+                className={mergeClasses(classes.cardHeader, showActions ? classes.showingActions : undefined)}
+                header={header}
+                description={description}
+            />
         </Card>
     );
 };

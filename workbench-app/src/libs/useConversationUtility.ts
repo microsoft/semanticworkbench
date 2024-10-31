@@ -174,9 +174,52 @@ export const useConversationUtility = () => {
         [getLastReadTimestamp],
     );
 
+    const markAllAsRead = React.useCallback(
+        async (conversation: Conversation | Conversation[]) => {
+            const markSingleConversation = async (c: Conversation) => {
+                if (!hasUnreadMessages(c)) {
+                    return;
+                }
+                await setAppMetadata(c, { lastReadTimestamp: getLastMessageTimestamp(c) });
+            };
+
+            if (Array.isArray(conversation)) {
+                await Promise.all(conversation.map(markSingleConversation));
+                return;
+            }
+            await markSingleConversation(conversation);
+        },
+        [hasUnreadMessages, setAppMetadata, getLastMessageTimestamp],
+    );
+
+    const markAsUnread = React.useCallback(
+        async (conversation: Conversation | Conversation[]) => {
+            const markSingleConversation = async (c: Conversation) => {
+                if (hasUnreadMessages(c)) {
+                    return;
+                }
+                await setAppMetadata(c, { lastReadTimestamp: undefined });
+            };
+
+            if (Array.isArray(conversation)) {
+                await Promise.all(conversation.map(markSingleConversation));
+                return;
+            }
+
+            await markSingleConversation(conversation);
+        },
+        [hasUnreadMessages, setAppMetadata],
+    );
+
     const setLastRead = React.useCallback(
-        async (conversation: Conversation, messageTimestamp: string) => {
+        async (conversation: Conversation | Conversation[], messageTimestamp: string) => {
             const debouncedFunction = Utility.debounce(async () => {
+                if (Array.isArray(conversation)) {
+                    await Promise.all(
+                        conversation.map((c) => setAppMetadata(c, { lastReadTimestamp: messageTimestamp })),
+                    );
+                    return;
+                }
                 await setAppMetadata(conversation, { lastReadTimestamp: messageTimestamp });
             }, 300);
 
@@ -199,7 +242,11 @@ export const useConversationUtility = () => {
     );
 
     const setPinned = React.useCallback(
-        async (conversation: Conversation, pinned: boolean) => {
+        async (conversation: Conversation | Conversation[], pinned: boolean) => {
+            if (Array.isArray(conversation)) {
+                await Promise.all(conversation.map((c) => setAppMetadata(c, { pinned })));
+                return;
+            }
             await setAppMetadata(conversation, { pinned });
         },
         [setAppMetadata],
@@ -218,6 +265,8 @@ export const useConversationUtility = () => {
         isMessageVisible,
         hasUnreadMessages,
         isUnread,
+        markAllAsRead,
+        markAsUnread,
         setLastRead,
         isPinned,
         setPinned,
