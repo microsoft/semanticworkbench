@@ -23,6 +23,7 @@ import {
     ShareRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
+import { useLocalUserAccount } from '../../../libs/useLocalUserAccount';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 
@@ -56,6 +57,10 @@ const useClasses = makeStyles({
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         maxWidth: '260px',
+
+        '&.unread': {
+            fontWeight: 'semibold',
+        },
     },
 });
 
@@ -75,6 +80,16 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
     const { conversation, owned, selected, onSelect, onExport, onRename, onDuplicate, onShare, onRemove } = props;
     const classes = useClasses();
     const [isHovered, setIsHovered] = React.useState(false);
+    const { getUserId } = useLocalUserAccount();
+    const userId = getUserId();
+
+    const isUnread = React.useMemo(() => {
+        const lastRead: Array<{ participantId: string; timestamp: string }> = conversation.metadata?.lastRead ?? [];
+        const lastReadByUser = lastRead.find((lr) => lr.participantId === userId);
+        const latestMessageTimestamp = conversation.latest_message?.timestamp ?? conversation.created;
+
+        return !lastReadByUser || lastReadByUser.timestamp < latestMessageTimestamp;
+    }, [conversation.metadata, conversation.latest_message, conversation.created, userId]);
 
     const action = React.useMemo(() => {
         if (!onExport && !onRename && !onDuplicate && !onShare && !onRemove) {
@@ -157,7 +172,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
 
         return (
             <div className={classes.header}>
-                <Text className={classes.title} weight="semibold">
+                <Text className={classes.title} weight={isUnread ? 'bold' : 'semibold'}>
                     {conversation.title}
                 </Text>
                 <Caption1 className={mergeClasses(classes.date, isHovered ? 'hidden' : undefined)}>
@@ -173,6 +188,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         classes.title,
         classes.date,
         isHovered,
+        isUnread,
     ]);
 
     const description = React.useMemo(() => {
@@ -180,8 +196,16 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
             return undefined;
         }
 
-        return <Caption1 className={classes.description}>{conversation.latest_message.content}</Caption1>;
-    }, [conversation.latest_message, classes.description]);
+        const participantId = conversation.latest_message.sender.participantId;
+        const sender = conversation.participants.find((p) => p.id === participantId);
+        const content = conversation.latest_message.content;
+
+        return (
+            <Caption1 className={mergeClasses(classes.description, isUnread ? 'unread' : undefined)}>
+                {sender ? `${sender.name}: ${content}` : content}
+            </Caption1>
+        );
+    }, [conversation.latest_message, conversation.participants, classes.description, isUnread]);
 
     return (
         <Card

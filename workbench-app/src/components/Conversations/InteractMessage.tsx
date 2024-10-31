@@ -33,11 +33,13 @@ import {
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
+import { useIsVisible } from '../../libs/useIsVisible';
+import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useCreateConversationMessageMutation } from '../../services/workbench';
+import { useCreateConversationMessageMutation, useUpdateConversationMutation } from '../../services/workbench';
 import { CopyButton } from '../App/CopyButton';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
 import { ConversationFileIcon } from './ConversationFileIcon';
@@ -151,6 +153,12 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { conversation, message, participant, hideParticipant, displayDate, readOnly } = props;
     const classes = useClasses();
     const [createConversationMessage] = useCreateConversationMessageMutation();
+    const [updateConversation] = useUpdateConversationMutation();
+    const [isVisibleRef, isVisible] = useIsVisible({
+        threshold: 1.0, // bottom of the element must be visible
+    });
+    const { getUserId } = useLocalUserAccount();
+    const userId = getUserId();
 
     const isUser = participant.role === 'user';
 
@@ -173,6 +181,37 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         rootClassName = mergeClasses(rootClassName, classes.userRoot);
         contentClassName = mergeClasses(contentClassName, classes.userContent);
     }
+
+    const isUnread = React.useMemo(() => {
+        const lastRead: Array<{ participantId: string; timestamp: string }> = conversation.metadata?.lastRead ?? [];
+        const lastReadByUser = lastRead.find((lr) => lr.participantId === userId);
+        return !lastReadByUser || lastReadByUser.timestamp < message.timestamp;
+    }, [conversation, message.timestamp, userId]);
+
+    // FIXME: I think this should be moved to a hook and maybe on the history instead of the individual message?
+    React.useEffect(() => {
+        // if the message is visible, mark it as read
+        if (isVisible && isUnread) {
+            // update the existing lastRead timestamp or add a new one
+            const lastRead: Array<{ participantId: string; timestamp: string }> = conversation.metadata?.lastRead ?? [];
+            const lastReadByUser = lastRead.find((lr) => lr.participantId === userId);
+            let updatedLastRead: Array<{ participantId: string; timestamp: string }>;
+            if (lastReadByUser) {
+                updatedLastRead = lastRead.map((lr) =>
+                    lr.participantId === userId ? { ...lr, timestamp: message.timestamp } : lr,
+                );
+            } else {
+                updatedLastRead = [...lastRead, { participantId: userId, timestamp: message.timestamp }];
+            }
+            updateConversation({
+                ...conversation,
+                metadata: {
+                    ...conversation.metadata,
+                    lastRead: updatedLastRead,
+                },
+            });
+        }
+    }, [conversation, isUnread, isVisible, message.timestamp, updateConversation, userId]);
 
     const content = React.useMemo(() => {
         const onSubmit = async (data: string) => {
@@ -337,7 +376,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const renderedContent = getRenderedMessage();
 
     return (
-        <div className={rootClassName}>
+        <div className={rootClassName} ref={isVisibleRef}>
             {displayDate && (
                 <Divider>
                     <Timestamp>{date}</Timestamp>
