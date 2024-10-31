@@ -156,10 +156,6 @@ async def on_chat_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
-    # ignore messages from this assistant
-    if message.sender.participant_id == context.assistant.id:
-        return
-
     # update the participant status to indicate the assistant is thinking
     async with context.set_status_for_block("thinking..."):
         config = await assistant_config.get(context.assistant)
