@@ -1,6 +1,7 @@
 from typing import Annotated
 
 import openai_client
+from assistant_extensions.artifacts import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,14 +24,22 @@ from . import helpers
 #
 
 
-class AgentsConfigModel(BaseModel):
-    attachment_agent: Annotated[
+class ExtensionsConfigModel(BaseModel):
+    attachments: Annotated[
         AttachmentsConfigModel,
         Field(
-            title="Attachment Agent Configuration",
-            description="Configuration for the attachment agent.",
+            title="Attachments Extension Configuration",
+            description="Configuration for the attachments extension.",
         ),
     ] = AttachmentsConfigModel()
+
+    artifacts: Annotated[
+        ArtifactsConfigModel,
+        Field(
+            title="Artifacts Extension Configuration",
+            description="Configuration for the artifacts extension.",
+        ),
+    ] = ArtifactsConfigModel()
 
 
 class HighTokenUsageWarning(BaseModel):
@@ -190,13 +199,13 @@ class AssistantConfigModel(BaseModel):
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
 
-    agents_config: Annotated[
-        AgentsConfigModel,
+    extensions_config: Annotated[
+        ExtensionsConfigModel,
         Field(
-            title="Agents Configuration",
-            description="Configuration for the assistant agents.",
+            title="Extensions Configuration",
+            description="Configuration for the assistant extensions.",
         ),
-    ] = AgentsConfigModel()
+    ] = ExtensionsConfigModel()
 
     # add any additional configuration fields
 
