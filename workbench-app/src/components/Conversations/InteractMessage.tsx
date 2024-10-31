@@ -33,8 +33,8 @@ import {
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
-import { useIsVisible } from '../../libs/useIsVisible';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
+import { useUnreadMessages } from '../../libs/useUnreadMessages';
 import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
@@ -154,9 +154,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const classes = useClasses();
     const [createConversationMessage] = useCreateConversationMessageMutation();
     const [updateConversation] = useUpdateConversationMutation();
-    const [isVisibleRef, isVisible] = useIsVisible({
-        threshold: 0.1, // percentage of the element that must be visible
-    });
+    const {isMessageVisibleRef, isMessageVisible} = useUnreadMessages();
     const { getUserId } = useLocalUserAccount();
     const userId = getUserId();
 
@@ -191,7 +189,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     // FIXME: I think this should be moved to a hook and maybe on the history instead of the individual message?
     React.useEffect(() => {
         // if the message is visible, mark it as read
-        if (isVisible && isUnread) {
+        if (isMessageVisible && isUnread) {
             // update the existing lastRead timestamp or add a new one
             const lastRead: Array<{ participantId: string; timestamp: string }> = conversation.metadata?.lastRead ?? [];
             const lastReadByUser = lastRead.find((lr) => lr.participantId === userId);
@@ -211,7 +209,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 },
             });
         }
-    }, [conversation, isUnread, isVisible, message.timestamp, updateConversation, userId]);
+    }, [conversation, isUnread, isMessageVisible, message.timestamp, updateConversation, userId]);
 
     const content = React.useMemo(() => {
         const onSubmit = async (data: string) => {
@@ -355,7 +353,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             );
         }
         const footerContent = (
-            <div ref={isVisibleRef} className={classes.footer}>
+            <div ref={isMessageVisibleRef} className={classes.footer}>
                 {aiGeneratedDisclaimer}
                 {footerItems}
             </div>
@@ -383,7 +381,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         content,
         contentClassName,
         isUser,
-        isVisibleRef,
+        isMessageVisibleRef,
         message.filenames,
         message.messageType,
         message.metadata,
