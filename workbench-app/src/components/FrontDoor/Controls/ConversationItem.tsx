@@ -18,12 +18,15 @@ import {
     ArrowDownloadRegular,
     EditRegular,
     MoreHorizontalRegular,
+    Pin12Regular,
+    PinOffRegular,
+    PinRegular,
     PlugDisconnectedRegular,
     SaveCopyRegular,
     ShareRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
-import { useLocalUserAccount } from '../../../libs/useLocalUserAccount';
+import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 
@@ -33,7 +36,7 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'row',
         flex: 1,
-        gap: tokens.spacingHorizontalM,
+        gap: tokens.spacingHorizontalS,
         alignItems: 'center',
         justifyContent: 'space-between',
         width: '260px',
@@ -47,20 +50,19 @@ const useClasses = makeStyles({
     },
     date: {
         flexShrink: 0,
-
-        '&.hidden': {
-            visibility: 'hidden',
-        },
+    },
+    hidden: {
+        visibility: 'hidden',
+    },
+    unread: {
+        color: tokens.colorStrokeFocus2,
+        fontWeight: '600',
     },
     description: {
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         maxWidth: '260px',
-
-        '&.unread': {
-            fontWeight: 'semibold',
-        },
     },
 });
 
@@ -80,22 +82,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
     const { conversation, owned, selected, onSelect, onExport, onRename, onDuplicate, onShare, onRemove } = props;
     const classes = useClasses();
     const [isHovered, setIsHovered] = React.useState(false);
-    const { getUserId } = useLocalUserAccount();
-    const userId = getUserId();
-
-    const isUnread = React.useMemo(() => {
-        const lastRead: Array<{ participantId: string; timestamp: string }> = conversation.metadata?.lastRead ?? [];
-        const lastReadByUser = lastRead.find((lr) => lr.participantId === userId);
-        const latestMessageTimestamp = conversation.latest_message?.timestamp ?? conversation.created;
-
-        return !lastReadByUser || lastReadByUser.timestamp < latestMessageTimestamp;
-    }, [conversation.metadata, conversation.latest_message, conversation.created, userId]);
+    const { hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
 
     const action = React.useMemo(() => {
-        if (!onExport && !onRename && !onDuplicate && !onShare && !onRemove) {
-            return undefined;
-        }
-
         const handleMenuItemClick = (
             event: React.MouseEvent<HTMLDivElement>,
             handler?: (conversation: Conversation) => void,
@@ -103,6 +92,10 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
             event.stopPropagation();
             setIsHovered(false);
             handler?.(conversation);
+        };
+
+        const onPinned = async () => {
+            await setPinned(conversation, !isPinned(conversation));
         };
 
         return (
@@ -114,6 +107,12 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                 </MenuTrigger>
                 <MenuPopover>
                     <MenuList>
+                        <MenuItem
+                            icon={isPinned(conversation) ? <PinOffRegular /> : <PinRegular />}
+                            onClick={(event) => handleMenuItemClick(event, onPinned)}
+                        >
+                            {isPinned(conversation) ? 'Unpin' : 'Pin'}
+                        </MenuItem>
                         {onRename && (
                             <MenuItem
                                 icon={<EditRegular />}
@@ -163,7 +162,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                 </MenuPopover>
             </Menu>
         );
-    }, [conversation, owned, selected, onExport, onRename, onDuplicate, onShare, onRemove]);
+    }, [conversation, isPinned, onRename, owned, onExport, onDuplicate, onShare, onRemove, selected, setPinned]);
+
+    const unread = hasUnreadMessages(conversation);
 
     const header = React.useMemo(() => {
         const formattedDate = Utility.toSimpleDateString(
@@ -172,23 +173,31 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
 
         return (
             <div className={classes.header}>
-                <Text className={classes.title} weight={isUnread ? 'bold' : 'semibold'}>
+                {isPinned(conversation) && <Pin12Regular />}
+                <Text className={classes.title} weight={unread ? 'bold' : 'regular'}>
                     {conversation.title}
                 </Text>
-                <Caption1 className={mergeClasses(classes.date, isHovered ? 'hidden' : undefined)}>
+                <Caption1
+                    className={mergeClasses(
+                        classes.date,
+                        unread ? classes.unread : undefined,
+                        isHovered ? classes.hidden : undefined,
+                    )}
+                >
                     {formattedDate}
                 </Caption1>
             </div>
         );
     }, [
-        conversation.latest_message?.timestamp,
-        conversation.created,
-        conversation.title,
-        classes.header,
-        classes.title,
         classes.date,
+        classes.header,
+        classes.hidden,
+        classes.title,
+        classes.unread,
+        conversation,
         isHovered,
-        isUnread,
+        isPinned,
+        unread,
     ]);
 
     const description = React.useMemo(() => {
@@ -201,11 +210,11 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         const content = conversation.latest_message.content;
 
         return (
-            <Caption1 className={mergeClasses(classes.description, isUnread ? 'unread' : undefined)}>
+            <Caption1 className={mergeClasses(classes.description, unread ? classes.unread : undefined)}>
                 {sender ? `${sender.name}: ${content}` : content}
             </Caption1>
         );
-    }, [conversation.latest_message, conversation.participants, classes.description, isUnread]);
+    }, [conversation.latest_message, conversation.participants, classes.description, classes.unread, unread]);
 
     return (
         <Card

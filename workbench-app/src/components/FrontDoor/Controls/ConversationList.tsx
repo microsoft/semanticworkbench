@@ -52,7 +52,7 @@ export const ConversationList: React.FC = () => {
     const { getUserId } = useLocalUserAccount();
     const environment = useEnvironment();
     const { activeConversationId } = useAppSelector((state) => state.app);
-    const { navigateToConversation } = useConversationUtility();
+    const { navigateToConversation, isPinned } = useConversationUtility();
     const {
         data: conversations,
         error: conversationsError,
@@ -136,24 +136,41 @@ export const ConversationList: React.FC = () => {
         return dateB.getTime() - dateA.getTime();
     };
 
-    const conversationsToItems = (conversations: Conversation[]) => {
-        return conversations
-            ?.filter((conversation) => conversation.metadata?.workflow_run_id === undefined)
-            .toSorted(sortByName ? sortByNameHelper : sortByDateHelper)
-            .map((conversation) => (
-                <ConversationItem
-                    key={conversation.id}
-                    conversation={conversation}
-                    owned={conversation.ownerId === userId}
-                    selected={activeConversationId === conversation.id}
-                    onSelect={() => navigateToConversation(conversation.id)}
-                    onExport={() => exportConversation(conversation.id)}
-                    onRename={setRenameConversation}
-                    onDuplicate={setDuplicateConversation}
-                    onShare={setShareConversation}
-                    onRemove={setRemoveConversation}
-                />
-            ));
+    const conversationsToItems = (conversationList: Conversation[]) => {
+        const splitByPinned: Record<string, Conversation[]> = { pinned: [], unpinned: [] };
+        conversationList.forEach((conversation) => {
+            if (conversation.metadata?.workflow_run_id !== undefined) {
+                return;
+            }
+            if (isPinned(conversation)) {
+                splitByPinned.pinned.push(conversation);
+            } else {
+                splitByPinned.unpinned.push(conversation);
+            }
+        });
+
+        const sortedConversationList: Conversation[] = [];
+        const sortHelperForSortType = sortByName ? sortByNameHelper : sortByDateHelper;
+
+        // sort pinned conversations
+        sortedConversationList.push(...splitByPinned.pinned.sort(sortHelperForSortType));
+        // sort unpinned conversations
+        sortedConversationList.push(...splitByPinned.unpinned.sort(sortHelperForSortType));
+
+        return sortedConversationList.map((conversation) => (
+            <ConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                owned={conversation.ownerId === userId}
+                selected={activeConversationId === conversation.id}
+                onSelect={() => navigateToConversation(conversation.id)}
+                onExport={() => exportConversation(conversation.id)}
+                onRename={setRenameConversation}
+                onDuplicate={setDuplicateConversation}
+                onShare={setShareConversation}
+                onRemove={setRemoveConversation}
+            />
+        ));
     };
 
     return (

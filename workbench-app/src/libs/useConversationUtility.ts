@@ -1,6 +1,11 @@
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Constants } from '../Constants';
+import { Conversation } from '../models/Conversation';
 import { ConversationShare } from '../models/ConversationShare';
+import { useUpdateConversationMutation } from '../services/workbench';
+import { useLocalUserAccount } from './useLocalUserAccount';
+import { Utility } from './Utility';
 
 // Share types to be used in the app.
 export const enum ConversationShareType {
@@ -10,7 +15,17 @@ export const enum ConversationShareType {
     InvitedToDuplicate = 'Invited to copy',
 }
 
+interface ParticipantAppMetadata {
+    lastReadTimestamp?: string;
+    pinned?: boolean;
+}
+
 export const useConversationUtility = () => {
+    const [isMessageVisible, setIsVisible] = React.useState(false);
+    const isMessageVisibleRef = React.useRef(null);
+    const [updateConversation] = useUpdateConversationMutation();
+    const { getUserId } = useLocalUserAccount();
+    const userId = getUserId();
     const navigate = useNavigate();
 
     // region Navigation
@@ -21,7 +36,7 @@ export const useConversationUtility = () => {
 
     // endregion
 
-    // region Conversation Shares
+    // region Shares
     //
     // This region contains logic for handling conversation shares, including determining the share type
     // based on the conversation permission and metadata. It also contains logic for handling the combinations
@@ -76,6 +91,122 @@ export const useConversationUtility = () => {
     };
     // endregion
 
+    // region App Metadata
+
+    const setAppMetadata = React.useCallback(
+        async (conversation: Conversation, appMetadata: Partial<ParticipantAppMetadata>) => {
+            const participantAppMetadata: Record<string, ParticipantAppMetadata> =
+                conversation.metadata?.participantAppMetadata ?? {};
+            const userAppMetadata = participantAppMetadata[userId] ?? {};
+
+            // Save the conversation
+            await updateConversation({
+                ...conversation,
+                metadata: {
+                    ...conversation.metadata,
+                    participantAppMetadata: {
+                        ...participantAppMetadata,
+                        [userId]: { ...userAppMetadata, ...appMetadata },
+                    },
+                },
+            });
+        },
+        [updateConversation, userId],
+    );
+
+    // endregion
+
+    // region Unread
+
+    React.useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setIsVisible(entry.isIntersecting);
+            },
+            { threshold: 0.1 },
+        );
+
+        const currentRef = isMessageVisibleRef.current;
+        if (currentRef) {
+            observer.observe(currentRef);
+        }
+
+        return () => {
+            if (currentRef) {
+                observer.unobserve(currentRef);
+            }
+        };
+    }, []);
+
+    const getLastReadTimestamp = React.useCallback(
+        (conversation: Conversation) => {
+            const participantAppMetadata: Record<string, ParticipantAppMetadata> =
+                conversation.metadata?.participantAppMetadata ?? {};
+            return participantAppMetadata[userId]?.lastReadTimestamp;
+        },
+        [userId],
+    );
+
+    const getLastMessageTimestamp = React.useCallback((conversation: Conversation) => {
+        return conversation.latest_message?.timestamp ?? conversation.created;
+    }, []);
+
+    const hasUnreadMessages = React.useCallback(
+        (conversation: Conversation) => {
+            const lastReadTimestamp = getLastReadTimestamp(conversation);
+            if (!lastReadTimestamp) {
+                return true;
+            }
+            const lastMessageTimestamp = getLastMessageTimestamp(conversation);
+            return lastMessageTimestamp > lastReadTimestamp;
+        },
+        [getLastReadTimestamp, getLastMessageTimestamp],
+    );
+
+    const isUnread = React.useCallback(
+        (conversation: Conversation, messageTimestamp: string) => {
+            const lastReadTimestamp = getLastReadTimestamp(conversation);
+            if (!lastReadTimestamp) {
+                return true;
+            }
+            return messageTimestamp > lastReadTimestamp;
+        },
+        [getLastReadTimestamp],
+    );
+
+    const setLastRead = React.useCallback(
+        async (conversation: Conversation, messageTimestamp: string) => {
+            const debouncedFunction = Utility.debounce(async () => {
+                await setAppMetadata(conversation, { lastReadTimestamp: messageTimestamp });
+            }, 300);
+
+            debouncedFunction();
+        },
+        [setAppMetadata],
+    );
+
+    // endregion
+
+    // region Pinning
+
+    const isPinned = React.useCallback(
+        (conversation: Conversation) => {
+            const participantAppMetadata: Record<string, ParticipantAppMetadata> =
+                conversation.metadata?.participantAppMetadata ?? {};
+            return participantAppMetadata[userId]?.pinned;
+        },
+        [userId],
+    );
+
+    const setPinned = React.useCallback(
+        async (conversation: Conversation, pinned: boolean) => {
+            await setAppMetadata(conversation, { pinned });
+        },
+        [setAppMetadata],
+    );
+
+    // endregion
+
     // add more conversation related utility functions here, separated by region if applicable
 
     return {
@@ -83,5 +214,12 @@ export const useConversationUtility = () => {
         getShareTypeMetadata,
         getShareType,
         getShareLink,
+        isMessageVisibleRef,
+        isMessageVisible,
+        hasUnreadMessages,
+        isUnread,
+        setLastRead,
+        isPinned,
+        setPinned,
     };
 };

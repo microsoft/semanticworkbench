@@ -33,13 +33,12 @@ import {
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
-import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
-import { useUnreadMessages } from '../../libs/useUnreadMessages';
+import { useConversationUtility } from '../../libs/useConversationUtility';
 import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useCreateConversationMessageMutation, useUpdateConversationMutation } from '../../services/workbench';
+import { useCreateConversationMessageMutation } from '../../services/workbench';
 import { CopyButton } from '../App/CopyButton';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
 import { ConversationFileIcon } from './ConversationFileIcon';
@@ -147,16 +146,14 @@ interface InteractMessageProps {
     hideParticipant?: boolean;
     displayDate?: boolean;
     readOnly: boolean;
+    onRead?: (message: ConversationMessage) => void;
 }
 
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
-    const { conversation, message, participant, hideParticipant, displayDate, readOnly } = props;
+    const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead } = props;
     const classes = useClasses();
     const [createConversationMessage] = useCreateConversationMessageMutation();
-    const [updateConversation] = useUpdateConversationMutation();
-    const {isMessageVisibleRef, isMessageVisible} = useUnreadMessages();
-    const { getUserId } = useLocalUserAccount();
-    const userId = getUserId();
+    const { isMessageVisibleRef, isMessageVisible, isUnread } = useConversationUtility();
 
     const isUser = participant.role === 'user';
 
@@ -180,36 +177,12 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         contentClassName = mergeClasses(contentClassName, classes.userContent);
     }
 
-    const isUnread = React.useMemo(() => {
-        const lastRead: Array<{ participantId: string; timestamp: string }> = conversation.metadata?.lastRead ?? [];
-        const lastReadByUser = lastRead.find((lr) => lr.participantId === userId);
-        return !lastReadByUser || lastReadByUser.timestamp < message.timestamp;
-    }, [conversation, message.timestamp, userId]);
-
-    // FIXME: I think this should be moved to a hook and maybe on the history instead of the individual message?
     React.useEffect(() => {
         // if the message is visible, mark it as read
-        if (isMessageVisible && isUnread) {
-            // update the existing lastRead timestamp or add a new one
-            const lastRead: Array<{ participantId: string; timestamp: string }> = conversation.metadata?.lastRead ?? [];
-            const lastReadByUser = lastRead.find((lr) => lr.participantId === userId);
-            let updatedLastRead: Array<{ participantId: string; timestamp: string }>;
-            if (lastReadByUser) {
-                updatedLastRead = lastRead.map((lr) =>
-                    lr.participantId === userId ? { ...lr, timestamp: message.timestamp } : lr,
-                );
-            } else {
-                updatedLastRead = [...lastRead, { participantId: userId, timestamp: message.timestamp }];
-            }
-            updateConversation({
-                ...conversation,
-                metadata: {
-                    ...conversation.metadata,
-                    lastRead: updatedLastRead,
-                },
-            });
+        if (isMessageVisible && isUnread(conversation, message.timestamp)) {
+            onRead?.(message);
         }
-    }, [conversation, isUnread, isMessageVisible, message.timestamp, updateConversation, userId]);
+    }, [isMessageVisible, isUnread, message.timestamp, onRead, conversation, message]);
 
     const content = React.useMemo(() => {
         const onSubmit = async (data: string) => {

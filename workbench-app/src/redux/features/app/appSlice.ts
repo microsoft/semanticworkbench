@@ -5,6 +5,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
 import { InteractCanvasState } from '../../../models/InteractCanvasState';
+import { conversationApi } from '../../../services/workbench';
 import { AppState } from './AppState';
 
 const localStorageKey = {
@@ -105,7 +106,15 @@ export const appSlice = createSlice({
             state.interactCanvasState = { ...state.interactCanvasState, ...action.payload };
         },
         setActiveConversationId: (state: AppState, action: PayloadAction<string | undefined>) => {
+            if (action.payload === state.activeConversationId) {
+                return;
+            }
             state.activeConversationId = action.payload;
+
+            // dispatch to invalidate messages cache
+            if (action.payload) {
+                conversationApi.endpoints.getConversationMessages.initiate(action.payload, { forceRefetch: true });
+            }
         },
     },
 });

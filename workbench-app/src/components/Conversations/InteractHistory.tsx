@@ -12,9 +12,10 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
 import { Utility } from '../../libs/Utility';
 import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
+import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { Conversation } from '../../models/Conversation';
-import { conversationMessageFromJSON } from '../../models/ConversationMessage';
+import { ConversationMessage, conversationMessageFromJSON } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch } from '../../redux/app/hooks';
 import {
@@ -63,6 +64,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     const { hash } = useLocation();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
     const [hashItemIndex, setHashItemIndex] = React.useState<number>();
+    const { setLastRead } = useConversationUtility();
     const environment = useEnvironment();
     const dispatch = useAppDispatch();
 
@@ -110,6 +112,13 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     const handleParticipantStatusChange = React.useCallback(() => {
         performScrollToBottom();
     }, [performScrollToBottom]);
+
+    const handleOnRead = React.useCallback(
+        (message: ConversationMessage) => {
+            setLastRead(conversation, message.timestamp);
+        },
+        [setLastRead, conversation],
+    );
 
     React.useEffect(() => {
         if (isLoadingMessages || !messages) {
@@ -187,6 +196,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                             participant={senderParticipant}
                             hideParticipant={hideParticipant}
                             displayDate={displayDate}
+                            onRead={handleOnRead}
                         />
                     </div>
                 );
@@ -211,6 +221,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         classes.item,
         classes.status,
         conversation,
+        handleOnRead,
         handleParticipantStatusChange,
         hash,
         hashItemIndex,
