@@ -19,7 +19,7 @@ var pythonAgent1 = builder.AddUvicornApp("pythonAgent",
                                         projectDirectory: Path.Combine("..", "..", "examples", "python", "python-01-echo-bot"),
                                         scriptPath: "start-semantic-workbench-assistant",
                                         scriptArgs: ["assistant.chat:app"])
-    .WithHttpEndpoint(env: "PORT")
+    .WithHttpEndpoint(env: "ASSISTANT__PORT")
     .WithReference(workbenchServiceEndpoint);
 
 
@@ -27,6 +27,7 @@ builder.AddViteApp("workbenchapp", workingDirectory: Path.Combine("..", "..", "w
     .WithPnpmPackageInstallation()
     .WithHttpsEndpoint(env: "PORT")
     .WithReference(workbenchServiceEndpoint)
-    .WaitFor(workbenchService);
+    .WaitFor(workbenchService)
+    .PublishAsDockerFile();
 
 builder.Build().Run();
