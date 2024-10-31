@@ -2,11 +2,12 @@ import contextlib
 import json
 import logging
 from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar
 from enum import StrEnum
 from pathlib import Path
 from typing import AsyncIterator, Awaitable, Callable, Iterator, Sequence
 
-from attr import dataclass
+from assistant.agents.form_fill_agent import fill_form
 from guided_conversation.guided_conversation_agent import GuidedConversation
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
@@ -22,14 +23,16 @@ from semantic_workbench_assistant.assistant_app.protocol import (
 from semantic_workbench_assistant.storage import read_model, write_model
 
 from . import acquire_form, extract_form_fields
+from .config import FormFillAgentConfig
 from .definition import GuidedConversationDefinition
+from .llm_config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
 
 class FormFillAgentMode(StrEnum):
     acquire_form = "acquire_form"
-    gather_information = "gather_information"
+    fill_form = "fill_form"
     generate_filled_form = "generate_filled_form"
 
     end_conversation = "end_conversation"
@@ -38,23 +41,34 @@ class FormFillAgentMode(StrEnum):
 class FormFillAgentState(BaseModel):
     mode: FormFillAgentMode = FormFillAgentMode.acquire_form
     most_recent_attachment_timestamp: float = 0
-    gc_acquired_form_artifact: dict | None = None
+    acquire_form_gc_artifact: dict | None = None
     extracted_form_fields: extract_form_fields.FormFields | None = None
     form_filename: str = ""
+    fill_form_gc_artifact: dict | None = None
 
 
 def path_for_state(context: ConversationContext) -> Path:
     return storage_directory_for_context(context) / "state.json"
 
 
+current_state = ContextVar[FormFillAgentState | None]("current_state", default=None)
+
+
 @asynccontextmanager
 async def agent_state(context: ConversationContext) -> AsyncIterator[FormFillAgentState]:
+    state = current_state.get()
+    if state is not None:
+        yield state
+        return
+
     state = read_model(path_for_state(context), FormFillAgentState) or FormFillAgentState()
+    current_state.set(state)
     yield state
     write_model(path_for_state(context), state)
     await context.send_conversation_state_event(
         AssistantStateEvent(state_id="form_fill_agent", event="updated", state=None)
     )
+    current_state.set(None)
 
 
 def path_for_guided_conversation_state(context: ConversationContext, mode: FormFillAgentMode) -> Path:
@@ -63,14 +77,21 @@ def path_for_guided_conversation_state(context: ConversationContext, mode: FormF
     return dir / "guided_conversation_state.json"
 
 
-class FormFillAgentStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
+class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
+    def __init__(
+        self, display_name: str, file_path_source: Callable[[ConversationContext], Path], description: str = ""
+    ) -> None:
+        self._display_name = display_name
+        self._file_path_source = file_path_source
+        self._description = description
+
     @property
     def display_name(self) -> str:
-        return "Form Fill Agent State"
+        return self._display_name
 
     @property
     def description(self) -> str:
-        return ""
+        return self._description
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         def read_state(path: Path) -> dict:
@@ -78,21 +99,20 @@ class FormFillAgentStateInspector(ReadOnlyAssistantConversationInspectorStatePro
                 return json.loads(path.read_text(encoding="utf-8"))
             return {}
 
-        state_paths = [
-            path_for_state(context),
-            path_for_guided_conversation_state(context, FormFillAgentMode.acquire_form),
-        ]
-
         return AssistantConversationInspectorStateDataModel(
-            data={path.stem: read_state(path) for path in state_paths},
+            data=read_state(self._file_path_source(context)),
         )
 
 
-@dataclass
-class FormFillAgentConfig:
-    openai_client: AsyncOpenAI
-    openai_model: str
-    max_response_tokens: int
+FormFillAgentStateInspector = FileStateInspector(display_name="Form Fill Agent State", file_path_source=path_for_state)
+AcquireFormGuidedConversationStateInspector = FileStateInspector(
+    display_name="Acquire Form Guided Conversation State",
+    file_path_source=lambda context: path_for_guided_conversation_state(context, FormFillAgentMode.acquire_form),
+)
+FillFormGuidedConversationStateInspector = FileStateInspector(
+    display_name="Fill Form Guided Conversation State",
+    file_path_source=lambda context: path_for_guided_conversation_state(context, FormFillAgentMode.fill_form),
+)
 
 
 @contextmanager
@@ -100,6 +120,7 @@ def guided_conversation_with_state(
     openai_client: AsyncOpenAI,
     openai_model: str,
     definition: GuidedConversationDefinition,
+    artifact_type: type[BaseModel],
     state_file_path: Path,
 ) -> Iterator[GuidedConversation]:
     kernel, service_id = build_kernel_with_service(openai_client, openai_model)
@@ -115,11 +136,11 @@ def guided_conversation_with_state(
             kernel=kernel,
             service_id=service_id,
             # context
-            artifact=definition.artifact.model_construct(),
+            artifact=artifact_type.model_construct(),
             rules=definition.rules,
             conversation_flow=definition.conversation_flow,
             context=definition.context,
-            resource_constraint=definition.resource_constraint,
+            resource_constraint=definition.resource_constraint.to_resource_constraint(),
         )
 
     else:
@@ -128,11 +149,11 @@ def guided_conversation_with_state(
             kernel=kernel,
             service_id=service_id,
             # context
-            artifact=definition.artifact.model_construct(),
+            artifact=artifact_type.model_construct(),
             rules=definition.rules,
             conversation_flow=definition.conversation_flow,
             context=definition.context,
-            resource_constraint=definition.resource_constraint,
+            resource_constraint=definition.resource_constraint.to_resource_constraint(),
         )
 
     yield guided_conversation
@@ -202,8 +223,9 @@ async def attachment_for_filename(
 class FormFillAgent:
     @staticmethod
     async def step(
-        config: FormFillAgentConfig,
         context: ConversationContext,
+        llm_config: LLMConfig,
+        config: FormFillAgentConfig,
         latest_user_message: str | None,
         get_attachment_messages: Callable[[Sequence[str]], Awaitable[Sequence[ChatCompletionMessageParam]]],
     ) -> None:
@@ -215,29 +237,29 @@ class FormFillAgent:
                     )
 
                     with guided_conversation_with_state(
-                        definition=acquire_form.definition,
+                        definition=config.acquire_form_config,
+                        artifact_type=acquire_form.FormArtifact,
                         state_file_path=path_for_guided_conversation_state(context, state.mode),
-                        openai_client=config.openai_client,
-                        openai_model=config.openai_model,
+                        openai_client=llm_config.openai_client,
+                        openai_model=llm_config.openai_model,
                     ) as guided_conversation:
                         result = await guided_conversation.step_conversation(message_with_attachments)
                         logger.info("guided-conversation result: %s", result)
 
-                        state.gc_acquired_form_artifact = guided_conversation.artifact.artifact.model_dump(mode="json")
+                        state.acquire_form_gc_artifact = guided_conversation.artifact.artifact.model_dump(mode="json")
                         logger.info("guided-conversation artifact: %s", guided_conversation.artifact)
 
                     if result.ai_message:
                         await context.send_messages(NewConversationMessage(content=result.ai_message))
 
-                    state.form_filename = state.gc_acquired_form_artifact.get("filename", "")
+                    state.form_filename = state.acquire_form_gc_artifact.get("filename", "")
                     if state.form_filename and state.form_filename != "Unanswered":
                         file_content = await attachment_for_filename(state.form_filename, get_attachment_messages)
                         async with context.set_status_for_block("inspecting form ..."):
                             try:
                                 state.extracted_form_fields, metadata = await extract_form_fields.extract(
-                                    async_openai_client=config.openai_client,
-                                    openai_model=config.openai_model,
-                                    max_response_tokens=config.max_response_tokens,
+                                    llm_config=llm_config,
+                                    config=config.extract_form_fields_config,
                                     form_content=file_content,
                                 )
 
@@ -268,17 +290,42 @@ class FormFillAgent:
                             )
 
                         if state.extracted_form_fields and not state.extracted_form_fields.error_message:
-                            logger.info(
-                                "changing mode; from: %s, to: %s", state.mode, FormFillAgentMode.gather_information
-                            )
-                            state.mode = FormFillAgentMode.gather_information
+                            logger.info("changing mode; from: %s, to: %s", state.mode, FormFillAgentMode.fill_form)
+                            state.mode = FormFillAgentMode.fill_form
 
                     if result.is_conversation_over:
                         logger.info("changing mode; from: %s, to: %s", state.mode, FormFillAgentMode.end_conversation)
                         state.mode = FormFillAgentMode.end_conversation
 
-                case FormFillAgentMode.gather_information:
-                    pass
+                case FormFillAgentMode.fill_form:
+                    message_with_attachments = await message_with_recent_attachments(
+                        context, state, latest_user_message, get_attachment_messages
+                    )
+
+                    if state.extracted_form_fields is None:
+                        raise ValueError("extracted_form_fields is None")
+
+                    artifact_type = fill_form.form_fields_to_artifact(state.extracted_form_fields)
+
+                    with guided_conversation_with_state(
+                        definition=config.fill_form_config,
+                        artifact_type=artifact_type,
+                        state_file_path=path_for_guided_conversation_state(context, state.mode),
+                        openai_client=llm_config.openai_client,
+                        openai_model=llm_config.openai_model,
+                    ) as guided_conversation:
+                        result = await guided_conversation.step_conversation(message_with_attachments)
+                        logger.info("guided-conversation result: %s", result)
+
+                        state.fill_form_gc_artifact = guided_conversation.artifact.artifact.model_dump(mode="json")
+                        logger.info("guided-conversation artifact: %s", guided_conversation.artifact)
+
+                    if result.ai_message:
+                        await context.send_messages(NewConversationMessage(content=result.ai_message))
+
+                    if result.is_conversation_over:
+                        logger.info("changing mode; from: %s, to: %s", state.mode, FormFillAgentMode.end_conversation)
+                        state.mode = FormFillAgentMode.end_conversation
 
                 case FormFillAgentMode.generate_filled_form:
                     pass
