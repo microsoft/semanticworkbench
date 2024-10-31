@@ -10,10 +10,12 @@ import { useLocation } from 'react-router-dom';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
-import { WorkbenchEventSource } from '../../libs/WorkbenchEventSource';
+import { Utility } from '../../libs/Utility';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
+import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { Conversation } from '../../models/Conversation';
-import { conversationMessageFromJSON } from '../../models/ConversationMessage';
+import { ConversationMessage, conversationMessageFromJSON } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch } from '../../redux/app/hooks';
 import {
@@ -62,6 +64,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     const { hash } = useLocation();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
     const [hashItemIndex, setHashItemIndex] = React.useState<number>();
+    const { setLastRead } = useConversationUtility();
     const environment = useEnvironment();
     const dispatch = useAppDispatch();
 
@@ -110,6 +113,13 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         performScrollToBottom();
     }, [performScrollToBottom]);
 
+    const handleOnRead = React.useCallback(
+        (message: ConversationMessage) => {
+            setLastRead(conversation, message.timestamp);
+        },
+        [setLastRead, conversation],
+    );
+
     React.useEffect(() => {
         if (isLoadingMessages || !messages) {
             setItems([]);
@@ -150,7 +160,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         </>
                     );
                 }
-                const date = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('M/D/YY');
+                const date = Utility.toFormattedDateString(message.timestamp, 'M/D/YY');
                 let displayDate = false;
                 if (date !== lastDate) {
                     displayDate = true;
@@ -186,6 +196,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                             participant={senderParticipant}
                             hideParticipant={hideParticipant}
                             displayDate={displayDate}
+                            onRead={handleOnRead}
                         />
                     </div>
                 );
@@ -210,6 +221,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         classes.item,
         classes.status,
         conversation,
+        handleOnRead,
         handleParticipantStatusChange,
         hash,
         hashItemIndex,
@@ -268,7 +280,11 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
         (async () => {
             // create or update the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversation.id);
+            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversation.id,
+            );
             workbenchEventSource.addEventListener('message.created', messageHandler);
             workbenchEventSource.addEventListener('message.deleted', messageHandler);
             workbenchEventSource.addEventListener('participant.created', participantCreatedHandler);
@@ -277,7 +293,9 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
         return () => {
             (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance();
+                const workbenchEventSource = await WorkbenchEventSource.getInstance(
+                    WorkbenchEventSourceType.Conversation,
+                );
                 workbenchEventSource.removeEventListener('message.created', messageHandler);
                 workbenchEventSource.removeEventListener('message.deleted', messageHandler);
                 workbenchEventSource.removeEventListener('participant.created', participantCreatedHandler);

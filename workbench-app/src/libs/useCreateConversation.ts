@@ -1,3 +1,4 @@
+import { useAccount } from '@azure/msal-react';
 import React from 'react';
 import { Constants } from '../Constants';
 import { Assistant } from '../models/Assistant';
@@ -29,6 +30,7 @@ export const useCreateConversation = () => {
         isLoading: myAssistantServicesLoading,
     } = useGetAssistantServiceRegistrationsQuery({ userIds: ['me'] });
 
+    const account = useAccount();
     const [createAssistant] = useCreateAssistantMutation();
     const [createConversation] = useCreateConversationMutation();
     const [addConversationParticipant] = useAddConversationParticipantMutation();
@@ -91,6 +93,16 @@ export const useCreateConversation = () => {
 
             if (!assistant) {
                 throw new Error('Assistant not found');
+            }
+
+            // send event to notify the conversation that the user has joined
+            const accountName = account?.name;
+            if (accountName) {
+                await createConversationMessage({
+                    conversationId: conversation.id,
+                    content: `${accountName} created the conversation`,
+                    messageType: 'notice',
+                });
             }
 
             // send notice message first, to announce before assistant reacts to create event

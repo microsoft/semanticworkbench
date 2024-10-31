@@ -445,7 +445,7 @@ export const WorkflowCanvas: React.FC<WorkflowCanvasProps> = (props) => {
                 content="Are you sure you want to delete the selected items?"
                 closeLabel="Cancel"
                 additionalActions={[
-                    <DialogTrigger key="delete">
+                    <DialogTrigger key="delete" disableButtonEnhancement>
                         <Button appearance="primary" onClick={onDelete}>
                             Delete
                         </Button>

@@ -629,124 +629,124 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
         http_response = client.post("/conversations", json={"title": "test-conversation"})
         assert httpx.codes.is_success(http_response.status_code)
-        conversation_response = http_response.json()
-        conversation_id = conversation_response["id"]
+        conversation = workbench_model.Conversation.model_validate(http_response.json())
+        conversation_id = conversation.id
+
+        assert conversation.latest_message is None
 
         payload = {"content": "hello"}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
         assert httpx.codes.is_success(http_response.status_code)
-        message = http_response.json()
-        message_id = message["id"]
+        message = workbench_model.ConversationMessage.model_validate(http_response.json())
+        message_id = message.id
 
         http_response = client.get(f"/conversations/{conversation_id}/messages")
         assert httpx.codes.is_success(http_response.status_code)
-        messages_response = http_response.json()
-        assert "messages" in messages_response
-        messages = messages_response["messages"]
-        assert len(messages) == 1
-        message = messages[0]
-        assert message["content"] == "hello"
-        assert message["sender"]["participant_id"] == test_user.id
+        messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+        assert len(messages.messages) == 1
+        message = messages.messages[0]
+        assert message.content == "hello"
+        assert message.sender.participant_id == test_user.id
 
         http_response = client.get(f"/conversations/{conversation_id}/messages/{message_id}")
         assert httpx.codes.is_success(http_response.status_code)
-        message_response = http_response.json()
-        assert message_response["content"] == "hello"
-        assert message_response["sender"]["participant_id"] == test_user.id
+        message = workbench_model.ConversationMessage.model_validate(http_response.json())
+        assert message.content == "hello"
+        assert message.sender.participant_id == test_user.id
 
         # send chat another message
         payload = {"content": "hello again"}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
         assert httpx.codes.is_success(http_response.status_code)
-        message = http_response.json()
-        message_two_id = message["id"]
+        message = workbench_model.ConversationMessage.model_validate(http_response.json())
+        message_two_id = message.id
 
         # send a log message
         payload = {"content": "hello again", "message_type": "log"}
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
         assert httpx.codes.is_success(http_response.status_code)
-        message = http_response.json()
-        message_log_id = message["id"]
+        message = workbench_model.ConversationMessage.model_validate(http_response.json())
+        message_log_id = message.id
 
         # get all messages
         http_response = client.get(f"/conversations/{conversation_id}/messages")
         assert httpx.codes.is_success(http_response.status_code)
-        messages_response = http_response.json()
-        assert "messages" in messages_response
-        messages = messages_response["messages"]
-        assert len(messages) == 3
-        message = messages[0]
-        assert message["content"] == "hello"
-        assert message["sender"]["participant_id"] == test_user.id
-        assert message["id"] == message_id
-        message = messages[1]
-        assert message["content"] == "hello again"
-        assert message["sender"]["participant_id"] == test_user.id
-        assert message["id"] == message_two_id
-        message = messages[2]
-        assert message["content"] == "hello again"
-        assert message["sender"]["participant_id"] == test_user.id
-        assert message["id"] == message_log_id
+        messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+        assert len(messages.messages) == 3
+        message = messages.messages[0]
+        assert message.content == "hello"
+        assert message.sender.participant_id == test_user.id
+        assert message.id == message_id
+        message = messages.messages[1]
+        assert message.content == "hello again"
+        assert message.sender.participant_id == test_user.id
+        assert message.id == message_two_id
+        message = messages.messages[2]
+        assert message.content == "hello again"
+        assert message.sender.participant_id == test_user.id
+        assert message.id == message_log_id
 
         # limit messages
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"limit": 1})
         assert httpx.codes.is_success(http_response.status_code)
-        messages_response = http_response.json()
-        assert "messages" in messages_response
-        messages = messages_response["messages"]
-        assert len(messages) == 1
-        message = messages[0]
-        assert message["id"] == message_log_id
+        messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+        assert len(messages.messages) == 1
+        message = messages.messages[0]
+        assert message.id == message_log_id
 
         # get messages before
-        http_response = client.get(f"/conversations/{conversation_id}/messages", params={"before": message_two_id})
+        http_response = client.get(f"/conversations/{conversation_id}/messages", params={"before": str(message_two_id)})
         assert httpx.codes.is_success(http_response.status_code)
-        messages_response = http_response.json()
-        assert "messages" in messages_response
-        messages = messages_response["messages"]
-        assert len(messages) == 1
-        message = messages[0]
-        assert message["id"] == message_id
+        messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+        assert len(messages.messages) == 1
+        message = messages.messages[0]
+        assert message.id == message_id
 
         # get messages after
-        http_response = client.get(f"/conversations/{conversation_id}/messages", params={"after": message_id})
+        http_response = client.get(f"/conversations/{conversation_id}/messages", params={"after": str(message_id)})
         assert httpx.codes.is_success(http_response.status_code)
-        messages_response = http_response.json()
-        assert "messages" in messages_response
-        messages = messages_response["messages"]
-        assert len(messages) == 2
-        message = messages[0]
-        assert message["id"] == message_two_id
-        message = messages[1]
-        assert message["id"] == message_log_id
+        messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+        assert len(messages.messages) == 2
+        message = messages.messages[0]
+        assert message.id == message_two_id
+        message = messages.messages[1]
+        assert message.id == message_log_id
 
         # get messages by type
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"message_type": "chat"})
         assert httpx.codes.is_success(http_response.status_code)
-        messages_response = http_response.json()
-        assert "messages" in messages_response
-        messages = messages_response["messages"]
-        assert len(messages) == 2
+        messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+        assert len(messages.messages) == 2
 
         http_response = client.get(f"/conversations/{conversation_id}/messages", params={"message_type": "log"})
         assert httpx.codes.is_success(http_response.status_code)
-        messages_response = http_response.json()
-        assert "messages" in messages_response
-        messages = messages_response["messages"]
-        assert len(messages) == 1
+        messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+        assert len(messages.messages) == 1
 
         http_response = client.get(
             f"/conversations/{conversation_id}/messages",
             params={"message_type": ["chat", "log"]},
         )
         assert httpx.codes.is_success(http_response.status_code)
-        messages_response = http_response.json()
-        assert "messages" in messages_response
-        messages = messages_response["messages"]
-        assert len(messages) == 3
+        messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+        assert len(messages.messages) == 3
+
+        # check latest chat message in conversation (chat is default)
+        http_response = client.get(f"/conversations/{conversation_id}")
+        assert httpx.codes.is_success(http_response.status_code)
+        conversation = workbench_model.Conversation.model_validate(http_response.json())
+        assert conversation.latest_message is not None
+        assert conversation.latest_message.id == message_two_id
+
+        # check latest log message in conversation
+        http_response = client.get(f"/conversations/{conversation_id}", params={"latest_message_type": ["log"]})
+        assert httpx.codes.is_success(http_response.status_code)
+        conversation = workbench_model.Conversation.model_validate(http_response.json())
+        assert conversation.latest_message is not None
+        assert conversation.latest_message.id == message_log_id
 
 
 @pytest.mark.httpx_mock(can_send_already_matched_responses=True)
@@ -1150,7 +1150,7 @@ def test_create_assistant_conversations_export_import_conversations(
 
         assistants = workbench_model.AssistantList.model_validate(http_response.json())
 
-        assistants.assistants.sort(key=lambda a: a.name)
+        assistants.assistants = sorted(assistants.assistants, key=lambda a: a.name)
         assert assistants.assistants[0].name == "test-assistant-1"
         assert assistants.assistants[1].name == "test-assistant-1 (1)"
         assert assistants.assistants[2].name == "test-assistant-1 (2)"
@@ -1163,7 +1163,7 @@ def test_create_assistant_conversations_export_import_conversations(
         assert httpx.codes.is_success(http_response.status_code)
 
         conversations = workbench_model.ConversationList.model_validate(http_response.json())
-        conversations.conversations.sort(key=lambda c: c.title)
+        conversations.conversations = sorted(conversations.conversations, key=lambda c: c.title)
 
         assert conversations.conversations[0].title == "test-conversation-1"
         assert conversations.conversations[1].title == "test-conversation-1 (1)"

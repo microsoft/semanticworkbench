@@ -39,7 +39,7 @@ export const AssistantDelete: React.FC<AssistantDeleteProps> = (props) => {
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="delete">
+                    <DialogTrigger key="delete" disableButtonEnhancement>
                         <Button appearance="primary" onClick={handleDelete}>
                             Delete
                         </Button>

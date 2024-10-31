@@ -1,9 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React from 'react';
 import { useGetAssistantCapabilitiesSet } from '../../../libs/useAssistantCapabilities';
 import { Assistant } from '../../../models/Assistant';
@@ -20,10 +17,6 @@ import { InteractHistory } from '../../Conversations/InteractHistory';
 import { InteractInput } from '../../Conversations/InteractInput';
 import { ChatCanvas } from './ChatCanvas';
 import { ChatControls } from './ChatControls';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.tz.guess();
 
 const useClasses = makeStyles({
     // centered content, two rows

@@ -111,12 +111,12 @@ export const RewindConversation: React.FC<RewindConversationProps> = (props) => 
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="rewind">
+                    <DialogTrigger key="rewind" disableButtonEnhancement>
                         <Button appearance="primary" onClick={handleRewind}>
                             Rewind
                         </Button>
                     </DialogTrigger>,
-                    <DialogTrigger key="rewindWithRedo">
+                    <DialogTrigger key="rewindWithRedo" disableButtonEnhancement>
                         <Button onClick={handleRewindWithRedo}>Rewind with Redo</Button>
                     </DialogTrigger>,
                 ],

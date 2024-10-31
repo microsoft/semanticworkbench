@@ -147,6 +147,10 @@ def conversation_participant_list_from_db(
 
 def conversation_from_db(
     model: db.Conversation,
+    user_participants: Iterable[db.UserParticipant],
+    assistant_participants: Iterable[db.AssistantParticipant],
+    assistants: Mapping[uuid.UUID, db.Assistant],
+    latest_message: db.ConversationMessage | None,
     permission: str,
 ) -> Conversation:
     return Conversation(
@@ -157,14 +161,39 @@ def conversation_from_db(
         metadata=model.meta_data,
         created_datetime=model.created_datetime,
         conversation_permission=ConversationPermission(permission),
+        latest_message=conversation_message_from_db(model=latest_message) if latest_message else None,
+        participants=conversation_participant_list_from_db(
+            user_participants=user_participants,
+            assistant_participants=assistant_participants,
+            assistants=assistants,
+        ).participants,
     )
 
 
 def conversation_list_from_db(
-    models: Iterable[db.Conversation], permissions: Mapping[uuid.UUID, str]
+    models: Iterable[
+        tuple[
+            db.Conversation,
+            Iterable[db.UserParticipant],
+            Iterable[db.AssistantParticipant],
+            dict[uuid.UUID, db.Assistant],
+            db.ConversationMessage | None,
+            str,
+        ]
+    ],
 ) -> ConversationList:
     return ConversationList(
-        conversations=[conversation_from_db(model=m, permission=permissions[m.conversation_id]) for m in models]
+        conversations=[
+            conversation_from_db(
+                model=conversation,
+                user_participants=user_participants,
+                assistant_participants=assistant_participants,
+                assistants=assistants,
+                latest_message=latest_message,
+                permission=permission,
+            )
+            for conversation, user_participants, assistant_participants, assistants, latest_message, permission in models
+        ]
     )
 
 

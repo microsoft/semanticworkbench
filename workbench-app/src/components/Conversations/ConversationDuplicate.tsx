@@ -29,7 +29,7 @@ const useConversationDuplicateControls = (ids: string[]) => {
         onDuplicate?: (conversationId: string) => void,
         onDuplicateError?: (error: Error) => void,
     ) => (
-        <DialogTrigger>
+        <DialogTrigger disableButtonEnhancement>
             <Button appearance="primary" onClick={() => duplicateConversations(onDuplicate, onDuplicateError)}>
                 Duplicate
             </Button>

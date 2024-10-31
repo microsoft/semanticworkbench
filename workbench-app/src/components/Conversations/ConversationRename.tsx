@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Field, Input } from '@fluentui/react-components';
+import { Button, DialogTrigger, Field, Input } from '@fluentui/react-components';
 import { EditRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { useUpdateConversationMutation } from '../../services/workbench';
@@ -40,9 +40,11 @@ export const useConversationRenameControls = (id: string, value: string) => {
     );
 
     const renameConversationButton = (onRename?: (id: string, value: string) => Promise<void>) => (
-        <Button disabled={!newTitle || submitted} onClick={() => handleRename(onRename)} appearance="primary">
-            {submitted ? 'Renaming...' : 'Rename'}
-        </Button>
+        <DialogTrigger disableButtonEnhancement>
+            <Button disabled={!newTitle || submitted} onClick={() => handleRename(onRename)} appearance="primary">
+                {submitted ? 'Renaming...' : 'Rename'}
+            </Button>
+        </DialogTrigger>
     );
 
     return {

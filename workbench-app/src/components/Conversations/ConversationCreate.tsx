@@ -4,6 +4,7 @@ import {
     Button,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
+    DialogTrigger,
     Field,
     Input,
     makeStyles,
@@ -91,9 +92,11 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
             }
             closeLabel="Cancel"
             additionalActions={[
-                <Button key="save" disabled={!title || submitted} appearance="primary" onClick={handleSave}>
-                    {submitted ? 'Saving...' : 'Save'}
-                </Button>,
+                <DialogTrigger key="save" disableButtonEnhancement>
+                    <Button disabled={!title || submitted} appearance="primary" onClick={handleSave}>
+                        {submitted ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogTrigger>,
             ]}
         />
     );

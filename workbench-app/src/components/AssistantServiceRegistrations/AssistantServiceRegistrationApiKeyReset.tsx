@@ -73,7 +73,7 @@ export const AssistantServiceRegistrationApiKeyReset: React.FC<AssistantServiceR
                     ),
                     closeLabel: 'Cancel',
                     additionalActions: [
-                        <DialogTrigger key="reset">
+                        <DialogTrigger key="reset" disableButtonEnhancement>
                             <Button appearance="primary" onClick={handleReset}>
                                 Reset
                             </Button>

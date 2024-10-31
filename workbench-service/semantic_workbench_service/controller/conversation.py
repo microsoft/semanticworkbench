@@ -2,7 +2,7 @@ import datetime
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import AsyncContextManager, Awaitable, Callable, Literal
+from typing import AsyncContextManager, Awaitable, Callable, Iterable, Literal, Sequence
 
 from semantic_workbench_api_model.assistant_service_client import AssistantError
 from semantic_workbench_api_model.workbench_model import (
@@ -83,49 +83,113 @@ class ConversationController:
             await session.commit()
             await session.refresh(conversation)
 
-        return await self.get_conversation(conversation_id=conversation.conversation_id, principal=user_principal)
+        return await self.get_conversation(
+            conversation_id=conversation.conversation_id, principal=user_principal, latest_message_types=set()
+        )
+
+    async def _projections_with_participants(
+        self,
+        session: AsyncSession,
+        conversation_projections: Sequence[tuple[db.Conversation, db.ConversationMessage | None, str]],
+    ) -> Iterable[
+        tuple[
+            db.Conversation,
+            Iterable[db.UserParticipant],
+            Iterable[db.AssistantParticipant],
+            dict[uuid.UUID, db.Assistant],
+            db.ConversationMessage | None,
+            str,
+        ]
+    ]:
+        user_participants = (
+            await session.exec(
+                select(db.UserParticipant).where(
+                    col(db.UserParticipant.conversation_id).in_([
+                        c[0].conversation_id for c in conversation_projections
+                    ])
+                )
+            )
+        ).all()
+
+        assistant_participants = (
+            await session.exec(
+                select(db.AssistantParticipant).where(
+                    col(db.AssistantParticipant.conversation_id).in_([
+                        c[0].conversation_id for c in conversation_projections
+                    ])
+                )
+            )
+        ).all()
+
+        assistants = (
+            await session.exec(
+                select(db.Assistant).where(
+                    col(db.Assistant.assistant_id).in_([p.assistant_id for p in assistant_participants])
+                )
+            )
+        ).all()
+        assistants_map = {assistant.assistant_id: assistant for assistant in assistants}
+
+        def merge() -> Iterable[
+            tuple[
+                db.Conversation,
+                Iterable[db.UserParticipant],
+                Iterable[db.AssistantParticipant],
+                dict[uuid.UUID, db.Assistant],
+                db.ConversationMessage | None,
+                str,
+            ]
+        ]:
+            for conversation, latest_message, permission in conversation_projections:
+                conversation_id = conversation.conversation_id
+                conversation_user_participants = (
+                    up for up in user_participants if up.conversation_id == conversation_id
+                )
+                conversation_assistant_participants = (
+                    ap for ap in assistant_participants if ap.conversation_id == conversation_id
+                )
+                yield (
+                    conversation,
+                    conversation_user_participants,
+                    conversation_assistant_participants,
+                    assistants_map,
+                    latest_message,
+                    permission,
+                )
+
+        return merge()
 
     async def get_conversations(
         self,
         principal: auth.ActorPrincipal,
+        latest_message_types: set[MessageType],
         include_all_owned: bool = False,
     ) -> ConversationList:
         async with self._get_session() as session:
             include_all_owned = include_all_owned and isinstance(principal, auth.UserPrincipal)
 
-            conversations = (
+            conversation_projections = (
                 await session.exec(
-                    query.select_conversations_for(
-                        principal=principal, include_all_owned=include_all_owned, include_observer=True
+                    query.select_conversation_projections_for(
+                        principal=principal,
+                        include_all_owned=include_all_owned,
+                        include_observer=True,
+                        latest_message_types=latest_message_types,
                     ).order_by(col(db.Conversation.created_datetime).desc())
                 )
             ).all()
 
-            match principal:
-                case auth.UserPrincipal():
-                    user_permissions = (
-                        await session.exec(
-                            select(
-                                db.UserParticipant.conversation_id, db.UserParticipant.conversation_permission
-                            ).where(
-                                db.UserParticipant.user_id == principal.user_id,
-                                col(db.UserParticipant.conversation_id).in_([c.conversation_id for c in conversations]),
-                            )
-                        )
-                    ).all()
-                    permissions = {conversation_id: permission for conversation_id, permission in user_permissions}
+            projections_with_participants = await self._projections_with_participants(
+                session=session, conversation_projections=conversation_projections
+            )
 
-                    return convert.conversation_list_from_db(models=conversations, permissions=permissions)
-
-                case auth.AssistantPrincipal():
-                    return convert.conversation_list_from_db(
-                        models=conversations, permissions={c.conversation_id: "read_write" for c in conversations}
-                    )
+            return convert.conversation_list_from_db(models=projections_with_participants)
 
     async def get_assistant_conversations(
         self,
         user_principal: auth.UserPrincipal,
         assistant_id: uuid.UUID,
+        latest_message_types: set[MessageType],
     ) -> ConversationList:
         async with self._get_session() as session:
             assistant = (
@@ -138,61 +202,62 @@ class ConversationController:
             if assistant is None:
                 raise exceptions.NotFoundError()
 
-            conversations = (
+            conversation_projections = (
                 await session.exec(
-                    query.select_conversations_for(
+                    query.select_conversation_projections_for(
                         principal=auth.AssistantPrincipal(
                             assistant_service_id=assistant.assistant_service_id, assistant_id=assistant_id
                         ),
+                        latest_message_types=latest_message_types,
                     )
                 )
             ).all()
 
-            user_permissions = (
-                await session.exec(
-                    select(db.UserParticipant.conversation_id, db.UserParticipant.conversation_permission).where(
-                        db.UserParticipant.user_id == user_principal.user_id,
-                        col(db.UserParticipant.conversation_id).in_([c.conversation_id for c in conversations]),
-                    )
-                )
-            ).all()
-            permissions = {conversation_id: permission for conversation_id, permission in user_permissions}
+            projections_with_participants = await self._projections_with_participants(
+                session=session, conversation_projections=conversation_projections
+            )
 
-            return convert.conversation_list_from_db(models=conversations, permissions=permissions)
+            return convert.conversation_list_from_db(models=projections_with_participants)
 
     async def get_conversation(
         self,
         conversation_id: uuid.UUID,
         principal: auth.ActorPrincipal,
+        latest_message_types: set[MessageType],
     ) -> Conversation:
         async with self._get_session() as session:
             include_all_owned = isinstance(principal, auth.UserPrincipal)
 
-            conversation = (
+            conversation_projection = (
                 await session.exec(
-                    query.select_conversations_for(
-                        principal=principal, include_all_owned=include_all_owned, include_observer=True
+                    query.select_conversation_projections_for(
+                        principal=principal,
+                        include_all_owned=include_all_owned,
+                        include_observer=True,
+                        latest_message_types=latest_message_types,
                     ).where(db.Conversation.conversation_id == conversation_id)
                 )
             ).one_or_none()
-            if conversation is None:
+            if conversation_projection is None:
                 raise exceptions.NotFoundError()
 
-            match principal:
-                case auth.UserPrincipal():
-                    permission = (
-                        await session.exec(
-                            select(db.UserParticipant.conversation_permission).where(
-                                db.UserParticipant.user_id == principal.user_id,
-                                db.UserParticipant.conversation_id == conversation.conversation_id,
-                            )
-                        )
-                    ).one()
+            projections_with_participants = await self._projections_with_participants(
+                session=session,
+                conversation_projections=[conversation_projection],
+            )
 
-                    return convert.conversation_from_db(model=conversation, permission=permission)
+            conversation, user_participants, assistant_participants, assistants, latest_message, permission = next(
+                iter(projections_with_participants)
+            )
 
-                case auth.AssistantPrincipal():
-                    return convert.conversation_from_db(model=conversation, permission="read_write")
+            return convert.conversation_from_db(
+                model=conversation,
+                latest_message=latest_message,
+                permission=permission,
+                user_participants=user_participants,
+                assistant_participants=assistant_participants,
+                assistants=assistants,
+            )
 
     async def update_conversation(
         self,
@@ -229,7 +294,7 @@ class ConversationController:
             await session.refresh(conversation)
 
         conversation_model = await self.get_conversation(
-            conversation_id=conversation.conversation_id, principal=user_principal
+            conversation_id=conversation.conversation_id, principal=user_principal, latest_message_types=set()
         )
 
         await self._notify_event(
