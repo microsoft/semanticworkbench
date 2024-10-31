@@ -324,7 +324,8 @@ async def respond_to_conversation(
                     config.request_config.response_tokens,
                 )
 
-                content = response.completion.choices[0].message.content
+                completion = response.completion
+                content = response.assistant_response
                 artifacts_to_create_or_update = response.artifacts_to_create_or_update
 
                 for artifact in artifacts_to_create_or_update:
@@ -357,7 +358,7 @@ async def respond_to_conversation(
                     max_tokens=config.request_config.response_tokens,
                 )
 
-            content = completion.choices[0].message.content
+                content = completion.choices[0].message.content
 
             # get the total tokens used for the completion
             completion_total_tokens = completion.usage.total_tokens if completion.usage else 0

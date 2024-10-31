@@ -1,4 +1,3 @@
-import asyncio
 import contextlib
 import logging
 from dataclasses import dataclass
@@ -37,9 +36,27 @@ class NoParsedMessageError(Exception):
     pass
 
 
+# define the structured response format for the AI model
+class CreateOrUpdateArtifactsResponseFormat(BaseModel):
+    class Config:
+        extra = "forbid"
+        json_schema_extra = {
+            "description": (
+                "The response format for the assistant. Use the assistant_response field for the"
+                " response content and the artifacts_to_create_or_update field for any artifacts"
+                " to create or update."
+            ),
+            "required": ["assistant_response", "artifacts_to_create_or_update"],
+        }
+
+    assistant_response: str
+    artifacts_to_create_or_update: list[Artifact]
+
+
 @dataclass
 class ArtifactsCompletionResponse:
-    completion: ParsedChatCompletion
+    completion: ParsedChatCompletion[CreateOrUpdateArtifactsResponseFormat]
+    assistant_response: str
     artifacts_to_create_or_update: list[Artifact]
 
 
@@ -123,17 +140,18 @@ class ArtifactsExtension:
         Read the artifact with the given filename.
         """
         drive = _artifact_drive_for_context(context)
-        if version:
-            return drive.read_model(Artifact, filename=f"artifact.{version}.json", dir=artifact_filename)
-        else:
-            return drive.read_model(
-                Artifact,
-                filename=max(
-                    drive.list(""),
-                    key=lambda versioned_filename: int(versioned_filename.split(".")[1]),
-                ),
-                dir=artifact_filename,
-            )
+        with contextlib.suppress(FileNotFoundError):
+            if version:
+                return drive.read_model(Artifact, filename=f"artifact.{version}.json", dir=artifact_filename)
+            else:
+                return drive.read_model(
+                    Artifact,
+                    filename=max(
+                        drive.list(artifact_filename),
+                        key=lambda versioned_filename: int(versioned_filename.split(".")[1]),
+                    ),
+                    dir=artifact_filename,
+                )
 
     def get_all_artifacts(self, context: ConversationContext) -> list[Artifact]:
         """
@@ -159,8 +177,6 @@ class ArtifactsExtension:
         with contextlib.suppress(FileNotFoundError):
             drive.delete(dir=artifact_filename)
 
-        await _delete_lock_for_context_file(context, artifact_filename)
-
     async def get_openai_completion_response(
         self,
         client: AsyncOpenAI,
@@ -172,28 +188,12 @@ class ArtifactsExtension:
         Generate a completion response from OpenAI based on the artifacts in the context.
         """
 
-        # define the structured response format for the AI model
-        class StructuredResponseFormat(BaseModel):
-            class Config:
-                extra = "forbid"
-                schema_extra = {
-                    "description": (
-                        "The response format for the assistant. Use the assistant_response field for the"
-                        " response content and the artifacts_to_create_or_update field for any artifacts"
-                        " to create or update."
-                    ),
-                    "required": ["assistant_response", "artifacts_to_create_or_update"],
-                }
-
-            assistant_response: str
-            artifacts_to_create_or_update: list[Artifact]
-
         # call the OpenAI API to generate a completion
         completion = await client.beta.chat.completions.parse(
             messages=messages,
             model=model,
             max_tokens=max_tokens,
-            response_format=StructuredResponseFormat,
+            response_format=CreateOrUpdateArtifactsResponseFormat,
         )
 
         if not completion.choices:
@@ -204,6 +204,7 @@ class ArtifactsExtension:
 
         return ArtifactsCompletionResponse(
             completion=completion,
+            assistant_response=completion.choices[0].message.parsed.assistant_response,
             artifacts_to_create_or_update=completion.choices[0].message.parsed.artifacts_to_create_or_update,
         )
 
@@ -211,30 +212,6 @@ class ArtifactsExtension:
 #
 # region Helpers
 #
-
-_file_locks_lock = asyncio.Lock()
-_file_locks: dict[str, asyncio.Lock] = {}
-
-
-async def _delete_lock_for_context_file(context: ConversationContext, filename: str) -> None:
-    async with _file_locks_lock:
-        key = f"{context.assistant.id}/{context.id}/{filename}"
-        if key not in _file_locks:
-            return
-
-        del _file_locks[key]
-
-
-async def _lock_for_context_file(context: ConversationContext, filename: str) -> asyncio.Lock:
-    """
-    Get a lock for the given file in the given context.
-    """
-    async with _file_locks_lock:
-        key = f"{context.assistant.id}/{context.id}/{filename}"
-        if key not in _file_locks:
-            _file_locks[key] = asyncio.Lock()
-
-        return _file_locks[key]
 
 
 def _artifact_drive_for_context(context: ConversationContext, sub_directory: str | None = None) -> Drive:
