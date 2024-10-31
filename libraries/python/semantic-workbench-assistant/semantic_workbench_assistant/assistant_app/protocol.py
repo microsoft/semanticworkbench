@@ -9,10 +9,12 @@ from typing import (
     Awaitable,
     Callable,
     Generic,
+    Literal,
     Mapping,
     Protocol,
     TypeVar,
     Union,
+    overload,
 )
 
 import typing_extensions
@@ -93,15 +95,25 @@ class AssistantConfigProvider(Protocol):
 EventHandlerT = TypeVar("EventHandlerT")
 
 
-class EventHandlerList(Generic[EventHandlerT], list[EventHandlerT]):
-    async def __call__(self, *args, **kwargs):
-        for handler in self:
+IncludeEventsFromActors = Literal["all", "others", "this_assistant_service"]
+
+
+class EventHandlerList(Generic[EventHandlerT], list[tuple[EventHandlerT, IncludeEventsFromActors]]):
+    async def __call__(self, external_event: bool, *args, **kwargs):
+        for handler, include in self:
+            if external_event and include == "this_assistant_service":
+                continue
+            if not external_event and include == "others":
+                continue
+
             try:
                 if asyncio.iscoroutinefunction(handler):
-                    return await handler(*args, **kwargs)
+                    await handler(*args, **kwargs)
+                    continue
 
                 if callable(handler):
-                    return handler(*args, **kwargs)
+                    handler(*args, **kwargs)
+                    continue
 
             except Exception:
                 logger.exception("error in event handler {handler}")
@@ -137,10 +149,37 @@ class LifecycleEventHandlers:
         self.on_service_shutdown = _create_decorator(self._on_service_shutdown_handlers)
 
 
-def _create_decorator(handler_list: list[EventHandlerT]) -> Callable[[EventHandlerT], EventHandlerT]:
-    def decorator(func: EventHandlerT) -> EventHandlerT:
-        handler_list.append(func)
-        return func
+def _create_decorator(
+    handler_list: EventHandlerList[EventHandlerT],
+):
+    @overload
+    def decorator(func_or_include: EventHandlerT) -> EventHandlerT: ...
+
+    @overload
+    def decorator(
+        func_or_include: IncludeEventsFromActors | None = "others",
+    ) -> Callable[[EventHandlerT], EventHandlerT]: ...
+
+    def decorator(
+        func_or_include: EventHandlerT | IncludeEventsFromActors | None = "others",
+    ) -> EventHandlerT | Callable[[EventHandlerT], EventHandlerT]:
+        filter: IncludeEventsFromActors = "others"
+        match func_or_include:
+            case "all":
+                filter = "all"
+            case "this_assistant_service":
+                filter = "this_assistant_service"
+
+        def _decorator(func: EventHandlerT) -> EventHandlerT:
+            handler_list.append((func, filter))
+            return func
+
+        # decorator with no arguments
+        if callable(func_or_include):
+            return _decorator(func_or_include)
+
+        # decorator with arguments
+        return _decorator
 
     return decorator
 
@@ -184,6 +223,23 @@ class MessageEvents(ObjectEventHandlers[ConversationMessageEventHandler]):
         # ensure we have an event handler for each message type
         for event_type in workbench_model.MessageType:
             assert getattr(self, str(event_type).replace("-", "_"))
+
+    def __getitem__(self, key: workbench_model.MessageType) -> ObjectEventHandlers[ConversationMessageEventHandler]:
+        match key:
+            case workbench_model.MessageType.chat:
+                return self.chat
+            case workbench_model.MessageType.log:
+                return self.log
+            case workbench_model.MessageType.note:
+                return self.note
+            case workbench_model.MessageType.notice:
+                return self.notice
+            case workbench_model.MessageType.command:
+                return self.command
+            case workbench_model.MessageType.command_response:
+                return self.command_response
+            case _:
+                raise KeyError(key)
 
 
 class ConversationEvents(ObjectEventHandlers[ConversationEventHandler]):

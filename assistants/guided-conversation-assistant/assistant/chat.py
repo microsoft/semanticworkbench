@@ -118,10 +118,6 @@ async def on_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
-    # ignore messages from this assistant
-    if message.sender.participant_id == context.assistant.id:
-        return
-
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
     try:
