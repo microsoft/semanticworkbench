@@ -111,10 +111,6 @@ async def on_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
-    # ignore messages from this assistant
-    if message.sender.participant_id == context.assistant.id:
-        return
-
     # update the participant status to indicate the assistant is thinking
     async with context.set_status_for_block("thinking..."):
         config = await assistant_config.get(context.assistant)
@@ -413,7 +409,7 @@ async def respond_to_conversation(
 
         # check if the completion total tokens exceed the warning threshold
         if completion_total_tokens > token_count_for_warning:
-            content = f"{config.high_token_usage_warning.message}\n\n" f"Total tokens used: {completion_total_tokens}"
+            content = f"{config.high_token_usage_warning.message}\n\nTotal tokens used: {completion_total_tokens}"
 
             # send a notice message to the conversation that the token usage is high
             await context.send_messages(
