@@ -94,7 +94,7 @@ class Step(BaseModel):
 class Mode(BaseModel):
     name: ModeName = ModeName.UNDEFINED
     status: Status = Status.UNDEFINED
-    current_step: Step = Step()
+    step: Step = Step()
     step_order: list[StepName] = []
 
     def _error_check(self) -> None:
@@ -137,13 +137,15 @@ class Mode(BaseModel):
     def is_running(self) -> bool:
         if self.status is Status.NOT_COMPLETED:
             return True
+        if self.status is Status.INITIATED:
+            return True
         return False  # UNDEFINED, USER_EXIT_EARLY, USER_COMPLETED
 
     def set_step(self, step: Step) -> None:
-        self.current_step = step
+        self.step = step
 
     def get_step(self) -> Step:
-        return self.current_step
+        return self.step
 
     def set_step_order(self, steps: list[StepName]) -> None:
         self.step_order = steps
@@ -156,17 +158,17 @@ class Mode(BaseModel):
         if len(steps) == 0:
             return None
 
-        current_step = self.get_step()
-        current_step_name = current_step.get_name()
-        if current_step_name is steps[-1]:
+        step = self.get_step()
+        step_name = step.get_name()
+        if step_name is steps[-1]:
             return None  # on final step
 
         for index, step in enumerate(steps[:-1]):
-            if step is current_step_name:
+            if step is step_name:
                 next_step_name = steps[index + 1]
                 break
 
-        return Step(name=next_step_name, status=Status.NOT_COMPLETED)
+        return Step(name=next_step_name, status=Status.INITIATED)
 
 
 class State(BaseModel):
@@ -305,7 +307,7 @@ class DocumentAgent:
             return
 
         # Run
-        self._state.mode = Mode(name=ModeName.DRAFT_OUTLINE, status=Status.NOT_COMPLETED)
+        self._state.mode = Mode(name=ModeName.DRAFT_OUTLINE, status=Status.INITIATED)
         self._write_state(context)
 
     async def respond_to_conversation(
@@ -379,17 +381,18 @@ class DocumentAgent:
         step_name = step.get_name()
         step_status = step.get_status()
 
-        if step_name is StepName.UNDEFINED:
+        # This Status.INITIATED will occur when the mode is setting up the first step on its first run
+        if step_status is Status.INITIATED:
             logger.info("Document Agent mode (%s) at beginning.", mode_name)
-            first_step_name = mode.get_step_order()[0]
-            self._state.mode.set_step(Step(name=first_step_name, status=Status.NOT_COMPLETED))
+            self._state.mode.get_step().set_status(Status.NOT_COMPLETED)
             self._write_state(context)
 
             step = self._state.mode.get_step()
             step_name = step.get_name()
             step_status = step.get_status()
 
-        while step_status is Status.NOT_COMPLETED:
+        # This Status.INITIATED will occur when a new step is setup upon a prior step's Status.USER_COMPLETED.
+        while step_status is Status.INITIATED or step_status is Status.NOT_COMPLETED:
             step_method = self._get_step_method(step)
             if step_method:
                 logger.info("Document Agent in step: %s", step_name)
@@ -456,7 +459,9 @@ class DocumentAgent:
         mode_name = mode.get_name()
         mode_status = mode.get_status()
 
-        if mode_name is not ModeName.DRAFT_OUTLINE or mode_status is not Status.NOT_COMPLETED:
+        if mode_name is not ModeName.DRAFT_OUTLINE or (
+            mode_status is not Status.NOT_COMPLETED and mode_status is not Status.INITIATED
+        ):
             logger.error(
                 "Document Agent state mode: %s, mode called: %s, state mode completion status: %s. Resetting Mode.",
                 mode_name,
@@ -467,16 +472,20 @@ class DocumentAgent:
             self._write_state(context)
             return self._state.mode.get_status()
 
-        # Setup
-        self._state.mode.set_step_order(
-            [
-                StepName.DO_GC_ATTACHMENT_CHECK,
-                StepName.DO_DRAFT_OUTLINE,
-                StepName.DO_GC_GET_OUTLINE_FEEDBACK,
-                StepName.DO_FINAL_OUTLINE,
-            ],
-        )
-        self._write_state(context)
+        # Setup on first run.
+        if mode_status is Status.INITIATED:
+            self._state.mode.set_step_order(
+                [
+                    StepName.DO_GC_ATTACHMENT_CHECK,
+                    StepName.DO_DRAFT_OUTLINE,
+                    StepName.DO_GC_GET_OUTLINE_FEEDBACK,
+                    StepName.DO_FINAL_OUTLINE,
+                ],
+            )
+            first_step_name = self._state.mode.get_step_order()[0]
+            self._state.mode.set_step(Step(name=first_step_name, status=Status.INITIATED))
+            self._state.mode.set_status(Status.NOT_COMPLETED)
+            self._write_state(context)
 
         self._step_name_to_method: dict[StepName, Callable] = {
             StepName.DO_GC_ATTACHMENT_CHECK: self._step_gc_attachment_check,
@@ -506,7 +515,9 @@ class DocumentAgent:
 
         # Pre-requisites
         step_called = StepName.DO_GC_ATTACHMENT_CHECK
-        if step_name is not step_called or step_status is not Status.NOT_COMPLETED:
+        if step_name is not step_called or (
+            step_status is not Status.NOT_COMPLETED and step_status is not Status.INITIATED
+        ):
             logger.error(
                 "Document Agent state step: %s, step called: %s, state step completion status: %s. Resetting Mode.",
                 step_name,
@@ -519,7 +530,7 @@ class DocumentAgent:
 
         # Run
         logger.info("Document Agent running step: %s", step_name)
-        status = await self._gc_respond_to_conversation(config, gc_config, context, message, metadata)
+        status = await self._gc_attachment_check(config, context, message, metadata)
         step.set_status(status)
         self._state.mode.set_step(step)
         self._write_state(context)
@@ -542,7 +553,9 @@ class DocumentAgent:
         step_status = step.get_status()
 
         step_called = StepName.DO_DRAFT_OUTLINE
-        if step_name is not step_called or step_status is not Status.NOT_COMPLETED:
+        if step_name is not step_called or (
+            step_status is not Status.NOT_COMPLETED and step_status is not Status.INITIATED
+        ):
             logger.error(
                 "Document Agent state step: %s, step called: %s, state step completion status: %s. Resetting Mode.",
                 step_name,
@@ -579,7 +592,9 @@ class DocumentAgent:
 
         # Pre-requisites
         step_called = StepName.DO_GC_GET_OUTLINE_FEEDBACK
-        if step_name is not step_called or step_status is not Status.NOT_COMPLETED:
+        if step_name is not step_called or (
+            step_status is not Status.NOT_COMPLETED and step_status is not Status.INITIATED
+        ):
             logger.error(
                 "Document Agent state step: %s, step called: %s, state step completion status: %s. Resetting Mode.",
                 step_name,
@@ -591,9 +606,20 @@ class DocumentAgent:
             return self._state.mode.get_status()
 
         # Run
-        logger.info("Document Agent running step: %s", step_name)
-        status = await self._gc_outline_feedback(config, gc_do_feedback_config, context, message, metadata)
+        # Because the last user message will be ending a prior step, and not be related to this step.
+        user_message: ConversationMessage | None
+        if step_status is Status.INITIATED:
+            user_message = None
+        else:
+            user_message = message
 
+        logger.info("Document Agent running step: %s", step_name)
+        status = await self._gc_outline_feedback(config, context, user_message, metadata)
+
+        # should this be status or a different return as part of a tuple... like next step request?
+        # this way the control would still be higher (and non recursive) as the branching logic will return instead of call internally the next step.
+        # but controlling of what gets called next will be determined by each step at its completion.  it seems like there should still be
+        # some level of oversight by the mode layer in case we end up in an endless loop of steps saying the should each be called next...(still a problem.)
         if status is Status.UPDATE_OUTLINE:
             status = await self._draft_outline(config, context, message, metadata)
 
@@ -618,16 +644,16 @@ class DocumentAgent:
     # region language model methods
     #
 
-    async def _gc_respond_to_conversation(
+    async def _gc_attachment_check(
         self,
         config: AssistantConfigModel,
-        gc_config: GuidedConversationAgentConfigModel,
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
     ) -> Status:
         method_metadata_key = "document_agent_gc_response"
 
+        gc_convo_config: GuidedConversationAgentConfigModel = GCAttachmentCheckConfigModel()
         # get attachment filenames for context
         filenames = await self._attachments_extension.get_attachment_filenames(
             context, config=config.agents_config.attachment_agent
@@ -635,13 +661,13 @@ class DocumentAgent:
 
         filenames_str = ", ".join(filenames)
         filenames_str = "Filenames already attached: " + filenames_str
-        gc_config.context = gc_config.context + "\n\n" + filenames_str
+        gc_convo_config.context = gc_convo_config.context + "\n\n" + filenames_str
 
         try:
             response_message, conversation_status = await GuidedConversationAgent.step_conversation(
                 config=config,
                 openai_client=openai_client.create_client(config.service_config),
-                agent_config=gc_config,
+                agent_config=gc_convo_config,
                 conversation_context=context,
                 last_user_message=message.content,
             )
@@ -760,13 +786,13 @@ class DocumentAgent:
     async def _gc_outline_feedback(
         self,
         config: AssistantConfigModel,
-        gc_config: GuidedConversationAgentConfigModel,
         context: ConversationContext,
-        message: ConversationMessage,
+        message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
     ) -> Status:
         method_metadata_key = "document_agent_gc_response"
 
+        gc_do_feedback_config: GuidedConversationAgentConfigModel = GCDraftOutlineFeedbackConfigModel()
         # get attachment filenames for context
         filenames = await self._attachments_extension.get_attachment_filenames(
             context, config=config.agents_config.attachment_agent
@@ -774,7 +800,7 @@ class DocumentAgent:
 
         filenames_str = ", ".join(filenames)
         filenames_str = "Filenames already attached: " + filenames_str
-        gc_config.context = gc_config.context + "\n\n" + filenames_str
+        gc_do_feedback_config.context = gc_do_feedback_config.context + "\n\n" + filenames_str
 
         # get current outline related info
         current_outline: str | None = None
@@ -783,15 +809,20 @@ class DocumentAgent:
 
         if current_outline is not None:
             outline_str = "Current outline under review: " + current_outline
-            gc_config.context = gc_config.context + "\n\n" + outline_str
+            gc_do_feedback_config.context = gc_do_feedback_config.context + "\n\n" + outline_str
+
+        if message is not None:
+            user_message = message.content
+        else:
+            user_message = None
 
         try:
             response_message, conversation_status = await GuidedConversationAgent.step_conversation(
                 config=config,
                 openai_client=openai_client.create_client(config.service_config),
-                agent_config=gc_config,
+                agent_config=gc_do_feedback_config,
                 conversation_context=context,
-                last_user_message=None,  # fix this.  Should be None on the first call, but keep the user message after.
+                last_user_message=user_message,
             )
 
             # add the completion to the metadata for debugging
@@ -947,16 +978,6 @@ def _format_message(message: ConversationMessage, participants: list[Conversatio
     message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
     return f"[{participant_name} - {message_datetime}]: {message.content}"
 
-
-# endregion
-
-
-#
-# region GC agent config temp
-#
-# pull in GC config with its defaults, and then make changes locally here for now.
-gc_config = GCAttachmentCheckConfigModel()
-gc_do_feedback_config = GCDraftOutlineFeedbackConfigModel()
 
 # endregion
 
