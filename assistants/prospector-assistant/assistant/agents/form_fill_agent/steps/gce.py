@@ -32,7 +32,7 @@ async def guided_conversation_with_state(
 ) -> AsyncIterator[GuidedConversation]:
     # ensure that only one guided conversation is executed at a time for any given state file
     # ie. require them to run sequentially
-    async with guided_conversation_locks[state_file_path], state_change_event_after(context, state_id):
+    async with guided_conversation_locks[state_file_path], state_change_event_after(context, state_id, set_focus=True):
         kernel, service_id = build_kernel_with_service(openai_client, openai_model)
 
         state: dict | None = None
@@ -71,6 +71,14 @@ async def guided_conversation_with_state(
         yield guided_conversation
 
         state = guided_conversation.to_json()
+        # re-order the keys to make the json more readable in the state file
+        state = {
+            "artifact": state.pop("artifact"),
+            "agenda": state.pop("agenda"),
+            "resource": state.pop("resource"),
+            "chat_history": state.pop("chat_history"),
+            **state,
+        }
         state_file_path.write_text(json.dumps(state), encoding="utf-8")
 
 
