@@ -61,7 +61,7 @@ const transformResponseToConversationParticipants = (response: any): Conversatio
     }
 };
 
-const transformResponseToConversationParticipant = (response: any): ConversationParticipant => {
+export const transformResponseToConversationParticipant = (response: any): ConversationParticipant => {
     try {
         return {
             id: response.id,

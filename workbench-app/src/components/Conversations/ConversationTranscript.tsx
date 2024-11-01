@@ -1,18 +1,12 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { ArrowDownload24Regular } from '@fluentui/react-icons';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React from 'react';
+import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useGetConversationMessagesQuery } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.tz.guess();
 
 interface ConversationTranscriptProps {
     conversation: Conversation;
@@ -39,14 +33,14 @@ export const ConversationTranscript: React.FC<ConversationTranscriptProps> = (pr
             return;
         }
 
-        const currentDateTime = dayjs.utc().tz(dayjs.tz.guess()).format('YYYYMMDDHHmmss');
-        const filename = `transcript_${conversation.title.replaceAll(' ', '_')}_${currentDateTime}.md`;
+        const timestampForFilename = Utility.getTimestampForFilename();
+        const filename = `transcript_${conversation.title.replaceAll(' ', '_')}_${timestampForFilename}.md`;
 
         const markdown = messages
             .filter((message) => message.messageType !== 'log')
             .map((message) => {
-                const date = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('dddd, MMMM D');
-                const time = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('h:mm A');
+                const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
+                const time = Utility.toFormattedDateString(message.timestamp, 'h:mm A');
                 const participant = participants.find(
                     (possible_participant) => possible_participant.id === message.sender.participantId,
                 );

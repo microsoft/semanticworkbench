@@ -1,15 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React from 'react';
-import { ConversationList } from './ConversationList';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.tz.guess();
+import { ConversationList } from './Controls/ConversationList';
 
 const useClasses = makeStyles({
     root: {
@@ -29,9 +22,6 @@ const useClasses = makeStyles({
     content: {
         flex: '1 1 auto',
         overflow: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: tokens.spacingVerticalM,
     },
     // footer: {
     //     flex: '0 0 auto',

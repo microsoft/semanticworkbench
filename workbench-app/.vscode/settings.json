@@ -227,6 +227,7 @@
         "workbenchservice",
         "workflowdefinition",
         "workflowrun",
-        "workflowuserparticipant"
+        "workflowuserparticipant",
+        "YYYYMMDDH"
     ]
 }

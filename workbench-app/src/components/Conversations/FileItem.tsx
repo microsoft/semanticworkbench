@@ -11,21 +11,15 @@ import {
     Tooltip,
 } from '@fluentui/react-components';
 import { ArrowDownloadRegular, Delete16Regular } from '@fluentui/react-icons';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React from 'react';
 import * as StreamSaver from 'streamsaver';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
+import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationFile } from '../../models/ConversationFile';
 import { useDeleteConversationFileMutation } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
 import { ConversationFileIcon } from './ConversationFileIcon';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.tz.guess();
 
 const useClasses = makeStyles({
     cardHeader: {
@@ -53,7 +47,7 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
     const workbenchService = useWorkbenchService();
     const [deleteConversationFile] = useDeleteConversationFileMutation();
 
-    const time = dayjs.utc(conversationFile.updated).tz(dayjs.tz.guess()).format('M/D/YYYY h:mm A');
+    const time = Utility.toFormattedDateString(conversationFile.updated, 'M/D/YYYY h:mm A');
 
     const sizeToDisplay = (size: number) => {
         if (size < 1024) {

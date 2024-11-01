@@ -66,7 +66,8 @@ class Step(BaseModel):
         # should this throw an exception?
 
     def reset(self) -> None:
-        self = Step()  # not sure what to do about this squiggly.
+        # TODO: consider if this is the right way to reset a step, fix the # noqa: F841
+        self = Step()  # noqa: F841
 
     def set_name(self, name: StepName) -> None:
         if name is StepName.UNDEFINED:  # need to reset step
@@ -109,7 +110,8 @@ class Mode(BaseModel):
         # should this throw an exception?
 
     def reset(self) -> None:
-        self = Mode()  # not sure what to do about this squiggly.
+        # TODO: consider if this is the right way to reset a mode, fix the # noqa: F841
+        self = Mode()  # noqa: F841
 
     def set_name(self, name: ModeName) -> None:
         if name is ModeName.UNDEFINED:  # need to reset mode

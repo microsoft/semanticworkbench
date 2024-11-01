@@ -40,9 +40,6 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - name: Install package
-        run: uv sync
-
       - name: pytest
         run: uv run pytest --dbtype=${{ matrix.dbtype }}
 

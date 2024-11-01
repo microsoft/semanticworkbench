@@ -3,6 +3,7 @@
 # FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
 # type: ignore
 
+import inspect
 import logging
 from typing import Annotated, Any, Literal, get_args, get_origin, get_type_hints
 
@@ -292,14 +293,19 @@ Remember that when updating the artifact, the field will be the original field n
         """
         origin = get_origin(target_type)
         if origin is None:
+            if not inspect.isclass(target_type):
+                return None
+
             if issubclass(target_type, base_type):
                 return target_type
-        else:
-            # Recursively check if any of the arguments are the target type
-            for arg in get_args(target_type):
-                result = self._get_type_if_subtype(arg, base_type)
-                if result is not None:
-                    return result
+
+            return None
+
+        # Recursively check if any of the arguments are the target type
+        for arg in get_args(target_type):
+            result = self._get_type_if_subtype(arg, base_type)
+            if result is not None:
+                return result
         return None
 
     def _modify_classes(self, artifact_class: BaseModel) -> dict[str, type[BaseModelLLM]]:
