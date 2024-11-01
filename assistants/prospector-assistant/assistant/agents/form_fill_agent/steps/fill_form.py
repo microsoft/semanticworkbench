@@ -1,18 +1,19 @@
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import Field, create_model
+from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
-from .. import gce, state
-from ..step import StepContext, StepIncompleteErrorResult, StepIncompleteResult, StepResult
-from . import extract_form_fields
+from .. import gce, gce_config, state
+from ..step import Context, IncompleteErrorResult, IncompleteResult, Result
 
 logger = logging.getLogger(__name__)
 
 
-definition = gce.GuidedConversationDefinition(
+definition = gce_config.GuidedConversationDefinition(
     rules=[
         "For fields that are not in the provided files, collect the data from the user through conversation.",
         "When providing options for a multiple choice field, provide the options in a numbered-list, so the user can refer to them by number.",
@@ -31,7 +32,7 @@ definition = gce.GuidedConversationDefinition(
 8. When the form is filled out, inform the user that you will now generate a document containing the filled form.
 """,
     context="",
-    resource_constraint=gce.ResourceConstraintDefinition(
+    resource_constraint=gce_config.ResourceConstraintDefinition(
         quantity=15,
         unit=ResourceConstraintUnit.TURNS,
         mode=ResourceConstraintMode.MAXIMUM,
@@ -40,16 +41,20 @@ definition = gce.GuidedConversationDefinition(
 
 
 @dataclass
-class StepCompleteResult(StepResult):
+class CompleteResult(Result):
     ai_message: str
     artifact: dict
 
 
+def get_state_file_path(context: ConversationContext) -> Path:
+    return gce.path_for_guided_conversation_state(context, "fill_form")
+
+
 async def execute(
-    step_context: StepContext,
+    step_context: Context[gce_config.GuidedConversationDefinition],
     latest_user_message: str | None,
-    form_fields: list[extract_form_fields.FormField],
-) -> StepIncompleteResult | StepIncompleteErrorResult | StepCompleteResult:
+    form_fields: list[state.FormField],
+) -> IncompleteResult | IncompleteErrorResult | CompleteResult:
     """
     Step: fill out the form with the user
     Approach: Guided conversation
@@ -60,14 +65,12 @@ async def execute(
 
     artifact_type = _form_fields_to_artifact(form_fields)
 
-    definition = step_context.config.fill_form_config.model_copy()
+    definition = step_context.config.model_copy()
     definition.resource_constraint.quantity = int(len(form_fields) * 1.5)
     async with gce.guided_conversation_with_state(
         definition=definition,
         artifact_type=artifact_type,
-        state_file_path=gce.path_for_guided_conversation_state(
-            step_context.context, state.FormFillAgentMode.fill_form_step
-        ),
+        state_file_path=get_state_file_path(step_context.context),
         openai_client=step_context.llm_config.openai_client_factory(),
         openai_model=step_context.llm_config.openai_model,
     ) as guided_conversation:
@@ -75,7 +78,7 @@ async def execute(
             result = await guided_conversation.step_conversation(message_with_attachments)
         except Exception as e:
             logger.exception("failed to execute guided conversation")
-            return StepIncompleteErrorResult(
+            return IncompleteErrorResult(
                 error_message=f"Failed to execute guided conversation: {e}",
                 debug={"error": str(e)},
             )
@@ -86,19 +89,19 @@ async def execute(
         logger.info("guided-conversation artifact: %s", guided_conversation.artifact)
 
     if result.is_conversation_over:
-        return StepCompleteResult(
+        return CompleteResult(
             ai_message="",
             artifact=fill_form_gc_artifact,
             debug={"artifact": fill_form_gc_artifact},
         )
 
-    return StepIncompleteResult(
+    return IncompleteResult(
         ai_message=result.ai_message or "",
         debug={"artifact": fill_form_gc_artifact},
     )
 
 
-def _form_fields_to_artifact(form_fields: list[extract_form_fields.FormField]):
+def _form_fields_to_artifact(form_fields: list[state.FormField]):
     field_definitions: dict[str, tuple[Any, Any]] = {}
     required_fields = []
     for field in form_fields:

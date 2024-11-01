@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
+from .steps import acquire_form, fill_form, extract_form_fields
 import yaml
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
 from semantic_workbench_assistant.assistant_app.protocol import (
@@ -48,13 +49,9 @@ FormFillAgentStateInspector = FileStateInspector(
 )
 AcquireFormGuidedConversationStateInspector = FileStateInspector(
     display_name="Acquire Form Guided Conversation State",
-    file_path_source=lambda context: gce.path_for_guided_conversation_state(
-        context, state.FormFillAgentMode.acquire_form_step
-    ),
+    file_path_source=acquire_form.get_state_file_path,
 )
 FillFormGuidedConversationStateInspector = FileStateInspector(
     display_name="Fill Form Guided Conversation State",
-    file_path_source=lambda context: gce.path_for_guided_conversation_state(
-        context, state.FormFillAgentMode.fill_form_step
-    ),
+    file_path_source=fill_form.get_state_file_path,
 )

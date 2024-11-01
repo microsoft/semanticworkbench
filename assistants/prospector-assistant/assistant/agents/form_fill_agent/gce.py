@@ -4,68 +4,17 @@ import json
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated, AsyncIterator, Awaitable, Callable, Sequence
+from typing import AsyncIterator, Awaitable, Callable, Sequence
 
 from guided_conversation.guided_conversation_agent import GuidedConversation
-from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 from semantic_workbench_assistant.assistant_app.context import ConversationContext, storage_directory_for_context
 
-from . import state
-
-
-class ResourceConstraintDefinition(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
-            "required": ["quantity", "unit", "mode"],
-        },
-    )
-
-    quantity: Annotated[int, Field(title="Quantity", description="The quantity of the resource constraint.")]
-    unit: Annotated[ResourceConstraintUnit, Field(title="Unit", description="Unit of the resource constraint.")]
-    mode: Annotated[ResourceConstraintMode, Field(title="Mode", description="Mode of the resource constraint.")]
-
-    def to_resource_constraint(self) -> ResourceConstraint:
-        return ResourceConstraint(
-            quantity=self.quantity,
-            unit=self.unit,
-            mode=self.mode,
-        )
-
-
-class GuidedConversationDefinition(BaseModel):
-    model_config = ConfigDict(json_schema_extra={"required": ["rules", "resource_constraint"]})
-
-    rules: Annotated[
-        list[str],
-        Field(title="Rules", description="The do's and don'ts that the agent should follow during the conversation."),
-    ]
-
-    conversation_flow: Annotated[
-        str,
-        Field(
-            title="Conversation flow",
-            description="(optional) Defines the steps of the conversation in natural language.",
-        ),
-    ]
-
-    context: Annotated[
-        str,
-        Field(
-            title="Context",
-            description="(optional) Any additional information or the circumstances the agent is in that it should be aware of. It can also include the high level goal of the conversation if needed.",
-        ),
-    ]
-
-    resource_constraint: Annotated[
-        ResourceConstraintDefinition,
-        Field(title="Resource constraint", description="Defines how the guided-conversation should be constrained."),
-    ]
-
+from . import gce_config, state
 
 guided_conversation_locks: dict[Path, asyncio.Lock] = defaultdict(asyncio.Lock)
 
@@ -74,7 +23,7 @@ guided_conversation_locks: dict[Path, asyncio.Lock] = defaultdict(asyncio.Lock)
 async def guided_conversation_with_state(
     openai_client: AsyncOpenAI,
     openai_model: str,
-    definition: GuidedConversationDefinition,
+    definition: gce_config.GuidedConversationDefinition,
     artifact_type: type[BaseModel],
     state_file_path: Path,
 ) -> AsyncIterator[GuidedConversation]:
@@ -168,7 +117,7 @@ async def message_with_recent_attachments(
     )
 
 
-def path_for_guided_conversation_state(context: ConversationContext, mode: state.FormFillAgentMode) -> Path:
-    dir = storage_directory_for_context(context) / str(mode)
-    dir.mkdir(parents=True, exist_ok=True)
-    return dir / "guided_conversation_state.json"
+def path_for_guided_conversation_state(context: ConversationContext, dir: str) -> Path:
+    dir_path = storage_directory_for_context(context) / dir
+    dir_path.mkdir(parents=True, exist_ok=True)
+    return dir_path / "guided_conversation_state.json"
