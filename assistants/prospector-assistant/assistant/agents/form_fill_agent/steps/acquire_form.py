@@ -5,6 +5,7 @@ from pathlib import Path
 from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
+from semantic_workbench_assistant.assistant_app.protocol import AssistantAppProtocol
 
 from .. import gce_config
 from ..inspector import FileStateInspector
@@ -44,10 +45,6 @@ definition = gce_config.GuidedConversationDefinition(
 )
 
 
-def get_state_file_path(context: ConversationContext) -> Path:
-    return gce.path_for_guided_conversation_state(context, "acquire_form")
-
-
 @dataclass
 class CompleteResult(Result):
     ai_message: str
@@ -69,9 +66,11 @@ async def execute(
     async with gce.guided_conversation_with_state(
         definition=step_context.config,
         artifact_type=FormArtifact,
-        state_file_path=get_state_file_path(step_context.context),
+        state_file_path=_get_state_file_path(step_context.context),
         openai_client=step_context.llm_config.openai_client_factory(),
         openai_model=step_context.llm_config.openai_model,
+        context=step_context.context,
+        state_id=_inspector.state_id,
     ) as guided_conversation:
         try:
             result = await guided_conversation.step_conversation(message_with_attachments)
@@ -102,7 +101,16 @@ async def execute(
     )
 
 
-AcquireFormGuidedConversationStateInspector = FileStateInspector(
+def _get_state_file_path(context: ConversationContext) -> Path:
+    return gce.path_for_guided_conversation_state(context, "acquire_form")
+
+
+_inspector = FileStateInspector(
     display_name="Acquire Form Guided Conversation State",
-    file_path_source=get_state_file_path,
+    file_path_source=_get_state_file_path,
+    state_id="acquire_form",
 )
+
+
+def extend(app: AssistantAppProtocol) -> None:
+    app.add_inspector_state_provider(_inspector.state_id, _inspector)

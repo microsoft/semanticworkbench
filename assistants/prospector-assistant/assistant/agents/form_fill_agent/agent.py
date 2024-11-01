@@ -4,6 +4,7 @@ from typing import Awaitable, Callable, Sequence
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
+from semantic_workbench_assistant.assistant_app.protocol import AssistantAppProtocol
 
 from . import state
 from .config import FormFillAgentConfig
@@ -170,3 +171,16 @@ async def _send_error_message(context: ConversationContext, message: str, debug:
             metadata={"debug": debug},
         )
     )
+
+
+def extend(app: AssistantAppProtocol) -> None:
+    """
+    Extend the assistant app with the form-fill agent inspectors.
+    """
+
+    # for agent level state
+    app.add_inspector_state_provider(state.inspector.state_id, state.inspector)
+
+    # for step level states
+    acquire_form.extend(app)
+    fill_form.extend(app)
