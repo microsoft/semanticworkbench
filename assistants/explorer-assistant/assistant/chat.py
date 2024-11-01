@@ -11,10 +11,13 @@ from typing import Any
 
 import deepmerge
 import openai_client
+from assistant_extensions.artifacts import ArtifactsExtension
+from assistant_extensions.artifacts._model import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_api_model.workbench_model import (
+    AssistantStateEvent,
     ConversationEvent,
     ConversationMessage,
     ConversationParticipant,
@@ -23,6 +26,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
+    AssistantContext,
     BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
@@ -67,6 +71,12 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
 )
 
+
+async def artifact_config_provider(context: AssistantContext) -> ArtifactsConfigModel:
+    return (await assistant_config.get(context)).extensions_config.artifacts
+
+
+artifacts_extension = ArtifactsExtension(assistant, artifact_config_provider)
 attachments_extension = AttachmentsExtension(assistant)
 
 #
@@ -110,10 +120,6 @@ async def on_message_created(
     - To handle all message types, you can use the root event handler for all message types:
       - @assistant.events.conversation.message.on_created
     """
-
-    # ignore messages from this assistant
-    if message.sender.participant_id == context.assistant.id:
-        return
 
     # update the participant status to indicate the assistant is thinking
     async with context.set_status_for_block("thinking..."):
@@ -202,6 +208,10 @@ async def respond_to_conversation(
             " your turn."
         )
 
+    # add the artifact agent instruction prompt to the system message content
+    if config.extensions_config.artifacts.enabled:
+        system_message_content += f"\n\n{config.extensions_config.artifacts.instruction_prompt}"
+
     # add the guardrails prompt to the system message content
     system_message_content += f"\n\n{config.guardrails_prompt}"
 
@@ -214,7 +224,7 @@ async def respond_to_conversation(
 
     # generate the attachment messages from the attachment agent
     attachment_messages = await attachments_extension.get_completion_messages_for_attachments(
-        context, config=config.agents_config.attachment_agent
+        context, config=config.extensions_config.attachments
     )
 
     # add the attachment messages to the completion messages
@@ -306,13 +316,49 @@ async def respond_to_conversation(
     # generate a response from the AI model
     async with openai_client.create_client(config.service_config) as client:
         try:
-            # call the OpenAI API to generate a completion
-            completion = await client.chat.completions.create(
-                messages=completion_messages,
-                model=config.request_config.openai_model,
-                max_tokens=config.request_config.response_tokens,
-            )
-            content = completion.choices[0].message.content
+            if config.extensions_config.artifacts.enabled:
+                response = await artifacts_extension.get_openai_completion_response(
+                    client,
+                    completion_messages,
+                    config.request_config.openai_model,
+                    config.request_config.response_tokens,
+                )
+
+                completion = response.completion
+                content = response.assistant_response
+                artifacts_to_create_or_update = response.artifacts_to_create_or_update
+
+                for artifact in artifacts_to_create_or_update:
+                    artifacts_extension.create_or_update_artifact(
+                        context,
+                        artifact,
+                    )
+                # send an event to notify the artifact state was updated
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(
+                        state_id="artifacts",
+                        event="updated",
+                        state=None,
+                    )
+                )
+                # send a focus event to notify the assistant to focus on the artifacts
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(
+                        state_id="artifacts",
+                        event="focus",
+                        state=None,
+                    )
+                )
+
+            else:
+                # call the OpenAI API to generate a completion
+                completion = await client.chat.completions.create(
+                    messages=completion_messages,
+                    model=config.request_config.openai_model,
+                    max_tokens=config.request_config.response_tokens,
+                )
+
+                content = completion.choices[0].message.content
 
             # get the total tokens used for the completion
             completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
@@ -413,7 +459,7 @@ async def respond_to_conversation(
 
         # check if the completion total tokens exceed the warning threshold
         if completion_total_tokens > token_count_for_warning:
-            content = f"{config.high_token_usage_warning.message}\n\n" f"Total tokens used: {completion_total_tokens}"
+            content = f"{config.high_token_usage_warning.message}\n\nTotal tokens used: {completion_total_tokens}"
 
             # send a notice message to the conversation that the token usage is high
             await context.send_messages(

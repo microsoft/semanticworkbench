@@ -8,7 +8,7 @@ import Form from '@rjsf/fluentui-rc';
 import { RegistryWidgetsType } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import React from 'react';
-import { WorkbenchEventSource } from '../../../libs/WorkbenchEventSource';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../../libs/WorkbenchEventSource';
 import { useEnvironment } from '../../../libs/useEnvironment';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
 import { useGetConversationStateQuery, useUpdateConversationStateMutation } from '../../../services/workbench';
@@ -92,7 +92,11 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
         };
 
         (async () => {
-            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
+            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversationId,
+            );
             workbenchEventSource.addEventListener('assistant.state.updated', handleEvent);
         })();
 

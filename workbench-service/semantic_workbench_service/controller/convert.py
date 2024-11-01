@@ -147,6 +147,9 @@ def conversation_participant_list_from_db(
 
 def conversation_from_db(
     model: db.Conversation,
+    user_participants: Iterable[db.UserParticipant],
+    assistant_participants: Iterable[db.AssistantParticipant],
+    assistants: Mapping[uuid.UUID, db.Assistant],
     latest_message: db.ConversationMessage | None,
     permission: str,
 ) -> Conversation:
@@ -159,20 +162,37 @@ def conversation_from_db(
         created_datetime=model.created_datetime,
         conversation_permission=ConversationPermission(permission),
         latest_message=conversation_message_from_db(model=latest_message) if latest_message else None,
+        participants=conversation_participant_list_from_db(
+            user_participants=user_participants,
+            assistant_participants=assistant_participants,
+            assistants=assistants,
+        ).participants,
     )
 
 
 def conversation_list_from_db(
-    models: Iterable[tuple[db.Conversation, db.ConversationMessage | None, str]],
+    models: Iterable[
+        tuple[
+            db.Conversation,
+            Iterable[db.UserParticipant],
+            Iterable[db.AssistantParticipant],
+            dict[uuid.UUID, db.Assistant],
+            db.ConversationMessage | None,
+            str,
+        ]
+    ],
 ) -> ConversationList:
     return ConversationList(
         conversations=[
             conversation_from_db(
                 model=conversation,
+                user_participants=user_participants,
+                assistant_participants=assistant_participants,
+                assistants=assistants,
                 latest_message=latest_message,
                 permission=permission,
             )
-            for conversation, latest_message, permission in models
+            for conversation, user_participants, assistant_participants, assistants, latest_message, permission in models
         ]
     )
 

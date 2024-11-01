@@ -1,5 +1,6 @@
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
+import { transformResponseToConversationParticipant } from './participant';
 import { workbenchApi } from './workbench';
 
 export const conversationApi = workbenchApi.injectEndpoints({
@@ -96,6 +97,8 @@ const transformResponseToConversation = (response: any): Conversation => {
             ownerId: response.owner_id,
             title: response.title,
             created: response.created_datetime,
+            latest_message: response.latest_message ? transformResponseToMessage(response.latest_message) : undefined,
+            participants: response.participants.map(transformResponseToConversationParticipant),
             metadata: response.metadata,
             conversationPermission: response.conversation_permission,
             importedFromConversationId: response.imported_from_conversation_id,

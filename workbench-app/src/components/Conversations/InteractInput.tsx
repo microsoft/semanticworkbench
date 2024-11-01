@@ -150,8 +150,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const editorRef = React.useRef<LexicalEditor | null>();
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
     const dispatch = useAppDispatch();
-    const localUserAccount = useLocalUserAccount();
-    const userId = localUserAccount.getUserId();
+    const { getUserId } = useLocalUserAccount();
+    const userId = getUserId();
 
     const {
         data: conversationMessages,

@@ -37,7 +37,10 @@
     "**/__pycache__": true
   },
   "cSpell.words": [
+    "endregion",
+    "Excalidraw",
     "openai",
-    "pdfplumber"
+    "pdfplumber",
+    "pydantic"
   ]
 }

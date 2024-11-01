@@ -294,7 +294,7 @@ class ConversationMessage(SQLModel, table=True):
     created_datetime: datetime.datetime = date_time_default_to_now()
     sender_participant_id: str
     sender_participant_role: str
-    message_type: str
+    message_type: str = Field(index=True)
     content: str
     content_type: str
     meta_data: dict[str, Any] = Field(sa_column=sqlalchemy.Column("metadata", sqlalchemy.JSON), default={})

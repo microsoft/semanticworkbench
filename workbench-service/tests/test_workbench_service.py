@@ -734,8 +734,15 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
         messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
         assert len(messages.messages) == 3
 
-        # check latest message in conversation
+        # check latest chat message in conversation (chat is default)
         http_response = client.get(f"/conversations/{conversation_id}")
+        assert httpx.codes.is_success(http_response.status_code)
+        conversation = workbench_model.Conversation.model_validate(http_response.json())
+        assert conversation.latest_message is not None
+        assert conversation.latest_message.id == message_two_id
+
+        # check latest log message in conversation
+        http_response = client.get(f"/conversations/{conversation_id}", params={"latest_message_type": ["log"]})
         assert httpx.codes.is_success(http_response.status_code)
         conversation = workbench_model.Conversation.model_validate(http_response.json())
         assert conversation.latest_message is not None
