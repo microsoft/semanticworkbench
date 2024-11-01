@@ -197,6 +197,33 @@ class AttachmentsExtension:
 
         return messages
 
+    async def get_attachment_filenames(
+        self,
+        context: ConversationContext,
+        config: AttachmentsConfigModel,
+        include_filenames: list[str] | None = None,
+        exclude_filenames: list[str] = [],
+    ) -> list[str]:
+        if not config.include_in_response_generation:
+            return []
+
+        # get attachments, filtered by include_filenames and exclude_filenames
+        attachments = await _get_attachments(
+            context,
+            error_handler=self._error_handler,
+            include_filenames=include_filenames,
+            exclude_filenames=exclude_filenames,
+        )
+
+        if not attachments:
+            return []
+
+        filenames: list[str] = []
+        for attachment in attachments:
+            filenames.append(attachment.filename)
+
+        return filenames
+
 
 async def _get_attachments(
     context: ConversationContext,

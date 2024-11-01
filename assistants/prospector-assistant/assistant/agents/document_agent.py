@@ -23,7 +23,10 @@ from semantic_workbench_assistant.assistant_app import ConversationContext, stor
 
 from ..config import AssistantConfigModel
 from .document.config import GuidedConversationAgentConfigModel
+from .document.gc_attachment_check_config import GCAttachmentCheckConfigModel
+from .document.gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
 from .document.guided_conversation import GuidedConversationAgent
+from .document.status import Status
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +34,6 @@ logger = logging.getLogger(__name__)
 #
 # region state, mode, and steps
 #
-
-
-class Status(StrEnum):
-    UNDEFINED = "undefined"
-    NOT_COMPLETED = "not_completed"
-    USER_COMPLETED = "user_completed"
-    USER_EXIT_EARLY = "user_exit_early"
 
 
 class StepName(StrEnum):
@@ -570,8 +566,39 @@ class DocumentAgent:
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
     ) -> Status:
-        # pretend completed
-        return Status.USER_COMPLETED
+        # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return Status.UNDEFINED
+
+        step = self._state.mode.get_step()
+        step_name = step.get_name()
+        step_status = step.get_status()
+
+        # Pre-requisites
+        step_called = StepName.DO_GC_GET_OUTLINE_FEEDBACK
+        if step_name is not step_called or step_status is not Status.NOT_COMPLETED:
+            logger.error(
+                "Document Agent state step: %s, step called: %s, state step completion status: %s. Resetting Mode.",
+                step_name,
+                step_called,
+                step_status,
+            )
+            self._state.mode.reset()
+            self._write_state(context)
+            return self._state.mode.get_status()
+
+        # Run
+        logger.info("Document Agent running step: %s", step_name)
+        status = await self._gc_outline_feedback(config, gc_do_feedback_config, context, message, metadata)
+
+        if status is Status.UPDATE_OUTLINE:
+            status = await self._draft_outline(config, context, message, metadata)
+
+        step.set_status(status)
+        self._state.mode.set_step(step)
+        self._write_state(context)
+        return step.get_status()
 
     async def _step_final_outline(
         self,
@@ -598,38 +625,38 @@ class DocumentAgent:
         metadata: dict[str, Any] = {},
     ) -> Status:
         method_metadata_key = "document_agent_gc_response"
-        is_conversation_over = False
+
+        # get attachment filenames for context
+        filenames = await self._attachments_extension.get_attachment_filenames(
+            context, config=config.agents_config.attachment_agent
+        )
+
+        filenames_str = ", ".join(filenames)
+        filenames_str = "Filenames already attached: " + filenames_str
+        gc_config.context = gc_config.context + "\n\n" + filenames_str
 
         try:
-            response_message, is_conversation_over = await GuidedConversationAgent.step_conversation(
+            response_message, conversation_status = await GuidedConversationAgent.step_conversation(
                 config=config,
                 openai_client=openai_client.create_client(config.service_config),
                 agent_config=gc_config,
                 conversation_context=context,
                 last_user_message=message.content,
             )
-            if is_conversation_over:  # need to get info from gc on if user-ended early or actually completed
-                return Status.USER_COMPLETED  # Do not send the hard-coded response message from gc
-
-            if response_message is None:
-                # need to double check this^^ None logic, when it would occur in GC. Make "" for now.
-                agent_message = ""
-            else:
-                agent_message = response_message
 
             # add the completion to the metadata for debugging
             deepmerge.always_merger.merge(
                 metadata,
                 {
                     "debug": {
-                        f"{method_metadata_key}": {"response": agent_message},
+                        f"{method_metadata_key}": {"response": response_message},
                     }
                 },
             )
 
         except Exception as e:
             logger.exception(f"exception occurred processing guided conversation: {e}")
-            agent_message = "An error occurred while processing the guided conversation."
+            response_message = "An error occurred while processing the guided conversation."
             deepmerge.always_merger.merge(
                 metadata,
                 {
@@ -643,7 +670,7 @@ class DocumentAgent:
 
         await context.send_messages(
             NewConversationMessage(
-                content=agent_message,
+                content=response_message,
                 message_type=MessageType.chat,
                 metadata=metadata,
             )
@@ -652,7 +679,7 @@ class DocumentAgent:
         # Need to add a good way to stop mode if an exception occurs.
         # Also need to update the gc state turn count to 0 (and any thing else that needs to be reset) once conversation is over... or exception occurs?)
 
-        return Status.NOT_COMPLETED
+        return conversation_status
 
     async def _draft_outline(
         self,
@@ -676,8 +703,9 @@ class DocumentAgent:
 
         # get outline related info
         outline: str | None = None
-        if path.exists(storage_directory_for_context(context) / "outline.txt"):
-            outline = (storage_directory_for_context(context) / "outline.txt").read_text()
+        # path = _get_document_agent_conversation_storage_path(context)
+        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
+            outline = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
 
         # create chat completion messages
         chat_completion_messages: list[ChatCompletionMessageParam] = []
@@ -710,7 +738,7 @@ class DocumentAgent:
                 _on_error_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, e)
 
         # store only latest version for now (will keep all versions later as need arises)
-        (storage_directory_for_context(context) / "outline.txt").write_text(content)
+        (storage_directory_for_context(context) / "document_agent/outline.txt").write_text(content)
 
         # send the response to the conversation only if from a command.  Otherwise return info to caller.
         message_type = MessageType.chat
@@ -726,6 +754,80 @@ class DocumentAgent:
         )
 
         return Status.USER_COMPLETED
+
+    async def _gc_outline_feedback(
+        self,
+        config: AssistantConfigModel,
+        gc_config: GuidedConversationAgentConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> Status:
+        method_metadata_key = "document_agent_gc_response"
+
+        # get attachment filenames for context
+        filenames = await self._attachments_extension.get_attachment_filenames(
+            context, config=config.agents_config.attachment_agent
+        )
+
+        filenames_str = ", ".join(filenames)
+        filenames_str = "Filenames already attached: " + filenames_str
+        gc_config.context = gc_config.context + "\n\n" + filenames_str
+
+        # get current outline related info
+        current_outline: str | None = None
+        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
+            current_outline = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+
+        if current_outline is not None:
+            outline_str = "Current outline under review: " + current_outline
+            gc_config.context = gc_config.context + "\n\n" + outline_str
+
+        try:
+            response_message, conversation_status = await GuidedConversationAgent.step_conversation(
+                config=config,
+                openai_client=openai_client.create_client(config.service_config),
+                agent_config=gc_config,
+                conversation_context=context,
+                last_user_message=None,  # fix this.  Should be None on the first call, but keep the user message after.
+            )
+
+            # add the completion to the metadata for debugging
+            deepmerge.always_merger.merge(
+                metadata,
+                {
+                    "debug": {
+                        f"{method_metadata_key}": {"response": response_message},
+                    }
+                },
+            )
+
+        except Exception as e:
+            logger.exception(f"exception occurred processing guided conversation: {e}")
+            response_message = "An error occurred while processing the guided conversation."
+            deepmerge.always_merger.merge(
+                metadata,
+                {
+                    "debug": {
+                        f"{method_metadata_key}": {
+                            "error": str(e),
+                        },
+                    }
+                },
+            )
+
+        await context.send_messages(
+            NewConversationMessage(
+                content=response_message,
+                message_type=MessageType.chat,
+                metadata=metadata,
+            )
+        )
+
+        # Need to add a good way to stop mode if an exception occurs.
+        # Also need to update the gc state turn count to 0 (and any thing else that needs to be reset) once conversation is over... or exception occurs?)
+
+        return conversation_status
 
     # endregion
 
@@ -851,8 +953,8 @@ def _format_message(message: ConversationMessage, participants: list[Conversatio
 # region GC agent config temp
 #
 # pull in GC config with its defaults, and then make changes locally here for now.
-gc_config = GuidedConversationAgentConfigModel()
-
+gc_config = GCAttachmentCheckConfigModel()
+gc_do_feedback_config = GCDraftOutlineFeedbackConfigModel()
 
 # endregion
 

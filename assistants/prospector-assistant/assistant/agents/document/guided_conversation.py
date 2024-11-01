@@ -13,6 +13,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from ...config import AssistantConfigModel
 from .config import GuidedConversationAgentConfigModel
+from .status import Status
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class GuidedConversationAgent:
         agent_config: GuidedConversationAgentConfigModel,
         conversation_context: ConversationContext,
         last_user_message: str | None,
-    ) -> tuple[str | None, bool]:
+    ) -> tuple[str, Status]:
         """
         Step the conversation to the next turn.
         """
@@ -53,6 +54,8 @@ class GuidedConversationAgent:
         context = agent_config.context
         resource_constraint = agent_config.resource_constraint
         artifact = agent_config.get_artifact_model()
+
+        # plug in attachments
 
         kernel = Kernel()
         service_id = "gc_main"
@@ -96,7 +99,45 @@ class GuidedConversationAgent:
         # Save the state of the guided conversation agent
         _write_guided_conversation_state(conversation_context, guided_conversation_agent.to_json())
 
-        return result.ai_message, result.is_conversation_over
+        # convert information in artifact for Document Agent
+        # conversation_status:  # this should relate to result.is_conversation_over
+        # final_response:  # replace result.ai_message with final_response if "user_completed"
+
+        final_response: str = ""
+        conversation_status: str | None = None
+        response: str = ""
+
+        # to_json is actually to dict, not to json.
+        gc_dict = guided_conversation_agent.to_json()
+        artifact_item = gc_dict.get("artifact")
+        if artifact_item is not None:
+            artifact_item = artifact_item.get("artifact")
+            if artifact_item is not None:
+                final_response = artifact_item.get("final_response")
+                conversation_status = artifact_item.get("conversation_status")
+
+        # should be returning str and Status for Document Agent to consume.  Update doc agent logic accordingly.
+        status: Status = Status.UNDEFINED
+        if conversation_status is not None:
+            if result.is_conversation_over is True:
+                _delete_guided_conversation_state(conversation_context)
+                if conversation_status == "user_completed":
+                    status = Status.USER_COMPLETED
+                    response = final_response
+                elif conversation_status == "update_outline":
+                    status = Status.UPDATE_OUTLINE
+                    response = final_response
+                else:
+                    status = Status.USER_EXIT_EARLY
+                    response = final_response
+            else:
+                if result.ai_message is not None:
+                    response = result.ai_message
+                else:
+                    response = ""
+                status = Status.NOT_COMPLETED
+
+        return response, status
 
     # endregion
 
@@ -140,6 +181,15 @@ def _read_guided_conversation_state(context: ConversationContext) -> dict | None
         except Exception:
             pass
     return None
+
+
+def _delete_guided_conversation_state(context: ConversationContext) -> None:
+    """
+    Delete the file containing state of the guided conversation agent.
+    """
+    path = _get_guided_conversation_storage_path(context, "state.json")
+    if path.exists():
+        path.unlink()
 
 
 # endregion
