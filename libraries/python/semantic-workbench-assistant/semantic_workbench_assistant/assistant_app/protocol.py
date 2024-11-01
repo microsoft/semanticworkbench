@@ -14,7 +14,6 @@ from typing import (
     Protocol,
     TypeVar,
     Union,
-    overload,
 )
 
 import typing_extensions
@@ -126,15 +125,24 @@ class ObjectEventHandlers(Generic[EventHandlerT]):
     def __init__(self, on_created=True, on_updated=True, on_deleted=True) -> None:
         if on_created:
             self._on_created_handlers = EventHandlerList[EventHandlerT]()
-            self.on_created = _create_decorator(self._on_created_handlers)
+            self.on_created = _create_decorator(self._on_created_handlers, "others")
+            """event handler for created event; excluding events from this assistant service"""
+            self.on_created_including_mine = _create_decorator(self._on_created_handlers, "all")
+            """event handler for created event; including events from this assistant service"""
 
         if on_updated:
             self._on_updated_handlers = EventHandlerList[EventHandlerT]()
-            self.on_updated = _create_decorator(self._on_updated_handlers)
+            self.on_updated = _create_decorator(self._on_updated_handlers, "others")
+            """event handler for updated event; excluding events from this assistant service"""
+            self.on_updated_including_mine = _create_decorator(self._on_updated_handlers, "all")
+            """event handler for updated event; including events from this assistant service"""
 
         if on_deleted:
             self._on_deleted_handlers = EventHandlerList[EventHandlerT]()
-            self.on_deleted = _create_decorator(self._on_deleted_handlers)
+            self.on_deleted = _create_decorator(self._on_deleted_handlers, "others")
+            """event handler for deleted event; excluding events from this assistant service"""
+            self.on_deleted_including_mine = _create_decorator(self._on_deleted_handlers, "all")
+            """event handler for deleted event; including events from this assistant service"""
 
 
 LifecycleEventHandler = Callable[[], Awaitable[None] | None]
@@ -143,45 +151,20 @@ LifecycleEventHandler = Callable[[], Awaitable[None] | None]
 class LifecycleEventHandlers:
     def __init__(self) -> None:
         self._on_service_start_handlers = EventHandlerList[LifecycleEventHandler]()
-        self.on_service_start = _create_decorator(self._on_service_start_handlers)
+        self.on_service_start = _create_decorator(self._on_service_start_handlers, "all")
 
         self._on_service_shutdown_handlers = EventHandlerList[LifecycleEventHandler]()
-        self.on_service_shutdown = _create_decorator(self._on_service_shutdown_handlers)
+        self.on_service_shutdown = _create_decorator(self._on_service_shutdown_handlers, "all")
 
 
 def _create_decorator(
-    handler_list: EventHandlerList[EventHandlerT],
-):
-    @overload
-    def decorator(func_or_include: EventHandlerT) -> EventHandlerT: ...
+    handler_list: EventHandlerList[EventHandlerT], filter: IncludeEventsFromActors
+) -> Callable[[EventHandlerT], EventHandlerT]:
+    def _decorator(func: EventHandlerT) -> EventHandlerT:
+        handler_list.append((func, filter))
+        return func
 
-    @overload
-    def decorator(
-        func_or_include: IncludeEventsFromActors | None = "others",
-    ) -> Callable[[EventHandlerT], EventHandlerT]: ...
-
-    def decorator(
-        func_or_include: EventHandlerT | IncludeEventsFromActors | None = "others",
-    ) -> EventHandlerT | Callable[[EventHandlerT], EventHandlerT]:
-        filter: IncludeEventsFromActors = "others"
-        match func_or_include:
-            case "all":
-                filter = "all"
-            case "this_assistant_service":
-                filter = "this_assistant_service"
-
-        def _decorator(func: EventHandlerT) -> EventHandlerT:
-            handler_list.append((func, filter))
-            return func
-
-        # decorator with no arguments
-        if callable(func_or_include):
-            return _decorator(func_or_include)
-
-        # decorator with arguments
-        return _decorator
-
-    return decorator
+    return _decorator
 
 
 AssistantEventHandler = Callable[[AssistantContext], Awaitable[None] | None]
