@@ -16,7 +16,12 @@ export const useLocalUserAccount = () => {
         return userId;
     };
 
+    const getUserName = () => {
+        return account?.name;
+    };
+
     return {
         getUserId,
+        getUserName,
     };
 };

@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, mergeClasses, shorthands, Title3, tokens } from '@fluentui/react-components';
 import React from 'react';
+import { Constants } from '../../../Constants';
 import { useGetAssistantCapabilitiesSet } from '../../../libs/useAssistantCapabilities';
 import { Assistant } from '../../../models/Assistant';
 import {
@@ -15,6 +16,7 @@ import { Loading } from '../../App/Loading';
 import { ConversationShare } from '../../Conversations/ConversationShare';
 import { InteractHistory } from '../../Conversations/InteractHistory';
 import { InteractInput } from '../../Conversations/InteractInput';
+import { ParticipantAvatarGroup } from '../../Conversations/ParticipantAvatarGroup';
 import { ChatCanvas } from './ChatCanvas';
 import { ChatControls } from './ChatControls';
 
@@ -48,7 +50,9 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'row',
         gap: tokens.spacingHorizontalM,
+        justifyContent: 'center',
         flex: '1 1 auto',
+        overflowX: 'hidden',
 
         '&.before': {
             left: 0,
@@ -59,6 +63,26 @@ const useClasses = makeStyles({
             right: 0,
             flex: '0 0 auto',
         },
+    },
+    titleContainer: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: tokens.spacingHorizontalM,
+        width: '100%',
+        maxWidth: `${Constants.app.maxContentWidth}px`,
+        ...shorthands.padding(0, tokens.spacingHorizontalM),
+        boxSizing: 'border-box',
+    },
+    avatarGroup: {
+        flex: '0 0 auto',
+    },
+    title: {
+        flex: '1 1 auto',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        textOverflow: 'ellipsis',
     },
     errorList: {
         position: 'absolute',
@@ -223,6 +247,12 @@ export const Chat: React.FC<ChatProps> = (props) => {
             <div className={classes.header}>
                 <div className={mergeClasses(classes.headerControls, 'before')}>{headerBefore}</div>
                 <div className={classes.headerControls}>
+                    <div className={classes.titleContainer}>
+                        <div className={classes.avatarGroup}>
+                            <ParticipantAvatarGroup participants={conversationParticipants} />
+                        </div>
+                        <Title3 className={classes.title}>{conversation.title}</Title3>
+                    </div>
                     <ErrorList className={classes.errorList} />
                 </div>
                 <div className={mergeClasses(classes.headerControls, 'after')}>

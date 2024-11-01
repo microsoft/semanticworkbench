@@ -4,6 +4,7 @@ export interface ConversationParticipant {
     role: 'user' | 'assistant' | 'service';
     id: string;
     name: string;
+    image?: string;
     online?: boolean;
     status: string | null;
     statusTimestamp: string | null;

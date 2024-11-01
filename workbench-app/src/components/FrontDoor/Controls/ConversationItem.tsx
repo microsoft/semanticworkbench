@@ -30,6 +30,9 @@ import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
+import { ConversationParticipant } from '../../../models/ConversationParticipant';
+import { useAppSelector } from '../../../redux/app/hooks';
+import { ParticipantAvatarGroup } from '../../Conversations/ParticipantAvatarGroup';
 
 const useClasses = makeStyles({
     cardHeader: {
@@ -132,8 +135,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         onSelectForActions,
     } = props;
     const classes = useClasses();
+    const { user } = useAppSelector((state) => state.app);
     const [isHovered, setIsHovered] = React.useState(false);
-    const { hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
+    const { getOwnerParticipant, wasSharedWithMe, hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
 
     const showActions = isHovered || showSelectForActions;
 
@@ -296,6 +300,20 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         return <Caption1 className={classes.description}>{sender ? `${sender.name}: ${content}` : content}</Caption1>;
     }, [conversation.latest_message, conversation.participants, classes.description]);
 
+    const sortedParticipantsByOwnerMeOthers = React.useMemo(() => {
+        const participants: ConversationParticipant[] = [];
+        participants.push(getOwnerParticipant(conversation));
+        if (wasSharedWithMe(conversation)) {
+            const me = conversation.participants.find((participant) => participant.id === user?.id);
+            if (me) {
+                participants.push(me);
+            }
+        }
+        const others = conversation.participants.filter((participant) => !participants.includes(participant));
+        participants.push(...others);
+        return participants;
+    }, [getOwnerParticipant, conversation, wasSharedWithMe, user?.id]);
+
     return (
         <Card
             size="small"
@@ -308,6 +326,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         >
             <CardHeader
                 className={mergeClasses(classes.cardHeader, showActions ? classes.showingActions : undefined)}
+                image={<ParticipantAvatarGroup participants={sortedParticipantsByOwnerMeOthers} />}
                 header={header}
                 description={description}
             />

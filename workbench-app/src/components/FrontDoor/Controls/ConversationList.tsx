@@ -139,18 +139,6 @@ export const ConversationList: React.FC = () => {
     }
 
     const userId = getUserId();
-    const myConversations =
-        conversations?.filter(
-            (conversation) =>
-                conversation.ownerId === userId &&
-                (!filter || (filter && conversation.title.toLowerCase().includes(filter.toLowerCase()))),
-        ) || [];
-    const conversationsSharedWithMe =
-        conversations?.filter(
-            (conversation) =>
-                conversation.ownerId !== userId &&
-                (!filter || (filter && conversation.title.toLowerCase().includes(filter.toLowerCase()))),
-        ) || [];
 
     const sortByNameHelper = (a: Conversation, b: Conversation) => a.title.localeCompare(b.title);
 
@@ -266,6 +254,13 @@ export const ConversationList: React.FC = () => {
         ));
     };
 
+    const filteredConversations =
+        conversations?.filter(
+            (conversation) =>
+                conversation.ownerId === userId &&
+                (!filter || (filter && conversation.title.toLowerCase().includes(filter.toLowerCase()))),
+        ) || [];
+
     return (
         <>
             {renameConversation && (
@@ -328,7 +323,7 @@ export const ConversationList: React.FC = () => {
                         onChange={(_event, data) => {
                             setSelectedForActions(
                                 data.checked
-                                    ? new Set(myConversations.map((conversation) => conversation.id))
+                                    ? new Set(filteredConversations.map((conversation) => conversation.id))
                                     : new Set<string>(),
                             );
                         }}
@@ -369,10 +364,8 @@ export const ConversationList: React.FC = () => {
                     </Tooltip>
                 </div>
             </div>
-            {myConversations.length === 0 && <Text>No Conversations found.</Text>}
-            <PresenceMotionList className={classes.list} items={conversationsToItems(myConversations)} />
-            {conversationsSharedWithMe.length > 0 && <Text>Shared with me</Text>}
-            <PresenceMotionList className={classes.list} items={conversationsToItems(conversationsSharedWithMe)} />
+            {filteredConversations.length === 0 && <Text>No Conversations found.</Text>}
+            <PresenceMotionList className={classes.list} items={conversationsToItems(filteredConversations)} />
         </>
     );
 };

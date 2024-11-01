@@ -42,6 +42,19 @@ export const useConversationUtility = () => {
     // based on the conversation permission and metadata. It also contains logic for handling the combinations
     // of metadata, permissions, and share types in shared location for consistency across the app.
     //
+
+    const getOwnerParticipant = (conversation: Conversation) => {
+        const owner = conversation.participants.find((participant) => participant.id === conversation.ownerId);
+        if (!owner) {
+            throw new Error('Owner not found in conversation participants');
+        }
+        return owner;
+    };
+
+    const wasSharedWithMe = (conversation: Conversation): boolean => {
+        return conversation.ownerId !== userId;
+    };
+
     const getShareTypeMetadata = (
         shareType: ConversationShareType,
         linkToMessageId?: string,
@@ -258,6 +271,8 @@ export const useConversationUtility = () => {
 
     return {
         navigateToConversation,
+        getOwnerParticipant,
+        wasSharedWithMe,
         getShareTypeMetadata,
         getShareType,
         getShareLink,

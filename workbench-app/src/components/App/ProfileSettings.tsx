@@ -13,7 +13,10 @@ import {
 } from '@fluentui/react-components';
 import React from 'react';
 import { AuthHelper } from '../../libs/AuthHelper';
+import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 import { useMicrosoftGraph } from '../../libs/useMicrosoftGraph';
+import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
+import { setUser } from '../../redux/features/app/appSlice';
 
 const useClasses = makeStyles({
     popoverSurface: {
@@ -32,19 +35,35 @@ export const ProfileSettings: React.FC = () => {
     const { instance } = useMsal();
     const microsoftGraph = useMicrosoftGraph();
     const isAuthenticated = useIsAuthenticated();
-    const [profileImage, setProfileImage] = React.useState<string>();
-
-    React.useEffect(() => {
-        if (isAuthenticated && !profileImage) {
-            void (async () => {
-                const photo = await microsoftGraph.getMyPhotoAsync();
-                setProfileImage(photo);
-            })();
-        }
-    }, [isAuthenticated, profileImage, microsoftGraph]);
+    const { getUserId, getUserName } = useLocalUserAccount();
+    const { user } = useAppSelector((state) => state.app);
+    const dispatch = useAppDispatch();
 
     const account = instance.getActiveAccount();
-    const avatar = profileImage ? { image: { src: profileImage } } : undefined;
+    const userId = getUserId();
+    const userName = getUserName();
+
+    React.useEffect(() => {
+        if (isAuthenticated && userId && userName && !user?.image) {
+            (async () => {
+                const photo = await microsoftGraph.getMyPhotoAsync();
+                dispatch(
+                    setUser({
+                        id: userId,
+                        name: userName,
+                        image: photo,
+                    }),
+                );
+            })();
+        }
+    }, [isAuthenticated, microsoftGraph, userId, userName, user?.image, dispatch]);
+
+    const avatar = user?.image
+        ? {
+              name: userName,
+              image: { src: user.image },
+          }
+        : { name: userName };
 
     const handleSignOut = () => {
         void AuthHelper.logoutAsync(instance);

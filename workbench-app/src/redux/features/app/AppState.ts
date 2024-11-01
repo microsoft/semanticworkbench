@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { InteractCanvasState } from '../../../models/InteractCanvasState';
+import { User } from '../../../models/User';
 
 export interface AppState {
     devMode?: boolean;
@@ -18,4 +19,5 @@ export interface AppState {
     chatWidthPercent: number;
     interactCanvasState?: InteractCanvasState;
     activeConversationId?: string;
+    user?: User;
 }
