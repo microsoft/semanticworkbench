@@ -67,7 +67,6 @@ async def test_assistant_with_event_handlers(
     assistant_created_calls = 0
     conversation_created_calls = 0
     message_created_calls = 0
-    message_created_with_parens_calls = 0
     message_created_all_calls = 0
     message_chat_created_calls = 0
 
@@ -90,16 +89,7 @@ async def test_assistant_with_event_handlers(
         nonlocal message_created_calls
         message_created_calls += 1
 
-    @app.events.conversation.message.on_created()
-    def on_message_created_with_parens(
-        conversation_context: ConversationContext,
-        _: workbench_model.ConversationEvent,
-        message: workbench_model.ConversationMessage,
-    ) -> None:
-        nonlocal message_created_with_parens_calls
-        message_created_with_parens_calls += 1
-
-    @app.events.conversation.message.on_created("all")
+    @app.events.conversation.message.on_created_including_mine
     def on_message_created_all(
         conversation_context: ConversationContext,
         _: workbench_model.ConversationEvent,
@@ -174,7 +164,6 @@ async def test_assistant_with_event_handlers(
 
         assert message_created_calls == 1
         assert message_created_all_calls == 1
-        assert message_created_with_parens_calls == 1
         assert message_chat_created_calls == 1
 
         # send a message of type "notice"
@@ -201,7 +190,6 @@ async def test_assistant_with_event_handlers(
         )
 
         assert message_created_calls == 2
-        assert message_created_with_parens_calls == 2
         assert message_created_all_calls == 2
         assert message_chat_created_calls == 1
 
@@ -230,7 +218,6 @@ async def test_assistant_with_event_handlers(
 
         # these should remain unchanged
         assert message_chat_created_calls == 1
-        assert message_created_with_parens_calls == 2
         assert message_created_calls == 2
 
         # this should have been called
