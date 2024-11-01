@@ -14,7 +14,7 @@ from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 from semantic_workbench_assistant.assistant_app.context import ConversationContext, storage_directory_for_context
 
-from . import gce_config, state
+from .. import gce_config, state
 
 guided_conversation_locks: dict[Path, asyncio.Lock] = defaultdict(asyncio.Lock)
 

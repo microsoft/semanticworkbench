@@ -7,8 +7,10 @@ from guided_conversation.utils.resources import ResourceConstraintMode, Resource
 from pydantic import Field, create_model
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
-from .. import gce, gce_config, state
+from .. import gce_config, state
+from ..inspector import FileStateInspector
 from ..step import Context, IncompleteErrorResult, IncompleteResult, Result
+from . import gce
 
 logger = logging.getLogger(__name__)
 
@@ -125,3 +127,9 @@ def _form_fields_to_artifact(form_fields: list[state.FormField]):
         "FilledFormArtifact",
         **field_definitions,  # type: ignore
     )  # type: ignore
+
+
+FillFormGuidedConversationStateInspector = FileStateInspector(
+    display_name="Fill Form Guided Conversation State",
+    file_path_source=get_state_file_path,
+)

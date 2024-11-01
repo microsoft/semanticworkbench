@@ -6,8 +6,10 @@ from guided_conversation.utils.resources import ResourceConstraintMode, Resource
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
-from .. import gce, gce_config
+from .. import gce_config
+from ..inspector import FileStateInspector
 from ..step import Context, IncompleteErrorResult, IncompleteResult, Result
+from . import gce
 
 logger = logging.getLogger(__name__)
 
@@ -98,3 +100,9 @@ async def execute(
         ai_message=result.ai_message or "",
         debug={"artifact": acquire_form_gc_artifact},
     )
+
+
+AcquireFormGuidedConversationStateInspector = FileStateInspector(
+    display_name="Acquire Form Guided Conversation State",
+    file_path_source=get_state_file_path,
+)

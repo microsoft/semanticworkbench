@@ -9,6 +9,8 @@ from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant.assistant_app.context import ConversationContext, storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
 
+from .inspector import FileStateInspector
+
 
 class FormField(BaseModel):
     id: str = Field(description="The unique identifier of the field.")
@@ -60,3 +62,6 @@ async def agent_state(context: ConversationContext) -> AsyncIterator[FormFillAge
         AssistantStateEvent(state_id="form_fill_agent", event="updated", state=None)
     )
     current_state.set(None)
+
+
+FormFillAgentStateInspector = FileStateInspector(display_name="Form Fill Agent State", file_path_source=path_for_state)
