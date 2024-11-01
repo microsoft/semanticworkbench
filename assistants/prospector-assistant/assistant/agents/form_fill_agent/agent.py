@@ -7,7 +7,7 @@ from semantic_workbench_assistant.assistant_app.context import ConversationConte
 
 from . import state
 from .config import FormFillAgentConfig
-from .step import LLMConfig, StepContext, StepIncompleteErrorResult, StepIncompleteResult
+from .step import Context, IncompleteErrorResult, IncompleteResult, LLMConfig
 from .steps import acquire_form, extract_form_fields, fill_form
 
 logger = logging.getLogger(__name__)
@@ -20,13 +20,6 @@ async def execute(
     latest_user_message: str | None,
     get_attachment_messages: Callable[[Sequence[str]], Awaitable[Sequence[ChatCompletionMessageParam]]],
 ) -> None:
-    step_context = StepContext(
-        context=context,
-        llm_config=llm_config,
-        config=config,
-        get_attachment_messages=get_attachment_messages,
-    )
-
     user_messages = [latest_user_message]
 
     async with state.agent_state(context) as agent_state:
@@ -41,6 +34,13 @@ async def execute(
 
             match agent_state.mode:
                 case state.FormFillAgentMode.acquire_form_step:
+                    step_context = Context(
+                        context=context,
+                        llm_config=llm_config,
+                        config=config.acquire_form_config,
+                        get_attachment_messages=get_attachment_messages,
+                    )
+
                     result = await acquire_form.execute(
                         step_context=step_context,
                         latest_user_message=user_messages.pop() if user_messages else None,
@@ -48,15 +48,15 @@ async def execute(
 
                     agent_state.mode_debug_log[agent_state.mode].insert(0, result.debug)
                     match result:
-                        case StepIncompleteResult():
+                        case IncompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
                             return
 
-                        case StepIncompleteErrorResult():
+                        case IncompleteErrorResult():
                             await _send_error_message(context, result.error_message, result.debug)
                             return
 
-                        case acquire_form.StepCompleteResult():
+                        case acquire_form.CompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
 
                             agent_state.form_filename = result.filename
@@ -67,6 +67,13 @@ async def execute(
                             raise ValueError(f"Unexpected result: {result}")
 
                 case state.FormFillAgentMode.extract_form_fields_step:
+                    step_context = Context(
+                        context=context,
+                        llm_config=llm_config,
+                        config=config.extract_form_fields_config,
+                        get_attachment_messages=get_attachment_messages,
+                    )
+
                     result = await extract_form_fields.execute(
                         step_context=step_context,
                         filename=agent_state.form_filename,
@@ -74,15 +81,15 @@ async def execute(
 
                     agent_state.mode_debug_log[agent_state.mode].insert(0, result.debug)
                     match result:
-                        case StepIncompleteErrorResult():
+                        case IncompleteErrorResult():
                             await _send_error_message(context, result.error_message, result.debug)
                             return
 
-                        case StepIncompleteResult():
+                        case IncompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
                             return
 
-                        case extract_form_fields.StepCompleteResult():
+                        case extract_form_fields.CompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
 
                             agent_state.extracted_form_fields = result.extracted_form_fields
@@ -93,6 +100,13 @@ async def execute(
                             raise ValueError(f"Unexpected result: {result}")
 
                 case state.FormFillAgentMode.fill_form_step:
+                    step_context = Context(
+                        context=context,
+                        llm_config=llm_config,
+                        config=config.fill_form_config,
+                        get_attachment_messages=get_attachment_messages,
+                    )
+
                     result = await fill_form.execute(
                         step_context=step_context,
                         latest_user_message=user_messages.pop() if user_messages else None,
@@ -101,15 +115,15 @@ async def execute(
 
                     agent_state.mode_debug_log[agent_state.mode].insert(0, result.debug)
                     match result:
-                        case StepIncompleteResult():
+                        case IncompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
                             return
 
-                        case StepIncompleteErrorResult():
+                        case IncompleteErrorResult():
                             await _send_error_message(context, result.error_message, result.debug)
                             return
 
-                        case fill_form.StepCompleteResult():
+                        case fill_form.CompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
 
                             agent_state.fill_form_gc_artifact = result.artifact

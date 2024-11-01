@@ -74,9 +74,9 @@ def test_num_tokens_for_messages(model: str, include_image: bool, client: OpenAI
     actual_num_tokens = openai_client.num_tokens_from_messages(messages=example_messages, model=model)
     expected_num_tokens = response.usage.prompt_tokens
 
-    assert (
-        actual_num_tokens == expected_num_tokens
-    ), f"num_tokens_from_messages() does not match the OpenAI API response for model {model}."
+    assert actual_num_tokens == expected_num_tokens, (
+        f"num_tokens_from_messages() does not match the OpenAI API response for model {model}."
+    )
 
 
 @pytest.mark.parametrize("model", ["gpt-3.5-turbo", "gpt-4", "gpt-4o", "gpt-4o-mini"])
@@ -148,6 +148,6 @@ def test_num_tokens_for_tools_and_messages(model: str, client: OpenAI) -> None:
     )
     expected_num_tokens = response.usage.prompt_tokens
 
-    assert (
-        actual_num_tokens == expected_num_tokens
-    ), f"num_tokens_from_tools_and_messages() does not match the OpenAI API response for model {model}."
+    assert actual_num_tokens == expected_num_tokens, (
+        f"num_tokens_from_tools_and_messages() does not match the OpenAI API response for model {model}."
+    )

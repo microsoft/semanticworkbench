@@ -2,14 +2,23 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from enum import StrEnum
 from pathlib import Path
-from typing import AsyncIterator
+from typing import AsyncIterator, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant.assistant_app.context import ConversationContext, storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
 
-from .steps import extract_form_fields
+from .inspector import FileStateInspector
+
+
+class FormField(BaseModel):
+    id: str = Field(description="The unique identifier of the field.")
+    name: str = Field(description="The name of the field.")
+    description: str = Field(description="The description of the field.")
+    type: Literal["string", "bool", "multiple_choice"] = Field(description="The type of the field.")
+    options: list[str] = Field(description="The options for multiple choice fields.")
+    required: bool = Field(description="Whether the field is required or not.")
 
 
 class FormFillAgentMode(StrEnum):
@@ -25,7 +34,7 @@ class FormFillAgentState(BaseModel):
     mode: FormFillAgentMode = FormFillAgentMode.acquire_form_step
     most_recent_attachment_timestamp: float = 0
     form_filename: str = ""
-    extracted_form_fields: list[extract_form_fields.FormField] = []
+    extracted_form_fields: list[FormField] = []
     fill_form_gc_artifact: dict | None = None
 
     mode_debug_log: dict[FormFillAgentMode, list[dict]] = {}
@@ -53,3 +62,6 @@ async def agent_state(context: ConversationContext) -> AsyncIterator[FormFillAge
         AssistantStateEvent(state_id="form_fill_agent", event="updated", state=None)
     )
     current_state.set(None)
+
+
+FormFillAgentStateInspector = FileStateInspector(display_name="Form Fill Agent State", file_path_source=path_for_state)

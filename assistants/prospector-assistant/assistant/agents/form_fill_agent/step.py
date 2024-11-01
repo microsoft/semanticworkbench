@@ -1,11 +1,10 @@
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Sequence
+from typing import Awaitable, Callable, Generic, Sequence, TypeVar
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
+from pydantic import BaseModel
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
-
-from .config import FormFillAgentConfig
 
 
 @dataclass
@@ -15,24 +14,27 @@ class LLMConfig:
     max_response_tokens: int
 
 
+ConfigT = TypeVar("ConfigT", bound=BaseModel)
+
+
 @dataclass
-class StepContext:
+class Context(Generic[ConfigT]):
     context: ConversationContext
     llm_config: LLMConfig
-    config: FormFillAgentConfig
+    config: ConfigT
     get_attachment_messages: Callable[[Sequence[str]], Awaitable[Sequence[ChatCompletionMessageParam]]]
 
 
 @dataclass
-class StepResult:
+class Result:
     debug: dict
 
 
 @dataclass
-class StepIncompleteResult(StepResult):
+class IncompleteResult(Result):
     ai_message: str
 
 
 @dataclass
-class StepIncompleteErrorResult(StepResult):
+class IncompleteErrorResult(Result):
     error_message: str

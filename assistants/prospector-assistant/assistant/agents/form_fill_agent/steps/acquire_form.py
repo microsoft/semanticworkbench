@@ -1,11 +1,15 @@
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
+from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
-from .. import gce, state
-from ..step import StepContext, StepIncompleteErrorResult, StepIncompleteResult, StepResult
+from .. import gce_config
+from ..inspector import FileStateInspector
+from ..step import Context, IncompleteErrorResult, IncompleteResult, Result
+from . import gce
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +19,7 @@ class FormArtifact(BaseModel):
     filename: str = Field(description="The filename of the form.", default="")
 
 
-definition = gce.GuidedConversationDefinition(
+definition = gce_config.GuidedConversationDefinition(
     rules=[
         "DO NOT suggest forms or create a form for the user.",
         "Politely request another file if the provided file is not a form.",
@@ -32,7 +36,7 @@ definition = gce.GuidedConversationDefinition(
         """
     ),
     context="",
-    resource_constraint=gce.ResourceConstraintDefinition(
+    resource_constraint=gce_config.ResourceConstraintDefinition(
         quantity=5,
         unit=ResourceConstraintUnit.MINUTES,
         mode=ResourceConstraintMode.MAXIMUM,
@@ -40,16 +44,20 @@ definition = gce.GuidedConversationDefinition(
 )
 
 
+def get_state_file_path(context: ConversationContext) -> Path:
+    return gce.path_for_guided_conversation_state(context, "acquire_form")
+
+
 @dataclass
-class StepCompleteResult(StepResult):
+class CompleteResult(Result):
     ai_message: str
     filename: str
 
 
 async def execute(
-    step_context: StepContext,
+    step_context: Context[gce_config.GuidedConversationDefinition],
     latest_user_message: str | None,
-) -> StepIncompleteResult | StepIncompleteErrorResult | StepCompleteResult:
+) -> IncompleteResult | IncompleteErrorResult | CompleteResult:
     """
     Step: acquire a form from the user
     Approach: Guided conversation
@@ -59,11 +67,9 @@ async def execute(
     )
 
     async with gce.guided_conversation_with_state(
-        definition=step_context.config.acquire_form_config,
+        definition=step_context.config,
         artifact_type=FormArtifact,
-        state_file_path=gce.path_for_guided_conversation_state(
-            step_context.context, state.FormFillAgentMode.acquire_form_step
-        ),
+        state_file_path=get_state_file_path(step_context.context),
         openai_client=step_context.llm_config.openai_client_factory(),
         openai_model=step_context.llm_config.openai_model,
     ) as guided_conversation:
@@ -71,7 +77,7 @@ async def execute(
             result = await guided_conversation.step_conversation(message_with_attachments)
         except Exception as e:
             logger.exception("failed to execute guided conversation")
-            return StepIncompleteErrorResult(
+            return IncompleteErrorResult(
                 error_message=f"Failed to execute guided conversation: {e}",
                 debug={"error": str(e)},
             )
@@ -84,13 +90,19 @@ async def execute(
     form_filename = acquire_form_gc_artifact.get("filename", "")
 
     if form_filename and form_filename != "Unanswered":
-        return StepCompleteResult(
+        return CompleteResult(
             ai_message=result.ai_message or "",
             filename=form_filename,
             debug={"artifact": acquire_form_gc_artifact},
         )
 
-    return StepIncompleteResult(
+    return IncompleteResult(
         ai_message=result.ai_message or "",
         debug={"artifact": acquire_form_gc_artifact},
     )
+
+
+AcquireFormGuidedConversationStateInspector = FileStateInspector(
+    display_name="Acquire Form Guided Conversation State",
+    file_path_source=get_state_file_path,
+)

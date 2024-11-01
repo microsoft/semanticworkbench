@@ -2,12 +2,16 @@ from .agent import (
     execute,
 )
 from .config import FormFillAgentConfig
-from .inspector import (
-    AcquireFormGuidedConversationStateInspector,
-    FillFormGuidedConversationStateInspector,
+from .state import (
     FormFillAgentStateInspector,
 )
 from .step import LLMConfig
+from .steps.acquire_form import (
+    AcquireFormGuidedConversationStateInspector,
+)
+from .steps.fill_form import (
+    FillFormGuidedConversationStateInspector,
+)
 
 __all__ = [
     "execute",

@@ -10,8 +10,6 @@ from semantic_workbench_assistant.assistant_app.protocol import (
     ReadOnlyAssistantConversationInspectorStateProvider,
 )
 
-from . import gce, state
-
 
 class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
     def __init__(
@@ -41,20 +39,3 @@ class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
         return AssistantConversationInspectorStateDataModel(
             data={"content": f"```yaml\n{yaml.dump(state, sort_keys=False)}\n```"},
         )
-
-
-FormFillAgentStateInspector = FileStateInspector(
-    display_name="Form Fill Agent State", file_path_source=state.path_for_state
-)
-AcquireFormGuidedConversationStateInspector = FileStateInspector(
-    display_name="Acquire Form Guided Conversation State",
-    file_path_source=lambda context: gce.path_for_guided_conversation_state(
-        context, state.FormFillAgentMode.acquire_form_step
-    ),
-)
-FillFormGuidedConversationStateInspector = FileStateInspector(
-    display_name="Fill Form Guided Conversation State",
-    file_path_source=lambda context: gce.path_for_guided_conversation_state(
-        context, state.FormFillAgentMode.fill_form_step
-    ),
-)

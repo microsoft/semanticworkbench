@@ -1,12 +1,13 @@
 import logging
 from dataclasses import dataclass
-from typing import Annotated, Any, Awaitable, Callable, Literal, Sequence
+from typing import Annotated, Any, Awaitable, Callable, Sequence
 
 import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
 
-from ..step import LLMConfig, StepContext, StepIncompleteErrorResult, StepIncompleteResult, StepResult
+from .. import state
+from ..step import Context, IncompleteErrorResult, IncompleteResult, LLMConfig, Result
 
 logger = logging.getLogger(__name__)
 
@@ -21,18 +22,9 @@ class ExtractFormFieldsConfig(BaseModel):
     )
 
 
-class FormField(BaseModel):
-    id: str = Field(description="The unique identifier of the field.")
-    name: str = Field(description="The name of the field.")
-    description: str = Field(description="The description of the field.")
-    type: Literal["string", "bool", "multiple_choice"] = Field(description="The type of the field.")
-    options: list[str] = Field(description="The options for multiple choice fields.")
-    required: bool = Field(description="Whether the field is required or not.")
-
-
 class FormFields(BaseModel):
     error_message: str = Field(description="The error message in the case that the form fields could not be extracted.")
-    fields: list[FormField] = Field(description="The fields in the form.")
+    fields: list[state.FormField] = Field(description="The fields in the form.")
 
 
 class NoResponseChoicesError(Exception):
@@ -85,15 +77,15 @@ async def _extract(
 
 
 @dataclass
-class StepCompleteResult(StepResult):
+class CompleteResult(Result):
     ai_message: str
-    extracted_form_fields: list[FormField]
+    extracted_form_fields: list[state.FormField]
 
 
 async def execute(
-    step_context: StepContext,
+    step_context: Context[ExtractFormFieldsConfig],
     filename: str,
-) -> StepIncompleteResult | StepIncompleteErrorResult | StepCompleteResult:
+) -> IncompleteResult | IncompleteErrorResult | CompleteResult:
     """
     Step: extract form fields from the form file content
     Approach: Chat completion with LLM
@@ -104,24 +96,24 @@ async def execute(
         try:
             extracted_form_fields, metadata = await _extract(
                 llm_config=step_context.llm_config,
-                config=step_context.config.extract_form_fields_config,
+                config=step_context.config,
                 form_content=file_content,
             )
 
         except Exception as e:
             logger.exception("failed to extract form fields")
-            return StepIncompleteErrorResult(
+            return IncompleteErrorResult(
                 error_message=f"Failed to extract form fields: {e}",
                 debug={"error": str(e)},
             )
 
     if extracted_form_fields.error_message:
-        return StepIncompleteResult(
+        return IncompleteResult(
             ai_message=extracted_form_fields.error_message,
             debug=metadata,
         )
 
-    return StepCompleteResult(
+    return CompleteResult(
         ai_message="",
         extracted_form_fields=extracted_form_fields.fields,
         debug=metadata,
