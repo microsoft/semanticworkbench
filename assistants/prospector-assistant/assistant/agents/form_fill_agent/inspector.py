@@ -52,6 +52,8 @@ class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
 
 
 @contextlib.asynccontextmanager
-async def state_change_event_after(context: ConversationContext, state_id: str) -> AsyncIterator[None]:
+async def state_change_event_after(context: ConversationContext, state_id: str, set_focus=False) -> AsyncIterator[None]:
     yield
+    if set_focus:
+        await context.send_conversation_state_event(AssistantStateEvent(state_id=state_id, event="focus", state=None))
     await context.send_conversation_state_event(AssistantStateEvent(state_id=state_id, event="updated", state=None))
