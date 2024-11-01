@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator, Awaitable, Callable, Sequence
 
+from assistant.agents.form_fill_agent.inspector import state_change_event_after
 from guided_conversation.guided_conversation_agent import GuidedConversation
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
@@ -26,10 +27,12 @@ async def guided_conversation_with_state(
     definition: gce_config.GuidedConversationDefinition,
     artifact_type: type[BaseModel],
     state_file_path: Path,
+    context: ConversationContext,
+    state_id: str,
 ) -> AsyncIterator[GuidedConversation]:
     # ensure that only one guided conversation is executed at a time for any given state file
     # ie. require them to run sequentially
-    async with guided_conversation_locks[state_file_path]:
+    async with guided_conversation_locks[state_file_path], state_change_event_after(context, state_id):
         kernel, service_id = build_kernel_with_service(openai_client, openai_model)
 
         state: dict | None = None

@@ -6,6 +6,7 @@ from typing import Any, Literal
 from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import Field, create_model
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
+from semantic_workbench_assistant.assistant_app.protocol import AssistantAppProtocol
 
 from .. import gce_config, state
 from ..inspector import FileStateInspector
@@ -48,10 +49,6 @@ class CompleteResult(Result):
     artifact: dict
 
 
-def get_state_file_path(context: ConversationContext) -> Path:
-    return gce.path_for_guided_conversation_state(context, "fill_form")
-
-
 async def execute(
     step_context: Context[gce_config.GuidedConversationDefinition],
     latest_user_message: str | None,
@@ -72,9 +69,11 @@ async def execute(
     async with gce.guided_conversation_with_state(
         definition=definition,
         artifact_type=artifact_type,
-        state_file_path=get_state_file_path(step_context.context),
+        state_file_path=_get_state_file_path(step_context.context),
         openai_client=step_context.llm_config.openai_client_factory(),
         openai_model=step_context.llm_config.openai_model,
+        context=step_context.context,
+        state_id=_inspector.state_id,
     ) as guided_conversation:
         try:
             result = await guided_conversation.step_conversation(message_with_attachments)
@@ -129,7 +128,16 @@ def _form_fields_to_artifact(form_fields: list[state.FormField]):
     )  # type: ignore
 
 
-FillFormGuidedConversationStateInspector = FileStateInspector(
+def _get_state_file_path(context: ConversationContext) -> Path:
+    return gce.path_for_guided_conversation_state(context, "fill_form")
+
+
+_inspector = FileStateInspector(
     display_name="Fill Form Guided Conversation State",
-    file_path_source=get_state_file_path,
+    file_path_source=_get_state_file_path,
+    state_id="fill_form",
 )
+
+
+def extend(app: AssistantAppProtocol) -> None:
+    app.add_inspector_state_provider(_inspector.state_id, _inspector)

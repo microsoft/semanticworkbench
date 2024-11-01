@@ -5,11 +5,10 @@ from pathlib import Path
 from typing import AsyncIterator, Literal
 
 from pydantic import BaseModel, Field
-from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant.assistant_app.context import ConversationContext, storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
 
-from .inspector import FileStateInspector
+from .inspector import FileStateInspector, state_change_event_after
 
 
 class FormField(BaseModel):
@@ -54,14 +53,14 @@ async def agent_state(context: ConversationContext) -> AsyncIterator[FormFillAge
         yield state
         return
 
-    state = read_model(path_for_state(context), FormFillAgentState) or FormFillAgentState()
-    current_state.set(state)
-    yield state
-    write_model(path_for_state(context), state)
-    await context.send_conversation_state_event(
-        AssistantStateEvent(state_id="form_fill_agent", event="updated", state=None)
-    )
-    current_state.set(None)
+    async with state_change_event_after(context, inspector.state_id):
+        state = read_model(path_for_state(context), FormFillAgentState) or FormFillAgentState()
+        current_state.set(state)
+        yield state
+        write_model(path_for_state(context), state)
+        current_state.set(None)
 
 
-FormFillAgentStateInspector = FileStateInspector(display_name="Form Fill Agent State", file_path_source=path_for_state)
+inspector = FileStateInspector(
+    display_name="Form Fill Agent State", file_path_source=path_for_state, state_id="form_fill_agent"
+)

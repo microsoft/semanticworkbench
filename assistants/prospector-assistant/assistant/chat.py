@@ -75,11 +75,10 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": ArtifactConversationInspectorStateProvider(assistant_config),
-        "form_fill_agent": form_fill_agent.FormFillAgentStateInspector,
-        "acquire_form": form_fill_agent.AcquireFormGuidedConversationStateInspector,
-        "fill_form": form_fill_agent.FillFormGuidedConversationStateInspector,
     },
 )
+
+form_fill_agent.extend(assistant)
 
 attachments_extension = AttachmentsExtension(assistant)
 
