@@ -3,6 +3,7 @@ from enum import StrEnum
 
 class Status(StrEnum):
     UNDEFINED = "undefined"
+    INITIATED = "initiated"
     NOT_COMPLETED = "not_completed"
     UPDATE_OUTLINE = "update_outline"
     USER_COMPLETED = "user_completed"
