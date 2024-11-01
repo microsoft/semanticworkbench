@@ -55,13 +55,13 @@ class ConversationContext:
         return await self._workbench_client.update_participant_me(participant)
 
     @asynccontextmanager
-    async def set_status_for_block(self, status: str) -> AsyncGenerator[None, None]:
+    async def set_status(self, status: str) -> AsyncGenerator[None, None]:
         """
         Context manager to update the participant status and reset it when done.
 
         Example:
         ```python
-        async with conversation.set_status_for_block("processing"):
+        async with conversation.set_status("processing ..."):
             await do_some_work()
         ```
         """

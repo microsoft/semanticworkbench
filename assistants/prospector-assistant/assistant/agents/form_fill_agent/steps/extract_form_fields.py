@@ -1,10 +1,14 @@
-from typing import Annotated, Any, Literal
+import logging
+from dataclasses import dataclass
+from typing import Annotated, Any, Awaitable, Callable, Literal, Sequence
 
 import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
 
-from .llm_config import LLMConfig
+from ..step import LLMConfig, StepContext, StepIncompleteErrorResult, StepIncompleteResult, StepResult
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractFormFieldsConfig(BaseModel):
@@ -39,7 +43,7 @@ class NoParsedMessageError(Exception):
     pass
 
 
-async def extract(
+async def _extract(
     llm_config: LLMConfig, config: ExtractFormFieldsConfig, form_content: str
 ) -> tuple[FormFields, dict[str, Any]]:
     messages: list[ChatCompletionMessageParam] = [
@@ -53,7 +57,7 @@ async def extract(
         },
     ]
 
-    async with llm_config.openai_client as client:
+    async with llm_config.openai_client_factory() as client:
         response = await client.beta.chat.completions.parse(
             messages=messages,
             model=llm_config.openai_model,
@@ -78,3 +82,60 @@ async def extract(
         }
 
         return response.choices[0].message.parsed, metadata
+
+
+@dataclass
+class StepCompleteResult(StepResult):
+    ai_message: str
+    extracted_form_fields: list[FormField]
+
+
+async def execute(
+    step_context: StepContext,
+    filename: str,
+) -> StepIncompleteResult | StepIncompleteErrorResult | StepCompleteResult:
+    """
+    Step: extract form fields from the form file content
+    Approach: Chat completion with LLM
+    """
+
+    file_content = await attachment_for_filename(filename, step_context.get_attachment_messages)
+    async with step_context.context.set_status("inspecting form ..."):
+        try:
+            extracted_form_fields, metadata = await _extract(
+                llm_config=step_context.llm_config,
+                config=step_context.config.extract_form_fields_config,
+                form_content=file_content,
+            )
+
+        except Exception as e:
+            logger.exception("failed to extract form fields")
+            return StepIncompleteErrorResult(
+                error_message=f"Failed to extract form fields: {e}",
+                debug={"error": str(e)},
+            )
+
+    if extracted_form_fields.error_message:
+        return StepIncompleteResult(
+            ai_message=extracted_form_fields.error_message,
+            debug=metadata,
+        )
+
+    return StepCompleteResult(
+        ai_message="",
+        extracted_form_fields=extracted_form_fields.fields,
+        debug=metadata,
+    )
+
+
+async def attachment_for_filename(
+    filename: str, get_attachment_messages: Callable[[Sequence[str]], Awaitable[Sequence[ChatCompletionMessageParam]]]
+) -> str:
+    attachment_messages = await get_attachment_messages([filename])
+    return "\n\n".join(
+        (
+            str(attachment.get("content"))
+            for attachment in attachment_messages
+            if "<ATTACHMENT>" in str(attachment.get("content", ""))
+        )
+    )
