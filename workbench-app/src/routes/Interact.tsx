@@ -11,7 +11,7 @@ import { ConversationRename } from '../components/Conversations/ConversationRena
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
-import { useGetAssistantCapabilitiesSet } from '../libs/useAssistantCapabilities';
+import { useGetAssistantCapabilities } from '../libs/useAssistantCapabilities';
 import { useLocalUserAccount } from '../libs/useLocalUserAccount';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Assistant } from '../models/Assistant';
@@ -98,7 +98,7 @@ export const Interact: React.FC = () => {
         isLoading: isLoadingConversationFiles,
     } = useGetConversationFilesQuery(conversationId);
     const { getUserId } = useLocalUserAccount();
-    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilitiesSet(
+    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
         assistants ?? [],
     );
 
@@ -179,7 +179,7 @@ export const Interact: React.FC = () => {
         isLoadingConversation ||
         isLoadingConversationParticipants ||
         isLoadingConversationFiles ||
-        isFetchingAssistantCapabilities ||
+        // isFetchingAssistantCapabilities ||
         !assistants ||
         !assistantCapabilities ||
         !conversation ||

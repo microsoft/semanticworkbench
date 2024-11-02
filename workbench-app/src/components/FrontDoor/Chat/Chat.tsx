@@ -3,7 +3,7 @@
 import { makeStyles, mergeClasses, shorthands, Title3, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Constants } from '../../../Constants';
-import { useGetAssistantCapabilitiesSet } from '../../../libs/useAssistantCapabilities';
+import { useGetAssistantCapabilities } from '../../../libs/useAssistantCapabilities';
 import { Assistant } from '../../../models/Assistant';
 import {
     useGetAssistantsInConversationQuery,
@@ -160,7 +160,7 @@ export const Chat: React.FC<ChatProps> = (props) => {
         isLoading: conversationFilesIsLoading,
     } = useGetConversationFilesQuery(conversationId);
 
-    const { data: assistantCapabilities, isFetching: assistantCapabilitiesIsFetching } = useGetAssistantCapabilitiesSet(
+    const { data: assistantCapabilities, isFetching: assistantCapabilitiesIsFetching } = useGetAssistantCapabilities(
         assistants ?? [],
     );
 

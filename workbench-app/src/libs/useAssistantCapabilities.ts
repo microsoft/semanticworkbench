@@ -3,7 +3,7 @@ import { Assistant } from '../models/Assistant';
 import { AssistantCapability } from '../models/AssistantCapability';
 import { useWorkbenchService } from './useWorkbenchService';
 
-export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
+export function useGetAssistantCapabilities(assistants: Assistant[]) {
     const [isFetching, setIsFetching] = React.useState<boolean>(false);
     const [assistantCapabilities, setAssistantCapabilities] = React.useState(new Set<AssistantCapability>());
     const workbenchService = useWorkbenchService();
