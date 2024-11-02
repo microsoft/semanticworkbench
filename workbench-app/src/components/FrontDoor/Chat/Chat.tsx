@@ -11,7 +11,6 @@ import {
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
 } from '../../../services/workbench';
-import { ErrorList } from '../../App/ErrorList';
 import { Loading } from '../../App/Loading';
 import { ConversationShare } from '../../Conversations/ConversationShare';
 import { InteractHistory } from '../../Conversations/InteractHistory';
@@ -253,7 +252,6 @@ export const Chat: React.FC<ChatProps> = (props) => {
                         </div>
                         <Title3 className={classes.title}>{conversation.title}</Title3>
                     </div>
-                    <ErrorList className={classes.errorList} />
                 </div>
                 <div className={mergeClasses(classes.headerControls, 'after')}>
                     <ConversationShare iconOnly conversation={conversation} />

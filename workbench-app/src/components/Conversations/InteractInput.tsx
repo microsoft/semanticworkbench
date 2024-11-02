@@ -29,10 +29,10 @@ import React from 'react';
 import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
+import { useGlobalNotify } from '../../libs/useNotify';
 import { AssistantCapability } from '../../models/AssistantCapability';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { addError } from '../../redux/features/app/appSlice';
 import {
     updateGetConversationMessagesQueryData,
     useCreateConversationMessageMutation,
@@ -149,6 +149,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [editorIsInitialized, setEditorIsInitialized] = React.useState(false);
     const editorRef = React.useRef<LexicalEditor | null>();
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
+    const { notifyWarning } = useGlobalNotify();
     const dispatch = useAppDispatch();
     const { getUserId } = useLocalUserAccount();
     const userId = getUserId();
@@ -192,12 +193,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 for (const file of files) {
                     // limit the number of attachments to the maximum allowed
                     if (updatedFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
-                        dispatch(
-                            addError({
-                                title: 'Attachment limit reached',
-                                message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
-                            }),
-                        );
+                        notifyWarning({
+                            title: 'Attachment limit reached',
+                            message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
+                        });
                         return updatedFiles;
                     }
 
@@ -210,19 +209,17 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 }
 
                 for (const [filename, count] of duplicates.entries()) {
-                    dispatch(
-                        addError({
-                            title: `Attachments with duplicate filenames`,
-                            message: `${count} attachment${count !== 1 ? 's' : ''} with filename '${filename}' ${
-                                count !== 1 ? 'were' : 'was'
-                            } ignored`,
-                        }),
-                    );
+                    notifyWarning({
+                        title: `Attachments with duplicate filenames`,
+                        message: `${count} attachment${count !== 1 ? 's' : ''} with filename '${filename}' ${
+                            count !== 1 ? 'were' : 'was'
+                        } ignored`,
+                    });
                 }
                 return updatedFiles;
             });
         },
-        [dispatch, setAttachmentFiles],
+        [notifyWarning],
     );
 
     React.useEffect(() => {

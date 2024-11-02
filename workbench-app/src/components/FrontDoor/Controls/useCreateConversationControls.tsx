@@ -84,11 +84,13 @@ export const useCreateConversationControls = () => {
     const assistantOptions = (
         <>
             <OptionGroup label="Existing Assistants">
-                {assistants?.map((assistant) => (
-                    <Option key={assistant.id} text={assistant.name} value={assistant.id}>
-                        {assistant.name}
-                    </Option>
-                ))}
+                {assistants
+                    ?.sort((a, b) => a.name.localeCompare(b.name))
+                    .map((assistant) => (
+                        <Option key={assistant.id} text={assistant.name} value={assistant.id}>
+                            {assistant.name}
+                        </Option>
+                    ))}
             </OptionGroup>
             <OptionGroup label="New Assistant">
                 <Option text="Create new assistant" value="new">
@@ -100,44 +102,46 @@ export const useCreateConversationControls = () => {
 
     const assistantServicesOptions = assistantServicesByCategories.map(({ category, assistantServices }) => (
         <OptionGroup key={category} label={category}>
-            {assistantServices.map((assistantService) => (
-                <Option
-                    key={assistantService.assistantServiceId}
-                    text={assistantService.name}
-                    value={assistantService.assistantServiceId}
-                >
-                    <div className={classes.option}>
-                        {assistantService.assistantServiceOnline ? (
-                            <PresenceAvailableRegular color="green" />
-                        ) : (
-                            <PresenceOfflineRegular color="red" />
-                        )}
-                        <Label weight="semibold">{assistantService.name}</Label>
-                        <Tooltip
-                            content={
-                                <div className={classes.optionDescription}>
-                                    <Label size="small">
-                                        <em>{assistantService.description}</em>
-                                    </Label>
-                                    <Divider />
-                                    <Label size="small">Assistant service ID:</Label>
-                                    <Label size="small">{assistantService.assistantServiceId}</Label>
-                                    <Divider />
-                                    <Label size="small">Hosted at:</Label>
-                                    <Label size="small">{assistantService.assistantServiceUrl}</Label>
-                                    <Divider />
-                                    <Label size="small">Created by:</Label>
-                                    <Label size="small">{assistantService.createdByUserName}</Label>
-                                    <Label size="small">[{assistantService.createdByUserId}]</Label>
-                                </div>
-                            }
-                            relationship="description"
-                        >
-                            <Info16Regular />
-                        </Tooltip>
-                    </div>
-                </Option>
-            ))}
+            {assistantServices
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((assistantService) => (
+                    <Option
+                        key={assistantService.assistantServiceId}
+                        text={assistantService.name}
+                        value={assistantService.assistantServiceId}
+                    >
+                        <div className={classes.option}>
+                            {assistantService.assistantServiceOnline ? (
+                                <PresenceAvailableRegular color="green" />
+                            ) : (
+                                <PresenceOfflineRegular color="red" />
+                            )}
+                            <Label weight="semibold">{assistantService.name}</Label>
+                            <Tooltip
+                                content={
+                                    <div className={classes.optionDescription}>
+                                        <Label size="small">
+                                            <em>{assistantService.description}</em>
+                                        </Label>
+                                        <Divider />
+                                        <Label size="small">Assistant service ID:</Label>
+                                        <Label size="small">{assistantService.assistantServiceId}</Label>
+                                        <Divider />
+                                        <Label size="small">Hosted at:</Label>
+                                        <Label size="small">{assistantService.assistantServiceUrl}</Label>
+                                        <Divider />
+                                        <Label size="small">Created by:</Label>
+                                        <Label size="small">{assistantService.createdByUserName}</Label>
+                                        <Label size="small">[{assistantService.createdByUserId}]</Label>
+                                    </div>
+                                }
+                                relationship="description"
+                            >
+                                <Info16Regular />
+                            </Tooltip>
+                        </div>
+                    </Option>
+                ))}
         </OptionGroup>
     ));
 
