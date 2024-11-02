@@ -9,7 +9,8 @@ import { AppHeader } from './AppHeader';
 
 const useClasses = makeStyles({
     documentBody: {
-        backgroundImage: `url('/assets/background-1.jpg')`,
+        // backgroundImage: `url('/assets/background-1.jpg')`,
+        backgroundImage: `linear-gradient(to right, #FFFFFF, #E6EEFF)`,
     },
     root: {
         display: 'grid',
