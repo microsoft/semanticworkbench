@@ -3,6 +3,7 @@
 import {
     Button,
     Input,
+    Label,
     makeStyles,
     Menu,
     MenuButtonProps,
@@ -32,12 +33,12 @@ import {
 
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
-import { useLocalUserAccount } from '../../../libs/useLocalUserAccount';
+import { useLocalUser } from '../../../libs/useLocalUser';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 
 const useClasses = makeStyles({
-    actions: {
+    root: {
         position: 'sticky',
         top: 0,
         display: 'flex',
@@ -47,10 +48,23 @@ const useClasses = makeStyles({
         backgroundColor: tokens.colorNeutralBackground2,
         ...shorthands.padding(tokens.spacingVerticalS, tokens.spacingHorizontalM),
     },
+    header: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
     displayOptions: {
         display: 'flex',
         flexDirection: 'row',
+        justifyContent: 'space-between',
         gap: tokens.spacingHorizontalS,
+    },
+    displayOption: {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: tokens.spacingHorizontalXS,
+        alignItems: 'center',
     },
     bulkActions: {
         display: 'flex',
@@ -65,7 +79,7 @@ const useClasses = makeStyles({
 });
 
 interface ConversationListOptionsProps {
-    conversations: Conversation[];
+    conversations?: Conversation[];
     selectedForActions: Set<string>;
     onSelectedForActionsChanged: (selected: Set<string>) => void;
     onDisplayedConversationsChanged: (conversations: Conversation[]) => void;
@@ -74,14 +88,12 @@ interface ConversationListOptionsProps {
 export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (props) => {
     const { conversations, selectedForActions, onSelectedForActionsChanged, onDisplayedConversationsChanged } = props;
     const classes = useClasses();
-    const { getUserId } = useLocalUserAccount();
+    const localUser = useLocalUser();
     const { hasUnreadMessages, markAllAsRead, markAsUnread, isPinned, setPinned } = useConversationUtility();
     const [filterString, setFilterString] = React.useState<string>('');
     const [displayFilter, setDisplayFilter] = React.useState<string>('');
     const [sortByName, setSortByName] = React.useState<boolean>(false);
-    const [displayedConversations, setDisplayedConversations] = React.useState<Conversation[]>(conversations);
-
-    const userId = getUserId();
+    const [displayedConversations, setDisplayedConversations] = React.useState<Conversation[]>(conversations || []);
 
     const sortByNameHelper = (a: Conversation, b: Conversation) => a.title.localeCompare(b.title);
 
@@ -108,12 +120,12 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                         }
                         break;
                     case 'Mine':
-                        if (conversation.ownerId !== userId) {
+                        if (conversation.ownerId !== localUser.id) {
                             return false;
                         }
                         break;
                     case 'Shared with me':
-                        if (conversation.ownerId === userId) {
+                        if (conversation.ownerId === localUser.id) {
                             return false;
                         }
                         break;
@@ -122,7 +134,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                 }
 
                 return (
-                    conversation.ownerId === userId &&
+                    conversation.ownerId === localUser.id &&
                     (!filterString ||
                         (filterString && conversation.title.toLowerCase().includes(filterString.toLowerCase())))
                 );
@@ -159,7 +171,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         isPinned,
         onDisplayedConversationsChanged,
         sortByName,
-        userId,
+        localUser.id,
     ]);
 
     const bulkSelectForActionsIcon = React.useMemo(() => {
@@ -227,7 +239,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                     onSelectedForActionsChanged(
                         new Set(
                             displayedConversations
-                                .filter((conversation) => conversation.ownerId === userId)
+                                .filter((conversation) => conversation.ownerId === localUser.id)
                                 .map((conversation) => conversation.id),
                         ),
                     );
@@ -236,7 +248,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                     onSelectedForActionsChanged(
                         new Set(
                             displayedConversations
-                                .filter((conversation) => conversation.ownerId !== userId)
+                                .filter((conversation) => conversation.ownerId !== localUser.id)
                                 .map((conversation) => conversation.id),
                         ),
                     );
@@ -261,7 +273,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
             isPinned,
             selectedForActions.size,
             onSelectedForActionsChanged,
-            userId,
+            localUser.id,
         ],
     );
 
@@ -321,13 +333,17 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                         </MenuItem>
                         <MenuItem
                             onClick={() => handleBulkSelectForActions('mine')}
-                            disabled={!displayedConversations.some((conversation) => conversation.ownerId === userId)}
+                            disabled={
+                                !displayedConversations.some((conversation) => conversation.ownerId === localUser.id)
+                            }
                         >
                             Mine
                         </MenuItem>
                         <MenuItem
                             onClick={() => handleBulkSelectForActions('sharedWithMe')}
-                            disabled={!displayedConversations.some((conversation) => conversation.ownerId !== userId)}
+                            disabled={
+                                !displayedConversations.some((conversation) => conversation.ownerId !== localUser.id)
+                            }
                         >
                             Shared with me
                         </MenuItem>
@@ -342,7 +358,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
             hasUnreadMessages,
             isPinned,
             selectedForActions.size,
-            userId,
+            localUser.id,
         ],
     );
 
@@ -468,8 +484,10 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
     );
 
     return (
-        <div className={classes.actions}>
-            <Text weight="semibold">Conversations</Text>
+        <div className={classes.root}>
+            <div className={classes.header}>
+                <Text weight="semibold">Conversations</Text>
+            </div>
             <Input
                 contentBefore={<FilterRegular />}
                 contentAfter={
@@ -487,25 +505,35 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
             />
             <div className={classes.displayOptions}>
                 <Select
+                    size="small"
                     defaultValue={sortByName ? 'Sort by name' : 'Sort by date'}
                     onChange={(_event, data) => setSortByName(data.value === 'Sort by name')}
                 >
                     <option>Sort by name</option>
                     <option>Sort by date</option>
                 </Select>
-                <Select defaultValue="All" onChange={(_event, data) => setDisplayFilter(data.value)}>
-                    <option>All</option>
-                    <option disabled={conversations?.every((conversation) => !hasUnreadMessages(conversation))}>
-                        Unread
-                    </option>
-                    <option disabled={conversations?.every((conversation) => !isPinned(conversation))}>Pinned</option>
-                    <option disabled={conversations?.every((conversation) => conversation.ownerId !== userId)}>
-                        Mine
-                    </option>
-                    <option disabled={conversations?.every((conversation) => conversation.ownerId === userId)}>
-                        Shared with me
-                    </option>
-                </Select>
+                <div className={classes.displayOption}>
+                    <Label size="small">Show</Label>
+                    <Select size="small" defaultValue="All" onChange={(_event, data) => setDisplayFilter(data.value)}>
+                        <option>All</option>
+                        <option disabled={conversations?.every((conversation) => !hasUnreadMessages(conversation))}>
+                            Unread
+                        </option>
+                        <option disabled={conversations?.every((conversation) => !isPinned(conversation))}>
+                            Pinned
+                        </option>
+                        <option
+                            disabled={conversations?.every((conversation) => conversation.ownerId !== localUser.id)}
+                        >
+                            Mine
+                        </option>
+                        <option
+                            disabled={conversations?.every((conversation) => conversation.ownerId === localUser.id)}
+                        >
+                            Shared with me
+                        </option>
+                    </Select>
+                </div>
             </div>
             <div className={classes.bulkActions}>
                 {bulkSelectForActionsButton}

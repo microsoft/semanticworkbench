@@ -28,7 +28,7 @@ import {
 import React from 'react';
 import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
-import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
+import { useLocalUser } from '../../libs/useLocalUser';
 import { useNotify } from '../../libs/useNotify';
 import { AssistantCapability } from '../../models/AssistantCapability';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
@@ -151,8 +151,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
     const { notifyWarning } = useNotify();
     const dispatch = useAppDispatch();
-    const { getUserId } = useLocalUserAccount();
-    const userId = getUserId();
+    const localUser = useLocalUser();
 
     const {
         data: conversationMessages,
@@ -343,7 +342,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                     {
                         id: 'optimistic',
                         sender: {
-                            participantId: userId,
+                            participantId: localUser.id,
                             participantRole: 'user',
                         },
                         timestamp: new Date().toISOString(),
@@ -595,7 +594,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                             <ClearEditorPlugin />
                             {participants && (
                                 <ParticipantMentionsPlugin
-                                    participants={participants.filter((participant) => participant.id !== userId)}
+                                    participants={participants.filter((participant) => participant.id !== localUser.id)}
                                     parent={document.getElementById('app')}
                                 />
                             )}

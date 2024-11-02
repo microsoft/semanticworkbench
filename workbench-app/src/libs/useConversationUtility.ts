@@ -4,7 +4,7 @@ import { Constants } from '../Constants';
 import { Conversation } from '../models/Conversation';
 import { ConversationShare } from '../models/ConversationShare';
 import { useUpdateConversationMutation } from '../services/workbench';
-import { useLocalUserAccount } from './useLocalUserAccount';
+import { useLocalUser } from './useLocalUser';
 import { Utility } from './Utility';
 
 // Share types to be used in the app.
@@ -24,8 +24,7 @@ export const useConversationUtility = () => {
     const [isMessageVisible, setIsVisible] = React.useState(false);
     const isMessageVisibleRef = React.useRef(null);
     const [updateConversation] = useUpdateConversationMutation();
-    const { getUserId } = useLocalUserAccount();
-    const userId = getUserId();
+    const localUser = useLocalUser();
     const navigate = useNavigate();
 
     // region Navigation
@@ -52,7 +51,7 @@ export const useConversationUtility = () => {
     };
 
     const wasSharedWithMe = (conversation: Conversation): boolean => {
-        return conversation.ownerId !== userId;
+        return conversation.ownerId !== localUser.id;
     };
 
     const getShareTypeMetadata = (
@@ -110,7 +109,7 @@ export const useConversationUtility = () => {
         async (conversation: Conversation, appMetadata: Partial<ParticipantAppMetadata>) => {
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            const userAppMetadata = participantAppMetadata[userId] ?? {};
+            const userAppMetadata = participantAppMetadata[localUser.id] ?? {};
 
             // Save the conversation
             await updateConversation({
@@ -119,12 +118,12 @@ export const useConversationUtility = () => {
                     ...conversation.metadata,
                     participantAppMetadata: {
                         ...participantAppMetadata,
-                        [userId]: { ...userAppMetadata, ...appMetadata },
+                        [localUser.id]: { ...userAppMetadata, ...appMetadata },
                     },
                 },
             });
         },
-        [updateConversation, userId],
+        [updateConversation, localUser.id],
     );
 
     // endregion
@@ -155,9 +154,9 @@ export const useConversationUtility = () => {
         (conversation: Conversation) => {
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            return participantAppMetadata[userId]?.lastReadTimestamp;
+            return participantAppMetadata[localUser.id]?.lastReadTimestamp;
         },
-        [userId],
+        [localUser.id],
     );
 
     const getLastMessageTimestamp = React.useCallback((conversation: Conversation) => {
@@ -249,9 +248,9 @@ export const useConversationUtility = () => {
         (conversation: Conversation) => {
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            return participantAppMetadata[userId]?.pinned;
+            return participantAppMetadata[localUser.id]?.pinned;
         },
-        [userId],
+        [localUser.id],
     );
 
     const setPinned = React.useCallback(

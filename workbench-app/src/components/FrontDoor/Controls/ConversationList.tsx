@@ -6,7 +6,7 @@ import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { useEnvironment } from '../../../libs/useEnvironment';
-import { useLocalUserAccount } from '../../../libs/useLocalUserAccount';
+import { useLocalUser } from '../../../libs/useLocalUser';
 import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../../libs/WorkbenchEventSource';
 import { Conversation } from '../../../models/Conversation';
 import { useAppSelector } from '../../../redux/app/hooks';
@@ -26,14 +26,14 @@ const useClasses = makeStyles({
         gap: 0,
         ...shorthands.padding(0, tokens.spacingHorizontalM, tokens.spacingVerticalM, tokens.spacingHorizontalM),
     },
-    noResults: {
-        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
+    content: {
+        ...shorthands.padding(0, tokens.spacingHorizontalM),
     },
 });
 
 export const ConversationList: React.FC = () => {
     const classes = useClasses();
-    const { getUserId } = useLocalUserAccount();
+    const localUser = useLocalUser();
     const environment = useEnvironment();
     const { activeConversationId } = useAppSelector((state) => state.app);
     const { navigateToConversation } = useConversationUtility();
@@ -51,8 +51,6 @@ export const ConversationList: React.FC = () => {
     const [shareConversation, setShareConversation] = React.useState<Conversation>();
     const [removeConversation, setRemoveConversation] = React.useState<Conversation>();
     const [selectedForActions, setSelectedForActions] = React.useState(new Set<string>());
-
-    const userId = getUserId();
 
     if (conversationsError) {
         const errorMessage = JSON.stringify(conversationsError);
@@ -100,15 +98,6 @@ export const ConversationList: React.FC = () => {
         return <Loading />;
     }
 
-    const noConversations = (
-        <Text className={classes.noResults} weight="semibold">
-            No conversations found.
-        </Text>
-    );
-    if (!conversations) {
-        return noConversations;
-    }
-
     const handleUpdateSelectedForActions = (conversationId: string, selected: boolean) => {
         if (selected) {
             setSelectedForActions((prev) => new Set(prev).add(conversationId));
@@ -147,7 +136,7 @@ export const ConversationList: React.FC = () => {
             {removeConversation && (
                 <ConversationRemoveDialog
                     conversationId={removeConversation.id}
-                    participantId={userId}
+                    participantId={localUser.id}
                     onRemove={() => {
                         if (activeConversationId === removeConversation.id) {
                             navigateToConversation(undefined);
@@ -163,27 +152,36 @@ export const ConversationList: React.FC = () => {
                 onSelectedForActionsChanged={setSelectedForActions}
                 onDisplayedConversationsChanged={setDisplayedConversations}
             />
-            {displayedConversations.length === 0 && noConversations}
-            <PresenceMotionList
-                className={classes.list}
-                items={displayedConversations.map((conversation) => (
-                    <ConversationItem
-                        key={conversation.id}
-                        conversation={conversation}
-                        owned={conversation.ownerId === userId}
-                        selected={activeConversationId === conversation.id}
-                        selectedForActions={selectedForActions?.has(conversation.id)}
-                        onSelect={() => navigateToConversation(conversation.id)}
-                        showSelectForActions={selectedForActions.size > 0}
-                        onSelectForActions={(_, selected) => handleUpdateSelectedForActions(conversation.id, selected)}
-                        onExport={() => exportConversation(conversation.id)}
-                        onRename={setRenameConversation}
-                        onDuplicate={setDuplicateConversation}
-                        onShare={setShareConversation}
-                        onRemove={setRemoveConversation}
+            {!conversations || conversations.length === 0 ? (
+                <div className={classes.content}>
+                    <Text weight="semibold">No conversations found</Text>
+                </div>
+            ) : (
+                <>
+                    <PresenceMotionList
+                        className={classes.list}
+                        items={displayedConversations.map((conversation) => (
+                            <ConversationItem
+                                key={conversation.id}
+                                conversation={conversation}
+                                owned={conversation.ownerId === localUser.id}
+                                selected={activeConversationId === conversation.id}
+                                selectedForActions={selectedForActions?.has(conversation.id)}
+                                onSelect={() => navigateToConversation(conversation.id)}
+                                showSelectForActions={selectedForActions.size > 0}
+                                onSelectForActions={(_, selected) =>
+                                    handleUpdateSelectedForActions(conversation.id, selected)
+                                }
+                                onExport={() => exportConversation(conversation.id)}
+                                onRename={setRenameConversation}
+                                onDuplicate={setDuplicateConversation}
+                                onShare={setShareConversation}
+                                onRemove={setRemoveConversation}
+                            />
+                        ))}
                     />
-                ))}
-            />
+                </>
+            )}
         </>
     );
 };

@@ -12,7 +12,7 @@ import { ConversationShare } from '../components/Conversations/ConversationShare
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
 import { useGetAssistantCapabilities } from '../libs/useAssistantCapabilities';
-import { useLocalUserAccount } from '../libs/useLocalUserAccount';
+import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Assistant } from '../models/Assistant';
 import {
@@ -97,7 +97,7 @@ export const Interact: React.FC = () => {
         error: conversationFilesError,
         isLoading: isLoadingConversationFiles,
     } = useGetConversationFilesQuery(conversationId);
-    const { getUserId } = useLocalUserAccount();
+    const localUser = useLocalUser();
     const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
         assistants ?? [],
     );
@@ -179,7 +179,7 @@ export const Interact: React.FC = () => {
         isLoadingConversation ||
         isLoadingConversationParticipants ||
         isLoadingConversationFiles ||
-        // isFetchingAssistantCapabilities ||
+        isFetchingAssistantCapabilities ||
         !assistants ||
         !assistantCapabilities ||
         !conversation ||
@@ -198,8 +198,6 @@ export const Interact: React.FC = () => {
         items: [<ConversationShare key="share" iconOnly conversation={conversation} />],
     };
 
-    const userId = getUserId();
-
     return (
         <AppView
             title={
@@ -207,7 +205,7 @@ export const Interact: React.FC = () => {
                     <ConversationRename
                         id={conversation.id}
                         value={conversation.title}
-                        disabled={conversation.ownerId !== userId}
+                        disabled={conversation.ownerId !== localUser.id}
                         iconOnly
                     />
                     <Title3>{conversation.title}</Title3>

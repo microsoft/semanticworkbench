@@ -2,7 +2,7 @@
 
 import { Chat24Regular } from '@fluentui/react-icons';
 import React from 'react';
-import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
+import { useLocalUser } from '../../libs/useLocalUser';
 import { Conversation } from '../../models/Conversation';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
@@ -29,7 +29,7 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
     const { refetch: refetchAssistants } = useGetAssistantsQuery();
     const { refetch: refetchConversations } = useGetConversationsQuery();
     const [conversationCreateOpen, setConversationCreateOpen] = React.useState(false);
-    const { getUserId } = useLocalUserAccount();
+    const localUser = useLocalUser();
 
     const handleConversationCreate = async (conversation: Conversation) => {
         await refetchConversations();
@@ -40,8 +40,6 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
         await refetchAssistants();
         await refetchConversations();
     };
-
-    const userId = getUserId();
 
     return (
         <MyItemsManager
@@ -57,7 +55,7 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
                         actions={
                             <>
                                 <ConversationRename
-                                    disabled={conversation.ownerId !== userId}
+                                    disabled={conversation.ownerId !== localUser.id}
                                     id={conversation.id}
                                     value={conversation.title}
                                     iconOnly

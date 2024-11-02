@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { ArrowUpload24Regular } from '@fluentui/react-icons';
+import { ArrowUploadRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { CommandButton } from '../App/CommandButton';
 
@@ -12,10 +12,22 @@ interface ContentImportProps<T> {
     disabled?: boolean;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    appearance?: 'primary' | 'secondary' | 'outline' | 'subtle' | 'transparent';
+    size?: 'small' | 'medium' | 'large';
 }
 
 export const ContentImport = <T extends unknown>(props: ContentImportProps<T>) => {
-    const { contentTypeLabel, importFunction, onImport, onError, disabled, iconOnly, asToolbarButton } = props;
+    const {
+        contentTypeLabel,
+        importFunction,
+        onImport,
+        onError,
+        disabled,
+        iconOnly,
+        asToolbarButton,
+        appearance,
+        size,
+    } = props;
     const [uploading, setUploading] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -47,9 +59,11 @@ export const ContentImport = <T extends unknown>(props: ContentImportProps<T>) =
             <CommandButton
                 disabled={uploading || disabled}
                 description={`Import ${contentTypeLabel}`}
-                icon={<ArrowUpload24Regular />}
+                icon={<ArrowUploadRegular />}
                 iconOnly={iconOnly}
                 asToolbarButton={asToolbarButton}
+                appearance={appearance}
+                size={size}
                 label="Import"
                 onClick={onUpload}
             />

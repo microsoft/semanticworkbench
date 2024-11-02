@@ -5,8 +5,8 @@ import {
     partitionAvatarGroupItems,
 } from '@fluentui/react-components';
 import React from 'react';
+import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useAppSelector } from '../../redux/app/hooks';
 
 interface ParticipantAvatarGroupProps {
     participants: ConversationParticipant[];
@@ -15,23 +15,7 @@ interface ParticipantAvatarGroupProps {
 
 export const ParticipantAvatarGroup: React.FC<ParticipantAvatarGroupProps> = (props) => {
     const { participants, layout } = props;
-    const { user } = useAppSelector((state) => state.app);
-
-    const getAvatar = React.useCallback(
-        (participant: ConversationParticipant) => {
-            const { id, name, image } = participant;
-            let avatar: Record<string, any> = { name };
-
-            if (image) {
-                avatar = { ...avatar, image: { src: image } };
-            } else if (user && user.id === id && user.image) {
-                avatar = { ...avatar, image: { src: user.image } };
-            }
-
-            return avatar;
-        },
-        [user],
-    );
+    const { getAvatarData } = useParticipantUtility();
 
     const avatarLayout = layout ?? 'pie';
 
@@ -43,14 +27,14 @@ export const ParticipantAvatarGroup: React.FC<ParticipantAvatarGroupProps> = (pr
     return (
         <AvatarGroup layout={avatarLayout}>
             {partitionedParticipants.inlineItems.map((_, index) => (
-                <AvatarGroupItem key={index} avatar={getAvatar(participants[index])} />
+                <AvatarGroupItem key={index} avatar={getAvatarData(participants[index])} />
             ))}
             <AvatarGroupPopover>
                 {partitionedParticipants.overflowItems?.map((_, index) => (
                     <AvatarGroupItem
                         key={index}
                         name={participants[index].name}
-                        avatar={getAvatar(participants[index])}
+                        avatar={getAvatarData(participants[index])}
                     />
                 ))}
             </AvatarGroupPopover>

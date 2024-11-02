@@ -5,7 +5,6 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
 import { InteractCanvasState } from '../../../models/InteractCanvasState';
-import { User } from '../../../models/User';
 import { conversationApi } from '../../../services/workbench';
 import { AppState } from './AppState';
 
@@ -33,6 +32,7 @@ const initialState: AppState = {
         open: false,
         mode: 'conversation',
     },
+    userPhoto: {},
 };
 
 export const appSlice = createSlice({
@@ -117,8 +117,8 @@ export const appSlice = createSlice({
                 conversationApi.endpoints.getConversationMessages.initiate(action.payload, { forceRefetch: true });
             }
         },
-        setUser: (state: AppState, action: PayloadAction<User>) => {
-            state.user = action.payload;
+        setUserPhoto: (state: AppState, action: PayloadAction<{ src?: string; isLoading?: boolean }>) => {
+            state.userPhoto = action.payload;
         },
     },
 });
@@ -133,7 +133,7 @@ export const {
     setCompletedFirstRun,
     setInteractCanvasState,
     setActiveConversationId,
-    setUser,
+    setUserPhoto,
 } = appSlice.actions;
 
 export default appSlice.reducer;

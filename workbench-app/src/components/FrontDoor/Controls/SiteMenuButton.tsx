@@ -24,10 +24,7 @@ import {
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthHelper } from '../../../libs/AuthHelper';
-import { useLocalUserAccount } from '../../../libs/useLocalUserAccount';
-import { useMicrosoftGraph } from '../../../libs/useMicrosoftGraph';
-import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
-import { setUser } from '../../../redux/features/app/appSlice';
+import { useLocalUser } from '../../../libs/useLocalUser';
 
 const useClasses = makeStyles({
     accountInfo: {
@@ -39,39 +36,10 @@ const useClasses = makeStyles({
 
 export const SiteMenuButton: React.FC = () => {
     const classes = useClasses();
+    const localUser = useLocalUser();
     const navigate = useNavigate();
     const { instance } = useMsal();
-    const microsoftGraph = useMicrosoftGraph();
     const isAuthenticated = useIsAuthenticated();
-    const { getUserId, getUserName } = useLocalUserAccount();
-    const { user } = useAppSelector((state) => state.app);
-    const dispatch = useAppDispatch();
-
-    const account = instance.getActiveAccount();
-    const userId = getUserId();
-    const userName = getUserName();
-
-    React.useEffect(() => {
-        if (isAuthenticated && userId && userName && !user?.image) {
-            (async () => {
-                const photo = await microsoftGraph.getMyPhotoAsync();
-                dispatch(
-                    setUser({
-                        id: userId,
-                        name: userName,
-                        image: photo,
-                    }),
-                );
-            })();
-        }
-    }, [isAuthenticated, microsoftGraph, userId, userName, user?.image, dispatch]);
-
-    const avatar = user?.image
-        ? {
-              name: userName,
-              image: { src: user.image },
-          }
-        : { name: userName };
 
     const handleSignOut = () => {
         void AuthHelper.logoutAsync(instance);
@@ -84,15 +52,15 @@ export const SiteMenuButton: React.FC = () => {
     return (
         <Menu>
             <MenuTrigger disableButtonEnhancement>
-                <Persona className="user-avatar" avatar={avatar} presence={{ status: 'available' }} />
+                <Persona className="user-avatar" avatar={localUser.avatar} presence={{ status: 'available' }} />
             </MenuTrigger>
             <MenuPopover>
                 <MenuList>
-                    {account && (
+                    {isAuthenticated && (
                         <>
                             <div className={classes.accountInfo}>
-                                <Label>{account.name}</Label>
-                                <Label size="small">{account.username}</Label>
+                                <Label>{localUser.name}</Label>
+                                <Label size="small">{localUser.email}</Label>
                             </div>
                             <MenuDivider />
                         </>
@@ -162,7 +130,7 @@ export const SiteMenuButton: React.FC = () => {
                         @GitHub
                     </MenuItem>
                     <MenuDivider />
-                    {account ? (
+                    {isAuthenticated ? (
                         <MenuItem icon={<ArrowExitRegular />} onClick={handleSignOut}>
                             Sign Out
                         </MenuItem>

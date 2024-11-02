@@ -1,7 +1,7 @@
 import { Avatar } from '@fluentui/react-components';
 import React from 'react';
+import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useAppSelector } from '../../redux/app/hooks';
 
 interface ParticipantAvatarProps {
     participant: ConversationParticipant;
@@ -9,20 +9,8 @@ interface ParticipantAvatarProps {
 
 export const ParticipantAvatar: React.FC<ParticipantAvatarProps> = (props) => {
     const { participant } = props;
-    const { user } = useAppSelector((state) => state.app);
-    const { id, name, image } = participant;
+    const { getAvatarData } = useParticipantUtility();
 
-    const getImage = React.useCallback(() => {
-        if (image) {
-            return { src: image };
-        }
-
-        if (user && user.id === id && user.image) {
-            return { src: user.image };
-        }
-
-        return undefined;
-    }, [image, user, id]);
-
-    return <Avatar name={name} image={getImage()} />;
+    const avatarData = getAvatarData(participant);
+    return <Avatar image={avatarData.image} name={avatarData.name} />;
 };
