@@ -13,7 +13,7 @@ const log = debug(Constants.debug.root).extend('rtk-query-error-logger');
 // Middleware for all RTK Query actions
 export const rtkQueryErrorLogger: Middleware = (_api: MiddlewareAPI) => (next) => (action) => {
     // Check if the action is a rejected action with a value
-    if (isRejectedWithValue(action)) {
+    if (isRejectedWithValue(action.payload)) {
         // Set the title for the error message, displayed as a prefix to the error message
         const title = 'Service error';
 

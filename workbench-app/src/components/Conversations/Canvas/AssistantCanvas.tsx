@@ -4,6 +4,7 @@ import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Assistant } from '../../../models/Assistant';
 import { useGetConversationStateDescriptionsQuery } from '../../../services/workbench';
+import { ErrorMessageBar } from '../../App/ErrorMessageBar';
 import { Loading } from '../../App/Loading';
 import { AssistantInspectorList } from './AssistantInspectorList';
 
@@ -27,6 +28,7 @@ interface AssistantCanvasProps {
 export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
     const { assistant, conversationId } = props;
     const classes = useClasses();
+    const [stateDescriptionsErrorMessage, setStateDescriptionsErrorMessage] = React.useState<string>();
 
     const {
         data: stateDescriptions,
@@ -34,20 +36,26 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
         isFetching: isFetchingStateDescriptions,
     } = useGetConversationStateDescriptionsQuery({ assistantId: assistant.id, conversationId: conversationId });
 
-    if (stateDescriptionsError) {
-        const errorMessage = JSON.stringify(stateDescriptionsError);
-        throw new Error(`Error loading assistant state descriptions: ${errorMessage}`);
-    }
+    React.useEffect(() => {
+        const errorMessage = stateDescriptionsError ? JSON.stringify(stateDescriptionsError) : undefined;
+        if (stateDescriptionsErrorMessage !== errorMessage) {
+            setStateDescriptionsErrorMessage(errorMessage);
+        }
+    }, [stateDescriptionsError, stateDescriptionsErrorMessage]);
 
     // watching fetching instead of load, to avoid passing the old data on assistant id change
-    if (isFetchingStateDescriptions) {
+    if (isFetchingStateDescriptions && !stateDescriptionsErrorMessage) {
         return <Loading />;
     }
 
     return (
         <div className={classes.inspectors}>
             {!stateDescriptions || stateDescriptions.length === 0 ? (
-                <div>No states found for this assistant</div>
+                stateDescriptionsErrorMessage ? (
+                    <ErrorMessageBar title="Failed to load assistant states" error={stateDescriptionsErrorMessage} />
+                ) : (
+                    <div>No states found for this assistant</div>
+                )
             ) : (
                 <AssistantInspectorList
                     conversationId={conversationId}
