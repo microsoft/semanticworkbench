@@ -1,9 +1,10 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { makeStyles, mergeClasses, shorthands, Title3, tokens } from '@fluentui/react-components';
+import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { Constants } from '../../../Constants';
 import { useGetAssistantCapabilities } from '../../../libs/useAssistantCapabilities';
+import { useLocalUser } from '../../../libs/useLocalUser';
+import { useParticipantUtility } from '../../../libs/useParticipantUtility';
 import { Assistant } from '../../../models/Assistant';
 import {
     useGetAssistantsInConversationQuery,
@@ -63,26 +64,6 @@ const useClasses = makeStyles({
             flex: '0 0 auto',
         },
     },
-    titleContainer: {
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: tokens.spacingHorizontalM,
-        width: '100%',
-        maxWidth: `${Constants.app.maxContentWidth}px`,
-        ...shorthands.padding(0, tokens.spacingHorizontalM),
-        boxSizing: 'border-box',
-    },
-    avatarGroup: {
-        flex: '0 0 auto',
-    },
-    title: {
-        flex: '1 1 auto',
-        overflow: 'hidden',
-        whiteSpace: 'nowrap',
-        textOverflow: 'ellipsis',
-    },
     errorList: {
         position: 'absolute',
         top: 0,
@@ -137,6 +118,8 @@ interface ChatProps {
 export const Chat: React.FC<ChatProps> = (props) => {
     const { conversationId, headerBefore, headerAfter } = props;
     const classes = useClasses();
+    const { sortParticipants } = useParticipantUtility();
+    const localUser = useLocalUser();
 
     const {
         data: conversation,
@@ -241,19 +224,21 @@ export const Chat: React.FC<ChatProps> = (props) => {
 
     const readOnly = conversation.conversationPermission === 'read';
 
+    const otherParticipants = sortParticipants(conversationParticipants).filter(
+        (participant) => participant.id !== localUser.id,
+    );
+
     return (
         <div className={classes.root}>
             <div className={classes.header}>
                 <div className={mergeClasses(classes.headerControls, 'before')}>{headerBefore}</div>
-                <div className={classes.headerControls}>
-                    <div className={classes.titleContainer}>
-                        <div className={classes.avatarGroup}>
-                            <ParticipantAvatarGroup participants={conversationParticipants} />
-                        </div>
-                        <Title3 className={classes.title}>{conversation.title}</Title3>
-                    </div>
-                </div>
                 <div className={mergeClasses(classes.headerControls, 'after')}>
+                    {otherParticipants.length === 1 && (
+                        <ParticipantAvatarGroup participants={otherParticipants} layout="spread" />
+                    )}
+                    {otherParticipants.length > 1 && (
+                        <ParticipantAvatarGroup layout="pie" participants={otherParticipants} />
+                    )}
                     <ConversationShare iconOnly conversation={conversation} />
                     <ChatControls conversationId={conversation.id} />
                     {headerAfter}
