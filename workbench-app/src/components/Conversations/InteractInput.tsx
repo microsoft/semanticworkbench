@@ -29,7 +29,7 @@ import React from 'react';
 import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
 import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
-import { useGlobalNotify } from '../../libs/useNotify';
+import { useNotify } from '../../libs/useNotify';
 import { AssistantCapability } from '../../models/AssistantCapability';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
@@ -149,7 +149,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [editorIsInitialized, setEditorIsInitialized] = React.useState(false);
     const editorRef = React.useRef<LexicalEditor | null>();
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
-    const { notifyWarning } = useGlobalNotify();
+    const { notifyWarning } = useNotify();
     const dispatch = useAppDispatch();
     const { getUserId } = useLocalUserAccount();
     const userId = getUserId();
@@ -194,6 +194,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                     // limit the number of attachments to the maximum allowed
                     if (updatedFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
                         notifyWarning({
+                            id: 'attachment-limit-reached',
                             title: 'Attachment limit reached',
                             message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
                         });
@@ -210,10 +211,9 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
                 for (const [filename, count] of duplicates.entries()) {
                     notifyWarning({
-                        title: `Attachments with duplicate filenames`,
-                        message: `${count} attachment${count !== 1 ? 's' : ''} with filename '${filename}' ${
-                            count !== 1 ? 'were' : 'was'
-                        } ignored`,
+                        id: `duplicate-attachment-${filename}`,
+                        title: `Attachment with duplicate filename`,
+                        message: `Attachment with filename '${filename}' ${count !== 1 ? 'was' : 'were'} ignored`,
                     });
                 }
                 return updatedFiles;

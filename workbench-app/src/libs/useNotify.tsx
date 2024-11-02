@@ -2,86 +2,85 @@ import {
     Slot,
     Toast,
     ToastBody,
-    Toaster,
     ToastFooter,
     ToastIntent,
     ToastTitle,
-    useId,
     useToastController,
 } from '@fluentui/react-components';
 import React from 'react';
 import { Constants } from '../Constants';
 
 interface NotifyOptions {
+    id: string;
     title?: string;
     message: string;
     details?: string;
     action?: Slot<'div'>;
     additionalActions?: React.ReactElement[];
+    timeout?: number;
     intent: ToastIntent;
 }
 
-export const useGlobalNotify = () => {
-    const { dispatchToast } = useToastController(Constants.app.globalToasterId);
-
-    const notify = React.useCallback(
-        (options: NotifyOptions) => {
-            const { title, message, details, action, additionalActions, intent } = options;
-            dispatchToast(
-                <Toast>
-                    <ToastTitle action={action}>{title}</ToastTitle>
-                    <ToastBody subtitle={details}>{message}</ToastBody>
-                    {additionalActions && <ToastFooter>{additionalActions}</ToastFooter>}
-                </Toast>,
-                { intent },
-            );
-        },
-        [dispatchToast],
-    );
-
-    const notifyWarning = React.useCallback(
-        (options: Omit<NotifyOptions, 'intent'>) => notify({ ...options, intent: 'warning' }),
-        [notify],
-    );
-
-    const notifyError = React.useCallback(
-        (options: Omit<NotifyOptions, 'intent'>) => notify({ ...options, intent: 'error' }),
-        [notify],
-    );
-
-    return { notify, notifyError, notifyWarning };
-};
-
-export const useInlineNotify = () => {
-    const toasterId = useId();
+export const useNotify = (toasterId: string = Constants.app.globalToasterId) => {
     const { dispatchToast } = useToastController(toasterId);
 
     const notify = React.useCallback(
         (options: NotifyOptions) => {
-            const { title, message, details, action, additionalActions, intent } = options;
+            const { id, title, message, details, action, additionalActions, timeout, intent } = options;
+
             dispatchToast(
                 <Toast>
                     <ToastTitle action={action}>{title}</ToastTitle>
                     <ToastBody subtitle={details}>{message}</ToastBody>
                     {additionalActions && <ToastFooter>{additionalActions}</ToastFooter>}
                 </Toast>,
-                { intent },
+                {
+                    toastId: id,
+                    timeout,
+                    intent,
+                },
             );
         },
         [dispatchToast],
     );
 
+    const notifySuccess = React.useCallback(
+        (options: Omit<NotifyOptions, 'intent'>) =>
+            notify({
+                ...options,
+                intent: 'success',
+            }),
+        [notify],
+    );
+
+    const notifyInfo = React.useCallback(
+        (options: Omit<NotifyOptions, 'intent'>) =>
+            notify({
+                ...options,
+                intent: 'info',
+            }),
+        [notify],
+    );
+
     const notifyWarning = React.useCallback(
-        (options: Omit<NotifyOptions, 'intent'>) => notify({ ...options, intent: 'warning' }),
+        (options: Omit<NotifyOptions, 'intent'>) =>
+            notify({
+                ...options,
+                intent: 'warning',
+            }),
         [notify],
     );
 
     const notifyError = React.useCallback(
-        (options: Omit<NotifyOptions, 'intent'>) => notify({ ...options, intent: 'error' }),
+        (options: Omit<NotifyOptions, 'intent'>) =>
+            notify({
+                action: 'Dismiss',
+                timeout: -1,
+                ...options,
+                intent: 'error',
+            }),
         [notify],
     );
 
-    const NotifyElement = <Toaster toasterId={toasterId} />;
-
-    return { notify, notifyError, notifyWarning, NotifyElement };
+    return { notify, notifySuccess, notifyInfo, notifyError, notifyWarning };
 };
