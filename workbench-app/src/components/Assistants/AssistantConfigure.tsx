@@ -5,7 +5,7 @@ import { SettingsRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { useGetAssistantQuery } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
-import { AssistantEdit } from './AssistantEdit';
+import { AssistantConfiguration } from './AssistantConfiguration';
 import { AssistantServiceMetadata } from './AssistantServiceMetadata';
 
 const useClasses = makeStyles({
@@ -61,7 +61,7 @@ export const AssistantConfigure: React.FC<AssistantConfigureProps> = (props) => 
                 content: (
                     <div className={classes.content}>
                         <AssistantServiceMetadata assistantServiceId={assistant.assistantServiceId} />
-                        <AssistantEdit assistant={assistant} />
+                        <AssistantConfiguration assistant={assistant} />
                     </div>
                 ),
                 closeLabel: 'Close',

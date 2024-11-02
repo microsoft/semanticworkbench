@@ -1,22 +1,11 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    Button,
-    MessageBar,
-    MessageBarActions,
-    MessageBarBody,
-    MessageBarGroup,
-    MessageBarTitle,
-    makeStyles,
-    mergeClasses,
-    shorthands,
-    tokens,
-} from '@fluentui/react-components';
-import { DismissRegular } from '@fluentui/react-icons';
+import { MessageBarGroup, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
 import { RootState } from '../../redux/app/store';
 import { removeError } from '../../redux/features/app/appSlice';
+import { ErrorMessageBar } from './ErrorMessageBar';
 
 const useClasses = makeStyles({
     root: {
@@ -30,11 +19,11 @@ const useClasses = makeStyles({
     },
 });
 
-interface ErrorListProps {
+interface ErrorListFromAppStateProps {
     className?: string;
 }
 
-export const ErrorList: React.FC<ErrorListProps> = (props) => {
+export const ErrorListFromAppState: React.FC<ErrorListFromAppStateProps> = (props) => {
     const { className } = props;
     const classes = useClasses();
     const { errors } = useAppSelector((state: RootState) => state.app);
@@ -47,21 +36,12 @@ export const ErrorList: React.FC<ErrorListProps> = (props) => {
     return (
         <MessageBarGroup className={mergeClasses(classes.root, className)}>
             {errors.map((error) => (
-                <MessageBar key={error.id} intent="error" layout="multiline">
-                    <MessageBarBody>
-                        <MessageBarTitle>{error.title ?? 'Error'}:</MessageBarTitle>
-                        {error.message}
-                    </MessageBarBody>
-                    <MessageBarActions
-                        containerAction={
-                            <Button
-                                appearance="transparent"
-                                icon={<DismissRegular />}
-                                onClick={() => dispatch(removeError(error.id))}
-                            />
-                        }
-                    />
-                </MessageBar>
+                <ErrorMessageBar
+                    key={error.id}
+                    title={error.title}
+                    error={error.message}
+                    onDismiss={() => dispatch(removeError(error.id))}
+                />
             ))}
         </MessageBarGroup>
     );

@@ -6,9 +6,9 @@ import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
+import { AssistantConfiguration } from '../components/Assistants/AssistantConfiguration';
 import { AssistantDelete } from '../components/Assistants/AssistantDelete';
 import { AssistantDuplicate } from '../components/Assistants/AssistantDuplicate';
-import { AssistantEdit } from '../components/Assistants/AssistantEdit';
 import { AssistantExport } from '../components/Assistants/AssistantExport';
 import { AssistantRename } from '../components/Assistants/AssistantRename';
 import { AssistantServiceMetadata } from '../components/Assistants/AssistantServiceMetadata';
@@ -161,7 +161,7 @@ export const AssistantEditor: React.FC = () => {
                         hideInstruction
                         onCreate={handleConversationCreate}
                     />
-                    <AssistantEdit assistant={assistant} />
+                    <AssistantConfiguration assistant={assistant} />
                 </div>
                 <Toolbar className={classes.toolbar}>
                     <AssistantDelete asToolbarButton assistant={assistant} onDelete={handleDelete} />

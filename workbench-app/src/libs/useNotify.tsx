@@ -5,6 +5,7 @@ import {
     ToastFooter,
     ToastIntent,
     ToastTitle,
+    ToastTrigger,
     useToastController,
 } from '@fluentui/react-components';
 import React from 'react';
@@ -15,7 +16,7 @@ interface NotifyOptions {
     title?: string;
     message: string;
     details?: string;
-    action?: Slot<'div'>;
+    action?: Slot<'div'> | string;
     additionalActions?: React.ReactElement[];
     timeout?: number;
     intent: ToastIntent;
@@ -28,9 +29,20 @@ export const useNotify = (toasterId: string = Constants.app.globalToasterId) => 
         (options: NotifyOptions) => {
             const { id, title, message, details, action, additionalActions, timeout, intent } = options;
 
+            const getAction = () => {
+                if (typeof action === 'string') {
+                    return (
+                        <ToastTrigger>
+                            <span>{action}</span>
+                        </ToastTrigger>
+                    );
+                }
+                return action;
+            };
+
             dispatchToast(
                 <Toast>
-                    <ToastTitle action={action}>{title}</ToastTitle>
+                    <ToastTitle action={getAction()}>{title}</ToastTitle>
                     <ToastBody subtitle={details}>{message}</ToastBody>
                     {additionalActions && <ToastFooter>{additionalActions}</ToastFooter>}
                 </Toast>,
