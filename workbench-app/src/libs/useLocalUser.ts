@@ -12,20 +12,27 @@ export const useLocalUser = () => {
     const isAuthenticated = useIsAuthenticated();
     const dispatch = useAppDispatch();
 
-    // update the app state to indicate that the user photo is being loaded
-    // so that we don't try to load it multiple times
-    if (isAuthenticated && !userPhoto.src && !userPhoto.isLoading) {
-        dispatch(setUserPhoto({ isLoading: true, src: undefined }));
-        (async () => {
-            const photo = await microsoftGraph.getMyPhotoAsync();
-            dispatch(
-                setUserPhoto({
-                    isLoading: false,
-                    src: photo,
-                }),
-            );
-        })();
-    }
+    // FIXME: prevent multiple calls before the setUserPhoto is updated
+    // If not wrapped in a useEffect, an error is thrown when the state is updated
+    // while other components are still rendering. Putting in a useEffect
+    // prevents the error from being thrown, but then the photo may get fetched
+    // multiple times when multiple components are rendering at the same time
+    // and the state update has not yet been processed. Not the end of the world,
+    // as it tends to be just a few calls, but it's not ideal.
+    React.useEffect(() => {
+        if (isAuthenticated && !userPhoto.src && !userPhoto.isLoading) {
+            dispatch(setUserPhoto({ isLoading: true, src: undefined }));
+            (async () => {
+                const photo = await microsoftGraph.getMyPhotoAsync();
+                dispatch(
+                    setUserPhoto({
+                        isLoading: false,
+                        src: photo,
+                    }),
+                );
+            })();
+        }
+    }, [dispatch, isAuthenticated, microsoftGraph, userPhoto.isLoading, userPhoto.src]);
 
     const getUserId = React.useCallback(() => {
         // AAD accountID is <objectId>.<tenantId>, while the participantId is <tenantId>.<objectId>
