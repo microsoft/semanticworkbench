@@ -59,7 +59,6 @@ const ParticipantAvatarGroupItem: React.FC<ParticipantAvatarGroupItemProps> = (p
 
 export const ParticipantAvatarGroup: React.FC<ParticipantAvatarGroupProps> = (props) => {
     const { participants, layout, maxInlineItems } = props;
-    const classes = useClasses();
 
     const avatarLayout = layout ?? 'pie';
 
