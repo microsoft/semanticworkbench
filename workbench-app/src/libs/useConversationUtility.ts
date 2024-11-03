@@ -29,9 +29,12 @@ export const useConversationUtility = () => {
 
     // region Navigation
 
-    const navigateToConversation = (conversationId?: string) => {
-        navigate([Constants.app.conversationRedirectPath, conversationId].join('/'));
-    };
+    const navigateToConversation = React.useCallback(
+        (conversationId?: string) => {
+            navigate([Constants.app.conversationRedirectPath, conversationId].join('/'));
+        },
+        [navigate],
+    );
 
     // endregion
 
@@ -42,65 +45,74 @@ export const useConversationUtility = () => {
     // of metadata, permissions, and share types in shared location for consistency across the app.
     //
 
-    const getOwnerParticipant = (conversation: Conversation) => {
+    const getOwnerParticipant = React.useCallback((conversation: Conversation) => {
         const owner = conversation.participants.find((participant) => participant.id === conversation.ownerId);
         if (!owner) {
             throw new Error('Owner not found in conversation participants');
         }
         return owner;
-    };
+    }, []);
 
-    const wasSharedWithMe = (conversation: Conversation): boolean => {
-        return conversation.ownerId !== localUser.id;
-    };
+    const wasSharedWithMe = React.useCallback(
+        (conversation: Conversation): boolean => {
+            return conversation.ownerId !== localUser.id;
+        },
+        [localUser.id],
+    );
 
-    const getShareTypeMetadata = (
-        shareType: ConversationShareType,
-        linkToMessageId?: string,
-    ): {
-        permission: 'read' | 'read_write';
-        metadata: { showDuplicateAction?: boolean; linkToMessageId?: string };
-    } => {
-        // Default to read_write for invited to participate, read for observe or duplicate.
-        const permission = shareType === ConversationShareType.InvitedToParticipate ? 'read_write' : 'read';
-        const showDuplicateAction = shareType === ConversationShareType.InvitedToDuplicate;
-        return {
-            permission,
-            metadata: { showDuplicateAction, linkToMessageId },
-        };
-    };
+    const getShareTypeMetadata = React.useCallback(
+        (
+            shareType: ConversationShareType,
+            linkToMessageId?: string,
+        ): {
+            permission: 'read' | 'read_write';
+            metadata: { showDuplicateAction?: boolean; linkToMessageId?: string };
+        } => {
+            // Default to read_write for invited to participate, read for observe or duplicate.
+            const permission = shareType === ConversationShareType.InvitedToParticipate ? 'read_write' : 'read';
+            const showDuplicateAction = shareType === ConversationShareType.InvitedToDuplicate;
+            return {
+                permission,
+                metadata: { showDuplicateAction, linkToMessageId },
+            };
+        },
+        [],
+    );
 
-    const getShareType = (
-        conversationShare: ConversationShare,
-    ): {
-        shareType: ConversationShareType;
-        linkToMessageId?: string;
-    } => {
-        const { isRedeemable, conversationPermission, metadata } = conversationShare;
+    const getShareType = React.useCallback(
+        (
+            conversationShare: ConversationShare,
+        ): {
+            shareType: ConversationShareType;
+            linkToMessageId?: string;
+        } => {
+            const { isRedeemable, conversationPermission, metadata } = conversationShare;
 
-        if (!isRedeemable) {
-            return { shareType: ConversationShareType.NotRedeemable };
-        }
+            if (!isRedeemable) {
+                return { shareType: ConversationShareType.NotRedeemable };
+            }
 
-        // If the showDuplicateAction metadata is set, use that to determine the share type.
-        if (metadata.showDuplicateAction) {
-            return { shareType: ConversationShareType.InvitedToDuplicate };
-        }
+            // If the showDuplicateAction metadata is set, use that to determine the share type.
+            if (metadata.showDuplicateAction) {
+                return { shareType: ConversationShareType.InvitedToDuplicate };
+            }
 
-        // Otherwise, use the conversation permission to determine the share type.
-        const shareType =
-            conversationPermission !== 'read'
-                ? ConversationShareType.InvitedToParticipate
-                : ConversationShareType.InvitedToObserve;
-        return {
-            shareType,
-            linkToMessageId: metadata.linkToMessageId,
-        };
-    };
+            // Otherwise, use the conversation permission to determine the share type.
+            const shareType =
+                conversationPermission !== 'read'
+                    ? ConversationShareType.InvitedToParticipate
+                    : ConversationShareType.InvitedToObserve;
+            return {
+                shareType,
+                linkToMessageId: metadata.linkToMessageId,
+            };
+        },
+        [],
+    );
 
-    const getShareLink = (share: ConversationShare): string => {
+    const getShareLink = React.useCallback((share: ConversationShare): string => {
         return `${window.location.origin}/conversation-share/${encodeURIComponent(share.id)}/redeem`;
-    };
+    }, []);
     // endregion
 
     // region App Metadata

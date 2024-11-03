@@ -95,13 +95,16 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
     const [sortByName, setSortByName] = React.useState<boolean>(false);
     const [displayedConversations, setDisplayedConversations] = React.useState<Conversation[]>(conversations || []);
 
-    const sortByNameHelper = (a: Conversation, b: Conversation) => a.title.localeCompare(b.title);
+    const sortByNameHelper = React.useCallback(
+        (a: Conversation, b: Conversation) => a.title.localeCompare(b.title),
+        [],
+    );
 
-    const sortByDateHelper = (a: Conversation, b: Conversation) => {
+    const sortByDateHelper = React.useCallback((a: Conversation, b: Conversation) => {
         const dateA = a.latest_message ? Utility.toDate(a.latest_message.timestamp) : Utility.toDate(a.created);
         const dateB = b.latest_message ? Utility.toDate(b.latest_message.timestamp) : Utility.toDate(b.created);
         return dateB.getTime() - dateA.getTime();
-    };
+    }, []);
 
     // update displayed conversations when conversations or options change
     React.useEffect(() => {
@@ -172,6 +175,8 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         onDisplayedConversationsChanged,
         sortByName,
         localUser.id,
+        sortByNameHelper,
+        sortByDateHelper,
     ]);
 
     const bulkSelectForActionsIcon = React.useMemo(() => {

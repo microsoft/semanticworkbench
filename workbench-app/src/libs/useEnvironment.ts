@@ -5,15 +5,23 @@ import { Constants } from '../Constants';
 import { ServiceEnvironment } from '../models/ServiceEnvironment';
 import { useAppSelector } from '../redux/app/hooks';
 import { RootState } from '../redux/app/store';
+import { Utility } from './Utility';
+
+import debug from 'debug';
+
+const log = debug(Constants.debug.root).extend('useEnvironment');
 
 export const useEnvironment = () => {
     const { environmentId } = useAppSelector((state: RootState) => state.settings);
     const [environment, setEnvironment] = React.useState<ServiceEnvironment>(getEnvironment(environmentId));
 
     React.useEffect(() => {
-        const environment = getEnvironment(environmentId);
-        setEnvironment(environment);
-    }, [environmentId]);
+        const updatedEnvironment = getEnvironment(environmentId);
+        if (!Utility.deepEqual(environment, updatedEnvironment)) {
+            log('Environment changed', environment, updatedEnvironment);
+            setEnvironment(updatedEnvironment);
+        }
+    }, [environment, environmentId]);
 
     return environment;
 };

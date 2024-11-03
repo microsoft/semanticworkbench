@@ -1,25 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import React from 'react';
-import { useWorkbenchService } from '../../libs/useWorkbenchService';
-import { ContentExport, exportContent } from '../App/ContentExport';
-
-export const useConversationExport = () => {
-    const workbenchService = useWorkbenchService();
-
-    const exportFunction = async (conversationId: string) => {
-        return await workbenchService.exportConversationsAsync([conversationId]);
-    };
-
-    const exportConversation = async (conversationId: string) => {
-        return await exportContent(conversationId, exportFunction);
-    };
-
-    return {
-        exportFunction,
-        exportConversation,
-    };
-};
+import { useExportUtility } from '../../libs/useExportUtility';
+import { ContentExport } from '../App/ContentExport';
 
 interface ConversationExportProps {
     conversationId: string;
@@ -29,13 +12,13 @@ interface ConversationExportProps {
 
 export const ConversationExport: React.FC<ConversationExportProps> = (props) => {
     const { conversationId, iconOnly, asToolbarButton } = props;
-    const { exportFunction } = useConversationExport();
+    const { exportConversationFunction } = useExportUtility();
 
     return (
         <ContentExport
             id={conversationId}
             contentTypeLabel="conversation"
-            exportFunction={exportFunction}
+            exportFunction={exportConversationFunction}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
         />

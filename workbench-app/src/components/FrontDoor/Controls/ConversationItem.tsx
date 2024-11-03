@@ -28,6 +28,7 @@ import {
 } from '@fluentui/react-icons';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
+import { useDebugComponentLifecycle } from '../../../libs/useDebugComponentLifecycle';
 import { useLocalUser } from '../../../libs/useLocalUser';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
@@ -314,6 +315,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         return participants;
     }, [getOwnerParticipant, conversation, wasSharedWithMe, localUser.id]);
 
+    // FIXME: remove when not re-rendering unexpectedly, update with other props to debug if needed
+    useDebugComponentLifecycle('ConversationItem', props, { selected, selectedForActions });
+
     return (
         <Card
             size="small"
@@ -333,3 +337,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         </Card>
     );
 };
+
+export const MemoizedConversationItem = React.memo(ConversationItem, (prevProps, nextProps) =>
+    Utility.deepEqual(prevProps, nextProps),
+);

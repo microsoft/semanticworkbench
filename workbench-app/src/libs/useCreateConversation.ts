@@ -63,99 +63,122 @@ export const useCreateConversation = () => {
         }
     }, [assistantsLoading, assistantServicesLoading, myAssistantServicesLoading, isFetching]);
 
-    const create = async (
-        title: string,
-        assistantInfo:
-            | {
-                  assistantId: string;
-              }
-            | {
-                  name: string;
-                  assistantServiceId: string;
-              },
-    ) => {
-        if (assistantsLoading || assistantServicesLoading || myAssistantServicesLoading) {
-            throw new Error('Cannot create conversation while loading assistants or assistant services');
-        }
-
-        let assistant: Assistant | undefined = undefined;
-
-        const conversation = await createConversation({ title }).unwrap();
-
-        if ('assistantId' in assistantInfo) {
-            assistant = assistants?.find((a) => a.id === assistantInfo.assistantId);
-            if (!assistant) {
-                throw new Error('Assistant not found');
+    const create = React.useCallback(
+        async (
+            title: string,
+            assistantInfo:
+                | {
+                      assistantId: string;
+                  }
+                | {
+                      name: string;
+                      assistantServiceId: string;
+                  },
+        ) => {
+            if (assistantsLoading || assistantServicesLoading || myAssistantServicesLoading) {
+                throw new Error('Cannot create conversation while loading assistants or assistant services');
             }
-        } else {
-            const { name, assistantServiceId } = assistantInfo;
 
-            assistant = await createAssistant({
-                name,
-                assistantServiceId,
-            }).unwrap();
-            await refetchAssistants();
-        }
+            let assistant: Assistant | undefined = undefined;
 
-        // send event to notify the conversation that the user has joined
-        await createConversationMessage({
-            conversationId: conversation.id,
-            content: `${localUser.name} created the conversation`,
-            messageType: 'notice',
-        });
+            const conversation = await createConversation({ title }).unwrap();
 
-        // send notice message first, to announce before assistant reacts to create event
-        await createConversationMessage({
-            conversationId: conversation.id,
-            content: `${assistant.name} added to conversation`,
-            messageType: 'notice',
-        });
-
-        await addConversationParticipant({
-            conversationId: conversation.id,
-            participantId: assistant.id,
-        });
-
-        return {
-            assistant,
-            conversation,
-        };
-    };
-
-    const categorizedAssistantServices: Record<string, AssistantServiceRegistration[]> = {
-        ...(assistantServices ?? [])
-            .filter(
-                (service) =>
-                    !myAssistantServices?.find(
-                        (myService) => myService.assistantServiceId === service.assistantServiceId,
-                    ) && service.assistantServiceUrl !== null,
-            )
-            .reduce((accumulated, assistantService) => {
-                const entry = Object.entries(Constants.assistantCategories).find(([_, serviceIds]) =>
-                    serviceIds.includes(assistantService.assistantServiceId),
-                );
-                const assignedCategory = entry ? entry[0] : 'Other';
-                if (!accumulated[assignedCategory]) {
-                    accumulated[assignedCategory] = [];
+            if ('assistantId' in assistantInfo) {
+                assistant = assistants?.find((a) => a.id === assistantInfo.assistantId);
+                if (!assistant) {
+                    throw new Error('Assistant not found');
                 }
-                accumulated[assignedCategory].push(assistantService);
-                return accumulated;
-            }, {} as Record<string, AssistantServiceRegistration[]>),
-        'My Services': myAssistantServices?.filter((service) => service.assistantServiceUrl !== null) ?? [],
-    };
+            } else {
+                const { name, assistantServiceId } = assistantInfo;
 
-    const orderedAssistantServicesCategories = [
-        ...Object.keys(Constants.assistantCategories),
-        'Other',
-        'My Services',
-    ].filter((category) => categorizedAssistantServices[category]?.length);
+                assistant = await createAssistant({
+                    name,
+                    assistantServiceId,
+                }).unwrap();
+                await refetchAssistants();
+            }
+
+            // send event to notify the conversation that the user has joined
+            await createConversationMessage({
+                conversationId: conversation.id,
+                content: `${localUser.name} created the conversation`,
+                messageType: 'notice',
+            });
+
+            // send notice message first, to announce before assistant reacts to create event
+            await createConversationMessage({
+                conversationId: conversation.id,
+                content: `${assistant.name} added to conversation`,
+                messageType: 'notice',
+            });
+
+            await addConversationParticipant({
+                conversationId: conversation.id,
+                participantId: assistant.id,
+            });
+
+            return {
+                assistant,
+                conversation,
+            };
+        },
+        [
+            assistantsLoading,
+            assistantServicesLoading,
+            myAssistantServicesLoading,
+            createConversation,
+            createConversationMessage,
+            localUser.name,
+            addConversationParticipant,
+            assistants,
+            createAssistant,
+            refetchAssistants,
+        ],
+    );
+
+    const categorizedAssistantServices: Record<string, AssistantServiceRegistration[]> = React.useMemo(
+        () => ({
+            ...(assistantServices ?? [])
+                .filter(
+                    (service) =>
+                        !myAssistantServices?.find(
+                            (myService) => myService.assistantServiceId === service.assistantServiceId,
+                        ) && service.assistantServiceUrl !== null,
+                )
+                .reduce((accumulated, assistantService) => {
+                    const entry = Object.entries(Constants.assistantCategories).find(([_, serviceIds]) =>
+                        serviceIds.includes(assistantService.assistantServiceId),
+                    );
+                    const assignedCategory = entry ? entry[0] : 'Other';
+                    if (!accumulated[assignedCategory]) {
+                        accumulated[assignedCategory] = [];
+                    }
+                    accumulated[assignedCategory].push(assistantService);
+                    return accumulated;
+                }, {} as Record<string, AssistantServiceRegistration[]>),
+            'My Services': myAssistantServices?.filter((service) => service.assistantServiceUrl !== null) ?? [],
+        }),
+        [assistantServices, myAssistantServices],
+    );
+
+    const orderedAssistantServicesCategories = React.useMemo(
+        () =>
+            [...Object.keys(Constants.assistantCategories), 'Other', 'My Services'].filter(
+                (category) => categorizedAssistantServices[category]?.length,
+            ),
+        [categorizedAssistantServices],
+    );
 
     const assistantServicesByCategories: { category: string; assistantServices: AssistantServiceRegistration[] }[] =
-        orderedAssistantServicesCategories.map((category) => ({
-            category,
-            assistantServices:
-                categorizedAssistantServices[category]?.sort((a, b) => a.name.localeCompare(b.name)) ?? [],
-        }));
+        React.useMemo(
+            () =>
+                orderedAssistantServicesCategories.map((category) => ({
+                    category,
+                    assistantServices:
+                        categorizedAssistantServices[category]?.sort((a, b) => a.name.localeCompare(b.name)) ?? [],
+                })),
+            [categorizedAssistantServices, orderedAssistantServicesCategories],
+        );
 
     return {
         isFetching,

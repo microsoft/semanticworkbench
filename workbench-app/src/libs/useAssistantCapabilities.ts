@@ -3,12 +3,12 @@ import { Assistant } from '../models/Assistant';
 import { AssistantCapability } from '../models/AssistantCapability';
 import { useWorkbenchService } from './useWorkbenchService';
 
-export function useGetAssistantCapabilities(assistants: Assistant[]) {
+export function useGetAssistantCapabilities(assistants?: Assistant[]) {
     const [isFetching, setIsFetching] = React.useState<boolean>(false);
     const [assistantCapabilities, setAssistantCapabilities] = React.useState(new Set<AssistantCapability>());
     const workbenchService = useWorkbenchService();
 
-    // Build a memo-ized set of all capabilities to be used as a default for assistants that do not
+    // Build a memoized set of all capabilities to be used as a default for assistants that do not
     // specify capabilities
     const allCapabilities = React.useMemo(
         () =>
@@ -23,7 +23,7 @@ export function useGetAssistantCapabilities(assistants: Assistant[]) {
     React.useEffect(() => {
         let ignore = false;
 
-        if (assistants.length === 0) {
+        if (!assistants || assistants?.length === 0) {
             if (ignore) {
                 return;
             }

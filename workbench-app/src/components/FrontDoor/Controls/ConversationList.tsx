@@ -14,11 +14,10 @@ import { useGetConversationsQuery } from '../../../services/workbench';
 import { Loading } from '../../App/Loading';
 import { PresenceMotionList } from '../../App/PresenceMotionList';
 import { ConversationDuplicateDialog } from '../../Conversations/ConversationDuplicate';
-import { useConversationExport } from '../../Conversations/ConversationExport';
 import { ConversationRemoveDialog } from '../../Conversations/ConversationRemove';
 import { ConversationRenameDialog } from '../../Conversations/ConversationRename';
 import { ConversationShareDialog } from '../../Conversations/ConversationShare';
-import { ConversationItem } from './ConversationItem';
+import { MemoizedConversationItem } from './ConversationItem';
 import { ConversationListOptions } from './ConversationListOptions';
 
 const useClasses = makeStyles({
@@ -41,12 +40,13 @@ export const ConversationList: React.FC = () => {
         data: conversations,
         error: conversationsError,
         isLoading: conversationsLoading,
+        isUninitialized: conversationsUninitialized,
         refetch: refetchConversations,
     } = useGetConversationsQuery();
     const [displayedConversations, setDisplayedConversations] = React.useState<Conversation[]>([]);
 
     const [renameConversation, setRenameConversation] = React.useState<Conversation>();
-    const { exportConversation } = useConversationExport();
+    // const { exportConversation } = useExportUtility();
     const [duplicateConversation, setDuplicateConversation] = React.useState<Conversation>();
     const [shareConversation, setShareConversation] = React.useState<Conversation>();
     const [removeConversation, setRemoveConversation] = React.useState<Conversation>();
@@ -64,6 +64,11 @@ export const ConversationList: React.FC = () => {
 
         // handle new message events
         const conversationHandler = async (_event: EventSourceMessage) => {
+            if (conversationsUninitialized) {
+                // do not refetch conversations if it's the first time loading
+                return;
+            }
+
             // refetch conversations to update the latest message
             await refetchConversations();
         };
@@ -92,13 +97,9 @@ export const ConversationList: React.FC = () => {
                 workbenchEventSource.removeEventListener('participant.updated', conversationHandler);
             })();
         };
-    }, [conversationsLoading, environment.url, refetchConversations]);
+    }, [conversationsLoading, conversationsUninitialized, environment.url, refetchConversations]);
 
-    if (conversationsLoading) {
-        return <Loading />;
-    }
-
-    const handleUpdateSelectedForActions = (conversationId: string, selected: boolean) => {
+    const handleUpdateSelectedForActions = React.useCallback((conversationId: string, selected: boolean) => {
         if (selected) {
             setSelectedForActions((prev) => new Set(prev).add(conversationId));
         } else {
@@ -108,44 +109,100 @@ export const ConversationList: React.FC = () => {
                 return newSet;
             });
         }
-    };
+    }, []);
+
+    const handleItemSelect = React.useCallback(
+        (conversation: Conversation) => {
+            navigateToConversation(conversation.id);
+        },
+        [navigateToConversation],
+    );
+
+    const handleItemSelectForActions = React.useCallback(
+        (conversation: Conversation, selected: boolean) => {
+            handleUpdateSelectedForActions(conversation.id, selected);
+        },
+        [handleUpdateSelectedForActions],
+    );
+
+    // FIXME: re-enable when it is no longer triggering a re-render every time
+    // const handleExportConversation = React.useCallback(
+    //     (conversation: Conversation) => {
+    //         exportConversation(conversation.id);
+    //     },
+    //     [exportConversation],
+    // );
+
+    const actionHelpers = React.useMemo(
+        () => (
+            <>
+                {renameConversation && (
+                    <ConversationRenameDialog
+                        id={renameConversation.id}
+                        value={renameConversation.title}
+                        onRename={async () => setRenameConversation(undefined)}
+                        onCancel={() => setRenameConversation(undefined)}
+                    />
+                )}
+                {duplicateConversation && (
+                    <ConversationDuplicateDialog
+                        id={duplicateConversation.id}
+                        onDuplicate={(id) => navigateToConversation(id)}
+                        onCancel={() => setDuplicateConversation(undefined)}
+                    />
+                )}
+                {shareConversation && (
+                    <ConversationShareDialog
+                        conversation={shareConversation}
+                        onClose={() => setShareConversation(undefined)}
+                    />
+                )}
+                {removeConversation && (
+                    <ConversationRemoveDialog
+                        conversationId={removeConversation.id}
+                        participantId={localUser.id}
+                        onRemove={() => {
+                            if (activeConversationId === removeConversation.id) {
+                                navigateToConversation(undefined);
+                            }
+                            setRemoveConversation(undefined);
+                        }}
+                        onCancel={() => setRemoveConversation(undefined)}
+                    />
+                )}
+            </>
+        ),
+        [
+            renameConversation,
+            duplicateConversation,
+            shareConversation,
+            removeConversation,
+            navigateToConversation,
+            localUser.id,
+            activeConversationId,
+        ],
+    );
+
+    const conversationListOptions = React.useMemo(
+        () => (
+            <ConversationListOptions
+                conversations={conversations}
+                selectedForActions={selectedForActions}
+                onSelectedForActionsChanged={setSelectedForActions}
+                onDisplayedConversationsChanged={setDisplayedConversations}
+            />
+        ),
+        [conversations, selectedForActions, setSelectedForActions, setDisplayedConversations],
+    );
+
+    if (conversationsLoading) {
+        return <Loading />;
+    }
 
     return (
         <>
-            {renameConversation && (
-                <ConversationRenameDialog
-                    id={renameConversation.id}
-                    value={renameConversation.title}
-                    onRename={async () => setRenameConversation(undefined)}
-                    onCancel={() => setRenameConversation(undefined)}
-                />
-            )}
-            {duplicateConversation && (
-                <ConversationDuplicateDialog
-                    id={duplicateConversation.id}
-                    onDuplicate={(id) => navigateToConversation(id)}
-                    onCancel={() => setDuplicateConversation(undefined)}
-                />
-            )}
-            {shareConversation && (
-                <ConversationShareDialog
-                    conversation={shareConversation}
-                    onClose={() => setShareConversation(undefined)}
-                />
-            )}
-            {removeConversation && (
-                <ConversationRemoveDialog
-                    conversationId={removeConversation.id}
-                    participantId={localUser.id}
-                    onRemove={() => {
-                        if (activeConversationId === removeConversation.id) {
-                            navigateToConversation(undefined);
-                        }
-                        setRemoveConversation(undefined);
-                    }}
-                    onCancel={() => setRemoveConversation(undefined)}
-                />
-            )}
+            {actionHelpers}
+            {conversationListOptions}
             <ConversationListOptions
                 conversations={conversations}
                 selectedForActions={selectedForActions}
@@ -157,31 +214,31 @@ export const ConversationList: React.FC = () => {
                     <Text weight="semibold">No conversations found</Text>
                 </div>
             ) : (
-                <>
-                    <PresenceMotionList
-                        className={classes.list}
-                        items={displayedConversations.map((conversation) => (
-                            <ConversationItem
-                                key={conversation.id}
-                                conversation={conversation}
-                                owned={conversation.ownerId === localUser.id}
-                                selected={activeConversationId === conversation.id}
-                                selectedForActions={selectedForActions?.has(conversation.id)}
-                                onSelect={() => navigateToConversation(conversation.id)}
-                                showSelectForActions={selectedForActions.size > 0}
-                                onSelectForActions={(_, selected) =>
-                                    handleUpdateSelectedForActions(conversation.id, selected)
-                                }
-                                onExport={() => exportConversation(conversation.id)}
-                                onRename={setRenameConversation}
-                                onDuplicate={setDuplicateConversation}
-                                onShare={setShareConversation}
-                                onRemove={setRemoveConversation}
-                            />
-                        ))}
-                    />
-                </>
+                <PresenceMotionList
+                    className={classes.list}
+                    items={displayedConversations.map((conversation) => (
+                        // Use the individual memoized conversation item instead of the list
+                        // to prevent re-rendering all items when one item changes
+                        <MemoizedConversationItem
+                            key={conversation.id}
+                            conversation={conversation}
+                            owned={conversation.ownerId === localUser.id}
+                            selected={activeConversationId === conversation.id}
+                            selectedForActions={selectedForActions?.has(conversation.id)}
+                            onSelect={handleItemSelect}
+                            showSelectForActions={selectedForActions.size > 0}
+                            onSelectForActions={handleItemSelectForActions}
+                            // onExport={handleExportConversation}
+                            onRename={setRenameConversation}
+                            onDuplicate={setDuplicateConversation}
+                            onShare={setShareConversation}
+                            onRemove={setRemoveConversation}
+                        />
+                    ))}
+                />
             )}
         </>
     );
 };
+
+export const MemoizedConversationList = React.memo(ConversationList);

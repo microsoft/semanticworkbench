@@ -1,16 +1,13 @@
 // Copyright (c) Microsoft. All rights reserved.
-import { useAccount, useIsAuthenticated } from '@azure/msal-react';
+import { useAccount } from '@azure/msal-react';
 import React from 'react';
-import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
-import { setUserPhoto } from '../redux/features/app/appSlice';
-import { useMicrosoftGraph } from './useMicrosoftGraph';
 
 export const useLocalUser = () => {
     const account = useAccount();
-    const { userPhoto } = useAppSelector((state) => state.app);
-    const microsoftGraph = useMicrosoftGraph();
-    const isAuthenticated = useIsAuthenticated();
-    const dispatch = useAppDispatch();
+    // FIXME: re-enable all of this
+    // const { userPhoto } = useAppSelector((state) => state.app);
+    // const isAuthenticated = useIsAuthenticated();
+    // const dispatch = useAppDispatch();
 
     // FIXME: prevent multiple calls before the setUserPhoto is updated
     // If not wrapped in a useEffect, an error is thrown when the state is updated
@@ -19,20 +16,20 @@ export const useLocalUser = () => {
     // multiple times when multiple components are rendering at the same time
     // and the state update has not yet been processed. Not the end of the world,
     // as it tends to be just a few calls, but it's not ideal.
-    React.useEffect(() => {
-        if (isAuthenticated && !userPhoto.src && !userPhoto.isLoading) {
-            dispatch(setUserPhoto({ isLoading: true, src: undefined }));
-            (async () => {
-                const photo = await microsoftGraph.getMyPhotoAsync();
-                dispatch(
-                    setUserPhoto({
-                        isLoading: false,
-                        src: photo,
-                    }),
-                );
-            })();
-        }
-    }, [dispatch, isAuthenticated, microsoftGraph, userPhoto.isLoading, userPhoto.src]);
+    // React.useEffect(() => {
+    //     if (isAuthenticated && !userPhoto.src && !userPhoto.isLoading) {
+    //         dispatch(setUserPhoto({ isLoading: true, src: undefined }));
+    //         (async () => {
+    //             const photo = await microsoftGraph.getMyPhotoAsync();
+    //             dispatch(
+    //                 setUserPhoto({
+    //                     isLoading: false,
+    //                     src: photo,
+    //                 }),
+    //             );
+    //         })();
+    //     }
+    // }, [dispatch, isAuthenticated, microsoftGraph, userPhoto.isLoading, userPhoto.src]);
 
     const getUserId = React.useCallback(() => {
         // AAD accountID is <objectId>.<tenantId>, while the participantId is <tenantId>.<objectId>
@@ -45,6 +42,19 @@ export const useLocalUser = () => {
         return userId;
     }, [account]);
 
+    // const localUser = React.useMemo(
+    //     () => ({
+    //         id: getUserId(),
+    //         name: account?.name,
+    //         email: account?.username,
+    //         avatar: {
+    //             name: account?.name,
+    //             image: userPhoto.src ? { src: userPhoto.src } : undefined,
+    //         },
+    //     }),
+    //     [account?.name, account?.username, getUserId, userPhoto.src],
+    // );
+
     const localUser = React.useMemo(
         () => ({
             id: getUserId(),
@@ -52,10 +62,10 @@ export const useLocalUser = () => {
             email: account?.username,
             avatar: {
                 name: account?.name,
-                image: userPhoto.src ? { src: userPhoto.src } : undefined,
+                image: undefined,
             },
         }),
-        [account?.name, account?.username, getUserId, userPhoto.src],
+        [account?.name, account?.username, getUserId],
     );
 
     return localUser;
