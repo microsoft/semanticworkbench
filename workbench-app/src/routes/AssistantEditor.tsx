@@ -1,6 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { useAccount } from '@azure/msal-react';
 import { Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -13,6 +12,7 @@ import { AssistantExport } from '../components/Assistants/AssistantExport';
 import { AssistantRename } from '../components/Assistants/AssistantRename';
 import { AssistantServiceMetadata } from '../components/Assistants/AssistantServiceMetadata';
 import { MyConversations } from '../components/Conversations/MyConversations';
+import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Assistant } from '../models/Assistant';
 import { Conversation } from '../models/Conversation';
@@ -68,7 +68,7 @@ export const AssistantEditor: React.FC = () => {
     const [updateAssistant] = useUpdateAssistantMutation();
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
-    const account = useAccount();
+    const localUser = useLocalUser();
     const siteUtility = useSiteUtility();
     const navigate = useNavigate();
 
@@ -111,14 +111,11 @@ export const AssistantEditor: React.FC = () => {
 
     const handleConversationCreate = async (conversation: Conversation) => {
         // send event to notify the conversation that the user has joined
-        const accountName = account?.name;
-        if (accountName) {
-            await createConversationMessage({
-                conversationId: conversation.id,
-                content: `${accountName} created the conversation`,
-                messageType: 'notice',
-            });
-        }
+        await createConversationMessage({
+            conversationId: conversation.id,
+            content: `${localUser.name} created the conversation`,
+            messageType: 'notice',
+        });
 
         // send notice message first, to announce before assistant reacts to create event
         await createConversationMessage({

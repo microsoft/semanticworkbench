@@ -1,44 +1,15 @@
-import {
-    Button,
-    Checkbox,
-    CheckboxOnChangeData,
-    Divider,
-    Dropdown,
-    Field,
-    Input,
-    InputOnChangeData,
-    Label,
-    makeStyles,
-    Option,
-    OptionGroup,
-    OptionOnSelectData,
-    SelectionEvents,
-    tokens,
-    Tooltip,
-} from '@fluentui/react-components';
-import { Info16Regular, PresenceAvailableRegular, PresenceOfflineRegular } from '@fluentui/react-icons';
+import { Button, makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { useCreateConversation } from '../../../libs/useCreateConversation';
-import { AssistantImport } from '../../Assistants/AssistantImport';
 import { ConversationsImport } from '../../Conversations/ConversationsImport';
+import { NewConversationForm } from './NewConversationForm';
 
 const useClasses = makeStyles({
     content: {
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalM,
-    },
-    option: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: tokens.spacingHorizontalXS,
-    },
-    optionDescription: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: tokens.spacingVerticalXS,
     },
     serviceOptions: {
         display: 'flex',
@@ -55,33 +26,40 @@ const useClasses = makeStyles({
 });
 
 interface NewConversationProps {
+    onCreate?: (conversationId: string) => void;
     onImport?: (conversationIds: string[]) => void;
     dismissButton?: React.ReactNode;
 }
 
 export const NewConversation: React.FC<NewConversationProps> = (props) => {
-    const { onImport, dismissButton } = props;
+    const { onCreate, onImport, dismissButton } = props;
     const classes = useClasses();
-    const { create: createConversation, assistants, assistantServicesByCategories } = useCreateConversation();
+    const { createConversation } = useCreateConversation();
 
-    const [title, setTitle] = React.useState('');
+    const [isValid, setIsValid] = React.useState(false);
+    const [title, setTitle] = React.useState<string>();
     const [assistantId, setAssistantId] = React.useState<string>();
-    const [name, setName] = React.useState('');
-    const [assistantServiceId, setAssistantServiceId] = React.useState('');
-    const [manualEntry, setManualEntry] = React.useState(false);
+    const [name, setName] = React.useState<string>();
+    const [assistantServiceId, setAssistantServiceId] = React.useState<string>();
     const [submitted, setSubmitted] = React.useState(false);
     const { navigateToConversation } = useConversationUtility();
 
-    const preventSubmit =
-        submitted || !title || !assistantId || (assistantId === 'new' && (!assistantServiceId || !name));
+    const resetState = React.useCallback(() => {
+        setTitle(undefined);
+        setAssistantId(undefined);
+        setName(undefined);
+        setAssistantServiceId(undefined);
+    }, []);
 
     const handleCreate = React.useCallback(async () => {
-        if (preventSubmit) {
+        if (submitted || !isValid || !title || !assistantId || !(assistantId === 'new' && name && assistantServiceId)) {
             return;
         }
+
         setSubmitted(true);
 
-        const assistantInfo = { assistantId, name, assistantServiceId };
+        const assistantInfo: { assistantId: string } | { name: string; assistantServiceId: string } =
+            assistantId === 'new' ? { name, assistantServiceId } : { assistantId };
 
         try {
             const { conversation } = await createConversation(title, assistantInfo);
@@ -91,13 +69,23 @@ export const NewConversation: React.FC<NewConversationProps> = (props) => {
             setSubmitted(false);
         }
 
+        // Callback
+        onCreate?.(assistantId);
+
         // Reset form
-        setTitle('');
-        setAssistantId(undefined);
-        setName('');
-        setAssistantServiceId('');
-        setManualEntry(false);
-    }, [assistantId, assistantServiceId, createConversation, name, navigateToConversation, preventSubmit, title]);
+        resetState();
+    }, [
+        assistantId,
+        assistantServiceId,
+        createConversation,
+        isValid,
+        name,
+        navigateToConversation,
+        onCreate,
+        resetState,
+        submitted,
+        title,
+    ]);
 
     const handleImport = React.useCallback(
         (conversationIds: string[]) => {
@@ -105,192 +93,30 @@ export const NewConversation: React.FC<NewConversationProps> = (props) => {
                 navigateToConversation(conversationIds[0]);
             }
             onImport?.(conversationIds);
+
+            // Reset form
+            resetState();
         },
-        [navigateToConversation, onImport],
-    );
-
-    const handleTitleChange = React.useCallback((_: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
-        setTitle(data?.value);
-    }, []);
-
-    const handleAssistantIdChange = React.useCallback((_: SelectionEvents, data: OptionOnSelectData) => {
-        setAssistantId(data.optionValue);
-    }, []);
-
-    const handleAssistantServiceIdChange = React.useCallback(
-        (_: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
-            setAssistantServiceId(data?.value);
-        },
-        [],
-    );
-
-    const handleNameChange = React.useCallback((_: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
-        setName(data?.value);
-    }, []);
-
-    const handleManualEntryChange = React.useCallback(
-        (_: React.ChangeEvent<HTMLInputElement>, data: CheckboxOnChangeData) => {
-            setManualEntry(data.checked === true);
-        },
-        [],
-    );
-
-    const assistantOptions = React.useMemo(
-        () => (
-            <>
-                <OptionGroup label="Existing Assistants">
-                    {assistants
-                        ?.slice()
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((assistant) => (
-                            <Option key={assistant.id} text={assistant.name} value={assistant.id}>
-                                {assistant.name}
-                            </Option>
-                        ))}
-                </OptionGroup>
-                <OptionGroup label="New Assistant">
-                    <Option text="Create new assistant" value="new">
-                        Create new assistant
-                    </Option>
-                </OptionGroup>
-            </>
-        ),
-        [assistants],
-    );
-
-    const assistantServicesOptions = React.useMemo(
-        () =>
-            assistantServicesByCategories.map(({ category, assistantServices }) => (
-                <OptionGroup key={category} label={category}>
-                    {assistantServices
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((assistantService) => (
-                            <Option
-                                key={assistantService.assistantServiceId}
-                                text={assistantService.name}
-                                value={assistantService.assistantServiceId}
-                            >
-                                <div className={classes.option}>
-                                    {assistantService.assistantServiceOnline ? (
-                                        <PresenceAvailableRegular color="green" />
-                                    ) : (
-                                        <PresenceOfflineRegular color="red" />
-                                    )}
-                                    <Label weight="semibold">{assistantService.name}</Label>
-                                    <Tooltip
-                                        content={
-                                            <div className={classes.optionDescription}>
-                                                <Label size="small">
-                                                    <em>{assistantService.description}</em>
-                                                </Label>
-                                                <Divider />
-                                                <Label size="small">Assistant service ID:</Label>
-                                                <Label size="small">{assistantService.assistantServiceId}</Label>
-                                                <Divider />
-                                                <Label size="small">Hosted at:</Label>
-                                                <Label size="small">{assistantService.assistantServiceUrl}</Label>
-                                                <Divider />
-                                                <Label size="small">Created by:</Label>
-                                                <Label size="small">{assistantService.createdByUserName}</Label>
-                                                <Label size="small">[{assistantService.createdByUserId}]</Label>
-                                            </div>
-                                        }
-                                        relationship="description"
-                                    >
-                                        <Info16Regular />
-                                    </Tooltip>
-                                </div>
-                            </Option>
-                        ))}
-                </OptionGroup>
-            )),
-        [assistantServicesByCategories, classes],
+        [navigateToConversation, onImport, resetState],
     );
 
     return (
         <div className={classes.content}>
-            <form
-                onSubmit={(event) => {
-                    event.preventDefault();
-                    handleCreate();
+            <NewConversationForm
+                onSubmit={handleCreate}
+                onChange={(isValid, data) => {
+                    setIsValid(isValid);
+                    setTitle(data.title);
+                    setAssistantId(data.assistantId);
+                    setAssistantServiceId(data.assistantServiceId);
+                    setName(data.name);
                 }}
-            >
-                <div className={classes.content}>
-                    <Field label="Title">
-                        <Input
-                            disabled={submitted}
-                            value={title}
-                            onChange={handleTitleChange}
-                            aria-autocomplete="none"
-                        />
-                    </Field>
-                    <Field label="Assistant">
-                        <Dropdown
-                            placeholder="Select an assistant"
-                            disabled={submitted}
-                            onOptionSelect={handleAssistantIdChange}
-                        >
-                            {assistantOptions}
-                        </Dropdown>
-                    </Field>
-                    {assistantId === 'new' && (
-                        <>
-                            {!manualEntry && (
-                                <Field label="Assistant Service">
-                                    <Dropdown
-                                        placeholder="Select an assistant service"
-                                        disabled={submitted}
-                                        onOptionSelect={(_event, data) => {
-                                            if (data.optionValue) {
-                                                setAssistantServiceId(data.optionValue as string);
-                                            }
-
-                                            if (data.optionText && name === '') {
-                                                setName(data.optionText);
-                                            }
-                                        }}
-                                    >
-                                        {assistantServicesOptions}
-                                    </Dropdown>
-                                </Field>
-                            )}
-                            {manualEntry && (
-                                <Field label="Assistant Service ID">
-                                    <Input
-                                        disabled={submitted}
-                                        value={assistantServiceId}
-                                        onChange={handleAssistantServiceIdChange}
-                                        aria-autocomplete="none"
-                                    />
-                                </Field>
-                            )}
-                            <Field label="Name">
-                                <Input
-                                    disabled={submitted}
-                                    value={name}
-                                    onChange={handleNameChange}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
-                            <div className={classes.serviceOptions}>
-                                <Checkbox
-                                    disabled={submitted}
-                                    style={{ whiteSpace: 'nowrap' }}
-                                    label="Enter Assistant Service ID"
-                                    checked={manualEntry}
-                                    onChange={handleManualEntryChange}
-                                />
-                                <AssistantImport label="Import Assistant" disabled={submitted} />
-                            </div>
-                        </>
-                    )}
-                    <button disabled={preventSubmit} type="submit" hidden />
-                </div>
-            </form>
+                disabled={submitted}
+            />
             <div className={classes.actions}>
                 <ConversationsImport appearance="outline" onImport={handleImport} disabled={submitted} />
                 {dismissButton}
-                <Button appearance="primary" onClick={handleCreate} disabled={preventSubmit}>
+                <Button appearance="primary" onClick={handleCreate} disabled={!isValid || submitted}>
                     New Conversation
                 </Button>
             </div>

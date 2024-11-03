@@ -1,4 +1,3 @@
-import { useAccount } from '@azure/msal-react';
 import React from 'react';
 import { Constants } from '../Constants';
 import { Assistant } from '../models/Assistant';
@@ -11,6 +10,7 @@ import {
     useGetAssistantServiceRegistrationsQuery,
     useGetAssistantsQuery,
 } from '../services/workbench';
+import { useLocalUser } from './useLocalUser';
 
 export const useCreateConversation = () => {
     const {
@@ -30,12 +30,13 @@ export const useCreateConversation = () => {
         isLoading: myAssistantServicesLoading,
     } = useGetAssistantServiceRegistrationsQuery({ userIds: ['me'] });
 
-    const account = useAccount();
     const [createAssistant] = useCreateAssistantMutation();
     const [createConversation] = useCreateConversationMutation();
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
+
     const [isFetching, setIsFetching] = React.useState(false);
+    const localUser = useLocalUser();
 
     if (assistantsError) {
         const errorMessage = JSON.stringify(assistantsError);
@@ -64,11 +65,14 @@ export const useCreateConversation = () => {
 
     const create = async (
         title: string,
-        assistantInfo?: {
-            assistantId: string;
-            name: string;
-            assistantServiceId: string;
-        },
+        assistantInfo:
+            | {
+                  assistantId: string;
+              }
+            | {
+                  name: string;
+                  assistantServiceId: string;
+              },
     ) => {
         if (assistantsLoading || assistantServicesLoading || myAssistantServicesLoading) {
             throw new Error('Cannot create conversation while loading assistants or assistant services');
@@ -78,45 +82,39 @@ export const useCreateConversation = () => {
 
         const conversation = await createConversation({ title }).unwrap();
 
-        if (assistantInfo) {
-            const { assistantId, name, assistantServiceId } = assistantInfo;
-
-            if (assistantId === 'new') {
-                assistant = await createAssistant({
-                    name,
-                    assistantServiceId,
-                }).unwrap();
-                await refetchAssistants();
-            } else {
-                assistant = assistants?.find((a) => a.id === assistantId);
-            }
-
+        if ('assistantId' in assistantInfo) {
+            assistant = assistants?.find((a) => a.id === assistantInfo.assistantId);
             if (!assistant) {
                 throw new Error('Assistant not found');
             }
+        } else {
+            const { name, assistantServiceId } = assistantInfo;
 
-            // send event to notify the conversation that the user has joined
-            const accountName = account?.name;
-            if (accountName) {
-                await createConversationMessage({
-                    conversationId: conversation.id,
-                    content: `${accountName} created the conversation`,
-                    messageType: 'notice',
-                });
-            }
-
-            // send notice message first, to announce before assistant reacts to create event
-            await createConversationMessage({
-                conversationId: conversation.id,
-                content: `${assistant.name} added to conversation`,
-                messageType: 'notice',
-            });
-
-            await addConversationParticipant({
-                conversationId: conversation.id,
-                participantId: assistant.id,
-            });
+            assistant = await createAssistant({
+                name,
+                assistantServiceId,
+            }).unwrap();
+            await refetchAssistants();
         }
+
+        // send event to notify the conversation that the user has joined
+        await createConversationMessage({
+            conversationId: conversation.id,
+            content: `${localUser.name} created the conversation`,
+            messageType: 'notice',
+        });
+
+        // send notice message first, to announce before assistant reacts to create event
+        await createConversationMessage({
+            conversationId: conversation.id,
+            content: `${assistant.name} added to conversation`,
+            messageType: 'notice',
+        });
+
+        await addConversationParticipant({
+            conversationId: conversation.id,
+            participantId: assistant.id,
+        });
 
         return {
             assistant,
@@ -161,7 +159,7 @@ export const useCreateConversation = () => {
 
     return {
         isFetching,
-        create,
+        createConversation: create,
         assistantServicesByCategories,
         assistants,
     };
