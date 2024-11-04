@@ -28,6 +28,7 @@ import {
 } from '@fluentui/react-icons';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
+import { useExportUtility } from '../../../libs/useExportUtility';
 import { useLocalUser } from '../../../libs/useLocalUser';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
@@ -137,6 +138,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
     const classes = useClasses();
     const { getOwnerParticipant, wasSharedWithMe, hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
     const localUser = useLocalUser();
+    const { exportConversation } = useExportUtility();
     const [isHovered, setIsHovered] = React.useState(false);
 
     const showActions = isHovered || showSelectForActions;
@@ -187,14 +189,15 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                                     Rename
                                 </MenuItem>
                             )}
-                            {onExport && (
-                                <MenuItem
-                                    icon={<ArrowDownloadRegular />}
-                                    onClick={(event) => handleMenuItemClick(event, onExport)}
-                                >
-                                    Export
-                                </MenuItem>
-                            )}
+                            <MenuItem
+                                icon={<ArrowDownloadRegular />}
+                                onClick={async (event) => {
+                                    await exportConversation(conversation.id);
+                                    handleMenuItemClick(event, onExport);
+                                }}
+                            >
+                                Export
+                            </MenuItem>
                             {onDuplicate && (
                                 <MenuItem
                                     icon={<SaveCopyRegular />}
@@ -250,6 +253,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         selected,
         setPinned,
         onSelectForActions,
+        exportConversation,
     ]);
 
     const unread = hasUnreadMessages(conversation);

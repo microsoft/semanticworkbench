@@ -46,7 +46,6 @@ export const ConversationList: React.FC = () => {
     const [displayedConversations, setDisplayedConversations] = React.useState<Conversation[]>([]);
 
     const [renameConversation, setRenameConversation] = React.useState<Conversation>();
-    // const { exportConversation } = useExportUtility();
     const [duplicateConversation, setDuplicateConversation] = React.useState<Conversation>();
     const [shareConversation, setShareConversation] = React.useState<Conversation>();
     const [removeConversation, setRemoveConversation] = React.useState<Conversation>();
@@ -124,14 +123,6 @@ export const ConversationList: React.FC = () => {
         },
         [handleUpdateSelectedForActions],
     );
-
-    // FIXME: re-enable when it is no longer triggering a re-render every time
-    // const handleExportConversation = React.useCallback(
-    //     (conversation: Conversation) => {
-    //         exportConversation(conversation.id);
-    //     },
-    //     [exportConversation],
-    // );
 
     const actionHelpers = React.useMemo(
         () => (
@@ -215,7 +206,6 @@ export const ConversationList: React.FC = () => {
                             onSelect={handleItemSelect}
                             showSelectForActions={selectedForActions.size > 0}
                             onSelectForActions={handleItemSelectForActions}
-                            // onExport={handleExportConversation}
                             onRename={setRenameConversation}
                             onDuplicate={setDuplicateConversation}
                             onShare={setShareConversation}
