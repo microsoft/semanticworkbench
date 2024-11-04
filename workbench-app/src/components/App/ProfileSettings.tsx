@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { useAccount, useIsAuthenticated, useMsal } from '@azure/msal-react';
+import { useIsAuthenticated, useMsal } from '@azure/msal-react';
 import {
     Label,
     Link,
@@ -33,7 +33,6 @@ export const ProfileSettings: React.FC = () => {
     const classes = useClasses();
     const { instance } = useMsal();
     const isAuthenticated = useIsAuthenticated();
-    const account = useAccount();
     const microsoftGraph = useMicrosoftGraph();
     const { localUser, userPhoto } = useAppSelector((state) => state.app);
     const dispatch = useAppDispatch();
