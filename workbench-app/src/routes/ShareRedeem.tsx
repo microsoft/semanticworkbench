@@ -1,21 +1,13 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { useAccount } from '@azure/msal-react';
-import {
-    Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
-    DialogSurface,
-    DialogTitle,
-    DialogTrigger,
-} from '@fluentui/react-components';
+import { Button, DialogTrigger } from '@fluentui/react-components';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
+import { DialogControl } from '../components/App/DialogControl';
 import { Loading } from '../components/App/Loading';
 import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
+import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useWorkbenchService } from '../libs/useWorkbenchService';
 import { Conversation } from '../models/Conversation';
@@ -36,7 +28,7 @@ export const ShareRedeem: React.FC = () => {
     const [submitted, setSubmitted] = React.useState(false);
     const [joinAttempted, setJoinAttempted] = React.useState(false);
     const conversationUtility = useConversationUtility();
-    const account = useAccount();
+    const localUser = useLocalUser();
 
     if (!conversationShareId) {
         throw new Error('Conversation Share ID is required');
@@ -69,11 +61,10 @@ export const ShareRedeem: React.FC = () => {
                 const hash = messageId ? `#${messageId}` : '';
 
                 // send event to notify the conversation that the user has joined
-                const accountName = account?.name;
-                if (conversationShare.conversationPermission === 'read_write' && accountName) {
+                if (conversationShare.conversationPermission === 'read_write') {
                     await createConversationMessage({
                         conversationId: conversationShare.conversationId,
-                        content: `${accountName} joined the conversation`,
+                        content: `${localUser.name} joined the conversation`,
                         messageType: 'notice',
                     });
                 }
@@ -83,7 +74,7 @@ export const ShareRedeem: React.FC = () => {
                 setSubmitted(false);
             }
         },
-        [conversationShare, redeemShare, account?.name, navigate, createConversationMessage],
+        [conversationShare, redeemShare, navigate, createConversationMessage, localUser.name],
     );
 
     const handleClickDuplicate = React.useCallback(async () => {
@@ -139,27 +130,21 @@ export const ShareRedeem: React.FC = () => {
     const renderAppView = React.useCallback(
         (options: {
             dialogTitle?: string;
-            dialogContent?: JSX.Element;
-            dialogActions?: JSX.Element;
+            dialogContent?: React.ReactElement;
+            dialogActions?: React.ReactElement[];
             dismissLabel?: string;
         }) => {
             const { dialogTitle, dialogContent, dialogActions, dismissLabel } = options;
             return (
                 <AppView title={title}>
-                    <Dialog open={true}>
-                        <DialogSurface>
-                            <DialogBody>
-                                {dialogTitle && <DialogTitle>{dialogTitle}</DialogTitle>}
-                                {dialogContent && <DialogContent>{dialogContent}</DialogContent>}
-                                <DialogActions>
-                                    <DialogTrigger>
-                                        <Button onClick={handleDismiss}>{dismissLabel ?? 'Cancel'}</Button>
-                                    </DialogTrigger>
-                                    {dialogActions}
-                                </DialogActions>
-                            </DialogBody>
-                        </DialogSurface>
-                    </Dialog>
+                    <DialogControl
+                        open={true}
+                        onOpenChange={handleDismiss}
+                        title={dialogTitle}
+                        content={dialogContent}
+                        closeLabel={dismissLabel ?? 'Close'}
+                        additionalActions={dialogActions}
+                    />
                 </AppView>
             );
         },
@@ -173,7 +158,7 @@ export const ShareRedeem: React.FC = () => {
             onClick: () => void;
         }) => {
             return (
-                <DialogTrigger>
+                <DialogTrigger disableButtonEnhancement>
                     <Button
                         style={{ width: 'max-content' }}
                         appearance={options?.appearance ?? 'primary'}
@@ -286,19 +271,17 @@ export const ShareRedeem: React.FC = () => {
                         <p>{copyNote}</p>
                     </>
                 ),
-                dialogActions: (
-                    <>
-                        {renderTrigger({
-                            label: 'Create copy',
-                            onClick: handleClickDuplicate,
-                            appearance: 'secondary',
-                        })}
-                        {renderTrigger({
-                            label: 'Join',
-                            onClick: handleClickJoin,
-                        })}
-                    </>
-                ),
+                dialogActions: [
+                    renderTrigger({
+                        label: 'Create copy',
+                        onClick: handleClickDuplicate,
+                        appearance: 'secondary',
+                    }),
+                    renderTrigger({
+                        label: 'Join',
+                        onClick: handleClickJoin,
+                    }),
+                ],
             });
 
         // Handle the case where the user has been invited to observe the conversation.
@@ -316,19 +299,17 @@ export const ShareRedeem: React.FC = () => {
                         <p>{copyNote}</p>
                     </>
                 ),
-                dialogActions: (
-                    <>
-                        {renderTrigger({
-                            label: 'Create copy',
-                            onClick: handleClickDuplicate,
-                            appearance: 'secondary',
-                        })}
-                        {renderTrigger({
-                            label: 'Observe',
-                            onClick: handleClickJoin,
-                        })}
-                    </>
-                ),
+                dialogActions: [
+                    renderTrigger({
+                        label: 'Create copy',
+                        onClick: handleClickDuplicate,
+                        appearance: 'secondary',
+                    }),
+                    renderTrigger({
+                        label: 'Observe',
+                        onClick: handleClickJoin,
+                    }),
+                ],
             });
 
         // Handle the case where the user has been invited to duplicate the conversation.
@@ -345,14 +326,12 @@ export const ShareRedeem: React.FC = () => {
                         <p>{copyNote}</p>
                     </>
                 ),
-                dialogActions: (
-                    <>
-                        {renderTrigger({
-                            label: 'Create copy',
-                            onClick: handleClickDuplicate,
-                        })}
-                    </>
-                ),
+                dialogActions: [
+                    renderTrigger({
+                        label: 'Create copy',
+                        onClick: handleClickDuplicate,
+                    }),
+                ],
             });
     }
 };

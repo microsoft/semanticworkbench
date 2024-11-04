@@ -1,13 +1,14 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { Persona, makeStyles, tokens } from '@fluentui/react-components';
-import { AppGenericRegular, BotRegular, PersonRegular } from '@fluentui/react-icons';
 import React from 'react';
+import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Assistant } from '../../models/Assistant';
 import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAddConversationParticipantMutation, useCreateConversationMessageMutation } from '../../services/workbench';
 import { AssistantAdd } from '../Assistants/AssistantAdd';
+import { AssistantConfigure } from '../Assistants/AssistantConfigure';
 import { AssistantRemove } from '../Assistants/AssistantRemove';
 
 const useClasses = makeStyles({
@@ -22,6 +23,11 @@ const useClasses = makeStyles({
         alignItems: 'center',
         justifyContent: 'space-between',
     },
+    actions: {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: tokens.spacingHorizontalS,
+    },
 });
 
 interface ParticipantListProps {
@@ -34,6 +40,7 @@ interface ParticipantListProps {
 export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
     const { conversation, participants, preventAssistantModifyOnParticipantIds = [], readOnly } = props;
     const classes = useClasses();
+    const { sortParticipants, getAvatarData } = useParticipantUtility();
 
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
@@ -56,25 +63,14 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
         .filter((participant) => participant.active && participant.role === 'assistant')
         .map((participant) => participant.id);
 
-    const onlineParticipants = participants
-        .filter((participant) => participant.active)
-        .toSorted((a, b) => a.name.localeCompare(b.name));
-
     return (
         <div className={classes.root}>
             <AssistantAdd disabled={readOnly} exceptAssistantIds={exceptAssistantIds} onAdd={handleAssistantAdd} />
-            {onlineParticipants.map((participant) => (
+            {sortParticipants(participants).map((participant) => (
                 <div className={classes.participant} key={participant.id}>
                     <Persona
                         name={participant.name}
-                        avatar={{
-                            name: '',
-                            icon: {
-                                user: <PersonRegular />,
-                                assistant: <BotRegular />,
-                                service: <AppGenericRegular />,
-                            }[participant.role],
-                        }}
+                        avatar={getAvatarData(participant)}
                         secondaryText={
                             participant.role +
                             { read: ' (observer)', read_write: '' }[participant.conversationPermission]
@@ -88,11 +84,17 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
                         }
                     />
                     {participant.role === 'assistant' && (
-                        <AssistantRemove
-                            conversation={conversation}
-                            participant={participant}
-                            disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
-                        />
+                        <div className={classes.actions}>
+                            <AssistantConfigure
+                                assistantId={participant.id}
+                                disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
+                            />
+                            <AssistantRemove
+                                conversation={conversation}
+                                participant={participant}
+                                disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
+                            />
+                        </div>
                     )}
                 </div>
             ))}

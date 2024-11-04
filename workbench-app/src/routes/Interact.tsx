@@ -11,8 +11,8 @@ import { ConversationRename } from '../components/Conversations/ConversationRena
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
-import { useGetAssistantCapabilitiesSet } from '../libs/useAssistantCapabilities';
-import { useLocalUserAccount } from '../libs/useLocalUserAccount';
+import { useGetAssistantCapabilities } from '../libs/useAssistantCapabilities';
+import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Assistant } from '../models/Assistant';
 import {
@@ -20,7 +20,6 @@ import {
     useGetConversationFilesQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
-    useUpdateConversationMutation,
 } from '../services/workbench';
 
 const useClasses = makeStyles({
@@ -98,9 +97,10 @@ export const Interact: React.FC = () => {
         error: conversationFilesError,
         isLoading: isLoadingConversationFiles,
     } = useGetConversationFilesQuery(conversationId);
-    const [updateConversation] = useUpdateConversationMutation();
-    const { getUserId } = useLocalUserAccount();
-    const assistantCapabilities = useGetAssistantCapabilitiesSet(assistants ?? []);
+    const localUser = useLocalUser();
+    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
+        assistants ?? [],
+    );
 
     const siteUtility = useSiteUtility();
 
@@ -145,13 +145,6 @@ export const Interact: React.FC = () => {
         }
     }, [conversation, conversationParticipants, siteUtility]);
 
-    const handleConversationRename = React.useCallback(
-        async (id: string, newTitle: string) => {
-            await updateConversation({ id, title: newTitle });
-        },
-        [updateConversation],
-    );
-
     const conversationAssistants = React.useMemo(() => {
         const results: Assistant[] = [];
 
@@ -186,6 +179,7 @@ export const Interact: React.FC = () => {
         isLoadingConversation ||
         isLoadingConversationParticipants ||
         isLoadingConversationFiles ||
+        isFetchingAssistantCapabilities ||
         !assistants ||
         !assistantCapabilities ||
         !conversation ||
@@ -204,8 +198,6 @@ export const Interact: React.FC = () => {
         items: [<ConversationShare key="share" iconOnly conversation={conversation} />],
     };
 
-    const userId = getUserId();
-
     return (
         <AppView
             title={
@@ -213,8 +205,8 @@ export const Interact: React.FC = () => {
                     <ConversationRename
                         id={conversation.id}
                         value={conversation.title}
-                        disabled={conversation.ownerId !== userId}
-                        onRename={handleConversationRename}
+                        disabled={conversation.ownerId !== localUser.id}
+                        iconOnly
                     />
                     <Title3>{conversation.title}</Title3>
                 </div>

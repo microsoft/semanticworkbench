@@ -31,11 +31,11 @@ clean:
 
 .PHONY: lint
 lint:
-	uvx ruff check --fix .
+	uvx ruff check --no-cache --fix .
 
 .PHONY: format
 format:
-	uvx ruff format .
+	uvx ruff format --no-cache .
 
 ifneq ($(findstring pytest,$(if $(shell $(call command_exists,uv) $(stderr_redirect_null)),$(shell uv tree --depth 1 $(stderr_redirect_null)),)),)
 .PHONY: test

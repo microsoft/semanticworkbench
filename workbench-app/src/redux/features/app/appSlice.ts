@@ -5,6 +5,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
 import { InteractCanvasState } from '../../../models/InteractCanvasState';
+import { conversationApi } from '../../../services/workbench';
 import { AppState } from './AppState';
 
 const localStorageKey = {
@@ -31,6 +32,10 @@ const initialState: AppState = {
         open: false,
         mode: 'conversation',
     },
+    userPhoto: {
+        src: undefined,
+        isLoading: false,
+    },
 };
 
 export const appSlice = createSlice({
@@ -45,6 +50,16 @@ export const appSlice = createSlice({
             state.isDraggingOverBody = action.payload;
         },
         addError: (state: AppState, action: PayloadAction<{ title?: string; message?: string }>) => {
+            // exit if matching error already exists
+            if (
+                state.errors?.some(
+                    (error) => error.title === action.payload.title && error.message === action.payload.message,
+                )
+            ) {
+                return;
+            }
+
+            // add error
             state.errors?.push({
                 id: generateUuid(),
                 title: action.payload.title,
@@ -67,9 +82,6 @@ export const appSlice = createSlice({
         ) => {
             if (action.payload.app !== undefined) {
                 AppStorage.getInstance().saveObject(localStorageKey.completedFirstRunApp, action.payload.app);
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.app = action.payload.app;
             }
             if (action.payload.experimental !== undefined) {
@@ -77,22 +89,56 @@ export const appSlice = createSlice({
                     localStorageKey.completedFirstRunExperimental,
                     action.payload.experimental,
                 );
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.experimental = action.payload.experimental;
             }
             if (action.payload.workflow !== undefined) {
                 AppStorage.getInstance().saveObject(localStorageKey.completedFirstRunWorkflow, action.payload.workflow);
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
         setInteractCanvasState: (state: AppState, action: PayloadAction<Partial<InteractCanvasState>>) => {
-            // merge with existing state
-            state.interactCanvasState = { ...state.interactCanvasState, ...action.payload };
+            // update only the provided properties
+            if (action.payload.open !== undefined) {
+                state.interactCanvasState.open = action.payload.open;
+            }
+
+            if (action.payload.mode !== undefined) {
+                state.interactCanvasState.mode = action.payload.mode;
+            }
+
+            if (action.payload.assistantId !== undefined) {
+                state.interactCanvasState.assistantId = action.payload.assistantId;
+            }
+
+            if (action.payload.assistantStateId !== undefined) {
+                state.interactCanvasState.assistantStateId = action.payload.assistantStateId;
+            }
+        },
+        setActiveConversationId: (state: AppState, action: PayloadAction<string | undefined>) => {
+            if (action.payload === state.activeConversationId) {
+                return;
+            }
+            state.activeConversationId = action.payload;
+
+            // dispatch to invalidate messages cache
+            if (action.payload) {
+                conversationApi.endpoints.getConversationMessages.initiate(action.payload, { forceRefetch: true });
+            }
+        },
+        setLocalUser: (state: AppState, action: PayloadAction<AppState['localUser']>) => {
+            state.localUser = action.payload;
+        },
+        setUserPhoto: (state: AppState, action: PayloadAction<{ src?: string; isLoading?: boolean }>) => {
+            state.userPhoto.src = action.payload.src;
+            state.userPhoto.isLoading = action.payload.isLoading ?? false;
+
+            // update local user avatar
+            if (state.localUser) {
+                state.localUser.avatar = {
+                    ...state.localUser.avatar,
+                    image: action.payload.src ? { src: action.payload.src } : undefined,
+                };
+            }
         },
     },
 });
@@ -106,6 +152,9 @@ export const {
     setChatWidthPercent,
     setCompletedFirstRun,
     setInteractCanvasState,
+    setActiveConversationId,
+    setLocalUser,
+    setUserPhoto,
 } = appSlice.actions;
 
 export default appSlice.reducer;

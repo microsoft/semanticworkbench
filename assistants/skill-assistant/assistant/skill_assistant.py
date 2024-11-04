@@ -102,10 +102,6 @@ async def on_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
-    # ignore messages from this assistant
-    if message.sender.participant_id == context.assistant.id:
-        return
-
     # pass the message to the core response logic
     await respond_to_conversation(context, event, message)
 
@@ -117,10 +113,6 @@ async def on_command_message_created(
     """
     Handle the event triggered when a new command message is created in the conversation.
     """
-
-    # ignore messages from this assistant
-    if message.sender.participant_id == context.assistant.id:
-        return
 
     # pass the message to the core response logic
     await respond_to_conversation(context, event, message)

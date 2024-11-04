@@ -213,7 +213,9 @@ def replace_config_secret_str_masked_values(model_values: ModelT, original_model
             continue
 
         if field_info.annotation is ConfigSecretStr:
-            if hasattr(original_model_values, field_name) and re.match(r"^[*]+$", getattr(updated_model_values, field_name)):
+            if hasattr(original_model_values, field_name) and re.match(
+                r"^[*]+$", getattr(updated_model_values, field_name)
+            ):
                 setattr(updated_model_values, field_name, getattr(original_model_values, field_name))
             continue
 

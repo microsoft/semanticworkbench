@@ -104,7 +104,7 @@ export const WorkflowHelp: React.FC = () => {
                 }
             }}
         >
-            <DialogTrigger>
+            <DialogTrigger disableButtonEnhancement>
                 <CommandButton description="Help" iconOnly icon={<Question24Regular />} />
             </DialogTrigger>
             <DialogSurface className={classes.surface}>

@@ -1,0 +1,62 @@
+import { AvatarProps } from '@fluentui/react-components';
+import { AppGenericRegular, BotRegular, PersonRegular } from '@fluentui/react-icons';
+import React from 'react';
+import { ConversationParticipant } from '../models/ConversationParticipant';
+import { useLocalUser } from './useLocalUser';
+
+export const useParticipantUtility = () => {
+    const localUser = useLocalUser();
+
+    const getAvatarData = React.useCallback(
+        (participant: ConversationParticipant | 'localUser') => {
+            if (participant === 'localUser') {
+                return localUser.avatar;
+            }
+
+            const { id, name, image, role } = participant;
+
+            if (id === localUser.id) {
+                return localUser.avatar;
+            }
+
+            let avatar: AvatarProps = {
+                name: role === 'user' ? name : '',
+                color: role !== 'user' ? 'neutral' : undefined,
+                icon: {
+                    user: <PersonRegular />,
+                    assistant: <BotRegular />,
+                    service: <AppGenericRegular />,
+                }[role],
+            };
+
+            if (image) {
+                avatar = { ...avatar, image: { src: image } };
+            }
+
+            return avatar;
+        },
+        [localUser.avatar, localUser.id],
+    );
+
+    const sortParticipants = React.useCallback(
+        (participants: ConversationParticipant[], includeInactive?: boolean, mixUsersWithAssistants?: boolean) => {
+            const result = [];
+            if (mixUsersWithAssistants) {
+                const users = participants.filter((participant) => participant.role === 'user');
+                const assistants = participants.filter((participant) => participant.role === 'assistant');
+                result.push(...users, ...assistants);
+            } else {
+                result.push(...participants);
+            }
+            return result
+                .filter((participant) => includeInactive || participant.active)
+                .sort((a, b) => a.name.localeCompare(b.name));
+        },
+        [],
+    );
+
+    return {
+        getAvatarData,
+        sortParticipants,
+    };
+};

@@ -122,7 +122,7 @@ class AttachmentsExtension:
         self,
         context: ConversationContext,
         config: AttachmentsConfigModel,
-        include_filenames: list[str] = [],
+        include_filenames: list[str] | None = None,
         exclude_filenames: list[str] = [],
     ) -> Sequence[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam]:
         """
@@ -197,12 +197,39 @@ class AttachmentsExtension:
 
         return messages
 
+    async def get_attachment_filenames(
+        self,
+        context: ConversationContext,
+        config: AttachmentsConfigModel,
+        include_filenames: list[str] | None = None,
+        exclude_filenames: list[str] = [],
+    ) -> list[str]:
+        if not config.include_in_response_generation:
+            return []
+
+        # get attachments, filtered by include_filenames and exclude_filenames
+        attachments = await _get_attachments(
+            context,
+            error_handler=self._error_handler,
+            include_filenames=include_filenames,
+            exclude_filenames=exclude_filenames,
+        )
+
+        if not attachments:
+            return []
+
+        filenames: list[str] = []
+        for attachment in attachments:
+            filenames.append(attachment.filename)
+
+        return filenames
+
 
 async def _get_attachments(
     context: ConversationContext,
     error_handler: AttachmentProcessingErrorHandler,
-    include_filenames: list[str] = [],
-    exclude_filenames: list[str] = [],
+    include_filenames: list[str] | None,
+    exclude_filenames: list[str],
 ) -> Sequence[Attachment]:
     """
     Gets all attachments for the current state of the conversation, updating the cache as needed.
@@ -214,7 +241,7 @@ async def _get_attachments(
     attachments = []
     # for all files, get the attachment
     for file in files_response.files:
-        if include_filenames and file.filename not in include_filenames:
+        if include_filenames is not None and file.filename not in include_filenames:
             continue
         if file.filename in exclude_filenames:
             continue
@@ -299,7 +326,7 @@ async def _get_attachment_for_file(
         content = ""
         error = ""
         # process the file to create an attachment
-        async with context.set_status_for_block(f"updating attachment {file.filename} ..."):
+        async with context.set_status(f"updating attachment {file.filename} ..."):
             try:
                 # read the content of the file
                 file_bytes = await _read_conversation_file(context, file)

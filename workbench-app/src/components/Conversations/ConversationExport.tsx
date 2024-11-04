@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import React from 'react';
-import { useWorkbenchService } from '../../libs/useWorkbenchService';
+import { useExportUtility } from '../../libs/useExportUtility';
 import { ContentExport } from '../App/ContentExport';
 
 interface ConversationExportProps {
@@ -12,17 +12,13 @@ interface ConversationExportProps {
 
 export const ConversationExport: React.FC<ConversationExportProps> = (props) => {
     const { conversationId, iconOnly, asToolbarButton } = props;
-    const workbenchService = useWorkbenchService();
-
-    const exportConversation = async (conversationId: string) => {
-        return await workbenchService.exportConversationsAsync([conversationId]);
-    };
+    const { exportConversationFunction } = useExportUtility();
 
     return (
         <ContentExport
             id={conversationId}
             contentTypeLabel="conversation"
-            exportFunction={exportConversation}
+            exportFunction={exportConversationFunction}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
         />

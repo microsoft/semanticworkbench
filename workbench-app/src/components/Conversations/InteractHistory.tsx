@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 import { CopilotChat, ResponseCount } from '@fluentui-copilot/react-copilot';
-import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -10,10 +10,12 @@ import { useLocation } from 'react-router-dom';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
-import { WorkbenchEventSource } from '../../libs/WorkbenchEventSource';
+import { Utility } from '../../libs/Utility';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
+import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { Conversation } from '../../models/Conversation';
-import { conversationMessageFromJSON } from '../../models/ConversationMessage';
+import { ConversationMessage, conversationMessageFromJSON } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch } from '../../redux/app/hooks';
 import {
@@ -31,9 +33,7 @@ dayjs.tz.guess();
 
 const useClasses = makeStyles({
     root: {
-        // do not use flexbox here, it breaks the virtuoso
-        width: '100%',
-        maxWidth: `${Constants.app.maxContentWidth}px`,
+        height: '100%',
     },
     virtuoso: {
         '::-webkit-scrollbar-thumb': {
@@ -55,14 +55,16 @@ interface InteractHistoryProps {
     conversation: Conversation;
     participants: ConversationParticipant[];
     readOnly: boolean;
+    className?: string;
 }
 
 export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
-    const { conversation, participants, readOnly } = props;
+    const { conversation, participants, readOnly, className } = props;
     const classes = useClasses();
     const { hash } = useLocation();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
     const [hashItemIndex, setHashItemIndex] = React.useState<number>();
+    const { setLastRead } = useConversationUtility();
     const environment = useEnvironment();
     const dispatch = useAppDispatch();
 
@@ -111,6 +113,13 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         performScrollToBottom();
     }, [performScrollToBottom]);
 
+    const handleOnRead = React.useCallback(
+        (message: ConversationMessage) => {
+            setLastRead(conversation, message.timestamp);
+        },
+        [setLastRead, conversation],
+    );
+
     React.useEffect(() => {
         if (isLoadingMessages || !messages) {
             setItems([]);
@@ -151,7 +160,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         </>
                     );
                 }
-                const date = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('M/D/YY');
+                const date = Utility.toFormattedDateString(message.timestamp, 'M/D/YY');
                 let displayDate = false;
                 if (date !== lastDate) {
                     displayDate = true;
@@ -187,6 +196,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                             participant={senderParticipant}
                             hideParticipant={hideParticipant}
                             displayDate={displayDate}
+                            onRead={handleOnRead}
                         />
                     </div>
                 );
@@ -211,6 +221,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         classes.item,
         classes.status,
         conversation,
+        handleOnRead,
         handleParticipantStatusChange,
         hash,
         hashItemIndex,
@@ -269,7 +280,11 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
         (async () => {
             // create or update the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversation.id);
+            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversation.id,
+            );
             workbenchEventSource.addEventListener('message.created', messageHandler);
             workbenchEventSource.addEventListener('message.deleted', messageHandler);
             workbenchEventSource.addEventListener('participant.created', participantCreatedHandler);
@@ -278,7 +293,9 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
         return () => {
             (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance();
+                const workbenchEventSource = await WorkbenchEventSource.getInstance(
+                    WorkbenchEventSourceType.Conversation,
+                );
                 workbenchEventSource.removeEventListener('message.created', messageHandler);
                 workbenchEventSource.removeEventListener('message.deleted', messageHandler);
                 workbenchEventSource.removeEventListener('participant.created', participantCreatedHandler);
@@ -292,7 +309,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     }
 
     return (
-        <CopilotChat style={{ height: '100%' }}>
+        <CopilotChat className={mergeClasses(classes.root, className ?? '')}>
             <AutoSizer>
                 {({ height, width }: { height: number; width: number }) => (
                     <Virtuoso

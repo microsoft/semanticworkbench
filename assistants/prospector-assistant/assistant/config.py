@@ -8,6 +8,7 @@ from semantic_workbench_assistant.config import UISchema
 
 from . import helpers
 from .agents.artifact_agent import ArtifactAgentConfigModel
+from .agents.form_fill_agent import FormFillAgentConfig
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -25,6 +26,10 @@ from .agents.artifact_agent import ArtifactAgentConfigModel
 
 
 class AgentsConfigModel(BaseModel):
+    form_fill_agent: Annotated[FormFillAgentConfig, Field(title="Form Fill Agent Configuration")] = (
+        FormFillAgentConfig()
+    )
+
     artifact_agent: Annotated[
         ArtifactAgentConfigModel,
         Field(
@@ -168,10 +173,8 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = (
-        'Hello! I am a "co-intelligence" assistant that can help you synthesize information from conversations and'
-        " documents to create a shared understanding of complex topics. Let's get started by having a conversation!"
-        " You can also attach .docx, text, and image files to your chat messages to help me better understand the"
-        " context of our conversation. Where would you like to start?"
+        'Hello! I am a "form-filling" assistant that can help you fill out forms.'
+        " Upload a .docx with a form, and we'll get started!"
     )
 
     high_token_usage_warning: Annotated[

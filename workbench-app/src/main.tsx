@@ -12,7 +12,7 @@ import { Constants } from './Constants';
 import { Root } from './Root';
 import './index.css';
 import { AuthHelper } from './libs/AuthHelper';
-import { getCustomTheme } from './libs/useCustomTheme';
+import { Theme } from './libs/Theme';
 import { getEnvironment } from './libs/useEnvironment';
 import { store } from './redux/app/store';
 import { AcceptTerms } from './routes/AcceptTerms';
@@ -20,6 +20,7 @@ import { AssistantEditor } from './routes/AssistantEditor';
 import { AssistantServiceRegistrationEditor } from './routes/AssistantServiceRegistrationEditor';
 import { Dashboard } from './routes/Dashboard';
 import { ErrorPage } from './routes/ErrorPage';
+import { FrontDoor } from './routes/FrontDoor';
 import { Interact } from './routes/Interact';
 import { Login } from './routes/Login';
 import { Settings } from './routes/Settings';
@@ -67,6 +68,10 @@ const authenticatedRouter = createBrowserRouter([
             {
                 index: true,
                 element: <Dashboard />,
+            },
+            {
+                path: '/frontdoor/:conversationId?',
+                element: <FrontDoor />,
             },
             {
                 path: '/settings',
@@ -131,7 +136,7 @@ export const getMsalInstance = async () => {
     return msalInstance;
 };
 
-const customTheme = getCustomTheme('light', getEnvironment(store.getState().settings.environmentId)?.brand);
+const customTheme = Theme.getCustomTheme('light', getEnvironment(store.getState().settings.environmentId)?.brand);
 
 initializeFileTypeIcons();
 

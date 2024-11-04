@@ -16,8 +16,8 @@ import React from 'react';
 import { Constants } from '../../Constants';
 import { InteractHistory } from '../../components/Conversations/InteractHistory';
 import { InteractInput } from '../../components/Conversations/InteractInput';
-import { WorkbenchEventSource } from '../../libs/WorkbenchEventSource';
-import { useGetAssistantCapabilitiesSet } from '../../libs/useAssistantCapabilities';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
+import { useGetAssistantCapabilities } from '../../libs/useAssistantCapabilities';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { useInteractCanvasController } from '../../libs/useInteractCanvasController';
 import { useSiteUtility } from '../../libs/useSiteUtility';
@@ -152,7 +152,9 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoading: isLoadingParticipants,
         error: participantsError,
     } = useGetConversationParticipantsQuery(conversationId, { refetchOnMountOrArgChange: true });
-    const assistantCapabilities = useGetAssistantCapabilitiesSet(workflowRunAssistants ?? []);
+    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
+        workflowRunAssistants ?? [],
+    );
 
     const [isResizing, setIsResizing] = React.useState(false);
     const siteUtility = useSiteUtility();
@@ -227,7 +229,11 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         };
 
         (async () => {
-            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
+            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversationId,
+            );
             workbenchEventSource.addEventListener('assistant.state.focus', handleFocusEvent);
         })();
 
@@ -240,6 +246,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoadingWorkflowRunAssistants ||
         isLoadingConversation ||
         isLoadingParticipants ||
+        isFetchingAssistantCapabilities ||
         !assistantCapabilities ||
         !conversation ||
         !participants ||

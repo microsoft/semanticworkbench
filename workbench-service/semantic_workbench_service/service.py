@@ -48,6 +48,7 @@ from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     Conversation,
     ConversationEvent,
+    ConversationEventType,
     ConversationImportResult,
     ConversationList,
     ConversationMessage,
@@ -106,6 +107,10 @@ def init(
 
     conversation_sse_queues_lock = asyncio.Lock()
     conversation_sse_queues: dict[uuid.UUID, set[asyncio.Queue[ConversationEvent]]] = defaultdict(set)
+
+    user_sse_queues_lock = asyncio.Lock()
+    user_sse_queues: dict[str, set[asyncio.Queue[uuid.UUID]]] = defaultdict(set)
+
     assistant_event_queues: dict[uuid.UUID, asyncio.Queue[ConversationEvent]] = {}
 
     background_tasks: set[asyncio.Task] = set()
@@ -170,6 +175,19 @@ def init(
                 queue_item.event.id,
             )
 
+            if queue_item.event.event in [
+                ConversationEventType.message_created,
+                ConversationEventType.message_deleted,
+                ConversationEventType.conversation_updated,
+                ConversationEventType.participant_created,
+                ConversationEventType.participant_updated,
+            ]:
+                task = asyncio.create_task(
+                    _notify_user_event(queue_item.event.conversation_id), name="notify_user_event"
+                )
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
+
         if "assistant" in queue_item.event_audience:
             async with _controller_get_session() as session:
                 assistant_ids = (
@@ -204,6 +222,30 @@ def init(
                     queue_item.event.id,
                     assistant_id,
                 )
+
+    async def _notify_user_event(conversation_id: uuid.UUID) -> None:
+        listening_user_ids = set(user_sse_queues.keys())
+        async with _controller_get_session() as session:
+            active_user_participants = (
+                await session.exec(
+                    select(db.UserParticipant.user_id).where(
+                        col(db.UserParticipant.active_participant).is_(True),
+                        db.UserParticipant.conversation_id == conversation_id,
+                        col(db.UserParticipant.user_id).in_(listening_user_ids),
+                    )
+                )
+            ).all()
+
+        if not active_user_participants:
+            return
+
+        async with user_sse_queues_lock:
+            for user_id in active_user_participants:
+                for queue in user_sse_queues.get(user_id, {}):
+                    await queue.put(conversation_id)
+                    logger.debug(
+                        "enqueued event for user SSE; user_id: %s, conversation_id: %s", user_id, conversation_id
+                    )
 
     assistant_client_pool = controller.AssistantServiceClientPool(api_key_store=api_key_store)
 
@@ -568,10 +610,12 @@ def init(
     async def get_assistant_conversations(
         assistant_id: uuid.UUID,
         user_principal: auth.DependsUserPrincipal,
+        latest_message_types: Annotated[list[MessageType], Query(alias="latest_message_type")] = [MessageType.chat],
     ) -> ConversationList:
         return await conversation_controller.get_assistant_conversations(
             user_principal=user_principal,
             assistant_id=assistant_id,
+            latest_message_types=set(latest_message_types),
         )
 
     @app.get("/conversations/{conversation_id}/events")
@@ -579,7 +623,9 @@ def init(
         conversation_id: uuid.UUID, request: Request, user_principal: auth.DependsUserPrincipal
     ) -> EventSourceResponse:
         # ensure the conversation exists
-        await conversation_controller.get_conversation(conversation_id=conversation_id, principal=user_principal)
+        await conversation_controller.get_conversation(
+            conversation_id=conversation_id, principal=user_principal, latest_message_types=set()
+        )
 
         logger.debug(
             "client connected to sse; user_id: %s, conversation_id: %s", user_principal.user_id, conversation_id
@@ -643,6 +689,66 @@ def init(
 
         return EventSourceResponse(event_generator(), sep="\n")
 
+    @app.get("/events")
+    async def user_server_sent_events(
+        request: Request, user_principal: auth.DependsUserPrincipal
+    ) -> EventSourceResponse:
+        logger.debug("client connected to user events sse; user_id: %s", user_principal.user_id)
+
+        event_queue = asyncio.Queue[uuid.UUID]()
+
+        async with user_sse_queues_lock:
+            queues = user_sse_queues[user_principal.user_id]
+            queues.add(event_queue)
+
+        async def event_generator() -> AsyncIterator[ServerSentEvent]:
+            try:
+                while True:
+                    if stop_signal.is_set():
+                        logger.debug("sse stopping due to signal; user_id: %s", user_principal.user_id)
+                        break
+
+                    try:
+                        if await request.is_disconnected():
+                            logger.debug("client disconnected from sse; user_id: %s", user_principal.user_id)
+                            break
+                    except Exception:
+                        logger.exception(
+                            "error checking if client disconnected from sse; user_id: %s", user_principal.user_id
+                        )
+                        break
+
+                    try:
+                        try:
+                            async with asyncio.timeout(1):
+                                conversation_id = await event_queue.get()
+                        except asyncio.TimeoutError:
+                            continue
+
+                        server_sent_event = ServerSentEvent(
+                            id=uuid.uuid4().hex,
+                            event="message.created",
+                            data=json.dumps({"conversation_id": str(conversation_id)}),
+                            retry=1000,
+                        )
+                        yield server_sent_event
+                        logger.debug(
+                            "sent event to user sse client; user_id: %s, event: %s",
+                            user_principal.user_id,
+                        )
+
+                    except Exception:
+                        logger.exception("error sending event to sse client; user_id: %s", user_principal.user_id)
+
+            finally:
+                queues.discard(event_queue)
+                if len(queues) == 0:
+                    async with conversation_sse_queues_lock:
+                        if len(queues) == 0:
+                            user_sse_queues.pop(user_principal.user_id, None)
+
+        return EventSourceResponse(event_generator(), sep="\n")
+
     @app.post("/conversations")
     async def create_conversation(
         new_conversation: NewConversation,
@@ -657,20 +763,24 @@ def init(
     async def list_conversations(
         principal: auth.DependsActorPrincipal,
         include_inactive: bool = False,
+        latest_message_types: Annotated[list[MessageType], Query(alias="latest_message_type")] = [MessageType.chat],
     ) -> ConversationList:
         return await conversation_controller.get_conversations(
             principal=principal,
             include_all_owned=include_inactive,
+            latest_message_types=set(latest_message_types),
         )
 
     @app.get("/conversations/{conversation_id}")
     async def get_conversation(
         conversation_id: uuid.UUID,
         principal: auth.DependsActorPrincipal,
+        latest_message_types: Annotated[list[MessageType], Query(alias="latest_message_type")] = [MessageType.chat],
     ) -> Conversation:
         return await conversation_controller.get_conversation(
             principal=principal,
             conversation_id=conversation_id,
+            latest_message_types=set(latest_message_types),
         )
 
     @app.patch("/conversations/{conversation_id}")

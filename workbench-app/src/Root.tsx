@@ -1,3 +1,4 @@
+import { Toaster } from '@fluentui/react-components';
 import debug from 'debug';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
@@ -40,5 +41,10 @@ export const Root: React.FC = () => {
         }
     }, [isDraggingOver, isDraggingOverBody, dispatch]);
 
-    return <Outlet />;
+    return (
+        <>
+            <Outlet />
+            <Toaster toasterId={Constants.app.globalToasterId} />
+        </>
+    );
 };

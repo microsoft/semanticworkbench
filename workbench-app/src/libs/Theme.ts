@@ -2,7 +2,7 @@
 
 import { BrandVariants, createDarkTheme, createLightTheme } from '@fluentui/react-components';
 
-export const getCustomTheme = (theme: string, brand?: string) => {
+const getCustomTheme = (theme: string, brand?: string) => {
     let customBrandRamp: BrandVariants;
     switch (brand) {
         case 'orange':
@@ -17,6 +17,10 @@ export const getCustomTheme = (theme: string, brand?: string) => {
     }
 
     return theme === 'light' ? createLightTheme(customBrandRamp) : createDarkTheme(customBrandRamp);
+};
+
+export const Theme = {
+    getCustomTheme,
 };
 
 // Generate at: https://fluentuipr.z22.web.core.windows.net/pull/24507/theme-designer/storybook/index.html?path=/story/themedesigner--page

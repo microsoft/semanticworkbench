@@ -12,6 +12,7 @@ import { Utility } from '../../libs/Utility';
 import { Assistant } from '../../models/Assistant';
 import { useGetConfigQuery, useUpdateConfigMutation } from '../../services/workbench';
 import { ConfirmLeave } from '../App/ConfirmLeave';
+import { ErrorMessageBar } from '../App/ErrorMessageBar';
 import { BaseModelEditorWidget } from '../App/FormWidgets/BaseModelEditorWidget';
 import { CustomizedArrayFieldTemplate } from '../App/FormWidgets/CustomizedArrayFieldTemplate';
 import CustomizedFieldTemplate from '../App/FormWidgets/CustomizedFieldTemplate';
@@ -48,11 +49,11 @@ const useClasses = makeStyles({
     },
 });
 
-interface AssistantInstanceEditProps {
+interface AssistantConfigurationProps {
     assistant: Assistant;
 }
 
-export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
+export const AssistantConfiguration: React.FC<AssistantConfigurationProps> = (props) => {
     const { assistant } = props;
     const classes = useClasses();
     const {
@@ -64,11 +65,11 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
     const [formData, setFormData] = React.useState<object>();
     const [isDirty, setDirty] = React.useState(false);
     const [isValid, setValid] = React.useState(true);
+    const [configErrorMessage, setConfigErrorMessage] = React.useState<string>();
 
-    if (configError) {
-        const errorMessage = JSON.stringify(configError);
-        throw new Error(`Error loading assistant config: ${errorMessage}`);
-    }
+    React.useEffect(() => {
+        setConfigErrorMessage(configError ? JSON.stringify(configError) : undefined);
+    }, [configError]);
 
     React.useEffect(() => {
         if (isLoadingConfig) return;
@@ -108,10 +109,6 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
         }
     }, [config, formData]);
 
-    if (isLoadingConfig || !config) {
-        return <Loading />;
-    }
-
     const restoreConfig = (config: object) => {
         log('Restoring config', config);
         setFormData(config);
@@ -135,80 +132,90 @@ export const AssistantEdit: React.FC<AssistantInstanceEditProps> = (props) => {
         ObjectFieldTemplate: CustomizedObjectFieldTemplate,
     };
 
+    if (isLoadingConfig) {
+        return <Loading />;
+    }
+
     return (
         <Card className={classes.card}>
             <Text size={400} weight="semibold">
                 Assistant Configuration
             </Text>
-            <Text size={300} italic color="neutralSecondary">
-                Please practice Responsible AI when configuring your assistant. See the{' '}
-                <a
-                    href="https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
-                    target="_blank"
-                    rel="noreferrer"
-                >
-                    Microsoft Azure OpenAI Service: System message templates
-                </a>{' '}
-                page for suggestions regarding content for the prompts below.
-            </Text>
-            <Divider />
-            <ConfirmLeave isDirty={isDirty} />
-            <div className={classes.actions}>
-                <Button appearance="primary" form="assistant-config-form" type="submit" disabled={!isDirty}>
-                    Save
-                </Button>
-                <ApplyConfigButton
-                    label="Reset"
-                    confirmMessage="Are you sure you want to reset the changes to configuration?"
-                    currentConfig={formData}
-                    newConfig={config.config}
-                    onApply={restoreConfig}
-                />
-                <ApplyConfigButton
-                    label="Load defaults"
-                    confirmMessage="Are you sure you want to load the default configuration?"
-                    currentConfig={formData}
-                    newConfig={defaults}
-                    onApply={restoreConfig}
-                />
-                <AssistantConfigExportButton config={config?.config || {}} assistantId={assistant.id} />
-                <AssistantConfigImportButton onImport={mergeConfigurations} />
-                {!isValid && (
-                    <div className={classes.warning}>
-                        <Warning24Filled /> Configuration has missing or invalid values
+            {!config ? (
+                <ErrorMessageBar title="Error loading assistant config" error={configErrorMessage} />
+            ) : (
+                <>
+                    <Text size={300} italic color="neutralSecondary">
+                        Please practice Responsible AI when configuring your assistant. See the{' '}
+                        <a
+                            href="https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            Microsoft Azure OpenAI Service: System message templates
+                        </a>{' '}
+                        page for suggestions regarding content for the prompts below.
+                    </Text>
+                    <Divider />
+                    <ConfirmLeave isDirty={isDirty} />
+                    <div className={classes.actions}>
+                        <Button appearance="primary" form="assistant-config-form" type="submit" disabled={!isDirty}>
+                            Save
+                        </Button>
+                        <ApplyConfigButton
+                            label="Reset"
+                            confirmMessage="Are you sure you want to reset the changes to configuration?"
+                            currentConfig={formData}
+                            newConfig={config.config}
+                            onApply={restoreConfig}
+                        />
+                        <ApplyConfigButton
+                            label="Load defaults"
+                            confirmMessage="Are you sure you want to load the default configuration?"
+                            currentConfig={formData}
+                            newConfig={defaults}
+                            onApply={restoreConfig}
+                        />
+                        <AssistantConfigExportButton config={config?.config || {}} assistantId={assistant.id} />
+                        <AssistantConfigImportButton onImport={mergeConfigurations} />
+                        {!isValid && (
+                            <div className={classes.warning}>
+                                <Warning24Filled /> Configuration has missing or invalid values
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
-            <Form
-                id="assistant-config-form"
-                aria-autocomplete="none"
-                autoComplete="off"
-                widgets={widgets}
-                templates={templates}
-                schema={config.jsonSchema ?? {}}
-                uiSchema={{
-                    'ui:title': 'Update the assistant configuration',
-                    ...config.uiSchema,
-                    'ui:submitButtonOptions': {
-                        norender: true,
-                        submitText: 'Save',
-                        props: {
-                            disabled: isDirty === false,
-                        },
-                    },
-                }}
-                validator={validator}
-                liveValidate={true}
-                showErrorList={false}
-                formData={formData}
-                onChange={(data) => {
-                    setFormData(data.formData);
-                }}
-                onSubmit={(data, event) => {
-                    event.preventDefault();
-                    handleSubmit(data.formData);
-                }}
-            />
+                    <Form
+                        id="assistant-config-form"
+                        aria-autocomplete="none"
+                        autoComplete="off"
+                        widgets={widgets}
+                        templates={templates}
+                        schema={config.jsonSchema ?? {}}
+                        uiSchema={{
+                            'ui:title': 'Update the assistant configuration',
+                            ...config.uiSchema,
+                            'ui:submitButtonOptions': {
+                                norender: true,
+                                submitText: 'Save',
+                                props: {
+                                    disabled: isDirty === false,
+                                },
+                            },
+                        }}
+                        validator={validator}
+                        liveValidate={true}
+                        showErrorList={false}
+                        formData={formData}
+                        onChange={(data) => {
+                            setFormData(data.formData);
+                        }}
+                        onSubmit={(data, event) => {
+                            event.preventDefault();
+                            handleSubmit(data.formData);
+                        }}
+                    />
+                </>
+            )}
         </Card>
     );
 };

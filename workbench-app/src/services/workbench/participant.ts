@@ -61,12 +61,13 @@ const transformResponseToConversationParticipants = (response: any): Conversatio
     }
 };
 
-const transformResponseToConversationParticipant = (response: any): ConversationParticipant => {
+export const transformResponseToConversationParticipant = (response: any): ConversationParticipant => {
     try {
         return {
             id: response.id,
             role: response.role,
             name: response.name,
+            image: response.image ?? undefined,
             online: response.online ?? undefined,
             status: response.status,
             statusTimestamp: response.status_updated_timestamp,

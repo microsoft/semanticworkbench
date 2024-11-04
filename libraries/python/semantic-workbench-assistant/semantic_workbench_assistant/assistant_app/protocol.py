@@ -9,6 +9,7 @@ from typing import (
     Awaitable,
     Callable,
     Generic,
+    Literal,
     Mapping,
     Protocol,
     TypeVar,
@@ -93,15 +94,25 @@ class AssistantConfigProvider(Protocol):
 EventHandlerT = TypeVar("EventHandlerT")
 
 
-class EventHandlerList(Generic[EventHandlerT], list[EventHandlerT]):
-    async def __call__(self, *args, **kwargs):
-        for handler in self:
+IncludeEventsFromActors = Literal["all", "others", "this_assistant_service"]
+
+
+class EventHandlerList(Generic[EventHandlerT], list[tuple[EventHandlerT, IncludeEventsFromActors]]):
+    async def __call__(self, external_event: bool, *args, **kwargs):
+        for handler, include in self:
+            if external_event and include == "this_assistant_service":
+                continue
+            if not external_event and include == "others":
+                continue
+
             try:
                 if asyncio.iscoroutinefunction(handler):
-                    return await handler(*args, **kwargs)
+                    await handler(*args, **kwargs)
+                    continue
 
                 if callable(handler):
-                    return handler(*args, **kwargs)
+                    handler(*args, **kwargs)
+                    continue
 
             except Exception:
                 logger.exception("error in event handler {handler}")
@@ -110,100 +121,124 @@ class EventHandlerList(Generic[EventHandlerT], list[EventHandlerT]):
             raise TypeError(f"EventHandler {handler} is not a coroutine or callable")
 
 
-class EventHandlers(Generic[EventHandlerT]):
+class ObjectEventHandlers(Generic[EventHandlerT]):
     def __init__(self, on_created=True, on_updated=True, on_deleted=True) -> None:
         if on_created:
             self._on_created_handlers = EventHandlerList[EventHandlerT]()
-            self.on_created = self._create_decorator(self._on_created_handlers)
+            self.on_created = _create_decorator(self._on_created_handlers, "others")
+            """event handler for created event; excluding events from this assistant service"""
+            self.on_created_including_mine = _create_decorator(self._on_created_handlers, "all")
+            """event handler for created event; including events from this assistant service"""
 
         if on_updated:
             self._on_updated_handlers = EventHandlerList[EventHandlerT]()
-            self.on_updated = self._create_decorator(self._on_updated_handlers)
+            self.on_updated = _create_decorator(self._on_updated_handlers, "others")
+            """event handler for updated event; excluding events from this assistant service"""
+            self.on_updated_including_mine = _create_decorator(self._on_updated_handlers, "all")
+            """event handler for updated event; including events from this assistant service"""
 
         if on_deleted:
             self._on_deleted_handlers = EventHandlerList[EventHandlerT]()
-            self.on_deleted = self._create_decorator(self._on_deleted_handlers)
-
-    def _create_decorator(self, handler_list: list[EventHandlerT]) -> Callable[[EventHandlerT], EventHandlerT]:
-        def decorator(func: EventHandlerT) -> EventHandlerT:
-            handler_list.append(func)
-            return func
-
-        return decorator
+            self.on_deleted = _create_decorator(self._on_deleted_handlers, "others")
+            """event handler for deleted event; excluding events from this assistant service"""
+            self.on_deleted_including_mine = _create_decorator(self._on_deleted_handlers, "all")
+            """event handler for deleted event; including events from this assistant service"""
 
 
-AssistantEventHandler = Union[
-    Callable[[AssistantContext], Awaitable[None]],
-    Callable[[AssistantContext], None],
+LifecycleEventHandler = Callable[[], Awaitable[None] | None]
+
+
+class LifecycleEventHandlers:
+    def __init__(self) -> None:
+        self._on_service_start_handlers = EventHandlerList[LifecycleEventHandler]()
+        self.on_service_start = _create_decorator(self._on_service_start_handlers, "all")
+
+        self._on_service_shutdown_handlers = EventHandlerList[LifecycleEventHandler]()
+        self.on_service_shutdown = _create_decorator(self._on_service_shutdown_handlers, "all")
+
+
+def _create_decorator(
+    handler_list: EventHandlerList[EventHandlerT], filter: IncludeEventsFromActors
+) -> Callable[[EventHandlerT], EventHandlerT]:
+    def _decorator(func: EventHandlerT) -> EventHandlerT:
+        handler_list.append((func, filter))
+        return func
+
+    return _decorator
+
+
+AssistantEventHandler = Callable[[AssistantContext], Awaitable[None] | None]
+
+ConversationEventHandler = Callable[[ConversationContext], Awaitable[None] | None]
+
+ConversationParticipantEventHandler = Callable[
+    [ConversationContext, workbench_model.ConversationEvent, workbench_model.ConversationParticipant],
+    Awaitable[None] | None,
 ]
 
-ConversationEventHandler = Union[
-    Callable[[ConversationContext], Awaitable[None]],
-    Callable[[ConversationContext], None],
+ConversationMessageEventHandler = Callable[
+    [ConversationContext, workbench_model.ConversationEvent, workbench_model.ConversationMessage],
+    Awaitable[None] | None,
 ]
 
-ConversationParticipantEventHandler = Union[
-    Callable[
-        [ConversationContext, workbench_model.ConversationEvent, workbench_model.ConversationParticipant],
-        Awaitable[None],
+ConversationFileEventHandler = Callable[
+    [
+        ConversationContext,
+        workbench_model.ConversationEvent,
+        workbench_model.File,
     ],
-    Callable[[ConversationContext, workbench_model.ConversationEvent, workbench_model.ConversationParticipant], None],
+    Awaitable[None] | None,
 ]
 
-ConversationMessageEventHandler = Union[
-    Callable[
-        [ConversationContext, workbench_model.ConversationEvent, workbench_model.ConversationMessage], Awaitable[None]
-    ],
-    Callable[[ConversationContext, workbench_model.ConversationEvent, workbench_model.ConversationMessage], None],
-]
-
-ConversationFileEventHandler = Union[
-    Callable[
-        [
-            ConversationContext,
-            workbench_model.ConversationEvent,
-            workbench_model.File,
-        ],
-        Awaitable[None],
-    ],
-    Callable[
-        [
-            ConversationContext,
-            workbench_model.ConversationEvent,
-            workbench_model.File,
-        ],
-        None,
-    ],
-]
+ServiceLifecycleEventHandler = Callable[[None], Awaitable[None] | None]
 
 
-class MessageEvents(EventHandlers[ConversationMessageEventHandler]):
+class MessageEvents(ObjectEventHandlers[ConversationMessageEventHandler]):
     def __init__(self) -> None:
         super().__init__(on_updated=False)
 
-        self.chat = EventHandlers[ConversationMessageEventHandler](on_updated=False)
-        self.log = EventHandlers[ConversationMessageEventHandler](on_updated=False)
-        self.note = EventHandlers[ConversationMessageEventHandler](on_updated=False)
-        self.notice = EventHandlers[ConversationMessageEventHandler](on_updated=False)
-        self.command = EventHandlers[ConversationMessageEventHandler](on_updated=False)
-        self.command_response = EventHandlers[ConversationMessageEventHandler](on_updated=False)
+        self.chat = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
+        self.log = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
+        self.note = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
+        self.notice = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
+        self.command = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
+        self.command_response = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
         # ensure we have an event handler for each message type
         for event_type in workbench_model.MessageType:
             assert getattr(self, str(event_type).replace("-", "_"))
 
+    def __getitem__(self, key: workbench_model.MessageType) -> ObjectEventHandlers[ConversationMessageEventHandler]:
+        match key:
+            case workbench_model.MessageType.chat:
+                return self.chat
+            case workbench_model.MessageType.log:
+                return self.log
+            case workbench_model.MessageType.note:
+                return self.note
+            case workbench_model.MessageType.notice:
+                return self.notice
+            case workbench_model.MessageType.command:
+                return self.command
+            case workbench_model.MessageType.command_response:
+                return self.command_response
+            case _:
+                raise KeyError(key)
 
-class ConversationEvents(EventHandlers[ConversationEventHandler]):
+
+class ConversationEvents(ObjectEventHandlers[ConversationEventHandler]):
     def __init__(self) -> None:
         super().__init__()
 
-        self.participant = EventHandlers[ConversationParticipantEventHandler](on_deleted=False)
-        self.file = EventHandlers[ConversationFileEventHandler]()
+        self.participant = ObjectEventHandlers[ConversationParticipantEventHandler](on_deleted=False)
+        self.file = ObjectEventHandlers[ConversationFileEventHandler]()
         self.message = MessageEvents()
 
 
-class Events:
+class Events(LifecycleEventHandlers):
     def __init__(self) -> None:
-        self.assistant = EventHandlers[AssistantEventHandler]()
+        super().__init__()
+
+        self.assistant = ObjectEventHandlers[AssistantEventHandler]()
         self.conversation = ConversationEvents()
 
 
@@ -232,6 +267,9 @@ class AssistantCapability(StrEnum):
 
     supports_conversation_files = "supports_conversation_files"
     """Advertise support for awareness of files in the conversation."""
+
+    supports_artifacts = "supports_artifacts"
+    """Advertise support for artifacts in the conversation."""
 
 
 class AssistantAppProtocol(Protocol):

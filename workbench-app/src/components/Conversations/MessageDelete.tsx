@@ -26,12 +26,12 @@ export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
 
     return (
         <CommandButton
-            trigger={<Button appearance="subtle" icon={<Delete16Regular />} size="small" />}
             description="Delete message"
             icon={<Delete24Regular />}
             iconOnly={true}
             disabled={disabled}
             dialogContent={{
+                trigger: <Button appearance="subtle" icon={<Delete16Regular />} size="small" />,
                 title: 'Delete Message',
                 content: (
                     <>
@@ -49,7 +49,7 @@ export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="delete">
+                    <DialogTrigger key="delete" disableButtonEnhancement>
                         <Button appearance="primary" onClick={handleDelete}>
                             Delete
                         </Button>

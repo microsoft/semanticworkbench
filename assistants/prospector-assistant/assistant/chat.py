@@ -5,9 +5,11 @@
 # This assistant helps you mine ideas from artifacts.
 #
 
+import asyncio
 import logging
 import re
-from typing import Any
+import traceback
+from typing import Any, Sequence
 
 import deepmerge
 import openai_client
@@ -31,6 +33,8 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from . import legacy
+from .agents import form_fill_agent
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
 from .config import AssistantConfigModel
@@ -74,6 +78,8 @@ assistant = AssistantApp(
     },
 )
 
+form_fill_agent.extend(assistant)
+
 attachments_extension = AttachmentsExtension(assistant)
 
 #
@@ -99,6 +105,15 @@ app = assistant.fastapi_app()
 # - @assistant.events.conversation.message.on_created (event triggered when a new message of any type is created)
 # - @assistant.events.conversation.message.chat.on_created (event triggered when a new chat message is created)
 #
+
+
+@assistant.events.conversation.message.on_created
+async def on_message_created(
+    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
+) -> None:
+    await legacy.provide_guidance_if_necessary(context)
+
+
 is_doc_agent_running = False
 
 
@@ -118,7 +133,7 @@ async def on_command_message_created(
 
 
 @assistant.events.conversation.message.chat.on_created
-async def on_message_created(
+async def on_chat_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     """
@@ -134,12 +149,8 @@ async def on_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
-    # ignore messages from this assistant
-    if message.sender.participant_id == context.assistant.id:
-        return
-
     # update the participant status to indicate the assistant is thinking
-    async with context.set_status_for_block("thinking..."):
+    async with context.set_status("thinking..."):
         config = await assistant_config.get(context.assistant)
 
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
@@ -154,8 +165,44 @@ async def on_message_created(
             is_doc_agent_running = await document_agent_respond_to_conversation(config, context, message, metadata)
             return
 
-        # Prospector assistant response
-        await respond_to_conversation(context, config, message, metadata)
+        try:
+            await form_fill_agent.execute(
+                llm_config=form_fill_agent.LLMConfig(
+                    openai_client_factory=lambda: openai_client.create_client(config.service_config),
+                    openai_model=config.request_config.openai_model,
+                    max_response_tokens=config.request_config.response_tokens,
+                ),
+                config=config.agents_config.form_fill_agent,
+                context=context,
+                latest_user_message=message.content,
+                get_attachment_messages=form_fill_agent_get_attachments(context, config),
+            )
+
+        except Exception as e:
+            await context.send_messages(
+                NewConversationMessage(
+                    content=f"An error occurred: {e}",
+                    message_type=MessageType.notice,
+                    metadata={"debug": {"stack_trace": traceback.format_exc()}},
+                )
+            )
+
+        # # Prospector assistant response
+        # await respond_to_conversation(context, config, message, metadata)
+
+
+def form_fill_agent_get_attachments(context: ConversationContext, config: AssistantConfigModel):
+    async def get(filenames: Sequence[str]):
+        return await attachments_extension.get_completion_messages_for_attachments(
+            context,
+            config.agents_config.attachment_agent,
+            include_filenames=list(filenames),
+        )
+
+    return get
+
+
+background_tasks: set[asyncio.Task] = set()
 
 
 @assistant.events.conversation.on_created
@@ -170,15 +217,45 @@ async def on_conversation_created(context: ConversationContext) -> None:
         return
 
     # send a welcome message to the conversation
+    # welcome_message = config.welcome_message
+    # await context.send_messages(
+    #     NewConversationMessage(
+    #         content=welcome_message,
+    #         message_type=MessageType.chat,
+    #         metadata={"generated_content": False},
+    #     )
+    # )
+
+    task = asyncio.create_task(welcome_message(context))
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.remove)
+
+
+async def welcome_message(context: ConversationContext) -> None:
     config = await assistant_config.get(context.assistant)
-    welcome_message = config.welcome_message
-    await context.send_messages(
-        NewConversationMessage(
-            content=welcome_message,
-            message_type=MessageType.chat,
-            metadata={"generated_content": False},
-        )
-    )
+
+    async with context.set_status("thinking..."):
+        try:
+            await form_fill_agent.execute(
+                llm_config=form_fill_agent.LLMConfig(
+                    openai_client_factory=lambda: openai_client.create_client(config.service_config),
+                    openai_model=config.request_config.openai_model,
+                    max_response_tokens=config.request_config.response_tokens,
+                ),
+                config=config.agents_config.form_fill_agent,
+                context=context,
+                latest_user_message=None,
+                get_attachment_messages=form_fill_agent_get_attachments(context, config),
+            )
+
+        except Exception as e:
+            await context.send_messages(
+                NewConversationMessage(
+                    content=f"An error occurred: {e}",
+                    message_type=MessageType.notice,
+                    metadata={"debug": {"stack_trace": traceback.format_exc()}},
+                )
+            )
 
 
 # endregion
@@ -550,7 +627,7 @@ async def respond_to_conversation(
 
         # check if the completion total tokens exceed the warning threshold
         if completion_total_tokens > token_count_for_warning:
-            content = f"{config.high_token_usage_warning.message}\n\n" f"Total tokens used: {completion_total_tokens}"
+            content = f"{config.high_token_usage_warning.message}\n\nTotal tokens used: {completion_total_tokens}"
 
             # send a notice message to the conversation that the token usage is high
             await context.send_messages(

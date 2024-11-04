@@ -6,7 +6,7 @@ import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useEnvironment } from '../../../libs/useEnvironment';
 import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
-import { WorkbenchEventSource } from '../../../libs/WorkbenchEventSource';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../../libs/WorkbenchEventSource';
 import { useAppSelector } from '../../../redux/app/hooks';
 
 const useClasses = makeStyles({
@@ -49,7 +49,11 @@ export const CanvasControls: React.FC<CanvasControlsProps> = (props) => {
         };
 
         (async () => {
-            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
+            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversationId,
+            );
             workbenchEventSource.addEventListener('assistant.state.focus', handleFocusEvent);
         })();
 

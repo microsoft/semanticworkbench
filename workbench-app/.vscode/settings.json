@@ -164,6 +164,7 @@
         "fastapi",
         "fileversion",
         "fluentui",
+        "frontdoor",
         "getfixturevalue",
         "griffel",
         "hashkey",
@@ -226,6 +227,7 @@
         "workbenchservice",
         "workflowdefinition",
         "workflowrun",
-        "workflowuserparticipant"
+        "workflowuserparticipant",
+        "YYYYMMDDH"
     ]
 }
