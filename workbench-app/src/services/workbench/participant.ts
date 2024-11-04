@@ -67,6 +67,7 @@ export const transformResponseToConversationParticipant = (response: any): Conve
             id: response.id,
             role: response.role,
             name: response.name,
+            image: response.image ?? undefined,
             online: response.online ?? undefined,
             status: response.status,
             statusTimestamp: response.status_updated_timestamp,

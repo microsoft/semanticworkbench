@@ -4,7 +4,7 @@ import { Constants } from '../Constants';
 import { Conversation } from '../models/Conversation';
 import { ConversationShare } from '../models/ConversationShare';
 import { useUpdateConversationMutation } from '../services/workbench';
-import { useLocalUserAccount } from './useLocalUserAccount';
+import { useLocalUser } from './useLocalUser';
 import { Utility } from './Utility';
 
 // Share types to be used in the app.
@@ -24,15 +24,17 @@ export const useConversationUtility = () => {
     const [isMessageVisible, setIsVisible] = React.useState(false);
     const isMessageVisibleRef = React.useRef(null);
     const [updateConversation] = useUpdateConversationMutation();
-    const { getUserId } = useLocalUserAccount();
-    const userId = getUserId();
+    const localUser = useLocalUser();
     const navigate = useNavigate();
 
     // region Navigation
 
-    const navigateToConversation = (conversationId?: string) => {
-        navigate([Constants.app.conversationRedirectPath, conversationId].join('/'));
-    };
+    const navigateToConversation = React.useCallback(
+        (conversationId?: string) => {
+            navigate([Constants.app.conversationRedirectPath, conversationId].join('/'));
+        },
+        [navigate],
+    );
 
     // endregion
 
@@ -42,53 +44,75 @@ export const useConversationUtility = () => {
     // based on the conversation permission and metadata. It also contains logic for handling the combinations
     // of metadata, permissions, and share types in shared location for consistency across the app.
     //
-    const getShareTypeMetadata = (
-        shareType: ConversationShareType,
-        linkToMessageId?: string,
-    ): {
-        permission: 'read' | 'read_write';
-        metadata: { showDuplicateAction?: boolean; linkToMessageId?: string };
-    } => {
-        // Default to read_write for invited to participate, read for observe or duplicate.
-        const permission = shareType === ConversationShareType.InvitedToParticipate ? 'read_write' : 'read';
-        const showDuplicateAction = shareType === ConversationShareType.InvitedToDuplicate;
-        return {
-            permission,
-            metadata: { showDuplicateAction, linkToMessageId },
-        };
-    };
 
-    const getShareType = (
-        conversationShare: ConversationShare,
-    ): {
-        shareType: ConversationShareType;
-        linkToMessageId?: string;
-    } => {
-        const { isRedeemable, conversationPermission, metadata } = conversationShare;
-
-        if (!isRedeemable) {
-            return { shareType: ConversationShareType.NotRedeemable };
+    const getOwnerParticipant = React.useCallback((conversation: Conversation) => {
+        const owner = conversation.participants.find((participant) => participant.id === conversation.ownerId);
+        if (!owner) {
+            throw new Error('Owner not found in conversation participants');
         }
+        return owner;
+    }, []);
 
-        // If the showDuplicateAction metadata is set, use that to determine the share type.
-        if (metadata.showDuplicateAction) {
-            return { shareType: ConversationShareType.InvitedToDuplicate };
-        }
+    const wasSharedWithMe = React.useCallback(
+        (conversation: Conversation): boolean => {
+            return conversation.ownerId !== localUser.id;
+        },
+        [localUser.id],
+    );
 
-        // Otherwise, use the conversation permission to determine the share type.
-        const shareType =
-            conversationPermission !== 'read'
-                ? ConversationShareType.InvitedToParticipate
-                : ConversationShareType.InvitedToObserve;
-        return {
-            shareType,
-            linkToMessageId: metadata.linkToMessageId,
-        };
-    };
+    const getShareTypeMetadata = React.useCallback(
+        (
+            shareType: ConversationShareType,
+            linkToMessageId?: string,
+        ): {
+            permission: 'read' | 'read_write';
+            metadata: { showDuplicateAction?: boolean; linkToMessageId?: string };
+        } => {
+            // Default to read_write for invited to participate, read for observe or duplicate.
+            const permission = shareType === ConversationShareType.InvitedToParticipate ? 'read_write' : 'read';
+            const showDuplicateAction = shareType === ConversationShareType.InvitedToDuplicate;
+            return {
+                permission,
+                metadata: { showDuplicateAction, linkToMessageId },
+            };
+        },
+        [],
+    );
 
-    const getShareLink = (share: ConversationShare): string => {
+    const getShareType = React.useCallback(
+        (
+            conversationShare: ConversationShare,
+        ): {
+            shareType: ConversationShareType;
+            linkToMessageId?: string;
+        } => {
+            const { isRedeemable, conversationPermission, metadata } = conversationShare;
+
+            if (!isRedeemable) {
+                return { shareType: ConversationShareType.NotRedeemable };
+            }
+
+            // If the showDuplicateAction metadata is set, use that to determine the share type.
+            if (metadata.showDuplicateAction) {
+                return { shareType: ConversationShareType.InvitedToDuplicate };
+            }
+
+            // Otherwise, use the conversation permission to determine the share type.
+            const shareType =
+                conversationPermission !== 'read'
+                    ? ConversationShareType.InvitedToParticipate
+                    : ConversationShareType.InvitedToObserve;
+            return {
+                shareType,
+                linkToMessageId: metadata.linkToMessageId,
+            };
+        },
+        [],
+    );
+
+    const getShareLink = React.useCallback((share: ConversationShare): string => {
         return `${window.location.origin}/conversation-share/${encodeURIComponent(share.id)}/redeem`;
-    };
+    }, []);
     // endregion
 
     // region App Metadata
@@ -97,7 +121,7 @@ export const useConversationUtility = () => {
         async (conversation: Conversation, appMetadata: Partial<ParticipantAppMetadata>) => {
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            const userAppMetadata = participantAppMetadata[userId] ?? {};
+            const userAppMetadata = participantAppMetadata[localUser.id] ?? {};
 
             // Save the conversation
             await updateConversation({
@@ -106,12 +130,12 @@ export const useConversationUtility = () => {
                     ...conversation.metadata,
                     participantAppMetadata: {
                         ...participantAppMetadata,
-                        [userId]: { ...userAppMetadata, ...appMetadata },
+                        [localUser.id]: { ...userAppMetadata, ...appMetadata },
                     },
                 },
             });
         },
-        [updateConversation, userId],
+        [updateConversation, localUser.id],
     );
 
     // endregion
@@ -142,9 +166,9 @@ export const useConversationUtility = () => {
         (conversation: Conversation) => {
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            return participantAppMetadata[userId]?.lastReadTimestamp;
+            return participantAppMetadata[localUser.id]?.lastReadTimestamp;
         },
-        [userId],
+        [localUser.id],
     );
 
     const getLastMessageTimestamp = React.useCallback((conversation: Conversation) => {
@@ -236,9 +260,9 @@ export const useConversationUtility = () => {
         (conversation: Conversation) => {
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            return participantAppMetadata[userId]?.pinned;
+            return participantAppMetadata[localUser.id]?.pinned;
         },
-        [userId],
+        [localUser.id],
     );
 
     const setPinned = React.useCallback(
@@ -258,6 +282,8 @@ export const useConversationUtility = () => {
 
     return {
         navigateToConversation,
+        getOwnerParticipant,
+        wasSharedWithMe,
         getShareTypeMetadata,
         getShareType,
         getShareLink,

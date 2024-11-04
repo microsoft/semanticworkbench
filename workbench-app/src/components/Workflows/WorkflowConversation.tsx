@@ -17,7 +17,7 @@ import { Constants } from '../../Constants';
 import { InteractHistory } from '../../components/Conversations/InteractHistory';
 import { InteractInput } from '../../components/Conversations/InteractInput';
 import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
-import { useGetAssistantCapabilitiesSet } from '../../libs/useAssistantCapabilities';
+import { useGetAssistantCapabilities } from '../../libs/useAssistantCapabilities';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { useInteractCanvasController } from '../../libs/useInteractCanvasController';
 import { useSiteUtility } from '../../libs/useSiteUtility';
@@ -152,7 +152,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
         isLoading: isLoadingParticipants,
         error: participantsError,
     } = useGetConversationParticipantsQuery(conversationId, { refetchOnMountOrArgChange: true });
-    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilitiesSet(
+    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
         workflowRunAssistants ?? [],
     );
 

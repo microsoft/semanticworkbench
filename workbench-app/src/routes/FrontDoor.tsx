@@ -123,12 +123,22 @@ export const FrontDoor: React.FC = () => {
         };
     }, [sideRailLeftOpen, sideRailLeftOverlay]);
 
-    const sideRailLeftButton = (
-        <Button
-            icon={sideRailLeftOpen ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
-            onClick={() => setSideRailLeftOpen((prev) => !prev)}
-        />
+    const sideRailLeftButton = React.useMemo(
+        () => (
+            <Button
+                icon={sideRailLeftOpen ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
+                onClick={() => setSideRailLeftOpen((prev) => !prev)}
+            />
+        ),
+        [sideRailLeftOpen],
     );
+
+    const globalContent = React.useMemo(
+        () => <GlobalContent headerBefore={sideRailLeftButton} />,
+        [sideRailLeftButton],
+    );
+
+    const newConversationButton = React.useMemo(() => <NewConversationButton />, []);
 
     return (
         <div className={classes.root}>
@@ -142,7 +152,7 @@ export const FrontDoor: React.FC = () => {
                     ref={sideRailLeftRef}
                 >
                     <div className={mergeClasses(classes.transitionFade, sideRailLeftOpen ? 'in' : undefined)}>
-                        <GlobalContent headerBefore={sideRailLeftButton} headerAfter={<NewConversationButton />} />
+                        {globalContent}
                     </div>
                 </div>
                 <div className={classes.mainContent}>
@@ -159,7 +169,7 @@ export const FrontDoor: React.FC = () => {
                                     )}
                                 >
                                     {sideRailLeftButton}
-                                    <NewConversationButton />
+                                    {newConversationButton}
                                 </div>
                             }
                             headerAfter={<SiteMenuButton />}

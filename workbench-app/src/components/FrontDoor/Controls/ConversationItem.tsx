@@ -28,8 +28,12 @@ import {
 } from '@fluentui/react-icons';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
+import { useDebugComponentLifecycle } from '../../../libs/useDebugComponentLifecycle';
+import { useLocalUser } from '../../../libs/useLocalUser';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
+import { ConversationParticipant } from '../../../models/ConversationParticipant';
+import { MemoizedParticipantAvatarGroup } from '../../Conversations/ParticipantAvatarGroup';
 
 const useClasses = makeStyles({
     cardHeader: {
@@ -132,8 +136,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         onSelectForActions,
     } = props;
     const classes = useClasses();
+    const { getOwnerParticipant, wasSharedWithMe, hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
+    const localUser = useLocalUser();
     const [isHovered, setIsHovered] = React.useState(false);
-    const { hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
 
     const showActions = isHovered || showSelectForActions;
 
@@ -296,6 +301,23 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         return <Caption1 className={classes.description}>{sender ? `${sender.name}: ${content}` : content}</Caption1>;
     }, [conversation.latest_message, conversation.participants, classes.description]);
 
+    const sortedParticipantsByOwnerMeOthers = React.useMemo(() => {
+        const participants: ConversationParticipant[] = [];
+        participants.push(getOwnerParticipant(conversation));
+        if (wasSharedWithMe(conversation)) {
+            const me = conversation.participants.find((participant) => participant.id === localUser.id);
+            if (me) {
+                participants.push(me);
+            }
+        }
+        const others = conversation.participants.filter((participant) => !participants.includes(participant));
+        participants.push(...others);
+        return participants;
+    }, [getOwnerParticipant, conversation, wasSharedWithMe, localUser.id]);
+
+    // FIXME: remove when not re-rendering unexpectedly, update with other props to debug if needed
+    useDebugComponentLifecycle('ConversationItem', props, { selected, selectedForActions });
+
     return (
         <Card
             size="small"
@@ -308,9 +330,14 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         >
             <CardHeader
                 className={mergeClasses(classes.cardHeader, showActions ? classes.showingActions : undefined)}
+                image={<MemoizedParticipantAvatarGroup participants={sortedParticipantsByOwnerMeOthers} />}
                 header={header}
                 description={description}
             />
         </Card>
     );
 };
+
+export const MemoizedConversationItem = React.memo(ConversationItem, (prevProps, nextProps) =>
+    Utility.deepEqual(prevProps, nextProps),
+);

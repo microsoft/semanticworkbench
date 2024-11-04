@@ -62,7 +62,7 @@ export class WorkbenchEventSource {
                 WorkbenchEventSource.conversationInstance = new WorkbenchEventSource();
             }
 
-            await WorkbenchEventSource.conversationInstance.updateEndpoint(endpoint, conversationId);
+            await WorkbenchEventSource.conversationInstance.updateEndpoint(type, endpoint, conversationId);
             return WorkbenchEventSource.conversationInstance;
         }
 
@@ -74,7 +74,7 @@ export class WorkbenchEventSource {
                 WorkbenchEventSource.userInstance = new WorkbenchEventSource();
             }
 
-            await WorkbenchEventSource.userInstance.updateEndpoint(endpoint);
+            await WorkbenchEventSource.userInstance.updateEndpoint(type, endpoint);
             return WorkbenchEventSource.userInstance;
         }
 
@@ -158,10 +158,20 @@ export class WorkbenchEventSource {
         return response.idToken;
     }
 
-    private async updateEndpoint(endpoint: string, conversationId?: string, force = false) {
+    private async updateEndpoint(
+        type: WorkbenchEventSourceType,
+        endpoint: string,
+        conversationId?: string,
+        force = false,
+    ) {
         if (this.currentEndpoint === endpoint && !force) return;
         this.currentEndpoint = endpoint;
-        log('updateEndpoint - endpoint:', endpoint, 'conversationId:', conversationId);
+
+        log(
+            type === WorkbenchEventSourceType.Conversation
+                ? `update endpoint for conversation: ${endpoint}, conversationId: ${conversationId}`
+                : `update endpoint for user: ${endpoint}`,
+        );
 
         const eventHandlers = this.eventHandlers;
 

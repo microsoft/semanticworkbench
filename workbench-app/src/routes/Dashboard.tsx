@@ -11,7 +11,7 @@ import { MyAssistants } from '../components/Assistants/MyAssistants';
 import { MyConversations } from '../components/Conversations/MyConversations';
 import { MyWorkflows } from '../components/Workflows/MyWorkflows';
 import { Constants } from '../Constants';
-import { useLocalUserAccount } from '../libs/useLocalUserAccount';
+import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Conversation } from '../models/Conversation';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../services/workbench';
@@ -43,7 +43,7 @@ export const Dashboard: React.FC = () => {
         error: workflowDefinitionsError,
         isLoading: isLoadingWorkflowDefinitions,
     } = useGetWorkflowDefinitionsQuery();
-    const { getUserId } = useLocalUserAccount();
+    const localUser = useLocalUser();
     const navigate = useNavigate();
 
     const siteUtility = useSiteUtility();
@@ -81,9 +81,9 @@ export const Dashboard: React.FC = () => {
         );
     }
 
-    const userId = getUserId();
-    const myConversations = conversations?.filter((conversation) => conversation.ownerId === userId) || [];
-    const conversationsSharedWithMe = conversations?.filter((conversation) => conversation.ownerId !== userId) || [];
+    const myConversations = conversations?.filter((conversation) => conversation.ownerId === localUser.id) || [];
+    const conversationsSharedWithMe =
+        conversations?.filter((conversation) => conversation.ownerId !== localUser.id) || [];
 
     return (
         <AppView title="Dashboard" actions={{ items: [appMenuAction], replaceExisting: true }}>

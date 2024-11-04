@@ -16,6 +16,7 @@ export const Constants = {
         },
         speechIdleTimeoutMs: 4000,
         azureSpeechTokenRefreshIntervalMs: 540000, // 540000 ms = 9 minutes
+        globalToasterId: 'global',
     },
     workflow: {
         maxOutlets: 5,

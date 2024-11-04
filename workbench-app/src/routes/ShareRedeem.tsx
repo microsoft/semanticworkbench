@@ -1,6 +1,5 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { useAccount } from '@azure/msal-react';
 import { Button, DialogTrigger } from '@fluentui/react-components';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -8,6 +7,7 @@ import { AppView } from '../components/App/AppView';
 import { DialogControl } from '../components/App/DialogControl';
 import { Loading } from '../components/App/Loading';
 import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
+import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useWorkbenchService } from '../libs/useWorkbenchService';
 import { Conversation } from '../models/Conversation';
@@ -28,7 +28,7 @@ export const ShareRedeem: React.FC = () => {
     const [submitted, setSubmitted] = React.useState(false);
     const [joinAttempted, setJoinAttempted] = React.useState(false);
     const conversationUtility = useConversationUtility();
-    const account = useAccount();
+    const localUser = useLocalUser();
 
     if (!conversationShareId) {
         throw new Error('Conversation Share ID is required');
@@ -61,11 +61,10 @@ export const ShareRedeem: React.FC = () => {
                 const hash = messageId ? `#${messageId}` : '';
 
                 // send event to notify the conversation that the user has joined
-                const accountName = account?.name;
-                if (conversationShare.conversationPermission === 'read_write' && accountName) {
+                if (conversationShare.conversationPermission === 'read_write') {
                     await createConversationMessage({
                         conversationId: conversationShare.conversationId,
-                        content: `${accountName} joined the conversation`,
+                        content: `${localUser.name} joined the conversation`,
                         messageType: 'notice',
                     });
                 }
@@ -75,7 +74,7 @@ export const ShareRedeem: React.FC = () => {
                 setSubmitted(false);
             }
         },
-        [conversationShare, redeemShare, account?.name, navigate, createConversationMessage],
+        [conversationShare, redeemShare, navigate, createConversationMessage, localUser.name],
     );
 
     const handleClickDuplicate = React.useCallback(async () => {

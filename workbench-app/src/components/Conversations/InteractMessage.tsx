@@ -24,16 +24,14 @@ import {
 } from '@fluentui/react-components';
 import {
     AlertUrgent24Regular,
-    AppGenericRegular,
     Attach24Regular,
-    BotRegular,
     KeyCommandRegular,
     Note24Regular,
-    PersonRegular,
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
 import { useConversationUtility } from '../../libs/useConversationUtility';
+import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
@@ -152,6 +150,7 @@ interface InteractMessageProps {
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead } = props;
     const classes = useClasses();
+    const { getAvatarData } = useParticipantUtility();
     const [createConversationMessage] = useCreateConversationMessageMutation();
     const { isMessageVisibleRef, isMessageVisible, isUnread } = useConversationUtility();
 
@@ -381,18 +380,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             ) : (
                 <>
                     <div className={classes.header}>
-                        <Persona
-                            size="extra-small"
-                            name={participant.name}
-                            avatar={{
-                                name: '',
-                                icon: {
-                                    user: <PersonRegular />,
-                                    assistant: <BotRegular />,
-                                    service: <AppGenericRegular />,
-                                }[participant.role],
-                            }}
-                        />
+                        <Persona size="extra-small" name={participant.name} avatar={getAvatarData(participant)} />
                         {attribution}
                         <div>
                             <Timestamp>{time}</Timestamp>

@@ -44,11 +44,20 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
         if (description) {
             commandButton = (
                 <Tooltip content={description} relationship="label">
-                    <Button as={as} disabled={disabled} icon={icon} onClick={onClick} />
+                    <Button
+                        as={as}
+                        appearance={appearance}
+                        size={size}
+                        disabled={disabled}
+                        icon={icon}
+                        onClick={onClick}
+                    />
                 </Tooltip>
             );
         } else {
-            commandButton = <Button as={as} disabled={disabled} icon={icon} onClick={onClick} />;
+            commandButton = (
+                <Button as={as} appearance={appearance} size={size} disabled={disabled} icon={icon} onClick={onClick} />
+            );
         }
     } else if (asToolbarButton) {
         commandButton = (
@@ -82,6 +91,7 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
             title={dialogContent.title}
             content={dialogContent.content}
             closeLabel={dialogContent.closeLabel}
+            hideDismissButton={dialogContent.hideDismissButton}
             additionalActions={dialogContent.additionalActions}
             onOpenChange={dialogContent.onOpenChange}
         />

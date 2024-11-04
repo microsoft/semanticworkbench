@@ -12,7 +12,7 @@ import { Constants } from './Constants';
 import { Root } from './Root';
 import './index.css';
 import { AuthHelper } from './libs/AuthHelper';
-import { getCustomTheme } from './libs/useCustomTheme';
+import { Theme } from './libs/Theme';
 import { getEnvironment } from './libs/useEnvironment';
 import { store } from './redux/app/store';
 import { AcceptTerms } from './routes/AcceptTerms';
@@ -136,7 +136,7 @@ export const getMsalInstance = async () => {
     return msalInstance;
 };
 
-const customTheme = getCustomTheme('light', getEnvironment(store.getState().settings.environmentId)?.brand);
+const customTheme = Theme.getCustomTheme('light', getEnvironment(store.getState().settings.environmentId)?.brand);
 
 initializeFileTypeIcons();
 
