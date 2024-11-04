@@ -26,7 +26,7 @@ export const Constants = {
                 id: 'local',
                 name: 'Semantic Workbench backend service on localhost or GitHub Codespaces',
                 // Can be overridden by env var VITE_SEMANTIC_WORKBENCH_SERVICE_URL
-                url: import.meta.env.services__worbenchservice__http__0 || 'http://127.0.0.1:3000',
+                url: 'http://127.0.0.1:3000',
                 brand: 'light',
             },
             // {
