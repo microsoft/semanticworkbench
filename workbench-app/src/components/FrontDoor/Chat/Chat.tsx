@@ -3,9 +3,9 @@
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useGetAssistantCapabilities } from '../../../libs/useAssistantCapabilities';
-import { useLocalUser } from '../../../libs/useLocalUser';
 import { useParticipantUtility } from '../../../libs/useParticipantUtility';
 import { Assistant } from '../../../models/Assistant';
+import { useAppSelector } from '../../../redux/app/hooks';
 import {
     useGetAssistantsInConversationQuery,
     useGetConversationFilesQuery,
@@ -119,7 +119,7 @@ export const Chat: React.FC<ChatProps> = (props) => {
     const { conversationId, headerBefore, headerAfter } = props;
     const classes = useClasses();
     const { sortParticipants } = useParticipantUtility();
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
 
     const {
         data: conversation,
@@ -224,7 +224,7 @@ export const Chat: React.FC<ChatProps> = (props) => {
     const readOnly = conversation.conversationPermission === 'read';
 
     const otherParticipants = sortParticipants(conversationParticipants).filter(
-        (participant) => participant.id !== localUser.id,
+        (participant) => participant.id !== localUserId,
     );
 
     return (

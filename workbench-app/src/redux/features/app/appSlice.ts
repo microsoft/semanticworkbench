@@ -27,10 +27,6 @@ const initialState: AppState = {
             AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunExperimental) ?? false,
         workflow: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunWorkflow) ?? false,
     },
-    userPhoto: {
-        src: undefined,
-        isLoading: false,
-    },
 };
 
 export const appSlice = createSlice({
@@ -102,21 +98,6 @@ export const appSlice = createSlice({
                 conversationApi.endpoints.getConversationMessages.initiate(action.payload, { forceRefetch: true });
             }
         },
-        setLocalUser: (state: AppState, action: PayloadAction<AppState['localUser']>) => {
-            state.localUser = action.payload;
-        },
-        setUserPhoto: (state: AppState, action: PayloadAction<{ src?: string; isLoading?: boolean }>) => {
-            state.userPhoto.src = action.payload.src;
-            state.userPhoto.isLoading = action.payload.isLoading ?? false;
-
-            // update local user avatar
-            if (state.localUser) {
-                state.localUser.avatar = {
-                    ...state.localUser.avatar,
-                    image: action.payload.src ? { src: action.payload.src } : undefined,
-                };
-            }
-        },
     },
 });
 
@@ -129,8 +110,6 @@ export const {
     setChatWidthPercent,
     setCompletedFirstRun,
     setActiveConversationId,
-    setLocalUser,
-    setUserPhoto,
 } = appSlice.actions;
 
 export default appSlice.reducer;

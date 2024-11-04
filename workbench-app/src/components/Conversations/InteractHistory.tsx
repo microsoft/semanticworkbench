@@ -24,7 +24,7 @@ import {
     useGetConversationMessagesQuery,
 } from '../../services/workbench';
 import { Loading } from '../App/Loading';
-import { InteractMessage } from './InteractMessage';
+import { MemoizedInteractMessage } from './InteractMessage';
 import { ParticipantStatus } from './ParticipantStatus';
 
 dayjs.extend(utc);
@@ -189,7 +189,11 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                 };
                 return (
                     <div className={classes.item} key={message.id}>
-                        <InteractMessage
+                        {/*
+                            Use the memoized interact message component to prevent re-rendering
+                            all messages when one message changes
+                        */}
+                        <MemoizedInteractMessage
                             readOnly={readOnly}
                             conversation={conversation}
                             message={message}

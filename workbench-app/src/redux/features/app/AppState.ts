@@ -13,21 +13,6 @@ export interface AppState {
         workflow: boolean;
     };
     chatWidthPercent: number;
-    localUser?: {
-        id: string;
-        name: string;
-        email: string;
-        avatar: {
-            name: string;
-            image?: {
-                src: string;
-            };
-        };
-    };
-    userPhoto: {
-        src?: string;
-        isLoading: boolean;
-    };
     isDraggingOverBody?: boolean;
     activeConversationId?: string;
 }

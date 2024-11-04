@@ -29,10 +29,10 @@ import {
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { useExportUtility } from '../../../libs/useExportUtility';
-import { useLocalUser } from '../../../libs/useLocalUser';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
+import { useAppSelector } from '../../../redux/app/hooks';
 import { MemoizedParticipantAvatarGroup } from '../../Conversations/ParticipantAvatarGroup';
 
 const useClasses = makeStyles({
@@ -137,7 +137,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
     } = props;
     const classes = useClasses();
     const { getOwnerParticipant, wasSharedWithMe, hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
     const { exportConversation } = useExportUtility();
     const [isHovered, setIsHovered] = React.useState(false);
 
@@ -310,7 +310,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         const participants: ConversationParticipant[] = [];
         participants.push(getOwnerParticipant(conversation));
         if (wasSharedWithMe(conversation)) {
-            const me = conversation.participants.find((participant) => participant.id === localUser.id);
+            const me = conversation.participants.find((participant) => participant.id === localUserId);
             if (me) {
                 participants.push(me);
             }
@@ -318,7 +318,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         const others = conversation.participants.filter((participant) => !participants.includes(participant));
         participants.push(...others);
         return participants;
-    }, [getOwnerParticipant, conversation, wasSharedWithMe, localUser.id]);
+    }, [getOwnerParticipant, conversation, wasSharedWithMe, localUserId]);
 
     return (
         <Card

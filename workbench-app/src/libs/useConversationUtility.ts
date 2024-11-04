@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Constants } from '../Constants';
 import { Conversation } from '../models/Conversation';
 import { ConversationShare } from '../models/ConversationShare';
+import { useAppSelector } from '../redux/app/hooks';
 import { useUpdateConversationMutation } from '../services/workbench';
-import { useLocalUser } from './useLocalUser';
 import { Utility } from './Utility';
 
 // Share types to be used in the app.
@@ -24,7 +24,7 @@ export const useConversationUtility = () => {
     const [isMessageVisible, setIsVisible] = React.useState(false);
     const isMessageVisibleRef = React.useRef(null);
     const [updateConversation] = useUpdateConversationMutation();
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
     const navigate = useNavigate();
 
     // region Navigation
@@ -55,9 +55,9 @@ export const useConversationUtility = () => {
 
     const wasSharedWithMe = React.useCallback(
         (conversation: Conversation): boolean => {
-            return conversation.ownerId !== localUser.id;
+            return conversation.ownerId !== localUserId;
         },
-        [localUser.id],
+        [localUserId],
     );
 
     const getShareTypeMetadata = React.useCallback(
@@ -119,9 +119,13 @@ export const useConversationUtility = () => {
 
     const setAppMetadata = React.useCallback(
         async (conversation: Conversation, appMetadata: Partial<ParticipantAppMetadata>) => {
+            if (!localUserId) {
+                throw new Error('Local user ID not set while setting conversation metadata for user');
+            }
+
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            const userAppMetadata = participantAppMetadata[localUser.id] ?? {};
+            const userAppMetadata = participantAppMetadata[localUserId] ?? {};
 
             // Save the conversation
             await updateConversation({
@@ -130,12 +134,12 @@ export const useConversationUtility = () => {
                     ...conversation.metadata,
                     participantAppMetadata: {
                         ...participantAppMetadata,
-                        [localUser.id]: { ...userAppMetadata, ...appMetadata },
+                        [localUserId]: { ...userAppMetadata, ...appMetadata },
                     },
                 },
             });
         },
-        [updateConversation, localUser.id],
+        [updateConversation, localUserId],
     );
 
     // endregion
@@ -164,11 +168,14 @@ export const useConversationUtility = () => {
 
     const getLastReadTimestamp = React.useCallback(
         (conversation: Conversation) => {
+            if (!localUserId) {
+                return;
+            }
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            return participantAppMetadata[localUser.id]?.lastReadTimestamp;
+            return participantAppMetadata[localUserId]?.lastReadTimestamp;
         },
-        [localUser.id],
+        [localUserId],
     );
 
     const getLastMessageTimestamp = React.useCallback((conversation: Conversation) => {
@@ -258,11 +265,12 @@ export const useConversationUtility = () => {
 
     const isPinned = React.useCallback(
         (conversation: Conversation) => {
+            if (!localUserId) return;
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
                 conversation.metadata?.participantAppMetadata ?? {};
-            return participantAppMetadata[localUser.id]?.pinned;
+            return participantAppMetadata[localUserId]?.pinned;
         },
-        [localUser.id],
+        [localUserId],
     );
 
     const setPinned = React.useCallback(

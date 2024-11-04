@@ -2,6 +2,7 @@ import { Action, ThunkAction, configureStore } from '@reduxjs/toolkit';
 import { workbenchApi } from '../../services/workbench';
 import appReducer from '../features/app/appSlice';
 import chatCanvasReducer from '../features/chatCanvas/chatCanvasSlice';
+import localUserReducer from '../features/localUser/localUserSlice';
 import settingsReducer from '../features/settings/settingsSlice';
 import { rtkQueryErrorLogger } from './rtkQueryErrorLogger';
 
@@ -9,6 +10,7 @@ export const store = configureStore({
     reducer: {
         app: appReducer,
         chatCanvas: chatCanvasReducer,
+        localUser: localUserReducer,
         settings: settingsReducer,
         [workbenchApi.reducerPath]: workbenchApi.reducer,
     },

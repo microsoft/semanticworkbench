@@ -6,7 +6,6 @@ import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { useEnvironment } from '../../../libs/useEnvironment';
-import { useLocalUser } from '../../../libs/useLocalUser';
 import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../../libs/WorkbenchEventSource';
 import { Conversation } from '../../../models/Conversation';
 import { useAppSelector } from '../../../redux/app/hooks';
@@ -32,9 +31,9 @@ const useClasses = makeStyles({
 
 export const ConversationList: React.FC = () => {
     const classes = useClasses();
-    const localUser = useLocalUser();
     const environment = useEnvironment();
     const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
+    const localUserId = useAppSelector((state) => state.localUser.id);
     const { navigateToConversation } = useConversationUtility();
     const {
         data: conversations,
@@ -148,10 +147,10 @@ export const ConversationList: React.FC = () => {
                         onClose={() => setShareConversation(undefined)}
                     />
                 )}
-                {removeConversation && (
+                {removeConversation && localUserId && (
                     <ConversationRemoveDialog
                         conversationId={removeConversation.id}
-                        participantId={localUser.id}
+                        participantId={localUserId}
                         onRemove={() => {
                             if (activeConversationId === removeConversation.id) {
                                 navigateToConversation(undefined);
@@ -169,7 +168,7 @@ export const ConversationList: React.FC = () => {
             shareConversation,
             removeConversation,
             navigateToConversation,
-            localUser.id,
+            localUserId,
             activeConversationId,
         ],
     );
@@ -200,7 +199,7 @@ export const ConversationList: React.FC = () => {
                         <MemoizedConversationItem
                             key={conversation.id}
                             conversation={conversation}
-                            owned={conversation.ownerId === localUser.id}
+                            owned={conversation.ownerId === localUserId}
                             selected={activeConversationId === conversation.id}
                             selectedForActions={selectedForActions?.has(conversation.id)}
                             onSelect={handleItemSelect}

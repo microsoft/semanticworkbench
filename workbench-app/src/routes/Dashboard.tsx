@@ -11,9 +11,9 @@ import { MyAssistants } from '../components/Assistants/MyAssistants';
 import { MyConversations } from '../components/Conversations/MyConversations';
 import { MyWorkflows } from '../components/Workflows/MyWorkflows';
 import { Constants } from '../Constants';
-import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Conversation } from '../models/Conversation';
+import { useAppSelector } from '../redux/app/hooks';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../services/workbench';
 import { useGetWorkflowDefinitionsQuery } from '../services/workbench/workflow';
 
@@ -43,7 +43,7 @@ export const Dashboard: React.FC = () => {
         error: workflowDefinitionsError,
         isLoading: isLoadingWorkflowDefinitions,
     } = useGetWorkflowDefinitionsQuery();
-    const localUser = useLocalUser();
+    const localUserStateId = useAppSelector((state) => state.localUser.id);
     const navigate = useNavigate();
 
     const siteUtility = useSiteUtility();
@@ -81,9 +81,9 @@ export const Dashboard: React.FC = () => {
         );
     }
 
-    const myConversations = conversations?.filter((conversation) => conversation.ownerId === localUser.id) || [];
+    const myConversations = conversations?.filter((conversation) => conversation.ownerId === localUserStateId) || [];
     const conversationsSharedWithMe =
-        conversations?.filter((conversation) => conversation.ownerId !== localUser.id) || [];
+        conversations?.filter((conversation) => conversation.ownerId !== localUserStateId) || [];
 
     return (
         <AppView title="Dashboard" actions={{ items: [appMenuAction], replaceExisting: true }}>

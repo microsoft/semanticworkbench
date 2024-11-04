@@ -12,9 +12,9 @@ import { ConversationShare } from '../components/Conversations/ConversationShare
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
 import { useGetAssistantCapabilities } from '../libs/useAssistantCapabilities';
-import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Assistant } from '../models/Assistant';
+import { useAppSelector } from '../redux/app/hooks';
 import {
     useGetAssistantsInConversationQuery,
     useGetConversationFilesQuery,
@@ -97,7 +97,7 @@ export const Interact: React.FC = () => {
         error: conversationFilesError,
         isLoading: isLoadingConversationFiles,
     } = useGetConversationFilesQuery(conversationId);
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
     const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
         assistants ?? [],
     );
@@ -205,7 +205,7 @@ export const Interact: React.FC = () => {
                     <ConversationRename
                         id={conversation.id}
                         value={conversation.title}
-                        disabled={conversation.ownerId !== localUser.id}
+                        disabled={conversation.ownerId !== localUserId}
                         iconOnly
                     />
                     <Title3>{conversation.title}</Title3>

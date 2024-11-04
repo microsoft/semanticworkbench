@@ -393,3 +393,5 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         </div>
     );
 };
+
+export const MemoizedInteractMessage = React.memo(InteractMessage);
