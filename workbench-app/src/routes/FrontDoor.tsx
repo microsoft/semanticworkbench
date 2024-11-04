@@ -135,7 +135,7 @@ export const FrontDoor: React.FC = () => {
     );
 
     const globalContent = React.useMemo(
-        () => <GlobalContent headerBefore={sideRailLeftButton} />,
+        () => <GlobalContent headerBefore={sideRailLeftButton} headerAfter={<NewConversationButton />} />,
         [sideRailLeftButton],
     );
 

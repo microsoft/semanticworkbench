@@ -1,3 +1,4 @@
+import debug from 'debug';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Constants } from '../Constants';
@@ -6,6 +7,8 @@ import { ConversationShare } from '../models/ConversationShare';
 import { useAppSelector } from '../redux/app/hooks';
 import { useUpdateConversationMutation } from '../services/workbench';
 import { Utility } from './Utility';
+
+const log = debug(Constants.debug.root).extend('useConversationUtility');
 
 // Share types to be used in the app.
 export const enum ConversationShareType {
@@ -120,7 +123,12 @@ export const useConversationUtility = () => {
     const setAppMetadata = React.useCallback(
         async (conversation: Conversation, appMetadata: Partial<ParticipantAppMetadata>) => {
             if (!localUserId) {
-                throw new Error('Local user ID not set while setting conversation metadata for user');
+                log(
+                    'Local user ID not set while setting conversation metadata for user, skipping',
+                    `[Conversation ID: ${conversation.id}]`,
+                    appMetadata,
+                );
+                return;
             }
 
             const participantAppMetadata: Record<string, ParticipantAppMetadata> =
@@ -198,7 +206,7 @@ export const useConversationUtility = () => {
         (conversation: Conversation, messageTimestamp: string) => {
             const lastReadTimestamp = getLastReadTimestamp(conversation);
             if (!lastReadTimestamp) {
-                return true;
+                return false;
             }
             return messageTimestamp > lastReadTimestamp;
         },
