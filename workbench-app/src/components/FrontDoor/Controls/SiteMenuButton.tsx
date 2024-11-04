@@ -46,13 +46,6 @@ export const SiteMenuButton: React.FC = () => {
     const { localUser, userPhoto } = useAppSelector((state) => state.app);
     const dispatch = useAppDispatch();
 
-    // FIXME: prevent multiple calls before the setUserPhoto is updated
-    // If not wrapped in a useEffect, an error is thrown when the state is updated
-    // while other components are still rendering. Putting in a useEffect
-    // prevents the error from being thrown, but then the photo may get fetched
-    // multiple times when multiple components are rendering at the same time
-    // and the state update has not yet been processed. Not the end of the world,
-    // as it tends to be just a few calls, but it's not ideal.
     React.useEffect(() => {
         if (isAuthenticated && !userPhoto.src && !userPhoto.isLoading) {
             dispatch(setUserPhoto({ isLoading: true, src: undefined }));
