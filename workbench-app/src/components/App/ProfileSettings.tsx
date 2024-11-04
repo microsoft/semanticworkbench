@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { useIsAuthenticated, useMsal } from '@azure/msal-react';
+import { useAccount, useIsAuthenticated, useMsal } from '@azure/msal-react';
 import {
     Label,
     Link,
@@ -15,7 +15,7 @@ import React from 'react';
 import { AuthHelper } from '../../libs/AuthHelper';
 import { useMicrosoftGraph } from '../../libs/useMicrosoftGraph';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { setUserPhoto } from '../../redux/features/app/appSlice';
+import { setLocalUser, setUserPhoto } from '../../redux/features/app/appSlice';
 
 const useClasses = makeStyles({
     popoverSurface: {
@@ -33,6 +33,7 @@ export const ProfileSettings: React.FC = () => {
     const classes = useClasses();
     const { instance } = useMsal();
     const isAuthenticated = useIsAuthenticated();
+    const account = useAccount();
     const microsoftGraph = useMicrosoftGraph();
     const { localUser, userPhoto } = useAppSelector((state) => state.app);
     const dispatch = useAppDispatch();
@@ -51,6 +52,24 @@ export const ProfileSettings: React.FC = () => {
             })();
         }
     }, [dispatch, isAuthenticated, microsoftGraph, userPhoto.isLoading, userPhoto.src]);
+
+    React.useEffect(() => {
+        if (!isAuthenticated || localUser || !account?.name) {
+            return;
+        }
+
+        dispatch(
+            setLocalUser({
+                id: (account.homeAccountId || '').split('.').reverse().join('.'),
+                name: account.name,
+                email: account.username,
+                avatar: {
+                    name: account.name,
+                    image: userPhoto.src ? { src: userPhoto.src } : undefined,
+                },
+            }),
+        );
+    }, [account, dispatch, isAuthenticated, localUser, userPhoto.src]);
 
     const handleSignOut = () => {
         void AuthHelper.logoutAsync(instance);
