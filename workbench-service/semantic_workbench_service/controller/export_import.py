@@ -70,6 +70,14 @@ async def export_file(
         .order_by(col(db.ConversationMessage.sequence).asc())
     )
 
+    message_debugs = await session.exec(
+        select(db.ConversationMessageDebug)
+        .join(db.ConversationMessage)
+        .where(col(db.ConversationMessage.conversation_id).in_(conversation_ids))
+        .order_by(col(db.ConversationMessage.conversation_id).asc())
+        .order_by(col(db.ConversationMessage.sequence).asc())
+    )
+
     user_participants = await session.exec(
         select(db.UserParticipant)
         .where(col(db.UserParticipant.conversation_id).in_(conversation_ids))
@@ -93,7 +101,14 @@ async def export_file(
         f.writelines(
             _lines_from(
                 _records(
-                    assistants, conversations, messages, user_participants, assistant_participants, files, file_versions
+                    assistants,
+                    conversations,
+                    messages,
+                    message_debugs,
+                    user_participants,
+                    assistant_participants,
+                    files,
+                    file_versions,
                 )
             )
         )
@@ -106,6 +121,7 @@ async def export_file(
 class ImportResult:
     assistant_id_old_to_new: dict[uuid.UUID, uuid.UUID]
     conversation_id_old_to_new: dict[uuid.UUID, uuid.UUID]
+    message_id_old_to_new: dict[uuid.UUID, uuid.UUID]
     assistant_conversation_old_ids: dict[uuid.UUID, set[uuid.UUID]]
     file_id_old_to_new: dict[uuid.UUID, uuid.UUID]
 
@@ -114,6 +130,7 @@ async def import_files(session: AsyncSession, owner_id: str, files: Iterable[IO[
     result = ImportResult(
         assistant_id_old_to_new={},
         conversation_id_old_to_new={},
+        message_id_old_to_new={},
         assistant_conversation_old_ids=collections.defaultdict(set),
         file_id_old_to_new={},
     )
@@ -223,13 +240,22 @@ async def import_files(session: AsyncSession, owner_id: str, files: Iterable[IO[
                 if conversation_id is None:
                     raise RuntimeError(f"conversation_id {message.conversation_id} is not found")
                 message.conversation_id = conversation_id
-                message.message_id = uuid.uuid4()
+                result.message_id_old_to_new[message.message_id] = uuid.uuid4()
+                message.message_id = result.message_id_old_to_new[message.message_id]
 
                 if message.sender_participant_role == "assistant":
                     assistant_id = result.assistant_id_old_to_new.get(uuid.UUID(message.sender_participant_id))
                     if assistant_id is not None:
                         message.sender_participant_id = str(assistant_id)
                 session.add(message)
+
+            case db.ConversationMessageDebug.__name__:
+                message_debug = db.ConversationMessageDebug.model_validate(record.data)
+                message_id = result.message_id_old_to_new.get(message_debug.message_id)
+                if message_id is None:
+                    raise RuntimeError(f"message_id {message_debug.message_id} is not found")
+                message_debug.message_id = message_id
+                session.add(message_debug)
 
             case db.File.__name__:
                 file = db.File.model_validate(record.data)
