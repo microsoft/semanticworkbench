@@ -10,6 +10,19 @@
             "console": "integratedTerminal",
             "runtimeExecutable": "npm",
             "runtimeArgs": ["run", "dev"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "app: semantic-workbench-app (no strict mode)",
+            "env": {
+                "VITE_DISABLE_STRICT_MODE": "true"
+            },
+            "cwd": "${workspaceFolder}",
+            "skipFiles": ["<node_internals>/**"],
+            "console": "integratedTerminal",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"]
         }
     ]
 }

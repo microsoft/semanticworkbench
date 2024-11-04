@@ -148,24 +148,40 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('Could not find root element');
         }
         const root = ReactDOM.createRoot(container);
-        log('starting app');
-        root.render(
-            <React.StrictMode>
-                <Provider store={store}>
-                    <MsalProvider instance={msalInstance}>
-                        <FluentProvider className="app-container" theme={customTheme}>
-                            <CopilotProvider mode="canvas">
-                                <UnauthenticatedTemplate>
-                                    <RouterProvider router={unauthenticatedRouter} />
-                                </UnauthenticatedTemplate>
-                                <AuthenticatedTemplate>
-                                    <RouterProvider router={authenticatedRouter} />
-                                </AuthenticatedTemplate>
-                            </CopilotProvider>
-                        </FluentProvider>
-                    </MsalProvider>
-                </Provider>
-            </React.StrictMode>,
+
+        const app = (
+            <Provider store={store}>
+                <MsalProvider instance={msalInstance}>
+                    <FluentProvider className="app-container" theme={customTheme}>
+                        <CopilotProvider mode="canvas">
+                            <UnauthenticatedTemplate>
+                                <RouterProvider router={unauthenticatedRouter} />
+                            </UnauthenticatedTemplate>
+                            <AuthenticatedTemplate>
+                                <RouterProvider router={authenticatedRouter} />
+                            </AuthenticatedTemplate>
+                        </CopilotProvider>
+                    </FluentProvider>
+                </MsalProvider>
+            </Provider>
         );
+
+        // NOTE: React.StrictMode is used to help catch common issues in the app but will also double-render
+        // components.If you want to verify that any double rendering is coming from this, you can disable
+        // React.StrictMode by setting the env var VITE_DISABLE_STRICT_MODE = true. Please note that this
+        // will also disable the double-render check, so only use this for debugging purposes and make sure
+        // to test with React.StrictMode enabled before committing any changes.
+
+        // Can be overridden by env var VITE_DISABLE_STRICT_MODE
+        const disableStrictMode = import.meta.env.VITE_DISABLE_STRICT_MODE === 'true';
+
+        let startLogMessage = 'starting app';
+        if (import.meta.env.DEV) {
+            startLogMessage = `${startLogMessage} in development mode`;
+            startLogMessage = `${startLogMessage} [strict mode: ${disableStrictMode ? 'disabled' : 'enabled'}]`;
+        }
+
+        log(startLogMessage);
+        root.render(disableStrictMode ? app : <React.StrictMode>{app}</React.StrictMode>);
     }
 });
