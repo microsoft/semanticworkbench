@@ -1,18 +1,28 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using System.Runtime.InteropServices;
+using Microsoft.Extensions.Hosting;
 
 namespace CommunityToolkit.Aspire.Hosting.Uvicorn;
 
 public static class UvicornAppHostingExtensions
 {
     public static IResourceBuilder<UvicornAppResource> AddUvicornApp(
-        this IDistributedApplicationBuilder builder, string name, string projectDirectory, string scriptPath, params string[] scriptArgs)
+        this IDistributedApplicationBuilder builder,
+        string name,
+        string projectDirectory,
+        string scriptPath,
+        params string[] scriptArgs)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
         return builder.AddUvicornApp(name, scriptPath, projectDirectory, ".venv", scriptArgs);
     }
 
-    private static IResourceBuilder<UvicornAppResource> AddUvicornApp(this IDistributedApplicationBuilder builder, string name, string scriptPath, string projectDirectory, string virtualEnvironmentPath, params string[] args)
+    private static IResourceBuilder<UvicornAppResource> AddUvicornApp(this IDistributedApplicationBuilder builder,
+        string name,
+        string scriptPath,
+        string projectDirectory,
+        string virtualEnvironmentPath,
+        params string[] args)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(name);
@@ -59,8 +69,6 @@ public static class UvicornAppHostingExtensions
             resourceBuilder.WithEnvironment("OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", "true");
         }
 
-        resourceBuilder.PublishAsDockerFile();
-
         return resourceBuilder;
     }
 
@@ -74,5 +82,38 @@ public static class UvicornAppHostingExtensions
 
         context.Args.Add("--metrics_exporter");
         context.Args.Add("otlp");
+    }
+}
+
+public static class DockerFileExtensions
+{
+    public static IResourceBuilder<ExecutableResource> PublishAsDockerImage(this IResourceBuilder<ExecutableResource> builder,
+        string? dockerContext = null,
+        string? dockerFilePath = null,
+        Action<IResourceBuilder<ContainerResource>>? configure = null)
+    {
+        if (!builder.ApplicationBuilder.ExecutionContext.IsPublishMode)
+        {
+            return builder;
+        }
+
+        // Bait and switch the ExecutableResource with a ContainerResource
+        builder.ApplicationBuilder.Resources.Remove(builder.Resource);
+
+        var container = new ExecutableContainerResource(builder.Resource);
+        var cb = builder.ApplicationBuilder.AddResource(container);
+        cb.WithImage(builder.Resource.Name);
+        cb.WithDockerfile(contextPath: dockerContext ?? builder.Resource.WorkingDirectory, dockerfilePath: dockerFilePath);
+        // Clear the runtime args
+        cb.WithArgs(c => c.Args.Clear());
+
+        configure?.Invoke(cb);
+
+        return builder;
+    }
+
+    class ExecutableContainerResource(ExecutableResource er) : ContainerResource(er.Name)
+    {
+        public override ResourceAnnotationCollection Annotations => er.Annotations;
     }
 }

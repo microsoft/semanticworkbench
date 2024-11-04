@@ -6,7 +6,9 @@ var builder = DistributedApplication.CreateBuilder(args);
 var workbenchService = builder.AddUvicornApp("workbenchservice",
                                             projectDirectory: Path.Combine("..", "..", "workbench-service"),
                                             scriptPath: "start-semantic-workbench-service")
-    .WithHttpEndpoint(env: "PORT");
+    .WithHttpEndpoint(env: "PORT")
+    .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
+                        dockerFilePath: Path.Combine("workbench-service", "Dockerfile"));
 
 var workbenchServiceEndpoint = workbenchService.GetEndpoint("http");
 
@@ -26,7 +28,6 @@ dotnetAgent3.WithReference(dotnetAgent3);
 builder.AddViteApp("workbenchapp", workingDirectory: Path.Combine("..", "..", "workbench-app"), packageManager: "pnpm")
     .WithPnpmPackageInstallation()
     .WithHttpsEndpoint(env: "PORT")
-    // .WithReference(workbenchServiceEndpoint)
     .WithEnvironment(name: "VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint)
     .WaitFor(workbenchService)
     .PublishAsDockerFile();
