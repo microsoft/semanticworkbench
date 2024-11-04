@@ -78,7 +78,8 @@ const useClasses = makeStyles({
 export const FrontDoor: React.FC = () => {
     const classes = useClasses();
     const { conversationId } = useParams();
-    const { activeConversationId, interactCanvasState } = useAppSelector((state) => state.app);
+    const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
+    const chatCanvasState = useAppSelector((state) => state.chatCanvas);
     const dispatch = useDispatch();
     const [sideRailLeftOpen, setSideRailLeftOpen] = React.useState(!activeConversationId && !conversationId);
     const [sideRailLeftOverlay, setSideRailLeftOverlay] = React.useState(false);
@@ -100,13 +101,13 @@ export const FrontDoor: React.FC = () => {
     }, [conversationId, activeConversationId, dispatch]);
 
     React.useEffect(() => {
-        if (!interactCanvasState) return;
+        if (!chatCanvasState) return;
 
-        if (interactCanvasState.open) {
+        if (chatCanvasState.open) {
             setSideRailLeftOpen(false);
         }
-        setSideRailLeftOverlay(interactCanvasState.open ?? false);
-    }, [interactCanvasState, interactCanvasState?.open]);
+        setSideRailLeftOverlay(chatCanvasState.open ?? false);
+    }, [chatCanvasState, chatCanvasState?.open]);
 
     React.useEffect(() => {
         if (!sideRailLeftRef.current) return;

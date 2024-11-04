@@ -143,21 +143,21 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
 
     const showActions = isHovered || showSelectForActions;
 
-    const action = React.useMemo(() => {
-        const handleMenuItemClick = (
-            event: React.MouseEvent<HTMLDivElement>,
-            handler?: (conversation: Conversation) => void,
-        ) => {
+    const handleMenuItemClick = React.useCallback(
+        (event: React.MouseEvent<HTMLDivElement>, handler?: (conversation: Conversation) => void) => {
             event.stopPropagation();
             setIsHovered(false);
             handler?.(conversation);
-        };
+        },
+        [conversation],
+    );
 
-        const onPinned = async () => {
-            await setPinned(conversation, !isPinned(conversation));
-        };
+    const onPinned = React.useCallback(async () => {
+        await setPinned(conversation, !isPinned(conversation));
+    }, [conversation, isPinned, setPinned]);
 
-        return (
+    const action = React.useMemo(
+        () => (
             <div className={classes.action}>
                 <Checkbox
                     className={classes.selectCheckbox}
@@ -236,25 +236,27 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                     </MenuPopover>
                 </Menu>
             </div>
-        );
-    }, [
-        classes.action,
-        classes.selectCheckbox,
-        classes.moreButton,
-        selectedForActions,
-        conversation,
-        isPinned,
-        onRename,
-        owned,
-        onExport,
-        onDuplicate,
-        onShare,
-        onRemove,
-        selected,
-        setPinned,
-        onSelectForActions,
-        exportConversation,
-    ]);
+        ),
+        [
+            classes.action,
+            classes.moreButton,
+            classes.selectCheckbox,
+            conversation,
+            exportConversation,
+            handleMenuItemClick,
+            isPinned,
+            onDuplicate,
+            onExport,
+            onPinned,
+            onRemove,
+            onRename,
+            onSelectForActions,
+            onShare,
+            owned,
+            selected,
+            selectedForActions,
+        ],
+    );
 
     const unread = hasUnreadMessages(conversation);
 

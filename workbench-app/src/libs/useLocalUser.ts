@@ -5,7 +5,7 @@ import React from 'react';
 export const useLocalUser = () => {
     const account = useAccount();
     // FIXME: re-enable all of this
-    // const { userPhoto } = useAppSelector((state) => state.app);
+    // const userPhoto = useAppSelector((state) => state.app.userPhoto);
     // const isAuthenticated = useIsAuthenticated();
     // const dispatch = useAppDispatch();
 

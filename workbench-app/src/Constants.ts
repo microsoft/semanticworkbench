@@ -12,7 +12,7 @@ export const Constants = {
         maxFileAttachmentsPerMessage: 10,
         loaderDelayMs: 100,
         responsiveBreakpoints: {
-            interactCanvas: '900px',
+            chatCanvas: '900px',
         },
         speechIdleTimeoutMs: 4000,
         azureSpeechTokenRefreshIntervalMs: 540000, // 540000 ms = 9 minutes

@@ -4,7 +4,6 @@ import { generateUuid } from '@azure/ms-rest-js';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
-import { InteractCanvasState } from '../../../models/InteractCanvasState';
 import { conversationApi } from '../../../services/workbench';
 import { AppState } from './AppState';
 
@@ -27,10 +26,6 @@ const initialState: AppState = {
         experimental:
             AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunExperimental) ?? false,
         workflow: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunWorkflow) ?? false,
-    },
-    interactCanvasState: {
-        open: false,
-        mode: 'conversation',
     },
     userPhoto: {
         src: undefined,
@@ -96,24 +91,6 @@ export const appSlice = createSlice({
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
-        setInteractCanvasState: (state: AppState, action: PayloadAction<Partial<InteractCanvasState>>) => {
-            // update only the provided properties
-            if (action.payload.open !== undefined) {
-                state.interactCanvasState.open = action.payload.open;
-            }
-
-            if (action.payload.mode !== undefined) {
-                state.interactCanvasState.mode = action.payload.mode;
-            }
-
-            if (action.payload.assistantId !== undefined) {
-                state.interactCanvasState.assistantId = action.payload.assistantId;
-            }
-
-            if (action.payload.assistantStateId !== undefined) {
-                state.interactCanvasState.assistantStateId = action.payload.assistantStateId;
-            }
-        },
         setActiveConversationId: (state: AppState, action: PayloadAction<string | undefined>) => {
             if (action.payload === state.activeConversationId) {
                 return;
@@ -151,7 +128,6 @@ export const {
     clearErrors,
     setChatWidthPercent,
     setCompletedFirstRun,
-    setInteractCanvasState,
     setActiveConversationId,
     setLocalUser,
     setUserPhoto,

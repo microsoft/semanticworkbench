@@ -42,7 +42,7 @@ interface MainContentProps {
 
 export const MainContent: React.FC<MainContentProps> = (props) => {
     const { headerBefore, headerAfter } = props;
-    const { activeConversationId } = useAppSelector((state) => state.app);
+    const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
 
     const classes = useClasses();
 

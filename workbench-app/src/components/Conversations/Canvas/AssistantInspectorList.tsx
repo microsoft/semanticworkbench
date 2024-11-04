@@ -11,7 +11,7 @@ import {
     tokens,
 } from '@fluentui/react-components';
 import React from 'react';
-import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
+import { useChatCanvasController } from '../../../libs/useChatCanvasController';
 import { Assistant } from '../../../models/Assistant';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
 import { useAppSelector } from '../../../redux/app/hooks';
@@ -54,8 +54,8 @@ interface AssistantInspectorListProps {
 export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (props) => {
     const { conversationId, assistant, stateDescriptions } = props;
     const classes = useClasses();
-    const { interactCanvasState } = useAppSelector((state) => state.app);
-    const interactCanvasController = useInteractCanvasController();
+    const chatCanvasState = useAppSelector((state) => state.chatCanvas);
+    const chatCanvasController = useChatCanvasController();
 
     if (stateDescriptions.length === 1) {
         // Only one assistant state, no need to show tabs, just show the single assistant state
@@ -69,7 +69,7 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
     }
 
     const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
-        interactCanvasController.transitionToState({ assistantStateId: data.value as string });
+        chatCanvasController.transitionToState({ selectedAssistantStateId: data.value as string });
     };
 
     if (stateDescriptions.length === 0) {
@@ -85,8 +85,9 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
     }
 
     const selectedStateDescription =
-        stateDescriptions.find((stateDescription) => stateDescription.id === interactCanvasState?.assistantStateId) ??
-        stateDescriptions[0];
+        stateDescriptions.find(
+            (stateDescription) => stateDescription.id === chatCanvasState.selectedAssistantStateId,
+        ) ?? stateDescriptions[0];
     const selectedTab = selectedStateDescription.id;
 
     return (

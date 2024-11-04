@@ -34,7 +34,7 @@ export const ConversationList: React.FC = () => {
     const classes = useClasses();
     const localUser = useLocalUser();
     const environment = useEnvironment();
-    const { activeConversationId } = useAppSelector((state) => state.app);
+    const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
     const { navigateToConversation } = useConversationUtility();
     const {
         data: conversations,

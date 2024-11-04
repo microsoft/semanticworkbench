@@ -49,7 +49,7 @@ const useClasses = makeStyles({
 
 export const AcceptTerms: React.FC = () => {
     const classes = useClasses();
-    const { completedFirstRun } = useAppSelector((state) => state.app);
+    const completedFirstRun = useAppSelector((state) => state.app.completedFirstRun);
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const location = useLocation();

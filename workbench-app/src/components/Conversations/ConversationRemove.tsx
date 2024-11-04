@@ -11,7 +11,7 @@ import { CommandButton } from '../App/CommandButton';
 import { DialogControl } from '../App/DialogControl';
 
 const useConversationRemoveControls = () => {
-    const { activeConversationId } = useAppSelector((state) => state.app);
+    const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
     const dispatch = useAppDispatch();
     const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
 
