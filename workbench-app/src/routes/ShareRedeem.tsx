@@ -7,10 +7,10 @@ import { AppView } from '../components/App/AppView';
 import { DialogControl } from '../components/App/DialogControl';
 import { Loading } from '../components/App/Loading';
 import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
-import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useWorkbenchService } from '../libs/useWorkbenchService';
 import { Conversation } from '../models/Conversation';
+import { useAppSelector } from '../redux/app/hooks';
 import {
     useCreateConversationMessageMutation,
     useGetConversationsQuery,
@@ -28,7 +28,7 @@ export const ShareRedeem: React.FC = () => {
     const [submitted, setSubmitted] = React.useState(false);
     const [joinAttempted, setJoinAttempted] = React.useState(false);
     const conversationUtility = useConversationUtility();
-    const localUser = useLocalUser();
+    const localUserName = useAppSelector((state) => state.localUser.name);
 
     if (!conversationShareId) {
         throw new Error('Conversation Share ID is required');
@@ -64,7 +64,7 @@ export const ShareRedeem: React.FC = () => {
                 if (conversationShare.conversationPermission === 'read_write') {
                     await createConversationMessage({
                         conversationId: conversationShare.conversationId,
-                        content: `${localUser.name} joined the conversation`,
+                        content: `${localUserName} joined the conversation`,
                         messageType: 'notice',
                     });
                 }
@@ -74,7 +74,7 @@ export const ShareRedeem: React.FC = () => {
                 setSubmitted(false);
             }
         },
-        [conversationShare, redeemShare, navigate, createConversationMessage, localUser.name],
+        [conversationShare, redeemShare, navigate, createConversationMessage, localUserName],
     );
 
     const handleClickDuplicate = React.useCallback(async () => {

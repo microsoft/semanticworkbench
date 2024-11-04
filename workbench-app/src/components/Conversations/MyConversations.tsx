@@ -2,8 +2,8 @@
 
 import { Chat24Regular } from '@fluentui/react-icons';
 import React from 'react';
-import { useLocalUser } from '../../libs/useLocalUser';
 import { Conversation } from '../../models/Conversation';
+import { useAppSelector } from '../../redux/app/hooks';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
 import { MiniControl } from '../App/MiniControl';
@@ -29,7 +29,7 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
     const { refetch: refetchAssistants } = useGetAssistantsQuery();
     const { refetch: refetchConversations } = useGetConversationsQuery();
     const [conversationCreateOpen, setConversationCreateOpen] = React.useState(false);
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
 
     const handleConversationCreate = async (conversation: Conversation) => {
         await refetchConversations();
@@ -55,7 +55,7 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
                         actions={
                             <>
                                 <ConversationRename
-                                    disabled={conversation.ownerId !== localUser.id}
+                                    disabled={conversation.ownerId !== localUserId}
                                     id={conversation.id}
                                     value={conversation.title}
                                     iconOnly

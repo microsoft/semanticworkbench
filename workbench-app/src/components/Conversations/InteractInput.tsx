@@ -28,7 +28,6 @@ import {
 import React from 'react';
 import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
-import { useLocalUser } from '../../libs/useLocalUser';
 import { useNotify } from '../../libs/useNotify';
 import { AssistantCapability } from '../../models/AssistantCapability';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
@@ -136,6 +135,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const { conversationId, additionalContent, readOnly, assistantCapabilities } = props;
     const classes = useClasses();
     const dropTargetRef = React.useRef<HTMLDivElement>(null);
+    const localUserId = useAppSelector((state) => state.localUser.id);
     const isDraggingOverBody = useAppSelector((state) => state.app.isDraggingOverBody);
     const isDraggingOverTarget = useDragAndDrop(dropTargetRef.current, log);
     const [createMessage] = useCreateConversationMessageMutation();
@@ -151,7 +151,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
     const { notifyWarning } = useNotify();
     const dispatch = useAppDispatch();
-    const localUser = useLocalUser();
 
     const {
         data: conversationMessages,
@@ -303,6 +302,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         }
 
         (async () => {
+            if (!localUserId) {
+                throw new Error('Local user ID is not set');
+            }
+
             setIsSubmitting(true);
             const content = data.value.trim();
             let metadata: Record<string, any> | undefined = directedAtId ? undefined : { directed_at: directedAtId };
@@ -342,7 +345,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                     {
                         id: 'optimistic',
                         sender: {
-                            participantId: localUser.id,
+                            participantId: localUserId,
                             participantRole: 'user',
                         },
                         timestamp: new Date().toISOString(),
@@ -594,7 +597,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                             <ClearEditorPlugin />
                             {participants && (
                                 <ParticipantMentionsPlugin
-                                    participants={participants.filter((participant) => participant.id !== localUser.id)}
+                                    participants={participants.filter((participant) => participant.id !== localUserId)}
                                     parent={document.getElementById('app')}
                                 />
                             )}

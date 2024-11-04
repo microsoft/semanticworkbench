@@ -49,7 +49,7 @@ interface AppViewProps {
 export const AppView: React.FC<AppViewProps> = (props) => {
     const { title, actions, fullSizeContent, children } = props;
     const classes = useClasses();
-    const { completedFirstRun } = useAppSelector((state) => state.app);
+    const completedFirstRun = useAppSelector((state) => state.app.completedFirstRun);
     const navigate = useNavigate();
 
     React.useLayoutEffect(() => {

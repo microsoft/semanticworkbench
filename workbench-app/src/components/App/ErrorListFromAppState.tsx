@@ -26,7 +26,7 @@ interface ErrorListFromAppStateProps {
 export const ErrorListFromAppState: React.FC<ErrorListFromAppStateProps> = (props) => {
     const { className } = props;
     const classes = useClasses();
-    const { errors } = useAppSelector((state: RootState) => state.app);
+    const errors = useAppSelector((state: RootState) => state.app.errors);
     const dispatch = useAppDispatch();
 
     if (!errors || errors.length === 0) {

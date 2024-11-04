@@ -2,21 +2,21 @@ import { AvatarProps } from '@fluentui/react-components';
 import { AppGenericRegular, BotRegular, PersonRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { ConversationParticipant } from '../models/ConversationParticipant';
-import { useLocalUser } from './useLocalUser';
+import { useAppSelector } from '../redux/app/hooks';
 
 export const useParticipantUtility = () => {
-    const localUser = useLocalUser();
+    const localUserState = useAppSelector((state) => state.localUser);
 
     const getAvatarData = React.useCallback(
         (participant: ConversationParticipant | 'localUser') => {
             if (participant === 'localUser') {
-                return localUser.avatar;
+                return localUserState.avatar;
             }
 
             const { id, name, image, role } = participant;
 
-            if (id === localUser.id) {
-                return localUser.avatar;
+            if (id === localUserState.id) {
+                return localUserState.avatar;
             }
 
             let avatar: AvatarProps = {
@@ -35,7 +35,7 @@ export const useParticipantUtility = () => {
 
             return avatar;
         },
-        [localUser.avatar, localUser.id],
+        [localUserState.avatar, localUserState.id],
     );
 
     const sortParticipants = React.useCallback(

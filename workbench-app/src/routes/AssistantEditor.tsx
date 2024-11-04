@@ -12,10 +12,10 @@ import { AssistantExport } from '../components/Assistants/AssistantExport';
 import { AssistantRename } from '../components/Assistants/AssistantRename';
 import { AssistantServiceMetadata } from '../components/Assistants/AssistantServiceMetadata';
 import { MyConversations } from '../components/Conversations/MyConversations';
-import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Assistant } from '../models/Assistant';
 import { Conversation } from '../models/Conversation';
+import { useAppSelector } from '../redux/app/hooks';
 import {
     useAddConversationParticipantMutation,
     useCreateConversationMessageMutation,
@@ -68,7 +68,7 @@ export const AssistantEditor: React.FC = () => {
     const [updateAssistant] = useUpdateAssistantMutation();
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
-    const localUser = useLocalUser();
+    const localUserName = useAppSelector((state) => state.localUser.name);
     const siteUtility = useSiteUtility();
     const navigate = useNavigate();
 
@@ -113,7 +113,7 @@ export const AssistantEditor: React.FC = () => {
         // send event to notify the conversation that the user has joined
         await createConversationMessage({
             conversationId: conversation.id,
-            content: `${localUser.name} created the conversation`,
+            content: `${localUserName ?? 'Unknown user'} created the conversation`,
             messageType: 'notice',
         });
 

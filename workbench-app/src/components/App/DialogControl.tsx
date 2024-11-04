@@ -57,11 +57,7 @@ export const DialogControl: React.FC<DialogControlContent> = (props) => {
                                 </Button>
                             </DialogTrigger>
                         )}
-                        {additionalActions?.map((action, index) => (
-                            <DialogTrigger key={index} disableButtonEnhancement>
-                                {action}
-                            </DialogTrigger>
-                        ))}
+                        {additionalActions}
                     </DialogActions>
                 </DialogBody>
             </DialogSurface>
