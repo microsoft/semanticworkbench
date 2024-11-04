@@ -165,7 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         </FluentProvider>
                     </MsalProvider>
                 </Provider>
-                ,
             </React.StrictMode>,
         );
     }

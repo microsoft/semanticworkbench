@@ -33,6 +33,7 @@ const initialState: AppState = {
         mode: 'conversation',
     },
     userPhoto: {
+        src: undefined,
         isLoading: false,
     },
 };
@@ -124,9 +125,20 @@ export const appSlice = createSlice({
                 conversationApi.endpoints.getConversationMessages.initiate(action.payload, { forceRefetch: true });
             }
         },
+        setLocalUser: (state: AppState, action: PayloadAction<AppState['localUser']>) => {
+            state.localUser = action.payload;
+        },
         setUserPhoto: (state: AppState, action: PayloadAction<{ src?: string; isLoading?: boolean }>) => {
             state.userPhoto.src = action.payload.src;
             state.userPhoto.isLoading = action.payload.isLoading ?? false;
+
+            // update local user avatar
+            if (state.localUser) {
+                state.localUser.avatar = {
+                    ...state.localUser.avatar,
+                    image: action.payload.src ? { src: action.payload.src } : undefined,
+                };
+            }
         },
     },
 });
@@ -141,6 +153,7 @@ export const {
     setCompletedFirstRun,
     setInteractCanvasState,
     setActiveConversationId,
+    setLocalUser,
     setUserPhoto,
 } = appSlice.actions;
 

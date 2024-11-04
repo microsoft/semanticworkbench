@@ -33,7 +33,7 @@ import { useLocalUser } from '../../../libs/useLocalUser';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
-import { ParticipantAvatarGroup } from '../../Conversations/ParticipantAvatarGroup';
+import { MemoizedParticipantAvatarGroup } from '../../Conversations/ParticipantAvatarGroup';
 
 const useClasses = makeStyles({
     cardHeader: {
@@ -330,7 +330,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         >
             <CardHeader
                 className={mergeClasses(classes.cardHeader, showActions ? classes.showingActions : undefined)}
-                image={<ParticipantAvatarGroup participants={sortedParticipantsByOwnerMeOthers} />}
+                image={<MemoizedParticipantAvatarGroup participants={sortedParticipantsByOwnerMeOthers} />}
                 header={header}
                 description={description}
             />

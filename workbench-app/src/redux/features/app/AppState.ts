@@ -16,6 +16,17 @@ export interface AppState {
     };
     chatWidthPercent: number;
     interactCanvasState: InteractCanvasState;
+    localUser?: {
+        id: string;
+        name: string;
+        email: string;
+        avatar: {
+            name: string;
+            image?: {
+                src: string;
+            };
+        };
+    };
     userPhoto: {
         src?: string;
         isLoading: boolean;

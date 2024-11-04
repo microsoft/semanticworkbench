@@ -93,3 +93,5 @@ export const ParticipantAvatarGroup: React.FC<ParticipantAvatarGroupProps> = (pr
         </AvatarGroup>
     );
 };
+
+export const MemoizedParticipantAvatarGroup = React.memo(ParticipantAvatarGroup);

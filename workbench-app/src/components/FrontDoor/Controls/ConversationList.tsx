@@ -183,18 +183,6 @@ export const ConversationList: React.FC = () => {
         ],
     );
 
-    const conversationListOptions = React.useMemo(
-        () => (
-            <ConversationListOptions
-                conversations={conversations}
-                selectedForActions={selectedForActions}
-                onSelectedForActionsChanged={setSelectedForActions}
-                onDisplayedConversationsChanged={setDisplayedConversations}
-            />
-        ),
-        [conversations, selectedForActions, setSelectedForActions, setDisplayedConversations],
-    );
-
     if (conversationsLoading) {
         return <Loading />;
     }
@@ -202,7 +190,6 @@ export const ConversationList: React.FC = () => {
     return (
         <>
             {actionHelpers}
-            {conversationListOptions}
             <ConversationListOptions
                 conversations={conversations}
                 selectedForActions={selectedForActions}
