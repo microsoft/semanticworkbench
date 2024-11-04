@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dotnet-03-simple-chatbot", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommunityToolkit.Aspire.Hosting.Uvicorn", "CommunityToolkit.Aspire.Hosting.Uvicorn\CommunityToolkit.Aspire.Hosting.Uvicorn.csproj", "{CFF379CF-EAD3-4A3B-BC98-6F57C6F19A2D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkbenchConnector", "..\libraries\dotnet\WorkbenchConnector\WorkbenchConnector.csproj", "{78F3254D-ABAD-472C-B2B9-630A45FFF77B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{CFF379CF-EAD3-4A3B-BC98-6F57C6F19A2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CFF379CF-EAD3-4A3B-BC98-6F57C6F19A2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CFF379CF-EAD3-4A3B-BC98-6F57C6F19A2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{78F3254D-ABAD-472C-B2B9-630A45FFF77B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{78F3254D-ABAD-472C-B2B9-630A45FFF77B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{78F3254D-ABAD-472C-B2B9-630A45FFF77B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78F3254D-ABAD-472C-B2B9-630A45FFF77B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

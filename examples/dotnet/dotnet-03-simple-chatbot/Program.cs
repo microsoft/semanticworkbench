@@ -36,6 +36,10 @@ internal static class Program
 
         // Connect to workbench backend, keep alive, and accept incoming requests
         var connectorEndpoint = app.Configuration.GetSection("Workbench").Get<WorkbenchConfig>()!.ConnectorEndpoint;
+        if(Environment.GetEnvironmentVariable("services__agent3__http__0") == null)
+        {
+            connectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__http__0")}/myagents";
+        }
         using var agentService = app.UseAgentWebservice(connectorEndpoint, true);
         await agentService.ConnectAsync().ConfigureAwait(false);
 

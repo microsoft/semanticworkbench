@@ -33,7 +33,7 @@ public abstract class WorkbenchConnector : IDisposable
         this.Log = logger;
         this.Storage = storage;
         this.HttpClient = new HttpClient();
-        var baseAddress = Environment.GetEnvironmentVariable("services__workbenchservice__http_0") ?? this.Config.WorkbenchEndpoint;
+        var baseAddress = Environment.GetEnvironmentVariable("services__workbenchservice__http__0") ?? this.Config.WorkbenchEndpoint;
         this.HttpClient.BaseAddress = new Uri(baseAddress);
         this.Agents = new Dictionary<string, AgentBase>();
 
