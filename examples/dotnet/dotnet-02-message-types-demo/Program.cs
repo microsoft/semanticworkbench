@@ -27,7 +27,7 @@ internal static class Program
         appBuilder.Services.AddSingleton<IAgentServiceStorage, AgentServiceStorage>();
 
         // Agent service to support multiple agent instances
-        appBuilder.Services.AddSingleton<WorkbenchConnector, MyWorkbenchConnector>();
+        appBuilder.Services.AddSingleton<WorkbenchConnector<MyAgentConfig>, MyWorkbenchConnector>();
 
         // Azure AI Content Safety, used to monitor I/O
         appBuilder.Services.AddAzureAIContentSafety(appBuilder.Configuration.GetSection("AzureContentSafety"));
@@ -42,7 +42,7 @@ internal static class Program
 
         // Connect to workbench backend, keep alive, and accept incoming requests
         var connectorEndpoint = app.Configuration.GetSection("Workbench").Get<WorkbenchConfig>()!.ConnectorEndpoint;
-        using var agentService = app.UseAgentWebservice(connectorEndpoint, true);
+        using var agentService = app.UseAgentWebservice<MyAgentConfig>(connectorEndpoint, true);
         await agentService.ConnectAsync().ConfigureAwait(false);
 
         // Start app and webservice

@@ -6,15 +6,8 @@ using Microsoft.SemanticWorkbench.Connector;
 
 namespace AgentExample;
 
-public class MyAgent : AgentBase
+public class MyAgent : AgentBase<MyAgentConfig>
 {
-    // Agent settings
-    public MyAgentConfig Config
-    {
-        get { return (MyAgentConfig)this.RawConfig; }
-        private set { this.RawConfig = value; }
-    }
-
     /// <summary>
     /// Create a new agent instance
     /// </summary>
@@ -28,7 +21,7 @@ public class MyAgent : AgentBase
         string agentId,
         string agentName,
         MyAgentConfig? agentConfig,
-        WorkbenchConnector workbenchConnector,
+        WorkbenchConnector<MyAgentConfig> workbenchConnector,
         IAgentServiceStorage storage,
         ILoggerFactory? loggerFactory = null)
         : base(
@@ -41,18 +34,6 @@ public class MyAgent : AgentBase
 
         // Clone object to avoid config object being shared
         this.Config = JsonSerializer.Deserialize<MyAgentConfig>(JsonSerializer.Serialize(agentConfig)) ?? new MyAgentConfig();
-    }
-
-    /// <inheritdoc />
-    public override IAgentConfig GetDefaultConfig()
-    {
-        return new MyAgentConfig();
-    }
-
-    /// <inheritdoc />
-    public override IAgentConfig? ParseConfig(object data)
-    {
-        return JsonSerializer.Deserialize<MyAgentConfig>(JsonSerializer.Serialize(data));
     }
 
     /// <inheritdoc />
