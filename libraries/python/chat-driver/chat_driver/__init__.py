@@ -3,7 +3,7 @@
 import logging
 
 from context import Context, ContextProtocol
-from openai_client.completion import JSON_OBJECT_RESPONSE_FORMAT, TEXT_RESPONSE_FORMAT, ResponseFormat
+from openai_client.completion import JSON_OBJECT_RESPONSE_FORMAT, TEXT_RESPONSE_FORMAT
 
 from .chat_driver import (
     ChatDriver,
@@ -14,15 +14,17 @@ from .message_history_provider import MessageHistoryProviderProtocol
 
 logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+
 __all__ = [
     "ChatDriver",
     "ChatDriverConfig",
     "Context",
     "ContextProtocol",
     "JSON_OBJECT_RESPONSE_FORMAT",
+    "JSON_OBJECT_RESPONSE_FORMAT",
     "LocalMessageHistoryProvider",
     "LocalMessageHistoryProviderConfig",
     "MessageHistoryProviderProtocol",
-    "ResponseFormat",
     "TEXT_RESPONSE_FORMAT",
 ]

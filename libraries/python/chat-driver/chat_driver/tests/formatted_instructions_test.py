@@ -1,19 +1,5 @@
-from typing import Any
-
 from chat_driver.chat_driver import ChatDriver
-from liquid import Template
-
-
-def format_message(message: str, vars: dict[str, Any]) -> str:
-    """
-    Format a message with the given variables.
-    """
-    out = message
-    if not message:
-        return message
-    template = Template(message)
-    out = template.render(**vars)
-    return out
+from openai_client.messages import format_with_dict
 
 
 def test_formatted_instructions() -> None:
@@ -48,7 +34,7 @@ def test_formatted_instructions() -> None:
             "user_feedback": user_feedback,
             "chat_history": chat_history,
         },
-        formatter=format_message,
+        formatter=format_with_dict,
     )
 
     expected = [
