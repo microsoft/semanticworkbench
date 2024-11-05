@@ -1,7 +1,7 @@
 export const Constants = {
     app: {
         name: 'Semantic Workbench',
-        conversationRedirectPath: '/frontdoor',
+        conversationRedirectPath: '',
         defaultTheme: 'light',
         defaultBrand: 'local',
         autoScrollThreshold: 100,
