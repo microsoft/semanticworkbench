@@ -15,6 +15,7 @@ dependencies = [
     "azure-identity>=1.16.0",
     "azure-keyvault-secrets>=4.8.0",
     "cachetools>=5.3.3",
+    "deepmerge>=2.0",
     "fastapi[standard]~=0.115.0",
     "greenlet~=3.0.3",
     "jsonschema>=4.20.0",
