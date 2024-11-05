@@ -366,7 +366,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
-    { name = "python-liquid" },
     { name = "requests" },
     { name = "tiktoken" },
 ]
@@ -382,7 +381,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.6.1" },
     { name = "pydantic-settings", specifier = ">=2.3.4" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "python-liquid", specifier = ">=1.12.1" },
     { name = "requests", specifier = ">=2.32.0" },
     { name = "tiktoken", specifier = ">=0.7.0" },
 ]
@@ -596,6 +594,7 @@ dependencies = [
     { name = "chat-driver" },
     { name = "context" },
     { name = "events" },
+    { name = "openai-client" },
     { name = "skill-library" },
 ]
 
@@ -604,6 +603,7 @@ requires-dist = [
     { name = "chat-driver", editable = "../../libraries/python/chat-driver" },
     { name = "context", editable = "../../libraries/python/context" },
     { name = "events", editable = "../../libraries/python/events" },
+    { name = "openai-client", editable = "../../libraries/python/openai-client" },
     { name = "skill-library", editable = "../../libraries/python/skills/skill-library" },
 ]
 
