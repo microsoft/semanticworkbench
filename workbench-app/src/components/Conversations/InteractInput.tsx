@@ -354,6 +354,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                         contentType: 'text/plain',
                         filenames: [],
                         metadata,
+                        hasDebugData: false,
                     },
                 ]),
             );

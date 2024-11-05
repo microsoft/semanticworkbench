@@ -6,7 +6,7 @@ WORKBENCH__DB__URL ?= postgresql:///workbench
 
 .PHONY: alembic-upgrade-head
 alembic-upgrade-head:
-	WORKBENCH__DB__URL="$(WORKBENCH__DB__URL)" alembic upgrade head
+	WORKBENCH__DB__URL="$(WORKBENCH__DB__URL)" uv run alembic upgrade head
 
 .PHONY: alembic-generate-migration
 alembic-generate-migration:
@@ -15,7 +15,7 @@ ifndef migration
 	$(info ex: make alembic-generate-migration migration="neato changes")
 	$(error "migration" is not set)
 else
-	WORKBENCH__DB__URL="$(WORKBENCH__DB__URL)" alembic revision --autogenerate -m "$(migration)"
+	WORKBENCH__DB__URL="$(WORKBENCH__DB__URL)" uv run alembic revision --autogenerate -m "$(migration)"
 endif
 
 DOCKER_PATH = $(repo_root)

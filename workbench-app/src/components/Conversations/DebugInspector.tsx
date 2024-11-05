@@ -1,10 +1,11 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Tooltip, makeStyles } from '@fluentui/react-components';
+import { Button, DialogOpenChangeData, DialogOpenChangeEvent, Tooltip, makeStyles } from '@fluentui/react-components';
 import { Info16Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { JSONTree } from 'react-json-tree';
 import { DialogControl } from '../App/DialogControl';
+import { Loading } from '../App/Loading';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
 
 const useClasses = makeStyles({
@@ -23,12 +24,26 @@ const useClasses = makeStyles({
 
 interface DebugInspectorProps {
     debug?: { [key: string]: any };
+    loading?: boolean;
     trigger?: JSX.Element;
+    onOpen?: () => void;
+    onClose?: () => void;
 }
 
 export const DebugInspector: React.FC<DebugInspectorProps> = (props) => {
-    const { debug, trigger } = props;
+    const { debug, loading, trigger, onOpen, onClose } = props;
     const classes = useClasses();
+
+    const onOpenChanged = React.useCallback(
+        (_: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
+            if (data.open) {
+                onOpen?.();
+                return;
+            }
+            onClose?.();
+        },
+        [onOpen, onClose],
+    );
 
     if (!debug) {
         return null;
@@ -48,8 +63,11 @@ export const DebugInspector: React.FC<DebugInspectorProps> = (props) => {
             }
             classNames={{ dialogSurface: classes.root }}
             title="Debug Inspection"
+            onOpenChange={onOpenChanged}
             content={
-                debug.content ? (
+                loading ? (
+                    <Loading />
+                ) : debug.content ? (
                     <ContentRenderer content={debug.content} contentType={debug.contentType} />
                 ) : (
                     <div className={classes.content}>

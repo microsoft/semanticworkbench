@@ -36,7 +36,10 @@ import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useCreateConversationMessageMutation } from '../../services/workbench';
+import {
+    useCreateConversationMessageMutation,
+    useGetConversationMessageDebugDataQuery,
+} from '../../services/workbench';
 import { CopyButton } from '../App/CopyButton';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
 import { ConversationFileIcon } from './ConversationFileIcon';
@@ -153,6 +156,15 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { getAvatarData } = useParticipantUtility();
     const [createConversationMessage] = useCreateConversationMessageMutation();
     const { isMessageVisibleRef, isMessageVisible, isUnread } = useConversationUtility();
+    const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
+    const {
+        data: debugData,
+        isLoading: isLoadingDebugData,
+        isUninitialized: isUninitializedDebugData,
+    } = useGetConversationMessageDebugDataQuery(
+        { conversationId: conversation.id, messageId: message.id },
+        { skip: skipDebugLoad },
+    );
 
     const isUser = participant.role === 'user';
 
@@ -228,7 +240,14 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         () => (
             <>
                 {!readOnly && <MessageLink conversation={conversation} messageId={message.id} />}
-                <DebugInspector debug={message.metadata?.debug} />
+                <DebugInspector
+                    debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
+                    loading={isLoadingDebugData || isUninitializedDebugData}
+                    onOpen={() => {
+                        console.log('OPEN!');
+                        setSkipDebugLoad(false);
+                    }}
+                />
                 <CopyButton data={message.content} tooltip="Copy message" size="small" appearance="transparent" />
                 {!readOnly && (
                     <>
@@ -238,7 +257,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 )}
             </>
         ),
-        [conversation, message, readOnly],
+        [conversation, debugData?.debugData, isLoadingDebugData, isUninitializedDebugData, message, readOnly],
     );
 
     const getRenderedMessage = React.useCallback(() => {

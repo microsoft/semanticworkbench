@@ -4,6 +4,7 @@ import uuid
 from dataclasses import dataclass
 from typing import AsyncContextManager, Awaitable, Callable, Iterable, Literal, Sequence
 
+import deepmerge
 from semantic_workbench_api_model.assistant_service_client import AssistantError
 from semantic_workbench_api_model.workbench_model import (
     Conversation,
@@ -11,6 +12,7 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationEventType,
     ConversationList,
     ConversationMessage,
+    ConversationMessageDebug,
     ConversationMessageList,
     ConversationParticipant,
     ConversationParticipantList,
@@ -90,7 +92,7 @@ class ConversationController:
     async def _projections_with_participants(
         self,
         session: AsyncSession,
-        conversation_projections: Sequence[tuple[db.Conversation, db.ConversationMessage | None, str]],
+        conversation_projections: Sequence[tuple[db.Conversation, db.ConversationMessage | None, bool, str]],
     ) -> Iterable[
         tuple[
             db.Conversation,
@@ -98,6 +100,7 @@ class ConversationController:
             Iterable[db.AssistantParticipant],
             dict[uuid.UUID, db.Assistant],
             db.ConversationMessage | None,
+            bool,
             str,
         ]
     ]:
@@ -137,10 +140,11 @@ class ConversationController:
                 Iterable[db.AssistantParticipant],
                 dict[uuid.UUID, db.Assistant],
                 db.ConversationMessage | None,
+                bool,
                 str,
             ]
         ]:
-            for conversation, latest_message, permission in conversation_projections:
+            for conversation, latest_message, latest_message_has_debug, permission in conversation_projections:
                 conversation_id = conversation.conversation_id
                 conversation_user_participants = (
                     up for up in user_participants if up.conversation_id == conversation_id
@@ -154,6 +158,7 @@ class ConversationController:
                     conversation_assistant_participants,
                     assistants_map,
                     latest_message,
+                    latest_message_has_debug,
                     permission,
                 )
 
@@ -246,13 +251,20 @@ class ConversationController:
                 conversation_projections=[conversation_projection],
             )
 
-            conversation, user_participants, assistant_participants, assistants, latest_message, permission = next(
-                iter(projections_with_participants)
-            )
+            (
+                conversation,
+                user_participants,
+                assistant_participants,
+                assistants,
+                latest_message,
+                latest_message_has_debug,
+                permission,
+            ) = next(iter(projections_with_participants))
 
             return convert.conversation_from_db(
                 model=conversation,
                 latest_message=latest_message,
+                latest_message_has_debug=latest_message_has_debug,
                 permission=permission,
                 user_participants=user_participants,
                 assistant_participants=assistant_participants,
@@ -658,6 +670,11 @@ class ConversationController:
                     role = "assistant"
                     participant_id = str(principal.assistant_id)
 
+            # pop "debug" from metadata, if it exists, and merge with the debug field
+            message_debug = deepmerge.always_merger.merge(
+                (new_message.metadata or {}).pop("debug", None), new_message.debug_data or {}
+            )
+
             message = db.ConversationMessage(
                 conversation_id=conversation.conversation_id,
                 sender_participant_role=role,
@@ -672,10 +689,18 @@ class ConversationController:
                 message.message_id = new_message.id
 
             session.add(message)
+
+            if message_debug:
+                debug = db.ConversationMessageDebug(
+                    message_id=message.message_id,
+                    data=message_debug,
+                )
+                session.add(debug)
+
             await session.commit()
             await session.refresh(message)
 
-        message_response = convert.conversation_message_from_db(message)
+        message_response = convert.conversation_message_from_db(message, has_debug=bool(message_debug))
 
         # share message with previewers
         message_preview = MessagePreview(conversation_id=conversation_id, message=message_response)
@@ -700,17 +725,36 @@ class ConversationController:
         self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID, message_id: uuid.UUID
     ) -> ConversationMessage:
         async with self._get_session() as session:
-            message = (
+            projection = (
                 await session.exec(
-                    query.select_conversation_messages_for(principal=principal)
+                    query.select_conversation_message_projections_for(principal=principal)
                     .where(db.ConversationMessage.conversation_id == conversation_id)
                     .where(db.ConversationMessage.message_id == message_id)
                 )
             ).one_or_none()
-            if message is None:
+            if projection is None:
                 raise exceptions.NotFoundError()
 
-        return convert.conversation_message_from_db(message)
+        message, has_debug = projection
+
+        return convert.conversation_message_from_db(message, has_debug=has_debug)
+
+    async def get_message_debug(
+        self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID, message_id: uuid.UUID
+    ) -> ConversationMessageDebug:
+        async with self._get_session() as session:
+            message_debug = (
+                await session.exec(
+                    query.select_conversation_message_debugs_for(principal=principal).where(
+                        db.Conversation.conversation_id == conversation_id,
+                        db.ConversationMessageDebug.message_id == message_id,
+                    )
+                )
+            ).one_or_none()
+            if message_debug is None:
+                raise exceptions.NotFoundError()
+
+        return convert.conversation_message_debug_from_db(message_debug)
 
     async def get_messages(
         self,
@@ -734,7 +778,7 @@ class ConversationController:
             if conversation is None:
                 raise exceptions.NotFoundError()
 
-            select_query = query.select_conversation_messages_for(principal=principal).where(
+            select_query = query.select_conversation_message_projections_for(principal=principal).where(
                 db.ConversationMessage.conversation_id == conversation_id
             )
 
@@ -810,7 +854,7 @@ class ConversationController:
             if message is None:
                 raise exceptions.NotFoundError()
 
-            message_response = convert.conversation_message_from_db(message)
+            message_response = convert.conversation_message_from_db(message, has_debug=False)
 
             await session.delete(message)
             await session.commit()
