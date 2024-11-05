@@ -116,6 +116,10 @@
       "path": "libraries/python/skills/skills/document-skill"
     },
     {
+      "name": "libraries:skills:form-filler-skill",
+      "path": "libraries/python/skills/skills/form-filler-skill"
+    },
+    {
       "name": "libraries:skills:notebooks",
       "path": "libraries/python/skills/notebooks"
     },
@@ -146,6 +150,10 @@
     {
       "name": ".github",
       "path": ".github"
+    },
+    {
+      "name": "root",
+      "path": "."
     }
   ],
   "settings": {

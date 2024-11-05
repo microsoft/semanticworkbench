@@ -8,8 +8,13 @@
 # the skills library to create a skill-based assistant.
 
 import logging
+from pathlib import Path
 
+import openai_client
+from chat_driver import ChatDriverConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
+from form_filler_skill import FormFillerSkill
+from posix_skill import PosixSkill
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
@@ -25,8 +30,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from assistant.skill_event_mapper import SkillEventMapper
+
+from .assistant_registry import AssistantRegistry
 from .config import AssistantConfigModel
-from .skill_controller import AssistantRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -139,36 +146,69 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
 # Core response logic for handling messages (chat or command) in the conversation.
 async def respond_to_conversation(
-    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
+    conversation_context: ConversationContext,
+    event: ConversationEvent,
+    message: ConversationMessage,
 ) -> None:
     """
     Respond to a conversation message.
     """
 
-    # TODO: pass metadata to the assistant for at least adding the content safety metadata to debug
+    # Get the assistant configuration.
+    config = await assistant_config.get(conversation_context.assistant)
 
-    # get the assistant configuration
-    config = await assistant_config.get(context.assistant)
-
-    # TODO: pass metadata to the assistant for at least adding the content safety metadata to debug
+    # TODO: pass metadata to the assistant for at least adding the content safety metadata to debug.
     # metadata = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
-    # update the participant status to indicate the assistant is thinking
-    await context.update_participant_me(UpdateParticipant(status="thinking..."))
+    # Update the participant status to indicate the assistant is thinking.
+    await conversation_context.update_participant_me(UpdateParticipant(status="thinking..."))
+
+    # Get an assistant from the skill library.
+    assistant = assistant_registry.get_assistant(conversation_context.id)
+
+    # Create and register an assistant if necessary.
+    if not assistant:
+        try:
+            async_client = openai_client.create_client(config.service_config)
+            chat_driver_config = ChatDriverConfig(
+                openai_client=async_client,
+                model=config.chat_driver_config.openai_model,
+                instructions=config.chat_driver_config.instructions,
+                # context will be overwritten by the assistant when initialized.
+            )
+            assistant = await assistant_registry.register_assistant(
+                conversation_context.id,
+                SkillEventMapper(conversation_context),
+                chat_driver_config,
+                [
+                    PosixSkill(
+                        sandbox_dir=Path(".data") / conversation_context.id,
+                        mount_dir="/mnt/data",
+                        chat_driver_config=chat_driver_config,
+                    ),
+                    FormFillerSkill(
+                        chat_driver_config=chat_driver_config,
+                    ),
+                ],
+            )
+
+        except Exception as e:
+            logging.exception("exception in on_message_created")
+            await conversation_context.send_messages(
+                NewConversationMessage(
+                    message_type=MessageType.note,
+                    content=f"Unhandled error: {e}",
+                )
+            )
+            return
+        finally:
+            await conversation_context.update_participant_me(UpdateParticipant(status=None))
+
     try:
-        # replace the following with your own logic for processing a message created event
-        assistant = await assistant_registry.get_assistant(
-            context,
-            config.chat_driver_config,
-            config.service_config,
-        )
-        if assistant:
-            await assistant.put_message(message.content)
-        else:
-            logging.error("Assistant not created")
+        await assistant.put_message(message.content)
     except Exception as e:
         logging.exception("exception in on_message_created")
-        await context.send_messages(
+        await conversation_context.send_messages(
             NewConversationMessage(
                 message_type=MessageType.note,
                 content=f"Unhandled error: {e}",
@@ -176,4 +216,4 @@ async def respond_to_conversation(
         )
     finally:
         # update the participant status to indicate the assistant is done thinking
-        await context.update_participant_me(UpdateParticipant(status=None))
+        await conversation_context.update_participant_me(UpdateParticipant(status=None))

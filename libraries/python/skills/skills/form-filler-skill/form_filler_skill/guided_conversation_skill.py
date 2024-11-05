@@ -1,15 +1,19 @@
 from typing import Any, Optional
 
 from chat_driver import ChatDriverConfig
-from context import Context
+from events import BaseEvent
 from skill_library import FunctionRoutine, RoutineTypes, Skill
-from skill_library.skill_registry import SkillRegistry
+from skill_library.run_context import RunContext
 
-from form_filler_skill.guided_conversation.definition import GCDefinition
+from form_filler_skill.agenda import Agenda
+from form_filler_skill.artifact import Artifact
+from form_filler_skill.definition import GCDefinition
+from form_filler_skill.message import Conversation
+from form_filler_skill.resources import GCResource
 
-from .chat_drivers.gc_final_update import final_update
-from .chat_drivers.gc_update_agenda import update_agenda
-from .chat_drivers.gc_update_artifact import update_artifact
+from .chat_drivers.unneeded.execute_reasoning import execute_reasoning
+from .chat_drivers.final_update import final_update
+from .chat_drivers.update_agenda import update_agenda
 
 NAME = "guided-conversation"
 CLASS_NAME = "GuidedConversationSkill"
@@ -24,6 +28,9 @@ class GuidedConversationSkill(Skill):
     def __init__(
         self,
         chat_driver_config: ChatDriverConfig,
+        agenda: Agenda,
+        artifact: Artifact,
+        resource: GCResource,
     ) -> None:
         # Put all functions in a group. We are going to use all these as (1)
         # skill actions, but also as (2) chat functions and (3) chat commands.
@@ -31,19 +38,27 @@ class GuidedConversationSkill(Skill):
         # between these.
         functions = [
             self.update_agenda,
-            self.update_artifact,
+            self.execute_reasoning,
             self.final_update,
         ]
 
         # Add some skill routines.
         routines: list[RoutineTypes] = [
-            self.conversation_routine,
+            self.conversation_routine(),
         ]
 
         # Configure the skill's chat driver.
+        self.openai_client = chat_driver_config.openai_client
         chat_driver_config.instructions = INSTRUCTIONS
         chat_driver_config.commands = functions
         chat_driver_config.functions = functions
+
+        # TODO: Persist these. They should be saved in the skills state by
+        # session_id.
+        self.agenda = agenda
+        self.artifact = artifact
+        self.resource = resource
+        self.chat_history = Conversation()
 
         # Initialize the skill!
         super().__init__(
@@ -68,21 +83,21 @@ class GuidedConversationSkill(Skill):
         )
 
     async def conversation_init_function(
-        self, skill_registry: SkillRegistry, context: Context, vars: Optional[dict[str, Any]]
+        self, context: RunContext, vars: dict[str, Any] | None = None
     ):
         if vars is None:
             return
         state = {"definition": vars["definition"]}
-        skill_registry.routine_stack.update_current_state(state)
-        await self.conversation_step_function(skill_registry, context)
+        await context.routine_stack.set_current_state(state)
+        await self.conversation_step_function(context)
 
     async def conversation_step_function(
         self,
-        skill_registry: SkillRegistry,
-        context: Context,
+        context: RunContext,
         message: Optional[str] = None,
     ):
-        frame = skill_registry.routine_stack.peek()
+        # TODO: Where is this conversation maintained?
+        frame = await context.routine_stack.peek()
         state = frame.state if frame else {}
         definition = GCDefinition(**state["definition"])
         while True:
@@ -91,22 +106,24 @@ class GuidedConversationSkill(Skill):
                     state["mode"] = "init"
                 case "init":
                     state["chat_history"] = []
-                    message, done = self.update_agenda(context, definition)
+                    message, done = await self.update_agenda(context, definition)
                     if done:
                         state["mode"] = "finalize"
                     state["mode"] = "conversation"
-                    runner.send(message)
+                    context.emit(message)
                     return
                 case "conversation":
                     state["chat_history"] += message
                     state["artifact"] = self.update_artifact(context)
-                    message, done = self.update_agenda()
+                    agenda, done = self.update_agenda()
+                    if agenda:
+                        state["agenda"] = agenda
                     if done:
                         state["mode"] = "finalize"
-                    runner.send(message)
+                    await self.message_user(context, agenda) # generates the next message
                     return
                 case "finalize":
-                    message = self.final_update()
+                    self.final_update() # Generates the final message.
                     state["state"] = "done"
                     runner.send(message)
                     return
@@ -117,16 +134,23 @@ class GuidedConversationSkill(Skill):
     # Actions
     ##################################
 
-    def update_agenda(self, context: Context, definition: GCDefinition):
-        update_agenda(
+    async def update_agenda(self, context: RunContext, definition: GCDefinition):
+        return await update_agenda(
             context,
             self.openai_client,
             definition,
-            self.chat_driver.message_provider.get(),
+            self.chat_history,
+            agenda=self.agenda,
+            artifact=self.artifact,
+            resource=self.resource,
         )
 
-    def update_artifact(self, context: Context):
-        update_artifact(context)
+    async def execute_reasoning(self, context: RunContext, reasoning: str) -> BaseEvent:
+        return await execute_reasoning(
+            context, self.openai_client, reasoning, self.artifact.get_schema_for_prompt()
+        )
 
-    def final_update(self, context: Context):
-        final_update(context)
+    async def final_update(self, context: RunContext, definition: GCDefinition):
+        await final_update(
+            context, self.openai_client, definition, self.chat_history, artifact=self.artifact
+        )

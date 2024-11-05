@@ -21,7 +21,7 @@ class PosixSkill(Skill):
         chat_driver_config: ChatDriverConfig,
         mount_dir: str = "/mnt/data",
     ) -> None:
-        self.shell = SandboxShell(sandbox_dir / context.session_id, mount_dir)
+        self.shell = SandboxShell(sandbox_dir, mount_dir)
 
         # Put all functions in a group. We are going to use all these as (1)
         # skill actions, but also as (2) chat functions and (3) chat commands.
@@ -45,9 +45,8 @@ class PosixSkill(Skill):
             self.make_home_dir_routine(),
         ]
 
-        # Configure the skill's chat driver.
+        # Re-configure the skill's chat driver.
         chat_driver_config.instructions = INSTRUCTIONS
-        chat_driver_config.context = context
         chat_driver_config.commands = functions
         chat_driver_config.functions = functions
 
@@ -55,7 +54,6 @@ class PosixSkill(Skill):
         super().__init__(
             name=NAME,
             description=DESCRIPTION,
-            context=context,
             chat_driver_config=chat_driver_config,
             skill_actions=functions,
             routines=routines,
