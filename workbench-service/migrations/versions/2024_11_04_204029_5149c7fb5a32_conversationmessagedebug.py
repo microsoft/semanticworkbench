@@ -36,68 +36,64 @@ def upgrade() -> None:
 
     bind = op.get_bind()
     max_sequence = bind.execute(sm.select(sm.func.max(db.ConversationMessage.sequence))).scalar()
-    if max_sequence is None:
-        return
+    if max_sequence is not None:
+        step = 100
+        for sequence_start in range(1, max_sequence + 1, step):
+            sequence_end_exclusive = sequence_start + step
 
-    step = 100
-    for sequence_start in range(1, max_sequence + 1, step):
-        sequence_end_exclusive = sequence_start + step
-
-        results = bind.execute(
-            sm.select(db.ConversationMessage.message_id, db.ConversationMessage.meta_data).where(
-                db.ConversationMessage.sequence >= sequence_start,
-                db.ConversationMessage.sequence < sequence_end_exclusive,
-            )
-        ).fetchall()
-
-        for message_id, meta_data in results:
-            debug = meta_data.pop("debug", None)
-            if not debug:
-                continue
-
-            bind.execute(
-                sm.insert(db.ConversationMessageDebug).values(
-                    message_id=message_id,
-                    data=debug,
+            results = bind.execute(
+                sm.select(db.ConversationMessage.message_id, db.ConversationMessage.meta_data).where(
+                    db.ConversationMessage.sequence >= sequence_start,
+                    db.ConversationMessage.sequence < sequence_end_exclusive,
                 )
-            )
+            ).fetchall()
 
-            bind.execute(
-                sm.update(db.ConversationMessage)
-                .where(db.ConversationMessage.message_id == message_id)
-                .values(meta_data=meta_data)
-            )
+            for message_id, meta_data in results:
+                debug = meta_data.pop("debug", None)
+                if not debug:
+                    continue
+
+                bind.execute(
+                    sm.insert(db.ConversationMessageDebug).values(
+                        message_id=message_id,
+                        data=debug,
+                    )
+                )
+
+                bind.execute(
+                    sm.update(db.ConversationMessage)
+                    .where(db.ConversationMessage.message_id == message_id)
+                    .values(meta_data=meta_data)
+                )
 
 
 def downgrade() -> None:
     bind = op.get_bind()
 
     max_sequence = bind.execute(sm.select(sm.func.max(db.ConversationMessage.sequence))).scalar()
-    if max_sequence is None:
-        return
+    if max_sequence is not None:
+        step = 100
+        for sequence_start in range(1, max_sequence + 1, step):
+            sequence_end_exclusive = sequence_start + step
+            results = bind.execute(
+                sm.select(
+                    db.ConversationMessageDebug.message_id,
+                    db.ConversationMessageDebug.data,
+                    db.ConversationMessage.meta_data,
+                )
+                .join(db.ConversationMessage)
+                .where(
+                    db.ConversationMessage.sequence >= sequence_start,
+                    db.ConversationMessage.sequence < sequence_end_exclusive,
+                )
+            ).fetchall()
 
-    step = 100
-    for sequence_start in range(1, max_sequence + 1, step):
-        sequence_end_exclusive = sequence_start + step
-        results = bind.execute(
-            sm.select(
-                db.ConversationMessageDebug.message_id,
-                db.ConversationMessageDebug.data,
-                db.ConversationMessage.meta_data,
-            )
-            .join(db.ConversationMessage)
-            .where(
-                db.ConversationMessage.sequence >= sequence_start,
-                db.ConversationMessage.sequence < sequence_end_exclusive,
-            )
-        ).fetchall()
-
-        for message_id, debug_data, meta_data in results:
-            meta_data["debug"] = debug_data
-            bind.execute(
-                sm.update(db.ConversationMessage)
-                .where(db.ConversationMessage.message_id == message_id)
-                .values(meta_data=meta_data)
-            )
+            for message_id, debug_data, meta_data in results:
+                meta_data["debug"] = debug_data
+                bind.execute(
+                    sm.update(db.ConversationMessage)
+                    .where(db.ConversationMessage.message_id == message_id)
+                    .values(meta_data=meta_data)
+                )
 
     op.drop_table("conversationmessagedebug")
