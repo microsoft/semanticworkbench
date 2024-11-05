@@ -56,7 +56,11 @@ class Context(ContextProtocol):
         self.emit = emit or LogEmitter().emit
 
     def to_dict(self) -> dict[str, Any]:
-        return {"session_id": self.session_id, "run_id": self.run_id, "emit": self.emit.__class__.__name__}
+        return {
+            "session_id": self.session_id,
+            "run_id": self.run_id,
+            "emit": self.emit.__class__.__name__,
+        }
 
     def __repr__(self) -> str:
         return f"Context({self.session_id})"
