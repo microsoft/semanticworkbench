@@ -4,18 +4,18 @@ import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
 import { ConversationCanvas } from '../../Conversations/Canvas/ConversationCanvas';
-import { CanvasDrawer } from './CanvasDrawer';
+import { DrawerControl } from './DrawerControl';
 
 const useClasses = makeStyles({
-    drawer: {
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
+    drawerTitle: {
+        marginTop: tokens.spacingVerticalXL,
     },
-    drawerOpenInline: {
-        width: 'min(50vw, 500px)',
-    },
-    drawerOpenOverlay: {
-        width: '100%',
-    },
+    // drawerOpenInline: {
+    //     width: 'min(50vw, 400px)',
+    // },
+    // drawerOpenOverlay: {
+    //     width: '100%',
+    // },
 });
 
 interface ConversationDrawerProps {
@@ -41,9 +41,11 @@ export const ConversationDrawer: React.FC<ConversationDrawerProps> = (props) => 
     const classes = useClasses();
 
     return (
-        <CanvasDrawer
-            openClassName={mode === 'inline' ? classes.drawerOpenInline : classes.drawerOpenOverlay}
-            className={classes.drawer}
+        <DrawerControl
+            classNames={{
+                title: classes.drawerTitle,
+            }}
+            size="small"
             open={open}
             mode={mode}
             side="right"
@@ -56,6 +58,6 @@ export const ConversationDrawer: React.FC<ConversationDrawerProps> = (props) => 
                 conversationFiles={conversationFiles}
                 preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
             />
-        </CanvasDrawer>
+        </DrawerControl>
     );
 };

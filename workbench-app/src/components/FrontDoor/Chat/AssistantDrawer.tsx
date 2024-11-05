@@ -3,17 +3,21 @@ import React from 'react';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { AssistantCanvasList } from '../../Conversations/Canvas/AssistantCanvasList';
-import { CanvasDrawer } from './CanvasDrawer';
+import { DrawerControl } from './DrawerControl';
 
 const useClasses = makeStyles({
+    drawerContainer: {
+        // backgroundColor: 'transparent',
+    },
     drawer: {
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
+        // backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
     },
-    drawerOpenInline: {
-        width: 'calc(100vw - 500px)',
+    drawerHeader: {},
+    drawerTitle: {
+        marginTop: tokens.spacingVerticalXL,
     },
-    drawerOpenOverlay: {
-        width: '100%',
+    drawerBody: {
+        // backgroundColor: 'transparent',
     },
     noContent: {
         padding: tokens.spacingHorizontalM,
@@ -51,15 +55,21 @@ export const AssistantDrawer: React.FC<AssistantDrawerProps> = (props) => {
         );
 
     return (
-        <CanvasDrawer
-            openClassName={mode === 'inline' ? classes.drawerOpenInline : classes.drawerOpenOverlay}
-            className={classes.drawer}
+        <DrawerControl
+            classNames={{
+                container: classes.drawerContainer,
+                drawer: classes.drawer,
+                header: classes.drawerHeader,
+                title: classes.drawerTitle,
+                body: classes.drawerBody,
+            }}
+            resizable
             open={open}
             mode={mode}
             side="right"
             title={title}
         >
             {canvasContent}
-        </CanvasDrawer>
+        </DrawerControl>
     );
 };
