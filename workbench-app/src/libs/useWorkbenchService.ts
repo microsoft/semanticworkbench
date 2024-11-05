@@ -4,10 +4,11 @@ import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { useAccount, useMsal } from '@azure/msal-react';
 import React from 'react';
 import { AssistantServiceInfo } from '../models/AssistantServiceInfo';
+import { AssistantServiceRegistration } from '../models/AssistantServiceRegistration';
 import { ConversationFile } from '../models/ConversationFile';
 import { useAppDispatch } from '../redux/app/hooks';
 import { addError } from '../redux/features/app/appSlice';
-import { assistantApi, workbenchApi, workflowApi } from '../services/workbench';
+import { assistantApi, assistantServiceRegistrationApi, workbenchApi, workflowApi } from '../services/workbench';
 import { AuthHelper } from './AuthHelper';
 import { Utility } from './Utility';
 import { useEnvironment } from './useEnvironment';
@@ -225,13 +226,50 @@ export const useWorkbenchService = () => {
     );
 
     const getAssistantServiceInfoAsync = React.useCallback(
-        async (assistant_service_id: string): Promise<AssistantServiceInfo | undefined> => {
-            const results = await dispatch(
-                assistantApi.endpoints.getAssistantServiceInfo.initiate(assistant_service_id),
-            );
+        async (assistantServiceId: string): Promise<AssistantServiceInfo | undefined> => {
+            const results = await dispatch(assistantApi.endpoints.getAssistantServiceInfo.initiate(assistantServiceId));
+            if (results.isError) {
+                throw results.error;
+            }
             return results.data;
         },
         [dispatch],
+    );
+
+    const getAssistantServiceRegistrationAsync = React.useCallback(
+        async (assistantServiceId: string): Promise<AssistantServiceRegistration | undefined> => {
+            const results = await dispatch(
+                assistantServiceRegistrationApi.endpoints.getAssistantServiceRegistration.initiate(assistantServiceId),
+            );
+            if (results.isError) {
+                throw results.error;
+            }
+            return results.data;
+        },
+        [dispatch],
+    );
+
+    const getAssistantServiceInfosAsync = React.useCallback(
+        async (assistantServiceIds: string[]): Promise<Array<AssistantServiceInfo | undefined>> => {
+            return await Promise.all(
+                assistantServiceIds.map(async (assistantServiceId) => {
+                    try {
+                        const registration = await getAssistantServiceRegistrationAsync(assistantServiceId);
+                        if (!registration?.assistantServiceOnline) {
+                            return undefined;
+                        }
+                    } catch (error) {
+                        return undefined;
+                    }
+                    try {
+                        return await getAssistantServiceInfoAsync(assistantServiceId);
+                    } catch (error) {
+                        return undefined;
+                    }
+                }),
+            );
+        },
+        [getAssistantServiceInfoAsync, getAssistantServiceRegistrationAsync],
     );
 
     const exportWorkflowDefinitionAsync = React.useCallback(
@@ -272,7 +310,7 @@ export const useWorkbenchService = () => {
         duplicateConversationsAsync,
         exportAssistantAsync,
         duplicateAssistantAsync,
-        getAssistantServiceInfoAsync,
+        getAssistantServiceInfosAsync,
         exportWorkflowDefinitionAsync,
         getWorkflowDefinitionDefaultsAsync,
     };

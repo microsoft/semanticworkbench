@@ -148,8 +148,10 @@ export const Chat: React.FC<ChatProps> = (props) => {
         isLoading: conversationFilesIsLoading,
     } = useGetConversationFilesQuery(conversationId);
 
-    const { data: assistantCapabilities, isFetching: assistantCapabilitiesIsFetching } =
-        useGetAssistantCapabilities(assistants);
+    const { data: assistantCapabilities, isFetching: assistantCapabilitiesIsFetching } = useGetAssistantCapabilities(
+        assistants ?? [],
+        { skip: assistantsIsLoading || assistantsError !== undefined },
+    );
 
     if (conversationError) {
         const errorMessage = JSON.stringify(conversationError);

@@ -107,43 +107,35 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
 
     return (
         <div className={classes.root}>
-            {activeConversationId ? (
-                <Chat conversationId={activeConversationId} headerBefore={headerBefore} headerAfter={headerAfter} />
-            ) : (
-                <>
-                    <div className={classes.header}>
-                        {headerBefore}
-                        <ExperimentalNotice />
-                        {headerAfter}
-                    </div>
-                    <div className={classes.body}>
-                        <div className={classes.content}>
-                            <Title3>Create a new conversation with an assistant</Title3>
-                            <NewConversationForm
-                                onSubmit={handleCreate}
-                                onChange={(isValid, data) => {
-                                    setIsValid(isValid);
-                                    setTitle(data.title);
-                                    setAssistantId(data.assistantId);
-                                    setAssistantServiceId(data.assistantServiceId);
-                                    setName(data.name);
-                                }}
-                                disabled={submitted}
-                            />
-                            <div className={classes.actions}>
-                                <ConversationsImport
-                                    appearance="outline"
-                                    onImport={handleImport}
-                                    disabled={submitted}
-                                />
-                                <Button appearance="primary" onClick={handleCreate} disabled={!isValid || submitted}>
-                                    Create
-                                </Button>
-                            </div>
+            <>
+                <div className={classes.header}>
+                    {headerBefore}
+                    <ExperimentalNotice />
+                    {headerAfter}
+                </div>
+                <div className={classes.body}>
+                    <div className={classes.content}>
+                        <Title3>Create a new conversation with an assistant</Title3>
+                        <NewConversationForm
+                            onSubmit={handleCreate}
+                            onChange={(isValid, data) => {
+                                setIsValid(isValid);
+                                setTitle(data.title);
+                                setAssistantId(data.assistantId);
+                                setAssistantServiceId(data.assistantServiceId);
+                                setName(data.name);
+                            }}
+                            disabled={submitted}
+                        />
+                        <div className={classes.actions}>
+                            <ConversationsImport appearance="outline" onImport={handleImport} disabled={submitted} />
+                            <Button appearance="primary" onClick={handleCreate} disabled={!isValid || submitted}>
+                                Create
+                            </Button>
                         </div>
                     </div>
-                </>
-            )}
+                </div>
+            </>
         </div>
     );
 };
