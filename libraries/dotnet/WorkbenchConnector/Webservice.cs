@@ -25,27 +25,29 @@ public static class Webservice
     {
     }
 
-    public static WorkbenchConnector UseAgentWebservice(
+    public static WorkbenchConnector<TAgentConfig> UseAgentWebservice<TAgentConfig>(
         this IEndpointRouteBuilder builder, string endpoint, bool enableCatchAll = false)
+        where TAgentConfig : IAgentConfig, new()
     {
-        WorkbenchConnector? workbenchConnector = builder.ServiceProvider.GetService<WorkbenchConnector>();
+        WorkbenchConnector<TAgentConfig>? workbenchConnector = builder.ServiceProvider.GetService<WorkbenchConnector<TAgentConfig>>();
         if (workbenchConnector == null)
         {
-            throw new InvalidOperationException("Unable to create instance of " + nameof(WorkbenchConnector));
+            throw new InvalidOperationException("Unable to create instance of " + nameof(WorkbenchConnector<TAgentConfig>));
         }
 
         string prefix = new Uri(endpoint).AbsolutePath;
 
         builder
-            .UseCreateAgentEndpoint(prefix)
-            .UseDeleteAgentEndpoint(prefix)
-            .UseFetchAgentConfigEndpoint(prefix)
-            .UseSaveAgentConfigEndpoint(prefix)
-            .UseCreateConversationEndpoint(prefix)
-            .UseDeleteConversationEndpoint(prefix)
-            .UseFetchConversationStatesEndpoint(prefix)
-            .UseFetchConversationInsightEndpoint(prefix)
-            .UseCreateConversationEventEndpoint(prefix);
+            .UseFetchServiceInfo<TAgentConfig>(prefix)
+            .UseCreateAgentEndpoint<TAgentConfig>(prefix)
+            .UseDeleteAgentEndpoint<TAgentConfig>(prefix)
+            .UseFetchAgentConfigEndpoint<TAgentConfig>(prefix)
+            .UseSaveAgentConfigEndpoint<TAgentConfig>(prefix)
+            .UseCreateConversationEndpoint<TAgentConfig>(prefix)
+            .UseDeleteConversationEndpoint<TAgentConfig>(prefix)
+            .UseFetchConversationStatesEndpoint<TAgentConfig>(prefix)
+            .UseFetchConversationInsightEndpoint<TAgentConfig>(prefix)
+            .UseCreateConversationEventEndpoint<TAgentConfig>(prefix);
 
         if (enableCatchAll)
         {
@@ -55,15 +57,32 @@ public static class Webservice
         return workbenchConnector;
     }
 
-    // Create new agent instance
-    public static IEndpointRouteBuilder UseCreateAgentEndpoint(
+    // Return service details and default agent configuration
+    public static IEndpointRouteBuilder UseFetchServiceInfo<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
+    {
+        builder.MapGet(prefix + "/", (
+            [FromServicesAttribute] WorkbenchConnector<TAgentConfig> workbenchConnector,
+            [FromServices] ILogger<SemanticWorkbenchWebservice> log) =>
+        {
+            var result = workbenchConnector.GetServiceInfo();
+            return Results.Json(result);
+        });
+
+        return builder;
+    }
+
+    // Create new agent instance
+    public static IEndpointRouteBuilder UseCreateAgentEndpoint<TAgentConfig>(
+        this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapPut(prefix + "/{agentId}",
                 async (
                     [FromRoute] string agentId,
                     [FromForm(Name = "assistant")] string data,
-                    [FromServices] WorkbenchConnector workbenchConnector,
+                    [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                     [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                     CancellationToken cancellationToken) =>
                 {
@@ -89,13 +108,14 @@ public static class Webservice
     }
 
     // Delete agent instance
-    public static IEndpointRouteBuilder UseDeleteAgentEndpoint(
+    public static IEndpointRouteBuilder UseDeleteAgentEndpoint<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapDelete(prefix + "/{agentId}",
             async (
                 [FromRoute] string agentId,
-                [FromServices] WorkbenchConnector workbenchConnector,
+                [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                 CancellationToken cancellationToken) =>
             {
@@ -108,13 +128,14 @@ public static class Webservice
     }
 
     // Fetch agent configuration
-    public static IEndpointRouteBuilder UseFetchAgentConfigEndpoint(
+    public static IEndpointRouteBuilder UseFetchAgentConfigEndpoint<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapGet(prefix + "/{agentId}/config",
             (
                 [FromRoute] string agentId,
-                [FromServices] WorkbenchConnector workbenchConnector,
+                [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log) =>
             {
                 log.LogDebug("Received request to fetch agent '{0}' configuration", agentId.HtmlEncode());
@@ -125,21 +146,22 @@ public static class Webservice
                     return Results.NotFound("Agent Not Found");
                 }
 
-                return Results.Json(agent.RawConfig.ToWorkbenchFormat());
+                return Results.Json(agent.Config.ToWorkbenchFormat());
             });
 
         return builder;
     }
 
     // Save agent configuration
-    public static IEndpointRouteBuilder UseSaveAgentConfigEndpoint(
+    public static IEndpointRouteBuilder UseSaveAgentConfigEndpoint<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapPut(prefix + "/{agentId}/config",
                 async (
                     [FromRoute] string agentId,
                     [FromBody] Dictionary<string, object> data,
-                    [FromServices] WorkbenchConnector workbenchConnector,
+                    [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                     [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                     CancellationToken cancellationToken) =>
                 {
@@ -162,15 +184,16 @@ public static class Webservice
     }
 
     // Create new conversation
-    private static IEndpointRouteBuilder UseCreateConversationEndpoint(
+    private static IEndpointRouteBuilder UseCreateConversationEndpoint<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapPut(prefix + "/{agentId}/conversations/{conversationId}",
                 async (
                     [FromRoute] string agentId,
                     [FromRoute] string conversationId,
                     [FromForm(Name = "conversation")] string data, // e.g. conversation={"id":"34460523-d2be-4388-837d-bda92282ffde"}
-                    [FromServices] WorkbenchConnector workbenchConnector,
+                    [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                     [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                     CancellationToken cancellationToken) =>
                 {
@@ -189,14 +212,15 @@ public static class Webservice
     }
 
     // Fetch conversation states
-    public static IEndpointRouteBuilder UseFetchConversationStatesEndpoint(
+    public static IEndpointRouteBuilder UseFetchConversationStatesEndpoint<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapGet(prefix + "/{agentId}/conversations/{conversationId}/states",
             async (
                 [FromRoute] string agentId,
                 [FromRoute] string conversationId,
-                [FromServices] WorkbenchConnector workbenchConnector,
+                [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                 CancellationToken cancellationToken) =>
             {
@@ -229,7 +253,7 @@ public static class Webservice
 
                                                Name: **{agent.Name}**
 
-                                               Config: **{agent.RawConfig}**
+                                               Config: **{agent.Config}**
                                                end of description
                                                """,
                                 Content = $"""
@@ -237,7 +261,7 @@ public static class Webservice
 
                                            Name: **{agent.Name}**
 
-                                           Config: **{agent.RawConfig}**
+                                           Config: **{agent.Config}**
                                            end of content
                                            """
                             }
@@ -259,15 +283,16 @@ public static class Webservice
     }
 
     // Fetch conversation states
-    public static IEndpointRouteBuilder UseFetchConversationInsightEndpoint(
+    public static IEndpointRouteBuilder UseFetchConversationInsightEndpoint<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapGet(prefix + "/{agentId}/conversations/{conversationId}/states/{insightId}",
             async (
                 [FromRoute] string agentId,
                 [FromRoute] string conversationId,
                 [FromRoute] string insightId,
-                [FromServices] WorkbenchConnector workbenchConnector,
+                [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                 CancellationToken cancellationToken) =>
             {
@@ -321,15 +346,16 @@ public static class Webservice
     }
 
     // New conversation event
-    private static IEndpointRouteBuilder UseCreateConversationEventEndpoint(
+    private static IEndpointRouteBuilder UseCreateConversationEventEndpoint<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapPost(prefix + "/{agentId}/conversations/{conversationId}/events",
                 async (
                     [FromRoute] string agentId,
                     [FromRoute] string conversationId,
                     [FromBody] Dictionary<string, object>? data,
-                    [FromServices] WorkbenchConnector workbenchConnector,
+                    [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                     [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                     CancellationToken cancellationToken) =>
                 {
@@ -511,14 +537,15 @@ public static class Webservice
     }
 
     // Delete conversation
-    public static IEndpointRouteBuilder UseDeleteConversationEndpoint(
+    public static IEndpointRouteBuilder UseDeleteConversationEndpoint<TAgentConfig>(
         this IEndpointRouteBuilder builder, string prefix)
+        where TAgentConfig : IAgentConfig, new()
     {
         builder.MapDelete(prefix + "/{agentId}/conversations/{conversationId}",
             async (
                 [FromRoute] string agentId,
                 [FromRoute] string conversationId,
-                [FromServices] WorkbenchConnector workbenchConnector,
+                [FromServices] WorkbenchConnector<TAgentConfig> workbenchConnector,
                 [FromServices] ILogger<SemanticWorkbenchWebservice> log,
                 CancellationToken cancellationToken) =>
             {

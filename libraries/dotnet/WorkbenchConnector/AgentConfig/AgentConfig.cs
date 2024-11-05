@@ -9,6 +9,10 @@ namespace Microsoft.SemanticWorkbench.Connector;
 
 public class AgentConfig : IAgentConfig
 {
+    public AgentConfig()
+    {
+    }
+
     public object? ToWorkbenchFormat()
     {
         Dictionary<string, object> result = new();
