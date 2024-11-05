@@ -129,6 +129,32 @@ class ConversationContext:
     async def delete_file(self, filename: str) -> None:
         return await self._workbench_client.delete_file(filename)
 
+    @asynccontextmanager
+    async def state_updated_event_after(self, state_id: str, focus_event: bool = False) -> AsyncIterator[None]:
+        """
+        Raise state "updated" event after the context manager block is executed, and optionally, a
+        state "focus" event.
+
+        Example:
+        ```python
+        # notify workbench that state has been updated
+        async with conversation.state_updated_event_after("my_state_id"):
+            await do_some_work()
+
+        # notify workbench that state has been updated and set focus
+        async with conversation.state_updated_event_after("my_state_id", focus_event=True):
+            await do_some_work()
+        ```
+        """
+        yield
+        if focus_event:
+            await self.send_conversation_state_event(
+                workbench_model.AssistantStateEvent(state_id=state_id, event="focus", state=None)
+            )
+        await self.send_conversation_state_event(
+            workbench_model.AssistantStateEvent(state_id=state_id, event="updated", state=None)
+        )
+
 
 def storage_directory_for_context(context: AssistantContext | ConversationContext, partition: str = "") -> pathlib.Path:
     match context:

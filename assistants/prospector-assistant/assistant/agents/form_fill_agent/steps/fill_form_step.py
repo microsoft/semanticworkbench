@@ -128,6 +128,7 @@ definition = GuidedConversationDefinition(
         "When providing options for a multiple choice field, provide the options in a numbered-list, so the user can refer to them by number.",
         "When listing anything other than options, like document types, provide them in a bulleted list for improved readability.",
         "When updating the agenda, the data-collection for each form field must be in a separate step.",
+        "When asking for data to fill the form, always ask for a single piece of information at a time. Never ask for multiple pieces of information in a single prompt, ex: 'Please provide field Y, and additionally, field X'.",
         "Terminate conversation if inappropriate content is requested.",
     ],
     conversation_flow="""
@@ -137,7 +138,6 @@ definition = GuidedConversationDefinition(
 4. When asking for files, suggest types of documents that might contain the data.
 5. For each field in the form, check if the data is available in the provided files.
 6. If the data is not available in the files, ask the user for the data.
-7. When asking for data to fill the form, ask for a single piece of information at a time.
 8. When the form is filled out, inform the user that you will now generate a document containing the filled form.
 """,
     context="",

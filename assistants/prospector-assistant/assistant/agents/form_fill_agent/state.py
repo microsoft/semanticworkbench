@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from semantic_workbench_assistant.assistant_app.context import ConversationContext, storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
 
-from .inspector import FileStateInspector, state_change_event_after
+from .inspector import FileStateInspector
 
 
 class FormField(BaseModel):
@@ -55,7 +55,7 @@ async def agent_state(context: ConversationContext) -> AsyncIterator[FormFillAge
         yield state
         return
 
-    async with state_change_event_after(context, inspector.state_id):
+    async with context.state_updated_event_after(inspector.state_id):
         state = read_model(path_for_state(context), FormFillAgentState) or FormFillAgentState()
         current_state.set(state)
         yield state
