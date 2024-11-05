@@ -671,9 +671,11 @@ class ConversationController:
                     participant_id = str(principal.assistant_id)
 
             # pop "debug" from metadata, if it exists, and merge with the debug field
-            message_debug = deepmerge.always_merger.merge(
-                (new_message.metadata or {}).pop("debug", None), new_message.debug_data or {}
-            )
+            message_debug = (new_message.metadata or {}).pop("debug", None)
+            # ensure that message_debug is a dictionary, in cases like {"debug": "some message"}, or {"debug": [1,2]}
+            if message_debug and not isinstance(message_debug, dict):
+                message_debug = {"debug": message_debug}
+            message_debug = deepmerge.always_merger.merge(message_debug or {}, new_message.debug_data or {})
 
             message = db.ConversationMessage(
                 conversation_id=conversation.conversation_id,
