@@ -2,6 +2,7 @@
 
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
+import { Constants } from '../../../Constants';
 import { useGetAssistantCapabilities } from '../../../libs/useAssistantCapabilities';
 import { useParticipantUtility } from '../../../libs/useParticipantUtility';
 import { Assistant } from '../../../models/Assistant';
@@ -79,7 +80,7 @@ const useClasses = makeStyles({
         flex: '1 1 auto',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'auto',
+        overflow: 'hidden',
     },
     canvas: {
         flex: '0 0 auto',
@@ -98,7 +99,7 @@ const useClasses = makeStyles({
     historyContent: {
         // do not use flexbox here, it breaks the virtuoso
         width: '100%',
-        maxWidth: '800px',
+        maxWidth: `${Constants.app.maxContentWidth}px`,
     },
     historyRoot: {
         paddingTop: tokens.spacingVerticalXXXL,

@@ -67,7 +67,8 @@ const useClasses = makeStyles({
         width: '100%',
         maxWidth: `${Constants.app.maxContentWidth}px`,
         gap: tokens.spacingVerticalS,
-        ...shorthands.padding(0, tokens.spacingHorizontalXXL, 0, tokens.spacingHorizontalM),
+
+        // ...shorthands.padding(0, tokens.spacingHorizontalXXL, 0, tokens.spacingHorizontalM),
         boxSizing: 'border-box',
     },
     row: {
