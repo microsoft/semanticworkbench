@@ -13,6 +13,7 @@ const localStorageKey = {
     completedFirstRunApp: 'completedFirstRun:app',
     completedFirstRunExperimental: 'completedFirstRun:experimental',
     completedFirstRunWorkflow: 'completedFirstRun:workflow',
+    hideExperimentalNotice: 'hideExperimentalNotice',
 };
 
 const initialState: AppState = {
@@ -27,6 +28,8 @@ const initialState: AppState = {
             AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunExperimental) ?? false,
         workflow: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunWorkflow) ?? false,
     },
+    hideExperimentalNotice:
+        AppStorage.getInstance().loadObject<boolean>(localStorageKey.hideExperimentalNotice) ?? false,
 };
 
 export const appSlice = createSlice({
@@ -87,6 +90,10 @@ export const appSlice = createSlice({
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
+        setHideExperimentalNotice: (state: AppState, action: PayloadAction<boolean>) => {
+            AppStorage.getInstance().saveObject(localStorageKey.hideExperimentalNotice, action.payload);
+            state.hideExperimentalNotice = action.payload;
+        },
         setActiveConversationId: (state: AppState, action: PayloadAction<string | undefined>) => {
             if (action.payload === state.activeConversationId) {
                 return;
@@ -109,6 +116,7 @@ export const {
     clearErrors,
     setChatWidthPercent,
     setCompletedFirstRun,
+    setHideExperimentalNotice,
     setActiveConversationId,
 } = appSlice.actions;
 

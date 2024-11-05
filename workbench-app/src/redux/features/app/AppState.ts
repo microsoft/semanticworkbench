@@ -12,6 +12,7 @@ export interface AppState {
         experimental: boolean;
         workflow: boolean;
     };
+    hideExperimentalNotice: boolean;
     chatWidthPercent: number;
     isDraggingOverBody?: boolean;
     activeConversationId?: string;

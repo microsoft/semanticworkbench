@@ -26,6 +26,8 @@ import {
     CheckboxUncheckedRegular,
     DismissRegular,
     FilterRegular,
+    MailReadRegular,
+    MailUnreadRegular,
     PinOffRegular,
     PinRegular,
     PlugDisconnectedRegular,
@@ -70,6 +72,10 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    bulkActionsLabel: {
+        marginLeft: tokens.spacingHorizontalM,
+        color: tokens.colorNeutralForeground2,
     },
     toolbarTextButton: {
         minWidth: 'auto',
@@ -428,22 +434,23 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         () => (
             <Overflow padding={90}>
                 <Toolbar size="small">
-                    <Button
-                        className={classes.toolbarTextButton}
-                        appearance="transparent"
-                        disabled={!enableBulkActions.read}
-                        onClick={handleMarkAllAsReadForSelected}
-                    >
-                        Read
-                    </Button>
-                    <Button
-                        className={classes.toolbarTextButton}
-                        appearance="transparent"
-                        disabled={!enableBulkActions.unread}
-                        onClick={handleMarkAsUnreadForSelected}
-                    >
-                        Unread
-                    </Button>
+                    <Tooltip content="Mark selected conversations as read" relationship="label">
+                        <Button
+                            className={classes.toolbarTextButton}
+                            appearance="transparent"
+                            icon={<MailReadRegular />}
+                            disabled={!enableBulkActions.read}
+                            onClick={handleMarkAllAsReadForSelected}
+                        />
+                    </Tooltip>
+                    <Tooltip content="Mark selected conversations as unread" relationship="label">
+                        <Button
+                            appearance="transparent"
+                            icon={<MailUnreadRegular />}
+                            disabled={!enableBulkActions.unread}
+                            onClick={handleMarkAsUnreadForSelected}
+                        />
+                    </Tooltip>
                     <Tooltip content="Remove selected conversations" relationship="label">
                         <Button
                             // hide this until implemented
@@ -538,6 +545,9 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
             </div>
             <div className={classes.bulkActions}>
                 {bulkSelectForActionsButton}
+                <Label className={classes.bulkActionsLabel} size="small">
+                    Actions
+                </Label>
                 {bulkSelectForActionsToolbar}
             </div>
         </div>

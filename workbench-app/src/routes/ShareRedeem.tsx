@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
 import { DialogControl } from '../components/App/DialogControl';
 import { Loading } from '../components/App/Loading';
+import { Constants } from '../Constants';
 import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useWorkbenchService } from '../libs/useWorkbenchService';
@@ -69,12 +70,12 @@ export const ShareRedeem: React.FC = () => {
                     });
                 }
 
-                navigate(`/conversation/${conversationShare.conversationId}${hash}`, { replace: true });
+                conversationUtility.navigateToConversation(conversationShare.conversationId, hash);
             } finally {
                 setSubmitted(false);
             }
         },
-        [conversationShare, redeemShare, navigate, createConversationMessage, localUserName],
+        [conversationShare, redeemShare, conversationUtility, createConversationMessage, localUserName],
     );
 
     const handleClickDuplicate = React.useCallback(async () => {
@@ -101,11 +102,11 @@ export const ShareRedeem: React.FC = () => {
 
             // navigate to the newly duplicated conversation
             const conversationId = duplicatedConversationIds[0];
-            navigate(`/conversation/${conversationId}`, { replace: true });
+            conversationUtility.navigateToConversation(conversationId);
         } finally {
             setSubmitted(false);
         }
-    }, [redeemShare, conversationShare, navigate, workbenchService, removeConversationParticipant, setSubmitted]);
+    }, [conversationShare, redeemShare, workbenchService, conversationUtility, removeConversationParticipant]);
 
     const handleDismiss = React.useCallback(() => {
         navigate(`/`);
@@ -233,7 +234,11 @@ export const ShareRedeem: React.FC = () => {
             <ul>
                 {existingDuplicateConversations.map((conversation) => (
                     <li key={conversation.id}>
-                        <a href={`${window.location.origin}/conversation/${conversation.id}`}>{conversation.title}</a>
+                        <a
+                            href={`${window.location.origin}/${Constants.app.conversationRedirectPath}/${conversation.id}`}
+                        >
+                            {conversation.title}
+                        </a>
                     </li>
                 ))}
             </ul>

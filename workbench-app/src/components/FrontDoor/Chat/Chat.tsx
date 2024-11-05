@@ -12,6 +12,7 @@ import {
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
 } from '../../../services/workbench';
+import { ExperimentalNotice } from '../../App/ExperimentalNotice';
 import { Loading } from '../../App/Loading';
 import { ConversationShare } from '../../Conversations/ConversationShare';
 import { InteractHistory } from '../../Conversations/InteractHistory';
@@ -59,12 +60,16 @@ const useClasses = makeStyles({
             flex: '0 0 auto',
         },
 
+        '&.center': {
+            overflow: 'visible',
+        },
+
         '&.after': {
             right: 0,
             flex: '0 0 auto',
         },
     },
-    errorList: {
+    centerContent: {
         position: 'absolute',
         top: 0,
         left: tokens.spacingHorizontalM,
@@ -231,6 +236,9 @@ export const Chat: React.FC<ChatProps> = (props) => {
         <div className={classes.root}>
             <div className={classes.header}>
                 <div className={mergeClasses(classes.headerControls, 'before')}>{headerBefore}</div>
+                <div className={mergeClasses(classes.headerControls, 'center')}>
+                    <ExperimentalNotice className={classes.centerContent} />
+                </div>
                 <div className={mergeClasses(classes.headerControls, 'after')}>
                     {otherParticipants.length === 1 && (
                         <ParticipantAvatarGroup participants={otherParticipants} layout="spread" />

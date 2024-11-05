@@ -33,8 +33,12 @@ export const useConversationUtility = () => {
     // region Navigation
 
     const navigateToConversation = React.useCallback(
-        (conversationId?: string) => {
-            navigate([Constants.app.conversationRedirectPath, conversationId].join('/'));
+        (conversationId?: string, hash?: string) => {
+            let path = conversationId ? [Constants.app.conversationRedirectPath, conversationId].join('/') : '';
+            if (hash) {
+                path += `#${hash}`;
+            }
+            navigate(path);
         },
         [navigate],
     );

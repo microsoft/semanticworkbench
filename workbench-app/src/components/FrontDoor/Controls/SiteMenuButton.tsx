@@ -95,7 +95,7 @@ export const SiteMenuButton: React.FC = () => {
                     <MenuItem
                         icon={<NavigationRegular />}
                         onClick={() => {
-                            navigate('/');
+                            navigate('/dashboard');
                         }}
                     >
                         Dashboard

@@ -67,11 +67,15 @@ const authenticatedRouter = createBrowserRouter([
         children: [
             {
                 index: true,
-                element: <Dashboard />,
+                element: <FrontDoor />,
             },
             {
-                path: '/frontdoor/:conversationId?',
+                path: '/:conversationId?',
                 element: <FrontDoor />,
+            },
+            {
+                path: '/dashboard',
+                element: <Dashboard />,
             },
             {
                 path: '/settings',

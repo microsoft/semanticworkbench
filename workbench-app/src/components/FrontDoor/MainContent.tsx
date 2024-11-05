@@ -5,6 +5,7 @@ import React from 'react';
 import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useCreateConversation } from '../../libs/useCreateConversation';
 import { useAppSelector } from '../../redux/app/hooks';
+import { ExperimentalNotice } from '../App/ExperimentalNotice';
 import { ConversationsImport } from '../Conversations/ConversationsImport';
 import { Chat } from './Chat/Chat';
 import { NewConversationForm } from './Controls/NewConversationForm';
@@ -112,6 +113,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                 <>
                     <div className={classes.header}>
                         {headerBefore}
+                        <ExperimentalNotice />
                         {headerAfter}
                     </div>
                     <div className={classes.body}>
