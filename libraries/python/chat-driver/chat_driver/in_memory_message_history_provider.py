@@ -1,16 +1,21 @@
 import asyncio
-from typing import Any
+from typing import Any, Iterable
 
-from openai.types.chat import (
-    ChatCompletionMessageParam,
+from openai.types.chat import ChatCompletionMessageParam, ChatCompletionMessageToolCallParam
+from openai_client.messages import (
+    MessageFormatter,
+    assistant_message,
+    format_message,
+    system_message,
+    user_message,
 )
-
-from .message_formatter import MessageFormatter, assistant_message, format_message, system_message, user_message
 
 
 class InMemoryMessageHistoryProvider:
     def __init__(
-        self, messages: list[ChatCompletionMessageParam] | None = None, formatter: MessageFormatter | None = None
+        self,
+        messages: list[ChatCompletionMessageParam] | None = None,
+        formatter: MessageFormatter | None = None,
     ) -> None:
         self.formatter: MessageFormatter = formatter or format_message
         self.messages = messages or []
@@ -40,5 +45,11 @@ class InMemoryMessageHistoryProvider:
     def append_user_message(self, content: str, var: dict[str, Any] | None = None) -> None:
         asyncio.run(self.append(user_message(content, var, self.formatter)))
 
-    def append_assistant_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        asyncio.run(self.append(assistant_message(content, var, self.formatter)))
+    def append_assistant_message(
+        self,
+        content: str,
+        refusal: str | None = None,
+        tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
+        var: dict[str, Any] | None = None,
+    ) -> None:
+        asyncio.run(self.append(assistant_message(content, refusal, tool_calls, var, self.formatter)))

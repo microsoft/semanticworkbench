@@ -25,7 +25,7 @@ def echo(context: Context, value: Any) -> str:
 
 context = Context()
 functions = [echo, no_op]
-register = FunctionRegistry(functions)
+register = FunctionRegistry(context, functions)
 
 
 @pytest.mark.parametrize(

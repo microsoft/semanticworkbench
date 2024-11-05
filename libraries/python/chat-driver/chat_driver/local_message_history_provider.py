@@ -2,14 +2,22 @@ import json
 from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from context.context import ContextProtocol
 from openai.types.chat import (
     ChatCompletionMessageParam,
+    ChatCompletionMessageToolCallParam,
+)
+from openai_client.messages import (
+    MessageFormatter,
+    assistant_message,
+    format_message,
+    system_message,
+    user_message,
 )
 
-from .message_formatter import MessageFormatter, assistant_message, format_message, system_message, user_message
+from .message_history_provider import MessageHistoryProviderProtocol
 
 DEFAULT_DATA_DIR = Path(".data")
 
@@ -22,7 +30,7 @@ class LocalMessageHistoryProviderConfig:
     formatter: MessageFormatter | None = None
 
 
-class LocalMessageHistoryProvider:
+class LocalMessageHistoryProvider(MessageHistoryProviderProtocol):
     def __init__(self, config: LocalMessageHistoryProviderConfig) -> None:
         if not config.data_dir:
             self.data_dir = DEFAULT_DATA_DIR / "chat_driver" / config.context.session_id
@@ -76,5 +84,11 @@ class LocalMessageHistoryProvider:
     async def append_user_message(self, content: str, var: dict[str, Any] | None = None) -> None:
         await self.append(user_message(content, var, self.formatter))
 
-    async def append_assistant_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        await self.append(assistant_message(content, var, self.formatter))
+    async def append_assistant_message(
+        self,
+        content: str,
+        refusal: str,
+        tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
+        var: dict[str, Any] | None = None,
+    ) -> None:
+        await self.append(assistant_message(content, refusal, tool_calls, var, self.formatter))
