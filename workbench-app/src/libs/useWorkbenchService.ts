@@ -310,6 +310,7 @@ export const useWorkbenchService = () => {
         duplicateConversationsAsync,
         exportAssistantAsync,
         duplicateAssistantAsync,
+        getAssistantServiceInfoAsync,
         getAssistantServiceInfosAsync,
         exportWorkflowDefinitionAsync,
         getWorkflowDefinitionDefaultsAsync,
