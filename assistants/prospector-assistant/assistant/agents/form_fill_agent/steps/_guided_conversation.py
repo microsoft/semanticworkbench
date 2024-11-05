@@ -17,7 +17,6 @@ from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 from semantic_workbench_assistant.assistant_app.context import ConversationContext, storage_directory_for_context
 
-from ..inspector import state_change_event_after
 from .types import GuidedConversationDefinition
 
 _state_locks: dict[Path, asyncio.Lock] = defaultdict(asyncio.Lock)
@@ -41,7 +40,7 @@ async def engine(
     given state file.
     """
 
-    async with _state_locks[state_file_path], state_change_event_after(context, state_id, set_focus=True):
+    async with _state_locks[state_file_path], context.state_updated_event_after(state_id, focus_event=True):
         kernel, service_id = _build_kernel_with_service(openai_client, openai_model)
 
         state: dict | None = None
