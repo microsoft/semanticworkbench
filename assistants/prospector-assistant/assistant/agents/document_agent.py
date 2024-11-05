@@ -529,6 +529,9 @@ class DocumentAgent:
             return self._state.mode.get_status()
 
         # Run
+        if step_status is Status.INITIATED:
+            self._state.mode.get_step().set_status(Status.NOT_COMPLETED)
+
         logger.info("Document Agent running step: %s", step_name)
         status = await self._gc_attachment_check(config, context, message, metadata)
         step.set_status(status)
@@ -567,6 +570,9 @@ class DocumentAgent:
             return self._state.mode.get_status()
 
         # Run
+        if step_status is Status.INITIATED:
+            self._state.mode.get_step().set_status(Status.NOT_COMPLETED)
+
         logger.info("Document Agent running step: %s", step_name)
         status = await self._draft_outline(config, context, message, metadata)
         step.set_status(status)
@@ -606,6 +612,9 @@ class DocumentAgent:
             return self._state.mode.get_status()
 
         # Run
+        if step_status is Status.INITIATED:
+            self._state.mode.get_step().set_status(Status.NOT_COMPLETED)
+
         # Because the last user message will be ending a prior step, and not be related to this step.
         user_message: ConversationMessage | None
         if step_status is Status.INITIATED:
