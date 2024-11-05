@@ -8,35 +8,51 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.SemanticWorkbench.Connector;
 
-public abstract class WorkbenchConnector : IDisposable
+public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
+    where TAgentConfig : IAgentConfig, new()
 {
     protected IAgentServiceStorage Storage { get; private set; }
-    protected WorkbenchConfig Config { get; private set; } = new();
+    protected WorkbenchConfig WorkbenchConfig { get; private set; }
+    protected TAgentConfig DefaultAgentConfig { get; private set; }
     protected HttpClient HttpClient { get; private set; }
     protected ILogger Log { get; private set; }
-    protected Dictionary<string, AgentBase> Agents { get; private set; }
+    protected Dictionary<string, AgentBase<TAgentConfig>> Agents { get; private set; }
 
     private Timer? _pingTimer;
 
     protected WorkbenchConnector(
-        IConfiguration appConfig,
+        WorkbenchConfig? workbenchConfig,
+        TAgentConfig? defaultAgentConfig,
         IAgentServiceStorage storage,
         ILogger logger)
     {
-        appConfig.GetSection("Workbench").Bind(this.Config);
+        this.WorkbenchConfig = workbenchConfig ?? new();
+        this.DefaultAgentConfig = defaultAgentConfig ?? new();
 
         this.Log = logger;
         this.Storage = storage;
         this.HttpClient = new HttpClient();
-        this.HttpClient.BaseAddress = new Uri(this.Config.WorkbenchEndpoint);
-        this.Agents = new Dictionary<string, AgentBase>();
+        this.HttpClient.BaseAddress = new Uri(this.WorkbenchConfig.WorkbenchEndpoint);
+        this.Agents = new Dictionary<string, AgentBase<TAgentConfig>>();
 
         this.Log.LogTrace("Service instance created");
+    }
+
+    /// <summary>
+    /// Get service details and default agent configuration
+    /// </summary>
+    public virtual ServiceInfo<TAgentConfig> GetServiceInfo()
+    {
+        return new ServiceInfo<TAgentConfig>(this.DefaultAgentConfig)
+        {
+            ServiceId = this.WorkbenchConfig.ConnectorId,
+            Name = this.WorkbenchConfig.ConnectorName,
+            Description = this.WorkbenchConfig.ConnectorDescription,
+        };
     }
 
     /// <summary>
@@ -45,7 +61,7 @@ public abstract class WorkbenchConnector : IDisposable
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        this.Log.LogInformation("Connecting {1} {2} {3}...", this.Config.ConnectorName, this.Config.ConnectorId, this.Config.ConnectorEndpoint);
+        this.Log.LogInformation("Connecting {1} {2} {3}...", this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint);
 #pragma warning disable CS4014 // ping runs in the background without blocking
         this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, 10000);
 #pragma warning restore CS4014
@@ -64,7 +80,7 @@ public abstract class WorkbenchConnector : IDisposable
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
-        this.Log.LogInformation("Disconnecting {1} {2} ...", this.Config.ConnectorName, this.Config.ConnectorId);
+        this.Log.LogInformation("Disconnecting {1} {2} ...", this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId);
         if (this._pingTimer != null)
         {
             await this._pingTimer.DisposeAsync().ConfigureAwait(false);
@@ -91,7 +107,7 @@ public abstract class WorkbenchConnector : IDisposable
     /// </summary>
     /// <param name="agentId">Agent ID</param>
     /// <returns>Agent instance</returns>
-    public virtual AgentBase? GetAgent(string agentId)
+    public virtual AgentBase<TAgentConfig>? GetAgent(string agentId)
     {
         return this.Agents.GetValueOrDefault(agentId);
     }
@@ -358,13 +374,13 @@ public abstract class WorkbenchConnector : IDisposable
     {
         this.Log.LogTrace("Pinging workbench backend");
         string path = Constants.AgentServiceRegistration.Path
-            .Replace(Constants.AgentServiceRegistration.Placeholder, this.Config.ConnectorId, StringComparison.OrdinalIgnoreCase);
+            .Replace(Constants.AgentServiceRegistration.Placeholder, this.WorkbenchConfig.ConnectorId, StringComparison.OrdinalIgnoreCase);
 
         var data = new
         {
-            name = $"{this.Config.ConnectorName} [{this.Config.ConnectorId}]",
-            description = this.Config.ConnectorDescription,
-            url = this.Config.ConnectorEndpoint,
+            name = $"{this.WorkbenchConfig.ConnectorName} [{this.WorkbenchConfig.ConnectorId}]",
+            description = this.WorkbenchConfig.ConnectorDescription,
+            url = this.WorkbenchConfig.ConnectorEndpoint,
             online_expires_in_seconds = 20
         };
 
@@ -432,7 +448,7 @@ public abstract class WorkbenchConnector : IDisposable
             request.Content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
         }
 
-        request.Headers.Add(Constants.HeaderServiceId, this.Config.ConnectorId);
+        request.Headers.Add(Constants.HeaderServiceId, this.WorkbenchConfig.ConnectorId);
         if (!string.IsNullOrEmpty(agentId))
         {
             request.Headers.Add(Constants.HeaderAgentId, agentId);

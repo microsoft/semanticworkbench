@@ -9,8 +9,8 @@ namespace Microsoft.SemanticWorkbench.Connector;
 
 public interface IAgentServiceStorage
 {
-    Task SaveAgentAsync(AgentBase agent, CancellationToken cancellationToken = default);
-    Task DeleteAgentAsync(AgentBase agent, CancellationToken cancellationToken = default);
+    Task SaveAgentAsync(IAgentBase agent, CancellationToken cancellationToken = default);
+    Task DeleteAgentAsync(IAgentBase agent, CancellationToken cancellationToken = default);
     Task<List<AgentInfo>> GetAllAgentsAsync(CancellationToken cancellationToken = default);
 
     Task SaveConversationAsync(Conversation conversation, CancellationToken cancellationToken = default);

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>0.2.0</Version>
+        <Version>0.3.0</Version>
         <AssemblyName>Microsoft.SemanticWorkbench.Connector</AssemblyName>
         <RootNamespace>Microsoft.SemanticWorkbench.Connector</RootNamespace>
         <TargetFramework>net8.0</TargetFramework>
@@ -17,7 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.SemanticKernel.Abstractions" Version="1.22.0" />
+        <PackageReference Include="Microsoft.SemanticKernel.Abstractions" Version="1.26.0" />
     </ItemGroup>
 
     <PropertyGroup>
@@ -47,15 +47,15 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Roslynator.Analyzers" Version="4.12.7">
+        <PackageReference Include="Roslynator.Analyzers" Version="4.12.9">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Roslynator.CodeAnalysis.Analyzers" Version="4.12.7">
+        <PackageReference Include="Roslynator.CodeAnalysis.Analyzers" Version="4.12.9">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Roslynator.Formatting.Analyzers" Version="4.12.7">
+        <PackageReference Include="Roslynator.Formatting.Analyzers" Version="4.12.9">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
