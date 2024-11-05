@@ -7,10 +7,8 @@ using System.Text.Json.Serialization;
 namespace Microsoft.SemanticWorkbench.Connector;
 
 public class ServiceInfo<TAgentConfig>(TAgentConfig cfg)
-    where TAgentConfig : IAgentConfig, new()
+    where TAgentConfig : AgentConfigBase, new()
 {
-    private readonly TAgentConfig _cfg = cfg;
-
     [JsonPropertyName("assistant_service_id")]
     public string ServiceId { get; set; } = string.Empty;
 
@@ -24,5 +22,5 @@ public class ServiceInfo<TAgentConfig>(TAgentConfig cfg)
     public Dictionary<string, object> Metadata { get; set; } = new();
 
     [JsonPropertyName("default_config")]
-    public object DefaultConfiguration => this._cfg.ToWorkbenchFormat() ?? new();
+    public object DefaultConfiguration => cfg.ToWorkbenchFormat() ?? new();
 }

@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace Microsoft.SemanticWorkbench.Connector;
 
 public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
-    where TAgentConfig : IAgentConfig, new()
+    where TAgentConfig : AgentConfigBase, new()
 {
     protected IAgentServiceStorage Storage { get; private set; }
     protected WorkbenchConfig WorkbenchConfig { get; private set; }

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace Microsoft.SemanticWorkbench.Connector;
 
 public abstract class AgentBase<TAgentConfig> : IAgentBase
-    where TAgentConfig : IAgentConfig, new()
+    where TAgentConfig : AgentConfigBase, new()
 {
     // Agent instance ID
     public string Id { get; protected set; } = string.Empty;
