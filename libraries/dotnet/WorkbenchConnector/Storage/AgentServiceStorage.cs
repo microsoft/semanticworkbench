@@ -57,12 +57,12 @@ public class AgentServiceStorage : IAgentServiceStorage
         }
     }
 
-    public Task SaveAgentAsync(AgentBase agent, CancellationToken cancellationToken = default)
+    public Task SaveAgentAsync(IAgentBase agent, CancellationToken cancellationToken = default)
     {
         return File.WriteAllTextAsync(this.GetAgentFilename(agent), JsonSerializer.Serialize(agent.ToDataModel(), s_jsonOptions), cancellationToken);
     }
 
-    public Task DeleteAgentAsync(AgentBase agent, CancellationToken cancellationToken = default)
+    public Task DeleteAgentAsync(IAgentBase agent, CancellationToken cancellationToken = default)
     {
         File.Delete(this.GetAgentFilename(agent));
         return Task.CompletedTask;
@@ -151,7 +151,7 @@ public class AgentServiceStorage : IAgentServiceStorage
         return result;
     }
 
-    private string GetAgentFilename(AgentBase agent)
+    private string GetAgentFilename(IAgentBase agent)
     {
         EnsureSafe(agent.Id);
         return Path.Join(this._path, $"{agent.Id}.agent.json");

@@ -23,13 +23,24 @@ export interface DialogControlContent {
     title?: string;
     content?: React.ReactNode;
     closeLabel?: string;
+    hideDismissButton?: boolean;
     additionalActions?: React.ReactElement[];
     onOpenChange?: (event: DialogOpenChangeEvent, data: DialogOpenChangeData) => void;
 }
 
 export const DialogControl: React.FC<DialogControlContent> = (props) => {
-    const { open, defaultOpen, trigger, classNames, title, content, closeLabel, additionalActions, onOpenChange } =
-        props;
+    const {
+        open,
+        defaultOpen,
+        trigger,
+        classNames,
+        title,
+        content,
+        closeLabel,
+        hideDismissButton,
+        additionalActions,
+        onOpenChange,
+    } = props;
 
     return (
         <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
@@ -39,16 +50,14 @@ export const DialogControl: React.FC<DialogControlContent> = (props) => {
                     {title && <DialogTitle>{title}</DialogTitle>}
                     {content && <DialogContent className={classNames?.dialogContent}>{content}</DialogContent>}
                     <DialogActions fluid>
-                        <DialogTrigger disableButtonEnhancement>
-                            <Button appearance={additionalActions ? 'secondary' : 'primary'}>
-                                {closeLabel ?? 'Close'}
-                            </Button>
-                        </DialogTrigger>
-                        {additionalActions?.map((action, index) => (
-                            <DialogTrigger key={index} disableButtonEnhancement>
-                                {action}
+                        {!hideDismissButton && (
+                            <DialogTrigger disableButtonEnhancement>
+                                <Button appearance={additionalActions ? 'secondary' : 'primary'}>
+                                    {closeLabel ?? 'Close'}
+                                </Button>
                             </DialogTrigger>
-                        ))}
+                        )}
+                        {additionalActions}
                     </DialogActions>
                 </DialogBody>
             </DialogSurface>

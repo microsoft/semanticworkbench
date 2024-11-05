@@ -28,11 +28,10 @@ import {
 import React from 'react';
 import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
-import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
+import { useNotify } from '../../libs/useNotify';
 import { AssistantCapability } from '../../models/AssistantCapability';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { addError } from '../../redux/features/app/appSlice';
 import {
     updateGetConversationMessagesQueryData,
     useCreateConversationMessageMutation,
@@ -136,6 +135,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const { conversationId, additionalContent, readOnly, assistantCapabilities } = props;
     const classes = useClasses();
     const dropTargetRef = React.useRef<HTMLDivElement>(null);
+    const localUserId = useAppSelector((state) => state.localUser.id);
     const isDraggingOverBody = useAppSelector((state) => state.app.isDraggingOverBody);
     const isDraggingOverTarget = useDragAndDrop(dropTargetRef.current, log);
     const [createMessage] = useCreateConversationMessageMutation();
@@ -149,9 +149,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [editorIsInitialized, setEditorIsInitialized] = React.useState(false);
     const editorRef = React.useRef<LexicalEditor | null>();
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
+    const { notifyWarning } = useNotify();
     const dispatch = useAppDispatch();
-    const { getUserId } = useLocalUserAccount();
-    const userId = getUserId();
 
     const {
         data: conversationMessages,
@@ -192,12 +191,11 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 for (const file of files) {
                     // limit the number of attachments to the maximum allowed
                     if (updatedFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
-                        dispatch(
-                            addError({
-                                title: 'Attachment limit reached',
-                                message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
-                            }),
-                        );
+                        notifyWarning({
+                            id: 'attachment-limit-reached',
+                            title: 'Attachment limit reached',
+                            message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
+                        });
                         return updatedFiles;
                     }
 
@@ -210,19 +208,16 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 }
 
                 for (const [filename, count] of duplicates.entries()) {
-                    dispatch(
-                        addError({
-                            title: `Attachments with duplicate filenames`,
-                            message: `${count} attachment${count !== 1 ? 's' : ''} with filename '${filename}' ${
-                                count !== 1 ? 'were' : 'was'
-                            } ignored`,
-                        }),
-                    );
+                    notifyWarning({
+                        id: `duplicate-attachment-${filename}`,
+                        title: `Attachment with duplicate filename`,
+                        message: `Attachment with filename '${filename}' ${count !== 1 ? 'was' : 'were'} ignored`,
+                    });
                 }
                 return updatedFiles;
             });
         },
-        [dispatch, setAttachmentFiles],
+        [notifyWarning],
     );
 
     React.useEffect(() => {
@@ -307,6 +302,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         }
 
         (async () => {
+            if (!localUserId) {
+                throw new Error('Local user ID is not set');
+            }
+
             setIsSubmitting(true);
             const content = data.value.trim();
             let metadata: Record<string, any> | undefined = directedAtId ? undefined : { directed_at: directedAtId };
@@ -346,7 +345,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                     {
                         id: 'optimistic',
                         sender: {
-                            participantId: userId,
+                            participantId: localUserId,
                             participantRole: 'user',
                         },
                         timestamp: new Date().toISOString(),
@@ -355,6 +354,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                         contentType: 'text/plain',
                         filenames: [],
                         metadata,
+                        hasDebugData: false,
                     },
                 ]),
             );
@@ -598,7 +598,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                             <ClearEditorPlugin />
                             {participants && (
                                 <ParticipantMentionsPlugin
-                                    participants={participants.filter((participant) => participant.id !== userId)}
+                                    participants={participants.filter((participant) => participant.id !== localUserId)}
                                     parent={document.getElementById('app')}
                                 />
                             )}

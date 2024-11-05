@@ -157,6 +157,7 @@ async def test_assistant_with_event_handlers(
                         content="Hello, world",
                         filenames=[],
                         metadata={},
+                        has_debug_data=False,
                     ).model_dump(mode="json")
                 },
             )
@@ -184,6 +185,7 @@ async def test_assistant_with_event_handlers(
                         content="Hello, world",
                         filenames=[],
                         metadata={},
+                        has_debug_data=False,
                     ).model_dump(mode="json")
                 },
             )
@@ -211,6 +213,7 @@ async def test_assistant_with_event_handlers(
                         content="Hello, world",
                         filenames=[],
                         metadata={},
+                        has_debug_data=False,
                     ).model_dump(mode="json")
                 },
             )

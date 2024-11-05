@@ -34,15 +34,9 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from . import legacy
+from .agents import form_fill_agent
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
-from .agents.form_fill_agent import (
-    AcquireFormGuidedConversationStateInspector,
-    FillFormGuidedConversationStateInspector,
-    FormFillAgent,
-    FormFillAgentStateInspector,
-    LLMConfig,
-)
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -81,11 +75,10 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": ArtifactConversationInspectorStateProvider(assistant_config),
-        "form_fill_agent": FormFillAgentStateInspector,
-        "acquire_form": AcquireFormGuidedConversationStateInspector,
-        "fill_form": FillFormGuidedConversationStateInspector,
     },
 )
+
+form_fill_agent.extend(assistant)
 
 attachments_extension = AttachmentsExtension(assistant)
 
@@ -157,7 +150,7 @@ async def on_chat_message_created(
     """
 
     # update the participant status to indicate the assistant is thinking
-    async with context.set_status_for_block("thinking..."):
+    async with context.set_status("thinking..."):
         config = await assistant_config.get(context.assistant)
 
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
@@ -173,9 +166,9 @@ async def on_chat_message_created(
             return
 
         try:
-            await FormFillAgent.step(
-                llm_config=LLMConfig(
-                    openai_client=openai_client.create_client(config.service_config),
+            await form_fill_agent.execute(
+                llm_config=form_fill_agent.LLMConfig(
+                    openai_client_factory=lambda: openai_client.create_client(config.service_config),
                     openai_model=config.request_config.openai_model,
                     max_response_tokens=config.request_config.response_tokens,
                 ),
@@ -241,11 +234,11 @@ async def on_conversation_created(context: ConversationContext) -> None:
 async def welcome_message(context: ConversationContext) -> None:
     config = await assistant_config.get(context.assistant)
 
-    async with context.set_status_for_block("thinking..."):
+    async with context.set_status("thinking..."):
         try:
-            await FormFillAgent.step(
-                llm_config=LLMConfig(
-                    openai_client=openai_client.create_client(config.service_config),
+            await form_fill_agent.execute(
+                llm_config=form_fill_agent.LLMConfig(
+                    openai_client_factory=lambda: openai_client.create_client(config.service_config),
                     openai_model=config.request_config.openai_model,
                     max_response_tokens=config.request_config.response_tokens,
                 ),

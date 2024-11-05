@@ -2,7 +2,7 @@
 
 import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { ConversationList } from './Controls/ConversationList';
+import { MemoizedConversationList } from './Controls/ConversationList';
 
 const useClasses = makeStyles({
     root: {
@@ -23,14 +23,6 @@ const useClasses = makeStyles({
         flex: '1 1 auto',
         overflow: 'auto',
     },
-    // footer: {
-    //     flex: '0 0 auto',
-    //     display: 'flex',
-    //     flexDirection: 'column',
-    //     gap: tokens.spacingVerticalS,
-    //     backgroundColor: tokens.colorNeutralBackground3,
-    //     padding: tokens.spacingHorizontalM,
-    // },
 });
 
 interface GlobalContentProps {
@@ -41,6 +33,7 @@ interface GlobalContentProps {
 export const GlobalContent: React.FC<GlobalContentProps> = (props) => {
     const { headerBefore, headerAfter } = props;
     const classes = useClasses();
+
     return (
         <div className={classes.root}>
             <div className={classes.header}>
@@ -48,9 +41,8 @@ export const GlobalContent: React.FC<GlobalContentProps> = (props) => {
                 {headerAfter}
             </div>
             <div className={classes.content}>
-                <ConversationList />
+                <MemoizedConversationList />
             </div>
-            {/* <div className={classes.footer}></div> */}
         </div>
     );
 };

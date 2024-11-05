@@ -24,21 +24,22 @@ import {
 } from '@fluentui/react-components';
 import {
     AlertUrgent24Regular,
-    AppGenericRegular,
     Attach24Regular,
-    BotRegular,
     KeyCommandRegular,
     Note24Regular,
-    PersonRegular,
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
 import { useConversationUtility } from '../../libs/useConversationUtility';
+import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useCreateConversationMessageMutation } from '../../services/workbench';
+import {
+    useCreateConversationMessageMutation,
+    useGetConversationMessageDebugDataQuery,
+} from '../../services/workbench';
 import { CopyButton } from '../App/CopyButton';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
 import { ConversationFileIcon } from './ConversationFileIcon';
@@ -152,8 +153,18 @@ interface InteractMessageProps {
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead } = props;
     const classes = useClasses();
+    const { getAvatarData } = useParticipantUtility();
     const [createConversationMessage] = useCreateConversationMessageMutation();
     const { isMessageVisibleRef, isMessageVisible, isUnread } = useConversationUtility();
+    const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
+    const {
+        data: debugData,
+        isLoading: isLoadingDebugData,
+        isUninitialized: isUninitializedDebugData,
+    } = useGetConversationMessageDebugDataQuery(
+        { conversationId: conversation.id, messageId: message.id },
+        { skip: skipDebugLoad },
+    );
 
     const isUser = participant.role === 'user';
 
@@ -229,7 +240,14 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         () => (
             <>
                 {!readOnly && <MessageLink conversation={conversation} messageId={message.id} />}
-                <DebugInspector debug={message.metadata?.debug} />
+                <DebugInspector
+                    debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
+                    loading={isLoadingDebugData || isUninitializedDebugData}
+                    onOpen={() => {
+                        console.log('OPEN!');
+                        setSkipDebugLoad(false);
+                    }}
+                />
                 <CopyButton data={message.content} tooltip="Copy message" size="small" appearance="transparent" />
                 {!readOnly && (
                     <>
@@ -239,7 +257,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 )}
             </>
         ),
-        [conversation, message, readOnly],
+        [conversation, debugData?.debugData, isLoadingDebugData, isUninitializedDebugData, message, readOnly],
     );
 
     const getRenderedMessage = React.useCallback(() => {
@@ -381,18 +399,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             ) : (
                 <>
                     <div className={classes.header}>
-                        <Persona
-                            size="extra-small"
-                            name={participant.name}
-                            avatar={{
-                                name: '',
-                                icon: {
-                                    user: <PersonRegular />,
-                                    assistant: <BotRegular />,
-                                    service: <AppGenericRegular />,
-                                }[participant.role],
-                            }}
-                        />
+                        <Persona size="extra-small" name={participant.name} avatar={getAvatarData(participant)} />
                         {attribution}
                         <div>
                             <Timestamp>{time}</Timestamp>
@@ -405,3 +412,5 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         </div>
     );
 };
+
+export const MemoizedInteractMessage = React.memo(InteractMessage);

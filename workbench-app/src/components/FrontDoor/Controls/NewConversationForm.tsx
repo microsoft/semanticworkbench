@@ -1,0 +1,164 @@
+import { Checkbox, Field, Input, makeStyles, tokens } from '@fluentui/react-components';
+import React from 'react';
+import { useCreateConversation } from '../../../libs/useCreateConversation';
+import { AssistantImport } from '../../Assistants/AssistantImport';
+import { AssistantSelector } from './AssistantSelector';
+import { AssistantServiceSelector } from './AssistantServiceSelector';
+
+const useClasses = makeStyles({
+    content: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
+    serviceOptions: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    actions: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'end',
+        alignItems: 'center',
+        gap: tokens.spacingHorizontalM,
+    },
+});
+
+export interface NewConversationData {
+    title?: string;
+    assistantId?: string;
+    assistantServiceId?: string;
+    name?: string;
+}
+
+interface NewConversationFormProps {
+    onSubmit?: () => void;
+    onChange?: (isValid: boolean, data: NewConversationData) => void;
+    disabled?: boolean;
+}
+
+export const NewConversationForm: React.FC<NewConversationFormProps> = (props) => {
+    const { onSubmit, onChange, disabled } = props;
+    const classes = useClasses();
+    const { assistants, assistantServicesByCategories } = useCreateConversation();
+
+    const [config, setConfig] = React.useState<NewConversationData>({
+        title: '',
+        assistantId: '',
+        assistantServiceId: '',
+        name: '',
+    });
+    const [manualEntry, setManualEntry] = React.useState(false);
+
+    const checkIsValid = React.useCallback((data: NewConversationData) => {
+        if (!data.title || !data.assistantId) {
+            return false;
+        }
+
+        if (data.assistantId === 'new') {
+            if (!data.assistantServiceId || !data.name) {
+                return false;
+            }
+        }
+
+        return true;
+    }, []);
+
+    const isValid = React.useMemo(() => checkIsValid(config), [checkIsValid, config]);
+
+    const updateAndNotifyChange = React.useCallback(
+        (data: NewConversationData) => {
+            const updatedConfig = { ...config, ...data };
+            if (data.assistantId === 'new') {
+                updatedConfig.assistantServiceId = data.assistantServiceId ?? '';
+                updatedConfig.name = data.name ?? '';
+            }
+
+            setConfig(updatedConfig);
+            onChange?.(checkIsValid(updatedConfig), updatedConfig);
+        },
+        [checkIsValid, config, onChange],
+    );
+
+    return (
+        <form
+            onSubmit={(event) => {
+                event.preventDefault();
+                if (isValid) {
+                    onSubmit?.();
+                }
+            }}
+        >
+            <div className={classes.content}>
+                <Field label="Title">
+                    <Input
+                        disabled={disabled}
+                        value={config.title}
+                        onChange={(_event, data) => updateAndNotifyChange({ title: data?.value })}
+                        aria-autocomplete="none"
+                    />
+                </Field>
+                <Field label="Assistant">
+                    <AssistantSelector
+                        assistants={assistants}
+                        onChange={(assistantId) =>
+                            updateAndNotifyChange({
+                                assistantId,
+                                assistantServiceId: assistantId === 'new' ? '' : undefined,
+                                name: assistantId === 'new' ? '' : undefined,
+                            })
+                        }
+                        disabled={disabled}
+                    />
+                </Field>
+                {config.assistantId === 'new' && (
+                    <>
+                        {!manualEntry && (
+                            <Field label="Assistant Service">
+                                <AssistantServiceSelector
+                                    disabled={disabled}
+                                    assistantServicesByCategory={assistantServicesByCategories}
+                                    onChange={(assistantService) => updateAndNotifyChange(assistantService)}
+                                />
+                            </Field>
+                        )}
+                        {manualEntry && (
+                            <Field label="Assistant Service ID">
+                                <Input
+                                    disabled={disabled}
+                                    value={config.assistantServiceId}
+                                    onChange={(_event, data) =>
+                                        updateAndNotifyChange({ assistantServiceId: data?.value })
+                                    }
+                                    aria-autocomplete="none"
+                                />
+                            </Field>
+                        )}
+                        <Field label="Name">
+                            <Input
+                                disabled={disabled}
+                                value={config.name}
+                                onChange={(_event, data) => updateAndNotifyChange({ name: data?.value })}
+                                aria-autocomplete="none"
+                            />
+                        </Field>
+                        <div className={classes.serviceOptions}>
+                            <Checkbox
+                                disabled={disabled}
+                                style={{ whiteSpace: 'nowrap' }}
+                                label="Enter Assistant Service ID"
+                                checked={manualEntry}
+                                onChange={(_event, data) => {
+                                    setManualEntry(data.checked === true);
+                                }}
+                            />
+                            <AssistantImport label="Import Assistant" disabled={disabled} />
+                        </div>
+                    </>
+                )}
+                <button disabled={disabled} type="submit" hidden />
+            </div>
+        </form>
+    );
+};

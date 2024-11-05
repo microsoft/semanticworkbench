@@ -4,6 +4,7 @@
 **/certs/mkcert
 .env
 *.local
+*.user
 *__local__*
 .data
 .idea/

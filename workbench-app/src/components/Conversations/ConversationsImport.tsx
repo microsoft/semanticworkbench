@@ -8,12 +8,14 @@ interface ConversationsImportProps {
     disabled?: boolean;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
+    appearance?: 'primary' | 'secondary' | 'outline' | 'subtle' | 'transparent';
+    size?: 'small' | 'medium' | 'large';
     onImport?: (conversationIds: string[]) => void;
     onError?: (error: Error) => void;
 }
 
 export const ConversationsImport: React.FC<ConversationsImportProps> = (props) => {
-    const { disabled, iconOnly, asToolbarButton, onImport, onError } = props;
+    const { disabled, iconOnly, asToolbarButton, appearance, size, onImport, onError } = props;
     const workbenchService = useWorkbenchService();
 
     const importFile = async (file: File) => {
@@ -30,6 +32,8 @@ export const ConversationsImport: React.FC<ConversationsImportProps> = (props) =
             disabled={disabled}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
+            appearance={appearance}
+            size={size}
         />
     );
 };

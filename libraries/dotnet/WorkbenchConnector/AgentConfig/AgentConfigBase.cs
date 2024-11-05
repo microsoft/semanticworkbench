@@ -1,15 +1,14 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-using System;
 using System.Collections.Generic;
 using System.Reflection;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.SemanticWorkbench.Connector;
 
-public class AgentConfig : IAgentConfig
+public abstract class AgentConfigBase
 {
-    public object? ToWorkbenchFormat()
+    public object ToWorkbenchFormat()
     {
         Dictionary<string, object> result = new();
         Dictionary<string, object> defs = new();
@@ -55,23 +54,5 @@ public class AgentConfig : IAgentConfig
         result["config"] = this;
 
         return result;
-    }
-
-    public void Update(object? config)
-    {
-        if (config == null)
-        {
-            throw new ArgumentException("Empty configuration");
-        }
-
-        if (config is not AgentConfig cfg)
-        {
-            throw new ArgumentException("Incompatible configuration type");
-        }
-
-        foreach (var property in this.GetType().GetProperties())
-        {
-            property.SetValue(this, property.GetValue(cfg));
-        }
     }
 }

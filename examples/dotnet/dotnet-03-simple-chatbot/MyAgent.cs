@@ -12,15 +12,8 @@ using Microsoft.SemanticWorkbench.Connector;
 
 namespace AgentExample;
 
-public class MyAgent : AgentBase
+public class MyAgent : AgentBase<MyAgentConfig>
 {
-    // Agent settings
-    public MyAgentConfig Config
-    {
-        get { return (MyAgentConfig)this.RawConfig; }
-        private set { this.RawConfig = value; }
-    }
-
     // Azure Content Safety
     private readonly ContentSafetyClient _contentSafety;
 
@@ -43,7 +36,7 @@ public class MyAgent : AgentBase
         string agentName,
         MyAgentConfig? agentConfig,
         IConfiguration appConfig,
-        WorkbenchConnector workbenchConnector,
+        WorkbenchConnector<MyAgentConfig> workbenchConnector,
         IAgentServiceStorage storage,
         ContentSafetyClient contentSafety,
         ILoggerFactory? loggerFactory = null)
@@ -60,18 +53,6 @@ public class MyAgent : AgentBase
 
         // Clone object to avoid config object being shared
         this.Config = JsonSerializer.Deserialize<MyAgentConfig>(JsonSerializer.Serialize(agentConfig)) ?? new MyAgentConfig();
-    }
-
-    /// <inheritdoc />
-    public override IAgentConfig GetDefaultConfig()
-    {
-        return new MyAgentConfig();
-    }
-
-    /// <inheritdoc />
-    public override IAgentConfig? ParseConfig(object data)
-    {
-        return JsonSerializer.Deserialize<MyAgentConfig>(JsonSerializer.Serialize(data));
     }
 
     /// <inheritdoc />
@@ -171,6 +152,8 @@ public class MyAgent : AgentBase
         }
     }
 
+    #region internals
+
     private async Task<Message> PrepareAnswerAsync(Conversation conversation, Message message, CancellationToken cancellationToken)
     {
         Message answer;
@@ -188,7 +171,7 @@ public class MyAgent : AgentBase
 
             if (inputIsSafe)
             {
-                var chatHistory = conversation.ToChatHistory(this.Id, this.Config.RenderSystemPrompt());
+                var chatHistory = conversation.ToSemanticKernelChatHistory(this.Id, this.Config.RenderSystemPrompt());
                 debugInfo.Add("lastChatMsg", chatHistory.Last().Content);
 
                 // Show chat history in workbench side panel
@@ -348,4 +331,6 @@ public class MyAgent : AgentBase
         Insight insight = new("history", "Chat History", conversation.ToHtmlString(this.Id));
         return this.SetConversationInsightAsync(conversation.Id, insight, cancellationToken);
     }
+
+    #endregion
 }

@@ -2,12 +2,13 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-from . import acquire_form, definition, extract_form_fields, fill_form
+from . import gce_config
+from .steps import acquire_form, extract_form_fields, fill_form
 
 
 class FormFillAgentConfig(BaseModel):
     acquire_form_config: Annotated[
-        definition.GuidedConversationDefinition,
+        gce_config.GuidedConversationDefinition,
         Field(title="Form Acquisition", description="Guided conversation for acquiring a form from the user."),
     ] = acquire_form.definition.model_copy()
 
@@ -17,6 +18,6 @@ class FormFillAgentConfig(BaseModel):
     ] = extract_form_fields.ExtractFormFieldsConfig()
 
     fill_form_config: Annotated[
-        definition.GuidedConversationDefinition,
+        gce_config.GuidedConversationDefinition,
         Field(title="Fill Form", description="Guided conversation for filling out the form."),
     ] = fill_form.definition.model_copy()

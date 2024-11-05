@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { Persona, makeStyles, tokens } from '@fluentui/react-components';
-import { AppGenericRegular, BotRegular, PersonRegular } from '@fluentui/react-icons';
 import React from 'react';
+import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Assistant } from '../../models/Assistant';
 import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
@@ -40,6 +40,7 @@ interface ParticipantListProps {
 export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
     const { conversation, participants, preventAssistantModifyOnParticipantIds = [], readOnly } = props;
     const classes = useClasses();
+    const { sortParticipants, getAvatarData } = useParticipantUtility();
 
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
@@ -62,25 +63,14 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
         .filter((participant) => participant.active && participant.role === 'assistant')
         .map((participant) => participant.id);
 
-    const onlineParticipants = participants
-        .filter((participant) => participant.active)
-        .toSorted((a, b) => a.name.localeCompare(b.name));
-
     return (
         <div className={classes.root}>
             <AssistantAdd disabled={readOnly} exceptAssistantIds={exceptAssistantIds} onAdd={handleAssistantAdd} />
-            {onlineParticipants.map((participant) => (
+            {sortParticipants(participants).map((participant) => (
                 <div className={classes.participant} key={participant.id}>
                     <Persona
                         name={participant.name}
-                        avatar={{
-                            name: '',
-                            icon: {
-                                user: <PersonRegular />,
-                                assistant: <BotRegular />,
-                                service: <AppGenericRegular />,
-                            }[participant.role],
-                        }}
+                        avatar={getAvatarData(participant)}
                         secondaryText={
                             participant.role +
                             { read: ' (observer)', read_write: '' }[participant.conversationPermission]

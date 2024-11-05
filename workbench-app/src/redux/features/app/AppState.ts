@@ -1,21 +1,19 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { InteractCanvasState } from '../../../models/InteractCanvasState';
-
 export interface AppState {
-    devMode?: boolean;
-    isDraggingOverBody?: boolean;
-    errors?: {
+    devMode: boolean;
+    errors: {
         id: string;
         title?: string;
         message?: string;
     }[];
-    completedFirstRun?: {
-        app?: boolean;
-        experimental?: boolean;
-        workflow?: boolean;
+    completedFirstRun: {
+        app: boolean;
+        experimental: boolean;
+        workflow: boolean;
     };
+    hideExperimentalNotice: boolean;
     chatWidthPercent: number;
-    interactCanvasState?: InteractCanvasState;
+    isDraggingOverBody?: boolean;
     activeConversationId?: string;
 }

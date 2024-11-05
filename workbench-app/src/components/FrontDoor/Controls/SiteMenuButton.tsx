@@ -1,4 +1,4 @@
-import { useIsAuthenticated, useMsal } from '@azure/msal-react';
+import { useAccount, useIsAuthenticated, useMsal } from '@azure/msal-react';
 import {
     Caption1,
     Label,
@@ -25,6 +25,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthHelper } from '../../../libs/AuthHelper';
 import { useMicrosoftGraph } from '../../../libs/useMicrosoftGraph';
+import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
+import { setLocalUser } from '../../../redux/features/localUser/localUserSlice';
 
 const useClasses = makeStyles({
     accountInfo: {
@@ -38,21 +40,33 @@ export const SiteMenuButton: React.FC = () => {
     const classes = useClasses();
     const navigate = useNavigate();
     const { instance } = useMsal();
-    const microsoftGraph = useMicrosoftGraph();
     const isAuthenticated = useIsAuthenticated();
-    const [profileImage, setProfileImage] = React.useState<string>();
+    const account = useAccount();
+    const microsoftGraph = useMicrosoftGraph();
+    const localUserState = useAppSelector((state) => state.localUser);
+    const dispatch = useAppDispatch();
 
     React.useEffect(() => {
-        if (isAuthenticated && !profileImage) {
-            void (async () => {
-                const photo = await microsoftGraph.getMyPhotoAsync();
-                setProfileImage(photo);
-            })();
-        }
-    }, [isAuthenticated, profileImage, microsoftGraph]);
+        (async () => {
+            if (!isAuthenticated || !account?.name || localUserState.id) {
+                return;
+            }
 
-    const account = instance.getActiveAccount();
-    const avatar = profileImage ? { image: { src: profileImage } } : undefined;
+            const photo = await microsoftGraph.getMyPhotoAsync();
+
+            dispatch(
+                setLocalUser({
+                    id: (account.homeAccountId || '').split('.').reverse().join('.'),
+                    name: account.name,
+                    email: account.username,
+                    avatar: {
+                        name: account.name,
+                        image: photo ? { src: photo } : undefined,
+                    },
+                }),
+            );
+        })();
+    }, [account, dispatch, isAuthenticated, localUserState.id, microsoftGraph]);
 
     const handleSignOut = () => {
         void AuthHelper.logoutAsync(instance);
@@ -65,15 +79,15 @@ export const SiteMenuButton: React.FC = () => {
     return (
         <Menu>
             <MenuTrigger disableButtonEnhancement>
-                <Persona className="user-avatar" avatar={avatar} presence={{ status: 'available' }} />
+                <Persona className="user-avatar" avatar={localUserState.avatar} presence={{ status: 'available' }} />
             </MenuTrigger>
             <MenuPopover>
                 <MenuList>
-                    {account && (
+                    {isAuthenticated && (
                         <>
                             <div className={classes.accountInfo}>
-                                <Label>{account.name}</Label>
-                                <Label size="small">{account.username}</Label>
+                                <Label>{localUserState.name}</Label>
+                                <Label size="small">{localUserState.email ?? ''}</Label>
                             </div>
                             <MenuDivider />
                         </>
@@ -81,7 +95,7 @@ export const SiteMenuButton: React.FC = () => {
                     <MenuItem
                         icon={<NavigationRegular />}
                         onClick={() => {
-                            navigate('/');
+                            navigate('/dashboard');
                         }}
                     >
                         Dashboard
@@ -143,7 +157,7 @@ export const SiteMenuButton: React.FC = () => {
                         @GitHub
                     </MenuItem>
                     <MenuDivider />
-                    {account ? (
+                    {isAuthenticated ? (
                         <MenuItem icon={<ArrowExitRegular />} onClick={handleSignOut}>
                             Sign Out
                         </MenuItem>

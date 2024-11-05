@@ -1,17 +1,10 @@
-from .agent import (
-    AcquireFormGuidedConversationStateInspector,
-    FillFormGuidedConversationStateInspector,
-    FormFillAgent,
-    FormFillAgentStateInspector,
-)
+from .agent import execute, extend
 from .config import FormFillAgentConfig
-from .llm_config import LLMConfig
+from .step import LLMConfig
 
 __all__ = [
-    "FormFillAgent",
+    "execute",
+    "extend",
     "LLMConfig",
     "FormFillAgentConfig",
-    "FormFillAgentStateInspector",
-    "FillFormGuidedConversationStateInspector",
-    "AcquireFormGuidedConversationStateInspector",
 ]

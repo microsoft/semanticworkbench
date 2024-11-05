@@ -4,7 +4,6 @@ import { generateUuid } from '@azure/ms-rest-js';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
-import { InteractCanvasState } from '../../../models/InteractCanvasState';
 import { conversationApi } from '../../../services/workbench';
 import { AppState } from './AppState';
 
@@ -14,6 +13,7 @@ const localStorageKey = {
     completedFirstRunApp: 'completedFirstRun:app',
     completedFirstRunExperimental: 'completedFirstRun:experimental',
     completedFirstRunWorkflow: 'completedFirstRun:workflow',
+    hideExperimentalNotice: 'hideExperimentalNotice',
 };
 
 const initialState: AppState = {
@@ -28,10 +28,8 @@ const initialState: AppState = {
             AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunExperimental) ?? false,
         workflow: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunWorkflow) ?? false,
     },
-    interactCanvasState: {
-        open: false,
-        mode: 'conversation',
-    },
+    hideExperimentalNotice:
+        AppStorage.getInstance().loadObject<boolean>(localStorageKey.hideExperimentalNotice) ?? false,
 };
 
 export const appSlice = createSlice({
@@ -78,9 +76,6 @@ export const appSlice = createSlice({
         ) => {
             if (action.payload.app !== undefined) {
                 AppStorage.getInstance().saveObject(localStorageKey.completedFirstRunApp, action.payload.app);
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.app = action.payload.app;
             }
             if (action.payload.experimental !== undefined) {
@@ -88,22 +83,16 @@ export const appSlice = createSlice({
                     localStorageKey.completedFirstRunExperimental,
                     action.payload.experimental,
                 );
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.experimental = action.payload.experimental;
             }
             if (action.payload.workflow !== undefined) {
                 AppStorage.getInstance().saveObject(localStorageKey.completedFirstRunWorkflow, action.payload.workflow);
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
-        setInteractCanvasState: (state: AppState, action: PayloadAction<Partial<InteractCanvasState>>) => {
-            // merge with existing state
-            state.interactCanvasState = { ...state.interactCanvasState, ...action.payload };
+        setHideExperimentalNotice: (state: AppState, action: PayloadAction<boolean>) => {
+            AppStorage.getInstance().saveObject(localStorageKey.hideExperimentalNotice, action.payload);
+            state.hideExperimentalNotice = action.payload;
         },
         setActiveConversationId: (state: AppState, action: PayloadAction<string | undefined>) => {
             if (action.payload === state.activeConversationId) {
@@ -127,7 +116,7 @@ export const {
     clearErrors,
     setChatWidthPercent,
     setCompletedFirstRun,
-    setInteractCanvasState,
+    setHideExperimentalNotice,
     setActiveConversationId,
 } = appSlice.actions;
 

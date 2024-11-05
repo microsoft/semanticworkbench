@@ -9,7 +9,8 @@ import { AppHeader } from './AppHeader';
 
 const useClasses = makeStyles({
     documentBody: {
-        backgroundImage: `url('/assets/background-1.jpg')`,
+        // backgroundImage: `url('/assets/background-1.jpg')`,
+        backgroundImage: `linear-gradient(to right, #FFFFFF, #E6EEFF)`,
     },
     root: {
         display: 'grid',
@@ -48,7 +49,7 @@ interface AppViewProps {
 export const AppView: React.FC<AppViewProps> = (props) => {
     const { title, actions, fullSizeContent, children } = props;
     const classes = useClasses();
-    const { completedFirstRun } = useAppSelector((state) => state.app);
+    const completedFirstRun = useAppSelector((state) => state.app.completedFirstRun);
     const navigate = useNavigate();
 
     React.useLayoutEffect(() => {
