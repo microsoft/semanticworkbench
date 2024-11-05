@@ -3,37 +3,23 @@ import React from 'react';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { AssistantCanvasList } from '../../Conversations/Canvas/AssistantCanvasList';
-import { DrawerControl } from './DrawerControl';
+import { CanvasDrawer, CanvasDrawerOptions } from './CanvasDrawer';
 
 const useClasses = makeStyles({
-    drawerContainer: {
-        // backgroundColor: 'transparent',
-    },
-    drawer: {
-        // backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
-    },
-    drawerHeader: {},
-    drawerTitle: {
-        marginTop: tokens.spacingVerticalXL,
-    },
-    drawerBody: {
-        // backgroundColor: 'transparent',
-    },
     noContent: {
         padding: tokens.spacingHorizontalM,
     },
 });
 
 interface AssistantDrawerProps {
-    open: boolean;
-    mode: 'inline' | 'overlay';
+    drawerOptions: CanvasDrawerOptions;
     conversation: Conversation;
     conversationAssistants?: Assistant[];
     selectedAssistant?: Assistant;
 }
 
 export const AssistantDrawer: React.FC<AssistantDrawerProps> = (props) => {
-    const { open, mode, conversation, conversationAssistants, selectedAssistant } = props;
+    const { drawerOptions, conversation, conversationAssistants, selectedAssistant } = props;
     const classes = useClasses();
 
     let title = '';
@@ -54,22 +40,14 @@ export const AssistantDrawer: React.FC<AssistantDrawerProps> = (props) => {
             <div className={classes.noContent}>No assistants participating in conversation.</div>
         );
 
-    return (
-        <DrawerControl
-            classNames={{
-                container: classes.drawerContainer,
-                drawer: classes.drawer,
-                header: classes.drawerHeader,
-                title: classes.drawerTitle,
-                body: classes.drawerBody,
-            }}
-            resizable
-            open={open}
-            mode={mode}
-            side="right"
-            title={title}
-        >
-            {canvasContent}
-        </DrawerControl>
+    const options = React.useMemo(
+        () => ({
+            ...drawerOptions,
+            title,
+            resizable: true,
+        }),
+        [drawerOptions, title],
     );
+
+    return <CanvasDrawer options={options}>{canvasContent}</CanvasDrawer>;
 };

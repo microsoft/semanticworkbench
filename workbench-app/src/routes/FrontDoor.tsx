@@ -1,4 +1,4 @@
-import { Button, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import { Button, Drawer, DrawerBody, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import { PanelLeftContractRegular, PanelLeftExpandRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { useDispatch } from 'react-redux';
@@ -8,6 +8,7 @@ import { NewConversationButton } from '../components/FrontDoor/Controls/NewConve
 import { SiteMenuButton } from '../components/FrontDoor/Controls/SiteMenuButton';
 import { GlobalContent } from '../components/FrontDoor/GlobalContent';
 import { MainContent } from '../components/FrontDoor/MainContent';
+import { useMediaQuery } from '../libs/useMediaQuery';
 import { useAppSelector } from '../redux/app/hooks';
 import { setActiveConversationId } from '../redux/features/app/appSlice';
 
@@ -28,23 +29,17 @@ const useClasses = makeStyles({
         height: '100%',
     },
     sideRailLeft: {
-        width: '0px',
-        flex: '0 0 auto',
-        overflow: 'hidden',
-        backgroundColor: tokens.colorNeutralBackground2,
         ...shorthands.borderRight(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
-        ...shorthands.transition('width', tokens.durationSlow, '0', tokens.curveEasyEase),
-
-        '&.open': {
-            width: '300px',
+        boxSizing: 'border-box',
+    },
+    sideRailLeftBody: {
+        // override Fluent UI DrawerBody padding
+        padding: 0,
+        '&:first-child': {
+            paddingTop: 0,
         },
-
-        '&.overlay': {
-            position: 'absolute',
-            zIndex: tokens.zIndexFloating,
-            height: '100%',
-            borderRight: 'none',
-            boxShadow: tokens.shadow8Brand,
+        '&:last-child': {
+            paddingBottom: 0,
         },
     },
     transitionFade: {
@@ -82,9 +77,9 @@ export const FrontDoor: React.FC = () => {
     const chatCanvasState = useAppSelector((state) => state.chatCanvas);
     const dispatch = useDispatch();
     const [sideRailLeftOpen, setSideRailLeftOpen] = React.useState(!activeConversationId && !conversationId);
-    const [sideRailLeftOverlay, setSideRailLeftOverlay] = React.useState(false);
     const [isInitialized, setIsInitialized] = React.useState(false);
-    const sideRailLeftRef = React.useRef<HTMLDivElement>(null);
+    const isSmall = useMediaQuery({ maxWidth: 720 });
+    const [sideRailLeftType, setSideRailLeftType] = React.useState<'inline' | 'overlay'>('inline');
 
     React.useEffect(() => {
         document.body.className = classes.documentBody;
@@ -100,30 +95,6 @@ export const FrontDoor: React.FC = () => {
         setIsInitialized(true);
     }, [conversationId, activeConversationId, dispatch]);
 
-    React.useEffect(() => {
-        if (!chatCanvasState) return;
-
-        if (chatCanvasState.open) {
-            setSideRailLeftOpen(false);
-        }
-        setSideRailLeftOverlay(chatCanvasState.open ?? false);
-    }, [chatCanvasState, chatCanvasState?.open]);
-
-    React.useEffect(() => {
-        if (!sideRailLeftRef.current) return;
-
-        const handleOutsideClick = (event: MouseEvent) => {
-            if (sideRailLeftOpen && sideRailLeftOverlay && !sideRailLeftRef.current?.contains(event.target as Node)) {
-                setSideRailLeftOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleOutsideClick);
-        return () => {
-            document.removeEventListener('mousedown', handleOutsideClick);
-        };
-    }, [sideRailLeftOpen, sideRailLeftOverlay]);
-
     const sideRailLeftButton = React.useMemo(
         () => (
             <Button
@@ -133,6 +104,18 @@ export const FrontDoor: React.FC = () => {
         ),
         [sideRailLeftOpen],
     );
+
+    React.useEffect(() => {
+        switch (sideRailLeftType) {
+            case 'overlay':
+                if (isSmall) setSideRailLeftType('inline');
+                if (chatCanvasState.open) setSideRailLeftType('overlay');
+                break;
+            case 'inline':
+                if (!isSmall) setSideRailLeftType('overlay');
+                break;
+        }
+    }, [sideRailLeftType, isSmall, chatCanvasState.open]);
 
     const globalContent = React.useMemo(
         () => <GlobalContent headerBefore={sideRailLeftButton} headerAfter={<NewConversationButton />} />,
@@ -144,18 +127,15 @@ export const FrontDoor: React.FC = () => {
     return (
         <div className={classes.root}>
             <div className={classes.body}>
-                <div
-                    className={mergeClasses(
-                        classes.sideRailLeft,
-                        sideRailLeftOpen ? 'open' : undefined,
-                        sideRailLeftOverlay ? 'overlay' : undefined,
-                    )}
-                    ref={sideRailLeftRef}
+                <Drawer
+                    className={classes.sideRailLeft}
+                    open={sideRailLeftOpen}
+                    modalType="non-modal"
+                    type={sideRailLeftType}
+                    size="small"
                 >
-                    <div className={mergeClasses(classes.transitionFade, sideRailLeftOpen ? 'in' : undefined)}>
-                        {globalContent}
-                    </div>
-                </div>
+                    <DrawerBody className={classes.sideRailLeftBody}>{globalContent}</DrawerBody>
+                </Drawer>
                 <div className={classes.mainContent}>
                     {!isInitialized ? (
                         <Loading />

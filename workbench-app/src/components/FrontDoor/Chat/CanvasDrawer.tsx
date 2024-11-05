@@ -1,78 +1,190 @@
-import { makeStyles, mergeClasses, shorthands, Title3, tokens } from '@fluentui/react-components';
+import {
+    DialogModalType,
+    Drawer,
+    DrawerBody,
+    DrawerHeader,
+    DrawerHeaderTitle,
+    makeStyles,
+    mergeClasses,
+    Title3,
+    tokens,
+} from '@fluentui/react-components';
 import React from 'react';
+import { Constants } from '../../../Constants';
+import { useAppDispatch, useAppSelector } from '../../../redux/app/hooks';
+import { setChatWidthPercent } from '../../../redux/features/app/appSlice';
 
 const useClasses = makeStyles({
-    drawerContainer: {
-        top: 0,
-        height: '100%',
-        transition: `width ${tokens.durationNormal} ${tokens.curveEasyEase}`,
+    root: {
+        position: 'relative',
+        // ...shorthands.border(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke2),
         overflow: 'hidden',
-        backgroundColor: tokens.colorNeutralBackground1,
-        zIndex: tokens.zIndexContent,
+
         display: 'flex',
-        flexDirection: 'column',
-        paddingTop: tokens.spacingVerticalXXL,
+        height: '100%',
         boxSizing: 'border-box',
+        backgroundColor: '#fff',
+    },
+    // rootResizerActive: {
+    //     userSelect: 'none',
+    // },
+    drawer: {
+        willChange: 'width',
+        transitionProperty: 'width',
+        transitionDuration: '16.666ms', // 60fps
+    },
+    title: {
+        marginTop: tokens.spacingVerticalXL,
+    },
+    resizer: {
+        width: tokens.spacingHorizontalS,
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        cursor: 'col-resize',
+        resize: 'horizontal',
+        zIndex: tokens.zIndexContent,
+        boxSizing: 'border-box',
+        userSelect: 'none',
 
-        '&.left': {
-            ...shorthands.borderRight(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
-        },
-
+        // if drawer is coming from the right, set resizer on the left
         '&.right': {
-            ...shorthands.borderLeft(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
+            left: 0,
+            borderLeft: `${tokens.strokeWidthThick} solid ${tokens.colorNeutralStroke2}`,
+
+            '&:hover': {
+                borderLeftWidth: tokens.strokeWidthThickest,
+            },
+        },
+
+        // if drawer is coming from the left, set resizer on the right
+        '&.left': {
+            right: 0,
+            borderRight: `${tokens.strokeWidthThick} solid ${tokens.colorNeutralStroke2}`,
+
+            '&:hover': {
+                borderRightWidth: tokens.strokeWidthThickest,
+            },
         },
     },
-    drawerTitle: {
-        flexShrink: 0,
-        ...shorthands.padding(
-            tokens.spacingVerticalXXL,
-            tokens.spacingHorizontalXXL,
-            tokens.spacingVerticalS,
-            tokens.spacingHorizontalXXL,
-        ),
-    },
-    drawerContent: {
-        flexGrow: 1,
-        padding: tokens.spacingHorizontalM,
-        overflow: 'auto',
-        '::-webkit-scrollbar-track': {
-            backgroundColor: tokens.colorNeutralBackground1,
-        },
-        '::-webkit-scrollbar-thumb': {
-            backgroundColor: tokens.colorNeutralStencil1Alpha,
-        },
+    resizerActive: {
+        borderRightWidth: '4px',
+        borderRightColor: tokens.colorNeutralBackground5Pressed,
     },
 });
 
-interface CanvasDrawerProps {
-    openClassName?: string;
-    className?: string;
+// create types for CanvasDrawer
+export type CanvasDrawerSize = 'small' | 'medium' | 'large' | 'full';
+export type CanvasDrawerSide = 'left' | 'right';
+export type CanvasDrawerMode = 'inline' | 'overlay';
+export type CanvasDrawerOptions = {
+    classNames?: {
+        container?: string;
+        drawer?: string;
+        header?: string;
+        title?: string;
+        body?: string;
+    };
     open?: boolean;
-    mode?: 'inline' | 'overlay';
-    side?: 'left' | 'right';
     title?: string | React.ReactNode;
+    size?: CanvasDrawerSize;
+    side?: CanvasDrawerSide;
+    mode?: CanvasDrawerMode;
+    modalType?: DialogModalType;
+    resizable?: boolean;
+};
+
+interface CanvasDrawerProps {
+    options: CanvasDrawerOptions;
     children?: React.ReactNode;
 }
 
 export const CanvasDrawer: React.FC<CanvasDrawerProps> = (props) => {
-    const { openClassName, className, open, mode, side, title, children } = props;
+    const { options, children } = props;
+    const { classNames, open, title, size, side, mode, modalType, resizable } = options;
     const classes = useClasses();
-
-    const drawerStyle: React.CSSProperties = {
-        right: side === 'right' ? 0 : undefined,
-        width: open ? undefined : '0px',
-        position: mode === 'inline' ? 'relative' : 'fixed',
-    };
+    const animationFrame = React.useRef<number>(0);
+    const sidebarRef = React.useRef<HTMLDivElement>(null);
+    const [isResizing, setIsResizing] = React.useState(false);
+    const chatWidthPercent = useAppSelector((state) => state.app.chatWidthPercent);
+    const dispatch = useAppDispatch();
 
     const titleContent = typeof title === 'string' ? <Title3>{title}</Title3> : title;
 
-    return (
+    const startResizing = React.useCallback(() => setIsResizing(true), []);
+    const stopResizing = React.useCallback(() => setIsResizing(false), []);
+
+    const resize = React.useCallback(
+        (event: MouseEvent) => {
+            const { clientX } = event;
+            animationFrame.current = requestAnimationFrame(() => {
+                if (isResizing && sidebarRef.current) {
+                    const clientRect = sidebarRef.current.getBoundingClientRect();
+                    const resizerPosition = side === 'left' ? clientRect.left : clientRect.right;
+                    const desiredWidth = resizerPosition - clientX;
+                    const desiredWidthPercent = (desiredWidth / window.innerWidth) * 100;
+                    const minChatWidthPercent = Constants.app.minChatWidthPercent;
+                    const maxWidth = Math.min(desiredWidthPercent, 100 - minChatWidthPercent);
+                    const updatedChatWidthPercent = Math.max(minChatWidthPercent, maxWidth);
+                    console.log(
+                        `clientRect: ${clientRect}`,
+                        `clientX: ${clientX}`,
+                        `desiredWidth: ${desiredWidth}`,
+                        `desiredWidthPercent: ${desiredWidthPercent}`,
+                        `minChatWidthPercent: ${minChatWidthPercent}`,
+                        `maxWidth: ${maxWidth}`,
+                        `updatedChatWidthPercent: ${updatedChatWidthPercent}`,
+                    );
+                    dispatch(setChatWidthPercent(updatedChatWidthPercent));
+                }
+            });
+        },
+        [dispatch, isResizing, side],
+    );
+
+    const ResizeComponent: React.FC<{ className?: string }> = (props: { className?: string }) => (
         <div
-            style={drawerStyle}
-            className={mergeClasses(className, open ? openClassName : '', classes.drawerContainer, side || 'left')}
-        >
-            <div className={classes.drawerTitle}>{titleContent}</div>
-            <div className={classes.drawerContent}>{children}</div>
+            className={mergeClasses(
+                classes.resizer,
+                side ?? 'right',
+                isResizing && classes.resizerActive,
+                props.className,
+            )}
+            onMouseDown={startResizing}
+        />
+    );
+
+    React.useEffect(() => {
+        window.addEventListener('mousemove', resize);
+        window.addEventListener('mouseup', stopResizing);
+
+        return () => {
+            cancelAnimationFrame(animationFrame.current);
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
+        };
+    }, [resize, stopResizing]);
+
+    return (
+        <div className={mergeClasses(classes.root, classNames?.container)}>
+            {resizable && <ResizeComponent className={side} />}
+            <Drawer
+                className={mergeClasses(classes.drawer, classNames?.drawer)}
+                ref={sidebarRef}
+                size={resizable ? undefined : size}
+                style={resizable ? { width: `${chatWidthPercent}vw` } : undefined}
+                position={side === 'left' ? 'start' : 'end'}
+                open={open}
+                modalType={modalType}
+                type={mode ?? 'inline'}
+            >
+                <DrawerHeader className={classNames?.header}>
+                    <DrawerHeaderTitle className={mergeClasses(classes.title, classNames?.title)}>
+                        {titleContent}
+                    </DrawerHeaderTitle>
+                </DrawerHeader>
+                <DrawerBody className={classNames?.body}>{children}</DrawerBody>
+            </Drawer>
         </div>
     );
 };
