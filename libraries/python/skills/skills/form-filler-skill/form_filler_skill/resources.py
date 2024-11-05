@@ -145,21 +145,11 @@ class GCResource:
         else:
             return self.turn_number
 
-    def get_remaining_turns(self, formatted_repr: bool = False) -> str | int:
+    def estimate_remaining_turns_formatted(self) -> str:
         """
-        Get the number of remaining turns.
-
-        Args:
-            formatted_repr (bool): If true, return a formatted string
-            representation of the remaining turns.
-
-        Returns:
-            str | int: The description/number of remaining turns.
+        Get the number of remaining turns in a formatted string.
         """
-        if formatted_repr:
-            return format_resource(self.estimate_remaining_turns(), ResourceConstraintUnit.TURNS)
-        else:
-            return self.estimate_remaining_turns()
+        return format_resource(self.estimate_remaining_turns(), ResourceConstraintUnit.TURNS)
 
     def estimate_remaining_turns(self) -> int:
         """

@@ -105,6 +105,7 @@ class Conversation:
                     to_join.append(f"{participant_name}: <sent an empty message>")
                 else:
                     to_join.append(f"{participant_name}: {user_string}")
+        
         conversation_string = "\n".join(to_join)
         return conversation_string
 

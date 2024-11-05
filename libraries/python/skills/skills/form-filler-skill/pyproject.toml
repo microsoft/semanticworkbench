@@ -10,6 +10,8 @@ dependencies = [
     "chat-driver>=0.1.0",
     "context>=0.1.0",
     "events>=0.1.0",
+    "openai-client>=0.1.0",
+    # "guided-conversation>=0.1.0",
 ]
 
 [tool.uv]
@@ -20,6 +22,8 @@ skill-library = { path = "../../skill-library", editable= true }
 chat-driver = { path = "../../../chat-driver", editable = true }
 context = { path = "../../../context", editable = true }
 events = { path = "../../../events", editable = true }
+openai-client = { path = "../../../openai-client", editable = true }
+# guided-conversation = { path = "../../../guided-conversation", editable = true }
 
 [build-system]
 requires = ["hatchling"]

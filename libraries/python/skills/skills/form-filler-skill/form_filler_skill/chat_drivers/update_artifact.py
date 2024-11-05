@@ -1,6 +1,10 @@
 import logging
 
+from chat_driver import ChatDriver, ChatDriverConfig
+from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
+from chat_driver.message_formatter import liquid_format
 from form_filler_skill.agenda import Agenda, AgendaItem
+from form_filler_skill.definition import GCDefinition
 from form_filler_skill.message import Conversation
 from form_filler_skill.resources import (
     GCResource,
@@ -12,19 +16,94 @@ from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import ValidationError
 from skill_library.run_context import RunContext
 
+from ..artifact import Artifact
 from .fix_agenda_error import fix_agenda_error
+from .update_artifact_template import update_artifact_template
 
 logger = logging.getLogger(__name__)
+
+
+def _get_termination_instructions(resource: GCResource):
+    """
+    Get the termination instructions for the conversation. This is contingent on
+    the resources mode, if any, that is available. Assumes we're always using
+    turns as the resource unit.
+    """
+    # Termination condition under no resource constraints
+    if resource.resource_constraint is None:
+        return (
+            "- You should pick this action as soon as you have completed the artifact to the best of your ability, the"
+            " conversation has come to a natural conclusion, or the user is not cooperating so you cannot continue the"
+            " conversation."
+        )
+
+    # Termination condition under exact resource constraints
+    if resource.resource_constraint.mode == ResourceConstraintMode.EXACT:
+        return "- You should only pick this action if the user is not cooperating so you cannot continue the conversation."
+
+    # Termination condition under maximum resource constraints
+    elif resource.resource_constraint.mode == ResourceConstraintMode.MAXIMUM:
+        return (
+            "- You should pick this action as soon as you have completed the artifact to the best of your ability, the"
+            " conversation has come to a natural conclusion, or the user is not cooperating so you cannot continue the"
+            " conversation."
+        )
+
+    else:
+        logger.error("Invalid resource mode provided.")
+        return ""
 
 
 async def update_agenda(
     context: RunContext,
     openai_client: AsyncOpenAI | AsyncAzureOpenAI,
-    items: str,
+    definition: GCDefinition,
     chat_history: Conversation,
     agenda: Agenda,
+    artifact: Artifact,
     resource: GCResource,
 ) -> bool:
+    # STEP 1: Generate an updated agenda.
+
+    history = InMemoryMessageHistoryProvider(formatter=liquid_format)
+    history.append_system_message(
+        update_artifact_template,
+        {
+            "context": definition.conversation_context,
+            "artifact_schema": definition.artifact_schema,
+            "rules": definition.rules,
+            "current_state_description": definition.conversation_flow,
+        },
+    )
+    history.append_user_message(
+        (
+            "Conversation history:\n"
+            "{{ chat_history }}\n\n"
+            "Latest agenda:\n"
+            "{{ agenda_state }}\n\n"
+            "Current state of the artifact:\n"
+            "{{ artifact_state }}"
+        ),
+        {
+            "chat_history": str(chat_history),
+            "agenda_state": get_agenda_for_prompt(agenda),
+            "artifact_state": artifact.get_artifact_for_prompt(),
+        },
+    )
+
+    config = ChatDriverConfig(
+        context=context,
+        openai_client=openai_client,
+        model="gpt-4o",
+        message_provider=history,
+    )
+
+    chat_driver = ChatDriver(config)
+    response = await chat_driver.respond()
+    items = response.message
+
+    # STEP 2: Validate/fix the updated agenda.
+
     previous_attempts = []
     while True:
         try:
@@ -73,7 +152,7 @@ async def update_agenda(
 
             # Now, update the items with the corrected agenda and try to
             # validate again.
-            items = response.message or ""
+            items = response.message
 
 
 def check_item_constraints(

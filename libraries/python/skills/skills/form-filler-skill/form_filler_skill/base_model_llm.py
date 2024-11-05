@@ -1,8 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
-# type: ignore
-
 import ast
 from types import NoneType
 from typing import Any, get_args
@@ -23,8 +20,9 @@ class BaseModelLLM(BaseModel):
         parse it to the correct type.
         """
 
-        # Get the type hints for the field.
-        annotation = cls.model_fields[info.field_name].annotation
+        # Get the type hints for the field. We know the field is present because
+        # pydantic gave it to us, so we can ignore this type error.
+        annotation = cls.model_fields[info.field_name].annotation  # type: ignore
         typehints = get_args(annotation)
         if len(typehints) == 0:
             typehints = [annotation]

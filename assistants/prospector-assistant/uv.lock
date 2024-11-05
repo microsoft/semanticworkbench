@@ -396,6 +396,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
+    { name = "python-liquid" },
     { name = "requests" },
     { name = "tiktoken" },
 ]
@@ -410,6 +411,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.6.1" },
     { name = "pydantic-settings", specifier = ">=2.3.4" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "python-liquid", specifier = ">=1.12.1" },
     { name = "requests", specifier = ">=2.32.0" },
     { name = "tiktoken", specifier = ">=0.7.0" },
 ]
@@ -818,6 +820,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c0/bd/fa8ce65b0a7d4b6d143ec23b0f5fd3f7ab80121078c465bc02baeaab22dc/importlib_metadata-8.4.0.tar.gz", hash = "sha256:9a547d3bc3608b025f93d403fdd1aae741c24fbb8314df4b155675742ce303c5", size = 54320 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c0/14/362d31bf1076b21e1bcdcb0dc61944822ff263937b804a79231df2774d28/importlib_metadata-8.4.0-py3-none-any.whl", hash = "sha256:66f342cc6ac9818fc6ff340576acd24d65ba0b3efabb2b4ac08b598965a4a2f1", size = 26269 },
+]
+
+[[package]]
+name = "importlib-resources"
+version = "6.4.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/98/be/f3e8c6081b684f176b761e6a2fef02a0be939740ed6f54109a2951d806f3/importlib_resources-6.4.5.tar.gz", hash = "sha256:980862a1d16c9e147a59603677fa2aa5fd82b87f223b6cb870695bcfce830065", size = 43372 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/6a/4604f9ae2fa62ef47b9de2fa5ad599589d28c9fd1d335f32759813dfa91e/importlib_resources-6.4.5-py3-none-any.whl", hash = "sha256:ac29d5f956f01d5e4bb63102a5a19957f1b9175e45649977264a1416783bb717", size = 36115 },
 ]
 
 [[package]]
@@ -1649,6 +1660,18 @@ wheels = [
 ]
 
 [[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892 },
+]
+
+[[package]]
 name = "python-docx"
 version = "1.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1677,6 +1700,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/4f/da/95963cebfc578dabd323d7263958dfb68898617912bb09327dd30e9c8d13/python-json-logger-2.0.7.tar.gz", hash = "sha256:23e7ec02d34237c5aa1e29a070193a4ea87583bb4e7f8fd06d3de8264c4b2e1c", size = 10508 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/35/a6/145655273568ee78a581e734cf35beb9e33a370b29c5d3c8fee3744de29f/python_json_logger-2.0.7-py3-none-any.whl", hash = "sha256:f380b826a991ebbe3de4d897aeec42760035ac760345e57b812938dc8b35e2bd", size = 8067 },
+]
+
+[[package]]
+name = "python-liquid"
+version = "1.12.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "importlib-resources" },
+    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/59/b4/c4e39470edf507056333cd688a36bb7fbdb17090105d9f454ecf6ff09845/python_liquid-1.12.1.tar.gz", hash = "sha256:7367e979125859fb4116f360f224a89a52ecb455fb26843c43e4d800b389d325", size = 124636 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2c/6e/bfd01926e28f6cf355a7a8460271ba135013870f5857b06f35dbf65ab237/python_liquid-1.12.1-py3-none-any.whl", hash = "sha256:2224312944be16c1a44406398eb8a07c7e57398d5c0ef15ff950946dbefe7c33", size = 206592 },
 ]
 
 [[package]]
@@ -2023,6 +2060,7 @@ name = "skill-library"
 version = "0.1.0"
 source = { editable = "../../libraries/python/skills/skill-library" }
 dependencies = [
+    { name = "assistant-drive" },
     { name = "chat-driver" },
     { name = "context" },
     { name = "events" },
@@ -2037,6 +2075,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
     { name = "chat-driver", editable = "../../libraries/python/chat-driver" },
     { name = "context", editable = "../../libraries/python/context" },
     { name = "events", editable = "../../libraries/python/events" },
