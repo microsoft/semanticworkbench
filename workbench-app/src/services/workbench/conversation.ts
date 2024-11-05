@@ -1,5 +1,6 @@
 import { Conversation } from '../../models/Conversation';
-import { ConversationMessage } from '../../models/ConversationMessage';
+import { ConversationMessage, conversationMessageFromJSON } from '../../models/ConversationMessage';
+import { ConversationMessageDebug, conversationMessageDebugFromJSON } from '../../models/ConversationMessageDebug';
 import { transformResponseToConversationParticipant } from './participant';
 import { workbenchApi } from './workbench';
 
@@ -44,6 +45,14 @@ export const conversationApi = workbenchApi.injectEndpoints({
             providesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversationMessages(response),
         }),
+        getConversationMessageDebugData: builder.query<
+            ConversationMessageDebug,
+            { conversationId: string; messageId: string }
+        >({
+            query: ({ conversationId, messageId }) =>
+                `/conversations/${conversationId}/messages/${messageId}/debug_data`,
+            transformResponse: (response: any) => transformResponseToConversationMessageDebug(response),
+        }),
         createConversationMessage: builder.mutation<
             ConversationMessage,
             { conversationId: string } & Partial<ConversationMessage> &
@@ -80,6 +89,7 @@ export const {
     useGetAssistantConversationsQuery,
     useGetConversationQuery,
     useGetConversationMessagesQuery,
+    useGetConversationMessageDebugDataQuery,
     useCreateConversationMessageMutation,
     useDeleteConversationMessageMutation,
 } = conversationApi;
@@ -118,21 +128,17 @@ const transformResponseToConversationMessages = (response: any): ConversationMes
 
 const transformResponseToMessage = (response: any): ConversationMessage => {
     try {
-        return {
-            id: response.id,
-            sender: {
-                participantId: response.sender.participant_id,
-                participantRole: response.sender.participant_role,
-            },
-            timestamp: response.timestamp,
-            messageType: response.message_type ?? 'chat',
-            content: response.content,
-            contentType: response.content_type,
-            filenames: response.filenames,
-            metadata: response.metadata,
-        };
+        return conversationMessageFromJSON(response);
     } catch (error) {
         throw new Error(`Failed to transform message response: ${error}`);
+    }
+};
+
+const transformResponseToConversationMessageDebug = (response: any): ConversationMessageDebug => {
+    try {
+        return conversationMessageDebugFromJSON(response);
+    } catch (error) {
+        throw new Error(`Failed to transform message debug response: ${error}`);
     }
 };
 
