@@ -171,7 +171,7 @@ public class MyAgent : AgentBase<MyAgentConfig>
 
             if (inputIsSafe)
             {
-                var chatHistory = conversation.ToChatHistory(this.Id, this.Config.RenderSystemPrompt());
+                var chatHistory = conversation.ToSemanticKernelChatHistory(this.Id, this.Config.RenderSystemPrompt());
                 debugInfo.Add("lastChatMsg", chatHistory.Last().Content);
 
                 // Show chat history in workbench side panel
