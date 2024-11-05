@@ -672,7 +672,7 @@ class ConversationController:
 
             # pop "debug" from metadata, if it exists, and merge with the debug field
             message_debug = deepmerge.always_merger.merge(
-                (new_message.metadata or {}).pop("debug", None), new_message.debug_data
+                (new_message.metadata or {}).pop("debug", None), new_message.debug_data or {}
             )
 
             message = db.ConversationMessage(
