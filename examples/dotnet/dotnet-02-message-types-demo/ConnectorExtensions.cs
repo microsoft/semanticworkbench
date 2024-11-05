@@ -1,7 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
 using System.Text;
-using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticWorkbench.Connector;
 
 namespace AgentExample;
@@ -16,29 +15,6 @@ public static class ConnectorExtensions
         }
 
         return "Unknown";
-    }
-
-    public static ChatHistory ToSemanticKernelChatHistory(
-        this Conversation conversation,
-        string assistantId,
-        string systemPrompt)
-    {
-        var result = new ChatHistory(systemPrompt);
-
-        foreach (Message msg in conversation.Messages)
-        {
-            if (msg.Sender.Id == assistantId)
-            {
-                result.AddAssistantMessage(msg.Content!);
-            }
-            else
-            {
-                result.AddUserMessage(
-                    $"[{conversation.GetParticipantName(msg.Sender.Id)}] {msg.Content}");
-            }
-        }
-
-        return result;
     }
 
     public static string ToHtmlString(

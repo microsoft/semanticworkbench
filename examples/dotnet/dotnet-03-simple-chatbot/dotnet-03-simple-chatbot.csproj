@@ -10,8 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\libraries\dotnet\WorkbenchConnector\WorkbenchConnector.csproj" />
-        <!--        <PackageReference Include="Microsoft.SemanticWorkbench.Connector" Version="0.2.241009.1" />-->
+        <PackageReference Include="Microsoft.SemanticWorkbench.Connector" Version="0.3.241104.1" />
     </ItemGroup>
 
     <ItemGroup>
@@ -47,7 +46,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Roslynator.Analyzers" Version="4.12.7">
+        <PackageReference Include="Roslynator.Analyzers" Version="4.12.9">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
