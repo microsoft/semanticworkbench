@@ -1,13 +1,14 @@
 import logging
 from dataclasses import dataclass
-from typing import Annotated, Any, Awaitable, Callable, Sequence
+from typing import Annotated, Any
 
 import openai_client
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
 
 from .. import state
-from ..step import Context, IncompleteErrorResult, IncompleteResult, LLMConfig, Result
+from . import _attachments
+from .types import Context, IncompleteErrorResult, IncompleteResult, LLMConfig, Result
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,50 @@ class ExtractFormFieldsConfig(BaseModel):
         "Extract the form fields from the provided form attachment. Any type of form is allowed, including for example"
         " tax forms, address forms, surveys, and other official or unofficial form-types. If the content is not a form,"
         " or the fields cannot be determined, then set the error_message."
+    )
+
+
+@dataclass
+class CompleteResult(Result):
+    ai_message: str
+    extracted_form_fields: list[state.FormField]
+
+
+async def execute(
+    step_context: Context[ExtractFormFieldsConfig],
+    filename: str,
+) -> IncompleteResult | IncompleteErrorResult | CompleteResult:
+    """
+    Step: extract form fields from the form file content
+    Approach: Chat completion with LLM
+    """
+
+    file_content = await _attachments.attachment_for_filename(filename, step_context.get_attachment_messages)
+    async with step_context.context.set_status("inspecting form ..."):
+        try:
+            extracted_form_fields, metadata = await _extract(
+                llm_config=step_context.llm_config,
+                config=step_context.config,
+                form_content=file_content,
+            )
+
+        except Exception as e:
+            logger.exception("failed to extract form fields")
+            return IncompleteErrorResult(
+                error_message=f"Failed to extract form fields: {e}",
+                debug={"error": str(e)},
+            )
+
+    if extracted_form_fields.error_message:
+        return IncompleteResult(
+            ai_message=extracted_form_fields.error_message,
+            debug=metadata,
+        )
+
+    return CompleteResult(
+        ai_message="",
+        extracted_form_fields=extracted_form_fields.fields,
+        debug=metadata,
     )
 
 
@@ -74,60 +119,3 @@ async def _extract(
         }
 
         return response.choices[0].message.parsed, metadata
-
-
-@dataclass
-class CompleteResult(Result):
-    ai_message: str
-    extracted_form_fields: list[state.FormField]
-
-
-async def execute(
-    step_context: Context[ExtractFormFieldsConfig],
-    filename: str,
-) -> IncompleteResult | IncompleteErrorResult | CompleteResult:
-    """
-    Step: extract form fields from the form file content
-    Approach: Chat completion with LLM
-    """
-
-    file_content = await attachment_for_filename(filename, step_context.get_attachment_messages)
-    async with step_context.context.set_status("inspecting form ..."):
-        try:
-            extracted_form_fields, metadata = await _extract(
-                llm_config=step_context.llm_config,
-                config=step_context.config,
-                form_content=file_content,
-            )
-
-        except Exception as e:
-            logger.exception("failed to extract form fields")
-            return IncompleteErrorResult(
-                error_message=f"Failed to extract form fields: {e}",
-                debug={"error": str(e)},
-            )
-
-    if extracted_form_fields.error_message:
-        return IncompleteResult(
-            ai_message=extracted_form_fields.error_message,
-            debug=metadata,
-        )
-
-    return CompleteResult(
-        ai_message="",
-        extracted_form_fields=extracted_form_fields.fields,
-        debug=metadata,
-    )
-
-
-async def attachment_for_filename(
-    filename: str, get_attachment_messages: Callable[[Sequence[str]], Awaitable[Sequence[ChatCompletionMessageParam]]]
-) -> str:
-    attachment_messages = await get_attachment_messages([filename])
-    return "\n\n".join(
-        (
-            str(attachment.get("content"))
-            for attachment in attachment_messages
-            if "<ATTACHMENT>" in str(attachment.get("content", ""))
-        )
-    )

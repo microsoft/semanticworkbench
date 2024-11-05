@@ -13,6 +13,10 @@ from semantic_workbench_assistant.assistant_app.protocol import (
 
 
 class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
+    """
+    A conversation inspector state provider that reads the state from a file and displays it as a yaml code block.
+    """
+
     def __init__(
         self,
         display_name: str,
@@ -53,6 +57,7 @@ class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
 
 @contextlib.asynccontextmanager
 async def state_change_event_after(context: ConversationContext, state_id: str, set_focus=False) -> AsyncIterator[None]:
+    """Raise a state change event after the context manager block is executed (optionally set focus as well)"""
     yield
     if set_focus:
         await context.send_conversation_state_event(AssistantStateEvent(state_id=state_id, event="focus", state=None))

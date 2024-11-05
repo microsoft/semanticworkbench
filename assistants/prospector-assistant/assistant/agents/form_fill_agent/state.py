@@ -36,8 +36,6 @@ class FormFillAgentState(BaseModel):
     extracted_form_fields: list[FormField] = []
     fill_form_gc_artifact: dict | None = None
 
-    mode_debug_log: dict[FormFillAgentMode, list[dict]] = {}
-
 
 def path_for_state(context: ConversationContext) -> Path:
     return storage_directory_for_context(context) / "state.json"
@@ -48,6 +46,10 @@ current_state = ContextVar[FormFillAgentState | None]("current_state", default=N
 
 @asynccontextmanager
 async def agent_state(context: ConversationContext) -> AsyncIterator[FormFillAgentState]:
+    """
+    Context manager that provides the agent state, reading it from disk, and saving back
+    to disk after the context manager block is executed.
+    """
     state = current_state.get()
     if state is not None:
         yield state

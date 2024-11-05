@@ -1,6 +1,6 @@
 from .agent import execute, extend
 from .config import FormFillAgentConfig
-from .step import LLMConfig
+from .steps.types import LLMConfig
 
 __all__ = [
     "execute",

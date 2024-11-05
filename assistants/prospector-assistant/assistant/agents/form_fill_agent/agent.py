@@ -8,8 +8,8 @@ from semantic_workbench_assistant.assistant_app.protocol import AssistantAppProt
 
 from . import state
 from .config import FormFillAgentConfig
-from .step import Context, IncompleteErrorResult, IncompleteResult, LLMConfig
-from .steps import acquire_form, extract_form_fields, fill_form
+from .steps import acquire_form_step, extract_form_fields_step, fill_form_step
+from .steps.types import ConfigT, Context, IncompleteErrorResult, IncompleteResult, LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -23,131 +23,103 @@ async def execute(
 ) -> None:
     user_messages = [latest_user_message]
 
+    def build_step_context(config: ConfigT) -> Context[ConfigT]:
+        return Context(
+            context=context, llm_config=llm_config, config=config, get_attachment_messages=get_attachment_messages
+        )
+
     async with state.agent_state(context) as agent_state:
-        for mode in state.FormFillAgentMode:
-            if mode in agent_state.mode_debug_log:
-                continue
-
-            agent_state.mode_debug_log[mode] = []
-
         while True:
-            logger.info("form-fill-agent step; mode: %s", agent_state.mode)
+            logger.info("form-fill-agent execute loop; mode: %s", agent_state.mode)
 
             match agent_state.mode:
                 case state.FormFillAgentMode.acquire_form_step:
-                    step_context = Context(
-                        context=context,
-                        llm_config=llm_config,
-                        config=config.acquire_form_config,
-                        get_attachment_messages=get_attachment_messages,
-                    )
-
-                    result = await acquire_form.execute(
-                        step_context=step_context,
+                    result = await acquire_form_step.execute(
+                        step_context=build_step_context(config.acquire_form_config),
                         latest_user_message=user_messages.pop() if user_messages else None,
                     )
 
-                    agent_state.mode_debug_log[agent_state.mode].insert(0, result.debug)
                     match result:
-                        case IncompleteResult():
-                            await _send_message(context, result.ai_message, result.debug)
-                            return
-
-                        case IncompleteErrorResult():
-                            await _send_error_message(context, result.error_message, result.debug)
-                            return
-
-                        case acquire_form.CompleteResult():
+                        case acquire_form_step.CompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
 
                             agent_state.form_filename = result.filename
                             agent_state.mode = state.FormFillAgentMode.extract_form_fields_step
-                            continue
+
+                        case IncompleteResult() | IncompleteErrorResult():
+                            await _handle_incomplete_results(context, result)
+                            return
 
                         case _:
                             raise ValueError(f"Unexpected result: {result}")
 
                 case state.FormFillAgentMode.extract_form_fields_step:
-                    step_context = Context(
-                        context=context,
-                        llm_config=llm_config,
-                        config=config.extract_form_fields_config,
-                        get_attachment_messages=get_attachment_messages,
-                    )
-
-                    result = await extract_form_fields.execute(
-                        step_context=step_context,
+                    result = await extract_form_fields_step.execute(
+                        step_context=build_step_context(config.extract_form_fields_config),
                         filename=agent_state.form_filename,
                     )
 
-                    agent_state.mode_debug_log[agent_state.mode].insert(0, result.debug)
                     match result:
-                        case IncompleteErrorResult():
-                            await _send_error_message(context, result.error_message, result.debug)
-                            return
-
-                        case IncompleteResult():
-                            await _send_message(context, result.ai_message, result.debug)
-                            return
-
-                        case extract_form_fields.CompleteResult():
+                        case extract_form_fields_step.CompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
 
                             agent_state.extracted_form_fields = result.extracted_form_fields
                             agent_state.mode = state.FormFillAgentMode.fill_form_step
-                            continue
+
+                        case IncompleteResult() | IncompleteErrorResult():
+                            await _handle_incomplete_results(context, result)
+                            return
 
                         case _:
                             raise ValueError(f"Unexpected result: {result}")
 
                 case state.FormFillAgentMode.fill_form_step:
-                    step_context = Context(
-                        context=context,
-                        llm_config=llm_config,
-                        config=config.fill_form_config,
-                        get_attachment_messages=get_attachment_messages,
-                    )
-
-                    result = await fill_form.execute(
-                        step_context=step_context,
+                    result = await fill_form_step.execute(
+                        step_context=build_step_context(config.fill_form_config),
                         latest_user_message=user_messages.pop() if user_messages else None,
                         form_fields=agent_state.extracted_form_fields,
                     )
 
-                    agent_state.mode_debug_log[agent_state.mode].insert(0, result.debug)
                     match result:
-                        case IncompleteResult():
-                            await _send_message(context, result.ai_message, result.debug)
-                            return
-
-                        case IncompleteErrorResult():
-                            await _send_error_message(context, result.error_message, result.debug)
-                            return
-
-                        case fill_form.CompleteResult():
+                        case fill_form_step.CompleteResult():
                             await _send_message(context, result.ai_message, result.debug)
 
                             agent_state.fill_form_gc_artifact = result.artifact
                             agent_state.mode = state.FormFillAgentMode.generate_filled_form_step
-                            continue
+
+                        case IncompleteResult() | IncompleteErrorResult():
+                            await _handle_incomplete_results(context, result)
+                            return
 
                         case _:
                             raise ValueError(f"Unexpected result: {result}")
 
                 case state.FormFillAgentMode.generate_filled_form_step:
-                    await context.send_messages(
-                        NewConversationMessage(
-                            content="I'd love to generate the fill form now, but it's not yet implemented. :)"
-                        )
+                    await _send_message(
+                        context, "I'd love to generate the filled-out form now, but it's not yet implemented. :)", {}
                     )
                     return
 
                 case state.FormFillAgentMode.end_conversation:
-                    await context.send_messages(NewConversationMessage(content="Conversation has ended."))
+                    await _send_message(context, "Conversation has ended.", {})
                     return
 
                 case _:
                     raise ValueError(f"Unexpected mode: {state.mode}")
+
+
+async def _handle_incomplete_results(
+    context: ConversationContext, result: IncompleteErrorResult | IncompleteResult
+) -> None:
+    match result:
+        case IncompleteResult():
+            await _send_message(context, result.ai_message, result.debug)
+
+        case IncompleteErrorResult():
+            await _send_error_message(context, result.error_message, result.debug)
+
+        case _:
+            raise ValueError(f"Unexpected incomplete result: {result}")
 
 
 async def _send_message(context: ConversationContext, message: str, debug: dict) -> None:
@@ -182,5 +154,5 @@ def extend(app: AssistantAppProtocol) -> None:
     app.add_inspector_state_provider(state.inspector.state_id, state.inspector)
 
     # for step level states
-    acquire_form.extend(app)
-    fill_form.extend(app)
+    acquire_form_step.extend(app)
+    fill_form_step.extend(app)
