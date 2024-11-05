@@ -2,6 +2,7 @@ import React from 'react';
 import { Constants } from '../Constants';
 import { Assistant } from '../models/Assistant';
 import { AssistantServiceRegistration } from '../models/AssistantServiceRegistration';
+import { useAppSelector } from '../redux/app/hooks';
 import {
     useAddConversationParticipantMutation,
     useCreateAssistantMutation,
@@ -10,7 +11,6 @@ import {
     useGetAssistantServiceRegistrationsQuery,
     useGetAssistantsQuery,
 } from '../services/workbench';
-import { useLocalUser } from './useLocalUser';
 
 export const useCreateConversation = () => {
     const {
@@ -36,7 +36,7 @@ export const useCreateConversation = () => {
     const [createConversationMessage] = useCreateConversationMessageMutation();
 
     const [isFetching, setIsFetching] = React.useState(false);
-    const localUser = useLocalUser();
+    const localUserName = useAppSelector((state) => state.localUser.name);
 
     if (assistantsError) {
         const errorMessage = JSON.stringify(assistantsError);
@@ -101,7 +101,7 @@ export const useCreateConversation = () => {
             // send event to notify the conversation that the user has joined
             await createConversationMessage({
                 conversationId: conversation.id,
-                content: `${localUser.name} created the conversation`,
+                content: `${localUserName ?? 'Unknown user'} created the conversation`,
                 messageType: 'notice',
             });
 
@@ -128,7 +128,7 @@ export const useCreateConversation = () => {
             myAssistantServicesLoading,
             createConversation,
             createConversationMessage,
-            localUser.name,
+            localUserName,
             addConversationParticipant,
             assistants,
             createAssistant,

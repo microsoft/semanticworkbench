@@ -5,7 +5,7 @@ using Microsoft.SemanticWorkbench.Connector;
 
 namespace AgentExample;
 
-public class MyAgentConfig : AgentConfig
+public class MyAgentConfig : AgentConfigBase
 {
     // Define safety and behavioral guardrails.
     // See https://learn.microsoft.com/azure/ai-services/openai/concepts/system-message for more information and examples.

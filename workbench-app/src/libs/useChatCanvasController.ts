@@ -1,14 +1,14 @@
 import debug from 'debug';
 import React from 'react';
 import { Constants } from '../Constants';
-import { InteractCanvasState } from '../models/InteractCanvasState';
 import { useAppDispatch, useAppSelector } from '../redux/app/hooks';
-import { setInteractCanvasState } from '../redux/features/app/appSlice';
+import { setChatCanvasOpen, setChatCanvasState } from '../redux/features/chatCanvas/chatCanvasSlice';
+import { ChatCanvasState } from '../redux/features/chatCanvas/ChatCanvasState';
 
 const log = debug(Constants.debug.root).extend('useCanvasController');
 
-export const useInteractCanvasController = () => {
-    const { interactCanvasState } = useAppSelector((state) => state.app);
+export const useChatCanvasController = () => {
+    const chatCanvasState = useAppSelector((state) => state.chatCanvas);
     const [isTransitioning, setIsTransitioning] = React.useState(false);
     const dispatch = useAppDispatch();
 
@@ -16,7 +16,7 @@ export const useInteractCanvasController = () => {
     const openingTransitionDelayMs = 200;
 
     const chooseTransitionType = React.useCallback(
-        (currentCanvasState: InteractCanvasState, fullTargetCanvasState: InteractCanvasState) => {
+        (currentCanvasState: ChatCanvasState, fullTargetCanvasState: ChatCanvasState) => {
             if (!currentCanvasState.open && fullTargetCanvasState.open) {
                 return 'open';
             }
@@ -35,7 +35,7 @@ export const useInteractCanvasController = () => {
         log(`canvas closing with transition of ${closingTransitionDelayMs}ms`);
 
         // close the canvas
-        dispatch(setInteractCanvasState({ open: false }));
+        dispatch(setChatCanvasOpen(false));
 
         // wait for the canvas to close before indicating that we are no longer transitioning
         await new Promise((resolve) => setTimeout(resolve, closingTransitionDelayMs));
@@ -43,11 +43,11 @@ export const useInteractCanvasController = () => {
     }, [dispatch]);
 
     const transitionCloseToOpen = React.useCallback(
-        async (fullTargetCanvasState: InteractCanvasState) => {
+        async (fullTargetCanvasState: ChatCanvasState) => {
             log(`canvas opening with transition of ${openingTransitionDelayMs}ms`);
 
             // open the canvas with the new mode
-            dispatch(setInteractCanvasState(fullTargetCanvasState));
+            dispatch(setChatCanvasState(fullTargetCanvasState));
 
             // wait for the canvas to open before indicating that we are no longer transitioning
             await new Promise((resolve) => setTimeout(resolve, openingTransitionDelayMs));
@@ -56,7 +56,7 @@ export const useInteractCanvasController = () => {
 
             if (fullTargetCanvasState.mode === 'assistant') {
                 log(
-                    `assistant state: ${fullTargetCanvasState.assistantStateId} [assistant: ${fullTargetCanvasState.assistantId}]`,
+                    `assistant state: ${fullTargetCanvasState.selectedAssistantStateId} [assistant: ${fullTargetCanvasState.selectedAssistantId}]`,
                 );
             }
         },
@@ -64,7 +64,7 @@ export const useInteractCanvasController = () => {
     );
 
     const transitionOpenToNewMode = React.useCallback(
-        async (fullTargetCanvasState: InteractCanvasState) => {
+        async (fullTargetCanvasState: ChatCanvasState) => {
             log('canvas changing mode while open');
             await transitionOpenToClose();
             await transitionCloseToOpen(fullTargetCanvasState);
@@ -73,22 +73,14 @@ export const useInteractCanvasController = () => {
     );
 
     const setState = React.useCallback(
-        (targetCanvasState: Partial<InteractCanvasState>) => {
-            dispatch(setInteractCanvasState({ ...interactCanvasState, ...targetCanvasState }));
+        (targetCanvasState: Partial<ChatCanvasState>) => {
+            dispatch(setChatCanvasState({ ...chatCanvasState, ...targetCanvasState }));
         },
-        [dispatch, interactCanvasState],
+        [dispatch, chatCanvasState],
     );
 
     const transitionToState = React.useCallback(
-        async (targetCanvasState: Partial<InteractCanvasState>) => {
-            if (!interactCanvasState) {
-                // this should not happen, but just in case we have no state, set it and return
-                dispatch(setInteractCanvasState({ ...targetCanvasState }));
-                // ensure that we are not claiming to be transitioning
-                setIsTransitioning(false);
-                return;
-            }
-
+        async (targetCanvasState: Partial<ChatCanvasState>) => {
             //
             // we should always set the isTransitioning state to true before we start any transitions
             // so that we can disable various UX elements that should not be interacted with
@@ -118,8 +110,8 @@ export const useInteractCanvasController = () => {
             setIsTransitioning(true);
 
             // determine the type of transition that we need to perform
-            const transitionType = chooseTransitionType(interactCanvasState, {
-                ...interactCanvasState,
+            const transitionType = chooseTransitionType(chatCanvasState, {
+                ...chatCanvasState,
                 ...targetCanvasState,
             });
 
@@ -127,17 +119,17 @@ export const useInteractCanvasController = () => {
             switch (transitionType) {
                 case 'open':
                     await transitionOpenToClose();
-                    await transitionCloseToOpen({ ...interactCanvasState, ...targetCanvasState });
+                    await transitionCloseToOpen({ ...chatCanvasState, ...targetCanvasState });
                     break;
                 case 'close':
                     await transitionOpenToClose();
                     break;
                 case 'mode':
-                    await transitionOpenToNewMode({ ...interactCanvasState, ...targetCanvasState });
+                    await transitionOpenToNewMode({ ...chatCanvasState, ...targetCanvasState });
                     break;
                 case 'none':
                     // no transition needed, just update the state
-                    dispatch(setInteractCanvasState({ ...interactCanvasState, ...targetCanvasState }));
+                    dispatch(setChatCanvasState({ ...chatCanvasState, ...targetCanvasState }));
                     setIsTransitioning(false);
                     break;
             }
@@ -148,12 +140,12 @@ export const useInteractCanvasController = () => {
         [
             chooseTransitionType,
             dispatch,
-            interactCanvasState,
+            chatCanvasState,
             transitionCloseToOpen,
             transitionOpenToClose,
             transitionOpenToNewMode,
         ],
     );
 
-    return { interactCanvasState, isTransitioning, setState, transitionToState };
+    return { chatCanvasState, isTransitioning, setState, transitionToState };
 };

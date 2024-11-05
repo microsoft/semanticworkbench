@@ -2,7 +2,7 @@
 
 import { Tab, TabList, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { useInteractCanvasController } from '../../../libs/useInteractCanvasController';
+import { useChatCanvasController } from '../../../libs/useChatCanvasController';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { AssistantCanvas } from './AssistantCanvas';
@@ -39,7 +39,7 @@ interface AssistantCanvasListProps {
 export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) => {
     const { selectedAssistant, conversationAssistants, conversation } = props;
     const classes = useClasses();
-    const interactCanvasController = useInteractCanvasController();
+    const chatCanvasController = useChatCanvasController();
 
     if (conversationAssistants.length === 1) {
         // Only one assistant, no need to show tabs, just show the single assistant
@@ -61,10 +61,10 @@ export const AssistantCanvasList: React.FC<AssistantCanvasListProps> = (props) =
                         );
 
                         // Set the new assistant as the active assistant
-                        // If we can't find the assistant, we'll set the assistant to null
-                        interactCanvasController.transitionToState({
-                            assistantId: conversationAssistant?.id ?? null,
-                            assistantStateId: null,
+                        // If we can't find the assistant, we'll set the assistant to undefined
+                        chatCanvasController.transitionToState({
+                            selectedAssistantId: conversationAssistant?.id,
+                            selectedAssistantStateId: undefined,
                         });
                     }}
                     size="small"

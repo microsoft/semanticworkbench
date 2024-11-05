@@ -26,6 +26,8 @@ import {
     CheckboxUncheckedRegular,
     DismissRegular,
     FilterRegular,
+    MailReadRegular,
+    MailUnreadRegular,
     PinOffRegular,
     PinRegular,
     PlugDisconnectedRegular,
@@ -33,9 +35,9 @@ import {
 
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
-import { useLocalUser } from '../../../libs/useLocalUser';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
+import { useAppSelector } from '../../../redux/app/hooks';
 
 const useClasses = makeStyles({
     root: {
@@ -71,6 +73,10 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         alignItems: 'center',
     },
+    bulkActionsLabel: {
+        marginLeft: tokens.spacingHorizontalM,
+        color: tokens.colorNeutralForeground2,
+    },
     toolbarTextButton: {
         minWidth: 'auto',
         paddingLeft: tokens.spacingHorizontalXS,
@@ -88,7 +94,7 @@ interface ConversationListOptionsProps {
 export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (props) => {
     const { conversations, selectedForActions, onSelectedForActionsChanged, onDisplayedConversationsChanged } = props;
     const classes = useClasses();
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
     const { hasUnreadMessages, markAllAsRead, markAsUnread, isPinned, setPinned } = useConversationUtility();
     const [filterString, setFilterString] = React.useState<string>('');
     const [displayFilter, setDisplayFilter] = React.useState<string>('');
@@ -123,12 +129,12 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                         }
                         break;
                     case 'Mine':
-                        if (conversation.ownerId !== localUser.id) {
+                        if (conversation.ownerId !== localUserId) {
                             return false;
                         }
                         break;
                     case 'Shared with me':
-                        if (conversation.ownerId === localUser.id) {
+                        if (conversation.ownerId === localUserId) {
                             return false;
                         }
                         break;
@@ -137,7 +143,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                 }
 
                 return (
-                    conversation.ownerId === localUser.id &&
+                    conversation.ownerId === localUserId &&
                     (!filterString ||
                         (filterString && conversation.title.toLowerCase().includes(filterString.toLowerCase())))
                 );
@@ -174,9 +180,9 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         isPinned,
         onDisplayedConversationsChanged,
         sortByName,
-        localUser.id,
         sortByNameHelper,
         sortByDateHelper,
+        localUserId,
     ]);
 
     const bulkSelectForActionsIcon = React.useMemo(() => {
@@ -244,7 +250,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                     onSelectedForActionsChanged(
                         new Set(
                             displayedConversations
-                                .filter((conversation) => conversation.ownerId === localUser.id)
+                                .filter((conversation) => conversation.ownerId === localUserId)
                                 .map((conversation) => conversation.id),
                         ),
                     );
@@ -253,7 +259,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                     onSelectedForActionsChanged(
                         new Set(
                             displayedConversations
-                                .filter((conversation) => conversation.ownerId !== localUser.id)
+                                .filter((conversation) => conversation.ownerId !== localUserId)
                                 .map((conversation) => conversation.id),
                         ),
                     );
@@ -273,12 +279,12 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
             }
         },
         [
+            localUserId,
+            onSelectedForActionsChanged,
             displayedConversations,
+            selectedForActions.size,
             hasUnreadMessages,
             isPinned,
-            selectedForActions.size,
-            onSelectedForActionsChanged,
-            localUser.id,
         ],
     );
 
@@ -339,7 +345,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                         <MenuItem
                             onClick={() => handleBulkSelectForActions('mine')}
                             disabled={
-                                !displayedConversations.some((conversation) => conversation.ownerId === localUser.id)
+                                !displayedConversations.some((conversation) => conversation.ownerId === localUserId)
                             }
                         >
                             Mine
@@ -347,7 +353,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                         <MenuItem
                             onClick={() => handleBulkSelectForActions('sharedWithMe')}
                             disabled={
-                                !displayedConversations.some((conversation) => conversation.ownerId !== localUser.id)
+                                !displayedConversations.some((conversation) => conversation.ownerId !== localUserId)
                             }
                         >
                             Shared with me
@@ -357,13 +363,13 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
             </Menu>
         ),
         [
+            localUserId,
             bulkSelectForActionsIcon,
             displayedConversations,
             handleBulkSelectForActions,
             hasUnreadMessages,
             isPinned,
             selectedForActions.size,
-            localUser.id,
         ],
     );
 
@@ -428,22 +434,23 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         () => (
             <Overflow padding={90}>
                 <Toolbar size="small">
-                    <Button
-                        className={classes.toolbarTextButton}
-                        appearance="transparent"
-                        disabled={!enableBulkActions.read}
-                        onClick={handleMarkAllAsReadForSelected}
-                    >
-                        Read
-                    </Button>
-                    <Button
-                        className={classes.toolbarTextButton}
-                        appearance="transparent"
-                        disabled={!enableBulkActions.unread}
-                        onClick={handleMarkAsUnreadForSelected}
-                    >
-                        Unread
-                    </Button>
+                    <Tooltip content="Mark selected conversations as read" relationship="label">
+                        <Button
+                            className={classes.toolbarTextButton}
+                            appearance="transparent"
+                            icon={<MailReadRegular />}
+                            disabled={!enableBulkActions.read}
+                            onClick={handleMarkAllAsReadForSelected}
+                        />
+                    </Tooltip>
+                    <Tooltip content="Mark selected conversations as unread" relationship="label">
+                        <Button
+                            appearance="transparent"
+                            icon={<MailUnreadRegular />}
+                            disabled={!enableBulkActions.unread}
+                            onClick={handleMarkAsUnreadForSelected}
+                        />
+                    </Tooltip>
                     <Tooltip content="Remove selected conversations" relationship="label">
                         <Button
                             // hide this until implemented
@@ -527,14 +534,10 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                         <option disabled={conversations?.every((conversation) => !isPinned(conversation))}>
                             Pinned
                         </option>
-                        <option
-                            disabled={conversations?.every((conversation) => conversation.ownerId !== localUser.id)}
-                        >
+                        <option disabled={conversations?.every((conversation) => conversation.ownerId !== localUserId)}>
                             Mine
                         </option>
-                        <option
-                            disabled={conversations?.every((conversation) => conversation.ownerId === localUser.id)}
-                        >
+                        <option disabled={conversations?.every((conversation) => conversation.ownerId === localUserId)}>
                             Shared with me
                         </option>
                     </Select>
@@ -542,6 +545,9 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
             </div>
             <div className={classes.bulkActions}>
                 {bulkSelectForActionsButton}
+                <Label className={classes.bulkActionsLabel} size="small">
+                    Actions
+                </Label>
                 {bulkSelectForActionsToolbar}
             </div>
         </div>

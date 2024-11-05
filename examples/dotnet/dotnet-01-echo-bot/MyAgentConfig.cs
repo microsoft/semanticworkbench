@@ -5,7 +5,7 @@ using Microsoft.SemanticWorkbench.Connector;
 
 namespace AgentExample;
 
-public class MyAgentConfig : AgentConfig
+public class MyAgentConfig : AgentConfigBase
 {
     [JsonPropertyName(nameof(this.ReplyToAgents))]
     [JsonPropertyOrder(10)]

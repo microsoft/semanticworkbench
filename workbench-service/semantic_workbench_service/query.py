@@ -1,9 +1,9 @@
 from typing import Any, TypeVar
 
+from semantic_workbench_api_model.workbench_model import MessageType
 from sqlalchemy import Function
 from sqlmodel import String, and_, cast, col, func, literal, or_, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
-from semantic_workbench_api_model.workbench_model import MessageType
 
 from . import auth, db, settings
 
@@ -122,12 +122,13 @@ def select_conversation_projections_for(
     latest_message_types: set[MessageType],
     include_all_owned: bool = False,
     include_observer: bool = False,
-) -> Select[tuple[db.Conversation, db.ConversationMessage | None, str]]:
+) -> Select[tuple[db.Conversation, db.ConversationMessage | None, bool, str]]:
     match principal:
         case auth.UserPrincipal():
             select_query = select(
                 db.Conversation,
                 db.ConversationMessage,
+                col(db.ConversationMessageDebug.message_id).is_not(None).label("has_debug"),
                 db.UserParticipant.conversation_permission,
             )
 
@@ -135,6 +136,7 @@ def select_conversation_projections_for(
             select_query = select(
                 db.Conversation,
                 db.ConversationMessage,
+                col(db.ConversationMessageDebug.message_id).is_not(None).label("has_debug"),
                 literal("read_write").label("conversation_permission"),
             )
 
@@ -155,27 +157,73 @@ def select_conversation_projections_for(
         .subquery()
     )
 
-    return query.join_from(
-        db.Conversation,
-        latest_message_subquery,
-        onclause=col(db.Conversation.conversation_id) == col(latest_message_subquery.c.conversation_id),
-        isouter=True,
-    ).join_from(
-        db.Conversation,
-        db.ConversationMessage,
-        onclause=and_(
-            col(db.Conversation.conversation_id) == col(db.ConversationMessage.conversation_id),
-            col(db.ConversationMessage.sequence) == col(latest_message_subquery.c.latest_message_sequence),
-        ),
-        isouter=True,
+    return (
+        query.join_from(
+            db.Conversation,
+            latest_message_subquery,
+            onclause=col(db.Conversation.conversation_id) == col(latest_message_subquery.c.conversation_id),
+            isouter=True,
+        )
+        .join_from(
+            db.Conversation,
+            db.ConversationMessage,
+            onclause=and_(
+                col(db.Conversation.conversation_id) == col(db.ConversationMessage.conversation_id),
+                col(db.ConversationMessage.sequence) == col(latest_message_subquery.c.latest_message_sequence),
+            ),
+            isouter=True,
+        )
+        .join_from(
+            db.ConversationMessage,
+            db.ConversationMessageDebug,
+            isouter=True,
+        )
     )
 
 
-def select_conversation_messages_for(principal: auth.ActorPrincipal) -> SelectOfScalar[db.ConversationMessage]:
+def _select_conversation_messages_for(
+    select_query: SelectT,
+    principal: auth.ActorPrincipal,
+) -> SelectT:
     match principal:
         case auth.UserPrincipal():
             return (
-                select(db.ConversationMessage)
+                select_query.join(db.Conversation)
+                .join(db.UserParticipant)
+                .where(db.UserParticipant.user_id == principal.user_id)
+            )
+
+        case auth.AssistantPrincipal():
+            return (
+                select_query.join(db.Conversation)
+                .join(db.AssistantParticipant)
+                .where(db.AssistantParticipant.assistant_id == principal.assistant_id)
+            )
+
+
+def select_conversation_messages_for(principal: auth.ActorPrincipal) -> SelectOfScalar[db.ConversationMessage]:
+    return _select_conversation_messages_for(select(db.ConversationMessage), principal)
+
+
+def select_conversation_message_projections_for(
+    principal: auth.ActorPrincipal,
+) -> Select[tuple[db.ConversationMessage, bool]]:
+    return _select_conversation_messages_for(
+        select(db.ConversationMessage, col(db.ConversationMessageDebug.message_id).is_not(None)).join(
+            db.ConversationMessageDebug, isouter=True
+        ),
+        principal,
+    )
+
+
+def select_conversation_message_debugs_for(
+    principal: auth.ActorPrincipal,
+) -> SelectOfScalar[db.ConversationMessageDebug]:
+    match principal:
+        case auth.UserPrincipal():
+            return (
+                select(db.ConversationMessageDebug)
+                .join(db.ConversationMessage)
                 .join(db.Conversation)
                 .join(db.UserParticipant)
                 .where(db.UserParticipant.user_id == principal.user_id)
@@ -183,7 +231,8 @@ def select_conversation_messages_for(principal: auth.ActorPrincipal) -> SelectOf
 
         case auth.AssistantPrincipal():
             return (
-                select(db.ConversationMessage)
+                select(db.ConversationMessageDebug)
+                .join(db.ConversationMessage)
                 .join(db.Conversation)
                 .join(db.AssistantParticipant)
                 .where(db.AssistantParticipant.assistant_id == principal.assistant_id)

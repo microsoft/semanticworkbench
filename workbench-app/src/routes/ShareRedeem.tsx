@@ -6,11 +6,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
 import { DialogControl } from '../components/App/DialogControl';
 import { Loading } from '../components/App/Loading';
+import { Constants } from '../Constants';
 import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
-import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useWorkbenchService } from '../libs/useWorkbenchService';
 import { Conversation } from '../models/Conversation';
+import { useAppSelector } from '../redux/app/hooks';
 import {
     useCreateConversationMessageMutation,
     useGetConversationsQuery,
@@ -28,7 +29,7 @@ export const ShareRedeem: React.FC = () => {
     const [submitted, setSubmitted] = React.useState(false);
     const [joinAttempted, setJoinAttempted] = React.useState(false);
     const conversationUtility = useConversationUtility();
-    const localUser = useLocalUser();
+    const localUserName = useAppSelector((state) => state.localUser.name);
 
     if (!conversationShareId) {
         throw new Error('Conversation Share ID is required');
@@ -64,17 +65,17 @@ export const ShareRedeem: React.FC = () => {
                 if (conversationShare.conversationPermission === 'read_write') {
                     await createConversationMessage({
                         conversationId: conversationShare.conversationId,
-                        content: `${localUser.name} joined the conversation`,
+                        content: `${localUserName} joined the conversation`,
                         messageType: 'notice',
                     });
                 }
 
-                navigate(`/conversation/${conversationShare.conversationId}${hash}`, { replace: true });
+                conversationUtility.navigateToConversation(conversationShare.conversationId, hash);
             } finally {
                 setSubmitted(false);
             }
         },
-        [conversationShare, redeemShare, navigate, createConversationMessage, localUser.name],
+        [conversationShare, redeemShare, conversationUtility, createConversationMessage, localUserName],
     );
 
     const handleClickDuplicate = React.useCallback(async () => {
@@ -101,11 +102,11 @@ export const ShareRedeem: React.FC = () => {
 
             // navigate to the newly duplicated conversation
             const conversationId = duplicatedConversationIds[0];
-            navigate(`/conversation/${conversationId}`, { replace: true });
+            conversationUtility.navigateToConversation(conversationId);
         } finally {
             setSubmitted(false);
         }
-    }, [redeemShare, conversationShare, navigate, workbenchService, removeConversationParticipant, setSubmitted]);
+    }, [conversationShare, redeemShare, workbenchService, conversationUtility, removeConversationParticipant]);
 
     const handleDismiss = React.useCallback(() => {
         navigate(`/`);
@@ -233,7 +234,11 @@ export const ShareRedeem: React.FC = () => {
             <ul>
                 {existingDuplicateConversations.map((conversation) => (
                     <li key={conversation.id}>
-                        <a href={`${window.location.origin}/conversation/${conversation.id}`}>{conversation.title}</a>
+                        <a
+                            href={`${window.location.origin}/${Constants.app.conversationRedirectPath}/${conversation.id}`}
+                        >
+                            {conversation.title}
+                        </a>
                     </li>
                 ))}
             </ul>

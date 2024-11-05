@@ -52,6 +52,7 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationImportResult,
     ConversationList,
     ConversationMessage,
+    ConversationMessageDebug,
     ConversationMessageList,
     ConversationParticipant,
     ConversationParticipantList,
@@ -891,6 +892,20 @@ def init(
         principal: auth.DependsActorPrincipal,
     ) -> ConversationMessage:
         return await conversation_controller.get_message(
+            conversation_id=conversation_id,
+            message_id=message_id,
+            principal=principal,
+        )
+
+    @app.get(
+        "/conversations/{conversation_id}/messages/{message_id}/debug_data",
+    )
+    async def get_message_debug_data(
+        conversation_id: uuid.UUID,
+        message_id: uuid.UUID,
+        principal: auth.DependsActorPrincipal,
+    ) -> ConversationMessageDebug:
+        return await conversation_controller.get_message_debug(
             conversation_id=conversation_id,
             message_id=message_id,
             principal=principal,

@@ -2,13 +2,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.SemanticWorkbench.Connector;
 
-public abstract class AgentBase
+public abstract class AgentBase<TAgentConfig> : IAgentBase
+    where TAgentConfig : AgentConfigBase, new()
 {
     // Agent instance ID
     public string Id { get; protected set; } = string.Empty;
@@ -17,13 +19,13 @@ public abstract class AgentBase
     public string Name { get; protected set; } = string.Empty;
 
     // Agent settings
-    public IAgentConfig RawConfig { get; protected set; }
+    public TAgentConfig Config { get; protected set; } = new();
 
     // Simple storage layer to persist agents data
     protected IAgentServiceStorage Storage { get; private set; }
 
     // Reference to agent service
-    protected WorkbenchConnector WorkbenchConnector { get; private set; }
+    protected WorkbenchConnector<TAgentConfig> WorkbenchConnector { get; private set; }
 
     // Agent logger
     protected ILogger Log { get; private set; }
@@ -35,18 +37,17 @@ public abstract class AgentBase
     /// <param name="storage">Agent data storage</param>
     /// <param name="log">Agent logger</param>
     protected AgentBase(
-        WorkbenchConnector workbenchConnector,
+        WorkbenchConnector<TAgentConfig> workbenchConnector,
         IAgentServiceStorage storage,
         ILogger log)
     {
-        this.RawConfig = null!;
         this.WorkbenchConnector = workbenchConnector;
         this.Storage = storage;
         this.Log = log;
     }
 
     /// <summary>
-    /// Convert agent config to a persisten data model
+    /// Convert agent config to a persistent data model
     /// </summary>
     public virtual AgentInfo ToDataModel()
     {
@@ -54,20 +55,34 @@ public abstract class AgentBase
         {
             Id = this.Id,
             Name = this.Name,
-            Config = this.RawConfig,
+            Config = this.Config,
         };
     }
-
-    /// <summary>
-    /// Return default agent configuration
-    /// </summary>
-    public abstract IAgentConfig GetDefaultConfig();
 
     /// <summary>
     /// Parse object to agent configuration instance
     /// </summary>
     /// <param name="data">Untyped configuration data</param>
-    public abstract IAgentConfig? ParseConfig(object data);
+    public virtual TAgentConfig? ParseConfig(object data)
+    {
+        return JsonSerializer.Deserialize<TAgentConfig>(JsonSerializer.Serialize(data));
+    }
+
+    /// <summary>
+    /// Update the configuration of an agent instance
+    /// </summary>
+    /// <param name="config">Configuration data</param>
+    /// <param name="cancellationToken">Async task cancellation token</param>
+    /// <returns>Agent configuration</returns>
+    public virtual async Task<TAgentConfig> UpdateAgentConfigAsync(
+        TAgentConfig? config,
+        CancellationToken cancellationToken = default)
+    {
+        this.Log.LogDebug("Updating agent '{0}' config", this.Id.HtmlEncode());
+        this.Config = config ?? new TAgentConfig();
+        await this.Storage.SaveAgentAsync(this, cancellationToken).ConfigureAwait(false);
+        return this.Config;
+    }
 
     /// <summary>
     /// Start the agent
@@ -87,26 +102,6 @@ public abstract class AgentBase
         CancellationToken cancellationToken = default)
     {
         return this.Storage.DeleteAgentAsync(this, cancellationToken);
-    }
-
-    /// <summary>
-    /// Update the configuration of an agent instance
-    /// </summary>
-    /// <param name="config">Configuration data</param>
-    /// <param name="cancellationToken">Async task cancellation token</param>
-    /// <returns>Agent configuration</returns>
-    public virtual async Task<IAgentConfig> UpdateAgentConfigAsync(
-        IAgentConfig? config,
-        CancellationToken cancellationToken = default)
-    {
-        this.Log.LogDebug("Updating agent '{0}' config", this.Id.HtmlEncode());
-
-        this.RawConfig ??= this.GetDefaultConfig();
-        config ??= this.GetDefaultConfig();
-
-        this.RawConfig.Update(config);
-        await this.Storage.SaveAgentAsync(this, cancellationToken).ConfigureAwait(false);
-        return this.RawConfig;
     }
 
     /// <summary>

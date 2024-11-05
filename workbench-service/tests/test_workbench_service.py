@@ -640,6 +640,7 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
         assert httpx.codes.is_success(http_response.status_code)
         message = workbench_model.ConversationMessage.model_validate(http_response.json())
         message_id = message.id
+        assert message.has_debug_data is False
 
         http_response = client.get(f"/conversations/{conversation_id}/messages")
         assert httpx.codes.is_success(http_response.status_code)
@@ -655,13 +656,27 @@ def test_create_conversation_send_user_message(workbench_service: FastAPI, test_
         assert message.content == "hello"
         assert message.sender.participant_id == test_user.id
 
-        # send chat another message
-        payload = {"content": "hello again"}
+        # send another chat message, with debug
+        payload = {
+            "content": "hello again",
+            "metadata": {"debug": {"key1": "value1"}},
+            "debug_data": {"key2": "value2"},
+        }
         http_response = client.post(f"/conversations/{conversation_id}/messages", json=payload)
         logging.info("response: %s", http_response.json())
         assert httpx.codes.is_success(http_response.status_code)
         message = workbench_model.ConversationMessage.model_validate(http_response.json())
         message_two_id = message.id
+
+        # debug should be stripped out
+        assert message.metadata == {}
+        assert message.has_debug_data is True
+
+        http_response = client.get(f"/conversations/{conversation_id}/messages/{message_two_id}/debug_data")
+        assert httpx.codes.is_success(http_response.status_code)
+        message = workbench_model.ConversationMessageDebug.model_validate(http_response.json())
+
+        assert message.debug_data == {"key1": "value1", "key2": "value2"}
 
         # send a log message
         payload = {"content": "hello again", "message_type": "log"}
@@ -1112,7 +1127,7 @@ def test_create_assistant_conversations_export_import_conversations(
         http_response = client.put(f"/conversations/{conversation_id_2}/participants/{assistant_id_1}", json={})
         assert httpx.codes.is_success(http_response.status_code)
 
-        payload = {"content": "hello"}
+        payload = {"content": "hello", "debug_data": {"key": "value"}}
         http_response = client.post(f"/conversations/{conversation_id_1}/messages", json=payload)
         assert httpx.codes.is_success(http_response.status_code)
 
@@ -1171,6 +1186,23 @@ def test_create_assistant_conversations_export_import_conversations(
         assert conversations.conversations[3].title == "test-conversation-2"
         assert conversations.conversations[4].title == "test-conversation-2 (1)"
         assert conversations.conversations[5].title == "test-conversation-2 (2)"
+
+        for conversation in conversations.conversations:
+            http_response = client.get(f"/conversations/{conversation.id}/messages")
+            assert httpx.codes.is_success(http_response.status_code)
+
+            messages = workbench_model.ConversationMessageList.model_validate(http_response.json())
+            assert len(messages.messages) == 1
+
+            message = messages.messages[0]
+            assert message.content == "hello"
+            assert message.sender.participant_id == test_user.id
+            assert message.has_debug_data is True
+
+            http_response = client.get(f"/conversations/{conversation.id}/messages/{message.id}/debug_data")
+            assert httpx.codes.is_success(http_response.status_code)
+            message_debug = workbench_model.ConversationMessageDebug.model_validate(http_response.json())
+            assert message_debug.debug_data == {"key": "value"}
 
 
 def test_export_import_conversations_with_files(

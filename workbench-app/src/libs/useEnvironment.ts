@@ -12,7 +12,7 @@ import debug from 'debug';
 const log = debug(Constants.debug.root).extend('useEnvironment');
 
 export const useEnvironment = () => {
-    const { environmentId } = useAppSelector((state: RootState) => state.settings);
+    const environmentId = useAppSelector((state: RootState) => state.settings.environmentId);
     const [environment, setEnvironment] = React.useState<ServiceEnvironment>(getEnvironment(environmentId));
 
     React.useEffect(() => {

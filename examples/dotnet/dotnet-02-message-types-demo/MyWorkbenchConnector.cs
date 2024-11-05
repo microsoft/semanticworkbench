@@ -6,9 +6,8 @@ using Microsoft.SemanticWorkbench.Connector;
 
 namespace AgentExample;
 
-public sealed class MyWorkbenchConnector : WorkbenchConnector
+public sealed class MyWorkbenchConnector : WorkbenchConnector<MyAgentConfig>
 {
-    private readonly MyAgentConfig _defaultAgentConfig = new();
     private readonly IServiceProvider _sp;
 
     public MyWorkbenchConnector(
@@ -16,9 +15,12 @@ public sealed class MyWorkbenchConnector : WorkbenchConnector
         IConfiguration appConfig,
         IAgentServiceStorage storage,
         ILoggerFactory? loggerFactory = null)
-        : base(appConfig, storage, loggerFactory?.CreateLogger<MyWorkbenchConnector>() ?? new NullLogger<MyWorkbenchConnector>())
+        : base(
+            workbenchConfig: appConfig.GetSection("Workbench").Get<WorkbenchConfig>(),
+            defaultAgentConfig: appConfig.GetSection("Agent").Get<MyAgentConfig>(),
+            storage,
+            loggerFactory?.CreateLogger<MyWorkbenchConnector>() ?? new NullLogger<MyWorkbenchConnector>())
     {
-        appConfig.GetSection("Agent").Bind(this._defaultAgentConfig);
         this._sp = sp;
     }
 
@@ -33,7 +35,7 @@ public sealed class MyWorkbenchConnector : WorkbenchConnector
 
         this.Log.LogDebug("Creating agent '{0}'", agentId);
 
-        MyAgentConfig config = this._defaultAgentConfig;
+        MyAgentConfig config = this.DefaultAgentConfig;
         if (configData != null)
         {
             var newCfg = JsonSerializer.Deserialize<MyAgentConfig>(JsonSerializer.Serialize(configData));
@@ -41,7 +43,11 @@ public sealed class MyWorkbenchConnector : WorkbenchConnector
         }
 
         // Instantiate using .NET Service Provider so that dependencies are automatically injected
-        var agent = ActivatorUtilities.CreateInstance<MyAgent>(this._sp, agentId, name ?? agentId, config);
+        var agent = ActivatorUtilities.CreateInstance<MyAgent>(
+            this._sp,
+            agentId,
+            name ?? agentId,
+            config);
 
         await agent.StartAsync(cancellationToken).ConfigureAwait(false);
         this.Agents.TryAdd(agentId, agent);

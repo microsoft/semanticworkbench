@@ -9,6 +9,7 @@ from semantic_workbench_api_model.workbench_model import (
     Conversation,
     ConversationList,
     ConversationMessage,
+    ConversationMessageDebug,
     ConversationMessageList,
     ConversationParticipant,
     ConversationParticipantList,
@@ -151,6 +152,7 @@ def conversation_from_db(
     assistant_participants: Iterable[db.AssistantParticipant],
     assistants: Mapping[uuid.UUID, db.Assistant],
     latest_message: db.ConversationMessage | None,
+    latest_message_has_debug: bool,
     permission: str,
 ) -> Conversation:
     return Conversation(
@@ -161,7 +163,9 @@ def conversation_from_db(
         metadata=model.meta_data,
         created_datetime=model.created_datetime,
         conversation_permission=ConversationPermission(permission),
-        latest_message=conversation_message_from_db(model=latest_message) if latest_message else None,
+        latest_message=conversation_message_from_db(model=latest_message, has_debug=latest_message_has_debug)
+        if latest_message
+        else None,
         participants=conversation_participant_list_from_db(
             user_participants=user_participants,
             assistant_participants=assistant_participants,
@@ -178,6 +182,7 @@ def conversation_list_from_db(
             Iterable[db.AssistantParticipant],
             dict[uuid.UUID, db.Assistant],
             db.ConversationMessage | None,
+            bool,
             str,
         ]
     ],
@@ -190,9 +195,10 @@ def conversation_list_from_db(
                 assistant_participants=assistant_participants,
                 assistants=assistants,
                 latest_message=latest_message,
+                latest_message_has_debug=latest_message_has_debug,
                 permission=permission,
             )
-            for conversation, user_participants, assistant_participants, assistants, latest_message, permission in models
+            for conversation, user_participants, assistant_participants, assistants, latest_message, latest_message_has_debug, permission in models
         ]
     )
 
@@ -236,7 +242,7 @@ def conversation_share_redemption_list_from_db(
     )
 
 
-def conversation_message_from_db(model: db.ConversationMessage) -> ConversationMessage:
+def conversation_message_from_db(model: db.ConversationMessage, has_debug: bool) -> ConversationMessage:
     return ConversationMessage(
         id=model.message_id,
         sender=MessageSender(
@@ -249,13 +255,21 @@ def conversation_message_from_db(model: db.ConversationMessage) -> ConversationM
         content_type=model.content_type,
         metadata=model.meta_data,
         filenames=model.filenames,
+        has_debug_data=has_debug,
     )
 
 
 def conversation_message_list_from_db(
-    models: Iterable[db.ConversationMessage],
+    models: Iterable[tuple[db.ConversationMessage, bool]],
 ) -> ConversationMessageList:
-    return ConversationMessageList(messages=[conversation_message_from_db(m) for m in models])
+    return ConversationMessageList(messages=[conversation_message_from_db(m, debug) for m, debug in models])
+
+
+def conversation_message_debug_from_db(model: db.ConversationMessageDebug) -> ConversationMessageDebug:
+    return ConversationMessageDebug(
+        message_id=model.message_id,
+        debug_data=model.data,
+    )
 
 
 def file_from_db(models: tuple[db.File, db.FileVersion]) -> File:

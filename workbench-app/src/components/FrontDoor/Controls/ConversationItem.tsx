@@ -28,11 +28,11 @@ import {
 } from '@fluentui/react-icons';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
-import { useDebugComponentLifecycle } from '../../../libs/useDebugComponentLifecycle';
-import { useLocalUser } from '../../../libs/useLocalUser';
+import { useExportUtility } from '../../../libs/useExportUtility';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
+import { useAppSelector } from '../../../redux/app/hooks';
 import { MemoizedParticipantAvatarGroup } from '../../Conversations/ParticipantAvatarGroup';
 
 const useClasses = makeStyles({
@@ -137,26 +137,27 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
     } = props;
     const classes = useClasses();
     const { getOwnerParticipant, wasSharedWithMe, hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
+    const { exportConversation } = useExportUtility();
     const [isHovered, setIsHovered] = React.useState(false);
 
     const showActions = isHovered || showSelectForActions;
 
-    const action = React.useMemo(() => {
-        const handleMenuItemClick = (
-            event: React.MouseEvent<HTMLDivElement>,
-            handler?: (conversation: Conversation) => void,
-        ) => {
+    const handleMenuItemClick = React.useCallback(
+        (event: React.MouseEvent<HTMLDivElement>, handler?: (conversation: Conversation) => void) => {
             event.stopPropagation();
             setIsHovered(false);
             handler?.(conversation);
-        };
+        },
+        [conversation],
+    );
 
-        const onPinned = async () => {
-            await setPinned(conversation, !isPinned(conversation));
-        };
+    const onPinned = React.useCallback(async () => {
+        await setPinned(conversation, !isPinned(conversation));
+    }, [conversation, isPinned, setPinned]);
 
-        return (
+    const action = React.useMemo(
+        () => (
             <div className={classes.action}>
                 <Checkbox
                     className={classes.selectCheckbox}
@@ -188,14 +189,15 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                                     Rename
                                 </MenuItem>
                             )}
-                            {onExport && (
-                                <MenuItem
-                                    icon={<ArrowDownloadRegular />}
-                                    onClick={(event) => handleMenuItemClick(event, onExport)}
-                                >
-                                    Export
-                                </MenuItem>
-                            )}
+                            <MenuItem
+                                icon={<ArrowDownloadRegular />}
+                                onClick={async (event) => {
+                                    await exportConversation(conversation.id);
+                                    handleMenuItemClick(event, onExport);
+                                }}
+                            >
+                                Export
+                            </MenuItem>
                             {onDuplicate && (
                                 <MenuItem
                                     icon={<SaveCopyRegular />}
@@ -234,24 +236,27 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                     </MenuPopover>
                 </Menu>
             </div>
-        );
-    }, [
-        classes.action,
-        classes.selectCheckbox,
-        classes.moreButton,
-        selectedForActions,
-        conversation,
-        isPinned,
-        onRename,
-        owned,
-        onExport,
-        onDuplicate,
-        onShare,
-        onRemove,
-        selected,
-        setPinned,
-        onSelectForActions,
-    ]);
+        ),
+        [
+            classes.action,
+            classes.moreButton,
+            classes.selectCheckbox,
+            conversation,
+            exportConversation,
+            handleMenuItemClick,
+            isPinned,
+            onDuplicate,
+            onExport,
+            onPinned,
+            onRemove,
+            onRename,
+            onSelectForActions,
+            onShare,
+            owned,
+            selected,
+            selectedForActions,
+        ],
+    );
 
     const unread = hasUnreadMessages(conversation);
 
@@ -305,7 +310,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         const participants: ConversationParticipant[] = [];
         participants.push(getOwnerParticipant(conversation));
         if (wasSharedWithMe(conversation)) {
-            const me = conversation.participants.find((participant) => participant.id === localUser.id);
+            const me = conversation.participants.find((participant) => participant.id === localUserId);
             if (me) {
                 participants.push(me);
             }
@@ -313,10 +318,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         const others = conversation.participants.filter((participant) => !participants.includes(participant));
         participants.push(...others);
         return participants;
-    }, [getOwnerParticipant, conversation, wasSharedWithMe, localUser.id]);
-
-    // FIXME: remove when not re-rendering unexpectedly, update with other props to debug if needed
-    useDebugComponentLifecycle('ConversationItem', props, { selected, selectedForActions });
+    }, [getOwnerParticipant, conversation, wasSharedWithMe, localUserId]);
 
     return (
         <Card

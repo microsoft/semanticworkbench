@@ -1,19 +1,17 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { makeStyles, MessageBar, MessageBarBody, MessageBarTitle, tokens } from '@fluentui/react-components';
+import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { AppMenu } from '../components/App/AppMenu';
+import { useNavigate } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
 import { ExperimentalNotice } from '../components/App/ExperimentalNotice';
 import { Loading } from '../components/App/Loading';
 import { MyAssistants } from '../components/Assistants/MyAssistants';
 import { MyConversations } from '../components/Conversations/MyConversations';
 import { MyWorkflows } from '../components/Workflows/MyWorkflows';
-import { Constants } from '../Constants';
-import { useLocalUser } from '../libs/useLocalUser';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Conversation } from '../models/Conversation';
+import { useAppSelector } from '../redux/app/hooks';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../services/workbench';
 import { useGetWorkflowDefinitionsQuery } from '../services/workbench/workflow';
 
@@ -21,12 +19,17 @@ const useClasses = makeStyles({
     root: {
         display: 'flex',
         flexDirection: 'column',
-        gap: tokens.spacingVerticalXXXL,
+        gap: tokens.spacingVerticalM,
     },
     messageBars: {
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalS,
+    },
+    body: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalXXXL,
     },
 });
 
@@ -43,7 +46,7 @@ export const Dashboard: React.FC = () => {
         error: workflowDefinitionsError,
         isLoading: isLoadingWorkflowDefinitions,
     } = useGetWorkflowDefinitionsQuery();
-    const localUser = useLocalUser();
+    const localUserStateId = useAppSelector((state) => state.localUser.id);
     const navigate = useNavigate();
 
     const siteUtility = useSiteUtility();
@@ -71,48 +74,41 @@ export const Dashboard: React.FC = () => {
         [navigate],
     );
 
-    const appMenuAction = <AppMenu />;
-
     if (isLoadingAssistants || isLoadingConversations || isLoadingWorkflowDefinitions) {
         return (
-            <AppView title="Dashboard" actions={{ items: [appMenuAction], replaceExisting: true }}>
+            <AppView title="Dashboard">
                 <Loading />
             </AppView>
         );
     }
 
-    const myConversations = conversations?.filter((conversation) => conversation.ownerId === localUser.id) || [];
+    const myConversations = conversations?.filter((conversation) => conversation.ownerId === localUserStateId) || [];
     const conversationsSharedWithMe =
-        conversations?.filter((conversation) => conversation.ownerId !== localUser.id) || [];
+        conversations?.filter((conversation) => conversation.ownerId !== localUserStateId) || [];
 
     return (
-        <AppView title="Dashboard" actions={{ items: [appMenuAction], replaceExisting: true }}>
+        <AppView title="Dashboard">
             <div className={classes.root}>
                 <div className={classes.messageBars}>
                     <ExperimentalNotice />
-                    <MessageBar intent="info" layout="multiline">
-                        <MessageBarBody>
-                            <MessageBarTitle>New Feature</MessageBarTitle>
-                            Try out the new conversation-first UX. &nbsp;
-                            <Link to={Constants.app.conversationRedirectPath}>[view]</Link>
-                        </MessageBarBody>
-                    </MessageBar>
                 </div>
-                <MyAssistants assistants={assistants} />
-                <MyConversations
-                    conversations={myConversations}
-                    participantId="me"
-                    onCreate={handleConversationCreate}
-                />
-                {conversationsSharedWithMe.length > 0 && (
+                <div className={classes.body}>
+                    <MyAssistants assistants={assistants} />
                     <MyConversations
-                        title="Conversations Shared with Me"
-                        conversations={conversationsSharedWithMe}
+                        conversations={myConversations}
                         participantId="me"
                         onCreate={handleConversationCreate}
                     />
-                )}
-                <MyWorkflows workflowDefinitions={workflowDefinitions} />
+                    {conversationsSharedWithMe.length > 0 && (
+                        <MyConversations
+                            title="Conversations Shared with Me"
+                            conversations={conversationsSharedWithMe}
+                            participantId="me"
+                            onCreate={handleConversationCreate}
+                        />
+                    )}
+                    <MyWorkflows workflowDefinitions={workflowDefinitions} />
+                </div>
             </div>
         </AppView>
     );

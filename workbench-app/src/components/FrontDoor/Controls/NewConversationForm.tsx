@@ -43,34 +43,43 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
     const classes = useClasses();
     const { assistants, assistantServicesByCategories } = useCreateConversation();
 
-    const [title, setTitle] = React.useState('');
-    const [assistantId, setAssistantId] = React.useState<string>();
-    const [name, setName] = React.useState('');
-    const [assistantServiceId, setAssistantServiceId] = React.useState('');
+    const [config, setConfig] = React.useState<NewConversationData>({
+        title: '',
+        assistantId: '',
+        assistantServiceId: '',
+        name: '',
+    });
     const [manualEntry, setManualEntry] = React.useState(false);
 
-    const isValid = React.useMemo(() => {
-        if (!title || !assistantId) {
+    const checkIsValid = React.useCallback((data: NewConversationData) => {
+        if (!data.title || !data.assistantId) {
             return false;
         }
 
-        if (assistantId === 'new') {
-            if (!assistantServiceId || !name) {
+        if (data.assistantId === 'new') {
+            if (!data.assistantServiceId || !data.name) {
                 return false;
             }
         }
 
         return true;
-    }, [title, assistantId, assistantServiceId, name]);
+    }, []);
 
-    const notifyChange = React.useCallback(() => {
-        onChange?.(isValid, {
-            title: title === '' ? undefined : title,
-            assistantId,
-            assistantServiceId: assistantServiceId === '' ? undefined : assistantServiceId,
-            name: name === '' ? undefined : name,
-        });
-    }, [onChange, isValid, title, assistantId, assistantServiceId, name]);
+    const isValid = React.useMemo(() => checkIsValid(config), [checkIsValid, config]);
+
+    const updateAndNotifyChange = React.useCallback(
+        (data: NewConversationData) => {
+            const updatedConfig = { ...config, ...data };
+            if (data.assistantId === 'new') {
+                updatedConfig.assistantServiceId = data.assistantServiceId ?? '';
+                updatedConfig.name = data.name ?? '';
+            }
+
+            setConfig(updatedConfig);
+            onChange?.(checkIsValid(updatedConfig), updatedConfig);
+        },
+        [checkIsValid, config, onChange],
+    );
 
     return (
         <form
@@ -85,40 +94,32 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
                 <Field label="Title">
                     <Input
                         disabled={disabled}
-                        value={title}
-                        onChange={(_event, data) => {
-                            setTitle(data?.value);
-                            notifyChange();
-                        }}
+                        value={config.title}
+                        onChange={(_event, data) => updateAndNotifyChange({ title: data?.value })}
                         aria-autocomplete="none"
                     />
                 </Field>
                 <Field label="Assistant">
                     <AssistantSelector
                         assistants={assistants}
-                        onChange={(assistantId) => {
-                            setAssistantId(assistantId);
-                            if (assistantId === 'new') {
-                                setAssistantServiceId('');
-                                setName('');
-                                notifyChange();
-                            }
-                        }}
+                        onChange={(assistantId) =>
+                            updateAndNotifyChange({
+                                assistantId,
+                                assistantServiceId: assistantId === 'new' ? '' : undefined,
+                                name: assistantId === 'new' ? '' : undefined,
+                            })
+                        }
                         disabled={disabled}
                     />
                 </Field>
-                {assistantId === 'new' && (
+                {config.assistantId === 'new' && (
                     <>
                         {!manualEntry && (
                             <Field label="Assistant Service">
                                 <AssistantServiceSelector
                                     disabled={disabled}
                                     assistantServicesByCategory={assistantServicesByCategories}
-                                    onChange={(assistantService) => {
-                                        setAssistantServiceId(assistantService.assistantServiceId);
-                                        setName(assistantService.name);
-                                        notifyChange();
-                                    }}
+                                    onChange={(assistantService) => updateAndNotifyChange(assistantService)}
                                 />
                             </Field>
                         )}
@@ -126,11 +127,10 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
                             <Field label="Assistant Service ID">
                                 <Input
                                     disabled={disabled}
-                                    value={assistantServiceId}
-                                    onChange={(_event, data) => {
-                                        setAssistantServiceId(data?.value);
-                                        notifyChange();
-                                    }}
+                                    value={config.assistantServiceId}
+                                    onChange={(_event, data) =>
+                                        updateAndNotifyChange({ assistantServiceId: data?.value })
+                                    }
                                     aria-autocomplete="none"
                                 />
                             </Field>
@@ -138,11 +138,8 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
                         <Field label="Name">
                             <Input
                                 disabled={disabled}
-                                value={name}
-                                onChange={(_event, data) => {
-                                    setName(data?.value);
-                                    notifyChange();
-                                }}
+                                value={config.name}
+                                onChange={(_event, data) => updateAndNotifyChange({ name: data?.value })}
                                 aria-autocomplete="none"
                             />
                         </Field>
@@ -154,7 +151,6 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
                                 checked={manualEntry}
                                 onChange={(_event, data) => {
                                     setManualEntry(data.checked === true);
-                                    notifyChange();
                                 }}
                             />
                             <AssistantImport label="Import Assistant" disabled={disabled} />

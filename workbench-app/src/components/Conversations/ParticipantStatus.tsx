@@ -3,8 +3,8 @@
 import { LatencyLoader } from '@fluentui-copilot/react-copilot';
 import { Text, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { useLocalUser } from '../../libs/useLocalUser';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
+import { useAppSelector } from '../../redux/app/hooks';
 
 const useClasses = makeStyles({
     root: {
@@ -24,7 +24,7 @@ interface ParticipantStatusProps {
 export const ParticipantStatus: React.FC<ParticipantStatusProps> = (props) => {
     const { participants, onChange } = props;
     const classes = useClasses();
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
 
     const statusItems = participants
         ?.map((participant) => {
@@ -40,7 +40,7 @@ export const ParticipantStatus: React.FC<ParticipantStatusProps> = (props) => {
         })
         .filter((participant) => {
             // don't show the current user's status
-            if (participant.id === localUser.id) return false;
+            if (participant.id === localUserId) return false;
             // don't show inactive participants
             if (!participant.active) return false;
             // don't show participants without a status

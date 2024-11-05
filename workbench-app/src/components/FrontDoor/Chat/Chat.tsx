@@ -3,15 +3,16 @@
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useGetAssistantCapabilities } from '../../../libs/useAssistantCapabilities';
-import { useLocalUser } from '../../../libs/useLocalUser';
 import { useParticipantUtility } from '../../../libs/useParticipantUtility';
 import { Assistant } from '../../../models/Assistant';
+import { useAppSelector } from '../../../redux/app/hooks';
 import {
     useGetAssistantsInConversationQuery,
     useGetConversationFilesQuery,
     useGetConversationParticipantsQuery,
     useGetConversationQuery,
 } from '../../../services/workbench';
+import { ExperimentalNotice } from '../../App/ExperimentalNotice';
 import { Loading } from '../../App/Loading';
 import { ConversationShare } from '../../Conversations/ConversationShare';
 import { InteractHistory } from '../../Conversations/InteractHistory';
@@ -59,12 +60,16 @@ const useClasses = makeStyles({
             flex: '0 0 auto',
         },
 
+        '&.center': {
+            overflow: 'visible',
+        },
+
         '&.after': {
             right: 0,
             flex: '0 0 auto',
         },
     },
-    errorList: {
+    centerContent: {
         position: 'absolute',
         top: 0,
         left: tokens.spacingHorizontalM,
@@ -119,7 +124,7 @@ export const Chat: React.FC<ChatProps> = (props) => {
     const { conversationId, headerBefore, headerAfter } = props;
     const classes = useClasses();
     const { sortParticipants } = useParticipantUtility();
-    const localUser = useLocalUser();
+    const localUserId = useAppSelector((state) => state.localUser.id);
 
     const {
         data: conversation,
@@ -143,8 +148,10 @@ export const Chat: React.FC<ChatProps> = (props) => {
         isLoading: conversationFilesIsLoading,
     } = useGetConversationFilesQuery(conversationId);
 
-    const { data: assistantCapabilities, isFetching: assistantCapabilitiesIsFetching } =
-        useGetAssistantCapabilities(assistants);
+    const { data: assistantCapabilities, isFetching: assistantCapabilitiesIsFetching } = useGetAssistantCapabilities(
+        assistants ?? [],
+        { skip: assistantsIsLoading || assistantsError !== undefined },
+    );
 
     if (conversationError) {
         const errorMessage = JSON.stringify(conversationError);
@@ -224,13 +231,16 @@ export const Chat: React.FC<ChatProps> = (props) => {
     const readOnly = conversation.conversationPermission === 'read';
 
     const otherParticipants = sortParticipants(conversationParticipants).filter(
-        (participant) => participant.id !== localUser.id,
+        (participant) => participant.id !== localUserId,
     );
 
     return (
         <div className={classes.root}>
             <div className={classes.header}>
                 <div className={mergeClasses(classes.headerControls, 'before')}>{headerBefore}</div>
+                <div className={mergeClasses(classes.headerControls, 'center')}>
+                    <ExperimentalNotice className={classes.centerContent} />
+                </div>
                 <div className={mergeClasses(classes.headerControls, 'after')}>
                     {otherParticipants.length === 1 && (
                         <ParticipantAvatarGroup participants={otherParticipants} layout="spread" />
