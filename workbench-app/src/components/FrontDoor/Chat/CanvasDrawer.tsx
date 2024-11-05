@@ -17,7 +17,6 @@ import { setChatWidthPercent } from '../../../redux/features/app/appSlice';
 const useClasses = makeStyles({
     root: {
         position: 'relative',
-        // ...shorthands.border(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke2),
         overflow: 'hidden',
 
         display: 'flex',
@@ -25,13 +24,11 @@ const useClasses = makeStyles({
         boxSizing: 'border-box',
         backgroundColor: '#fff',
     },
-    // rootResizerActive: {
-    //     userSelect: 'none',
-    // },
     drawer: {
         willChange: 'width',
         transitionProperty: 'width',
-        transitionDuration: '16.666ms', // 60fps
+        // approximate 60fps (1000ms / 60 = 16.666ms)
+        transitionDuration: '16.666ms',
     },
     title: {
         marginTop: tokens.spacingVerticalXL,

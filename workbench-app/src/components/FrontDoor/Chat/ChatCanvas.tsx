@@ -4,7 +4,6 @@ import debug from 'debug';
 import React from 'react';
 import { Constants } from '../../../Constants';
 import { useChatCanvasController } from '../../../libs/useChatCanvasController';
-import { useMediaQuery } from '../../../libs/useMediaQuery';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
@@ -37,7 +36,6 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = (props) => {
     const chatCanvasController = useChatCanvasController();
     const [firstRun, setFirstRun] = React.useState(true);
     const [selectedAssistant, setSelectedAssistant] = React.useState<Assistant>();
-    const isSmall = useMediaQuery({ maxWidth: Constants.app.responsiveBreakpoints.chatCanvas });
 
     // Set the selected assistant based on the chat canvas state
     React.useEffect(() => {
