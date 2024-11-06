@@ -29,6 +29,7 @@ const useClasses = makeStyles({
         height: '100%',
     },
     sideRailLeft: {
+        backgroundColor: tokens.colorNeutralBackground2,
         ...shorthands.borderRight(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
         boxSizing: 'border-box',
     },
@@ -76,6 +77,7 @@ export const FrontDoor: React.FC = () => {
     const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
     const chatCanvasState = useAppSelector((state) => state.chatCanvas);
     const dispatch = useDispatch();
+    const sideRailLeftRef = React.useRef<HTMLDivElement | null>(null);
     const [sideRailLeftOpen, setSideRailLeftOpen] = React.useState(!activeConversationId && !conversationId);
     const [isInitialized, setIsInitialized] = React.useState(false);
     const isSmall = useMediaQuery({ maxWidth: 720 });
@@ -95,11 +97,34 @@ export const FrontDoor: React.FC = () => {
         setIsInitialized(true);
     }, [conversationId, activeConversationId, dispatch]);
 
+    const handleClickOutside = React.useCallback(
+        (event: MouseEvent) => {
+            if (!sideRailLeftRef.current) return;
+
+            if (!sideRailLeftRef.current.contains(event.target as HTMLElement)) {
+                setSideRailLeftOpen(false);
+            }
+        },
+        [sideRailLeftRef],
+    );
+
+    React.useEffect(() => {
+        if (sideRailLeftOpen && sideRailLeftType === 'overlay') {
+            document.addEventListener('click', handleClickOutside);
+        } else {
+            document.removeEventListener('click', handleClickOutside);
+        }
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [handleClickOutside, sideRailLeftOpen, sideRailLeftRef, sideRailLeftType]);
+
     const sideRailLeftButton = React.useMemo(
         () => (
             <Button
                 icon={sideRailLeftOpen ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
-                onClick={() => setSideRailLeftOpen((prev) => !prev)}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    setSideRailLeftOpen((prev) => !prev);
+                }}
             />
         ),
         [sideRailLeftOpen],
@@ -126,6 +151,7 @@ export const FrontDoor: React.FC = () => {
         <div className={classes.root}>
             <div className={classes.body}>
                 <Drawer
+                    ref={sideRailLeftRef}
                     className={classes.sideRailLeft}
                     open={sideRailLeftOpen}
                     modalType="non-modal"
