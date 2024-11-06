@@ -1,5 +1,3 @@
-import logging
-
 from .client import (
     create_client,
 )
@@ -19,9 +17,6 @@ from .tokens import (
     num_tokens_from_tools_and_messages,
 )
 
-logger = logging.getLogger(__name__)
-
-
 __all__ = [
     "create_client",
     "truncate_messages_for_logging",
@@ -33,5 +28,4 @@ __all__ = [
     "AzureOpenAIServiceConfig",
     "OpenAIServiceConfig",
     "ServiceConfig",
-    "logger",
 ]

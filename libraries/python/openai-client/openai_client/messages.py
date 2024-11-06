@@ -1,13 +1,6 @@
-from typing import Any, Callable, Iterable, Literal, Optional
+from typing import Literal
 
-from liquid import Template
-from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionMessageParam,
-    ChatCompletionMessageToolCallParam,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam,
-)
+from openai.types.chat import ChatCompletionMessageParam
 
 
 def truncate_messages_for_logging(
@@ -78,62 +71,3 @@ def process_dict(dict_: dict, maximum_length: int, filler_text: str) -> dict:
             case dict():
                 dict_[key] = process_dict(value, maximum_length, filler_text)
     return dict_
-
-
-MessageFormatter = Callable[[str, dict[str, Any]], str]
-
-
-def format_message(message: str, vars: dict[str, Any]) -> str:
-    """
-    Format a message with the given variables using the Python format method.
-    """
-    if message and vars:
-        for key, value in vars.items():
-            try:
-                message = message.format(**{key: value})
-            except KeyError:
-                pass
-    return message
-
-
-def liquid_format(message: str, vars: dict[str, Any]) -> str:
-    """
-    Format a message with the given variables using the Liquid template engine.
-    """
-    out = message
-    if not message:
-        return message
-    template = Template(message)
-    out = template.render(**vars)
-    return out
-
-
-def system_message(
-    content: str, var: dict[str, Any] | None = None, formatter: MessageFormatter = format_message
-) -> ChatCompletionSystemMessageParam:
-    if var:
-        content = formatter(content, var)
-    return {"role": "system", "content": content}
-
-
-def user_message(
-    content: str, var: dict[str, Any] | None = None, formatter: MessageFormatter = format_message
-) -> ChatCompletionUserMessageParam:
-    if var:
-        content = formatter(content, var)
-    return {"role": "user", "content": content}
-
-
-def assistant_message(
-    content: str,
-    refusal: Optional[str] = None,
-    tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
-    var: dict[str, Any] | None = None,
-    formatter: MessageFormatter = format_message,
-) -> ChatCompletionAssistantMessageParam:
-    if var:
-        content = formatter(content, var)
-    message = ChatCompletionAssistantMessageParam(role="assistant", content=content, refusal=refusal)
-    if tool_calls is not None:
-        message["tool_calls"] = tool_calls
-    return message

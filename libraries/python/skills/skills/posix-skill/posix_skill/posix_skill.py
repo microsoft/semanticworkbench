@@ -1,10 +1,8 @@
 from pathlib import Path
-
+from skill_library import Skill, InstructionRoutine, RoutineTypes
 from chat_driver import ChatDriverConfig
-from context import Context
-from skill_library import InstructionRoutine, RoutineTypes, Skill
-
 from .sandbox_shell import SandboxShell
+from context import Context
 
 NAME = "posix"
 CLASS_NAME = "PosixSkill"
@@ -16,11 +14,12 @@ INSTRUCTIONS = "You are an assistant that has access to a sand-boxed Posix shell
 class PosixSkill(Skill):
     def __init__(
         self,
+        context: Context,
         sandbox_dir: Path,
         chat_driver_config: ChatDriverConfig,
         mount_dir: str = "/mnt/data",
     ) -> None:
-        self.shell = SandboxShell(sandbox_dir, mount_dir)
+        self.shell = SandboxShell(sandbox_dir / context.session_id, mount_dir)
 
         # Put all functions in a group. We are going to use all these as (1)
         # skill actions, but also as (2) chat functions and (3) chat commands.
@@ -44,8 +43,9 @@ class PosixSkill(Skill):
             self.make_home_dir_routine(),
         ]
 
-        # Re-configure the skill's chat driver.
+        # Configure the skill's chat driver.
         chat_driver_config.instructions = INSTRUCTIONS
+        chat_driver_config.context = context
         chat_driver_config.commands = functions
         chat_driver_config.functions = functions
 
@@ -53,6 +53,7 @@ class PosixSkill(Skill):
         super().__init__(
             name=NAME,
             description=DESCRIPTION,
+            context=context,
             chat_driver_config=chat_driver_config,
             skill_actions=functions,
             routines=routines,
@@ -77,7 +78,6 @@ class PosixSkill(Skill):
                 "mkdir Pictures\n"
                 "mkdir Videos\n"
             ),
-            skill=self,
         )
 
     ##################################

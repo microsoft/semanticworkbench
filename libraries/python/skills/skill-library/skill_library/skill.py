@@ -1,6 +1,7 @@
 from typing import Any, Callable
 
 from chat_driver import TEXT_RESPONSE_FORMAT, ChatDriver, ChatDriverConfig
+from context import Context
 from events import BaseEvent
 from function_registry import FunctionRegistry
 from openai.types.chat.completion_create_params import ResponseFormat
@@ -18,6 +19,7 @@ class Skill:
         self,
         name: str,
         description: str,
+        context: Context,
         chat_driver_config: ChatDriverConfig | None = None,
         skill_actions: list[Callable] = [],  # Functions to be registered as skill actions.
         routines: list[RoutineTypes] = [],
@@ -26,6 +28,7 @@ class Skill:
         # to them efficiently.
         self.name = name
         self.description = description
+        self.context = context
         self.routines: dict[str, RoutineTypes] = {routine.name: routine for routine in routines}
 
         # The routines in this skill might use actions from other skills. The dependency on
@@ -41,11 +44,8 @@ class Skill:
         # skill subclass).
         self.chat_driver = ChatDriver(chat_driver_config) if chat_driver_config else None
 
-        # TODO: Configure up one of these separate from the chat driver.
-        self.openai_client = chat_driver_config.openai_client if chat_driver_config else None
-
         # Register all provided actions with the action registry.
-        self.action_registry = FunctionRegistry(skill_actions)
+        self.action_registry = FunctionRegistry(context, skill_actions)
 
         # Also, register any commands provided by the chat driver. All
         # commands will be available to the skill.

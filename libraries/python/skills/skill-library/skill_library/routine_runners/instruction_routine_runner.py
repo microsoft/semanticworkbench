@@ -1,18 +1,20 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from events import BaseEvent, InformationEvent
 
 from ..routine import InstructionRoutine
-from ..run_context import RunContext
+from ..skill import Skill
+
+if TYPE_CHECKING:
+    from ..assistant import Assistant
 
 
 class InstructionRoutineRunner:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, assistant: "Assistant") -> None:
+        self.skill_registry = assistant.skill_registry
+        self.context = assistant.context
 
-    async def run(
-        self, context: RunContext, routine: InstructionRoutine, vars: dict[str, Any] | None = None
-    ) -> Any:
+    async def run(self, skill: Skill, routine: InstructionRoutine, vars: dict[str, Any] | None = None) -> Any:
         """
         Run an Instruction routine. This just runs through the steps of a
         routine, sending each one to a skill's response endpoint. Note, this
@@ -32,15 +34,9 @@ class InstructionRoutineRunner:
 
         steps = routine.routine.split("\n")
         for step in steps:
-            context.emit(InformationEvent(message=f"Running step: {step}"))
-            response: BaseEvent = await routine.skill.respond(message=step)
+            self.context.emit(InformationEvent(message=f"Running step: {step}"))
+            response: BaseEvent = await skill.respond(message=step)
             informationEvent = InformationEvent(**response.model_dump())
-            context.emit(informationEvent)
+            self.context.emit(informationEvent)
 
         return
-
-    async def next(self, context: RunContext, routine: InstructionRoutine, message: str) -> Any:
-        """
-        Run the next step in the current routine.
-        """
-        pass

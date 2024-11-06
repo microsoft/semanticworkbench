@@ -9,12 +9,10 @@ dependencies = [
     "azure-ai-contentsafety>=1.0.0",
     "azure-core[aio]>=1.30.0",
     "azure-identity>=1.17.1",
-    "function-registry>=0.1.0",
     "openai>=1.3.9",
     "pillow>=11.0.0",
-    "python-liquid>=1.12.1",
-    "semantic-workbench-assistant>=0.1.0",
     "tiktoken>=0.7.0",
+    "semantic-workbench-assistant>=0.1.0",
 ]
 
 [tool.uv]
@@ -23,7 +21,6 @@ dev-dependencies = ["pytest>=8.3.3"]
 
 [tool.uv.sources]
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
-function-registry = { path = "../function-registry", editable = true }
 
 [build-system]
 requires = ["hatchling"]
