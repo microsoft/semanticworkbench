@@ -8,9 +8,11 @@ from chat_driver import (
     TEXT_RESPONSE_FORMAT,
     ChatDriver,
     ChatDriverConfig,
-    ResponseFormat,
 )
 from events import BaseEvent, EventProtocol
+from openai.types.chat.completion_create_params import (
+    ResponseFormat,
+)
 
 from .run_context import RunContext
 from .skill import Skill
@@ -219,9 +221,7 @@ class ChatFunctions:
         """Lists all the routines available in the assistant."""
         return self.assistant.list_routines()
 
-    async def run_routine(
-        self, context: RunContext, name: str, vars: dict[str, Any] | None = None
-    ) -> Any:
+    async def run_routine(self, context: RunContext, name: str, vars: dict[str, Any] | None = None) -> Any:
         """
         Run an assistant routine.
         """
