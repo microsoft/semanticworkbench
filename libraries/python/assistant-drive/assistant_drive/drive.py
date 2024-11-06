@@ -58,7 +58,9 @@ class FileMetadata:
             path = self.filename
         else:
             path = f"{self.dir}/{self.filename}"
-        return f"{path}\t{self.content_type}\t{self.size} bytes\t{self.created_at}\t{self.updated_at}"
+        return (
+            f"{path}\t{self.content_type}\t{self.size} bytes\t{self.created_at}\t{self.updated_at}"
+        )
 
     @staticmethod
     def from_bytes(content: BinaryIO, filename: str, dir: str | None = None) -> "FileMetadata":
@@ -99,7 +101,9 @@ class Drive:
             return namespace_path
         return namespace_path / filename
 
-    def _metadata_path_for(self, filename: str | None = None, dir: str | None = None) -> pathlib.Path:
+    def _metadata_path_for(
+        self, filename: str | None = None, dir: str | None = None
+    ) -> pathlib.Path:
         """Return the actual path for a dir/file combo, creating the dir as needed."""
         namespace_path = self.metadata_path / (dir or "")
         namespace_path.mkdir(parents=True, exist_ok=True)
@@ -116,6 +120,12 @@ class Drive:
             counter += 1
 
         return filename
+
+    def subdrive(self, dir: PathLike | str) -> "Drive":
+        config = DriveConfig(
+            root=self.root_path / dir, default_if_exists_behavior=self.default_if_exists_behavior
+        )
+        return Drive(config)
 
     def write(
         self,
@@ -216,11 +226,12 @@ class Drive:
         filename: str,
         dir: str | None = None,
         serialization_context: dict[str, Any] | None = None,
-        if_exists: IfDriveFileExistsBehavior = IfDriveFileExistsBehavior.AUTO_RENAME,
+        if_exists: IfDriveFileExistsBehavior | None = None,
     ) -> None:
         """Write a pydantic model to a file."""
         data_json = value.model_dump_json(context=serialization_context)
         data_bytes = data_json.encode("utf-8")
+        if_exists = if_exists or self.default_if_exists_behavior
         self.write(io.BytesIO(data_bytes), filename, dir, if_exists)
 
     ModelT = TypeVar("ModelT", bound=BaseModel)

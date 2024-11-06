@@ -1,9 +1,10 @@
+import inspect
 from dataclasses import dataclass
 from typing import Any, Callable
-import inspect
+
+from context.context import ContextProtocol
 from pydantic import create_model
 from pydantic.fields import FieldInfo
-from context.context import ContextProtocol
 
 
 @dataclass
@@ -15,13 +16,15 @@ class Parameter:
 
 
 class Function:
-    def __init__(self, name: str, description: str | None, parameters: list[Parameter], fn: Callable) -> None:
+    def __init__(
+        self, name: str, description: str | None, parameters: list[Parameter], fn: Callable, strict_schema: bool = False
+    ) -> None:
         self.name = name
         self.description = description or name.replace("_", " ").title()
         self.parameters = parameters
         self.fn = fn
-        self.schema = self._generate_schema()
-        self.usage = self._generate_usage()
+        self.schema: dict[str, Any] = self._generate_schema(strict=strict_schema)
+        self.usage: str = self._generate_usage()
 
     async def execute(self, context: ContextProtocol, *args, **kwargs) -> Any:
         result = self.fn(context, *args, **kwargs)
@@ -50,7 +53,7 @@ class Function:
         description = self.description
         return f"{name}({', '.join(param_usages)}): {description}"
 
-    def _generate_schema(self) -> dict[str, Any]:
+    def _generate_schema(self, strict: bool = True) -> dict[str, Any]:
         """
         Generate a JSON schema for a function based on its signature.
         """
@@ -68,19 +71,20 @@ class Function:
                 field_info,
             )
         pydantic_model = create_model(model_name, **fields)
+        # pydantic_model.model_config = {"field_title_generator": lambda _, _: None}
 
         # Generate the JSON schema from the Pydantic model.
-        basic_schema = pydantic_model.model_json_schema()
+        parameters_schema = pydantic_model.model_json_schema(mode="serialization")
 
         # Remove title attribute from all properties.
-        properties = basic_schema["properties"]
-        for property in properties:
-            if "title" in properties[property]:
-                del properties[property]["title"]
+        properties = parameters_schema["properties"]
+        for property_key in properties.keys():
+            if "title" in properties[property_key]:
+                del properties[property_key]["title"]
 
         # And from the top-level object.
-        if "title" in basic_schema:
-            del basic_schema["title"]
+        if "title" in parameters_schema:
+            del parameters_schema["title"]
 
         name = self.fn.__name__
         description = inspect.getdoc(self.fn) or name.replace("_", " ").title()
@@ -93,15 +97,26 @@ class Function:
             # "$id": f"urn:jsonschema:{name}",
             "name": name,
             "description": description,
+            "strict": strict,
             "parameters": {
                 "type": "object",
-                "properties": basic_schema["properties"],
+                "properties": parameters_schema["properties"],
             },
         }
 
-        if "required" in basic_schema:
-            schema["required"] = basic_schema["required"]
+        # If this is a strict schema requirement, OpenAI requires
+        # additionalProperties to be False.
+        # if strict:
+        schema["parameters"]["additionalProperties"] = False
 
-        if "$defs" in basic_schema:
-            schema["$defs"] = basic_schema["$defs"]
+        # Add required fields.
+        if "required" in parameters_schema:
+            schema["parameters"]["required"] = parameters_schema["required"]
+
+        # Add definitions.
+        if "$defs" in parameters_schema:
+            schema["parameters"]["$defs"] = parameters_schema["$defs"]
+            for key in schema["parameters"]["$defs"]:
+                schema["parameters"]["$defs"][key]["additionalProperties"] = False
+
         return schema
