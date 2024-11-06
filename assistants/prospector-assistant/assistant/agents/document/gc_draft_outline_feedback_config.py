@@ -19,22 +19,21 @@ if TYPE_CHECKING:
 class ArtifactModel(BaseModel):
     final_response: str = Field(description="The final response from the agent to the user.")
     conversation_status: str = Field(description="The status of the conversation.")
+    user_decision: str = Field(description="The decision of the user on what should happen next.")
 
 
 # Rules - These are the do's and don'ts that the agent should follow during the conversation.
 rules = [
     "Terminate the conversation immediately if the user asks for harmful or inappropriate content.",
-    "If the conversation is complete due to the user wanting the outline updated, set the conversation_status to update_outline.",
-    "If the conversation is complete due to the user ready to move on to drafting the paper, set the conversation_state to user_completed.",
 ]
 
 # Conversation Flow (optional) - This defines in natural language the steps of the conversation.
 conversation_flow = """1. Start by asking the user to review the drafted outline.
 2. Answer any questions about the outline or the drafting process the user might want to explore.
-3. At any time, if the user asks for a change to the outline or updates the attachment file list, consider the conversation complete.
-In this scenario, your final message should inform the user that a new outline is being generated based off the new info or request.
-4. At any time, if the user is good with the outline in its current form and ready to move on to drafting a paper from it, consider the
-conversation complete.  In this scenario, your final message should inform the user that you will start drafting the beginning of the
+3. At any time, if the user asks for a change to the outline or updates the attachment file list, the conversation_status must be
+marked as user_completed. The user_decision must be marked as update_outline. The final_response should inform the user that a new outline is being generated based off the new info or request.
+4. At any time, if the user is good with the outline in its current form and ready to move on to drafting a paper from it, the conversation_status must be
+marked as user_completed. The user_decision must be marked as draft_paper. The final_response should inform the user that you will start drafting the beginning of the
 document based on this outline.
 """
 

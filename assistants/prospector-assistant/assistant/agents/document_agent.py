@@ -381,36 +381,16 @@ class DocumentAgent:
         step_name = step.get_name()
         step_status = step.get_status()
 
-        # This Status.INITIATED will occur when the mode is setting up the first step on its first run
-        if step_status is Status.INITIATED:
-            logger.info("Document Agent mode (%s) at beginning.", mode_name)
-            self._state.mode.get_step().set_status(Status.NOT_COMPLETED)
-            self._write_state(context)
-
-            step = self._state.mode.get_step()
-            step_name = step.get_name()
-            step_status = step.get_status()
-
-        # This Status.INITIATED will occur when a new step is setup upon a prior step's Status.USER_COMPLETED.
         while step_status is Status.INITIATED or step_status is Status.NOT_COMPLETED:
             step_method = self._get_step_method(step)
             if step_method:
                 logger.info("Document Agent in step: %s", step_name)
                 step_status = await step_method(config, context, message, metadata)
 
-                match step_status:
-                    case Status.UNDEFINED:
-                        logger.error(
-                            "Calling corresponding step method for %s resulted in status %s. Resetting mode %s.",
-                            step_name,
-                            step_status,
-                            mode_name,
-                        )
-                        self._state.mode.reset()
-                        break  # problem
-
+                match step_status:  # resulting status of step_method()
                     case Status.NOT_COMPLETED:
                         self._state.mode.get_step().set_status(step_status)
+                        self._state.mode.set_status(step_status)
                         break  # ok - get more user input
 
                     case Status.USER_COMPLETED:
@@ -418,8 +398,9 @@ class DocumentAgent:
                         if next_step is not None:
                             step = next_step
                             step_name = next_step.get_name()
-                            step_status = next_step.get_status()
+                            step_status = next_step.get_status()  # new step is Status.INITIATED
                             self._state.mode.set_step(next_step)
+                            self._write_state(context)
                             continue  # ok - don't need user input yet
                         else:
                             self._state.mode.get_step().set_status(step_status)
@@ -430,6 +411,16 @@ class DocumentAgent:
                         self._state.mode.get_step().set_status(step_status)
                         self._state.mode.set_status(step_status)
                         break  # ok - done early :)
+
+                    case _:  # UNDEFINED, INITIATED
+                        logger.error(
+                            "Document Agent: Calling corresponding step method for %s resulted in status %s. Resetting mode %s.",
+                            step_name,
+                            step_status,
+                            mode_name,
+                        )
+                        self._state.mode.reset()
+                        break  # problem
             else:
                 logger.error(
                     "Document Agent failed to find a corresponding step method for %s. Resetting mode %s.",
@@ -482,9 +473,9 @@ class DocumentAgent:
                     StepName.DO_FINAL_OUTLINE,
                 ],
             )
+            logger.info("Document Agent mode (%s) at beginning.", mode_name)
             first_step_name = self._state.mode.get_step_order()[0]
             self._state.mode.set_step(Step(name=first_step_name, status=Status.INITIATED))
-            self._state.mode.set_status(Status.NOT_COMPLETED)
             self._write_state(context)
 
         self._step_name_to_method: dict[StepName, Callable] = {
@@ -606,7 +597,6 @@ class DocumentAgent:
             return self._state.mode.get_status()
 
         # Run
-        # Because the last user message will be ending a prior step, and not be related to this step.
         user_message: ConversationMessage | None
         if step_status is Status.INITIATED:
             user_message = None
