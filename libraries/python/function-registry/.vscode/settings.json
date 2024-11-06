@@ -48,7 +48,9 @@
   "ruff.nativeServer": "on",
   "cSpell.words": [
     "dotenv",
+    "elts",
     "httpx",
+    "jsonschema",
     "openai",
     "pydantic",
     "pypdf",
