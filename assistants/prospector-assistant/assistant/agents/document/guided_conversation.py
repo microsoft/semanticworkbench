@@ -105,6 +105,7 @@ class GuidedConversationAgent:
 
         final_response: str = ""
         conversation_status: str | None = None
+        user_decision: str = ""
         response: str = ""
 
         # to_json is actually to dict, not to json.
@@ -115,27 +116,33 @@ class GuidedConversationAgent:
             if artifact_item is not None:
                 final_response = artifact_item.get("final_response")
                 conversation_status = artifact_item.get("conversation_status")
+                user_decision = artifact_item.get("user_decision")
 
         # should be returning str and Status for Document Agent to consume.  Update doc agent logic accordingly.
         status: Status = Status.UNDEFINED
         if conversation_status is not None:
-            if result.is_conversation_over is True:
-                _delete_guided_conversation_state(conversation_context)
-                if conversation_status == "user_completed":
-                    status = Status.USER_COMPLETED
-                    response = final_response
-                elif conversation_status == "update_outline":
-                    status = Status.UPDATE_OUTLINE
-                    response = final_response
-                else:
-                    status = Status.USER_EXIT_EARLY
-                    response = final_response
-            else:
+            if conversation_status == "Unanswered":
                 if result.ai_message is not None:
                     response = result.ai_message
                 else:
                     response = ""
                 status = Status.NOT_COMPLETED
+            elif conversation_status == "user_completed":
+                _delete_guided_conversation_state(conversation_context)
+                response = final_response
+                if user_decision is None:
+                    status = Status.USER_COMPLETED
+                else:
+                    if user_decision == "update_outline":  # this code is becoming highly coupled fyi to the gc configs
+                        status = Status.UPDATE_OUTLINE
+                    elif user_decision == "draft_paper":
+                        status = Status.USER_COMPLETED
+                    else:
+                        logger.error("unknown user decision")
+            else:
+                _delete_guided_conversation_state(conversation_context)
+                status = Status.USER_EXIT_EARLY
+                response = final_response
 
         return response, status
 
