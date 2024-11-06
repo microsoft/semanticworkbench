@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Persona, makeStyles, tokens } from '@fluentui/react-components';
+import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Assistant } from '../../models/Assistant';
@@ -8,8 +8,7 @@ import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAddConversationParticipantMutation, useCreateConversationMessageMutation } from '../../services/workbench';
 import { AssistantAdd } from '../Assistants/AssistantAdd';
-import { AssistantConfigure } from '../Assistants/AssistantConfigure';
-import { AssistantRemove } from '../Assistants/AssistantRemove';
+import { ParticipantItem } from './ParticipantItem';
 
 const useClasses = makeStyles({
     root: {
@@ -40,7 +39,8 @@ interface ParticipantListProps {
 export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
     const { conversation, participants, preventAssistantModifyOnParticipantIds = [], readOnly } = props;
     const classes = useClasses();
-    const { sortParticipants, getAvatarData } = useParticipantUtility();
+
+    const { sortParticipants } = useParticipantUtility();
 
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
@@ -67,36 +67,13 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
         <div className={classes.root}>
             <AssistantAdd disabled={readOnly} exceptAssistantIds={exceptAssistantIds} onAdd={handleAssistantAdd} />
             {sortParticipants(participants).map((participant) => (
-                <div className={classes.participant} key={participant.id}>
-                    <Persona
-                        name={participant.name}
-                        avatar={getAvatarData(participant)}
-                        secondaryText={
-                            participant.role +
-                            { read: ' (observer)', read_write: '' }[participant.conversationPermission]
-                        }
-                        presence={
-                            participant.online === undefined
-                                ? undefined
-                                : {
-                                      status: participant.online ? 'available' : 'offline',
-                                  }
-                        }
-                    />
-                    {participant.role === 'assistant' && (
-                        <div className={classes.actions}>
-                            <AssistantConfigure
-                                assistantId={participant.id}
-                                disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
-                            />
-                            <AssistantRemove
-                                conversation={conversation}
-                                participant={participant}
-                                disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
-                            />
-                        </div>
-                    )}
-                </div>
+                <ParticipantItem
+                    key={participant.id}
+                    conversation={conversation}
+                    participant={participant}
+                    readOnly={readOnly}
+                    preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
+                />
             ))}
         </div>
     );

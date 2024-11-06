@@ -14,11 +14,13 @@ import { CommandButton } from '../App/CommandButton';
 interface AssistantRemoveProps {
     participant: ConversationParticipant;
     conversation: Conversation;
+    iconOnly?: boolean;
     disabled?: boolean;
+    simulateMenuItem?: boolean;
 }
 
 export const AssistantRemove: React.FC<AssistantRemoveProps> = (props) => {
-    const { participant, conversation, disabled } = props;
+    const { participant, conversation, iconOnly, disabled, simulateMenuItem } = props;
     const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
 
@@ -40,9 +42,10 @@ export const AssistantRemove: React.FC<AssistantRemoveProps> = (props) => {
     return (
         <CommandButton
             icon={<PlugDisconnectedRegular />}
-            iconOnly
+            simulateMenuItem={simulateMenuItem}
+            label="Remove"
+            iconOnly={iconOnly}
             disabled={disabled}
-            description={disabled ? `Workflow assistants cannot be removed` : 'Remove assistant from conversation'}
             dialogContent={{
                 title: `Remove "${participant.name}"`,
                 content: (

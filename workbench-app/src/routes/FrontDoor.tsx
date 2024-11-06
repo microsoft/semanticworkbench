@@ -89,7 +89,7 @@ export const FrontDoor: React.FC = () => {
     }, [classes.documentBody]);
 
     React.useEffect(() => {
-        if (conversationId && conversationId !== activeConversationId) {
+        if (conversationId !== activeConversationId) {
             dispatch(setActiveConversationId(conversationId));
         }
         setIsInitialized(true);
@@ -106,14 +106,12 @@ export const FrontDoor: React.FC = () => {
     );
 
     React.useEffect(() => {
-        switch (sideRailLeftType) {
-            case 'overlay':
-                if (isSmall) setSideRailLeftType('inline');
-                if (chatCanvasState.open) setSideRailLeftType('overlay');
-                break;
-            case 'inline':
-                if (!isSmall) setSideRailLeftType('overlay');
-                break;
+        if (sideRailLeftType === 'overlay') {
+            if (isSmall || chatCanvasState.open) return;
+            setSideRailLeftType('inline');
+        } else {
+            if (!isSmall && !chatCanvasState.open) return;
+            setSideRailLeftType('overlay');
         }
     }, [sideRailLeftType, isSmall, chatCanvasState.open]);
 
