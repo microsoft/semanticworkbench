@@ -39,9 +39,32 @@ export const conversationApi = workbenchApi.injectEndpoints({
             providesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversation(response),
         }),
-        getConversationMessages: builder.query<ConversationMessage[], string>({
-            query: (id) =>
-                `/conversations/${id}/messages?message_type=chat&message_type=note&message_type=notice&message_type=command&message_type=command-response`,
+        getConversationMessages: builder.query<
+            ConversationMessage[],
+            {
+                conversationId: string;
+                messageTypes?: string[];
+                participantRoles?: string[];
+                participantIds?: string[];
+                before?: string;
+                after?: string;
+                limit?: number;
+            }
+        >({
+            query: ({
+                conversationId,
+                messageTypes = ['chat', 'note', 'notice', 'command', 'command-response'],
+                participantRoles,
+                participantIds,
+                before,
+                after,
+                limit,
+            }) =>
+                `/conversations/${conversationId}/messages?message_type=${messageTypes.join('&message_type=')}&${
+                    participantRoles ? `participant_role=${participantRoles.join('&participant_role=')}&` : ''
+                }${participantIds ? `participant_id=${participantIds.join('&participant_id=')}&` : ''}${
+                    before ? `before=${before}&` : ''
+                }${after ? `after=${after}&` : ''}${limit ? `limit=${limit}` : ''}`,
             providesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversationMessages(response),
         }),
@@ -80,7 +103,7 @@ export const conversationApi = workbenchApi.injectEndpoints({
 // Non-hook helpers
 
 export const updateGetConversationMessagesQueryData = (conversationId: string, data: ConversationMessage[]) =>
-    conversationApi.util.updateQueryData('getConversationMessages', conversationId, () => data);
+    conversationApi.util.updateQueryData('getConversationMessages', { conversationId }, () => data);
 
 export const {
     useCreateConversationMutation,

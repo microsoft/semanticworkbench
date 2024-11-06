@@ -5,10 +5,19 @@ import { useAccount, useMsal } from '@azure/msal-react';
 import React from 'react';
 import { AssistantServiceInfo } from '../models/AssistantServiceInfo';
 import { AssistantServiceRegistration } from '../models/AssistantServiceRegistration';
+import { Conversation } from '../models/Conversation';
 import { ConversationFile } from '../models/ConversationFile';
+import { ConversationMessage } from '../models/ConversationMessage';
+import { ConversationParticipant } from '../models/ConversationParticipant';
 import { useAppDispatch } from '../redux/app/hooks';
 import { addError } from '../redux/features/app/appSlice';
-import { assistantApi, assistantServiceRegistrationApi, workbenchApi, workflowApi } from '../services/workbench';
+import {
+    assistantApi,
+    assistantServiceRegistrationApi,
+    conversationApi,
+    workbenchApi,
+    workflowApi,
+} from '../services/workbench';
 import { AuthHelper } from './AuthHelper';
 import { Utility } from './Utility';
 import { useEnvironment } from './useEnvironment';
@@ -147,6 +156,76 @@ export const useWorkbenchService = () => {
         [environment.url, tryFetchStreamAsync],
     );
 
+    const exportTranscriptAsync = React.useCallback(
+        async (
+            conversation: Conversation,
+            participants: ConversationParticipant[],
+        ): Promise<{ blob: Blob; filename: string }> => {
+            const messages: ConversationMessage[] = [];
+            let before_message_id: string | undefined = undefined;
+
+            while (true) {
+                try {
+                    const new_messages = await dispatch(
+                        conversationApi.endpoints.getConversationMessages.initiate({
+                            conversationId: conversation.id,
+                            before: before_message_id,
+                        }),
+                    ).unwrap();
+
+                    if (new_messages.length === 0) {
+                        break;
+                    }
+
+                    messages.unshift(...new_messages);
+                    before_message_id = new_messages[0].id;
+                } catch (error) {
+                    dispatch(addError({ title: 'Export transcript', message: (error as Error).message }));
+                    throw error;
+                }
+            }
+
+            const timestampForFilename = Utility.getTimestampForFilename();
+            const filename = `transcript_${conversation.title.replaceAll(' ', '_')}_${timestampForFilename}.md`;
+
+            const markdown = messages
+                .filter((message) => message.messageType !== 'log')
+                .map((message) => {
+                    const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
+                    const time = Utility.toFormattedDateString(message.timestamp, 'h:mm A');
+                    const participant = participants.find(
+                        (possible_participant) => possible_participant.id === message.sender.participantId,
+                    );
+                    const sender = participant ? participant.name : 'Unknown';
+                    const parts = [];
+                    parts.push(`### [${date} ${time}] ${sender}:`);
+                    if (message.messageType !== 'chat') {
+                        parts.push(`${message.messageType}: ${message.content}`);
+                    } else {
+                        parts.push(message.content);
+                    }
+                    if (message.filenames && message.filenames.length > 0) {
+                        parts.push(
+                            message.filenames
+                                .map((filename) => {
+                                    return `attachment: ${filename}`;
+                                })
+                                .join('\n'),
+                        );
+                    }
+                    parts.push('----------------------------------\n\n');
+
+                    return parts.join('\n\n');
+                })
+                .join('\n');
+
+            const blob = new Blob([markdown], { type: 'text/markdown' });
+
+            return { blob, filename };
+        },
+        [dispatch],
+    );
+
     const exportConversationsAsync = React.useCallback(
         async (conversationIds: string[]): Promise<{ blob: Blob; filename: string }> => {
             const response = await tryFetchAsync(
@@ -274,8 +353,9 @@ export const useWorkbenchService = () => {
 
     const exportWorkflowDefinitionAsync = React.useCallback(
         async (workflowId: string) => {
-            const results = await dispatch(workflowApi.endpoints.getWorkflowDefinition.initiate(workflowId));
-            const workflowDefinition = results.data;
+            const workflowDefinition = await dispatch(
+                workflowApi.endpoints.getWorkflowDefinition.initiate(workflowId),
+            ).unwrap();
 
             if (!workflowDefinition) {
                 throw new Error(`Workflow with ID ${workflowId} not found`);
@@ -298,13 +378,13 @@ export const useWorkbenchService = () => {
     // };
 
     const getWorkflowDefinitionDefaultsAsync = React.useCallback(async () => {
-        const results = await dispatch(workflowApi.endpoints.getWorkflowDefinitionDefaults.initiate());
-        return results.data;
+        return await dispatch(workflowApi.endpoints.getWorkflowDefinitionDefaults.initiate()).unwrap();
     }, [dispatch]);
 
     return {
         getAzureSpeechTokenAsync,
         downloadConversationFileAsync,
+        exportTranscriptAsync,
         exportConversationsAsync,
         importConversationsAsync,
         duplicateConversationsAsync,

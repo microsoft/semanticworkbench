@@ -27,7 +27,7 @@ export const RewindConversation: React.FC<RewindConversationProps> = (props) => 
         data: messages,
         error: getMessagesError,
         isLoading: isLoadingMessages,
-    } = useGetConversationMessagesQuery(conversationId);
+    } = useGetConversationMessagesQuery({ conversationId });
     const [createMessage] = useCreateConversationMessageMutation();
     const [deleteMessage] = useDeleteConversationMessageMutation();
 

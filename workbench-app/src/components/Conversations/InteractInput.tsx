@@ -157,7 +157,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         data: conversationMessages,
         isLoading: isConversationMessagesLoading,
         error: conversationMessagesError,
-    } = useGetConversationMessagesQuery(conversationId);
+    } = useGetConversationMessagesQuery({ conversationId });
 
     const {
         data: participants,

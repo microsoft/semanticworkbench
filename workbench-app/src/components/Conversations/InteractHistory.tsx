@@ -72,7 +72,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         data: messages,
         error: getMessagesError,
         isLoading: isLoadingMessages,
-    } = useGetConversationMessagesQuery(conversation.id);
+    } = useGetConversationMessagesQuery({ conversationId: conversation.id });
 
     if (getMessagesError) {
         const errorMessage = JSON.stringify(getMessagesError);
@@ -256,9 +256,12 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
             }
 
             dispatch(
-                conversationApi.endpoints.getConversationMessages.initiate(conversation.id, {
-                    forceRefetch: true,
-                }),
+                conversationApi.endpoints.getConversationMessages.initiate(
+                    { conversationId: conversation.id },
+                    {
+                        forceRefetch: true,
+                    },
+                ),
             );
         };
 
