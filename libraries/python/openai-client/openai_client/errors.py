@@ -11,24 +11,24 @@ from openai.types.chat import (
 )
 
 
-class InValidCompletionError(Exception):
+class CompletionInvalidError(Exception):
     def __init__(self, message: str, body: dict[str, Any] | None = None) -> None:
         self.message = message
         self.body = body
         super().__init__(self.message)
 
 
-class CompletionIsNoneError(InValidCompletionError):
+class CompletionIsNoneError(CompletionInvalidError):
     def __init__(self) -> None:
         super().__init__("The completion response is None.")
 
 
-class CompletionRefusedError(InValidCompletionError):
+class CompletionRefusedError(CompletionInvalidError):
     def __init__(self, refusal: str) -> None:
         super().__init__(f"The model refused to complete the response: {refusal}", {"refusal": refusal})
 
 
-class CompletionWithoutStopError(InValidCompletionError):
+class CompletionWithoutStopError(CompletionInvalidError):
     def __init__(self, finish_reason: str) -> None:
         super().__init__(f"The model did not complete the response: {finish_reason}", {"finish_reason": finish_reason})
 
@@ -47,7 +47,7 @@ class CompletionError(Exception):
         elif isinstance(error, APIStatusError):
             message = f"Another non-200-range status code was received. {error.status_code}: {error.message}"
             body = error.body
-        elif isinstance(error, InValidCompletionError):
+        elif isinstance(error, CompletionInvalidError):
             message = error.message
             body = error.body
         else:
