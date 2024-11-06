@@ -1,16 +1,18 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..routine import ProgramRoutine
-from ..run_context import RunContext
+from ..skill import Skill
+
+if TYPE_CHECKING:
+    from ..assistant import Assistant
 
 
 class ProgramRoutineRunner:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, assistant: "Assistant") -> None:
+        self.skill_registry = assistant.skill_registry
+        self.context = assistant.context
 
-    async def run(
-        self, context: RunContext, routine: ProgramRoutine, vars: dict[str, Any] | None = None
-    ) -> Any:
+    async def run(self, skill: Skill, routine: ProgramRoutine, vars: dict[str, Any] | None = None) -> Any:
         """
         This implementation is not yet working. It is a placeholder for the
         future implementation of running a program routine. A program routine
@@ -26,9 +28,3 @@ class ProgramRoutineRunner:
         # TODO: execute the program.
 
         return
-
-    async def next(self, context: RunContext, routine: ProgramRoutine, message: str) -> Any:
-        """
-        Run the next step in the current routine.
-        """
-        pass

@@ -38,7 +38,7 @@ class BaseEvent(BaseModel):
     session_id: str | None = Field(default=None)
     timestamp: datetime = Field(default_factory=datetime.now)
     message: str | None = Field(default=None)
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = {}
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}: {self.message}"

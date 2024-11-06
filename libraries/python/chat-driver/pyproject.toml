@@ -6,17 +6,16 @@ authors = [{name="MADE:Explorers"}]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "openai>=1.16.1",
+    "pydantic>=2.6.1",
+    "pydantic-settings>=2.3.4",
+    "python-dotenv>=1.0.1",
+    "requests>=2.32.0",
+    "tiktoken>=0.7.0",
     "azure-identity>=1.17.1",
     "context>=0.1.0",
     "events>=0.1.0",
     "function-registry>=0.1.0",
-    "openai>=1.16.1",
-    "openai-client>=0.1.0",
-    "pydantic-settings>=2.3.4",
-    "pydantic>=2.6.1",
-    "python-dotenv>=1.0.1",
-    "requests>=2.32.0",
-    "tiktoken>=0.7.0",
 ]
 
 [tool.uv]
@@ -26,7 +25,6 @@ package = true
 context = { path = "../context", editable = true }
 events = { path = "../events", editable = true }
 function-registry = { path = "../function-registry", editable = true }
-openai-client = { path = "../openai-client", editable = true }
 
 [build-system]
 requires = ["hatchling"]
