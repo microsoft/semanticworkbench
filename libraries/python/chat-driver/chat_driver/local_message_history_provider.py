@@ -11,10 +11,10 @@ from openai.types.chat import (
 )
 from openai_client.messages import (
     MessageFormatter,
-    assistant_message,
-    format_message,
-    system_message,
-    user_message,
+    create_assistant_message,
+    create_system_message,
+    create_user_message,
+    format_with_dict,
 )
 
 from .message_history_provider import MessageHistoryProviderProtocol
@@ -36,7 +36,7 @@ class LocalMessageHistoryProvider(MessageHistoryProviderProtocol):
             self.data_dir = DEFAULT_DATA_DIR / "chat_driver" / config.context.session_id
         else:
             self.data_dir = Path(config.data_dir)
-        self.formatter: MessageFormatter = config.formatter or format_message
+        self.formatter: MessageFormatter = config.formatter or format_with_dict
 
         # Create the messages file if it doesn't exist.
         if not self.data_dir.exists():
@@ -79,10 +79,10 @@ class LocalMessageHistoryProvider(MessageHistoryProviderProtocol):
         self.messages_file.write_text("[]")
 
     async def append_system_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        await self.append(system_message(content, var, self.formatter))
+        await self.append(create_system_message(content, var, self.formatter))
 
     async def append_user_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        await self.append(user_message(content, var, self.formatter))
+        await self.append(create_user_message(content, var, self.formatter))
 
     async def append_assistant_message(
         self,
@@ -91,4 +91,4 @@ class LocalMessageHistoryProvider(MessageHistoryProviderProtocol):
         tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
         var: dict[str, Any] | None = None,
     ) -> None:
-        await self.append(assistant_message(content, refusal, tool_calls, var, self.formatter))
+        await self.append(create_assistant_message(content, refusal, tool_calls, var, self.formatter))

@@ -30,18 +30,18 @@ def assistant_message_from_completion(completion: ParsedChatCompletion[None]) ->
     return assistant_message
 
 
-def completion_message(completion: ParsedChatCompletion) -> ParsedChatCompletionMessage | None:
+def message_from_completion(completion: ParsedChatCompletion) -> ParsedChatCompletionMessage | None:
     return completion.choices[0].message if completion and completion.choices else None
 
 
-def completion_message_string(completion: ParsedChatCompletion | None) -> str:
+def message_string_from_completion(completion: ParsedChatCompletion | None) -> str:
     if not completion or not completion.choices or not completion.choices[0].message:
         return ""
     return completion.choices[0].message.content or ""
 
 
-def completion_message_dict(completion: ParsedChatCompletion) -> dict[str, Any] | None:
-    message = completion_message(completion)
+def message_dict_from_completion(completion: ParsedChatCompletion) -> dict[str, Any] | None:
+    message = message_from_completion(completion)
     if message:
         if message.parsed:
             if isinstance(message.parsed, BaseModel):

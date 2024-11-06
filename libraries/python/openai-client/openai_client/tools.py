@@ -17,7 +17,7 @@ from openai.types.chat import (
 from . import logger
 from .completion import assistant_message_from_completion
 from .errors import CompletionError, validate_completion
-from .logging import extra_data, serializable_completion_args
+from .logging import add_serializable_data, make_completion_args_serializable
 
 
 async def execute_tool_call(
@@ -31,16 +31,18 @@ async def execute_tool_call(
     if function_registry.has_function(function.name):
         logger.debug(
             "Function call.",
-            extra=extra_data({"name": function.name, "arguments": function.arguments}),
+            extra=add_serializable_data({"name": function.name, "arguments": function.arguments}),
         )
         try:
             kwargs: dict[str, Any] = json.loads(function.arguments)
             value = await function_registry.execute_function_with_string_response(function.name, (), kwargs)
         except Exception as e:
-            logger.error("Error.", extra=extra_data({"error": e}))
+            logger.error("Error.", extra=add_serializable_data({"error": e}))
             value = f"Error: {e}"
         finally:
-            logger.debug("Function response.", extra=extra_data({"tool_call_id": tool_call.id, "content": value}))
+            logger.debug(
+                "Function response.", extra=add_serializable_data({"tool_call_id": tool_call.id, "content": value})
+            )
             return {
                 "role": "tool",
                 "content": value,
@@ -68,7 +70,7 @@ def function_registry_to_tools(function_registry: FunctionRegistry) -> Iterable[
     ]
 
 
-def tool_choice(functions: list[str] | None) -> Iterable[ChatCompletionToolParam] | None:
+def function_list_to_tools(functions: list[str] | None) -> Iterable[ChatCompletionToolParam] | None:
     if not functions:
         return None
     return [
@@ -100,19 +102,21 @@ async def complete_with_tool_calls(
     new_messages: list[ChatCompletionMessageParam] = []
 
     # Completion call.
-    logger.debug("Completion call.", extra=extra_data(serializable_completion_args(completion_args)))
-    metadata["completion_args"] = serializable_completion_args(completion_args)
+    logger.debug("Completion call.", extra=add_serializable_data(make_completion_args_serializable(completion_args)))
+    metadata["completion_args"] = make_completion_args_serializable(completion_args)
     try:
         completion = await async_client.beta.chat.completions.parse(
             **completion_args,
         )
         validate_completion(completion)
-        logger.debug("Completion response.", extra=extra_data({"completion": completion.model_dump()}))
+        logger.debug("Completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
         metadata["completion"] = completion.model_dump()
     except CompletionError as e:
         completion_error = CompletionError(e)
         metadata["completion_error"] = completion_error.message
-        logger.error(e.message, extra=extra_data({"completion_error": completion_error.body, "metadata": metadata}))
+        logger.error(
+            e.message, extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata})
+        )
         raise completion_error from e
 
     # Extract response and add to messages.
@@ -135,21 +139,21 @@ async def complete_with_tool_calls(
     final_args = {**completion_args, "messages": [*messages, *new_messages]}
     del final_args["tools"]
     del final_args["tool_choice"]
-    logger.debug("Tool completion call.", extra=extra_data(serializable_completion_args(final_args)))
-    metadata["tool_completion_args"] = serializable_completion_args(final_args)
+    logger.debug("Tool completion call.", extra=add_serializable_data(make_completion_args_serializable(final_args)))
+    metadata["tool_completion_args"] = make_completion_args_serializable(final_args)
     try:
         tool_completion = await async_client.beta.chat.completions.parse(
             **final_args,
         )
         validate_completion(tool_completion)
-        logger.debug("Tool completion response.", extra=extra_data({"completion": completion.model_dump()}))
+        logger.debug("Tool completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
         metadata["completion"] = completion.model_dump()
     except Exception as e:
         tool_completion_error = CompletionError(e)
         metadata["tool_completion_error"] = tool_completion_error.message
         logger.error(
             tool_completion_error.message,
-            extra=extra_data({"completion_error": tool_completion_error.body, "metadata": metadata}),
+            extra=add_serializable_data({"completion_error": tool_completion_error.body, "metadata": metadata}),
         )
         raise tool_completion_error from e
 

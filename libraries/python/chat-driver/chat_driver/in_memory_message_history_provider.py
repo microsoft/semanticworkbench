@@ -4,10 +4,10 @@ from typing import Any, Iterable
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionMessageToolCallParam
 from openai_client.messages import (
     MessageFormatter,
-    assistant_message,
-    format_message,
-    system_message,
-    user_message,
+    create_assistant_message,
+    create_system_message,
+    create_user_message,
+    format_with_dict,
 )
 
 
@@ -17,7 +17,7 @@ class InMemoryMessageHistoryProvider:
         messages: list[ChatCompletionMessageParam] | None = None,
         formatter: MessageFormatter | None = None,
     ) -> None:
-        self.formatter: MessageFormatter = formatter or format_message
+        self.formatter: MessageFormatter = formatter or format_with_dict
         self.messages = messages or []
 
     async def get(self) -> list[ChatCompletionMessageParam]:
@@ -40,10 +40,10 @@ class InMemoryMessageHistoryProvider:
         self.messages = []
 
     def append_system_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        asyncio.run(self.append(system_message(content, var, self.formatter)))
+        asyncio.run(self.append(create_system_message(content, var, self.formatter)))
 
     def append_user_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        asyncio.run(self.append(user_message(content, var, self.formatter)))
+        asyncio.run(self.append(create_user_message(content, var, self.formatter)))
 
     def append_assistant_message(
         self,
@@ -52,4 +52,4 @@ class InMemoryMessageHistoryProvider:
         tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
         var: dict[str, Any] | None = None,
     ) -> None:
-        asyncio.run(self.append(assistant_message(content, refusal, tool_calls, var, self.formatter)))
+        asyncio.run(self.append(create_assistant_message(content, refusal, tool_calls, var, self.formatter)))

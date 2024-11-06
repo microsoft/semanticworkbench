@@ -8,7 +8,7 @@ from openai import (
 from pydantic import BaseModel
 
 
-def serializable_completion_args(completion_args: dict[str, Any]) -> dict[str, Any]:
+def make_completion_args_serializable(completion_args: dict[str, Any]) -> dict[str, Any]:
     """
     We put the completion args into logs and messages, so it's important that
     they are serializable. This function returns a copy of the completion args
@@ -30,9 +30,9 @@ def serializable_completion_args(completion_args: dict[str, Any]) -> dict[str, A
     return sanitized
 
 
-def extra_data(data: Any) -> dict[str, Any]:
+def add_serializable_data(data: Any) -> dict[str, Any]:
     """
-    Helper function to add extra data to log messages.
+    Helper function to use when adding extra data to log messages.
     """
     extra = {}
 

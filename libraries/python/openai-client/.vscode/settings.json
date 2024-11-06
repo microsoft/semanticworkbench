@@ -38,6 +38,7 @@
   },
   "cSpell.words": [
     "openai",
-    "Pydantic"
+    "Pydantic",
+    "tiktoken"
   ]
 }

@@ -11,10 +11,10 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
-from openai_client.completion import TEXT_RESPONSE_FORMAT, completion_message_string
+from openai_client.completion import TEXT_RESPONSE_FORMAT, message_string_from_completion
 from openai_client.errors import CompletionError
-from openai_client.messages import MessageFormatter, format_message
-from openai_client.tools import complete_with_tool_calls, function_registry_to_tools, tool_choice
+from openai_client.messages import MessageFormatter, format_with_dict
+from openai_client.tools import complete_with_tool_calls, function_list_to_tools, function_registry_to_tools
 from pydantic import BaseModel
 
 from .local_message_history_provider import (
@@ -72,7 +72,7 @@ class ChatDriver:
         self.instructions: list[str] = (
             config.instructions if isinstance(config.instructions, list) else [config.instructions]
         )
-        self.instruction_formatter = config.instruction_formatter or format_message
+        self.instruction_formatter = config.instruction_formatter or format_with_dict
 
         # Now set up the OpenAI client and model.
         self.client = config.openai_client
@@ -178,7 +178,7 @@ class ChatDriver:
             "model": self.model,
             "messages": [*self._formatted_instructions(instruction_parameters), *(await self.message_provider.get())],
             "tools": function_registry_to_tools(self.function_registry),
-            "tool_choice": tool_choice(function_choice),
+            "tool_choice": function_list_to_tools(function_choice),
             "response_format": response_format,
         }
         try:
@@ -198,7 +198,7 @@ class ChatDriver:
         # Return the response.
 
         return MessageEvent(
-            message=completion_message_string(completion) or None,
+            message=message_string_from_completion(completion) or None,
             metadata=metadata,
         )
 
@@ -216,7 +216,7 @@ class ChatDriver:
         with the variables. This method returns a list of system messages formatted
         with the variables.
         """
-        formatter = formatter or format_message
+        formatter = formatter or format_with_dict
         instruction_messages: list[ChatCompletionSystemMessageParam] = []
         for instruction in instructions:
             if vars:
