@@ -1,10 +1,11 @@
-from typing import Any, Callable
+import ast
 import inspect
-from pydantic import BaseModel
 import json
 import logging
+from typing import Any, Callable
+
 from context.context import ContextProtocol
-import ast
+from pydantic import BaseModel
 
 from .function import Function, Parameter
 
@@ -32,13 +33,14 @@ class FunctionRegistry:
 
     def __init__(self, context: ContextProtocol, functions: list[Callable] = []) -> None:
         self.context = context
+
         self.function_map: dict[str, Function] = {}
 
         # By default, every registry has a help function.
-        self.register_function(self.help)
+        self.register_function(self.help, strict_schema=True)
 
         # But the help function can be overridden if you give it another one.
-        self.register_functions(functions)
+        self.register_functions(functions, strict_schema=True)
 
         # This allows actions to be called as attributes.
         self.functions = FunctionHandler(self)
@@ -61,7 +63,7 @@ class FunctionRegistry:
             return True
         return name in self.function_map
 
-    def register_function(self, function: Callable) -> None:
+    def register_function(self, function: Callable, strict_schema: bool = True) -> None:
         # Ensure the first argument of the function is the context.
         if not inspect.signature(function).parameters:
             raise ValueError(f"Function {function.__name__} must have at least one parameter (context: Context).")
@@ -87,16 +89,17 @@ class FunctionRegistry:
             description=inspect.getdoc(function) or function.__name__.replace("_", " ").title(),
             fn=function,
             parameters=params,
+            strict_schema=strict_schema,
         )
 
-    def register_functions(self, functions: list[Callable]) -> None:
+    def register_functions(self, functions: list[Callable], strict_schema: bool = True) -> None:
         for function in functions:
             if function.__name__ in self.function_map:
                 logging.warning(f"Function {function.__name__} already registered.")
                 continue
             if not callable(function):
                 raise ValueError(f"Function {function} is not callable.")
-            self.register_function(function)
+            self.register_function(function, strict_schema=strict_schema)
 
     async def execute_function(self, name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
         """Run a registered function by name. Passes the context as the first argument."""
@@ -105,7 +108,7 @@ class FunctionRegistry:
             raise ValueError(f"Function {name} not found in registry.")
         return await function.execute(self.context, *args, **kwargs)
 
-    async def execute_function_with_string_response(self, name: str, *args, **kwargs) -> str:
+    async def execute_function_with_string_response(self, name: str, args: tuple, kwargs: dict[str, Any]) -> str:
         """Run a registered function by name and return a string response."""
         try:
             result = await self.execute_function(name, args, kwargs)

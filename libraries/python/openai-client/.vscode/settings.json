@@ -35,5 +35,9 @@
     "**/.venv": true,
     "**/.data": true,
     "**/__pycache__": true
-  }
+  },
+  "cSpell.words": [
+    "openai",
+    "Pydantic"
+  ]
 }
