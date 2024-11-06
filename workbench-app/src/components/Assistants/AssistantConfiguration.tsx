@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Card, Divider, makeStyles, shorthands, Text, tokens } from '@fluentui/react-components';
+import { Button, Divider, makeStyles, shorthands, Text, tokens } from '@fluentui/react-components';
 import { Warning24Filled } from '@fluentui/react-icons';
 import Form from '@rjsf/fluentui-rc';
 import { RegistryWidgetsType, RJSFSchema } from '@rjsf/utils';
@@ -26,8 +26,10 @@ import { AssistantConfigImportButton } from './AssistantConfigImportButton';
 const log = debug(Constants.debug.root).extend('AssistantEdit');
 
 const useClasses = makeStyles({
-    card: {
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
+    root: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
     },
     actions: {
         position: 'sticky',
@@ -51,10 +53,11 @@ const useClasses = makeStyles({
 
 interface AssistantConfigurationProps {
     assistant: Assistant;
+    onIsDirtyChange?: (isDirty: boolean) => void;
 }
 
 export const AssistantConfiguration: React.FC<AssistantConfigurationProps> = (props) => {
-    const { assistant } = props;
+    const { assistant, onIsDirtyChange } = props;
     const classes = useClasses();
     const {
         data: config,
@@ -70,6 +73,12 @@ export const AssistantConfiguration: React.FC<AssistantConfigurationProps> = (pr
     React.useEffect(() => {
         setConfigErrorMessage(configError ? JSON.stringify(configError) : undefined);
     }, [configError]);
+
+    React.useEffect(() => {
+        if (onIsDirtyChange) {
+            onIsDirtyChange(isDirty);
+        }
+    }, [isDirty, onIsDirtyChange]);
 
     React.useEffect(() => {
         if (isLoadingConfig) return;
@@ -137,7 +146,7 @@ export const AssistantConfiguration: React.FC<AssistantConfigurationProps> = (pr
     }
 
     return (
-        <Card className={classes.card}>
+        <div className={classes.root}>
             <Text size={400} weight="semibold">
                 Assistant Configuration
             </Text>
@@ -216,7 +225,7 @@ export const AssistantConfiguration: React.FC<AssistantConfigurationProps> = (pr
                     />
                 </>
             )}
-        </Card>
+        </div>
     );
 };
 

@@ -3,33 +3,23 @@ import React from 'react';
 import { Assistant } from '../../../models/Assistant';
 import { Conversation } from '../../../models/Conversation';
 import { AssistantCanvasList } from '../../Conversations/Canvas/AssistantCanvasList';
-import { CanvasDrawer } from './CanvasDrawer';
+import { CanvasDrawer, CanvasDrawerOptions } from './CanvasDrawer';
 
 const useClasses = makeStyles({
-    drawer: {
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
-    },
-    drawerOpenInline: {
-        width: 'calc(100vw - 500px)',
-    },
-    drawerOpenOverlay: {
-        width: '100%',
-    },
     noContent: {
         padding: tokens.spacingHorizontalM,
     },
 });
 
 interface AssistantDrawerProps {
-    open: boolean;
-    mode: 'inline' | 'overlay';
+    drawerOptions: CanvasDrawerOptions;
     conversation: Conversation;
     conversationAssistants?: Assistant[];
     selectedAssistant?: Assistant;
 }
 
 export const AssistantDrawer: React.FC<AssistantDrawerProps> = (props) => {
-    const { open, mode, conversation, conversationAssistants, selectedAssistant } = props;
+    const { drawerOptions, conversation, conversationAssistants, selectedAssistant } = props;
     const classes = useClasses();
 
     let title = '';
@@ -50,16 +40,14 @@ export const AssistantDrawer: React.FC<AssistantDrawerProps> = (props) => {
             <div className={classes.noContent}>No assistants participating in conversation.</div>
         );
 
-    return (
-        <CanvasDrawer
-            openClassName={mode === 'inline' ? classes.drawerOpenInline : classes.drawerOpenOverlay}
-            className={classes.drawer}
-            open={open}
-            mode={mode}
-            side="right"
-            title={title}
-        >
-            {canvasContent}
-        </CanvasDrawer>
+    const options = React.useMemo(
+        () => ({
+            ...drawerOptions,
+            title,
+            resizable: true,
+        }),
+        [drawerOptions, title],
     );
+
+    return <CanvasDrawer options={options}>{canvasContent}</CanvasDrawer>;
 };

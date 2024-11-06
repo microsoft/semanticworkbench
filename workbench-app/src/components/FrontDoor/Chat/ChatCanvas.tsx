@@ -36,26 +36,6 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = (props) => {
     const chatCanvasController = useChatCanvasController();
     const [firstRun, setFirstRun] = React.useState(true);
     const [selectedAssistant, setSelectedAssistant] = React.useState<Assistant>();
-    const [drawerMode, setDrawerMode] = React.useState<'inline' | 'overlay'>('inline');
-
-    const onMediaQueryChange = React.useCallback(
-        (matches: boolean) => setDrawerMode(matches ? 'overlay' : 'inline'),
-        [setDrawerMode],
-    );
-
-    React.useEffect(() => {
-        const mediaQuery = window.matchMedia(`(max-width: ${Constants.app.responsiveBreakpoints.chatCanvas})`);
-
-        if (mediaQuery.matches) {
-            setDrawerMode('overlay');
-        }
-
-        mediaQuery.addEventListener('change', (event) => onMediaQueryChange(event.matches));
-
-        return () => {
-            mediaQuery.removeEventListener('change', (event) => onMediaQueryChange(event.matches));
-        };
-    }, [onMediaQueryChange]);
 
     // Set the selected assistant based on the chat canvas state
     React.useEffect(() => {
@@ -107,12 +87,12 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = (props) => {
 
     // Determine which drawer to open, default to none
     const openDrawer = chatCanvasState.open ? chatCanvasState.mode : 'none';
-
     return (
         <>
             <ConversationDrawer
-                open={openDrawer === 'conversation'}
-                mode={drawerMode}
+                drawerOptions={{
+                    open: openDrawer === 'conversation',
+                }}
                 readOnly={readOnly}
                 conversation={conversation}
                 conversationParticipants={conversationParticipants}
@@ -120,8 +100,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = (props) => {
                 preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
             />
             <AssistantDrawer
-                open={openDrawer === 'assistant'}
-                mode={drawerMode}
+                drawerOptions={{
+                    open: openDrawer === 'assistant',
+                }}
                 conversation={conversation}
                 conversationAssistants={conversationAssistants}
                 selectedAssistant={selectedAssistant}
