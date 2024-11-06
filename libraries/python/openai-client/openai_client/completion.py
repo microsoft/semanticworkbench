@@ -34,13 +34,13 @@ def message_from_completion(completion: ParsedChatCompletion) -> ParsedChatCompl
     return completion.choices[0].message if completion and completion.choices else None
 
 
-def message_string_from_completion(completion: ParsedChatCompletion | None) -> str:
+def message_content_from_completion(completion: ParsedChatCompletion | None) -> str:
     if not completion or not completion.choices or not completion.choices[0].message:
         return ""
     return completion.choices[0].message.content or ""
 
 
-def message_dict_from_completion(completion: ParsedChatCompletion) -> dict[str, Any] | None:
+def message_content_dict_from_completion(completion: ParsedChatCompletion) -> dict[str, Any] | None:
     message = message_from_completion(completion)
     if message:
         if message.parsed:

@@ -83,27 +83,27 @@ def apply_truncation_to_dict(dict_: dict, maximum_length: int, filler_text: str)
 MessageFormatter = Callable[[str, dict[str, Any]], str]
 
 
-def format_with_dict(message: str, vars: dict[str, Any]) -> str:
+def format_with_dict(value: str, vars: dict[str, Any]) -> str:
     """
-    Format a message with the given variables using the Python format method.
+    Format a string with the given variables using the Python format method.
     """
-    if message and vars:
+    if value and vars:
         for key, value in vars.items():
             try:
-                message = message.format(**{key: value})
+                value = value.format(**{key: value})
             except KeyError:
                 pass
-    return message
+    return value
 
 
-def format_with_liquid(message: str, vars: dict[str, Any]) -> str:
+def format_with_liquid(value: str, vars: dict[str, Any]) -> str:
     """
-    Format a message with the given variables using the Liquid template engine.
+    Format a string with the given variables using the Liquid template engine.
     """
-    out = message
-    if not message:
-        return message
-    template = Template(message)
+    out = value
+    if not value:
+        return value
+    template = Template(value)
     out = template.render(**vars)
     return out
 
