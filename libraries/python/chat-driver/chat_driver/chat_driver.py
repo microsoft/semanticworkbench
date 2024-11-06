@@ -11,7 +11,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
-from openai_client.completion import TEXT_RESPONSE_FORMAT, message_string_from_completion
+from openai_client.completion import TEXT_RESPONSE_FORMAT, message_content_from_completion
 from openai_client.errors import CompletionError
 from openai_client.messages import MessageFormatter, format_with_dict
 from openai_client.tools import complete_with_tool_calls, function_list_to_tools, function_registry_to_tools
@@ -198,7 +198,7 @@ class ChatDriver:
         # Return the response.
 
         return MessageEvent(
-            message=message_string_from_completion(completion) or None,
+            message=message_content_from_completion(completion) or None,
             metadata=metadata,
         )
 
