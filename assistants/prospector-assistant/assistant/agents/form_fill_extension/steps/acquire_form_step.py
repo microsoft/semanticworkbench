@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from textwrap import dedent
 
 from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
@@ -37,16 +38,14 @@ definition = GuidedConversationDefinition(
         "Politely request another file if the provided file is not a form.",
         "Terminate conversation if inappropriate content is requested.",
     ],
-    conversation_flow=(
-        """
+    conversation_flow=dedent("""
         1. Inform the user that our goal is to help the user fill out a form.
         2. Ask the user to provide a file that contains a form. The file can be PDF, TXT, or DOCX.
         3. When you receive a file, determine if the file looks to be a form.
         4. If the file is not a form, inform the user that the file is not a form. Ask them to provide a different file.
         5. If the form is a file, update the artifcat with the title and filename of the form.
         6. Inform the user that you will now extract the form fields, so that you can assist them in filling it out.
-        """
-    ),
+    """).strip(),
     context="",
     resource_constraint=ResourceConstraintDefinition(
         quantity=5,

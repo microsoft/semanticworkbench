@@ -39,15 +39,15 @@ definition = GuidedConversationDefinition(
         "When asking for data to fill the form, always ask for a single piece of information at a time. Never ask for multiple pieces of information in a single prompt, ex: 'Please provide field Y, and additionally, field X'.",
         "Terminate conversation if inappropriate content is requested.",
     ],
-    conversation_flow="""
-1. Inform the user that we've received the form and determined the fields in the form.
-2. Inform the user that our goal is help them fill out the form.
-3. Ask the user to provide one or more files that might contain data relevant to fill out the form. The files can be PDF, TXT, or DOCX.
-4. When asking for files, suggest types of documents that might contain the data.
-5. For each field in the form, check if the data is available in the provided files.
-6. If the data is not available in the files, ask the user for the data.
-8. When the form is filled out, inform the user that you will now generate a document containing the filled form.
-""",
+    conversation_flow=dedent("""
+        1. Inform the user that we've received the form and determined the fields in the form.
+        2. Inform the user that our goal is help them fill out the form.
+        3. Ask the user to provide one or more files that might contain data relevant to fill out the form. The files can be PDF, TXT, or DOCX.
+        4. When asking for files, suggest types of documents that might contain the data.
+        5. For each field in the form, check if the data is available in the provided files.
+        6. If the data is not available in the files, ask the user for the data.
+        7. When the form is filled out, inform the user that you will now generate a document containing the filled form.
+    """).strip(),
     context="",
     resource_constraint=ResourceConstraintDefinition(
         quantity=15,
