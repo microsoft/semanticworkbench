@@ -8,7 +8,7 @@ from semantic_workbench_assistant.config import UISchema
 
 from . import helpers
 from .agents.artifact_agent import ArtifactAgentConfigModel
-from .agents.form_fill_agent import FormFillAgentConfig
+from .agents.form_fill_extension import FormFillConfig
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -26,9 +26,7 @@ from .agents.form_fill_agent import FormFillAgentConfig
 
 
 class AgentsConfigModel(BaseModel):
-    form_fill_agent: Annotated[FormFillAgentConfig, Field(title="Form Fill Agent Configuration")] = (
-        FormFillAgentConfig()
-    )
+    form_fill_agent: Annotated[FormFillConfig, Field(title="Form Fill Agent Configuration")] = FormFillConfig()
 
     artifact_agent: Annotated[
         ArtifactAgentConfigModel,

@@ -26,7 +26,7 @@ from .document.config import GuidedConversationAgentConfigModel
 from .document.gc_attachment_check_config import GCAttachmentCheckConfigModel
 from .document.gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
 from .document.guided_conversation import GuidedConversationAgent
-from .document.status import Status
+from .document.status import Status, StepName
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +34,6 @@ logger = logging.getLogger(__name__)
 #
 # region state, mode, and steps
 #
-
-
-class StepName(StrEnum):
-    UNDEFINED = "undefined"
-    DO_GC_ATTACHMENT_CHECK = "step_gc_attachment_check"
-    DO_DRAFT_OUTLINE = "step_draft_outline"
-    DO_GC_GET_OUTLINE_FEEDBACK = "step_gc_get_outline_feedback"
-    DO_FINAL_OUTLINE = "step_final_outline"
 
 
 class ModeName(StrEnum):
@@ -385,7 +377,7 @@ class DocumentAgent:
             step_method = self._get_step_method(step)
             if step_method:
                 logger.info("Document Agent in step: %s", step_name)
-                step_status = await step_method(config, context, message, metadata)
+                step_status, next_step_name = await step_method(config, context, message, metadata)
 
                 match step_status:  # resulting status of step_method()
                     case Status.NOT_COMPLETED:
@@ -394,18 +386,26 @@ class DocumentAgent:
                         break  # ok - get more user input
 
                     case Status.USER_COMPLETED:
-                        next_step = self._state.mode.get_next_step()
-                        if next_step is not None:
-                            step = next_step
-                            step_name = next_step.get_name()
-                            step_status = next_step.get_status()  # new step is Status.INITIATED
-                            self._state.mode.set_step(next_step)
+                        if next_step_name is not None:
+                            step = Step(name=next_step_name, status=Status.INITIATED)
+                            step_name = step.get_name()
+                            step_status = step.get_status()
+                            self._state.mode.set_step(step)
                             self._write_state(context)
                             continue  # ok - don't need user input yet
-                        else:
-                            self._state.mode.get_step().set_status(step_status)
-                            self._state.mode.set_status(step_status)
-                            break  # ok - all done :)
+                        else:  # go with prescribed order?  Not sure if we want this long term, or just go with above
+                            next_step = self._state.mode.get_next_step()
+                            if next_step is not None:
+                                step = next_step
+                                step_name = next_step.get_name()
+                                step_status = next_step.get_status()  # new step is Status.INITIATED
+                                self._state.mode.set_step(next_step)
+                                self._write_state(context)
+                                continue  # ok - don't need user input yet
+                            else:
+                                self._state.mode.get_step().set_status(step_status)
+                                self._state.mode.set_status(step_status)
+                                break  # ok - all done :)
 
                     case Status.USER_EXIT_EARLY:
                         self._state.mode.get_step().set_status(step_status)
@@ -470,7 +470,7 @@ class DocumentAgent:
                     StepName.DO_GC_ATTACHMENT_CHECK,
                     StepName.DO_DRAFT_OUTLINE,
                     StepName.DO_GC_GET_OUTLINE_FEEDBACK,
-                    StepName.DO_FINAL_OUTLINE,
+                    StepName.DO_FINISH,
                 ],
             )
             logger.info("Document Agent mode (%s) at beginning.", mode_name)
@@ -482,7 +482,7 @@ class DocumentAgent:
             StepName.DO_GC_ATTACHMENT_CHECK: self._step_gc_attachment_check,
             StepName.DO_DRAFT_OUTLINE: self._step_draft_outline,
             StepName.DO_GC_GET_OUTLINE_FEEDBACK: self._step_gc_get_outline_feedback,
-            StepName.DO_FINAL_OUTLINE: self._step_final_outline,
+            StepName.DO_FINISH: self._step_finish,
         }
 
         # Run
@@ -494,11 +494,13 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> Status:
+    ) -> tuple[Status, StepName | None]:
+        next_step = None
+
         # Pre-requisites
         if self._state is None:
             logger.error("Document Agent state is None. Returning.")
-            return Status.UNDEFINED
+            return Status.UNDEFINED, next_step
 
         step = self._state.mode.get_step()
         step_name = step.get_name()
@@ -517,15 +519,15 @@ class DocumentAgent:
             )
             self._state.mode.reset()
             self._write_state(context)
-            return self._state.mode.get_status()
+            return self._state.mode.get_status(), next_step
 
         # Run
         logger.info("Document Agent running step: %s", step_name)
-        status = await self._gc_attachment_check(config, context, message, metadata)
+        status, next_step_name = await self._gc_attachment_check(config, context, message, metadata)
         step.set_status(status)
         self._state.mode.set_step(step)
         self._write_state(context)
-        return step.get_status()
+        return step.get_status(), next_step_name
 
     async def _step_draft_outline(
         self,
@@ -533,11 +535,13 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> Status:
+    ) -> tuple[Status, StepName | None]:
+        next_step = None
+
         # Pre-requisites
         if self._state is None:
             logger.error("Document Agent state is None. Returning.")
-            return Status.UNDEFINED
+            return Status.UNDEFINED, next_step
 
         step = self._state.mode.get_step()
         step_name = step.get_name()
@@ -555,15 +559,15 @@ class DocumentAgent:
             )
             self._state.mode.reset()
             self._write_state(context)
-            return self._state.mode.get_status()
+            return self._state.mode.get_status(), next_step
 
         # Run
         logger.info("Document Agent running step: %s", step_name)
-        status = await self._draft_outline(config, context, message, metadata)
+        status, next_step_name = await self._draft_outline(config, context, message, metadata)
         step.set_status(status)
         self._state.mode.set_step(step)
         self._write_state(context)
-        return step.get_status()
+        return step.get_status(), next_step_name
 
     async def _step_gc_get_outline_feedback(
         self,
@@ -571,11 +575,13 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> Status:
+    ) -> tuple[Status, StepName | None]:
+        next_step_name = None
+
         # Pre-requisites
         if self._state is None:
             logger.error("Document Agent state is None. Returning.")
-            return Status.UNDEFINED
+            return Status.UNDEFINED, next_step_name
 
         step = self._state.mode.get_step()
         step_name = step.get_name()
@@ -594,7 +600,7 @@ class DocumentAgent:
             )
             self._state.mode.reset()
             self._write_state(context)
-            return self._state.mode.get_status()
+            return self._state.mode.get_status(), next_step_name
 
         # Run
         user_message: ConversationMessage | None
@@ -604,29 +610,22 @@ class DocumentAgent:
             user_message = message
 
         logger.info("Document Agent running step: %s", step_name)
-        status = await self._gc_outline_feedback(config, context, user_message, metadata)
-
-        # should this be status or a different return as part of a tuple... like next step request?
-        # this way the control would still be higher (and non recursive) as the branching logic will return instead of call internally the next step.
-        # but controlling of what gets called next will be determined by each step at its completion.  it seems like there should still be
-        # some level of oversight by the mode layer in case we end up in an endless loop of steps saying the should each be called next...(still a problem.)
-        if status is Status.UPDATE_OUTLINE:
-            status = await self._draft_outline(config, context, message, metadata)
+        status, next_step_name = await self._gc_outline_feedback(config, context, user_message, metadata)
 
         step.set_status(status)
         self._state.mode.set_step(step)
         self._write_state(context)
-        return step.get_status()
+        return step.get_status(), next_step_name
 
-    async def _step_final_outline(
+    async def _step_finish(
         self,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> Status:
+    ) -> tuple[Status, StepName | None]:
         # pretend completed
-        return Status.USER_COMPLETED
+        return Status.USER_COMPLETED, None
 
     # endregion
 
@@ -640,7 +639,7 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> Status:
+    ) -> tuple[Status, StepName | None]:
         method_metadata_key = "document_agent_gc_response"
 
         gc_convo_config: GuidedConversationAgentConfigModel = GCAttachmentCheckConfigModel()
@@ -654,7 +653,7 @@ class DocumentAgent:
         gc_convo_config.context = gc_convo_config.context + "\n\n" + filenames_str
 
         try:
-            response_message, conversation_status = await GuidedConversationAgent.step_conversation(
+            response_message, conversation_status, next_step_name = await GuidedConversationAgent.step_conversation(
                 config=config,
                 openai_client=openai_client.create_client(config.service_config),
                 agent_config=gc_convo_config,
@@ -697,7 +696,7 @@ class DocumentAgent:
         # Need to add a good way to stop mode if an exception occurs.
         # Also need to update the gc state turn count to 0 (and any thing else that needs to be reset) once conversation is over... or exception occurs?)
 
-        return conversation_status
+        return conversation_status, next_step_name
 
     async def _draft_outline(
         self,
@@ -705,7 +704,7 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
-    ) -> Status:
+    ) -> tuple[Status, StepName | None]:
         method_metadata_key = "draft_outline"
 
         # get conversation related info
@@ -771,7 +770,7 @@ class DocumentAgent:
             )
         )
 
-        return Status.USER_COMPLETED
+        return Status.USER_COMPLETED, None
 
     async def _gc_outline_feedback(
         self,
@@ -779,7 +778,7 @@ class DocumentAgent:
         context: ConversationContext,
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
-    ) -> Status:
+    ) -> tuple[Status, StepName | None]:
         method_metadata_key = "document_agent_gc_response"
 
         gc_do_feedback_config: GuidedConversationAgentConfigModel = GCDraftOutlineFeedbackConfigModel()
@@ -807,7 +806,7 @@ class DocumentAgent:
             user_message = None
 
         try:
-            response_message, conversation_status = await GuidedConversationAgent.step_conversation(
+            response_message, conversation_status, next_step_name = await GuidedConversationAgent.step_conversation(
                 config=config,
                 openai_client=openai_client.create_client(config.service_config),
                 agent_config=gc_do_feedback_config,
@@ -850,7 +849,7 @@ class DocumentAgent:
         # Need to add a good way to stop mode if an exception occurs.
         # Also need to update the gc state turn count to 0 (and any thing else that needs to be reset) once conversation is over... or exception occurs?)
 
-        return conversation_status
+        return conversation_status, next_step_name
 
     # endregion
 
@@ -920,7 +919,7 @@ def _on_success_metadata_update(
                 f"{method_metadata_key}": {
                     "request": {
                         "model": config.request_config.openai_model,
-                        "messages": openai_client.truncate_messages_for_logging(chat_completion_messages),
+                        "messages": chat_completion_messages,
                         "max_tokens": config.request_config.response_tokens,
                     },
                     "response": completion.model_dump() if completion else "[no response from openai]",
@@ -944,7 +943,7 @@ def _on_error_metadata_update(
                 f"{method_metadata_key}": {
                     "request": {
                         "model": config.request_config.openai_model,
-                        "messages": openai_client.truncate_messages_for_logging(chat_completion_messages),
+                        "messages": chat_completion_messages,
                     },
                     "error": str(e),
                 },
