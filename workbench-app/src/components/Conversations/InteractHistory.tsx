@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 import { CopilotChat, ResponseCount } from '@fluentui-copilot/react-copilot';
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
-import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -11,11 +10,11 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
 import { Utility } from '../../libs/Utility';
-import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
+import { useConversationEvents } from '../../libs/useConversationEvents';
 import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useEnvironment } from '../../libs/useEnvironment';
 import { Conversation } from '../../models/Conversation';
-import { ConversationMessage, conversationMessageFromJSON } from '../../models/ConversationMessage';
+import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch } from '../../redux/app/hooks';
 import {
@@ -63,6 +62,11 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     const classes = useClasses();
     const { hash } = useLocation();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
+    const [mayHaveEarlierMessages, setMayHaveEarlierMessages] = React.useState<boolean>(true);
+    const [isAtTop, setIsAtTop] = React.useState<boolean>(false);
+    const [isAtBottom, setIsAtBottom] = React.useState<boolean>(true);
+    const [before, setBefore] = React.useState<string>();
+    const [after, setAfter] = React.useState<string>();
     const [hashItemIndex, setHashItemIndex] = React.useState<number>();
     const { setLastRead } = useConversationUtility();
     const environment = useEnvironment();
@@ -74,24 +78,91 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         isLoading: isLoadingMessages,
     } = useGetConversationMessagesQuery({ conversationId: conversation.id });
 
+    const onMessageCreated = React.useCallback(() => {
+        dispatch(
+            conversationApi.endpoints.getConversationMessages.initiate(
+                { conversationId: conversation.id },
+                {
+                    forceRefetch: true,
+                },
+            ),
+        );
+    }, [dispatch, conversation.id]);
+
+    const onMessageDeleted = React.useCallback(
+        (messageId: string) => {
+            dispatch(
+                conversationApi.endpoints.getConversationMessages.initiate(
+                    { conversationId: conversation.id },
+                    {
+                        forceRefetch: true,
+                    },
+                ),
+            );
+        },
+        [dispatch, conversation.id],
+    );
+
+    const onParticipantCreated = React.useCallback(
+        (participant: ConversationParticipant) => {
+            dispatch(updateGetConversationParticipantsQueryData(conversation.id, { participant, participants }));
+        },
+        [dispatch, conversation.id, participants],
+    );
+
+    const onParticipantUpdated = React.useCallback(
+        (participant: ConversationParticipant) => {
+            dispatch(updateGetConversationParticipantsQueryData(conversation.id, { participant, participants }));
+        },
+        [dispatch, conversation.id, participants],
+    );
+
+    useConversationEvents(conversation.id, {
+        onMessageCreated,
+        onMessageDeleted,
+        onParticipantCreated,
+        onParticipantUpdated,
+    });
+
     if (getMessagesError) {
         const errorMessage = JSON.stringify(getMessagesError);
         throw new Error(`Error loading messages: ${errorMessage}`);
     }
 
     const virtuosoRef = React.useRef<VirtuosoHandle>(null);
-    const [shouldAutoScroll, setShouldAutoScroll] = React.useState<boolean>(true);
+
+    // React.useEffect(() => {
+    //     if (isAtTop && mayHaveEarlierMessages && !isLoadingMessages) {
+    //         const new_messages = await dispatch(
+    //             conversationApi.endpoints.getConversationMessages.initiate(
+    //                 { conversationId: conversation.id, before },
+    //                 {
+    //                     forceRefetch: true,
+    //                 },
+    //             ),
+    //         ).unwrap();
+    //     }
+    // }, [isAtTop, mayHaveEarlierMessages, isLoadingMessages, handleLoadMore, dispatch, conversation.id, before]);
 
     // create a function to scroll to the bottom of the chat
     // to be used whenever we need to force a scroll to the bottom
     const performScrollToBottom = React.useCallback(() => {
-        if (shouldAutoScroll) {
+        if (isAtBottom) {
             // wait a tick for the DOM to update
             setTimeout(() => {
                 virtuosoRef.current?.scrollToIndex({ index: items.length - 1 });
             }, 0);
         }
-    }, [items.length, shouldAutoScroll]);
+    }, [items.length, isAtBottom]);
+
+    // const performScrollToTop = React.useCallback(() => {
+    //     if (isAtTop) {
+    //         // wait a tick for the DOM to update
+    //         setTimeout(() => {
+    //             virtuosoRef.current?.scrollToIndex({ index: 0 });
+    //         }, 0);
+    //     }
+    // }, [isAtTop]);
 
     // scroll to the bottom when the component mounts
     // and whenever the items change, such as when new messages are added
@@ -107,6 +178,50 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
             }, 0);
         }
     }, [hashItemIndex]);
+
+    // // handle loading more messages when scrolling to the top or bottom
+    // const handleLoadMore = React.useCallback(
+    //     (direction: 'top' | 'bottom') => {
+    //         if (isLoadingMessages || !messages) {
+    //             return;
+    //         }
+    //         if (direction === 'top' && messages.length > 0) {
+    //             setBefore(messages[0].id);
+    //         } else if (direction === 'bottom' && messages.length > 0) {
+    //             setAfter(messages[messages.length - 1].id);
+    //         }
+    //     },
+    //     [isLoadingMessages, messages],
+    // );
+
+    // // attach scroll event listener to load more messages
+    // React.useEffect(() => {
+    //     const virtuoso = virtuosoRef.current;
+    //     if (virtuoso) {
+    //         virtuoso.scrollToIndex({
+    //             // index: 0,
+    //             index: items.length - 1,
+    //             behavior: 'auto',
+    //         });
+
+    //         const handleScroll = () => {
+    //             const scrollTop = virtuoso.scrollTop;
+    //             const scrollHeight = virtuoso.scrollHeight;
+    //             const clientHeight = virtuoso.clientHeight;
+
+    //             if (scrollTop === 0) {
+    //                 handleLoadMore('top');
+    //             } else if (scrollTop + clientHeight >= scrollHeight) {
+    //                 handleLoadMore('bottom');
+    //             }
+    //         };
+
+    //         virtuoso.addEventListener('scroll', handleScroll);
+    //         return () => {
+    //             virtuoso.removeEventListener('scroll', handleScroll);
+    //         };
+    //     }
+    // }, [handleLoadMore, items.length]);
 
     // scroll to the bottom when the participant status changes
     const handleParticipantStatusChange = React.useCallback(() => {
@@ -235,82 +350,6 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         readOnly,
     ]);
 
-    React.useEffect(() => {
-        if (isLoadingMessages || !messages) {
-            return;
-        }
-
-        // handle new message events
-        const messageHandler = async (event: EventSourceMessage) => {
-            const { data } = JSON.parse(event.data);
-            const parsedEventData = {
-                timestamp: data.timestamp,
-                data: {
-                    message: conversationMessageFromJSON(data.message),
-                },
-            };
-
-            if (parsedEventData.data.message.messageType === 'log') {
-                // ignore log messages
-                return;
-            }
-
-            dispatch(
-                conversationApi.endpoints.getConversationMessages.initiate(
-                    { conversationId: conversation.id },
-                    {
-                        forceRefetch: true,
-                    },
-                ),
-            );
-        };
-
-        // handle participant events
-        const handleParticipantEvent = (event: {
-            timestamp: string;
-            data: {
-                participant: ConversationParticipant;
-                participants: ConversationParticipant[];
-            };
-        }) => {
-            // update the conversation participants in the cache
-            dispatch(updateGetConversationParticipantsQueryData(conversation.id, event.data));
-        };
-
-        const participantCreatedHandler = (event: EventSourceMessage) => {
-            handleParticipantEvent(JSON.parse(event.data));
-        };
-
-        const participantUpdatedHandler = (event: EventSourceMessage) => {
-            handleParticipantEvent(JSON.parse(event.data));
-        };
-
-        (async () => {
-            // create or update the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
-                environment.url,
-                WorkbenchEventSourceType.Conversation,
-                conversation.id,
-            );
-            workbenchEventSource.addEventListener('message.created', messageHandler);
-            workbenchEventSource.addEventListener('message.deleted', messageHandler);
-            workbenchEventSource.addEventListener('participant.created', participantCreatedHandler);
-            workbenchEventSource.addEventListener('participant.updated', participantUpdatedHandler);
-        })();
-
-        return () => {
-            (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance(
-                    WorkbenchEventSourceType.Conversation,
-                );
-                workbenchEventSource.removeEventListener('message.created', messageHandler);
-                workbenchEventSource.removeEventListener('message.deleted', messageHandler);
-                workbenchEventSource.removeEventListener('participant.created', participantCreatedHandler);
-                workbenchEventSource.removeEventListener('participant.updated', participantUpdatedHandler);
-            })();
-        };
-    }, [conversation.id, dispatch, environment.url, isLoadingMessages, messages]);
-
     if (isLoadingMessages || !messages) {
         return <Loading />;
     }
@@ -327,13 +366,8 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         itemContent={(_index, item) => item}
                         initialTopMostItemIndex={items.length}
                         atBottomThreshold={Constants.app.autoScrollThreshold}
-                        atBottomStateChange={(isAtBottom) => {
-                            if (isAtBottom) {
-                                setShouldAutoScroll(true);
-                            } else {
-                                setShouldAutoScroll(false);
-                            }
-                        }}
+                        atTopStateChange={(isAtTop) => setIsAtTop(isAtTop)}
+                        atBottomStateChange={(isAtBottom) => setIsAtBottom(isAtBottom)}
                     />
                 )}
             </AutoSizer>
