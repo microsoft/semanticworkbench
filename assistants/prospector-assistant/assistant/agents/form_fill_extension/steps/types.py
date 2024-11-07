@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from typing import Annotated, Awaitable, Callable, Generic, Sequence, TypeVar
+from typing import Annotated, AsyncIterable, Callable, Generic, TypeVar
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
@@ -19,11 +18,23 @@ ConfigT = TypeVar("ConfigT", bound=BaseModel)
 
 
 @dataclass
+class UserAttachment:
+    filename: str
+    content: str
+
+
+@dataclass
+class UserInput:
+    message: str | None
+    attachments: AsyncIterable[UserAttachment]
+
+
+@dataclass
 class Context(Generic[ConfigT]):
     context: ConversationContext
     llm_config: LLMConfig
     config: ConfigT
-    get_attachment_messages: Callable[[Sequence[str]], Awaitable[Sequence[ChatCompletionMessageParam]]]
+    latest_user_input: UserInput
 
 
 @dataclass
@@ -33,12 +44,11 @@ class Result:
 
 @dataclass
 class IncompleteResult(Result):
-    ai_message: str
+    message: str
 
 
 @dataclass
-class IncompleteErrorResult(Result):
-    error_message: str
+class IncompleteErrorResult(IncompleteResult): ...
 
 
 class ResourceConstraintDefinition(BaseModel):

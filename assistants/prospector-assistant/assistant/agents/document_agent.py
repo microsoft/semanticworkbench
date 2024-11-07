@@ -920,7 +920,7 @@ def _on_success_metadata_update(
                 f"{method_metadata_key}": {
                     "request": {
                         "model": config.request_config.openai_model,
-                        "messages": openai_client.truncate_messages_for_logging(chat_completion_messages),
+                        "messages": chat_completion_messages,
                         "max_tokens": config.request_config.response_tokens,
                     },
                     "response": completion.model_dump() if completion else "[no response from openai]",
@@ -944,7 +944,7 @@ def _on_error_metadata_update(
                 f"{method_metadata_key}": {
                     "request": {
                         "model": config.request_config.openai_model,
-                        "messages": openai_client.truncate_messages_for_logging(chat_completion_messages),
+                        "messages": chat_completion_messages,
                     },
                     "error": str(e),
                 },
