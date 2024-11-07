@@ -177,6 +177,44 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         [setLastRead, conversation],
     );
 
+    // handler for when a conversation is rewound
+    const handleOnRewind = React.useCallback(
+        async (message: ConversationMessage, redo: boolean) => {
+            if (!messages) {
+                return;
+            }
+
+            // find the index of the message to rewind to
+            const messageIndex = messages?.findIndex((possibleMessage) => possibleMessage.id === message.id);
+
+            // if the message is not found, do nothing
+            if (messageIndex === -1) {
+                return;
+            }
+
+            // delete all messages from the message to the end of the conversation
+            for (let i = messageIndex; i < messages.length; i++) {
+                await dispatch(
+                    conversationApi.endpoints.deleteConversationMessage.initiate({
+                        conversationId: conversation.id,
+                        messageId: messages[i].id,
+                    }),
+                );
+            }
+
+            // if redo is true, create a new message with the same content as the message to redo
+            if (redo) {
+                await dispatch(
+                    conversationApi.endpoints.createConversationMessage.initiate({
+                        conversationId: conversation.id,
+                        ...message,
+                    }),
+                );
+            }
+        },
+        [conversation.id, dispatch, messages],
+    );
+
     // create a ref for the virtuoso component for using its methods directly
     const virtuosoRef = React.useRef<VirtuosoHandle>(null);
 
@@ -262,6 +300,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                             hideParticipant={hideParticipant}
                             displayDate={displayDate}
                             onRead={handleOnRead}
+                            onRewind={handleOnRewind}
                         />
                     </div>
                 );
@@ -300,6 +339,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         classes.status,
         conversation,
         handleOnRead,
+        handleOnRewind,
         hash,
         hashItemIndex,
         isAtBottom,
