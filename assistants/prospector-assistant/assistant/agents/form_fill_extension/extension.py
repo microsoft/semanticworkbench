@@ -148,7 +148,7 @@ async def _send_message(context: ConversationContext, message: str, debug: dict)
         NewConversationMessage(
             content=message,
             message_type=MessageType.chat,
-            metadata={"debug": debug},
+            debug_data=debug,
         )
     )
 
@@ -158,6 +158,6 @@ async def _send_error_message(context: ConversationContext, message: str, debug:
         NewConversationMessage(
             content=message,
             message_type=MessageType.notice,
-            metadata={"debug": debug},
+            debug_data=debug,
         )
     )
