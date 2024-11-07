@@ -17,15 +17,25 @@ interface AssistantServiceRegistrationRemoveProps {
 export const AssistantServiceRegistrationRemove: React.FC<AssistantServiceRegistrationRemoveProps> = (props) => {
     const { assistantServiceRegistration, onRemove, iconOnly, asToolbarButton } = props;
     const [removeAssistantServiceRegistration] = useRemoveAssistantServiceRegistrationMutation();
+    const [submitted, setSubmitted] = React.useState(false);
 
     if (!assistantServiceRegistration) {
         throw new Error(`Assistant service registration not found`);
     }
 
     const handleAssistantServiceRegistrationRemove = React.useCallback(async () => {
-        await removeAssistantServiceRegistration(assistantServiceRegistration.assistantServiceId);
-        onRemove?.();
-    }, [assistantServiceRegistration, onRemove, removeAssistantServiceRegistration]);
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
+        try {
+            await removeAssistantServiceRegistration(assistantServiceRegistration.assistantServiceId);
+            onRemove?.();
+        } finally {
+            setSubmitted(false);
+        }
+    }, [assistantServiceRegistration.assistantServiceId, onRemove, removeAssistantServiceRegistration, submitted]);
 
     return (
         <CommandButton

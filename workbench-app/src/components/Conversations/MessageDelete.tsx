@@ -17,12 +17,22 @@ interface MessageDeleteProps {
 export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
     const { conversationId, message, onDelete, disabled } = props;
     const [deleteMessage] = useDeleteConversationMessageMutation();
+    const [submitted, setSubmitted] = React.useState(false);
 
     const handleDelete = React.useCallback(async () => {
-        await deleteMessage({ conversationId, messageId: message.id });
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
 
-        onDelete?.(message);
-    }, [conversationId, deleteMessage, message, onDelete]);
+        try {
+            await deleteMessage({ conversationId, messageId: message.id });
+
+            onDelete?.(message);
+        } finally {
+            setSubmitted(false);
+        }
+    }, [conversationId, deleteMessage, message, onDelete, submitted]);
 
     return (
         <CommandButton
@@ -50,8 +60,8 @@ export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="delete" disableButtonEnhancement>
-                        <Button appearance="primary" onClick={handleDelete}>
-                            Delete
+                        <Button appearance="primary" onClick={handleDelete} disabled={submitted}>
+                            {submitted ? 'Deleting...' : 'Delete'}
                         </Button>
                     </DialogTrigger>,
                 ],

@@ -39,7 +39,7 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
     const [title, setTitle] = React.useState('');
     const [submitted, setSubmitted] = React.useState(false);
 
-    const handleSave = async () => {
+    const handleSave = React.useCallback(async () => {
         if (submitted) {
             return;
         }
@@ -52,7 +52,7 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
         } finally {
             setSubmitted(false);
         }
-    };
+    }, [createConversation, metadata, onCreate, onOpenChange, submitted, title]);
 
     React.useEffect(() => {
         if (!open) {

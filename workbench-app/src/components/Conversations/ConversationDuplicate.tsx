@@ -10,30 +10,45 @@ import { DialogControl } from '../App/DialogControl';
 
 const useConversationDuplicateControls = (ids: string[]) => {
     const workbenchService = useWorkbenchService();
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const duplicateConversations = async (
-        onDuplicate?: (conversationId: string) => void,
-        onDuplicateError?: (error: Error) => void,
-    ) => {
-        try {
-            const duplicates = await workbenchService.duplicateConversationsAsync(ids);
-            duplicates.forEach((duplicate) => onDuplicate?.(duplicate));
-        } catch (error) {
-            onDuplicateError?.(error as Error);
-        }
-    };
+    const duplicateConversations = React.useCallback(
+        async (onDuplicate?: (conversationId: string) => void, onDuplicateError?: (error: Error) => void) => {
+            if (submitted) {
+                return;
+            }
+            setSubmitted(true);
 
-    const duplicateConversationForm = () => <p>Are you sure you want to duplicate this conversation?</p>;
+            try {
+                const duplicates = await workbenchService.duplicateConversationsAsync(ids);
+                duplicates.forEach((duplicate) => onDuplicate?.(duplicate));
+            } catch (error) {
+                onDuplicateError?.(error as Error);
+            } finally {
+                setSubmitted(false);
+            }
+        },
+        [ids, workbenchService, submitted],
+    );
 
-    const duplicateConversationButton = (
-        onDuplicate?: (conversationId: string) => void,
-        onDuplicateError?: (error: Error) => void,
-    ) => (
-        <DialogTrigger disableButtonEnhancement>
-            <Button appearance="primary" onClick={() => duplicateConversations(onDuplicate, onDuplicateError)}>
-                Duplicate
-            </Button>
-        </DialogTrigger>
+    const duplicateConversationForm = React.useCallback(
+        () => <p>Are you sure you want to duplicate this conversation?</p>,
+        [],
+    );
+
+    const duplicateConversationButton = React.useCallback(
+        (onDuplicate?: (conversationId: string) => void, onDuplicateError?: (error: Error) => void) => (
+            <DialogTrigger disableButtonEnhancement>
+                <Button
+                    appearance="primary"
+                    onClick={() => duplicateConversations(onDuplicate, onDuplicateError)}
+                    disabled={submitted}
+                >
+                    {submitted ? 'Duplicating...' : 'Duplicate'}
+                </Button>
+            </DialogTrigger>
+        ),
+        [duplicateConversations, submitted],
     );
 
     return {

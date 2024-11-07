@@ -12,39 +12,48 @@ export const useConversationRenameControls = (id: string, value: string) => {
     const [newTitle, setNewTitle] = React.useState(value);
     const [submitted, setSubmitted] = React.useState(false);
 
-    const handleRename = async (onRename?: (id: string, value: string) => Promise<void>) => {
-        if (submitted) {
-            return;
-        }
-        setSubmitted(true);
-        await updateConversation({ id, title: newTitle });
+    const handleRename = React.useCallback(
+        async (onRename?: (id: string, value: string) => Promise<void>) => {
+            if (submitted) {
+                return;
+            }
+            setSubmitted(true);
+            await updateConversation({ id, title: newTitle });
 
-        if (onRename) {
-            await onRename(id, newTitle);
-        }
+            if (onRename) {
+                await onRename(id, newTitle);
+            }
 
-        setSubmitted(false);
-    };
-
-    const renameConversationForm = (onRename?: (id: string, value: string) => Promise<void>) => (
-        <form
-            onSubmit={(event) => {
-                event.preventDefault();
-                handleRename(onRename);
-            }}
-        >
-            <Field label="Title">
-                <Input disabled={submitted} value={newTitle} onChange={(_event, data) => setNewTitle(data.value)} />
-            </Field>
-        </form>
+            setSubmitted(false);
+        },
+        [id, newTitle, submitted, updateConversation],
     );
 
-    const renameConversationButton = (onRename?: (id: string, value: string) => Promise<void>) => (
-        <DialogTrigger disableButtonEnhancement>
-            <Button disabled={!newTitle || submitted} onClick={() => handleRename(onRename)} appearance="primary">
-                {submitted ? 'Renaming...' : 'Rename'}
-            </Button>
-        </DialogTrigger>
+    const renameConversationForm = React.useCallback(
+        (onRename?: (id: string, value: string) => Promise<void>) => (
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    handleRename(onRename);
+                }}
+            >
+                <Field label="Title">
+                    <Input disabled={submitted} value={newTitle} onChange={(_event, data) => setNewTitle(data.value)} />
+                </Field>
+            </form>
+        ),
+        [handleRename, newTitle, submitted],
+    );
+
+    const renameConversationButton = React.useCallback(
+        (onRename?: (id: string, value: string) => Promise<void>) => (
+            <DialogTrigger disableButtonEnhancement>
+                <Button disabled={!newTitle || submitted} onClick={() => handleRename(onRename)} appearance="primary">
+                    {submitted ? 'Renaming...' : 'Rename'}
+                </Button>
+            </DialogTrigger>
+        ),
+        [handleRename, newTitle, submitted],
     );
 
     return {

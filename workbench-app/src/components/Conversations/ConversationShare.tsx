@@ -9,10 +9,13 @@ import { ConversationShareList } from './ConversationShareList';
 
 const useConversationShareControls = () => {
     return {
-        shareConversationForm: (conversation: Conversation) => (
-            <p>
-                <ConversationShareList conversation={conversation} />
-            </p>
+        shareConversationForm: React.useCallback(
+            (conversation: Conversation) => (
+                <p>
+                    <ConversationShareList conversation={conversation} />
+                </p>
+            ),
+            [],
         ),
     };
 };

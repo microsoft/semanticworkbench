@@ -2,6 +2,7 @@
 
 import { generateUuid } from '@azure/ms-rest-js';
 import {
+    Button,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
     Field,
@@ -31,14 +32,24 @@ export const ConversationDefinitionCreate: React.FC<ConversationDefinitionCreate
     const { open, onOpenChange, onCreate } = props;
     const classes = useClasses();
     const [title, setTitle] = React.useState('');
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const handleSave = () => {
-        onOpenChange?.(false);
-        onCreate?.({
-            id: generateUuid(),
-            title,
-        });
-    };
+    const handleSave = React.useCallback(() => {
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
+        try {
+            onOpenChange?.(false);
+            onCreate?.({
+                id: generateUuid(),
+                title,
+            });
+        } finally {
+            setSubmitted(false);
+        }
+    }, [onCreate, onOpenChange, submitted, title]);
 
     React.useEffect(() => {
         if (!open) {
@@ -80,6 +91,11 @@ export const ConversationDefinitionCreate: React.FC<ConversationDefinitionCreate
                 </form>
             }
             closeLabel="Cancel"
+            additionalActions={[
+                <Button key="save" appearance="primary" onClick={handleSave} disabled={submitted}>
+                    {submitted ? 'Saving...' : 'Save'}
+                </Button>,
+            ]}
         />
     );
 };

@@ -38,20 +38,25 @@ export const WorkflowRunCreate: React.FC<WorkflowRunCreateProps> = (props) => {
     const [title, setTitle] = React.useState('');
     const [submitted, setSubmitted] = React.useState(false);
 
-    const handleSave = async () => {
+    const handleSave = React.useCallback(async () => {
         if (submitted) {
             return;
         }
         setSubmitted(true);
-        const workflowRun = await createWorkflowRun({
-            title,
-            workflowDefinitionId,
-        }).unwrap();
 
-        await refetchWorkflowRuns();
-        onOpenChange?.(false);
-        onCreate?.(workflowRun);
-    };
+        try {
+            const workflowRun = await createWorkflowRun({
+                title,
+                workflowDefinitionId,
+            }).unwrap();
+
+            await refetchWorkflowRuns();
+            onOpenChange?.(false);
+            onCreate?.(workflowRun);
+        } finally {
+            setSubmitted(false);
+        }
+    }, [createWorkflowRun, onCreate, onOpenChange, refetchWorkflowRuns, submitted, title, workflowDefinitionId]);
 
     React.useEffect(() => {
         if (!open) {

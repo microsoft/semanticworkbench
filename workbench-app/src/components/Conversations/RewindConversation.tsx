@@ -15,9 +15,23 @@ interface RewindConversationProps {
 
 export const RewindConversation: React.FC<RewindConversationProps> = (props) => {
     const { onRewind, disabled } = props;
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const handleRewind = React.useCallback(async () => onRewind?.(false), [onRewind]);
-    const handleRewindWithRedo = React.useCallback(async () => onRewind?.(true), [onRewind]);
+    const handleRewind = React.useCallback(
+        async (redo: boolean = false) => {
+            if (submitted) {
+                return;
+            }
+            setSubmitted(true);
+
+            try {
+                onRewind?.(redo);
+            } finally {
+                setSubmitted(false);
+            }
+        },
+        [onRewind, submitted],
+    );
 
     return (
         <CommandButton
@@ -60,12 +74,14 @@ export const RewindConversation: React.FC<RewindConversationProps> = (props) => 
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="rewind" disableButtonEnhancement>
-                        <Button appearance="primary" onClick={handleRewind}>
-                            Rewind
+                        <Button appearance="primary" onClick={() => handleRewind()} disabled={submitted}>
+                            {submitted ? 'Rewinding...' : 'Rewind'}
                         </Button>
                     </DialogTrigger>,
                     <DialogTrigger key="rewindWithRedo" disableButtonEnhancement>
-                        <Button onClick={handleRewindWithRedo}>Rewind with Redo</Button>
+                        <Button onClick={() => handleRewind(true)} disabled={submitted}>
+                            {submitted ? 'Rewinding and redoing...' : 'Rewind with Redo'}
+                        </Button>
                     </DialogTrigger>,
                 ],
             }}
