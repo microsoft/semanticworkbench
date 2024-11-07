@@ -22,7 +22,7 @@ class FormField(BaseModel):
 
 class FormFillAgentMode(StrEnum):
     acquire_form_step = "acquire_form"
-    extract_fields_from_form = "extract_form_fields"
+    extract_form_fields = "extract_form_fields"
     fill_form_step = "fill_form"
     generate_filled_form_step = "generate_filled_form"
 

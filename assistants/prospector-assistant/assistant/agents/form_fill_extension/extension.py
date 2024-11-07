@@ -68,7 +68,7 @@ class FormFillExtension:
                                 await _send_message(context, result.ai_message, result.debug)
 
                                 agent_state.form_filename = result.filename
-                                agent_state.mode = state.FormFillAgentMode.extract_fields_from_form
+                                agent_state.mode = state.FormFillAgentMode.extract_form_fields
 
                                 continue
 
@@ -76,7 +76,7 @@ class FormFillExtension:
                                 await _handle_incomplete_result(context, result)
                                 return
 
-                    case state.FormFillAgentMode.extract_fields_from_form:
+                    case state.FormFillAgentMode.extract_form_fields:
                         file_content = await get_attachment_content(agent_state.form_filename)
                         result = await extract_form_fields_step.execute(
                             step_context=build_step_context(config.extract_form_fields_config),
