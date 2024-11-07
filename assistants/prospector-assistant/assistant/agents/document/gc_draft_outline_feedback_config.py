@@ -24,16 +24,19 @@ class ArtifactModel(BaseModel):
 
 # Rules - These are the do's and don'ts that the agent should follow during the conversation.
 rules = [
+    "Do NOT rewrite or update the outline, even if the user asks you to."
+    "You are ONLY allowed to help the user decide on any changes to the outline or answer questions about writing an outline."
     "Terminate the conversation immediately if the user asks for harmful or inappropriate content.",
+    "If the conversation_status is marked as user_complete, the final_response cannot be left as 'Unanswered'. The final_response must be set based on the conversation flow instructions.",
 ]
 
 # Conversation Flow (optional) - This defines in natural language the steps of the conversation.
 conversation_flow = """1. Start by asking the user to review the drafted outline.
 2. Answer any questions about the outline or the drafting process the user might want to explore.
 3. At any time, if the user asks for a change to the outline or updates the attachment file list, the conversation_status must be
-marked as user_completed. The user_decision must be marked as update_outline. The final_response should inform the user that a new outline is being generated based off the new info or request.
+marked as user_completed. The user_decision must be marked as update_outline. The final_response must inform the user that a new outline is being generated based off the new info or request.
 4. At any time, if the user is good with the outline in its current form and ready to move on to drafting a paper from it, the conversation_status must be
-marked as user_completed. The user_decision must be marked as draft_paper. The final_response should inform the user that you will start drafting the beginning of the
+marked as user_completed. The user_decision must be marked as draft_paper. The final_response must inform the user that you will start drafting the beginning of the
 document based on this outline.
 """
 
@@ -41,7 +44,9 @@ document based on this outline.
 # It can also include the high level goal of the conversation if needed.
 context = """You are working with a user on drafting an outline. The current drafted outline is provided, along with any filenames
 that were used to help draft the outline. You do not have access to the content within the filenames that were used to help draft the outline.
- Your purpose here is to help the user decide on any changes to the outline they might want or answer questions about it."""
+ Your purpose here is to help the user decide on any changes to the outline they might want or answer questions about it.  This may be the first time
+ the user is asking for you help, or the nth time.  Please use the conversation history provided to determine if you should be give an initial greeting
+ to the user or continuing the draft outline process."""
 
 
 # Resource Constraints (optional) - This defines the constraints on the conversation such as time or turns.

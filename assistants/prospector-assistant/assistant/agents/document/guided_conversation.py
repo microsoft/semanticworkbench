@@ -13,7 +13,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from ...config import AssistantConfigModel
 from .config import GuidedConversationAgentConfigModel
-from .status import Status
+from .status import Status, StepName
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +44,11 @@ class GuidedConversationAgent:
         agent_config: GuidedConversationAgentConfigModel,
         conversation_context: ConversationContext,
         last_user_message: str | None,
-    ) -> tuple[str, Status]:
+    ) -> tuple[str, Status, StepName | None]:
         """
         Step the conversation to the next turn.
         """
+        next_step_name = None
 
         rules = agent_config.rules
         conversation_flow = agent_config.conversation_flow
@@ -134,9 +135,11 @@ class GuidedConversationAgent:
                     status = Status.USER_COMPLETED
                 else:
                     if user_decision == "update_outline":  # this code is becoming highly coupled fyi to the gc configs
-                        status = Status.UPDATE_OUTLINE
+                        status = Status.USER_COMPLETED
+                        next_step_name = StepName.DO_DRAFT_OUTLINE
                     elif user_decision == "draft_paper":
                         status = Status.USER_COMPLETED
+                        next_step_name = StepName.DO_FINISH
                     else:
                         logger.error("unknown user decision")
             else:
@@ -144,7 +147,7 @@ class GuidedConversationAgent:
                 status = Status.USER_EXIT_EARLY
                 response = final_response
 
-        return response, status
+        return response, status, next_step_name
 
     # endregion
 
