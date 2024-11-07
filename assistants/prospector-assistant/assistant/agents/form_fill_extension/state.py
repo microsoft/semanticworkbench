@@ -12,7 +12,7 @@ from .inspector import FileStateInspector
 
 
 class FormField(BaseModel):
-    id: str = Field(description="The unique identifier of the field.")
+    id: str = Field(description="The descriptive, unique identifier of the field as a snake_case_english_string.")
     name: str = Field(description="The name of the field.")
     description: str = Field(description="The description of the field.")
     type: Literal["string", "bool", "multiple_choice"] = Field(description="The type of the field.")
@@ -22,16 +22,13 @@ class FormField(BaseModel):
 
 class FormFillAgentMode(StrEnum):
     acquire_form_step = "acquire_form"
-    extract_form_fields_step = "extract_form_fields"
+    extract_form_fields = "extract_form_fields"
     fill_form_step = "fill_form"
     generate_filled_form_step = "generate_filled_form"
-
-    end_conversation = "end_conversation"
 
 
 class FormFillAgentState(BaseModel):
     mode: FormFillAgentMode = FormFillAgentMode.acquire_form_step
-    most_recent_attachment_timestamp: float = 0
     form_filename: str = ""
     extracted_form_fields: list[FormField] = []
     fill_form_gc_artifact: dict | None = None
@@ -63,6 +60,4 @@ async def agent_state(context: ConversationContext) -> AsyncIterator[FormFillAge
         current_state.set(None)
 
 
-inspector = FileStateInspector(
-    display_name="Form Fill Agent State", file_path_source=path_for_state, state_id="form_fill_agent"
-)
+inspector = FileStateInspector(display_name="FormFill Agent", file_path_source=path_for_state)
