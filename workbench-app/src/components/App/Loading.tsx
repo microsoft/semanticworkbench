@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Spinner, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { Spinner, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Constants } from '../../Constants';
 
@@ -10,7 +10,12 @@ const useClasses = makeStyles({
     },
 });
 
-export const Loading: React.FC = () => {
+interface LoadingProps {
+    className?: string;
+}
+
+export const Loading: React.FC<LoadingProps> = (props) => {
+    const { className } = props;
     const classes = useClasses();
     const [showSpinner, setShowSpinner] = React.useState(false);
 
@@ -22,5 +27,7 @@ export const Loading: React.FC = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    return showSpinner ? <Spinner className={classes.root} size="medium" label="Loading..." /> : null;
+    return showSpinner ? (
+        <Spinner className={mergeClasses(classes.root, className)} size="medium" label="Loading..." />
+    ) : null;
 };

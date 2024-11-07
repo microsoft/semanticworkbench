@@ -39,9 +39,47 @@ export const conversationApi = workbenchApi.injectEndpoints({
             providesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversation(response),
         }),
-        getConversationMessages: builder.query<ConversationMessage[], string>({
-            query: (id) =>
-                `/conversations/${id}/messages?message_type=chat&message_type=note&message_type=notice&message_type=command&message_type=command-response`,
+        getConversationMessages: builder.query<
+            ConversationMessage[],
+            {
+                conversationId: string;
+                messageTypes?: string[];
+                participantRoles?: string[];
+                participantIds?: string[];
+                before?: string;
+                after?: string;
+                limit?: number;
+            }
+        >({
+            query: ({
+                conversationId,
+                messageTypes = ['chat', 'note', 'notice', 'command', 'command-response'],
+                participantRoles,
+                participantIds,
+                before,
+                after,
+                limit,
+            }) => {
+                const params = new URLSearchParams();
+
+                // Append parameters to the query string, one by one for arrays
+                messageTypes.forEach((type) => params.append('message_type', type));
+                participantRoles?.forEach((role) => params.append('participant_role', role));
+                participantIds?.forEach((id) => params.append('participant_id', id));
+
+                if (before) {
+                    params.set('before', before);
+                }
+                if (after) {
+                    params.set('after', after);
+                }
+                // Ensure limit does not exceed 500
+                if (limit !== undefined) {
+                    params.set('limit', String(Math.min(limit, 500)));
+                }
+
+                return `/conversations/${conversationId}/messages?${params.toString()}`;
+            },
             providesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversationMessages(response),
         }),
@@ -80,7 +118,7 @@ export const conversationApi = workbenchApi.injectEndpoints({
 // Non-hook helpers
 
 export const updateGetConversationMessagesQueryData = (conversationId: string, data: ConversationMessage[]) =>
-    conversationApi.util.updateQueryData('getConversationMessages', conversationId, () => data);
+    conversationApi.util.updateQueryData('getConversationMessages', { conversationId }, () => data);
 
 export const {
     useCreateConversationMutation,

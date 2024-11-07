@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 import { CopilotChat, ResponseCount } from '@fluentui-copilot/react-copilot';
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
-import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -11,18 +10,13 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
 import { Utility } from '../../libs/Utility';
-import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
+import { useConversationEvents } from '../../libs/useConversationEvents';
 import { useConversationUtility } from '../../libs/useConversationUtility';
-import { useEnvironment } from '../../libs/useEnvironment';
 import { Conversation } from '../../models/Conversation';
-import { ConversationMessage, conversationMessageFromJSON } from '../../models/ConversationMessage';
+import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch } from '../../redux/app/hooks';
-import {
-    conversationApi,
-    updateGetConversationParticipantsQueryData,
-    useGetConversationMessagesQuery,
-} from '../../services/workbench';
+import { conversationApi, updateGetConversationParticipantsQueryData } from '../../services/workbench';
 import { Loading } from '../App/Loading';
 import { MemoizedInteractMessage } from './InteractMessage';
 import { ParticipantStatus } from './ParticipantStatus';
@@ -34,6 +28,9 @@ dayjs.tz.guess();
 const useClasses = makeStyles({
     root: {
         height: '100%',
+    },
+    loading: {
+        ...shorthands.margin(tokens.spacingVerticalXXXL, 0),
     },
     virtuoso: {
         '::-webkit-scrollbar-thumb': {
@@ -62,68 +59,169 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     const { conversation, participants, readOnly, className } = props;
     const classes = useClasses();
     const { hash } = useLocation();
-    const [items, setItems] = React.useState<React.ReactNode[]>([]);
+    const [messages, setMessages] = React.useState<ConversationMessage[]>();
+    const [isLoadingMessages, setIsLoadingMessages] = React.useState<boolean>(false);
+    const [isAtBottom, setIsAtBottom] = React.useState<boolean>(true);
+    const [newestMessageId, setNewestMessageId] = React.useState<string>();
     const [hashItemIndex, setHashItemIndex] = React.useState<number>();
     const { setLastRead } = useConversationUtility();
-    const environment = useEnvironment();
     const dispatch = useAppDispatch();
 
-    const {
-        data: messages,
-        error: getMessagesError,
-        isLoading: isLoadingMessages,
-    } = useGetConversationMessagesQuery(conversation.id);
+    // helper for adding messages to the end of the messages state
+    const appendMessages = React.useCallback(
+        (newMessages: ConversationMessage[]) => {
+            // update the messages state with the new messages, placing the new messages at the end
+            setMessages((prevMessages) => (prevMessages ? [...prevMessages, ...newMessages] : newMessages));
 
-    if (getMessagesError) {
-        const errorMessage = JSON.stringify(getMessagesError);
-        throw new Error(`Error loading messages: ${errorMessage}`);
-    }
-
-    const virtuosoRef = React.useRef<VirtuosoHandle>(null);
-    const [shouldAutoScroll, setShouldAutoScroll] = React.useState<boolean>(true);
-
-    // create a function to scroll to the bottom of the chat
-    // to be used whenever we need to force a scroll to the bottom
-    const performScrollToBottom = React.useCallback(() => {
-        if (shouldAutoScroll) {
-            // wait a tick for the DOM to update
-            setTimeout(() => {
-                virtuosoRef.current?.scrollToIndex({ index: items.length - 1 });
-            }, 0);
-        }
-    }, [items.length, shouldAutoScroll]);
-
-    // scroll to the bottom when the component mounts
-    // and whenever the items change, such as when new messages are added
-    React.useEffect(() => {
-        performScrollToBottom();
-    }, [performScrollToBottom]);
-
-    // if hash index is set, scroll to the hash item
-    React.useEffect(() => {
-        if (hashItemIndex !== undefined) {
-            setTimeout(() => {
-                virtuosoRef.current?.scrollToIndex({ index: hashItemIndex });
-            }, 0);
-        }
-    }, [hashItemIndex]);
-
-    // scroll to the bottom when the participant status changes
-    const handleParticipantStatusChange = React.useCallback(() => {
-        performScrollToBottom();
-    }, [performScrollToBottom]);
-
-    const handleOnRead = React.useCallback(
-        (message: ConversationMessage) => {
-            setLastRead(conversation, message.timestamp);
+            // update the newest message id for use with the 'after' parameter in the next request
+            setNewestMessageId(newMessages[newMessages.length - 1].id);
         },
+        [setMessages],
+    );
+
+    // handler for when a new message is created
+    const onMessageCreated = React.useCallback(
+        async () =>
+            // load the latest messages and append them to the messages state
+            appendMessages(
+                await dispatch(
+                    conversationApi.endpoints.getConversationMessages.initiate({
+                        conversationId: conversation.id,
+                        limit: Constants.app.maxMessagesPerRequest,
+                        after: newestMessageId,
+                    }),
+                ).unwrap(),
+            ),
+        [appendMessages, dispatch, conversation.id, newestMessageId],
+    );
+
+    // handler for when a message is deleted
+    const onMessageDeleted = React.useCallback(
+        (messageId: string) =>
+            // remove the message from the messages state
+            setMessages((prevMessages) => {
+                if (!prevMessages) {
+                    return prevMessages;
+                }
+                return prevMessages.filter((message) => message.id !== messageId);
+            }),
+        [],
+    );
+
+    // handler for when a new participant is created
+    const onParticipantCreated = React.useCallback(
+        (participant: ConversationParticipant) =>
+            // add the new participant to the cached participants
+            dispatch(updateGetConversationParticipantsQueryData(conversation.id, { participant, participants })),
+        [dispatch, conversation.id, participants],
+    );
+
+    // handler for when a participant is updated
+    const onParticipantUpdated = React.useCallback(
+        (participant: ConversationParticipant) =>
+            // update the participant in the cached participants
+            dispatch(updateGetConversationParticipantsQueryData(conversation.id, { participant, participants })),
+        [dispatch, conversation.id, participants],
+    );
+
+    // subscribe to conversation events
+    useConversationEvents(conversation.id, {
+        onMessageCreated,
+        onMessageDeleted,
+        onParticipantCreated,
+        onParticipantUpdated,
+    });
+
+    // load all messages for the conversation
+    const loadMessages = React.useCallback(async () => {
+        let mayHaveEarlierMessages = true;
+        let allMessages: ConversationMessage[] = [];
+        let before: string | undefined;
+
+        // load messages in chunks until we have loaded all the messages
+        while (mayHaveEarlierMessages) {
+            const response = await dispatch(
+                conversationApi.endpoints.getConversationMessages.initiate({
+                    conversationId: conversation.id,
+                    limit: Constants.app.maxMessagesPerRequest,
+                    before,
+                }),
+            ).unwrap();
+            allMessages = [...response, ...allMessages];
+            mayHaveEarlierMessages = response.length === Constants.app.maxMessagesPerRequest;
+            before = response[0]?.id;
+        }
+
+        // set the messages state with all the messages
+        setMessages(allMessages);
+
+        // set the newest message id for use with the 'after' parameter in the next request
+        setNewestMessageId(allMessages[allMessages.length - 1].id);
+
+        // set loading messages to false
+        setIsLoadingMessages(false);
+    }, [dispatch, conversation.id]);
+
+    // load initial messages
+    React.useEffect(() => {
+        if (!messages && !isLoadingMessages) {
+            setIsLoadingMessages(true);
+            loadMessages();
+        }
+    }, [messages, loadMessages, isLoadingMessages]);
+
+    // handler for when a message is read
+    const handleOnRead = React.useCallback(
+        // update the last read timestamp for the conversation
+        async (message: ConversationMessage) => await setLastRead(conversation, message.timestamp),
         [setLastRead, conversation],
     );
 
-    React.useEffect(() => {
-        if (isLoadingMessages || !messages) {
-            setItems([]);
-            return;
+    // handler for when a conversation is rewound
+    const handleOnRewind = React.useCallback(
+        async (message: ConversationMessage, redo: boolean) => {
+            if (!messages) {
+                return;
+            }
+
+            // find the index of the message to rewind to
+            const messageIndex = messages?.findIndex((possibleMessage) => possibleMessage.id === message.id);
+
+            // if the message is not found, do nothing
+            if (messageIndex === -1) {
+                return;
+            }
+
+            // delete all messages from the message to the end of the conversation
+            for (let i = messageIndex; i < messages.length; i++) {
+                await dispatch(
+                    conversationApi.endpoints.deleteConversationMessage.initiate({
+                        conversationId: conversation.id,
+                        messageId: messages[i].id,
+                    }),
+                );
+            }
+
+            // if redo is true, create a new message with the same content as the message to redo
+            if (redo) {
+                await dispatch(
+                    conversationApi.endpoints.createConversationMessage.initiate({
+                        conversationId: conversation.id,
+                        ...message,
+                    }),
+                );
+            }
+        },
+        [conversation.id, dispatch, messages],
+    );
+
+    // create a ref for the virtuoso component for using its methods directly
+    const virtuosoRef = React.useRef<VirtuosoHandle>(null);
+
+    // create a list of memoized interact message components for rendering in the virtuoso component
+    const items = React.useMemo(() => {
+        if (!messages) {
+            return [];
         }
 
         let lastMessageInfo = {
@@ -133,6 +231,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         };
         let lastDate = '';
         let generatedResponseCount = 0;
+
         const updatedItems = messages
             .filter((message) => message.messageType !== 'log')
             .map((message, index) => {
@@ -201,10 +300,12 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                             hideParticipant={hideParticipant}
                             displayDate={displayDate}
                             onRead={handleOnRead}
+                            onRewind={handleOnRewind}
                         />
                     </div>
                 );
             });
+
         if (generatedResponseCount > 0) {
             updatedItems.push(
                 <div className={classes.counter} key="response-count">
@@ -214,106 +315,56 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                 </div>,
             );
         }
+
         updatedItems.push(
             <div className={classes.status} key="participant-status">
-                <ParticipantStatus participants={participants} onChange={handleParticipantStatusChange} />
+                <ParticipantStatus
+                    participants={participants}
+                    onChange={() => {
+                        if (isAtBottom) {
+                            // wait a tick for the DOM to update
+                            setTimeout(() => {
+                                virtuosoRef.current?.scrollToIndex({ index: items.length - 1, align: 'start' });
+                            }, 0);
+                        }
+                    }}
+                />
             </div>,
         );
-        setItems(updatedItems);
+
+        return updatedItems;
     }, [
         classes.counter,
         classes.item,
         classes.status,
         conversation,
         handleOnRead,
-        handleParticipantStatusChange,
+        handleOnRewind,
         hash,
         hashItemIndex,
-        isLoadingMessages,
+        isAtBottom,
         messages,
         participants,
         readOnly,
     ]);
 
+    // if hash index is set, scroll to the hash item
     React.useEffect(() => {
-        if (isLoadingMessages || !messages) {
-            return;
+        if (hashItemIndex !== undefined) {
+            setTimeout(() => {
+                virtuosoRef.current?.scrollToIndex({ index: hashItemIndex, align: 'start' });
+            }, 0);
         }
+    }, [hashItemIndex]);
 
-        // handle new message events
-        const messageHandler = async (event: EventSourceMessage) => {
-            const { data } = JSON.parse(event.data);
-            const parsedEventData = {
-                timestamp: data.timestamp,
-                data: {
-                    message: conversationMessageFromJSON(data.message),
-                },
-            };
-
-            if (parsedEventData.data.message.messageType === 'log') {
-                // ignore log messages
-                return;
-            }
-
-            dispatch(
-                conversationApi.endpoints.getConversationMessages.initiate(conversation.id, {
-                    forceRefetch: true,
-                }),
-            );
-        };
-
-        // handle participant events
-        const handleParticipantEvent = (event: {
-            timestamp: string;
-            data: {
-                participant: ConversationParticipant;
-                participants: ConversationParticipant[];
-            };
-        }) => {
-            // update the conversation participants in the cache
-            dispatch(updateGetConversationParticipantsQueryData(conversation.id, event.data));
-        };
-
-        const participantCreatedHandler = (event: EventSourceMessage) => {
-            handleParticipantEvent(JSON.parse(event.data));
-        };
-
-        const participantUpdatedHandler = (event: EventSourceMessage) => {
-            handleParticipantEvent(JSON.parse(event.data));
-        };
-
-        (async () => {
-            // create or update the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
-                environment.url,
-                WorkbenchEventSourceType.Conversation,
-                conversation.id,
-            );
-            workbenchEventSource.addEventListener('message.created', messageHandler);
-            workbenchEventSource.addEventListener('message.deleted', messageHandler);
-            workbenchEventSource.addEventListener('participant.created', participantCreatedHandler);
-            workbenchEventSource.addEventListener('participant.updated', participantUpdatedHandler);
-        })();
-
-        return () => {
-            (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance(
-                    WorkbenchEventSourceType.Conversation,
-                );
-                workbenchEventSource.removeEventListener('message.created', messageHandler);
-                workbenchEventSource.removeEventListener('message.deleted', messageHandler);
-                workbenchEventSource.removeEventListener('participant.created', participantCreatedHandler);
-                workbenchEventSource.removeEventListener('participant.updated', participantUpdatedHandler);
-            })();
-        };
-    }, [conversation.id, dispatch, environment.url, isLoadingMessages, messages]);
-
-    if (isLoadingMessages || !messages) {
-        return <Loading />;
+    // if messages are not loaded, show a loading spinner
+    if (isLoadingMessages) {
+        return <Loading className={classes.loading} />;
     }
 
+    // render the history
     return (
-        <CopilotChat className={mergeClasses(classes.root, className ?? '')}>
+        <CopilotChat className={mergeClasses(classes.root, className)}>
             <AutoSizer>
                 {({ height, width }: { height: number; width: number }) => (
                     <Virtuoso
@@ -324,13 +375,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         itemContent={(_index, item) => item}
                         initialTopMostItemIndex={items.length}
                         atBottomThreshold={Constants.app.autoScrollThreshold}
-                        atBottomStateChange={(isAtBottom) => {
-                            if (isAtBottom) {
-                                setShouldAutoScroll(true);
-                            } else {
-                                setShouldAutoScroll(false);
-                            }
-                        }}
+                        atBottomStateChange={(isAtBottom) => setIsAtBottom(isAtBottom)}
                     />
                 )}
             </AutoSizer>

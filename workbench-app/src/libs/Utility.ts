@@ -73,7 +73,7 @@ const debounce = (func: Function, wait: number) => {
     };
 };
 
-const toDayJs = (value?: string | Date, timezone: string = dayjs.tz.guess()) => {
+const toDayJs = (value: string | Date, timezone: string = dayjs.tz.guess()) => {
     return dayjs.utc(value).tz(timezone);
 };
 
@@ -110,7 +110,7 @@ const toFormattedDateString = (value: string | Date, format: string, timezone: s
 
 const getTimestampForFilename = (timezone: string = dayjs.tz.guess()) => {
     // return in format YYYYMMDDHHmm
-    return toDayJs(timezone).format('YYYYMMDDHHmm');
+    return toDayJs(new Date(), timezone).format('YYYYMMDDHHmm');
 };
 
 const sortKeys = (obj: any): any => {
