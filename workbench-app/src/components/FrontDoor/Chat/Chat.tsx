@@ -5,6 +5,7 @@ import React from 'react';
 import { Constants } from '../../../Constants';
 import { useGetAssistantCapabilities } from '../../../libs/useAssistantCapabilities';
 import { useParticipantUtility } from '../../../libs/useParticipantUtility';
+import { useSiteUtility } from '../../../libs/useSiteUtility';
 import { Assistant } from '../../../models/Assistant';
 import { useAppSelector } from '../../../redux/app/hooks';
 import {
@@ -126,6 +127,7 @@ export const Chat: React.FC<ChatProps> = (props) => {
     const classes = useClasses();
     const { sortParticipants } = useParticipantUtility();
     const localUserId = useAppSelector((state) => state.localUser.id);
+    const siteUtility = useSiteUtility();
 
     const {
         data: conversation,
@@ -173,6 +175,12 @@ export const Chat: React.FC<ChatProps> = (props) => {
         const errorMessage = JSON.stringify(conversationFilesError);
         throw new Error(`Error loading conversation files (${conversationId}): ${errorMessage}`);
     }
+
+    React.useEffect(() => {
+        if (conversation) {
+            siteUtility.setDocumentTitle(conversation.title);
+        }
+    }, [conversation, siteUtility]);
 
     const conversationAssistants = React.useMemo(() => {
         const results: Assistant[] = [];
