@@ -100,6 +100,7 @@ export const Interact: React.FC = () => {
     const localUserId = useAppSelector((state) => state.localUser.id);
     const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
         assistants ?? [],
+        { skip: isLoadingAssistants || assistantsError !== undefined },
     );
 
     const siteUtility = useSiteUtility();

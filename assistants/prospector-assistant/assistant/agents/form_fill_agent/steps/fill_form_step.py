@@ -8,39 +8,23 @@ from pydantic import Field, create_model
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
 from semantic_workbench_assistant.assistant_app.protocol import AssistantAppProtocol
 
-from .. import gce_config, state
+from .. import state
 from ..inspector import FileStateInspector
-from ..step import Context, IncompleteErrorResult, IncompleteResult, Result
-from . import gce
+from . import _attachments, _guided_conversation
+from .types import (
+    Context,
+    GuidedConversationDefinition,
+    IncompleteErrorResult,
+    IncompleteResult,
+    ResourceConstraintDefinition,
+    Result,
+)
 
 logger = logging.getLogger(__name__)
 
 
-definition = gce_config.GuidedConversationDefinition(
-    rules=[
-        "For fields that are not in the provided files, collect the data from the user through conversation.",
-        "When providing options for a multiple choice field, provide the options in a numbered-list, so the user can refer to them by number.",
-        "When listing anything other than options, like document types, provide them in a bulleted list for improved readability.",
-        "When updating the agenda, the data-collection for each form field must be in a separate step.",
-        "Terminate conversation if inappropriate content is requested.",
-    ],
-    conversation_flow="""
-1. Inform the user that we've received the form and determined the fields in the form.
-2. Inform the user that our goal is help them fill out the form.
-3. Ask the user to provide one or more files that might contain data relevant to fill out the form. The files can be PDF, TXT, or DOCX.
-4. When asking for files, suggest types of documents that might contain the data.
-5. For each field in the form, check if the data is available in the provided files.
-6. If the data is not available in the files, ask the user for the data.
-7. When asking for data to fill the form, ask for a single piece of information at a time.
-8. When the form is filled out, inform the user that you will now generate a document containing the filled form.
-""",
-    context="",
-    resource_constraint=gce_config.ResourceConstraintDefinition(
-        quantity=15,
-        unit=ResourceConstraintUnit.TURNS,
-        mode=ResourceConstraintMode.MAXIMUM,
-    ),
-)
+def extend(app: AssistantAppProtocol) -> None:
+    app.add_inspector_state_provider(_inspector.state_id, _inspector)
 
 
 @dataclass
@@ -50,7 +34,7 @@ class CompleteResult(Result):
 
 
 async def execute(
-    step_context: Context[gce_config.GuidedConversationDefinition],
+    step_context: Context[_guided_conversation.GuidedConversationDefinition],
     latest_user_message: str | None,
     form_fields: list[state.FormField],
 ) -> IncompleteResult | IncompleteErrorResult | CompleteResult:
@@ -58,7 +42,7 @@ async def execute(
     Step: fill out the form with the user
     Approach: Guided conversation
     """
-    message_with_attachments = await gce.message_with_recent_attachments(
+    message_with_attachments = await _attachments.message_with_recent_attachments(
         step_context.context, latest_user_message, step_context.get_attachment_messages
     )
 
@@ -66,7 +50,7 @@ async def execute(
 
     definition = step_context.config.model_copy()
     definition.resource_constraint.quantity = int(len(form_fields) * 1.5)
-    async with gce.guided_conversation_with_state(
+    async with _guided_conversation.engine(
         definition=definition,
         artifact_type=artifact_type,
         state_file_path=_get_state_file_path(step_context.context),
@@ -74,9 +58,9 @@ async def execute(
         openai_model=step_context.llm_config.openai_model,
         context=step_context.context,
         state_id=_inspector.state_id,
-    ) as guided_conversation:
+    ) as gce:
         try:
-            result = await guided_conversation.step_conversation(message_with_attachments)
+            result = await gce.step_conversation(message_with_attachments)
         except Exception as e:
             logger.exception("failed to execute guided conversation")
             return IncompleteErrorResult(
@@ -84,22 +68,21 @@ async def execute(
                 debug={"error": str(e)},
             )
 
+        debug = {"guided-conversation": gce.to_json()}
+
         logger.info("guided-conversation result: %s", result)
 
-        fill_form_gc_artifact = guided_conversation.artifact.artifact.model_dump(mode="json")
-        logger.info("guided-conversation artifact: %s", guided_conversation.artifact)
+        fill_form_gc_artifact = gce.artifact.artifact.model_dump(mode="json")
+        logger.info("guided-conversation artifact: %s", gce.artifact)
 
     if result.is_conversation_over:
         return CompleteResult(
             ai_message="",
             artifact=fill_form_gc_artifact,
-            debug={"artifact": fill_form_gc_artifact},
+            debug=debug,
         )
 
-    return IncompleteResult(
-        ai_message=result.ai_message or "",
-        debug={"artifact": fill_form_gc_artifact},
-    )
+    return IncompleteResult(ai_message=result.ai_message or "", debug=debug)
 
 
 def _form_fields_to_artifact(form_fields: list[state.FormField]):
@@ -129,7 +112,7 @@ def _form_fields_to_artifact(form_fields: list[state.FormField]):
 
 
 def _get_state_file_path(context: ConversationContext) -> Path:
-    return gce.path_for_guided_conversation_state(context, "fill_form")
+    return _guided_conversation.path_for_state(context, "fill_form")
 
 
 _inspector = FileStateInspector(
@@ -139,5 +122,28 @@ _inspector = FileStateInspector(
 )
 
 
-def extend(app: AssistantAppProtocol) -> None:
-    app.add_inspector_state_provider(_inspector.state_id, _inspector)
+definition = GuidedConversationDefinition(
+    rules=[
+        "For fields that are not in the provided files, collect the data from the user through conversation.",
+        "When providing options for a multiple choice field, provide the options in a numbered-list, so the user can refer to them by number.",
+        "When listing anything other than options, like document types, provide them in a bulleted list for improved readability.",
+        "When updating the agenda, the data-collection for each form field must be in a separate step.",
+        "When asking for data to fill the form, always ask for a single piece of information at a time. Never ask for multiple pieces of information in a single prompt, ex: 'Please provide field Y, and additionally, field X'.",
+        "Terminate conversation if inappropriate content is requested.",
+    ],
+    conversation_flow="""
+1. Inform the user that we've received the form and determined the fields in the form.
+2. Inform the user that our goal is help them fill out the form.
+3. Ask the user to provide one or more files that might contain data relevant to fill out the form. The files can be PDF, TXT, or DOCX.
+4. When asking for files, suggest types of documents that might contain the data.
+5. For each field in the form, check if the data is available in the provided files.
+6. If the data is not available in the files, ask the user for the data.
+8. When the form is filled out, inform the user that you will now generate a document containing the filled form.
+""",
+    context="",
+    resource_constraint=ResourceConstraintDefinition(
+        quantity=15,
+        unit=ResourceConstraintUnit.TURNS,
+        mode=ResourceConstraintMode.MAXIMUM,
+    ),
+)

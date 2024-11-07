@@ -7,7 +7,7 @@
 
 import logging
 import re
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 import deepmerge
 import openai_client
@@ -230,10 +230,6 @@ async def respond_to_conversation(
     # add the attachment messages to the completion messages
     completion_messages.extend(attachment_messages)
 
-    # get messages before the current message
-    messages_response = await context.get_messages(before=message.id)
-    messages = messages_response.messages + [message]
-
     # calculate the token count for the messages so far
     token_count = sum([
         openai_client.num_tokens_from_message(model=config.request_config.openai_model, message=completion_message)
@@ -243,49 +239,13 @@ async def respond_to_conversation(
     # calculate the total available tokens for the response generation
     available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
 
-    # build the completion messages from the conversation history
-    history_messages: list[ChatCompletionMessageParam] = []
-
-    # add the messages in reverse order to get the most recent messages first
-    for message in reversed(messages):
-        chat_completion_messages: list[ChatCompletionMessageParam] = []
-
-        # add the message to the completion messages, treating any message from a source other than the assistant
-        # as a user message
-        if message.sender.participant_id == context.assistant.id:
-            chat_completion_messages.append({
-                "role": "assistant",
-                "content": _format_message(message, participants_response.participants),
-            })
-
-        else:
-            # we are working with the messages in reverse order, so include any attachments before the message
-            if message.filenames and len(message.filenames) > 0:
-                # add a system message to indicate the attachments
-                chat_completion_messages.append({
-                    "role": "system",
-                    "content": f"Attachment(s): {', '.join(message.filenames)}",
-                })
-
-            # add the user message to the completion messages
-            chat_completion_messages.append({
-                "role": "user",
-                "content": _format_message(message, participants_response.participants),
-            })
-
-        # calculate the token count for the messages and check if it exceeds the available tokens
-        token_count += sum([
-            openai_client.num_tokens_from_message(model=config.request_config.openai_model, message=message)
-            for message in chat_completion_messages
-        ])
-        if token_count > available_tokens:
-            # stop processing messages if the token count exceeds the available tokens
-            break
-
-        history_messages.extend(chat_completion_messages)
-
-    # reverse the history messages to get them back in the correct order
-    history_messages.reverse()
+    history_messages = await _get_history_messages(
+        context=context,
+        participants=participants_response.participants,
+        converter=_conversation_message_to_chat_completion_message_params,
+        model=config.request_config.openai_model,
+        token_limit=available_tokens - token_count,
+    )
 
     # add the history messages to the completion messages
     completion_messages.extend(history_messages)
@@ -487,8 +447,101 @@ async def respond_to_conversation(
 # region Helpers
 #
 
-
 # TODO: move to a common module, such as either the openai_client or attachment module for easy re-use in other assistants
+
+
+async def _conversation_message_to_chat_completion_message_params(
+    context: ConversationContext, message: ConversationMessage, participants: list[ConversationParticipant]
+) -> list[ChatCompletionMessageParam]:
+    """
+    Convert a conversation message to a list of chat completion message parameters.
+    """
+
+    # some messages may have multiple parts, such as a text message with an attachment
+    chat_completion_messages: list[ChatCompletionMessageParam] = []
+
+    # add the message to the completion messages, treating any message from a source other than the assistant
+    # as a user message
+    if message.sender.participant_id == context.assistant.id:
+        chat_completion_messages.append({
+            "role": "assistant",
+            "content": _format_message(message, participants),
+        })
+
+    else:
+        # add the user message to the completion messages
+        chat_completion_messages.append({
+            "role": "user",
+            "content": _format_message(message, participants),
+        })
+
+        if message.filenames and len(message.filenames) > 0:
+            # add a system message to indicate the attachments
+            chat_completion_messages.append({
+                "role": "system",
+                "content": f"Attachment(s): {', '.join(message.filenames)}",
+            })
+
+    return chat_completion_messages
+
+
+async def _get_history_messages(
+    context: ConversationContext,
+    participants: list[ConversationParticipant],
+    converter: Callable[
+        [ConversationContext, ConversationMessage, list[ConversationParticipant]],
+        Awaitable[list[ChatCompletionMessageParam]],
+    ],
+    model: str,
+    token_limit: int | None = None,
+) -> list[ChatCompletionMessageParam]:
+    """
+    Get all messages in the conversation, formatted for use in a completion.
+    """
+
+    # each call to get_messages will return a maximum of 100 messages
+    # so we need to loop until all messages are retrieved
+    # if token_limit is provided, we will stop when the token limit is reached
+
+    history = []
+    token_count = 0
+    before_message_id = None
+
+    while True:
+        # get the next batch of messages
+        messages_response = await context.get_messages(limit=100, before=before_message_id)
+        messages_list = messages_response.messages
+
+        # if there are no more messages, break the loop
+        if not messages_list or messages_list.count == 0:
+            break
+
+        # set the before_message_id for the next batch of messages
+        before_message_id = messages_list[0].id
+
+        # messages are returned in reverse order, so we need to reverse them
+        for message in reversed(messages_list):
+            # format the message
+            formatted_message_list = await converter(context, message, participants)
+
+            for formatted_message in formatted_message_list:
+                # calculate the token count for the message
+                try:
+                    token_count += openai_client.num_tokens_from_message(model=model, message=formatted_message)
+                except Exception as e:
+                    logger.exception(f"exception occurred calculating token count: {e}")
+
+            # if a token limit is provided and the token count exceeds the limit, break the loop
+            if token_limit and token_count > token_limit:
+                break
+
+            # insert the formatted messages into the beginning of the history list
+            history = formatted_message_list + history
+
+    # return the formatted messages
+    return history
+
+
 def _get_token_usage_message(
     max_tokens: int,
     completion_total_tokens: int,

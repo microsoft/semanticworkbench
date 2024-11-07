@@ -1,7 +1,8 @@
+from typing import Any, Callable
+
 import pytest
-from function_registry.function_registry import FunctionRegistry
 from context.context import Context
-from typing import Callable, Any
+from function_registry.function_registry import FunctionRegistry
 
 
 def no_op(context: Context) -> None:

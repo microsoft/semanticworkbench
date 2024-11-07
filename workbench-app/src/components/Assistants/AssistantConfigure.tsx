@@ -1,12 +1,11 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { makeStyles, tokens } from '@fluentui/react-components';
+import { Button, makeStyles, tokens } from '@fluentui/react-components';
 import { SettingsRegular } from '@fluentui/react-icons';
 import React from 'react';
-import { useGetAssistantQuery } from '../../services/workbench';
+import { Assistant } from '../../models/Assistant';
 import { CommandButton } from '../App/CommandButton';
 import { AssistantConfiguration } from './AssistantConfiguration';
-import { AssistantServiceMetadata } from './AssistantServiceMetadata';
 
 const useClasses = makeStyles({
     dialogSurface: {
@@ -19,6 +18,7 @@ const useClasses = makeStyles({
         width: 'calc(min(1000px, 100vw) - 100px)',
         paddingRight: '8px',
         boxSizing: 'border-box',
+        overflowY: 'auto',
     },
     content: {
         display: 'flex',
@@ -28,47 +28,54 @@ const useClasses = makeStyles({
 });
 
 interface AssistantConfigureProps {
-    assistantId: string;
+    assistant: Assistant;
+    iconOnly?: boolean;
     disabled?: boolean;
+    simulateMenuItem?: boolean;
 }
 
 export const AssistantConfigure: React.FC<AssistantConfigureProps> = (props) => {
-    const { assistantId, disabled } = props;
+    const { assistant, iconOnly, disabled, simulateMenuItem } = props;
     const classes = useClasses();
-    const { data: assistant, error: assistantError, isLoading: assistantLoading } = useGetAssistantQuery(assistantId);
+    const [open, setOpen] = React.useState(false);
+    const [isDirty, setIsDirty] = React.useState(false);
 
-    if (assistantError) {
-        const errorMessage = JSON.stringify(assistantError);
-        throw new Error(`Error loading assistant (${assistantId}): ${errorMessage}`);
-    }
-
-    if (assistantLoading) {
-        return null;
-    }
-
-    if (!assistant) {
-        throw new Error(`Assistant (${assistantId}) not found`);
-    }
+    const handleClose = React.useCallback(() => {
+        if (isDirty) {
+            const result = window.confirm('Are you sure you want to close without saving?');
+            if (!result) {
+                return;
+            }
+        }
+        setOpen(false);
+    }, [isDirty]);
 
     return (
         <CommandButton
+            open={open}
+            onClick={() => setOpen(true)}
             icon={<SettingsRegular />}
-            iconOnly
+            simulateMenuItem={simulateMenuItem}
+            label="Configure"
+            iconOnly={iconOnly}
             disabled={disabled}
-            description={disabled ? `Workflow assistants cannot be configured` : 'Edit assistant configuration'}
             dialogContent={{
                 title: `Configure "${assistant.name}"`,
                 content: (
                     <div className={classes.content}>
-                        <AssistantServiceMetadata assistantServiceId={assistant.assistantServiceId} />
-                        <AssistantConfiguration assistant={assistant} />
+                        <AssistantConfiguration assistant={assistant} onIsDirtyChange={setIsDirty} />
                     </div>
                 ),
-                closeLabel: 'Close',
+                hideDismissButton: true,
                 classNames: {
                     dialogSurface: classes.dialogSurface,
                     dialogContent: classes.dialogContent,
                 },
+                additionalActions: [
+                    <Button key="close" appearance="primary" onClick={handleClose}>
+                        Close
+                    </Button>,
+                ],
             }}
         />
     );

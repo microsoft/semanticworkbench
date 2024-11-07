@@ -1,26 +1,12 @@
-import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
 import { ConversationCanvas } from '../../Conversations/Canvas/ConversationCanvas';
-import { CanvasDrawer } from './CanvasDrawer';
-
-const useClasses = makeStyles({
-    drawer: {
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
-    },
-    drawerOpenInline: {
-        width: 'min(50vw, 500px)',
-    },
-    drawerOpenOverlay: {
-        width: '100%',
-    },
-});
+import { CanvasDrawer, CanvasDrawerOptions } from './CanvasDrawer';
 
 interface ConversationDrawerProps {
-    open: boolean;
-    mode: 'inline' | 'overlay';
+    drawerOptions: CanvasDrawerOptions;
     readOnly: boolean;
     conversation: Conversation;
     conversationParticipants: ConversationParticipant[];
@@ -30,25 +16,24 @@ interface ConversationDrawerProps {
 
 export const ConversationDrawer: React.FC<ConversationDrawerProps> = (props) => {
     const {
-        open,
-        mode,
+        drawerOptions,
         readOnly,
         conversation,
         conversationParticipants,
         conversationFiles,
         preventAssistantModifyOnParticipantIds,
     } = props;
-    const classes = useClasses();
+
+    const options: CanvasDrawerOptions = React.useMemo(
+        () => ({
+            ...drawerOptions,
+            size: 'small',
+        }),
+        [drawerOptions],
+    );
 
     return (
-        <CanvasDrawer
-            openClassName={mode === 'inline' ? classes.drawerOpenInline : classes.drawerOpenOverlay}
-            className={classes.drawer}
-            open={open}
-            mode={mode}
-            side="right"
-            title="Conversation"
-        >
+        <CanvasDrawer options={options}>
             <ConversationCanvas
                 readOnly={readOnly}
                 conversation={conversation}
