@@ -59,12 +59,27 @@ export const conversationApi = workbenchApi.injectEndpoints({
                 before,
                 after,
                 limit,
-            }) =>
-                `/conversations/${conversationId}/messages?message_type=${messageTypes.join('&message_type=')}&${
-                    participantRoles ? `participant_role=${participantRoles.join('&participant_role=')}&` : ''
-                }${participantIds ? `participant_id=${participantIds.join('&participant_id=')}&` : ''}${
-                    before ? `before=${before}&` : ''
-                }${after ? `after=${after}&` : ''}${limit ? `limit=${limit}` : ''}`,
+            }) => {
+                const params = new URLSearchParams();
+
+                // Append parameters to the query string, one by one for arrays
+                messageTypes.forEach((type) => params.append('message_type', type));
+                participantRoles?.forEach((role) => params.append('participant_role', role));
+                participantIds?.forEach((id) => params.append('participant_id', id));
+
+                if (before) {
+                    params.set('before', before);
+                }
+                if (after) {
+                    params.set('after', after);
+                }
+                // Ensure limit does not exceed 500
+                if (limit !== undefined) {
+                    params.set('limit', String(Math.min(limit, 500)));
+                }
+
+                return `/conversations/${conversationId}/messages?${params.toString()}`;
+            },
             providesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversationMessages(response),
         }),
