@@ -1,5 +1,6 @@
 import contextlib
 import json
+from hashlib import md5
 from pathlib import Path
 from typing import Callable
 
@@ -20,10 +21,11 @@ class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
         self,
         display_name: str,
         file_path_source: Callable[[ConversationContext], Path],
-        state_id: str,
         description: str = "",
     ) -> None:
-        self._state_id = state_id
+        self._state_id = md5(
+            (type(self).__name__ + "_" + display_name).encode("utf-8"), usedforsecurity=False
+        ).hexdigest()
         self._display_name = display_name
         self._file_path_source = file_path_source
         self._description = description

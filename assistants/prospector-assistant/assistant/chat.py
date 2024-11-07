@@ -9,7 +9,8 @@ import asyncio
 import logging
 import re
 import traceback
-from typing import Any, Sequence
+from contextlib import asynccontextmanager
+from typing import Any, Awaitable, Callable
 
 import deepmerge
 import openai_client
@@ -34,9 +35,9 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from . import legacy
-from .agents import form_fill_agent
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
+from .agents.form_fill_extension import FormFillExtension, LLMConfig
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -78,9 +79,8 @@ assistant = AssistantApp(
     },
 )
 
-form_fill_agent.extend(assistant)
-
 attachments_extension = AttachmentsExtension(assistant)
+form_fill_extension = FormFillExtension(assistant)
 
 #
 # create the FastAPI app instance
@@ -150,7 +150,7 @@ async def on_chat_message_created(
     """
 
     # update the participant status to indicate the assistant is thinking
-    async with context.set_status("thinking..."):
+    async with send_error_message_on_exception(context), context.set_status("thinking..."):
         config = await assistant_config.get(context.assistant)
 
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
@@ -165,41 +165,10 @@ async def on_chat_message_created(
             is_doc_agent_running = await document_agent_respond_to_conversation(config, context, message, metadata)
             return
 
-        try:
-            await form_fill_agent.execute(
-                llm_config=form_fill_agent.LLMConfig(
-                    openai_client_factory=lambda: openai_client.create_client(config.service_config),
-                    openai_model=config.request_config.openai_model,
-                    max_response_tokens=config.request_config.response_tokens,
-                ),
-                config=config.agents_config.form_fill_agent,
-                context=context,
-                latest_user_message=message.content,
-                get_attachment_messages=form_fill_agent_get_attachments(context, config),
-            )
-
-        except Exception as e:
-            await context.send_messages(
-                NewConversationMessage(
-                    content=f"An error occurred: {e}",
-                    message_type=MessageType.notice,
-                    metadata={"debug": {"stack_trace": traceback.format_exc()}},
-                )
-            )
+        await form_fill_execute(context, message)
 
         # # Prospector assistant response
         # await respond_to_conversation(context, config, message, metadata)
-
-
-def form_fill_agent_get_attachments(context: ConversationContext, config: AssistantConfigModel):
-    async def get(filenames: Sequence[str]):
-        return await attachments_extension.get_completion_messages_for_attachments(
-            context,
-            config.agents_config.attachment_agent,
-            include_filenames=list(filenames),
-        )
-
-    return get
 
 
 background_tasks: set[asyncio.Task] = set()
@@ -216,6 +185,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
     if welcome_sent_before:
         return
 
+    task = asyncio.create_task(welcome_message(context))
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.remove)
+
     # send a welcome message to the conversation
     # welcome_message = config.welcome_message
     # await context.send_messages(
@@ -226,36 +199,72 @@ async def on_conversation_created(context: ConversationContext) -> None:
     #     )
     # )
 
-    task = asyncio.create_task(welcome_message(context))
-    background_tasks.add(task)
-    task.add_done_callback(background_tasks.remove)
-
 
 async def welcome_message(context: ConversationContext) -> None:
+    async with send_error_message_on_exception(context), context.set_status("thinking..."):
+        await form_fill_execute(context, None)
+
+
+@asynccontextmanager
+async def send_error_message_on_exception(context: ConversationContext):
+    try:
+        yield
+    except Exception as e:
+        await context.send_messages(
+            NewConversationMessage(
+                content=f"An error occurred: {e}",
+                message_type=MessageType.notice,
+                metadata={"debug": {"stack_trace": traceback.format_exc()}},
+            )
+        )
+
+
+# endregion
+
+#
+# region Form fill extension helpers
+#
+
+
+async def form_fill_execute(context: ConversationContext, message: ConversationMessage | None) -> None:
+    """
+    Execute the form fill agent to respond to the conversation message.
+    """
     config = await assistant_config.get(context.assistant)
+    await form_fill_extension.execute(
+        llm_config=LLMConfig(
+            openai_client_factory=lambda: openai_client.create_client(config.service_config),
+            openai_model=config.request_config.openai_model,
+            max_response_tokens=config.request_config.response_tokens,
+        ),
+        config=config.agents_config.form_fill_agent,
+        context=context,
+        latest_user_message=message.content if message else None,
+        latest_attachment_filenames=message.filenames if message else [],
+        get_attachment_content=form_fill_extension_get_attachment(context, config),
+    )
 
-    async with context.set_status("thinking..."):
-        try:
-            await form_fill_agent.execute(
-                llm_config=form_fill_agent.LLMConfig(
-                    openai_client_factory=lambda: openai_client.create_client(config.service_config),
-                    openai_model=config.request_config.openai_model,
-                    max_response_tokens=config.request_config.response_tokens,
-                ),
-                config=config.agents_config.form_fill_agent,
-                context=context,
-                latest_user_message=None,
-                get_attachment_messages=form_fill_agent_get_attachments(context, config),
-            )
 
-        except Exception as e:
-            await context.send_messages(
-                NewConversationMessage(
-                    content=f"An error occurred: {e}",
-                    message_type=MessageType.notice,
-                    metadata={"debug": {"stack_trace": traceback.format_exc()}},
-                )
-            )
+def form_fill_extension_get_attachment(
+    context: ConversationContext, config: AssistantConfigModel
+) -> Callable[[str], Awaitable[str]]:
+    """Helper function for the form_fill_extension to get the content of an attachment by filename."""
+
+    async def get(filename: str) -> str:
+        messages = await attachments_extension.get_completion_messages_for_attachments(
+            context,
+            config.agents_config.attachment_agent,
+            include_filenames=[filename],
+        )
+        if not messages:
+            return ""
+
+        # filter down to the messages that contain the attachment (ie. don't include the system messages)
+        return "\n\n".join(
+            (str(message.get("content")) for message in messages if "<ATTACHMENT>" in str(message.get("content")))
+        )
+
+    return get
 
 
 # endregion
@@ -487,7 +496,7 @@ async def respond_to_conversation(
                             method_metadata_key: {
                                 "request": {
                                     "model": config.request_config.openai_model,
-                                    "messages": openai_client.truncate_messages_for_logging(completion_messages),
+                                    "messages": completion_messages,
                                     "max_tokens": config.request_config.response_tokens,
                                     "response_format": StructuredResponseFormat.model_json_schema(),
                                 },
@@ -510,7 +519,7 @@ async def respond_to_conversation(
                             method_metadata_key: {
                                 "request": {
                                     "model": config.request_config.openai_model,
-                                    "messages": openai_client.truncate_messages_for_logging(completion_messages),
+                                    "messages": completion_messages,
                                 },
                                 "error": str(e),
                             },
@@ -543,7 +552,7 @@ async def respond_to_conversation(
                             method_metadata_key: {
                                 "request": {
                                     "model": config.request_config.openai_model,
-                                    "messages": openai_client.truncate_messages_for_logging(completion_messages),
+                                    "messages": completion_messages,
                                     "max_tokens": config.request_config.response_tokens,
                                 },
                                 "response": completion.model_dump() if completion else "[no response from openai]",
@@ -566,7 +575,7 @@ async def respond_to_conversation(
                             method_metadata_key: {
                                 "request": {
                                     "model": config.request_config.openai_model,
-                                    "messages": openai_client.truncate_messages_for_logging(completion_messages),
+                                    "messages": completion_messages,
                                 },
                                 "error": str(e),
                             },
