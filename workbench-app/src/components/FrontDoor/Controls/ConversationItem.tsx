@@ -18,6 +18,8 @@ import {
 import {
     ArrowDownloadRegular,
     EditRegular,
+    GlassesOffRegular,
+    GlassesRegular,
     MoreHorizontalRegular,
     Pin12Regular,
     PinOffRegular,
@@ -136,7 +138,15 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         onSelectForActions,
     } = props;
     const classes = useClasses();
-    const { getOwnerParticipant, wasSharedWithMe, hasUnreadMessages, isPinned, setPinned } = useConversationUtility();
+    const {
+        getOwnerParticipant,
+        wasSharedWithMe,
+        hasUnreadMessages,
+        isPinned,
+        setPinned,
+        markAllAsRead,
+        markAllAsUnread,
+    } = useConversationUtility();
     const localUserId = useAppSelector((state) => state.localUser.id);
     const { exportConversation } = useExportUtility();
     const [isHovered, setIsHovered] = React.useState(false);
@@ -179,6 +189,15 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                                 onClick={(event) => handleMenuItemClick(event, onPinned)}
                             >
                                 {isPinned(conversation) ? 'Unpin' : 'Pin'}
+                            </MenuItem>
+                            <MenuItem
+                                icon={hasUnreadMessages(conversation) ? <GlassesRegular /> : <GlassesOffRegular />}
+                                onClick={(event) => {
+                                    const hasUnread = hasUnreadMessages(conversation);
+                                    handleMenuItemClick(event, hasUnread ? markAllAsRead : markAllAsUnread);
+                                }}
+                            >
+                                {hasUnreadMessages(conversation) ? 'Mark read' : 'Mark unread'}
                             </MenuItem>
                             {onRename && (
                                 <MenuItem
