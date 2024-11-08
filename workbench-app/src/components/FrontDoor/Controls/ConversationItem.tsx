@@ -30,7 +30,6 @@ import {
 } from '@fluentui/react-icons';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
-import { useExportUtility } from '../../../libs/useExportUtility';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
@@ -148,7 +147,6 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
         markAllAsUnread,
     } = useConversationUtility();
     const localUserId = useAppSelector((state) => state.localUser.id);
-    const { exportConversation } = useExportUtility();
     const [isHovered, setIsHovered] = React.useState(false);
 
     const showActions = isHovered || showSelectForActions;
@@ -210,10 +208,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
                             )}
                             <MenuItem
                                 icon={<ArrowDownloadRegular />}
-                                onClick={async (event) => {
-                                    await exportConversation(conversation.id);
-                                    handleMenuItemClick(event, onExport);
-                                }}
+                                onClick={async (event) => handleMenuItemClick(event, onExport)}
                             >
                                 Export
                             </MenuItem>
@@ -261,9 +256,11 @@ export const ConversationItem: React.FC<ConversationItemProps> = (props) => {
             classes.moreButton,
             classes.selectCheckbox,
             conversation,
-            exportConversation,
             handleMenuItemClick,
+            hasUnreadMessages,
             isPinned,
+            markAllAsRead,
+            markAllAsUnread,
             onDuplicate,
             onExport,
             onPinned,

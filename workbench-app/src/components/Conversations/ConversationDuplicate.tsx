@@ -13,14 +13,12 @@ const useConversationDuplicateControls = (id: string) => {
     const workbenchService = useWorkbenchService();
     const [submitted, setSubmitted] = React.useState(false);
 
-    const duplicateConversations = React.useCallback(
+    const duplicateConversation = React.useCallback(
         async (onDuplicate?: (conversationId: string) => Promise<void>, onError?: (error: Error) => void) => {
             try {
                 await Utility.withStatus(setSubmitted, async () => {
                     const duplicates = await workbenchService.duplicateConversationsAsync([id]);
-                    if (onDuplicate) {
-                        await onDuplicate(duplicates[0]);
-                    }
+                    await onDuplicate?.(duplicates[0]);
                 });
             } catch (error) {
                 onError?.(error as Error);
@@ -39,13 +37,13 @@ const useConversationDuplicateControls = (id: string) => {
             <Button
                 key="duplicate"
                 appearance="primary"
-                onClick={() => duplicateConversations(onDuplicate, onError)}
+                onClick={() => duplicateConversation(onDuplicate, onError)}
                 disabled={submitted}
             >
                 {submitted ? 'Duplicating...' : 'Duplicate'}
             </Button>
         ),
-        [duplicateConversations, submitted],
+        [duplicateConversation, submitted],
     );
 
     return {

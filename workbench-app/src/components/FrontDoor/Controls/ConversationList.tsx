@@ -13,6 +13,7 @@ import { useGetConversationsQuery } from '../../../services/workbench';
 import { Loading } from '../../App/Loading';
 import { PresenceMotionList } from '../../App/PresenceMotionList';
 import { ConversationDuplicateDialog } from '../../Conversations/ConversationDuplicate';
+import { ConversationExportWithStatusDialog } from '../../Conversations/ConversationExport';
 import { ConversationRemoveDialog } from '../../Conversations/ConversationRemove';
 import { ConversationRenameDialog } from '../../Conversations/ConversationRename';
 import { ConversationShareDialog } from '../../Conversations/ConversationShare';
@@ -46,6 +47,7 @@ export const ConversationList: React.FC = () => {
 
     const [renameConversation, setRenameConversation] = React.useState<Conversation>();
     const [duplicateConversation, setDuplicateConversation] = React.useState<Conversation>();
+    const [exportConversation, setExportConversation] = React.useState<Conversation>();
     const [shareConversation, setShareConversation] = React.useState<Conversation>();
     const [removeConversation, setRemoveConversation] = React.useState<Conversation>();
     const [selectedForActions, setSelectedForActions] = React.useState(new Set<string>());
@@ -141,14 +143,16 @@ export const ConversationList: React.FC = () => {
                     onOpenChange={() => setRenameConversation(undefined)}
                     onRename={async () => setRenameConversation(undefined)}
                 />
-                {
-                    <ConversationDuplicateDialog
-                        conversationId={duplicateConversation?.id ?? ''}
-                        open={duplicateConversation !== undefined}
-                        onOpenChange={() => setDuplicateConversation(undefined)}
-                        onDuplicate={handleDuplicateConversationComplete}
-                    />
-                }
+                <ConversationDuplicateDialog
+                    conversationId={duplicateConversation?.id ?? ''}
+                    open={duplicateConversation !== undefined}
+                    onOpenChange={() => setDuplicateConversation(undefined)}
+                    onDuplicate={handleDuplicateConversationComplete}
+                />
+                <ConversationExportWithStatusDialog
+                    conversationId={exportConversation?.id}
+                    onExport={async () => setExportConversation(undefined)}
+                />
                 {shareConversation && (
                     <ConversationShareDialog
                         conversation={shareConversation}
@@ -173,11 +177,13 @@ export const ConversationList: React.FC = () => {
         [
             renameConversation,
             duplicateConversation,
+            handleDuplicateConversationComplete,
+            exportConversation,
             shareConversation,
             removeConversation,
-            navigateToConversation,
             localUserId,
             activeConversationId,
+            navigateToConversation,
         ],
     );
 
@@ -215,6 +221,7 @@ export const ConversationList: React.FC = () => {
                             onSelectForActions={handleItemSelectForActions}
                             onRename={setRenameConversation}
                             onDuplicate={setDuplicateConversation}
+                            onExport={setExportConversation}
                             onShare={setShareConversation}
                             onRemove={setRemoveConversation}
                         />

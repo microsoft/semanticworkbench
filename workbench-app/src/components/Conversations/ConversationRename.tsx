@@ -19,9 +19,7 @@ export const useConversationRenameControls = (id: string, value: string) => {
             try {
                 await Utility.withStatus(setSubmitted, async () => {
                     await updateConversation({ id, title: newTitle });
-                    if (onRename) {
-                        await onRename(id, newTitle);
-                    }
+                    await onRename?.(id, newTitle);
                 });
             } catch (error) {
                 onError?.(error as Error);
