@@ -9,6 +9,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field, create_model
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
 from semantic_workbench_assistant.assistant_app.protocol import AssistantAppProtocol
+from semantic_workbench_assistant.config import UISchema
 
 from .. import state
 from ..inspector import FileStateInspector
@@ -32,6 +33,7 @@ def extend(app: AssistantAppProtocol) -> None:
 
 definition = GuidedConversationDefinition(
     rules=[
+        "When kicking off the conversation, do not greet the user with Hello or other greetings.",
         "For fields that are not in the provided files, collect the data from the user through conversation.",
         "When providing options for a multiple choice field, provide the options in a numbered-list, so the user can refer to them by number.",
         "When listing anything other than options, like document types, provide them in a bulleted list for improved readability.",
@@ -64,6 +66,7 @@ class ExtractCandidateFieldValuesConfig(BaseModel):
             title="Instruction",
             description="The instruction for extracting candidate form-field values from an uploaded file",
         ),
+        UISchema(widget="textarea"),
     ] = dedent("""
         Given the field definitions below, extract candidate values for these fields from the user provided
         attachment.
@@ -110,33 +113,20 @@ async def execute(
     form_fields: list[state.FormField],
 ) -> IncompleteResult | IncompleteErrorResult | CompleteResult:
     """
-    Step: fill out the form with the user
-    Approach: Guided conversation
+    Step: fill out the form with the user through conversation and pulling values from uploaded attachments.
+    Approach: Guided conversation / direct chat-completion (for document extraction)
     """
-    message = step_context.latest_user_input.message
-    debug = {"document-extractions": {}}
 
-    async for attachment in step_context.latest_user_input.attachments:
-        if attachment.filename == form_filename:
-            continue
-
-        candidate_values, metadata = await _extract(
-            llm_config=step_context.llm_config,
-            config=step_context.config.extract_config,
-            form_fields=form_fields,
-            document_content=attachment.content,
-        )
-        message = f"{message}\n\n" if message else ""
-        message = f"{message}{candidate_values.response}\n\nFilename: {attachment.filename}"
-        for candidate in candidate_values.fields:
-            message += f"\nField id: {candidate.field_id}:\n    Value: {candidate.value}\n    Explanation: {candidate.explanation}"
-
-        debug["document-extractions"][attachment.filename] = metadata
-
-    artifact_type = _form_fields_to_artifact(form_fields)
+    message_part, debug = await _candidate_values_from_attachments_as_message_part(
+        step_context, form_filename, form_fields
+    )
+    message = "\n".join((step_context.latest_user_input.message or "", message_part))
+    debug = {"document-extractions": debug}
 
     definition = step_context.config.definition.model_copy()
     definition.resource_constraint.quantity = int(len(form_fields) * 1.5)
+    artifact_type = _form_fields_to_artifact_basemodel(form_fields)
+
     async with _guided_conversation.engine(
         definition=definition,
         artifact_type=artifact_type,
@@ -172,7 +162,53 @@ async def execute(
     return IncompleteResult(message=result.ai_message or "", debug=debug)
 
 
-def _form_fields_to_artifact(form_fields: list[state.FormField]):
+async def _candidate_values_from_attachments_as_message_part(
+    step_context: Context[FillFormConfig], form_filename: str, form_fields: list[state.FormField]
+) -> tuple[str, dict[str, Any]]:
+    """Extract candidate values from the attachments, using chat-completion, and return them as a message part."""
+
+    debug_per_file = {}
+    attachment_candidate_value_parts = []
+    async for attachment in step_context.latest_user_input.attachments:
+        if attachment.filename == form_filename:
+            continue
+
+        candidate_values, metadata = await _extract(
+            llm_config=step_context.llm_config,
+            config=step_context.config.extract_config,
+            form_fields=form_fields,
+            document_content=attachment.content,
+        )
+
+        message_part = _candidate_values_to_message_part(attachment.filename, candidate_values)
+        attachment_candidate_value_parts.append(message_part)
+
+        debug_per_file[attachment.filename] = metadata
+
+    return "\n".join(attachment_candidate_value_parts), debug_per_file
+
+
+def _candidate_values_to_message_part(filename: str, candidate_values: FieldValueCandidates) -> str:
+    """Build a message part from the candidate values extracted from a document."""
+    header = dedent(f"""===
+        Filename: *{filename}*
+        {candidate_values.response}
+    """)
+
+    fields = []
+    for candidate in candidate_values.fields:
+        fields.append(
+            dedent(f"""
+            Field id: {candidate.field_id}:
+                Value: {candidate.value}
+                Explanation: {candidate.explanation}""")
+        )
+
+    return "\n".join((header, *fields))
+
+
+def _form_fields_to_artifact_basemodel(form_fields: list[state.FormField]):
+    """Create a BaseModel for the filled-form-artifact based on the form fields."""
     field_definitions: dict[str, tuple[Any, Any]] = {}
     required_fields = []
     for field in form_fields:
@@ -196,16 +232,6 @@ def _form_fields_to_artifact(form_fields: list[state.FormField]):
         "FilledFormArtifact",
         **field_definitions,  # type: ignore
     )  # type: ignore
-
-
-def _get_state_file_path(context: ConversationContext) -> Path:
-    return _guided_conversation.path_for_state(context, "fill_form")
-
-
-_inspector = FileStateInspector(
-    display_name="Fill-Form Guided-Conversation",
-    file_path_source=_get_state_file_path,
-)
 
 
 async def _extract(
@@ -235,3 +261,13 @@ async def _extract(
         messages=messages,
         response_model=FieldValueCandidates,
     )
+
+
+def _get_state_file_path(context: ConversationContext) -> Path:
+    return _guided_conversation.path_for_state(context, "fill_form")
+
+
+_inspector = FileStateInspector(
+    display_name="Fill-Form Guided-Conversation",
+    file_path_source=_get_state_file_path,
+)
