@@ -153,7 +153,7 @@ export const Interact: React.FC = () => {
             title={
                 <div className={classes.title}>
                     <ConversationRename
-                        id={conversation.id}
+                        conversationId={conversation.id}
                         value={conversation.title}
                         disabled={conversation.ownerId !== localUserId}
                         iconOnly

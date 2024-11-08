@@ -56,12 +56,12 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
                             <>
                                 <ConversationRename
                                     disabled={conversation.ownerId !== localUserId}
-                                    id={conversation.id}
+                                    conversationId={conversation.id}
                                     value={conversation.title}
                                     iconOnly
                                 />
                                 <ConversationExport conversationId={conversation.id} iconOnly />
-                                <ConversationDuplicate conversation={conversation} iconOnly />
+                                <ConversationDuplicate conversationId={conversation.id} iconOnly />
                                 <ConversationShare conversation={conversation} iconOnly />
                                 <ConversationRemove
                                     conversation={conversation}

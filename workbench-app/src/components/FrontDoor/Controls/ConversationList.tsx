@@ -123,24 +123,32 @@ export const ConversationList: React.FC = () => {
         [handleUpdateSelectedForActions],
     );
 
+    const handleDuplicateConversationComplete = React.useCallback(
+        async (id: string) => {
+            navigateToConversation(id);
+            setDuplicateConversation(undefined);
+        },
+        [navigateToConversation],
+    );
+
     const actionHelpers = React.useMemo(
         () => (
             <>
-                {renameConversation && (
-                    <ConversationRenameDialog
-                        id={renameConversation.id}
-                        value={renameConversation.title}
-                        onRename={async () => setRenameConversation(undefined)}
-                        onCancel={() => setRenameConversation(undefined)}
-                    />
-                )}
-                {duplicateConversation && (
+                <ConversationRenameDialog
+                    conversationId={renameConversation?.id ?? ''}
+                    value={renameConversation?.title ?? ''}
+                    open={renameConversation !== undefined}
+                    onOpenChange={() => setRenameConversation(undefined)}
+                    onRename={async () => setRenameConversation(undefined)}
+                />
+                {
                     <ConversationDuplicateDialog
-                        id={duplicateConversation.id}
-                        onDuplicate={(id) => navigateToConversation(id)}
-                        onCancel={() => setDuplicateConversation(undefined)}
+                        conversationId={duplicateConversation?.id ?? ''}
+                        open={duplicateConversation !== undefined}
+                        onOpenChange={() => setDuplicateConversation(undefined)}
+                        onDuplicate={handleDuplicateConversationComplete}
                     />
-                )}
+                }
                 {shareConversation && (
                     <ConversationShareDialog
                         conversation={shareConversation}
