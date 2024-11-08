@@ -10,14 +10,10 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
 import { Utility } from '../../libs/Utility';
-import { useConversationEvents } from '../../libs/useConversationEvents';
 import { useConversationUtility } from '../../libs/useConversationUtility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useAppDispatch } from '../../redux/app/hooks';
-import { conversationApi, updateGetConversationParticipantsQueryData } from '../../services/workbench';
-import { Loading } from '../App/Loading';
 import { MemoizedInteractMessage } from './InteractMessage';
 import { ParticipantStatus } from './ParticipantStatus';
 
@@ -50,125 +46,21 @@ const useClasses = makeStyles({
 
 interface InteractHistoryProps {
     conversation: Conversation;
+    messages: ConversationMessage[];
     participants: ConversationParticipant[];
     readOnly: boolean;
     className?: string;
+    onRewindToBefore?: (message: ConversationMessage, redo: boolean) => Promise<void>;
 }
 
 export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
-    const { conversation, participants, readOnly, className } = props;
+    const { conversation, messages, participants, readOnly, className, onRewindToBefore } = props;
     const classes = useClasses();
     const { hash } = useLocation();
-    const [messages, setMessages] = React.useState<ConversationMessage[]>();
-    const [isLoadingMessages, setIsLoadingMessages] = React.useState<boolean>(false);
-    const [isAtBottom, setIsAtBottom] = React.useState<boolean>(true);
-    const [newestMessageId, setNewestMessageId] = React.useState<string>();
-    const [hashItemIndex, setHashItemIndex] = React.useState<number>();
     const { setLastRead } = useConversationUtility();
-    const dispatch = useAppDispatch();
-
-    // helper for adding messages to the end of the messages state
-    const appendMessages = React.useCallback(
-        (newMessages: ConversationMessage[]) => {
-            // update the messages state with the new messages, placing the new messages at the end
-            setMessages((prevMessages) => (prevMessages ? [...prevMessages, ...newMessages] : newMessages));
-
-            // update the newest message id for use with the 'after' parameter in the next request
-            setNewestMessageId(newMessages[newMessages.length - 1].id);
-        },
-        [setMessages],
-    );
-
-    // handler for when a new message is created
-    const onMessageCreated = React.useCallback(
-        async () =>
-            // load the latest messages and append them to the messages state
-            appendMessages(
-                await dispatch(
-                    conversationApi.endpoints.getConversationMessages.initiate({
-                        conversationId: conversation.id,
-                        limit: Constants.app.maxMessagesPerRequest,
-                        after: newestMessageId,
-                    }),
-                ).unwrap(),
-            ),
-        [appendMessages, dispatch, conversation.id, newestMessageId],
-    );
-
-    // handler for when a message is deleted
-    const onMessageDeleted = React.useCallback(
-        (messageId: string) =>
-            // remove the message from the messages state
-            setMessages((prevMessages) => {
-                if (!prevMessages) {
-                    return prevMessages;
-                }
-                return prevMessages.filter((message) => message.id !== messageId);
-            }),
-        [],
-    );
-
-    // handler for when a new participant is created
-    const onParticipantCreated = React.useCallback(
-        (participant: ConversationParticipant) =>
-            // add the new participant to the cached participants
-            dispatch(updateGetConversationParticipantsQueryData(conversation.id, { participant, participants })),
-        [dispatch, conversation.id, participants],
-    );
-
-    // handler for when a participant is updated
-    const onParticipantUpdated = React.useCallback(
-        (participant: ConversationParticipant) =>
-            // update the participant in the cached participants
-            dispatch(updateGetConversationParticipantsQueryData(conversation.id, { participant, participants })),
-        [dispatch, conversation.id, participants],
-    );
-
-    // subscribe to conversation events
-    useConversationEvents(conversation.id, {
-        onMessageCreated,
-        onMessageDeleted,
-        onParticipantCreated,
-        onParticipantUpdated,
-    });
-
-    // load all messages for the conversation
-    const loadMessages = React.useCallback(async () => {
-        let mayHaveEarlierMessages = true;
-        let allMessages: ConversationMessage[] = [];
-        let before: string | undefined;
-
-        // load messages in chunks until we have loaded all the messages
-        while (mayHaveEarlierMessages) {
-            const response = await dispatch(
-                conversationApi.endpoints.getConversationMessages.initiate({
-                    conversationId: conversation.id,
-                    limit: Constants.app.maxMessagesPerRequest,
-                    before,
-                }),
-            ).unwrap();
-            allMessages = [...response, ...allMessages];
-            mayHaveEarlierMessages = response.length === Constants.app.maxMessagesPerRequest;
-            before = response[0]?.id;
-        }
-
-        // set the messages state with all the messages
-        setMessages(allMessages);
-
-        // set the newest message id for use with the 'after' parameter in the next request
-        setNewestMessageId(allMessages[allMessages.length - 1].id);
-
-        // set loading messages to false
-        setIsLoadingMessages(false);
-    }, [dispatch, conversation.id]);
-
-    // load initial messages
-    React.useEffect(() => {
-        if (!messages && !isLoadingMessages) {
-            setIsLoadingMessages(true);
-            loadMessages();
-        }
-    }, [messages, loadMessages, isLoadingMessages]);
+    const [scrollToIndex, setScrollToIndex] = React.useState<number>();
+    const [items, setItems] = React.useState<React.ReactNode[]>([]);
+    const [isAtBottom, setIsAtBottom] = React.useState<boolean>(true);
 
     // handler for when a message is read
     const handleOnRead = React.useCallback(
@@ -177,53 +69,36 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         [setLastRead, conversation],
     );
 
-    // handler for when a conversation is rewound
-    const handleOnRewind = React.useCallback(
-        async (message: ConversationMessage, redo: boolean) => {
-            if (!messages) {
-                return;
-            }
-
-            // find the index of the message to rewind to
-            const messageIndex = messages?.findIndex((possibleMessage) => possibleMessage.id === message.id);
-
-            // if the message is not found, do nothing
-            if (messageIndex === -1) {
-                return;
-            }
-
-            // delete all messages from the message to the end of the conversation
-            for (let i = messageIndex; i < messages.length; i++) {
-                await dispatch(
-                    conversationApi.endpoints.deleteConversationMessage.initiate({
-                        conversationId: conversation.id,
-                        messageId: messages[i].id,
-                    }),
-                );
-            }
-
-            // if redo is true, create a new message with the same content as the message to redo
-            if (redo) {
-                await dispatch(
-                    conversationApi.endpoints.createConversationMessage.initiate({
-                        conversationId: conversation.id,
-                        ...message,
-                    }),
-                );
-            }
-        },
-        [conversation.id, dispatch, messages],
-    );
-
     // create a ref for the virtuoso component for using its methods directly
     const virtuosoRef = React.useRef<VirtuosoHandle>(null);
 
-    // create a list of memoized interact message components for rendering in the virtuoso component
-    const items = React.useMemo(() => {
-        if (!messages) {
-            return [];
+    // set the scrollToIndex to the last item if the user is at the bottom of the history
+    const triggerAutoScroll = React.useCallback(() => {
+        if (isAtBottom) {
+            setScrollToIndex(items.length - 1);
+        }
+    }, [isAtBottom, items.length]);
+
+    // trigger auto scroll when the items change
+    React.useEffect(() => {
+        triggerAutoScroll();
+    }, [items, triggerAutoScroll]);
+
+    // scroll to the bottom of the history when the scrollToIndex changes
+    React.useEffect(() => {
+        if (!scrollToIndex) {
+            return;
         }
 
+        const index = scrollToIndex;
+        setScrollToIndex(undefined);
+
+        // wait a tick for the DOM to update
+        setTimeout(() => virtuosoRef.current?.scrollToIndex({ index, align: 'start' }), 0);
+    }, [scrollToIndex]);
+
+    // create a list of memoized interact message components for rendering in the virtuoso component
+    React.useEffect(() => {
         let lastMessageInfo = {
             participantId: '',
             attribution: undefined as string | undefined,
@@ -236,8 +111,9 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
             .filter((message) => message.messageType !== 'log')
             .map((message, index) => {
                 // if a hash is provided, check if the message id matches the hash
-                if (hash && hashItemIndex === undefined && hash === `#${message.id}`) {
-                    setHashItemIndex(index);
+                if (hash === `#${message.id}`) {
+                    // set the hash item index to scroll to the item
+                    setScrollToIndex(index);
                 }
 
                 const senderParticipant = participants.find(
@@ -300,7 +176,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                             hideParticipant={hideParticipant}
                             displayDate={displayDate}
                             onRead={handleOnRead}
-                            onRewind={handleOnRewind}
+                            onRewind={onRewindToBefore}
                         />
                     </div>
                 );
@@ -318,49 +194,26 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
         updatedItems.push(
             <div className={classes.status} key="participant-status">
-                <ParticipantStatus
-                    participants={participants}
-                    onChange={() => {
-                        if (isAtBottom) {
-                            // wait a tick for the DOM to update
-                            setTimeout(() => {
-                                virtuosoRef.current?.scrollToIndex({ index: items.length - 1, align: 'start' });
-                            }, 0);
-                        }
-                    }}
-                />
+                <ParticipantStatus participants={participants} onChange={() => triggerAutoScroll()} />
             </div>,
         );
 
-        return updatedItems;
+        setItems(updatedItems);
     }, [
-        classes.counter,
-        classes.item,
+        messages,
         classes.status,
+        classes.item,
+        classes.counter,
+        participants,
+        hash,
+        readOnly,
         conversation,
         handleOnRead,
-        handleOnRewind,
-        hash,
-        hashItemIndex,
+        onRewindToBefore,
         isAtBottom,
-        messages,
-        participants,
-        readOnly,
+        items.length,
+        triggerAutoScroll,
     ]);
-
-    // if hash index is set, scroll to the hash item
-    React.useEffect(() => {
-        if (hashItemIndex !== undefined) {
-            setTimeout(() => {
-                virtuosoRef.current?.scrollToIndex({ index: hashItemIndex, align: 'start' });
-            }, 0);
-        }
-    }, [hashItemIndex]);
-
-    // if messages are not loaded, show a loading spinner
-    if (isLoadingMessages) {
-        return <Loading className={classes.loading} />;
-    }
 
     // render the history
     return (

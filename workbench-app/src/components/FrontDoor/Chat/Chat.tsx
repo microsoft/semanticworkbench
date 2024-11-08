@@ -3,17 +3,11 @@
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Constants } from '../../../Constants';
-import { useGetAssistantCapabilities } from '../../../libs/useAssistantCapabilities';
+import { useHistoryUtility } from '../../../libs/useHistoryUtility';
 import { useParticipantUtility } from '../../../libs/useParticipantUtility';
 import { useSiteUtility } from '../../../libs/useSiteUtility';
 import { Assistant } from '../../../models/Assistant';
 import { useAppSelector } from '../../../redux/app/hooks';
-import {
-    useGetAssistantsInConversationQuery,
-    useGetConversationFilesQuery,
-    useGetConversationParticipantsQuery,
-    useGetConversationQuery,
-} from '../../../services/workbench';
 import { ExperimentalNotice } from '../../App/ExperimentalNotice';
 import { Loading } from '../../App/Loading';
 import { ConversationShare } from '../../Conversations/ConversationShare';
@@ -126,54 +120,26 @@ export const Chat: React.FC<ChatProps> = (props) => {
     const { conversationId, headerBefore, headerAfter } = props;
     const classes = useClasses();
     const { sortParticipants } = useParticipantUtility();
-    const localUserId = useAppSelector((state) => state.localUser.id);
     const siteUtility = useSiteUtility();
+    const localUserId = useAppSelector((state) => state.localUser.id);
 
     const {
-        data: conversation,
-        error: conversationError,
-        isLoading: conversationIsLoading,
-    } = useGetConversationQuery(conversationId, { refetchOnMountOrArgChange: true });
-    const {
-        data: conversationParticipants,
-        error: conversationParticipantsError,
-        isLoading: conversationParticipantsIsLoading,
-    } = useGetConversationParticipantsQuery(conversationId);
-    const {
-        data: assistants,
-        error: assistantsError,
-        isLoading: assistantsIsLoading,
-        refetch: assistantsRefetch,
-    } = useGetAssistantsInConversationQuery(conversationId);
-    const {
-        data: conversationFiles,
-        error: conversationFilesError,
-        isLoading: conversationFilesIsLoading,
-    } = useGetConversationFilesQuery(conversationId);
+        conversation,
+        allConversationMessages,
+        conversationParticipants,
+        assistants,
+        conversationFiles,
+        assistantCapabilities,
+        error: historyError,
+        isLoading: historyIsLoading,
+        assistantsRefetch,
+        assistantCapabilitiesIsFetching,
+        rewindToBefore,
+    } = useHistoryUtility(conversationId);
 
-    const { data: assistantCapabilities, isFetching: assistantCapabilitiesIsFetching } = useGetAssistantCapabilities(
-        assistants ?? [],
-        { skip: assistantsIsLoading || assistantsError !== undefined },
-    );
-
-    if (conversationError) {
-        const errorMessage = JSON.stringify(conversationError);
+    if (historyError) {
+        const errorMessage = JSON.stringify(historyError);
         throw new Error(`Error loading conversation (${conversationId}): ${errorMessage}`);
-    }
-
-    if (conversationParticipantsError) {
-        const errorMessage = JSON.stringify(conversationParticipantsError);
-        throw new Error(`Error loading conversation participants (${conversationId}): ${errorMessage}`);
-    }
-
-    if (assistantsError) {
-        const errorMessage = JSON.stringify(assistantsError);
-        throw new Error(`Error loading assistants (${conversationId}): ${errorMessage}`);
-    }
-
-    if (conversationFilesError) {
-        const errorMessage = JSON.stringify(conversationFilesError);
-        throw new Error(`Error loading conversation files (${conversationId}): ${errorMessage}`);
     }
 
     React.useEffect(() => {
@@ -211,18 +177,16 @@ export const Chat: React.FC<ChatProps> = (props) => {
         return results.sort((a, b) => a.name.localeCompare(b.name));
     }, [assistants, conversationParticipants, assistantsRefetch]);
 
-    if (
-        conversationIsLoading ||
-        conversationParticipantsIsLoading ||
-        assistantsIsLoading ||
-        conversationFilesIsLoading ||
-        assistantCapabilitiesIsFetching
-    ) {
+    if (historyIsLoading || assistantCapabilitiesIsFetching) {
         return <Loading />;
     }
 
     if (!conversation) {
         throw new Error(`Conversation (${conversationId}) not found`);
+    }
+
+    if (!allConversationMessages) {
+        throw new Error(`All conversation messages (${conversationId}) not found`);
     }
 
     if (!conversationParticipants) {
@@ -269,14 +233,18 @@ export const Chat: React.FC<ChatProps> = (props) => {
                             className={classes.historyRoot}
                             readOnly={readOnly}
                             conversation={conversation}
+                            messages={allConversationMessages}
                             participants={conversationParticipants}
+                            onRewindToBefore={rewindToBefore}
                         />
                     </div>
                 </div>
                 <div className={classes.input}>
                     <InteractInput
                         readOnly={readOnly}
-                        conversationId={conversationId}
+                        conversation={conversation}
+                        messages={allConversationMessages}
+                        participants={conversationParticipants}
                         assistantCapabilities={assistantCapabilities}
                     />
                 </div>

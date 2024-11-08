@@ -81,7 +81,6 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
         // Check if the browser supports pipeTo (most modern browsers do)
         if (readableStream.pipeTo) {
             await readableStream.pipeTo(fileStream);
-            console.log('Download complete');
         } else {
             // Fallback for browsers that don't support pipeTo
             const reader = readableStream.getReader();
@@ -97,7 +96,6 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
                 });
 
             await pump();
-            console.log('Download complete');
         }
     };
 
