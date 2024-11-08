@@ -30,6 +30,7 @@ semantic-workbench-api-model = { path = "../semantic-workbench-api-model", edita
 
 [project.scripts]
 start-semantic-workbench-assistant = "semantic_workbench_assistant.start:main"
+start-assistant = "semantic_workbench_assistant.start:main"
 
 [build-system]
 requires = ["hatchling"]

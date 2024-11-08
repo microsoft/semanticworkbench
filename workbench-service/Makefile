@@ -2,7 +2,19 @@ repo_root = $(shell git rev-parse --show-toplevel)
 
 include $(repo_root)/tools/makefiles/python.mk
 
+-include ./.env
+
+DBTYPE ?= sqlite
+
+ifeq ($(DBTYPE), postgresql)
 WORKBENCH__DB__URL ?= postgresql:///workbench
+else
+WORKBENCH__DB__URL ?= sqlite:///.data/workbench.db
+endif
+
+.PHONY: start
+start:
+	WORKBENCH__DB__URL="$(WORKBENCH__DB__URL)" uv run start-service
 
 .PHONY: alembic-upgrade-head
 alembic-upgrade-head:

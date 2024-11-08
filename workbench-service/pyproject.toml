@@ -48,6 +48,7 @@ semantic-workbench-assistant = { path = "../libraries/python/semantic-workbench-
 
 [project.scripts]
 start-semantic-workbench-service = "semantic_workbench_service.start:main"
+start-service = "semantic_workbench_service.start:main"
 
 [build-system]
 requires = ["hatchling"]

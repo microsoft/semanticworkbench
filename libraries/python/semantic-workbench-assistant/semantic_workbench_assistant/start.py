@@ -20,6 +20,12 @@ def main():
         description="start a FastAPI assistant service", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parse_args.add_argument(
+        "--app",
+        type=str,
+        help="assistant app to start; ex: workbench_assistant.canonical:app",
+        default=os.getenv("ASSISTANT_APP", "assistant:app"),
+    )
+    parse_args.add_argument(
         "--port",
         dest="port",
         type=int,
@@ -65,21 +71,6 @@ def main():
     parse_args.add_argument(
         "--reload", dest="reload", nargs="?", action="store", type=str, default="false", help="enable auto-reload"
     )
-
-    app = os.getenv("ASSISTANT_APP", None)
-    if app:
-        parse_args.add_argument(
-            "--app",
-            type=str,
-            help="assistant app to start; ex: workbench_assistant.canonical:app",
-            default=app,
-        )
-    else:
-        parse_args.add_argument(
-            "app",
-            type=str,
-            help="assistant app to start; ex: workbench_assistant.canonical:app",
-        )
 
     args = parse_args.parse_args()
 
