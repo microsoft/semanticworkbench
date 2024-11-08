@@ -51,7 +51,7 @@ command line, using `uv`:
 ```
 cd <PATH TO THIS FOLDER>
 
-uv run start-semantic-workbench-assistant assistant.chat:app
+uv run start-semantic-workbench-assistant
 ```
 
 ## Create your own assistant

@@ -7,7 +7,6 @@
       "name": "assistants: prospector-assistant",
       "cwd": "${workspaceFolder}",
       "module": "semantic_workbench_assistant.start",
-      "args": ["assistant.chat:app"],
       "consoleTitle": "${workspaceFolderBasename}"
     }
   ]

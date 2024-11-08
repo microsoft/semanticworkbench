@@ -7,4 +7,4 @@ cd $ROOT
 
 cd examples/python/python-01-echo-bot
 
-uv run start-semantic-workbench-assistant assistant.chat:app
+uv run start-semantic-workbench-assistant
