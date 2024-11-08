@@ -22,4 +22,8 @@ format: install
 lint: install
 	pnpm run lint
 
+.PHONY: start
+start:
+	pnpm run start
+
 include $(repo_root)/tools/makefiles/shell.mk
