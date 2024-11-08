@@ -139,7 +139,10 @@ class GuidedConversationAgent:
                         next_step_name = StepName.DO_DRAFT_OUTLINE
                     elif user_decision == "draft_paper":
                         status = Status.USER_COMPLETED
-                        next_step_name = StepName.DO_FINISH
+                        next_step_name = (
+                            StepName.DP_DRAFT_CONTENT
+                        )  # problem if in draft outline mode... that is supposed to go to DO_FINISH.
+                        # coupling is now a problem.  and Need to fix the two locations for setting the branching/flow.
                     else:
                         logger.error("unknown user decision")
             else:

@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 class ModeName(StrEnum):
     UNDEFINED = "undefined"
     DRAFT_OUTLINE = "mode_draft_outline"
+    DRAFT_PAPER = "mode_draft_paper"
 
 
 class Step(BaseModel):
@@ -224,8 +225,11 @@ class DocumentAgent:
     def __init__(self, attachments_extension: AttachmentsExtension) -> None:
         self._attachments_extension: AttachmentsExtension = attachments_extension
         self._state: State | None = None
-        self._commands: list[Callable] = [self._set_mode_draft_outline]
-        self._mode_name_to_method: dict[ModeName, Callable] = {ModeName.DRAFT_OUTLINE: self._mode_draft_outline}
+        self._commands: list[Callable] = [self._set_mode_draft_outline, self._set_mode_draft_paper]
+        self._mode_name_to_method: dict[ModeName, Callable] = {
+            ModeName.DRAFT_OUTLINE: self._mode_draft_outline,
+            ModeName.DRAFT_PAPER: self._mode_draft_paper,
+        }
         self._step_name_to_method: dict[StepName, Callable] = {}  # To be defined in mode method
 
     @property
@@ -300,6 +304,27 @@ class DocumentAgent:
 
         # Run
         self._state.mode = Mode(name=ModeName.DRAFT_OUTLINE, status=Status.INITIATED)
+        self._write_state(context)
+
+    def _set_mode_draft_paper(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> None:
+        # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return
+
+        mode = self._state.mode
+        if mode.is_running():
+            logger.warning("Document Agent already in mode: %s. Cannot change modes.", mode.get_name())
+            return
+
+        # Run
+        self._state.mode = Mode(name=ModeName.DRAFT_PAPER, status=Status.INITIATED)
         self._write_state(context)
 
     async def respond_to_conversation(
@@ -488,6 +513,60 @@ class DocumentAgent:
         # Run
         return await self._run_mode(config, context, message, metadata)
 
+    async def _mode_draft_paper(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> Status:
+        # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return Status.UNDEFINED
+
+        mode = self._state.mode
+        mode_name = mode.get_name()
+        mode_status = mode.get_status()
+
+        if mode_name is not ModeName.DRAFT_PAPER or (
+            mode_status is not Status.NOT_COMPLETED and mode_status is not Status.INITIATED
+        ):
+            logger.error(
+                "Document Agent state mode: %s, mode called: %s, state mode completion status: %s. Resetting Mode.",
+                mode_name,
+                ModeName.DRAFT_PAPER,
+                mode_status,
+            )
+            self._state.mode.reset()
+            self._write_state(context)
+            return self._state.mode.get_status()
+
+        # Setup on first run.
+        if mode_status is Status.INITIATED:
+            self._state.mode.set_step_order(
+                [
+                    StepName.DO_GC_ATTACHMENT_CHECK,
+                    StepName.DO_DRAFT_OUTLINE,
+                    StepName.DO_GC_GET_OUTLINE_FEEDBACK,
+                    StepName.DP_DRAFT_CONTENT,
+                ],
+            )
+            logger.info("Document Agent mode (%s) at beginning.", mode_name)
+            first_step_name = self._state.mode.get_step_order()[0]
+            self._state.mode.set_step(Step(name=first_step_name, status=Status.INITIATED))
+            self._write_state(context)
+
+        self._step_name_to_method: dict[StepName, Callable] = {
+            StepName.DO_GC_ATTACHMENT_CHECK: self._step_gc_attachment_check,
+            StepName.DO_DRAFT_OUTLINE: self._step_draft_outline,
+            StepName.DO_GC_GET_OUTLINE_FEEDBACK: self._step_gc_get_outline_feedback,
+            StepName.DP_DRAFT_CONTENT: self._step_draft_content,
+        }
+
+        # Run
+        return await self._run_mode(config, context, message, metadata)
+
     async def _step_gc_attachment_check(
         self,
         config: AssistantConfigModel,
@@ -627,6 +706,46 @@ class DocumentAgent:
         # pretend completed
         return Status.USER_COMPLETED, None
 
+    async def _step_draft_content(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> tuple[Status, StepName | None]:
+        next_step = None
+
+        # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return Status.UNDEFINED, next_step
+
+        step = self._state.mode.get_step()
+        step_name = step.get_name()
+        step_status = step.get_status()
+
+        step_called = StepName.DP_DRAFT_CONTENT
+        if step_name is not step_called or (
+            step_status is not Status.NOT_COMPLETED and step_status is not Status.INITIATED
+        ):
+            logger.error(
+                "Document Agent state step: %s, step called: %s, state step completion status: %s. Resetting Mode.",
+                step_name,
+                step_called,
+                step_status,
+            )
+            self._state.mode.reset()
+            self._write_state(context)
+            return self._state.mode.get_status(), next_step
+
+        # Run
+        logger.info("Document Agent running step: %s", step_name)
+        status, next_step_name = await self._draft_content(config, context, message, metadata)
+        step.set_status(status)
+        self._state.mode.set_step(step)
+        self._write_state(context)
+        return step.get_status(), next_step_name
+
     # endregion
 
     #
@@ -726,7 +845,7 @@ class DocumentAgent:
 
         # create chat completion messages
         chat_completion_messages: list[ChatCompletionMessageParam] = []
-        chat_completion_messages.append(_main_system_message())
+        chat_completion_messages.append(_draft_outline_main_system_message())
         chat_completion_messages.append(
             _chat_history_system_message(conversation.messages, participants_list.participants)
         )
@@ -743,19 +862,19 @@ class DocumentAgent:
                     "response_format": {"type": "text"},
                 }
                 completion = await client.chat.completions.create(**completion_args)
-                content = completion.choices[0].message.content
+                message_content = completion.choices[0].message.content
                 _on_success_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, completion)
 
             except Exception as e:
                 logger.exception(f"exception occurred calling openai chat completion: {e}")
-                content = (
+                message_content = (
                     "An error occurred while calling the OpenAI API. Is it configured correctly?"
                     "View the debug inspector for more information."
                 )
                 _on_error_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, e)
 
         # store only latest version for now (will keep all versions later as need arises)
-        (storage_directory_for_context(context) / "document_agent/outline.txt").write_text(content)
+        (storage_directory_for_context(context) / "document_agent/outline.txt").write_text(message_content)
 
         # send the response to the conversation only if from a command.  Otherwise return info to caller.
         message_type = MessageType.chat
@@ -764,7 +883,7 @@ class DocumentAgent:
 
         await context.send_messages(
             NewConversationMessage(
-                content=content,
+                content=message_content,
                 message_type=message_type,
                 metadata=metadata,
             )
@@ -851,6 +970,85 @@ class DocumentAgent:
 
         return conversation_status, next_step_name
 
+    async def _draft_content(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage,
+        metadata: dict[str, Any] = {},
+    ) -> tuple[Status, StepName | None]:
+        method_metadata_key = "draft_content"
+
+        # get conversation related info
+        conversation = await context.get_messages(before=message.id)
+        if message.message_type == MessageType.chat:
+            conversation.messages.append(message)
+        participants_list = await context.get_participants(include_inactive=True)
+
+        # get attachments related info
+        attachment_messages = await self._attachments_extension.get_completion_messages_for_attachments(
+            context, config=config.agents_config.attachment_agent
+        )
+
+        # get outline related info
+        outline: str | None = None
+        content: str | None = None
+        # path = _get_document_agent_conversation_storage_path(context)
+        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
+            outline = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+        if path.exists(storage_directory_for_context(context) / "document_agent/content.txt"):
+            content = (storage_directory_for_context(context) / "document_agent/content.txt").read_text()
+
+        # create chat completion messages
+        chat_completion_messages: list[ChatCompletionMessageParam] = []
+        chat_completion_messages.append(_draft_content_main_system_message())
+        chat_completion_messages.append(
+            _chat_history_system_message(conversation.messages, participants_list.participants)
+        )
+        chat_completion_messages.extend(attachment_messages)
+        if outline is not None:
+            chat_completion_messages.append(_outline_system_message(outline))
+        if content is not None:  # only grabs previously written content, not all yet.
+            chat_completion_messages.append(_content_system_message(content))
+
+        # make completion call to openai
+        async with openai_client.create_client(config.service_config) as client:
+            try:
+                completion_args = {
+                    "messages": chat_completion_messages,
+                    "model": config.request_config.openai_model,
+                    "response_format": {"type": "text"},
+                }
+                completion = await client.chat.completions.create(**completion_args)
+                content = completion.choices[0].message.content
+                _on_success_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, completion)
+
+            except Exception as e:
+                logger.exception(f"exception occurred calling openai chat completion: {e}")
+                content = (
+                    "An error occurred while calling the OpenAI API. Is it configured correctly?"
+                    "View the debug inspector for more information."
+                )
+                _on_error_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, e)
+
+        # store only latest version for now (will keep all versions later as need arises)
+        (storage_directory_for_context(context) / "document_agent/content.txt").write_text(content)
+
+        # send the response to the conversation only if from a command.  Otherwise return info to caller.
+        message_type = MessageType.chat
+        if message.message_type == MessageType.command:
+            message_type = MessageType.command
+
+        await context.send_messages(
+            NewConversationMessage(
+                content=content,
+                message_type=message_type,
+                metadata=metadata,
+            )
+        )
+
+        return Status.USER_COMPLETED, None
+
     # endregion
 
 
@@ -859,8 +1057,16 @@ class DocumentAgent:
 #
 
 
-def _main_system_message() -> ChatCompletionSystemMessageParam:
+def _draft_outline_main_system_message() -> ChatCompletionSystemMessageParam:
     message: ChatCompletionSystemMessageParam = {"role": "system", "content": draft_outline_main_system_message}
+    return message
+
+
+def _draft_content_main_system_message() -> ChatCompletionSystemMessageParam:
+    message: ChatCompletionSystemMessageParam = {
+        "role": "system",
+        "content": draft_content_continue_main_system_message,
+    }
     return message
 
 
@@ -882,11 +1088,18 @@ def _chat_history_system_message(
 
 
 def _outline_system_message(outline: str) -> ChatCompletionSystemMessageParam:
-    if outline is not None:
-        message: ChatCompletionSystemMessageParam = {
-            "role": "system",
-            "content": (f"<EXISTING_OUTLINE>{outline}</EXISTING_OUTLINE>"),
-        }
+    message: ChatCompletionSystemMessageParam = {
+        "role": "system",
+        "content": (f"<EXISTING_OUTLINE>{outline}</EXISTING_OUTLINE>"),
+    }
+    return message
+
+
+def _content_system_message(content: str) -> ChatCompletionSystemMessageParam:
+    message: ChatCompletionSystemMessageParam = {
+        "role": "system",
+        "content": (f"<EXISTING_CONTENT>{content}</EXISTING_CONTENT>"),
+    }
     return message
 
 
@@ -903,6 +1116,29 @@ draft_outline_main_system_message = (
 # " You use information from a chat history between a user and an assistant, a prior version of a draft"
 # " outline if it exists, as well as any other attachments provided by the user to inform a newly revised "
 # "outline draft. Provide ONLY any outline. Provide no further instructions to the user.")
+
+draft_content_continue_main_system_message = (
+    "Following the structure of the outline, create the content for the next (or first) page of the"
+    " document - don't try to create the entire document in one pass nor wrap it up too quickly, it will be a"
+    " multi-page document so just create the next page. It's more important to maintain"
+    " an appropriately useful level of detail. After this page is generated, the system will follow up"
+    " and ask for the next page. If you have already generated all the pages for the"
+    " document as defined in the outline, return empty content."
+)
+# ("You are an AI assistant that helps draft new content of a document based on an outline."
+# " You use information from a chat history between a user and an assistant, the approved outline from the user,"
+# "and an existing version of drafted content if it exists, as well as any other attachments provided by the user to inform newly revised "
+# "content. Newly drafted content does not need to cover the entire outline.  Instead it should be limited to a reasonable 100 lines of natural language"
+# " or subsection of the outline (which ever is shorter). The newly drafted content should be written as to append to any existing drafted content."
+# " This way the user can review newly drafted content as a subset of the future full document and not be overwhelmed."
+# "Only provide the newly drafted content. Provide no further instructions to the user.")
+
+draft_content_iterate_main_system_message = (
+    "Following the structure of the outline, iterate on the currently drafted page of the"
+    " document. It's more important to maintain"
+    " an appropriately useful level of detail. After this page is iterated upon, the system will follow up"
+    " and ask for the next page."
+)
 
 
 def _on_success_metadata_update(
@@ -969,19 +1205,3 @@ def _format_message(message: ConversationMessage, participants: list[Conversatio
 
 
 # endregion
-
-
-##### FROM NOTEBOOK
-# await document_skill.draft_outline(context=unused, openai_client=async_client, model=model)
-#
-# decision, user_feedback = await document_skill.get_user_feedback(
-#                                context=unused, openai_client=async_client, model=model, outline=True
-#                            )
-#
-# while decision == "[ITERATE]":
-# await document_skill.draft_outline(
-#                                context=unused, openai_client=async_client, model=model, user_feedback=user_feedback
-#                            )
-# decision, user_feedback = await document_skill.get_user_feedback(
-#                                context=unused, openai_client=async_client, model=model, outline=True
-#                            )
