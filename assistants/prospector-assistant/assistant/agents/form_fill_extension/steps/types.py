@@ -5,6 +5,7 @@ from guided_conversation.utils.resources import ResourceConstraint, ResourceCons
 from openai import AsyncOpenAI
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.assistant_app.context import ConversationContext
+from semantic_workbench_assistant.config import UISchema
 
 
 @dataclass
@@ -84,6 +85,7 @@ class GuidedConversationDefinition(BaseModel):
             title="Conversation flow",
             description="(optional) Defines the steps of the conversation in natural language.",
         ),
+        UISchema(widget="textarea"),
     ]
 
     context: Annotated[
@@ -92,6 +94,7 @@ class GuidedConversationDefinition(BaseModel):
             title="Context",
             description="(optional) Any additional information or the circumstances the agent is in that it should be aware of. It can also include the high level goal of the conversation if needed.",
         ),
+        UISchema(widget="textarea"),
     ]
 
     resource_constraint: Annotated[

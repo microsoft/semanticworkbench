@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
+from semantic_workbench_assistant.config import UISchema
 
 from .. import state
 from . import _llm
@@ -14,7 +15,9 @@ logger = logging.getLogger(__name__)
 
 class ExtractFormFieldsConfig(BaseModel):
     instruction: Annotated[
-        str, Field(title="Instruction", description="The instruction for extracting form fields from the file content.")
+        str,
+        Field(title="Instruction", description="The instruction for extracting form fields from the file content."),
+        UISchema(widget="textarea"),
     ] = (
         "Extract the form fields from the provided form attachment. Any type of form is allowed, including for example"
         " tax forms, address forms, surveys, and other official or unofficial form-types. If the content is not a form,"
