@@ -15,4 +15,4 @@ Set-Location $root
 Set-Location "examples/python/python-02-simple-chatbot"
 
 # Run the commands
-uv run start-semantic-workbench-assistant
+uv run start-assistant

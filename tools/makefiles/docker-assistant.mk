@@ -27,4 +27,4 @@ docker-run-local: docker-build
 
 .PHONY: start
 start:
-	uv run start-semantic-workbench-assistant
+	uv run start-assistant

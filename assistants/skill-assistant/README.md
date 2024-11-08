@@ -68,7 +68,7 @@ command line, using `uv`:
 ```
 cd <PATH TO THIS FOLDER>
 
-uv run start-semantic-workbench-assistant
+uv run start-assistant
 ```
 
 ## Create your own assistant

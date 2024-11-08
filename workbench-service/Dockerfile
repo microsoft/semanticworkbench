@@ -44,4 +44,4 @@ ENV workbench__service__port=3000
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
-CMD ["start-semantic-workbench-service"]
+CMD ["start-service"]

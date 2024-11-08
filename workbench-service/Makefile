@@ -14,7 +14,7 @@ endif
 
 .PHONY: start
 start:
-	WORKBENCH__DB__URL="$(WORKBENCH__DB__URL)" uv run start-semantic-workbench-service
+	WORKBENCH__DB__URL="$(WORKBENCH__DB__URL)" uv run start-service
 
 .PHONY: alembic-upgrade-head
 alembic-upgrade-head:
