@@ -19,15 +19,17 @@ class ExtractFormFieldsConfig(BaseModel):
         Field(title="Instruction", description="The instruction for extracting form fields from the file content."),
         UISchema(widget="textarea"),
     ] = (
-        "Extract the form fields from the provided form attachment. Any type of form is allowed, including for example"
+        "Read the user provided form attachment and determine what fields are in the form. Any type of form is allowed, including"
         " tax forms, address forms, surveys, and other official or unofficial form-types. If the content is not a form,"
-        " or the fields cannot be determined, then set the error_message."
+        " or the fields cannot be determined, then explain the reason why in the error_message. If the fields can be determined,"
+        " leave the error_message empty."
     )
 
 
 @dataclass
 class CompleteResult(Result):
-    ai_message: str
+    message: str
+    extracted_form_title: str
     extracted_form_fields: list[state.FormField]
 
 
@@ -62,14 +64,18 @@ async def execute(
         )
 
     return CompleteResult(
-        ai_message="",
+        message="",
+        extracted_form_title=extracted_form_fields.title,
         extracted_form_fields=extracted_form_fields.fields,
         debug=metadata,
     )
 
 
 class FormFields(BaseModel):
-    error_message: str = Field(description="The error message in the case that the form fields could not be extracted.")
+    error_message: str = Field(
+        description="The error message in the case that the form fields could not be determined."
+    )
+    title: str = Field(description="The title of the form.")
     fields: list[state.FormField] = Field(description="The fields in the form.")
 
 
