@@ -51,7 +51,7 @@ export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegist
     const [submitted, setSubmitted] = React.useState(false);
     const [apiKey, setApiKey] = React.useState<string>();
 
-    const handleSave = async () => {
+    const handleSave = React.useCallback(async () => {
         if (submitted) {
             return;
         }
@@ -75,7 +75,17 @@ export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegist
         } finally {
             setSubmitted(false);
         }
-    };
+    }, [
+        createAssistantServiceRegistration,
+        description,
+        id,
+        includeInListing,
+        name,
+        onCreate,
+        onOpenChange,
+        refetchAssistantServiceRegistrations,
+        submitted,
+    ]);
 
     const resetState = React.useCallback(() => {
         setValid(false);
@@ -164,7 +174,7 @@ export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegist
                 additionalActions={[
                     <DialogTrigger key="save" disableButtonEnhancement>
                         <Button appearance="primary" onClick={handleSave} disabled={!valid || submitted}>
-                            Save
+                            {submitted ? 'Saving...' : 'Save'}
                         </Button>
                     </DialogTrigger>,
                 ]}

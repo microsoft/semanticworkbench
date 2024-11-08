@@ -17,16 +17,26 @@ interface ConversationTranscriptProps {
 export const ConversationTranscript: React.FC<ConversationTranscriptProps> = (props) => {
     const { conversation, participants, iconOnly, asToolbarButton } = props;
     const workbenchService = useWorkbenchService();
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const getTranscript = async () => {
-        const { blob, filename } = await workbenchService.exportTranscriptAsync(conversation, participants);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
+    const getTranscript = React.useCallback(async () => {
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
+        try {
+            const { blob, filename } = await workbenchService.exportTranscriptAsync(conversation, participants);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setSubmitted(false);
+        }
+    }, [submitted, workbenchService, conversation, participants]);
 
     return (
         <div>
@@ -35,7 +45,8 @@ export const ConversationTranscript: React.FC<ConversationTranscriptProps> = (pr
                 icon={<ArrowDownload24Regular />}
                 iconOnly={iconOnly}
                 asToolbarButton={asToolbarButton}
-                label="Download"
+                disabled={submitted}
+                label={submitted ? 'Downloading...' : 'Download'}
                 onClick={getTranscript}
             />
         </div>

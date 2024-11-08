@@ -16,6 +16,20 @@ interface ContentExportProps {
 export const ContentExport: React.FC<ContentExportProps> = (props) => {
     const { id, contentTypeLabel, exportFunction, iconOnly, asToolbarButton } = props;
     const { exportContent } = useExportUtility();
+    const [exporting, setExporting] = React.useState(false);
+
+    const handleExport = React.useCallback(async () => {
+        if (exporting) {
+            return;
+        }
+        setExporting(true);
+
+        try {
+            await exportContent(id, exportFunction);
+        } finally {
+            setExporting(false);
+        }
+    }, [exporting, exportContent, id, exportFunction]);
 
     return (
         <CommandButton
@@ -23,8 +37,9 @@ export const ContentExport: React.FC<ContentExportProps> = (props) => {
             icon={<ArrowDownload24Regular />}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
-            label="Export"
-            onClick={() => exportContent(id, exportFunction)}
+            label={exporting ? 'Exporting...' : 'Export'}
+            onClick={handleExport}
+            disabled={exporting}
         />
     );
 };

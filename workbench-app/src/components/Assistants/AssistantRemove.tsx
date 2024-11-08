@@ -23,21 +23,38 @@ export const AssistantRemove: React.FC<AssistantRemoveProps> = (props) => {
     const { participant, conversation, iconOnly, disabled, simulateMenuItem } = props;
     const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const handleAssistantRemove = async () => {
-        await removeConversationParticipant({
-            conversationId: conversation.id,
-            participantId: participant.id,
-        });
+    const handleAssistantRemove = React.useCallback(async () => {
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
 
-        const content = `${participant.name} removed from conversation`;
+        try {
+            await removeConversationParticipant({
+                conversationId: conversation.id,
+                participantId: participant.id,
+            });
 
-        await createConversationMessage({
-            conversationId: conversation.id,
-            content,
-            messageType: 'notice',
-        });
-    };
+            const content = `${participant.name} removed from conversation`;
+
+            await createConversationMessage({
+                conversationId: conversation.id,
+                content,
+                messageType: 'notice',
+            });
+        } finally {
+            setSubmitted(false);
+        }
+    }, [
+        conversation.id,
+        createConversationMessage,
+        participant.id,
+        participant.name,
+        removeConversationParticipant,
+        submitted,
+    ]);
 
     return (
         <CommandButton
@@ -59,7 +76,8 @@ export const AssistantRemove: React.FC<AssistantRemoveProps> = (props) => {
                     <DialogTrigger key="remove" disableButtonEnhancement>
                         <CommandButton
                             icon={<PlugDisconnectedRegular />}
-                            label="Remove"
+                            disabled={submitted}
+                            label={submitted ? 'Removing...' : 'Remove'}
                             onClick={handleAssistantRemove}
                         />
                     </DialogTrigger>,

@@ -85,7 +85,7 @@ export const NewConversationButton: React.FC = () => {
                     </Button>
                 </DialogTrigger>,
                 <Button key="create" appearance="primary" onClick={handleCreate} disabled={!isValid || submitted}>
-                    Create
+                    {submitted ? 'Creating...' : 'Create'}
                 </Button>,
             ]}
         />

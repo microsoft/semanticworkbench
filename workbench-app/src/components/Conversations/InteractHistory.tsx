@@ -57,7 +57,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     const { conversation, messages, participants, readOnly, className, onRewindToBefore } = props;
     const classes = useClasses();
     const { hash } = useLocation();
-    const { setLastRead } = useConversationUtility();
+    const { debouncedSetLastRead } = useConversationUtility();
     const [scrollToIndex, setScrollToIndex] = React.useState<number>();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
     const [isAtBottom, setIsAtBottom] = React.useState<boolean>(true);
@@ -65,8 +65,8 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     // handler for when a message is read
     const handleOnRead = React.useCallback(
         // update the last read timestamp for the conversation
-        async (message: ConversationMessage) => await setLastRead(conversation, message.timestamp),
-        [setLastRead, conversation],
+        async (message: ConversationMessage) => await debouncedSetLastRead(conversation, message.timestamp),
+        [debouncedSetLastRead, conversation],
     );
 
     // create a ref for the virtuoso component for using its methods directly

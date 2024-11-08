@@ -64,15 +64,6 @@ const deepDiff = (obj1: ObjectLiteral, obj2: ObjectLiteral, parentKey = ''): Obj
 
 type ObjectLiteral = { [key: string]: any };
 
-const debounce = (func: Function, wait: number) => {
-    let timeout: NodeJS.Timeout;
-    return function (this: any, ...args: any[]) {
-        const context = this;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-    };
-};
-
 const toDayJs = (value: string | Date, timezone: string = dayjs.tz.guess()) => {
     return dayjs.utc(value).tz(timezone);
 };
@@ -187,7 +178,6 @@ export const Utility = {
     deepCopy,
     deepMerge,
     deepDiff,
-    debounce,
     toDate,
     toSimpleDateString,
     toFormattedDateString,

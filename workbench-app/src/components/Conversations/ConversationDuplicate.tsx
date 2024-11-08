@@ -1,39 +1,49 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, DialogTrigger } from '@fluentui/react-components';
+import { Button, DialogOpenChangeData, DialogOpenChangeEvent, DialogTrigger } from '@fluentui/react-components';
 import { SaveCopy24Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { useNotify } from '../../libs/useNotify';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
-import { Conversation } from '../../models/Conversation';
+import { Utility } from '../../libs/Utility';
 import { CommandButton } from '../App/CommandButton';
 import { DialogControl } from '../App/DialogControl';
 
-const useConversationDuplicateControls = (ids: string[]) => {
+const useConversationDuplicateControls = (id: string) => {
     const workbenchService = useWorkbenchService();
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const duplicateConversations = async (
-        onDuplicate?: (conversationId: string) => void,
-        onDuplicateError?: (error: Error) => void,
-    ) => {
-        try {
-            const duplicates = await workbenchService.duplicateConversationsAsync(ids);
-            duplicates.forEach((duplicate) => onDuplicate?.(duplicate));
-        } catch (error) {
-            onDuplicateError?.(error as Error);
-        }
-    };
+    const duplicateConversation = React.useCallback(
+        async (onDuplicate?: (conversationId: string) => Promise<void>, onError?: (error: Error) => void) => {
+            try {
+                await Utility.withStatus(setSubmitted, async () => {
+                    const duplicates = await workbenchService.duplicateConversationsAsync([id]);
+                    await onDuplicate?.(duplicates[0]);
+                });
+            } catch (error) {
+                onError?.(error as Error);
+            }
+        },
+        [id, workbenchService],
+    );
 
-    const duplicateConversationForm = () => <p>Are you sure you want to duplicate this conversation?</p>;
+    const duplicateConversationForm = React.useCallback(
+        () => <p>Are you sure you want to duplicate this conversation?</p>,
+        [],
+    );
 
-    const duplicateConversationButton = (
-        onDuplicate?: (conversationId: string) => void,
-        onDuplicateError?: (error: Error) => void,
-    ) => (
-        <DialogTrigger disableButtonEnhancement>
-            <Button appearance="primary" onClick={() => duplicateConversations(onDuplicate, onDuplicateError)}>
-                Duplicate
+    const duplicateConversationButton = React.useCallback(
+        (onDuplicate?: (conversationId: string) => Promise<void>, onError?: (error: Error) => void) => (
+            <Button
+                key="duplicate"
+                appearance="primary"
+                onClick={() => duplicateConversation(onDuplicate, onError)}
+                disabled={submitted}
+            >
+                {submitted ? 'Duplicating...' : 'Duplicate'}
             </Button>
-        </DialogTrigger>
+        ),
+        [duplicateConversation, submitted],
     );
 
     return {
@@ -43,40 +53,52 @@ const useConversationDuplicateControls = (ids: string[]) => {
 };
 
 interface ConversationDuplicateDialogProps {
-    id: string;
-    onDuplicate: (conversationId: string) => void;
-    onCancel: () => void;
+    conversationId: string;
+    onDuplicate: (conversationId: string) => Promise<void>;
+    open?: boolean;
+    onOpenChange: (event: DialogOpenChangeEvent, data: DialogOpenChangeData) => void;
 }
 
 export const ConversationDuplicateDialog: React.FC<ConversationDuplicateDialogProps> = (props) => {
-    const { id, onDuplicate, onCancel } = props;
-    const { duplicateConversationForm, duplicateConversationButton } = useConversationDuplicateControls([id]);
+    const { conversationId, onDuplicate, open, onOpenChange } = props;
+    const { duplicateConversationForm, duplicateConversationButton } = useConversationDuplicateControls(conversationId);
+    const { notifyWarning } = useNotify();
+
+    const handleError = React.useCallback(
+        (error: Error) => {
+            notifyWarning({
+                id: 'error',
+                title: 'Duplicate conversation failed',
+                message: error.message,
+            });
+        },
+        [notifyWarning],
+    );
 
     return (
         <DialogControl
-            open={true}
-            onOpenChange={onCancel}
+            open={open}
+            onOpenChange={onOpenChange}
             title="Duplicate conversation"
             content={duplicateConversationForm()}
             closeLabel="Cancel"
-            additionalActions={[duplicateConversationButton(onDuplicate)]}
+            additionalActions={[duplicateConversationButton(onDuplicate, handleError)]}
         />
     );
 };
 
 interface ConversationDuplicateProps {
-    conversation: Conversation;
+    conversationId: string;
+    disabled?: boolean;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
-    onDuplicate?: (conversationId: string) => void;
+    onDuplicate?: (conversationId: string) => Promise<void>;
     onDuplicateError?: (error: Error) => void;
 }
 
 export const ConversationDuplicate: React.FC<ConversationDuplicateProps> = (props) => {
-    const { conversation, iconOnly, asToolbarButton, onDuplicate, onDuplicateError } = props;
-    const { duplicateConversationForm, duplicateConversationButton } = useConversationDuplicateControls([
-        conversation.id,
-    ]);
+    const { conversationId, iconOnly, asToolbarButton, onDuplicate, onDuplicateError } = props;
+    const { duplicateConversationForm, duplicateConversationButton } = useConversationDuplicateControls(conversationId);
 
     return (
         <CommandButton
@@ -89,7 +111,11 @@ export const ConversationDuplicate: React.FC<ConversationDuplicateProps> = (prop
                 title: 'Duplicate conversation',
                 content: duplicateConversationForm(),
                 closeLabel: 'Cancel',
-                additionalActions: [duplicateConversationButton(onDuplicate, onDuplicateError)],
+                additionalActions: [
+                    <DialogTrigger key="duplicate" disableButtonEnhancement>
+                        {duplicateConversationButton(onDuplicate, onDuplicateError)}
+                    </DialogTrigger>,
+                ],
             }}
         />
     );

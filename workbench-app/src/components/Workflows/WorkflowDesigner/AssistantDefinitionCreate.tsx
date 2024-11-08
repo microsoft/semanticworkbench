@@ -55,6 +55,7 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
     const classes = useClasses();
     const [name, setName] = React.useState('');
     const [assistantServiceId, setAssistantServiceId] = React.useState('');
+    const [submitted, setSubmitted] = React.useState(false);
 
     const {
         data: assistantServices,
@@ -67,14 +68,23 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
         throw new Error(`Error loading assistant services: ${errorMessage}`);
     }
 
-    const handleSave = async () => {
-        onOpenChange?.(false);
-        onCreate?.({
-            id: generateUuid(),
-            name,
-            assistantServiceId,
-        });
-    };
+    const handleSave = React.useCallback(async () => {
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
+        try {
+            onOpenChange?.(false);
+            onCreate?.({
+                id: generateUuid(),
+                name,
+                assistantServiceId,
+            });
+        } finally {
+            setSubmitted(false);
+        }
+    }, [assistantServiceId, name, onCreate, onOpenChange, submitted]);
 
     const handleOpenChange = React.useCallback(
         (_event: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
@@ -189,8 +199,12 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
             closeLabel="Cancel"
             additionalActions={[
                 <DialogTrigger key="save" disableButtonEnhancement>
-                    <Button disabled={!name || !assistantServiceId} appearance="primary" onClick={handleSave}>
-                        Save
+                    <Button
+                        disabled={!name || !assistantServiceId || submitted}
+                        appearance="primary"
+                        onClick={handleSave}
+                    >
+                        {submitted ? 'Saving...' : 'Save'}
                     </Button>
                 </DialogTrigger>,
             ]}

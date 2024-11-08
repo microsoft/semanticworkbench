@@ -23,9 +23,7 @@ interface MySharesProps {
 export const MyShares: React.FC<MySharesProps> = (props) => {
     const { shares, hideInstruction, title, conversation } = props;
     const [newOpen, setNewOpen] = React.useState(Boolean(conversation && shares.length === 0));
-    const [conversationShareForDetails, setConversationShareForDetails] = React.useState<ConversationShare | undefined>(
-        undefined,
-    );
+    const [conversationShareForDetails, setConversationShareForDetails] = React.useState<ConversationShare>();
     const conversationUtility = useConversationUtility();
 
     const createTitle = 'Create a new share link';

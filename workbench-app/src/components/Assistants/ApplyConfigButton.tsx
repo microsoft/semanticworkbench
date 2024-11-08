@@ -55,9 +55,9 @@ export const ApplyConfigButton: React.FC<ApplyConfigButtonProps> = (props) => {
         }
     }, [currentConfig, newConfig]);
 
-    const handleApply = () => {
+    const handleApply = React.useCallback(() => {
         onApply?.(newConfig);
-    };
+    }, [newConfig, onApply]);
 
     const defaultLabel = 'Apply configuration';
     const title = `${label ?? defaultLabel}: ${diffCount} changes`;

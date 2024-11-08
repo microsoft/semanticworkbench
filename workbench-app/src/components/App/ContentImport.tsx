@@ -64,7 +64,7 @@ export const ContentImport = <T extends unknown>(props: ContentImportProps<T>) =
                 asToolbarButton={asToolbarButton}
                 appearance={appearance}
                 size={size}
-                label="Import"
+                label={uploading ? 'Uploading...' : 'Import'}
                 onClick={onUpload}
             />
         </div>
