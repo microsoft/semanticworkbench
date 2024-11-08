@@ -17,19 +17,15 @@ import { Constants } from '../../Constants';
 import { InteractHistory } from '../../components/Conversations/InteractHistory';
 import { InteractInput } from '../../components/Conversations/InteractInput';
 import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
-import { useGetAssistantCapabilities } from '../../libs/useAssistantCapabilities';
 import { useChatCanvasController } from '../../libs/useChatCanvasController';
 import { useEnvironment } from '../../libs/useEnvironment';
+import { useHistoryUtility } from '../../libs/useHistoryUtility';
 import { useSiteUtility } from '../../libs/useSiteUtility';
 import { WorkflowDefinition } from '../../models/WorkflowDefinition';
 import { WorkflowRun } from '../../models/WorkflowRun';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
 import { setChatWidthPercent } from '../../redux/features/app/appSlice';
-import {
-    useGetConversationParticipantsQuery,
-    useGetConversationQuery,
-    useGetWorkflowRunAssistantsQuery,
-} from '../../services/workbench';
+import { useGetWorkflowRunAssistantsQuery } from '../../services/workbench';
 import { Loading } from '../App/Loading';
 import { ConversationCanvas } from '../Conversations/Canvas/ConversationCanvas';
 import { WorkflowControl } from './WorkflowControl';
@@ -137,43 +133,35 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
     const chatCanvasController = useChatCanvasController();
     const animationFrame = React.useRef<number>(0);
     const resizeHandleRef = React.useRef<HTMLDivElement>(null);
+    const [isResizing, setIsResizing] = React.useState(false);
+    const siteUtility = useSiteUtility();
+    const environment = useEnvironment();
 
     const {
         data: workflowRunAssistants,
         isLoading: isLoadingWorkflowRunAssistants,
         error: workflowRunAssistantsError,
     } = useGetWorkflowRunAssistantsQuery(workflowRun.id);
+
     const {
-        currentData: conversation,
-        isLoading: isLoadingConversation,
-        error: conversationError,
-    } = useGetConversationQuery(conversationId);
-    const {
-        currentData: participants,
-        isLoading: isLoadingParticipants,
-        error: participantsError,
-    } = useGetConversationParticipantsQuery(conversationId, { refetchOnMountOrArgChange: true });
-    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
-        workflowRunAssistants ?? [],
-    );
-
-    const [isResizing, setIsResizing] = React.useState(false);
-    const siteUtility = useSiteUtility();
-    const environment = useEnvironment();
-
-    if (conversationError) {
-        const errorMessage = JSON.stringify(conversationError);
-        throw new Error(`Error loading conversation: ${errorMessage}`);
-    }
-
-    if (participantsError) {
-        const errorMessage = JSON.stringify(participantsError);
-        throw new Error(`Error loading participants: ${errorMessage}`);
-    }
+        conversation,
+        allConversationMessages,
+        conversationParticipants,
+        assistants,
+        assistantCapabilities,
+        error: historyError,
+        isLoading: historyIsLoading,
+        assistantCapabilitiesIsFetching,
+    } = useHistoryUtility(conversationId);
 
     if (workflowRunAssistantsError) {
         const errorMessage = JSON.stringify(workflowRunAssistantsError);
         throw new Error(`Error loading workflow run assistants: ${errorMessage}`);
+    }
+
+    if (historyError) {
+        const errorMessage = JSON.stringify(historyError);
+        throw new Error(`Error loading conversation (${conversationId}): ${errorMessage}`);
     }
 
     React.useEffect(() => {
@@ -245,12 +233,13 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
 
     if (
         isLoadingWorkflowRunAssistants ||
-        isLoadingConversation ||
-        isLoadingParticipants ||
-        isFetchingAssistantCapabilities ||
+        historyIsLoading ||
+        assistantCapabilitiesIsFetching ||
         !assistantCapabilities ||
         !conversation ||
-        !participants ||
+        !allConversationMessages ||
+        !conversationParticipants ||
+        !assistants ||
         !workflowRunAssistants
     ) {
         return <Loading />;
@@ -276,13 +265,20 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                                 : classes.historyContent
                         }
                     >
-                        <InteractHistory readOnly={readOnly} conversation={conversation} participants={participants} />
+                        <InteractHistory
+                            readOnly={readOnly}
+                            conversation={conversation}
+                            messages={allConversationMessages}
+                            participants={conversationParticipants}
+                        />
                     </div>
                 </div>
                 <div className={classes.input}>
                     <InteractInput
                         readOnly={readOnly}
-                        conversationId={conversation.id}
+                        conversation={conversation}
+                        messages={allConversationMessages}
+                        participants={conversationParticipants}
                         assistantCapabilities={assistantCapabilities}
                         additionalContent={
                             <>
@@ -319,7 +315,7 @@ export const WorkflowConversation: React.FC<WorkflowConversationProps> = (props)
                         readOnly={readOnly}
                         conversation={conversation}
                         conversationFiles={[]}
-                        conversationParticipants={participants}
+                        conversationParticipants={conversationParticipants}
                         preventAssistantModifyOnParticipantIds={workflowRunAssistants?.map((assistant) => assistant.id)}
                     />
                 )}

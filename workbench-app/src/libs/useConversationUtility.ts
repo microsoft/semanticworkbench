@@ -24,7 +24,7 @@ interface ParticipantAppMetadata {
 }
 
 export const useConversationUtility = () => {
-    const [isMessageVisible, setIsVisible] = React.useState(false);
+    const [isMessageVisible, setIsMessageVisible] = React.useState(false);
     const isMessageVisibleRef = React.useRef(null);
     const [updateConversation] = useUpdateConversationMutation();
     const localUserId = useAppSelector((state) => state.localUser.id);
@@ -161,7 +161,7 @@ export const useConversationUtility = () => {
     React.useEffect(() => {
         const observer = new IntersectionObserver(
             ([entry]) => {
-                setIsVisible(entry.isIntersecting);
+                setIsMessageVisible(entry.isIntersecting);
             },
             { threshold: 0.1 },
         );
@@ -210,7 +210,7 @@ export const useConversationUtility = () => {
         (conversation: Conversation, messageTimestamp: string) => {
             const lastReadTimestamp = getLastReadTimestamp(conversation);
             if (!lastReadTimestamp) {
-                return false;
+                return true;
             }
             return messageTimestamp > lastReadTimestamp;
         },
@@ -255,8 +255,8 @@ export const useConversationUtility = () => {
     );
 
     const setLastRead = React.useCallback(
-        async (conversation: Conversation | Conversation[], messageTimestamp: string) => {
-            const debouncedFunction = Utility.debounce(async () => {
+        async (conversation: Conversation | Conversation[], messageTimestamp: string) =>
+            Utility.debounce(async () => {
                 if (Array.isArray(conversation)) {
                     await Promise.all(
                         conversation.map((c) => setAppMetadata(c, { lastReadTimestamp: messageTimestamp })),
@@ -264,10 +264,7 @@ export const useConversationUtility = () => {
                     return;
                 }
                 await setAppMetadata(conversation, { lastReadTimestamp: messageTimestamp });
-            }, 300);
-
-            debouncedFunction();
-        },
+            }, 300),
         [setAppMetadata],
     );
 

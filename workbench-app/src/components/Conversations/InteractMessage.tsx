@@ -245,7 +245,6 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                     debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
                     loading={isLoadingDebugData || isUninitializedDebugData}
                     onOpen={() => {
-                        console.log('OPEN!');
                         setSkipDebugLoad(false);
                     }}
                 />

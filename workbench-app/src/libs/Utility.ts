@@ -173,6 +173,15 @@ const errorToMessageString = (error?: Record<string, any> | string) => {
     return message;
 };
 
+const withStatus = async <T>(setStatus: (status: boolean) => void, callback: () => Promise<T>): Promise<T> => {
+    setStatus(true);
+    try {
+        return await callback();
+    } finally {
+        setStatus(false);
+    }
+};
+
 export const Utility = {
     deepEqual,
     deepCopy,
@@ -185,4 +194,5 @@ export const Utility = {
     getTimestampForFilename,
     sortKeys,
     errorToMessageString,
+    withStatus,
 };
