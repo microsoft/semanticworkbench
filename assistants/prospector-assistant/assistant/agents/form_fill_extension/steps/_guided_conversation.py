@@ -40,7 +40,7 @@ async def engine(
     given state file.
     """
 
-    async with _state_locks[state_file_path], context.state_updated_event_after(state_id, focus_event=True):
+    async with _state_locks[state_file_path], context.state_updated_event_after(state_id):
         kernel, service_id = _build_kernel_with_service(openai_client, openai_model)
 
         state: dict | None = None

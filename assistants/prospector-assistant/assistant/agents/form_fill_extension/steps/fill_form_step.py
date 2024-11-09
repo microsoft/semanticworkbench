@@ -1,18 +1,19 @@
 import logging
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from textwrap import dedent
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, AsyncIterator, Literal, Optional
 
 from guided_conversation.utils.resources import ResourceConstraintMode, ResourceConstraintUnit
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import BaseModel, Field, create_model
-from semantic_workbench_assistant.assistant_app.context import ConversationContext
+from pydantic import BaseModel, ConfigDict, Field, create_model
+from semantic_workbench_assistant.assistant_app.context import ConversationContext, storage_directory_for_context
 from semantic_workbench_assistant.assistant_app.protocol import AssistantAppProtocol
 from semantic_workbench_assistant.config import UISchema
 
 from .. import state
-from ..inspector import FileStateInspector
+from ..inspector import FileStateInspector, StateProjection
 from . import _guided_conversation, _llm
 from .types import (
     Context,
@@ -28,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 def extend(app: AssistantAppProtocol) -> None:
-    app.add_inspector_state_provider(_inspector.state_id, _inspector)
+    app.add_inspector_state_provider(_guided_conversation_inspector.state_id, _guided_conversation_inspector)
+    app.add_inspector_state_provider(_populated_form_state_inspector.state_id, _populated_form_state_inspector)
 
 
 definition = GuidedConversationDefinition(
@@ -101,15 +103,21 @@ class FieldValueCandidatesFromDocument(BaseModel):
     candidates: FieldValueCandidates
 
 
+class FillFormState(BaseModel):
+    populated_form_markdown: str = "(The form has not yet been provided)"
+
+
 @dataclass
 class CompleteResult(Result):
-    ai_message: str
+    message: str
     artifact: dict
+    populated_form_markdown: str
 
 
 async def execute(
     step_context: Context[FillFormConfig],
     form_filename: str,
+    form_title: str,
     form_fields: list[state.FormField],
 ) -> IncompleteResult | IncompleteErrorResult | CompleteResult:
     """
@@ -130,11 +138,11 @@ async def execute(
     async with _guided_conversation.engine(
         definition=definition,
         artifact_type=artifact_type,
-        state_file_path=_get_state_file_path(step_context.context),
+        state_file_path=_get_guided_conversation_state_file_path(step_context.context),
         openai_client=step_context.llm_config.openai_client_factory(),
         openai_model=step_context.llm_config.openai_model,
         context=step_context.context,
-        state_id=_inspector.state_id,
+        state_id=_guided_conversation_inspector.state_id,
     ) as gce:
         try:
             result = await gce.step_conversation(message)
@@ -152,10 +160,20 @@ async def execute(
         fill_form_gc_artifact = gce.artifact.artifact.model_dump(mode="json")
         logger.info("guided-conversation artifact: %s", gce.artifact)
 
+    populated_form_markdown = _generate_populated_form(
+        form_title=form_title,
+        form_fields=form_fields,
+        populated_fields=fill_form_gc_artifact,
+    )
+
+    async with step_state(step_context.context) as state:
+        state.populated_form_markdown = populated_form_markdown
+
     if result.is_conversation_over:
         return CompleteResult(
-            ai_message="",
+            message=populated_form_markdown,
             artifact=fill_form_gc_artifact,
+            populated_form_markdown=populated_form_markdown,
             debug=debug,
         )
 
@@ -216,22 +234,55 @@ def _form_fields_to_artifact_basemodel(form_fields: list[state.FormField]):
             required_fields.append(field.id)
 
         match field.type:
-            case "string":
-                field_definitions[field.id] = (str, Field(title=field.name, description=field.description))
+            case state.FieldType.text | state.FieldType.signature | state.FieldType.date:
+                field_type = str
 
-            case "bool":
-                field_definitions[field.id] = (bool, Field(title=field.name, description=field.description))
+            case state.FieldType.multiple_choice:
+                match field.option_selections_allowed:
+                    case state.AllowedOptionSelections.one:
+                        field_type = Literal[tuple(field.options)]
 
-            case "multiple_choice":
-                field_definitions[field.id] = (
-                    Literal[tuple(field.options)],
-                    Field(title=field.name, description=field.description),
-                )
+                    case state.AllowedOptionSelections.many:
+                        field_type = list[Literal[tuple(field.options)]]
+
+                    case _:
+                        raise ValueError(f"Unsupported option_selections_allowed: {field.option_selections_allowed}")
+
+            case _:
+                raise ValueError(f"Unsupported field type: {field.type}")
+
+        if not field.required:
+            field_type = Optional[field_type]
+
+        field_definitions[field.id] = (field_type, Field(title=field.name, description=field.description))
 
     return create_model(
         "FilledFormArtifact",
+        __config__=ConfigDict(json_schema_extra={"required": required_fields}),
         **field_definitions,  # type: ignore
-    )  # type: ignore
+    )
+
+
+def _get_guided_conversation_state_file_path(context: ConversationContext) -> Path:
+    return _guided_conversation.path_for_state(context, "fill_form")
+
+
+_guided_conversation_inspector = FileStateInspector(
+    display_name="Fill-Form Guided-Conversation",
+    file_path_source=_get_guided_conversation_state_file_path,
+)
+
+
+def _get_step_state_file_path(context: ConversationContext) -> Path:
+    return storage_directory_for_context(context, "fill_form_state.json")
+
+
+_populated_form_state_inspector = FileStateInspector(
+    display_name="Populated Form",
+    file_path_source=_get_step_state_file_path,
+    projection=StateProjection.original_content,
+    select_field="populated_form_markdown",
+)
 
 
 async def _extract(
@@ -263,11 +314,50 @@ async def _extract(
     )
 
 
-def _get_state_file_path(context: ConversationContext) -> Path:
-    return _guided_conversation.path_for_state(context, "fill_form")
+def _generate_populated_form(
+    form_title: str,
+    form_fields: list[state.FormField],
+    populated_fields: dict,
+) -> str:
+    def field_value(field_id: str) -> str:
+        value = populated_fields.get(field_id) or ""
+        if value == "Unanswered":
+            return "_" * 20
+        if value == "null":
+            return ""
+        return value
+
+    markdown_fields: list[str] = []
+    for field in form_fields:
+        value = field_value(field.id)
+        match field.type:
+            case state.FieldType.text | state.FieldType.signature | state.FieldType.date:
+                markdown_fields.append(f"*{field.name}:*\n\n{value}")
+
+            case state.FieldType.multiple_choice:
+                markdown_fields.append(f"*{field.name}:*\n")
+                for option in field.options:
+                    if option in value:
+                        markdown_fields.append(f"- [x] {option}\n")
+                        continue
+                    markdown_fields.append(f"- [ ] {option}\n")
+
+            case _:
+                raise ValueError(f"Unsupported field type: {field.type}")
+
+    all_fields = "\n\n".join(markdown_fields)
+    return "\n".join((
+        "```markdown",
+        f"## {form_title}",
+        "",
+        all_fields,
+        "```",
+    ))
 
 
-_inspector = FileStateInspector(
-    display_name="Fill-Form Guided-Conversation",
-    file_path_source=_get_state_file_path,
-)
+@asynccontextmanager
+async def step_state(context: ConversationContext) -> AsyncIterator[FillFormState]:
+    step_state = state.read_model(_get_step_state_file_path(context), FillFormState) or FillFormState()
+    async with context.state_updated_event_after(_populated_form_state_inspector.state_id, focus_event=True):
+        yield step_state
+        state.write_model(_get_step_state_file_path(context), step_state)

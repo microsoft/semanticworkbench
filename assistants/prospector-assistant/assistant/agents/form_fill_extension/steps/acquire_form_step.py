@@ -61,7 +61,7 @@ class AcquireFormConfig(BaseModel):
 
 @dataclass
 class CompleteResult(Result):
-    ai_message: str
+    message: str
     filename: str
 
 
@@ -103,7 +103,7 @@ async def execute(
 
     if form_filename and form_filename != "Unanswered":
         return CompleteResult(
-            ai_message=result.ai_message or "",
+            message=result.ai_message or "",
             filename=form_filename,
             debug=debug,
         )

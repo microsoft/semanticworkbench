@@ -53,22 +53,22 @@ class FormFillExtension:
                 ),
             )
 
-        async with state.agent_state(context) as agent_state:
+        async with state.extension_state(context) as agent_state:
             while True:
                 logger.info("form-fill-agent execute loop; mode: %s", agent_state.mode)
 
                 match agent_state.mode:
-                    case state.FormFillAgentMode.acquire_form_step:
+                    case state.FormFillExtensionMode.acquire_form_step:
                         result = await acquire_form_step.execute(
                             step_context=build_step_context(config.acquire_form_config),
                         )
 
                         match result:
                             case acquire_form_step.CompleteResult():
-                                await _send_message(context, result.ai_message, result.debug)
+                                await _send_message(context, result.message, result.debug)
 
                                 agent_state.form_filename = result.filename
-                                agent_state.mode = state.FormFillAgentMode.extract_form_fields
+                                agent_state.mode = state.FormFillExtensionMode.extract_form_fields
 
                                 continue
 
@@ -76,7 +76,7 @@ class FormFillExtension:
                                 await _handle_incomplete_result(context, result)
                                 return
 
-                    case state.FormFillAgentMode.extract_form_fields:
+                    case state.FormFillExtensionMode.extract_form_fields:
                         file_content = await get_attachment_content(agent_state.form_filename)
                         result = await extract_form_fields_step.execute(
                             step_context=build_step_context(config.extract_form_fields_config),
@@ -85,10 +85,11 @@ class FormFillExtension:
 
                         match result:
                             case extract_form_fields_step.CompleteResult():
-                                await _send_message(context, result.ai_message, result.debug)
+                                await _send_message(context, result.message, result.debug)
 
+                                agent_state.extracted_form_title = result.extracted_form_title
                                 agent_state.extracted_form_fields = result.extracted_form_fields
-                                agent_state.mode = state.FormFillAgentMode.fill_form_step
+                                agent_state.mode = state.FormFillExtensionMode.fill_form_step
 
                                 continue
 
@@ -96,19 +97,21 @@ class FormFillExtension:
                                 await _handle_incomplete_result(context, result)
                                 return
 
-                    case state.FormFillAgentMode.fill_form_step:
+                    case state.FormFillExtensionMode.fill_form_step:
                         result = await fill_form_step.execute(
                             step_context=build_step_context(config.fill_form_config),
                             form_filename=agent_state.form_filename,
+                            form_title=agent_state.extracted_form_title,
                             form_fields=agent_state.extracted_form_fields,
                         )
 
                         match result:
                             case fill_form_step.CompleteResult():
-                                await _send_message(context, result.ai_message, result.debug)
+                                await _send_message(context, result.message, result.debug)
 
+                                agent_state.populated_form_markdown = result.populated_form_markdown
                                 agent_state.fill_form_gc_artifact = result.artifact
-                                agent_state.mode = state.FormFillAgentMode.generate_filled_form_step
+                                agent_state.mode = state.FormFillExtensionMode.conversation_over
 
                                 continue
 
@@ -116,10 +119,10 @@ class FormFillExtension:
                                 await _handle_incomplete_result(context, result)
                                 return
 
-                    case state.FormFillAgentMode.generate_filled_form_step:
+                    case state.FormFillExtensionMode.conversation_over:
                         await _send_message(
                             context,
-                            "I'd love to generate the filled-out form now, but it's not yet implemented. :)",
+                            "The form is now complete! Create a new conversation to work with another form.",
                             {},
                         )
                         return
