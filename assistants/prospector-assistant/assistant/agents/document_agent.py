@@ -761,7 +761,7 @@ class DocumentAgent:
     ) -> tuple[Status, StepName | None]:
         method_metadata_key = "document_agent_gc_response"
 
-        gc_convo_config: GuidedConversationAgentConfigModel = GCAttachmentCheckConfigModel()
+        gc_conversation_config: GuidedConversationAgentConfigModel = GCAttachmentCheckConfigModel()
         # get attachment filenames for context
         filenames = await self._attachments_extension.get_attachment_filenames(
             context, config=config.agents_config.attachment_agent
@@ -769,13 +769,13 @@ class DocumentAgent:
 
         filenames_str = ", ".join(filenames)
         filenames_str = "Filenames already attached: " + filenames_str
-        gc_convo_config.context = gc_convo_config.context + "\n\n" + filenames_str
+        gc_conversation_config.context = gc_conversation_config.context + "\n\n" + filenames_str
 
         try:
             response_message, conversation_status, next_step_name = await GuidedConversationAgent.step_conversation(
                 config=config,
                 openai_client=openai_client.create_client(config.service_config),
-                agent_config=gc_convo_config,
+                agent_config=gc_conversation_config,
                 conversation_context=context,
                 last_user_message=message.content,
             )
@@ -990,15 +990,6 @@ class DocumentAgent:
             context, config=config.agents_config.attachment_agent
         )
 
-        # get outline related info
-        outline: str | None = None
-        content: str | None = None
-        # path = _get_document_agent_conversation_storage_path(context)
-        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
-            outline = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
-        if path.exists(storage_directory_for_context(context) / "document_agent/content.txt"):
-            content = (storage_directory_for_context(context) / "document_agent/content.txt").read_text()
-
         # create chat completion messages
         chat_completion_messages: list[ChatCompletionMessageParam] = []
         chat_completion_messages.append(_draft_content_main_system_message())
@@ -1006,12 +997,20 @@ class DocumentAgent:
             _chat_history_system_message(conversation.messages, participants_list.participants)
         )
         chat_completion_messages.extend(attachment_messages)
-        if outline is not None:
-            chat_completion_messages.append(_outline_system_message(outline))
-        if content is not None:  # only grabs previously written content, not all yet.
-            chat_completion_messages.append(_content_system_message(content))
+
+        # get outline related info
+        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
+            document_outline = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+            if document_outline is not None:
+                chat_completion_messages.append(_outline_system_message(document_outline))
+
+        if path.exists(storage_directory_for_context(context) / "document_agent/content.txt"):
+            document_content = (storage_directory_for_context(context) / "document_agent/content.txt").read_text()
+            if document_content is not None:  # only grabs previously written content, not all yet.
+                chat_completion_messages.append(_content_system_message(document_content))
 
         # make completion call to openai
+        content: str | None = None
         async with openai_client.create_client(config.service_config) as client:
             try:
                 completion_args = {
@@ -1031,21 +1030,22 @@ class DocumentAgent:
                 )
                 _on_error_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, e)
 
-        # store only latest version for now (will keep all versions later as need arises)
-        (storage_directory_for_context(context) / "document_agent/content.txt").write_text(content)
+        if content is not None:
+            # store only latest version for now (will keep all versions later as need arises)
+            (storage_directory_for_context(context) / "document_agent/content.txt").write_text(content)
 
-        # send the response to the conversation only if from a command.  Otherwise return info to caller.
-        message_type = MessageType.chat
-        if message.message_type == MessageType.command:
-            message_type = MessageType.command
+            # send the response to the conversation only if from a command.  Otherwise return info to caller.
+            message_type = MessageType.chat
+            if message.message_type == MessageType.command:
+                message_type = MessageType.command
 
-        await context.send_messages(
-            NewConversationMessage(
-                content=content,
-                message_type=message_type,
-                metadata=metadata,
+            await context.send_messages(
+                NewConversationMessage(
+                    content=content,
+                    message_type=message_type,
+                    metadata=metadata,
+                )
             )
-        )
 
         return Status.USER_COMPLETED, None
 

@@ -6,7 +6,7 @@ import { initializeFileTypeIcons } from '@fluentui/react-file-type-icons';
 import debug from 'debug';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { Provider } from 'react-redux';
+import { Provider as ReduxProvider } from 'react-redux';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { Constants } from './Constants';
 import { Root } from './Root';
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const root = ReactDOM.createRoot(container);
 
         const app = (
-            <Provider store={store}>
+            <ReduxProvider store={store}>
                 <MsalProvider instance={msalInstance}>
                     <FluentProvider className="app-container" theme={customTheme}>
                         <CopilotProvider mode="canvas">
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </CopilotProvider>
                     </FluentProvider>
                 </MsalProvider>
-            </Provider>
+            </ReduxProvider>
         );
 
         // NOTE: React.StrictMode is used to help catch common issues in the app but will also double-render

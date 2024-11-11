@@ -20,7 +20,7 @@ interface SpeechButtonProps {
 export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
     const { disabled, onListeningChange, onSpeechRecognizing, onSpeechRecognized } = props;
     const [recognizer, setRecognizer] = React.useState<speechSdk.SpeechRecognizer>();
-    const [isFetching, setIsFetching] = React.useState(false);
+    const [isInitialized, setIsInitialized] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
     const [lastSpeechResultTimestamp, setLastSpeechResultTimestamp] = React.useState(0);
 
@@ -115,15 +115,17 @@ export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
     }, [getAzureSpeechTokenAsync, onSpeechRecognized, onSpeechRecognizing]);
 
     React.useEffect(() => {
-        // If the recognizer is already available or we are fetching it, do nothing
-        if (recognizer || isFetching) return;
+        // If the recognizer is already initialized, return
+        if (isInitialized) return;
 
-        // Indicate that we are fetching the recognizer to prevent multiple fetches
-        setIsFetching(true);
+        // Set the recognizer as initialized
+        setIsInitialized(true);
 
-        // Fetch the recognizer, then indicate that we are no longer fetching even if the fetch fails
-        getRecognizer().finally(() => setIsFetching(false));
-    }, [getRecognizer, isFetching, recognizer]);
+        (async () => {
+            // Fetch the recognizer
+            await getRecognizer();
+        })();
+    }, [getRecognizer, isInitialized, recognizer]);
 
     React.useEffect(() => {
         onListeningChange(isListening);
