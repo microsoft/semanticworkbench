@@ -1,6 +1,10 @@
+import logging
+
 from azure.identity import DefaultAzureCredential
 
 from . import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_token() -> dict[str, str]:
@@ -8,7 +12,11 @@ def get_token() -> dict[str, str]:
         return {}
 
     credential = DefaultAzureCredential()
-    token = credential.get_token("https://cognitiveservices.azure.com/.default").token
+    try:
+        token = credential.get_token("https://cognitiveservices.azure.com/.default").token
+    except Exception as e:
+        logger.error(f"Failed to get token: {e}")
+        return {}
 
     return {
         "token": f"aad#{settings.azure_speech.resource_id}#{token}",
