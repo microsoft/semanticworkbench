@@ -8,6 +8,7 @@ import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAddConversationParticipantMutation, useCreateConversationMessageMutation } from '../../services/workbench';
 import { AssistantAdd } from '../Assistants/AssistantAdd';
+import { AssistantRenameDialog } from '../Assistants/AssistantRename';
 import { ParticipantItem } from './ParticipantItem';
 
 const useClasses = makeStyles({
@@ -45,6 +46,11 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
 
+    const [configureAssistant, setConfigureAssistant] = React.useState<Assistant>();
+    const [renameAssistant, setRenameAssistant] = React.useState<Assistant>();
+    const [serviceInfoAssistant, setServiceInfoAssistant] = React.useState<Assistant>();
+    const [removeAssistant, setRemoveAssistant] = React.useState<Assistant>();
+
     const handleAssistantAdd = async (assistant: Assistant) => {
         // send notice message first, to announce before assistant reacts to create event
         await createConversationMessage({
@@ -59,20 +65,36 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
         });
     };
 
+    const actionHelpers = React.useMemo(
+        () => (
+            <>
+                <AssistantRenameDialog
+                    assistant={renameAssistant}
+                    conversationId={conversation.id}
+                    open={renameAssistant !== undefined}
+                    onOpenChange={() => setRenameAssistant(undefined)}
+                    onRename={async () => setRenameAssistant(undefined)}
+                />
+            </>
+        ),
+        [conversation.id, renameAssistant],
+    );
+
     const exceptAssistantIds = participants
         .filter((participant) => participant.active && participant.role === 'assistant')
         .map((participant) => participant.id);
 
     return (
         <div className={classes.root}>
+            {actionHelpers}
             <AssistantAdd disabled={readOnly} exceptAssistantIds={exceptAssistantIds} onAdd={handleAssistantAdd} />
             {sortParticipants(participants).map((participant) => (
                 <ParticipantItem
                     key={participant.id}
                     conversation={conversation}
                     participant={participant}
-                    readOnly={readOnly}
-                    preventAssistantModifyOnParticipantIds={preventAssistantModifyOnParticipantIds}
+                    readOnly={readOnly || preventAssistantModifyOnParticipantIds?.includes(participant.id)}
+                    onRename={(assistant) => setRenameAssistant(assistant)}
                 />
             ))}
         </div>
