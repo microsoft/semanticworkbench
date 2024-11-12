@@ -16,9 +16,6 @@ RUN pnpm install
 # Copy the rest of the application code
 COPY . .
 
-# Set the environment variable for the build process
-ENV PORT=8001
-
 # Build the application
 RUN pnpm run build
 
