@@ -1,6 +1,6 @@
 # Skill Assistant
 
-The Skill Assistant serves as a demonstration of integrating the Skill Library within an Assistant in the Semantic Workbench. Specifically, this assistant showcases the Posix skill and the chat driver. The [Posix skill](../../libraries/python/skills/skills/posix-skill/README.md) demonstrates file system management by allowing the assistant to perform posix-style actions. The [chat driver](../../libraries/python/chat-driver/README.md) handles conversations and interacts with underlying AI models like OpenAI and Azure OpenAI.
+The Skill Assistant serves as a demonstration of integrating the Skill Library within an Assistant in the Semantic Workbench. Specifically, this assistant showcases the Posix skill and the chat driver. The [Posix skill](../../libraries/python/skills/skills/posix-skill/README.md) demonstrates file system management by allowing the assistant to perform posix-style actions. The [chat driver](../../libraries/python/openai-client/openai_client/chat_driver/README.md) handles conversations and interacts with underlying AI models like OpenAI and Azure OpenAI.
 
 ## Overview
 

@@ -1,5 +1,5 @@
-from chat_driver import ChatDriverConfig
-from context import Context
+from context import ContextProtocol
+from openai_client.chat_driver import ChatDriverConfig
 from skill_library import InstructionRoutine, RoutineTypes, Skill
 
 NAME = "prospector"
@@ -12,7 +12,6 @@ INSTRUCTIONS = "You are an assistant that has access to the provided actions."
 class ProspectorSkill(Skill):
     def __init__(
         self,
-        context: Context,
         chat_driver_config: ChatDriverConfig,
     ) -> None:
         # Add some actions.
@@ -32,14 +31,12 @@ class ProspectorSkill(Skill):
         # Configure the chat driver (if using). Register all the supplied actions to it as either
         # commands, functions, or both.
         chat_driver_config.instructions = INSTRUCTIONS
-        chat_driver_config.context = context
         chat_driver_config.commands = actions
         chat_driver_config.functions = actions
 
         super().__init__(
             name=NAME,
             description=DESCRIPTION,
-            context=context,
             chat_driver_config=chat_driver_config,
             skill_actions=actions,
             routines=routines,
@@ -56,7 +53,8 @@ class ProspectorSkill(Skill):
         return InstructionRoutine(
             "draft_grant_proposal",  # name of routine
             "Draft a grant proposal.",  # description of routine
-            routine=("gather_information_action\n" "create_draft_action\n"),
+            routine=("gather_information_action\ncreate_draft_action\n"),
+            skill=self,
         )
 
     def example_routine(self) -> InstructionRoutine:
@@ -66,32 +64,33 @@ class ProspectorSkill(Skill):
         return InstructionRoutine(
             "template_example",  # name of routine
             "Description of what the routine does.",
-            routine=("template_example_action\n" "template_example_with_parameters_action bar\n"),
+            routine=("template_example_action\ntemplate_example_with_parameters_action bar\n"),
+            skill=self,
         )
 
     ##################################
     # Actions
     ##################################
 
-    def gather_information_action(self, context: Context) -> None:
+    def gather_information_action(self, context: ContextProtocol) -> None:
         """
         Update this action description.
         """
         pass
 
-    def create_draft_action(self, context: Context) -> None:
+    def create_draft_action(self, context: ContextProtocol) -> None:
         """
         Update this action description.
         """
         pass
 
-    def example_action(self, context: Context) -> None:
+    def example_action(self, context: ContextProtocol) -> None:
         """
         Update this action description.
         """
         pass
 
-    def example_with_parameters_action(self, context: Context, foo: str) -> None:
+    def example_with_parameters_action(self, context: ContextProtocol, foo: str) -> None:
         """
         Update this action description.
         """

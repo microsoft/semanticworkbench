@@ -76,10 +76,6 @@
       "path": "libraries/python/assistant-extensions"
     },
     {
-      "name": "libraries:chat-driver",
-      "path": "libraries/python/chat-driver"
-    },
-    {
       "name": "libraries:content-safety",
       "path": "libraries/python/content-safety"
     },
@@ -90,10 +86,6 @@
     {
       "name": "libraries:events",
       "path": "libraries/python/events"
-    },
-    {
-      "name": "libraries:function-registry",
-      "path": "libraries/python/function-registry"
     },
     {
       "name": "libraries:guided-conversation",
@@ -114,6 +106,10 @@
     {
       "name": "libraries:skills:document-skill",
       "path": "libraries/python/skills/skills/document-skill"
+    },
+    {
+      "name": "libraries:skills:form-filler-skill",
+      "path": "libraries/python/skills/skills/form-filler-skill"
     },
     {
       "name": "libraries:skills:notebooks",
