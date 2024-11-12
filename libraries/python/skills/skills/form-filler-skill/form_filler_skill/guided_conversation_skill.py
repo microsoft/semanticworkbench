@@ -1,7 +1,10 @@
+# flake8: noqa
+# ruff: noqa
+
 from typing import Any, Optional
 
 from chat_driver import ChatDriverConfig
-from events import BaseEvent
+from events import BaseEvent, MessageEvent
 from skill_library import EmitterType, FunctionRoutine, RoutineTypes, Skill
 from skill_library.run_context import RunContext
 
@@ -60,6 +63,8 @@ class GuidedConversationSkill(Skill):
         self.resource = resource
         self.chat_history = Conversation()
 
+        self.emit = emit
+
         # Initialize the skill!
         super().__init__(
             name=NAME,
@@ -95,6 +100,7 @@ class GuidedConversationSkill(Skill):
         message: Optional[str] = None,
     ):
         # TODO: Where is this conversation maintained?
+        # FIXME: None of this works. WIP.
         frame = await context.routine_stack.peek()
         state = frame.state if frame else {}
         definition = GCDefinition(**state["definition"])
@@ -104,26 +110,26 @@ class GuidedConversationSkill(Skill):
                     state["mode"] = "init"
                 case "init":
                     state["chat_history"] = []
-                    message, done = await self.update_agenda(context, definition)
+                    agenda, done = await self.update_agenda("")
                     if done:
                         state["mode"] = "finalize"
                     state["mode"] = "conversation"
-                    context.emit(message)
+                    self.emit(MessageEvent(message="Agenda updated"))
                     return
                 case "conversation":
                     state["chat_history"] += message
-                    state["artifact"] = self.update_artifact(context)
-                    agenda, done = self.update_agenda()
+                    # state["artifact"] = self.update_artifact(context)
+                    agenda, done = await self.update_agenda("")
                     if agenda:
                         state["agenda"] = agenda
                     if done:
                         state["mode"] = "finalize"
-                    await self.message_user(context, agenda)  # generates the next message
+                    # await self.message_user(context, agenda)  # generates the next message
                     return
                 case "finalize":
-                    self.final_update()  # Generates the final message.
+                    # self.final_update()  # Generates the final message.
                     state["state"] = "done"
-                    runner.send(message)
+                    # runner.send(message)
                     return
                 case "done":
                     return state["artifact"]
@@ -132,19 +138,17 @@ class GuidedConversationSkill(Skill):
     # Actions
     ##################################
 
-    async def update_agenda(self, context: RunContext, definition: GCDefinition):
+    async def update_agenda(self, items: str) -> tuple[Agenda, bool]:
         return await update_agenda(
-            context,
             self.openai_client,
-            definition,
+            items,
             self.chat_history,
-            agenda=self.agenda,
-            artifact=self.artifact,
-            resource=self.resource,
+            self.agenda,
+            self.resource,
         )
 
     async def execute_reasoning(self, context: RunContext, reasoning: str) -> BaseEvent:
         return await execute_reasoning(context, self.openai_client, reasoning, self.artifact.get_schema_for_prompt())
 
     async def final_update(self, context: RunContext, definition: GCDefinition):
-        await final_update(context, self.openai_client, definition, self.chat_history, artifact=self.artifact)
+        await final_update(self.openai_client, definition, self.chat_history, self.artifact)

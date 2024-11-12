@@ -10,7 +10,6 @@ from form_filler_skill.resources import (
 )
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import ValidationError
-from skill_library.run_context import RunContext
 
 from .fix_agenda_error import fix_agenda_error
 
@@ -18,13 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 async def update_agenda(
-    context: RunContext,
     openai_client: AsyncOpenAI | AsyncAzureOpenAI,
     items: str,
     chat_history: Conversation,
     agenda: Agenda,
     resource: GCResource,
-) -> bool:
+) -> tuple[Agenda, bool]:
     previous_attempts = []
     while True:
         try:
@@ -40,22 +38,18 @@ async def update_agenda(
                 )
 
             logger.info(f"Agenda updated successfully: {get_agenda_for_prompt(agenda)}")
-            return True
+            return (agenda, True)
 
         except (ValidationError, ValueError) as e:
             # If we have reached the maximum number of retries return a failure.
             if len(previous_attempts) >= agenda.max_agenda_retries:
-                logger.warning(
-                    f"Failed to update agenda after {agenda.max_agenda_retries} attempts."
-                )
-                return False
+                logger.warning(f"Failed to update agenda after {agenda.max_agenda_retries} attempts.")
+                return (agenda, False)
 
             # Otherwise, get an error string.
             if isinstance(e, ValidationError):
                 error_str = "; ".join([e.get("msg") for e in e.errors()])
-                error_str = error_str.replace(
-                    "; Input should be 'Unanswered'", " or input should be 'Unanswered'"
-                )
+                error_str = error_str.replace("; Input should be 'Unanswered'", " or input should be 'Unanswered'")
             else:
                 error_str = str(e)
 
@@ -67,9 +61,7 @@ async def update_agenda(
             llm_formatted_attempts = "\n".join([
                 f"Attempt: {attempt}\nError: {error}" for attempt, error in previous_attempts
             ])
-            response = await fix_agenda_error(
-                context, openai_client, llm_formatted_attempts, chat_history
-            )
+            response = await fix_agenda_error(openai_client, llm_formatted_attempts, chat_history)
 
             # Now, update the items with the corrected agenda and try to
             # validate again.
@@ -91,9 +83,7 @@ def check_item_constraints(
     violations = []
     # In maximum mode, the total resources should not exceed the remaining
     # turns.
-    if (resource_constraint_mode == ResourceConstraintMode.MAXIMUM) and (
-        total_resources > remaining_turns
-    ):
+    if (resource_constraint_mode == ResourceConstraintMode.MAXIMUM) and (total_resources > remaining_turns):
         violations.append(
             "The total turns allocated in the agenda "
             f"must not exceed the remaining amount ({remaining_turns}); "
@@ -102,9 +92,7 @@ def check_item_constraints(
 
     # In exact mode if the total resources were not exactly equal to the
     # remaining turns.
-    if (resource_constraint_mode == ResourceConstraintMode.EXACT) and (
-        total_resources != remaining_turns
-    ):
+    if (resource_constraint_mode == ResourceConstraintMode.EXACT) and (total_resources != remaining_turns):
         violations.append(
             "The total turns allocated in the agenda "
             f"must equal the remaining amount ({remaining_turns}); "
@@ -133,8 +121,6 @@ def get_agenda_for_prompt(agenda: Agenda) -> str:
         f"{i + 1}. [{format_resource(item['resource'], ResourceConstraintUnit.TURNS)}] {item['title']}"
         for i, item in enumerate(agenda_items)
     ])
-    total_resource = format_resource(
-        sum([item["resource"] for item in agenda_items]), ResourceConstraintUnit.TURNS
-    )
+    total_resource = format_resource(sum([item["resource"] for item in agenda_items]), ResourceConstraintUnit.TURNS)
     agenda_str += f"\nTotal = {total_resource}"
     return agenda_str

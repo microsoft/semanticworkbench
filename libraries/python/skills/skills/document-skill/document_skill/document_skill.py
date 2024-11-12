@@ -1,3 +1,6 @@
+# flake8: noqa
+# ruff: noqa
+
 from chat_driver import ChatDriverConfig
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import BaseModel  # temp to have something to experiment with
@@ -5,6 +8,7 @@ from skill_library import EmitterType, RoutineTypes, Skill
 from skill_library.routine import InstructionRoutine, ProgramRoutine
 
 from .chat_drivers import draft_content, draft_outline
+from .chat_drivers.get_user_feedback_for_outline_decision import get_user_feedback_for_outline_decision
 
 NAME = "document_skill"
 DESCRIPTION = "Anything related to documents - creation, edit, translation"
@@ -130,11 +134,10 @@ class DocumentSkill(Skill):
         return response.message or ""
 
     async def get_user_feedback_decision(self, session_id: str, user_feedback: str, outline: bool) -> str:
-        response = await get_user_feedback_decision(
+        response = await get_user_feedback_for_outline_decision(
             session_id=session_id,
             open_ai_client=self.openai_client,
             chat_history=self.document_skill_context.chat_history,
-            attachments=self.document_skill_context.attachments_list,
             outline_versions=self.document_skill_context.outline_versions,
             paper_versions=self.document_skill_context.paper_versions,
             user_feedback=user_feedback,
@@ -154,7 +157,7 @@ class DocumentSkill(Skill):
         while decision == "[ITERATE]":
             await document_skill.draft_outline(session_id, user_feedback=user_feedback)
             user_feedback = await ask_user("This look good?")
-            decision = await document_skill.get_user_feedback_decision(user_feedback, outline=True)
+            decision = await document_skill.get_user_feedback_decision(session_id, user_feedback, outline=True)
         if decision == "[QUIT]":
             exit()
         await document_skill.draft_content(session_id)

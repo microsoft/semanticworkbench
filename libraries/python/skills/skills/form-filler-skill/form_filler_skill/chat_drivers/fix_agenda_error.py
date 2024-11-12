@@ -1,6 +1,6 @@
 import logging
 
-from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
+from chat_driver import ChatDriver, ChatDriverConfig
 from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from form_filler_skill.message import Conversation, ConversationMessageType
 from openai import AsyncAzureOpenAI, AsyncOpenAI
@@ -24,7 +24,6 @@ For example, the invalid attempt was "item 1 = ask for date of birth (1 turn), i
 
 
 async def fix_agenda_error(
-    context: ContextProtocol,
     openai_client: AsyncOpenAI | AsyncAzureOpenAI,
     previous_attempts: str,
     conversation: Conversation,

@@ -13,7 +13,6 @@ from form_filler_skill.resources import (
 )
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import ValidationError
-from skill_library.run_context import RunContext
 
 from ..artifact import Artifact
 from .fix_agenda_error import fix_agenda_error
@@ -56,7 +55,6 @@ def _get_termination_instructions(resource: GCResource):
 
 
 async def update_agenda(
-    context: RunContext,
     openai_client: AsyncOpenAI | AsyncAzureOpenAI,
     definition: GCDefinition,
     chat_history: Conversation,
@@ -142,7 +140,7 @@ async def update_agenda(
             llm_formatted_attempts = "\n".join([
                 f"Attempt: {attempt}\nError: {error}" for attempt, error in previous_attempts
             ])
-            response = await fix_agenda_error(context, openai_client, llm_formatted_attempts, chat_history)
+            response = await fix_agenda_error(openai_client, llm_formatted_attempts, chat_history)
 
             # Now, update the items with the corrected agenda and try to
             # validate again.

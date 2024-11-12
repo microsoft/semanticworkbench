@@ -1,3 +1,6 @@
+# flake8: noqa
+# ruff: noqa
+
 from typing import Any, Optional
 
 from chat_driver import ChatDriverConfig
@@ -85,12 +88,13 @@ class FormFillerSkill(Skill):
                                 context, "guided_conversation.doc_upload", guided_conversation_vars
                             )
                             state["gc_id"] = gc_id
-                        artifact = GuidedConversation.run(state["gce_id"], message)
-                        if artifact:
-                            state["artifact"] = artifact
-                        else:
-                            await context.update_state(state)
-                            return
+                        # FIXME: This is not implemented yet.
+                        # artifact = GuidedConversation.run(state["gce_id"], message)
+                        # if artifact:
+                        #     state["artifact"] = artifact
+                        # else:
+                        #     await context.update_state(state)
+                        #     return
 
                     agenda, is_done = FormFiller.update_agenda(context)
                     state["agenda"] = agenda
@@ -98,7 +102,7 @@ class FormFillerSkill(Skill):
                         state["mode"] = "done"
                     state["mode"] = "conversation"
                     await context.update_state(state)
-                    return agenda.last_message
+                    return agenda
                 case "conversation":
                     state["form"] = FormFiller.update_form(context)
                     agenda, is_done = FormFiller.update_agenda(context)
@@ -106,7 +110,7 @@ class FormFillerSkill(Skill):
                     if is_done:
                         state["mode"] = "finalize"
                     await context.update_state(state)
-                    return agenda.last_message
+                    return agenda
                 case "finalize":
                     message = FormFiller.generate_filled_form(context)
                     state["mode"] = "done"

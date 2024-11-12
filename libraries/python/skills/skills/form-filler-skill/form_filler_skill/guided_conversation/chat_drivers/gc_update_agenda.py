@@ -14,9 +14,9 @@ from form_filler_skill.resources import (
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import ValidationError
 
-from ..guided_conversation.artifact import Artifact
-from .fix_agenda_error import fix_agenda_error
-from .update_agenda_template import update_agenda_template
+from ...artifact import Artifact
+from ...chat_drivers.fix_agenda_error import fix_agenda_error
+from ...chat_drivers.update_agenda_template import update_agenda_template
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,6 @@ async def update_agenda(
     )
 
     config = ChatDriverConfig(
-        context=context,
         openai_client=openai_client,
         model="gpt-4o",
         message_provider=history,
@@ -168,19 +167,20 @@ async def update_agenda(
             llm_formatted_attempts = "\n".join([
                 f"Attempt: {attempt}\nError: {error}" for attempt, error in previous_attempts
             ])
-            response = await fix_agenda_error(context, openai_client, llm_formatted_attempts, chat_history)
+            response = await fix_agenda_error(openai_client, llm_formatted_attempts, chat_history)
 
             if response is None:
                 raise ValueError("Invalid response from the LLM.")
 
-            if response["validation_result"] != ToolValidationResult.SUCCESS:
-                logger.warning(
-                    f"Failed to fix the agenda error due to a failure in the LLM tool call: {response['validation_result']}"
-                )
-                return False
-            else:
-                # Use the result of the first tool call to try the update again
-                items = response
+            # if response["validation_result"] != "success":  # ToolValidationResult.SUCCESS:
+            #     logger.warning(
+            #         f"Failed to fix the agenda error due to a failure in the LLM tool call: {response['validation_result']}"
+            #     )
+            #     return False
+            # else:
+            #     # Use the result of the first tool call to try the update again
+            #     items = response
+            items = response
 
 
 def check_item_constraints(

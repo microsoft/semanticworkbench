@@ -173,7 +173,7 @@ async def update_agenda(
             llm_formatted_attempts = "\n".join([
                 f"Attempt: {attempt}\nError: {error}" for attempt, error in previous_attempts
             ])
-            response = await fix_agenda_error(context, openai_client, llm_formatted_attempts, chat_history)
+            response = await fix_agenda_error(openai_client, llm_formatted_attempts, chat_history)
 
             # Now, update the items with the corrected agenda and try to
             # validate again.
