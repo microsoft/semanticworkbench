@@ -80,7 +80,7 @@ export const ConversationRenameDialog: React.FC<ConversationRenameDialogProps> =
     const handleError = React.useCallback(
         (error: Error) => {
             notifyWarning({
-                id: 'error',
+                id: 'conversation-rename-error',
                 title: 'Rename conversation failed',
                 message: error.message,
             });
