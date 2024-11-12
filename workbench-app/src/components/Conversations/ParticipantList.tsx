@@ -8,6 +8,7 @@ import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAddConversationParticipantMutation, useCreateConversationMessageMutation } from '../../services/workbench';
 import { AssistantAdd } from '../Assistants/AssistantAdd';
+import { AssistantConfigureDialog } from '../Assistants/AssistantConfigure';
 import { AssistantRemoveDialog } from '../Assistants/AssistantRemove';
 import { AssistantRenameDialog } from '../Assistants/AssistantRename';
 import { AssistantServiceInfoDialog } from '../Assistants/AssistantServiceInfo';
@@ -70,6 +71,11 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
     const actionHelpers = React.useMemo(
         () => (
             <>
+                <AssistantConfigureDialog
+                    assistant={configureAssistant}
+                    open={configureAssistant !== undefined}
+                    onOpenChange={() => setConfigureAssistant(undefined)}
+                />
                 <AssistantRenameDialog
                     assistant={renameAssistant}
                     conversationId={conversation.id}
@@ -91,7 +97,7 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
                 />
             </>
         ),
-        [conversation.id, removeAssistant, renameAssistant, serviceInfoAssistant],
+        [configureAssistant, conversation.id, removeAssistant, renameAssistant, serviceInfoAssistant],
     );
 
     const exceptAssistantIds = participants
@@ -108,6 +114,7 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
                     conversation={conversation}
                     participant={participant}
                     readOnly={readOnly || preventAssistantModifyOnParticipantIds?.includes(participant.id)}
+                    onConfigure={(assistant) => setConfigureAssistant(assistant)}
                     onRename={(assistant) => setRenameAssistant(assistant)}
                     onServiceInfo={(assistant) => setServiceInfoAssistant(assistant)}
                     onRemove={(assistant) => setRemoveAssistant(assistant)}

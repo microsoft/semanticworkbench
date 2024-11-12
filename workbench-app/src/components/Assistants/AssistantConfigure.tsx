@@ -1,10 +1,9 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, makeStyles, tokens } from '@fluentui/react-components';
-import { SettingsRegular } from '@fluentui/react-icons';
+import { DialogOpenChangeData, DialogOpenChangeEvent, makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Assistant } from '../../models/Assistant';
-import { CommandButton } from '../App/CommandButton';
+import { DialogControl } from '../App/DialogControl';
 import { AssistantConfiguration } from './AssistantConfiguration';
 
 const useClasses = makeStyles({
@@ -27,55 +26,50 @@ const useClasses = makeStyles({
     },
 });
 
-interface AssistantConfigureProps {
-    assistant: Assistant;
-    iconOnly?: boolean;
-    disabled?: boolean;
-    simulateMenuItem?: boolean;
+interface AssistantConfigureDialogProps {
+    assistant?: Assistant;
+    open: boolean;
+    onOpenChange: (event: DialogOpenChangeEvent, data: DialogOpenChangeData) => void;
 }
 
-export const AssistantConfigure: React.FC<AssistantConfigureProps> = (props) => {
-    const { assistant, iconOnly, disabled, simulateMenuItem } = props;
+export const AssistantConfigureDialog: React.FC<AssistantConfigureDialogProps> = (props) => {
+    const { assistant, open, onOpenChange } = props;
     const classes = useClasses();
-    const [open, setOpen] = React.useState(false);
     const [isDirty, setIsDirty] = React.useState(false);
 
-    const handleClose = React.useCallback(() => {
-        if (isDirty) {
-            const result = window.confirm('Are you sure you want to close without saving?');
-            if (!result) {
+    const handleOpenChange = React.useCallback(
+        (event: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
+            if (data.open) {
+                setIsDirty(false);
                 return;
             }
-        }
-        setOpen(false);
-    }, [isDirty]);
+
+            if (isDirty) {
+                const result = window.confirm('Are you sure you want to close without saving?');
+                if (!result) {
+                    return;
+                }
+            }
+
+            setIsDirty(false);
+            onOpenChange(event, data);
+        },
+        [isDirty, onOpenChange],
+    );
 
     return (
-        <CommandButton
+        <DialogControl
             open={open}
-            onClick={() => setOpen(true)}
-            icon={<SettingsRegular />}
-            simulateMenuItem={simulateMenuItem}
-            label="Configure"
-            iconOnly={iconOnly}
-            disabled={disabled}
-            dialogContent={{
-                title: `Configure "${assistant.name}"`,
-                content: (
-                    <div className={classes.content}>
-                        <AssistantConfiguration assistant={assistant} onIsDirtyChange={setIsDirty} />
-                    </div>
-                ),
-                hideDismissButton: true,
-                classNames: {
-                    dialogSurface: classes.dialogSurface,
-                    dialogContent: classes.dialogContent,
-                },
-                additionalActions: [
-                    <Button key="close" appearance="primary" onClick={handleClose}>
-                        Close
-                    </Button>,
-                ],
+            onOpenChange={handleOpenChange}
+            title={assistant && `Configure "${assistant.name}"`}
+            content={
+                <div className={classes.content}>
+                    {assistant && <AssistantConfiguration assistant={assistant} onIsDirtyChange={setIsDirty} />}
+                </div>
+            }
+            classNames={{
+                dialogSurface: classes.dialogSurface,
+                dialogContent: classes.dialogContent,
             }}
         />
     );
