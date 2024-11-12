@@ -11,14 +11,19 @@ import {
     makeStyles,
     tokens,
 } from '@fluentui/react-components';
-import { EditRegular, MoreHorizontalRegular, PlugDisconnectedRegular, SettingsRegular } from '@fluentui/react-icons';
+import {
+    DatabaseRegular,
+    EditRegular,
+    MoreHorizontalRegular,
+    PlugDisconnectedRegular,
+    SettingsRegular,
+} from '@fluentui/react-icons';
 import React from 'react';
 import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Assistant } from '../../models/Assistant';
 import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useGetAssistantQuery } from '../../services/workbench';
-import { AssistantServiceInfo } from '../Assistants/AssistantServiceInfo';
 
 const useClasses = makeStyles({
     root: {
@@ -45,11 +50,12 @@ interface ParticipantItemProps {
     readOnly?: boolean;
     onConfigure?: (assistant: Assistant) => void;
     onRename?: (assistant: Assistant) => void;
+    onServiceInfo?: (assistant: Assistant) => void;
     onRemove?: (assistant: Assistant) => void;
 }
 
 export const ParticipantItem: React.FC<ParticipantItemProps> = (props) => {
-    const { conversation, participant, readOnly, onConfigure, onRename, onRemove } = props;
+    const { conversation, participant, readOnly, onConfigure, onRename, onServiceInfo, onRemove } = props;
     const classes = useClasses();
     const { getAvatarData } = useParticipantUtility();
 
@@ -99,7 +105,14 @@ export const ParticipantItem: React.FC<ParticipantItemProps> = (props) => {
                                 Rename
                             </MenuItem>
                         )}
-                        <AssistantServiceInfo assistant={assistant} simulateMenuItem />
+                        {onServiceInfo && (
+                            <MenuItem
+                                icon={<DatabaseRegular />}
+                                onClick={(event) => handleMenuItemClick(event, () => onServiceInfo(assistant))}
+                            >
+                                Service Info
+                            </MenuItem>
+                        )}
                         {onRemove && (
                             <MenuItem
                                 icon={<PlugDisconnectedRegular />}
@@ -112,7 +125,7 @@ export const ParticipantItem: React.FC<ParticipantItemProps> = (props) => {
                 </MenuPopover>
             </Menu>
         );
-    }, [assistant, handleMenuItemClick, onConfigure, onRename, onRemove, participant, readOnly]);
+    }, [participant.role, assistant, readOnly, onConfigure, onRename, onServiceInfo, onRemove, handleMenuItemClick]);
 
     return (
         <div className={classes.participant} key={participant.id}>

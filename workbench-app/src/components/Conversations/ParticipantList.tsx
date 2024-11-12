@@ -10,6 +10,7 @@ import { useAddConversationParticipantMutation, useCreateConversationMessageMuta
 import { AssistantAdd } from '../Assistants/AssistantAdd';
 import { AssistantRemoveDialog } from '../Assistants/AssistantRemove';
 import { AssistantRenameDialog } from '../Assistants/AssistantRename';
+import { AssistantServiceInfoDialog } from '../Assistants/AssistantServiceInfo';
 import { ParticipantItem } from './ParticipantItem';
 
 const useClasses = makeStyles({
@@ -76,6 +77,11 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
                     onOpenChange={() => setRenameAssistant(undefined)}
                     onRename={async () => setRenameAssistant(undefined)}
                 />
+                <AssistantServiceInfoDialog
+                    assistant={serviceInfoAssistant}
+                    open={serviceInfoAssistant !== undefined}
+                    onOpenChange={() => setServiceInfoAssistant(undefined)}
+                />
                 <AssistantRemoveDialog
                     assistant={removeAssistant}
                     conversationId={conversation.id}
@@ -85,7 +91,7 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
                 />
             </>
         ),
-        [conversation.id, removeAssistant, renameAssistant],
+        [conversation.id, removeAssistant, renameAssistant, serviceInfoAssistant],
     );
 
     const exceptAssistantIds = participants
@@ -103,6 +109,7 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
                     participant={participant}
                     readOnly={readOnly || preventAssistantModifyOnParticipantIds?.includes(participant.id)}
                     onRename={(assistant) => setRenameAssistant(assistant)}
+                    onServiceInfo={(assistant) => setServiceInfoAssistant(assistant)}
                     onRemove={(assistant) => setRemoveAssistant(assistant)}
                 />
             ))}
