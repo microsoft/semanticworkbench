@@ -11,14 +11,13 @@ import {
     makeStyles,
     tokens,
 } from '@fluentui/react-components';
-import { EditRegular, MoreHorizontalRegular, SettingsRegular } from '@fluentui/react-icons';
+import { EditRegular, MoreHorizontalRegular, PlugDisconnectedRegular, SettingsRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Assistant } from '../../models/Assistant';
 import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useGetAssistantQuery } from '../../services/workbench';
-import { AssistantRemove } from '../Assistants/AssistantRemove';
 import { AssistantServiceInfo } from '../Assistants/AssistantServiceInfo';
 
 const useClasses = makeStyles({
@@ -46,10 +45,11 @@ interface ParticipantItemProps {
     readOnly?: boolean;
     onConfigure?: (assistant: Assistant) => void;
     onRename?: (assistant: Assistant) => void;
+    onRemove?: (assistant: Assistant) => void;
 }
 
 export const ParticipantItem: React.FC<ParticipantItemProps> = (props) => {
-    const { conversation, participant, readOnly, onConfigure, onRename } = props;
+    const { conversation, participant, readOnly, onConfigure, onRename, onRemove } = props;
     const classes = useClasses();
     const { getAvatarData } = useParticipantUtility();
 
@@ -100,12 +100,19 @@ export const ParticipantItem: React.FC<ParticipantItemProps> = (props) => {
                             </MenuItem>
                         )}
                         <AssistantServiceInfo assistant={assistant} simulateMenuItem />
-                        <AssistantRemove conversation={conversation} participant={participant} simulateMenuItem />
+                        {onRemove && (
+                            <MenuItem
+                                icon={<PlugDisconnectedRegular />}
+                                onClick={(event) => handleMenuItemClick(event, () => onRemove(assistant))}
+                            >
+                                Remove
+                            </MenuItem>
+                        )}
                     </MenuList>
                 </MenuPopover>
             </Menu>
         );
-    }, [assistant, conversation, handleMenuItemClick, onConfigure, onRename, participant, readOnly]);
+    }, [assistant, handleMenuItemClick, onConfigure, onRename, onRemove, participant, readOnly]);
 
     return (
         <div className={classes.participant} key={participant.id}>

@@ -15,12 +15,8 @@ const useAssistantRenameControls = (assistant?: Assistant, conversationId?: stri
     const { refetch: refetchParticipants } = useGetConversationParticipantsQuery(conversationId ?? '', {
         skip: !conversationId,
     });
-    const [newName, setNewName] = React.useState(assistant?.name);
+    const [newName, setNewName] = React.useState<string>();
     const [submitted, setSubmitted] = React.useState(false);
-
-    React.useEffect(() => {
-        setNewName(assistant?.name);
-    }, [assistant]);
 
     const handleRename = React.useCallback(
         async (onRename?: (id: string, value: string) => Promise<void>, onError?: (error: Error) => void) => {
@@ -54,11 +50,15 @@ const useAssistantRenameControls = (assistant?: Assistant, conversationId?: stri
                 }}
             >
                 <Field label="Name">
-                    <Input disabled={submitted} value={newName} onChange={(_event, data) => setNewName(data.value)} />
+                    <Input
+                        disabled={submitted}
+                        defaultValue={assistant?.name}
+                        onChange={(_event, data) => setNewName(data.value)}
+                    />
                 </Field>
             </form>
         ),
-        [handleRename, newName, submitted],
+        [assistant?.name, handleRename, submitted],
     );
 
     const renameAssistantButton = React.useCallback(
