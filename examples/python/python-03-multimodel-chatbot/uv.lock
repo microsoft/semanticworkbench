@@ -376,24 +376,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "context"
-version = "0.1.0"
-source = { editable = "../../../libraries/python/context" }
-dependencies = [
-    { name = "events" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "events", editable = "../../../libraries/python/events" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
-
-[[package]]
 name = "cryptography"
 version = "43.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -461,17 +443,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/48/ce/13508a1ec3f8bb981
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/ee/bf0adb559ad3c786f12bcbc9296b3f5675f529199bef03e2df281fa1fadb/email_validator-2.2.0-py3-none-any.whl", hash = "sha256:561977c2d73ce3611850a06fa56b414621e0c8faa9d66f2611407d87465da631", size = 33521 },
 ]
-
-[[package]]
-name = "events"
-version = "0.1.0"
-source = { editable = "../../../libraries/python/events" }
-dependencies = [
-    { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.6.1" }]
 
 [[package]]
 name = "fastapi"
@@ -570,40 +541,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/62/7c/12b0943011daaaa9c35c2a2e22e5eb929ac90002f08f1259d69aedad84de/fsspec-2024.9.0.tar.gz", hash = "sha256:4b0afb90c2f21832df142f292649035d80b421f60a9e1c027802e5a0da2b04e8", size = 286206 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1d/a0/6aaea0c2fbea2f89bfd5db25fb1e3481896a423002ebe4e55288907a97a3/fsspec-2024.9.0-py3-none-any.whl", hash = "sha256:a0947d552d8a6efa72cc2c730b12c41d043509156966cca4fb157b0f2a0c574b", size = 179253 },
-]
-
-[[package]]
-name = "function-registry"
-version = "0.1.0"
-source = { editable = "../../../libraries/python/function-registry" }
-dependencies = [
-    { name = "azure-identity" },
-    { name = "context" },
-    { name = "openai" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
-    { name = "requests" },
-    { name = "tiktoken" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "azure-identity", specifier = ">=1.17.1" },
-    { name = "context", editable = "../../../libraries/python/context" },
-    { name = "openai", specifier = ">=1.16.1" },
-    { name = "pydantic", specifier = ">=2.6.1" },
-    { name = "pydantic-settings", specifier = ">=2.3.4" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "requests", specifier = ">=2.32.0" },
-    { name = "tiktoken", specifier = ">=0.7.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
 ]
 
 [[package]]
@@ -1086,7 +1023,6 @@ dependencies = [
     { name = "azure-ai-contentsafety" },
     { name = "azure-core", extra = ["aio"] },
     { name = "azure-identity" },
-    { name = "function-registry" },
     { name = "openai" },
     { name = "pillow" },
     { name = "python-liquid" },
@@ -1099,7 +1035,6 @@ requires-dist = [
     { name = "azure-ai-contentsafety", specifier = ">=1.0.0" },
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
-    { name = "function-registry", editable = "../../../libraries/python/function-registry" },
     { name = "openai", specifier = ">=1.3.9" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "python-liquid", specifier = ">=1.12.1" },

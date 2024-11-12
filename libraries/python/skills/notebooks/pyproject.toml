@@ -10,7 +10,6 @@ dependencies = [
     "chat-driver>=0.1.0",
     "context>=0.1.0",
     "events>=0.1.0",
-    "function-registry>=0.1.0",
     "nest-asyncio>=1.6.0",
     "openai>=1.16.1",
     "openai-client>=0.1.0",
@@ -29,7 +28,6 @@ assistant-drive = { path = "../../assistant-drive", editable = true }
 chat-driver = { path = "../../chat-driver", editable = true }
 context = { path = "../../context", editable = true }
 events = { path = "../../events", editable = true }
-function-registry = { path = "../../function-registry", editable = true }
 posix-skill = { path = "../skills/posix-skill", editable = true }
 skill-library = { path = "../skill-library/", editable = true }
 openai-client = { path = "../../openai-client", editable = true }

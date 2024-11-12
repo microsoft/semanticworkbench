@@ -1,15 +1,14 @@
 from typing import Any, Callable
 
 import pytest
-from context.context import Context
-from function_registry.function_registry import FunctionRegistry
+from openai_client.tools import ToolFunctions
 
 
-def no_op(context: Context) -> None:
+def no_op() -> None:
     pass
 
 
-def echo(context: Context, value: Any) -> str:
+def echo(value: Any) -> str:
     match value:
         case str():
             return value
@@ -23,9 +22,11 @@ def echo(context: Context, value: Any) -> str:
             return str(value)
 
 
-context = Context()
+# Create tool functions.
 functions = [echo, no_op]
-register = FunctionRegistry(context, functions)
+tf = ToolFunctions()
+for func in functions:
+    tf.add_function(func)
 
 
 @pytest.mark.parametrize(
@@ -63,7 +64,7 @@ def test_command_parsing_pythonic(
     expected_error: Any,
 ):
     try:
-        command, args, kwargs = register.parse_function_string(command_string)
+        command, args, kwargs = tf.parse_function_string(command_string)
     except Exception as e:
         assert expected_error is not None
         assert isinstance(e, expected_error)

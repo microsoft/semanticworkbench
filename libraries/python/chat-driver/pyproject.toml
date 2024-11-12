@@ -9,7 +9,6 @@ dependencies = [
     "azure-identity>=1.17.1",
     "context>=0.1.0",
     "events>=0.1.0",
-    "function-registry>=0.1.0",
     "openai>=1.16.1",
     "openai-client>=0.1.0",
     "pydantic-settings>=2.3.4",
@@ -25,7 +24,6 @@ package = true
 [tool.uv.sources]
 context = { path = "../context", editable = true }
 events = { path = "../events", editable = true }
-function-registry = { path = "../function-registry", editable = true }
 openai-client = { path = "../openai-client", editable = true }
 
 [build-system]
