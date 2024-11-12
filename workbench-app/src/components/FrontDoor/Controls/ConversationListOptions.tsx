@@ -26,8 +26,8 @@ import {
     CheckboxUncheckedRegular,
     DismissRegular,
     FilterRegular,
-    MailReadRegular,
-    MailUnreadRegular,
+    GlassesOffRegular,
+    GlassesRegular,
     PinOffRegular,
     PinRegular,
     PlugDisconnectedRegular,
@@ -95,7 +95,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
     const { conversations, selectedForActions, onSelectedForActionsChanged, onDisplayedConversationsChanged } = props;
     const classes = useClasses();
     const localUserId = useAppSelector((state) => state.localUser.id);
-    const { hasUnreadMessages, markAllAsRead, markAsUnread, isPinned, setPinned } = useConversationUtility();
+    const { hasUnreadMessages, markAllAsRead, markAllAsUnread, isPinned, setPinned } = useConversationUtility();
     const [filterString, setFilterString] = React.useState<string>('');
     const [displayFilter, setDisplayFilter] = React.useState<string>('');
     const [sortByName, setSortByName] = React.useState<boolean>(false);
@@ -411,9 +411,9 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
     }, [getSelectedConversations, markAllAsRead, onSelectedForActionsChanged]);
 
     const handleMarkAsUnreadForSelected = React.useCallback(async () => {
-        await markAsUnread(getSelectedConversations());
+        await markAllAsUnread(getSelectedConversations());
         onSelectedForActionsChanged(new Set<string>());
-    }, [getSelectedConversations, markAsUnread, onSelectedForActionsChanged]);
+    }, [getSelectedConversations, markAllAsUnread, onSelectedForActionsChanged]);
 
     const handleRemoveForSelected = React.useCallback(async () => {
         // TODO: implement remove conversation
@@ -438,7 +438,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                         <Button
                             className={classes.toolbarTextButton}
                             appearance="transparent"
-                            icon={<MailReadRegular />}
+                            icon={<GlassesRegular />}
                             disabled={!enableBulkActions.read}
                             onClick={handleMarkAllAsReadForSelected}
                         />
@@ -446,7 +446,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                     <Tooltip content="Mark selected conversations as unread" relationship="label">
                         <Button
                             appearance="transparent"
-                            icon={<MailUnreadRegular />}
+                            icon={<GlassesOffRegular />}
                             disabled={!enableBulkActions.unread}
                             onClick={handleMarkAsUnreadForSelected}
                         />

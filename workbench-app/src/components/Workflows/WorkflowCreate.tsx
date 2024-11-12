@@ -87,6 +87,8 @@ export const WorkflowCreate: React.FC<WorkflowCreateProps> = (props) => {
         }).unwrap();
         onOpenChange?.(false);
         onCreate?.(workflowDefinition);
+
+        setSubmitted(false);
     };
 
     React.useEffect(() => {

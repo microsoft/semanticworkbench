@@ -3,77 +3,39 @@
 import { Button, DialogTrigger } from '@fluentui/react-components';
 import { RewindRegular } from '@fluentui/react-icons';
 import React from 'react';
-import { ConversationMessage } from '../../models/ConversationMessage';
-import {
-    useCreateConversationMessageMutation,
-    useDeleteConversationMessageMutation,
-    useGetConversationMessagesQuery,
-} from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
 
 // TODO: consider removing attachments to messages that are deleted
 // and send the appropriate events to the assistants
 
 interface RewindConversationProps {
-    conversationId: string;
-    message: ConversationMessage;
-    onRewind?: () => void;
+    onRewind?: (redo: boolean) => void;
     disabled?: boolean;
 }
 
 export const RewindConversation: React.FC<RewindConversationProps> = (props) => {
-    const { conversationId, message, onRewind, disabled } = props;
-    const {
-        data: messages,
-        error: getMessagesError,
-        isLoading: isLoadingMessages,
-    } = useGetConversationMessagesQuery(conversationId);
-    const [createMessage] = useCreateConversationMessageMutation();
-    const [deleteMessage] = useDeleteConversationMessageMutation();
+    const { onRewind, disabled } = props;
+    const [submitted, setSubmitted] = React.useState(false);
 
-    if (getMessagesError) {
-        const errorMessage = JSON.stringify(getMessagesError);
-        throw new Error(`Error loading messages: ${errorMessage}`);
-    }
+    const handleRewind = React.useCallback(
+        async (redo: boolean = false) => {
+            if (submitted) {
+                return;
+            }
+            setSubmitted(true);
 
-    const handleRewind = React.useCallback(async () => {
-        if (!messages) {
-            return;
-        }
-
-        // Find the index of the message to rewind to
-        const messageIndex = messages.findIndex((possibleMessage) => possibleMessage.id === message.id);
-
-        // If the message is not found, do nothing
-        if (messageIndex === -1) {
-            return;
-        }
-
-        // Delete all messages from the message to the end of the conversation
-        for (let i = messageIndex; i < messages.length; i++) {
-            await deleteMessage({ conversationId, messageId: messages[i].id });
-        }
-
-        // Call the onRewind callback
-        onRewind?.();
-    }, [conversationId, deleteMessage, messages, message, onRewind]);
-
-    const handleRewindWithRedo = React.useCallback(async () => {
-        await handleRewind();
-
-        // Create a new message with the same content as the message to redo
-        await createMessage({
-            conversationId,
-            ...message,
-        });
-
-        // Call the onRewind callback
-        onRewind?.();
-    }, [conversationId, createMessage, handleRewind, message, onRewind]);
+            try {
+                onRewind?.(redo);
+            } finally {
+                setSubmitted(false);
+            }
+        },
+        [onRewind, submitted],
+    );
 
     return (
         <CommandButton
-            disabled={disabled || isLoadingMessages}
+            disabled={disabled}
             description="Rewind conversation to before this message, with optional redo."
             icon={<RewindRegular />}
             iconOnly={true}
@@ -112,12 +74,14 @@ export const RewindConversation: React.FC<RewindConversationProps> = (props) => 
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="rewind" disableButtonEnhancement>
-                        <Button appearance="primary" onClick={handleRewind}>
-                            Rewind
+                        <Button appearance="primary" onClick={() => handleRewind()} disabled={submitted}>
+                            {submitted ? 'Rewinding...' : 'Rewind'}
                         </Button>
                     </DialogTrigger>,
                     <DialogTrigger key="rewindWithRedo" disableButtonEnhancement>
-                        <Button onClick={handleRewindWithRedo}>Rewind with Redo</Button>
+                        <Button onClick={() => handleRewind(true)} disabled={submitted}>
+                            {submitted ? 'Rewinding and redoing...' : 'Rewind with Redo'}
+                        </Button>
                     </DialogTrigger>,
                 ],
             }}

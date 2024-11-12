@@ -2,8 +2,10 @@
 
 import { Button, makeStyles, shorthands, Title3, tokens } from '@fluentui/react-components';
 import React from 'react';
+import { Constants } from '../../Constants';
 import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useCreateConversation } from '../../libs/useCreateConversation';
+import { useSiteUtility } from '../../libs/useSiteUtility';
 import { useAppSelector } from '../../redux/app/hooks';
 import { ExperimentalNotice } from '../App/ExperimentalNotice';
 import { ConversationsImport } from '../Conversations/ConversationsImport';
@@ -62,8 +64,15 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     const [assistantServiceId, setAssistantServiceId] = React.useState<string>();
     const [submitted, setSubmitted] = React.useState(false);
     const { navigateToConversation } = useConversationUtility();
+    const siteUtility = useSiteUtility();
 
     const classes = useClasses();
+
+    React.useEffect(() => {
+        if (!activeConversationId && document.title !== Constants.app.name) {
+            siteUtility.setDocumentTitle();
+        }
+    }, [activeConversationId, siteUtility]);
 
     const handleCreate = React.useCallback(async () => {
         if (submitted || !isValid || !title || !assistantId) {

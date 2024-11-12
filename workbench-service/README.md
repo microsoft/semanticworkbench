@@ -51,5 +51,5 @@ To run and/or debug in VS Code, View->Run, "service: semantic-workbench-service"
 In the [workbench-service](./) directory
 
 ```sh
-uv run start-semantic-workbench-service
+uv run start-service
 ```

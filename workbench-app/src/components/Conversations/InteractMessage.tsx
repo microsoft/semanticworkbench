@@ -148,10 +148,11 @@ interface InteractMessageProps {
     displayDate?: boolean;
     readOnly: boolean;
     onRead?: (message: ConversationMessage) => void;
+    onRewind?: (message: ConversationMessage, redo: boolean) => void;
 }
 
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
-    const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead } = props;
+    const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead, onRewind } = props;
     const classes = useClasses();
     const { getAvatarData } = useParticipantUtility();
     const [createConversationMessage] = useCreateConversationMessageMutation();
@@ -244,7 +245,6 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                     debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
                     loading={isLoadingDebugData || isUninitializedDebugData}
                     onOpen={() => {
-                        console.log('OPEN!');
                         setSkipDebugLoad(false);
                     }}
                 />
@@ -252,12 +252,12 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 {!readOnly && (
                     <>
                         <MessageDelete conversationId={conversation.id} message={message} />
-                        <RewindConversation conversationId={conversation.id} message={message} />
+                        <RewindConversation onRewind={(redo) => onRewind?.(message, redo)} />
                     </>
                 )}
             </>
         ),
-        [conversation, debugData?.debugData, isLoadingDebugData, isUninitializedDebugData, message, readOnly],
+        [conversation, debugData?.debugData, isLoadingDebugData, isUninitializedDebugData, message, onRewind, readOnly],
     );
 
     const getRenderedMessage = React.useCallback(() => {

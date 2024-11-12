@@ -64,16 +64,7 @@ const deepDiff = (obj1: ObjectLiteral, obj2: ObjectLiteral, parentKey = ''): Obj
 
 type ObjectLiteral = { [key: string]: any };
 
-const debounce = (func: Function, wait: number) => {
-    let timeout: NodeJS.Timeout;
-    return function (this: any, ...args: any[]) {
-        const context = this;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-    };
-};
-
-const toDayJs = (value?: string | Date, timezone: string = dayjs.tz.guess()) => {
+const toDayJs = (value: string | Date, timezone: string = dayjs.tz.guess()) => {
     return dayjs.utc(value).tz(timezone);
 };
 
@@ -110,7 +101,7 @@ const toFormattedDateString = (value: string | Date, format: string, timezone: s
 
 const getTimestampForFilename = (timezone: string = dayjs.tz.guess()) => {
     // return in format YYYYMMDDHHmm
-    return toDayJs(timezone).format('YYYYMMDDHHmm');
+    return toDayJs(new Date(), timezone).format('YYYYMMDDHHmm');
 };
 
 const sortKeys = (obj: any): any => {
@@ -173,16 +164,25 @@ const errorToMessageString = (error?: Record<string, any> | string) => {
     return message;
 };
 
+const withStatus = async <T>(setStatus: (status: boolean) => void, callback: () => Promise<T>): Promise<T> => {
+    setStatus(true);
+    try {
+        return await callback();
+    } finally {
+        setStatus(false);
+    }
+};
+
 export const Utility = {
     deepEqual,
     deepCopy,
     deepMerge,
     deepDiff,
-    debounce,
     toDate,
     toSimpleDateString,
     toFormattedDateString,
     getTimestampForFilename,
     sortKeys,
     errorToMessageString,
+    withStatus,
 };

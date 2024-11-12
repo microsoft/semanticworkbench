@@ -1,8 +1,10 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, DialogTrigger, Field, Input } from '@fluentui/react-components';
+import { Button, DialogOpenChangeData, DialogOpenChangeEvent, Field, Input } from '@fluentui/react-components';
 import { EditRegular } from '@fluentui/react-icons';
 import React from 'react';
+import { useNotify } from '../../libs/useNotify';
+import { Utility } from '../../libs/Utility';
 import { useUpdateConversationMutation } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
 import { DialogControl } from '../App/DialogControl';
@@ -12,39 +14,48 @@ export const useConversationRenameControls = (id: string, value: string) => {
     const [newTitle, setNewTitle] = React.useState(value);
     const [submitted, setSubmitted] = React.useState(false);
 
-    const handleRename = async (onRename?: (id: string, value: string) => Promise<void>) => {
-        if (submitted) {
-            return;
-        }
-        setSubmitted(true);
-        await updateConversation({ id, title: newTitle });
-
-        if (onRename) {
-            await onRename(id, newTitle);
-        }
-
-        setSubmitted(false);
-    };
-
-    const renameConversationForm = (onRename?: (id: string, value: string) => Promise<void>) => (
-        <form
-            onSubmit={(event) => {
-                event.preventDefault();
-                handleRename(onRename);
-            }}
-        >
-            <Field label="Title">
-                <Input disabled={submitted} value={newTitle} onChange={(_event, data) => setNewTitle(data.value)} />
-            </Field>
-        </form>
+    const handleRename = React.useCallback(
+        async (onRename?: (id: string, value: string) => Promise<void>, onError?: (error: Error) => void) => {
+            try {
+                await Utility.withStatus(setSubmitted, async () => {
+                    await updateConversation({ id, title: newTitle });
+                    await onRename?.(id, newTitle);
+                });
+            } catch (error) {
+                onError?.(error as Error);
+            }
+        },
+        [id, newTitle, updateConversation],
     );
 
-    const renameConversationButton = (onRename?: (id: string, value: string) => Promise<void>) => (
-        <DialogTrigger disableButtonEnhancement>
-            <Button disabled={!newTitle || submitted} onClick={() => handleRename(onRename)} appearance="primary">
+    const renameConversationForm = React.useCallback(
+        (onRename?: (id: string, value: string) => Promise<void>) => (
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    handleRename(onRename);
+                }}
+            >
+                <Field label="Title">
+                    <Input disabled={submitted} value={newTitle} onChange={(_event, data) => setNewTitle(data.value)} />
+                </Field>
+            </form>
+        ),
+        [handleRename, newTitle, submitted],
+    );
+
+    const renameConversationButton = React.useCallback(
+        (onRename?: (id: string, value: string) => Promise<void>, onError?: (error: Error) => void) => (
+            <Button
+                key="rename"
+                disabled={!newTitle || submitted}
+                onClick={() => handleRename(onRename, onError)}
+                appearance="primary"
+            >
                 {submitted ? 'Renaming...' : 'Rename'}
             </Button>
-        </DialogTrigger>
+        ),
+        [handleRename, newTitle, submitted],
     );
 
     return {
@@ -54,40 +65,53 @@ export const useConversationRenameControls = (id: string, value: string) => {
 };
 
 interface ConversationRenameDialogProps {
-    id: string;
+    conversationId: string;
     value: string;
     onRename: (id: string, value: string) => Promise<void>;
-    onCancel: () => void;
+    open?: boolean;
+    onOpenChange: (event: DialogOpenChangeEvent, data: DialogOpenChangeData) => void;
 }
 
 export const ConversationRenameDialog: React.FC<ConversationRenameDialogProps> = (props) => {
-    const { id, value, onRename, onCancel } = props;
-    const { renameConversationForm, renameConversationButton } = useConversationRenameControls(id, value);
+    const { conversationId, value, onRename, open, onOpenChange } = props;
+    const { renameConversationForm, renameConversationButton } = useConversationRenameControls(conversationId, value);
+    const { notifyWarning } = useNotify();
+
+    const handleError = React.useCallback(
+        (error: Error) => {
+            notifyWarning({
+                id: 'error',
+                title: 'Rename conversation failed',
+                message: error.message,
+            });
+        },
+        [notifyWarning],
+    );
 
     return (
         <DialogControl
-            open={true}
-            onOpenChange={onCancel}
+            open={open}
+            onOpenChange={onOpenChange}
             title="Rename conversation"
             content={renameConversationForm(onRename)}
             closeLabel="Cancel"
-            additionalActions={[renameConversationButton(onRename)]}
+            additionalActions={[renameConversationButton(onRename, handleError)]}
         />
     );
 };
 
 interface ConversationRenameProps {
+    conversationId: string;
     disabled?: boolean;
-    id: string;
     value: string;
-    onRename?: (id: string, value: string) => Promise<void>;
+    onRename?: (conversationId: string, value: string) => Promise<void>;
     iconOnly?: boolean;
     asToolbarButton?: boolean;
 }
 
 export const ConversationRename: React.FC<ConversationRenameProps> = (props) => {
-    const { id, value, onRename, disabled, iconOnly, asToolbarButton } = props;
-    const { renameConversationForm, renameConversationButton } = useConversationRenameControls(id, value);
+    const { conversationId, value, onRename, disabled, iconOnly, asToolbarButton } = props;
+    const { renameConversationForm, renameConversationButton } = useConversationRenameControls(conversationId, value);
 
     return (
         <CommandButton

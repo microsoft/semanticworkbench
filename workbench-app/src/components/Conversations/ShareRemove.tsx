@@ -20,10 +20,18 @@ export const ShareRemove: React.FC<ShareRemoveProps> = (props) => {
     const [isDeleting, setIsDeleting] = React.useState(false);
 
     const handleDelete = React.useCallback(async () => {
+        if (isDeleting) {
+            return;
+        }
         setIsDeleting(true);
-        await deleteShare(share.id);
-        onDelete?.();
-    }, [share.id, onDelete, deleteShare, setIsDeleting]);
+
+        try {
+            await deleteShare(share.id);
+            onDelete?.();
+        } finally {
+            setIsDeleting(false);
+        }
+    }, [isDeleting, deleteShare, share.id, onDelete]);
 
     return (
         <CommandButton
@@ -39,8 +47,8 @@ export const ShareRemove: React.FC<ShareRemoveProps> = (props) => {
                 closeLabel: 'Cancel',
                 additionalActions: [
                     <DialogTrigger key="delete" disableButtonEnhancement>
-                        <Button appearance="primary" onClick={handleDelete}>
-                            Delete
+                        <Button appearance="primary" onClick={handleDelete} disabled={isDeleting}>
+                            {isDeleting ? 'Deleting...' : 'Delete'}
                         </Button>
                     </DialogTrigger>,
                 ],

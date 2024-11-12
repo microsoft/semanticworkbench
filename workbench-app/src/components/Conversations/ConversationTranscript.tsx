@@ -2,10 +2,9 @@
 
 import { ArrowDownload24Regular } from '@fluentui/react-icons';
 import React from 'react';
-import { Utility } from '../../libs/Utility';
+import { useWorkbenchService } from '../../libs/useWorkbenchService';
 import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useGetConversationMessagesQuery } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
 
 interface ConversationTranscriptProps {
@@ -17,75 +16,37 @@ interface ConversationTranscriptProps {
 
 export const ConversationTranscript: React.FC<ConversationTranscriptProps> = (props) => {
     const { conversation, participants, iconOnly, asToolbarButton } = props;
-    const {
-        data: messages,
-        error: messagesError,
-        isLoading: isLoadingMessages,
-    } = useGetConversationMessagesQuery(conversation.id);
+    const workbenchService = useWorkbenchService();
+    const [submitted, setSubmitted] = React.useState(false);
 
-    if (messagesError) {
-        const errorMessage = JSON.stringify(messagesError);
-        throw new Error(`Error loading messages: ${errorMessage}`);
-    }
-
-    const getTranscript = async () => {
-        if (!messages) {
+    const getTranscript = React.useCallback(async () => {
+        if (submitted) {
             return;
         }
+        setSubmitted(true);
 
-        const timestampForFilename = Utility.getTimestampForFilename();
-        const filename = `transcript_${conversation.title.replaceAll(' ', '_')}_${timestampForFilename}.md`;
-
-        const markdown = messages
-            .filter((message) => message.messageType !== 'log')
-            .map((message) => {
-                const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
-                const time = Utility.toFormattedDateString(message.timestamp, 'h:mm A');
-                const participant = participants.find(
-                    (possible_participant) => possible_participant.id === message.sender.participantId,
-                );
-                const sender = participant ? participant.name : 'Unknown';
-                const parts = [];
-                parts.push(`### [${date} ${time}] ${sender}:`);
-                if (message.messageType !== 'chat') {
-                    parts.push(`${message.messageType}: ${message.content}`);
-                } else {
-                    parts.push(message.content);
-                }
-                if (message.filenames && message.filenames.length > 0) {
-                    parts.push(
-                        message.filenames
-                            .map((filename) => {
-                                return `attachment: ${filename}`;
-                            })
-                            .join('\n'),
-                    );
-                }
-                parts.push('----------------------------------\n\n');
-
-                return parts.join('\n\n');
-            })
-            .join('\n');
-
-        const blob = new Blob([markdown], { type: 'text/markdown' });
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
+        try {
+            const { blob, filename } = await workbenchService.exportTranscriptAsync(conversation, participants);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setSubmitted(false);
+        }
+    }, [submitted, workbenchService, conversation, participants]);
 
     return (
         <div>
             <CommandButton
-                disabled={isLoadingMessages || !messages}
                 description={`Download transcript`}
                 icon={<ArrowDownload24Regular />}
                 iconOnly={iconOnly}
                 asToolbarButton={asToolbarButton}
-                label="Download"
+                disabled={submitted}
+                label={submitted ? 'Downloading...' : 'Download'}
                 onClick={getTranscript}
             />
         </div>

@@ -17,4 +17,4 @@ Set-Location "workbench-service"
 # Note: this creates the .data folder at
 # path         ./workbench-service/.data
 # rather than  ./workbench-service/.data
-uv run start-semantic-workbench-service
+uv run start-service

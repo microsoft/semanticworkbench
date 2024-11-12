@@ -10,5 +10,5 @@ To start the canonical assistant:
 
 ```sh
 cd workbench-service
-start-semantic-workbench-assistant semantic_workbench_assistant.canonical:app
+start-assistant semantic_workbench_assistant.canonical:app
 ```

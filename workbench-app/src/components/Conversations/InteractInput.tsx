@@ -30,13 +30,13 @@ import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
 import { useNotify } from '../../libs/useNotify';
 import { AssistantCapability } from '../../models/AssistantCapability';
+import { Conversation } from '../../models/Conversation';
+import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
 import {
     updateGetConversationMessagesQueryData,
     useCreateConversationMessageMutation,
-    useGetConversationMessagesQuery,
-    useGetConversationParticipantsQuery,
     useUploadConversationFilesMutation,
 } from '../../services/workbench';
 import { ClearEditorPlugin } from './ChatInputPlugins/ClearEditorPlugin';
@@ -106,7 +106,9 @@ const useClasses = makeStyles({
 });
 
 interface InteractInputProps {
-    conversationId: string;
+    conversation: Conversation;
+    messages: ConversationMessage[];
+    participants: ConversationParticipant[];
     additionalContent?: React.ReactNode;
     readOnly: boolean;
     assistantCapabilities: Set<AssistantCapability>;
@@ -133,7 +135,7 @@ class TemporaryTextNode extends TextNode {
 }
 
 export const InteractInput: React.FC<InteractInputProps> = (props) => {
-    const { conversationId, additionalContent, readOnly, assistantCapabilities } = props;
+    const { conversation, messages, participants, additionalContent, readOnly, assistantCapabilities } = props;
     const classes = useClasses();
     const dropTargetRef = React.useRef<HTMLDivElement>(null);
     const localUserId = useAppSelector((state) => state.localUser.id);
@@ -152,28 +154,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
     const { notifyWarning } = useNotify();
     const dispatch = useAppDispatch();
-
-    const {
-        data: conversationMessages,
-        isLoading: isConversationMessagesLoading,
-        error: conversationMessagesError,
-    } = useGetConversationMessagesQuery(conversationId);
-
-    const {
-        data: participants,
-        isLoading: isParticipantsLoading,
-        error: participantsError,
-    } = useGetConversationParticipantsQuery(conversationId);
-
-    if (conversationMessagesError) {
-        const errorMessage = JSON.stringify(conversationMessagesError);
-        console.error(`Failed to load conversation messages: ${errorMessage}`);
-    }
-
-    if (participantsError) {
-        const errorMessage = JSON.stringify(participantsError);
-        console.error(`Failed to load conversation participants: ${errorMessage}`);
-    }
 
     const editorRefCallback = React.useCallback((editor: LexicalEditor) => {
         editorRef.current = editor;
@@ -293,10 +273,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         [addAttachments],
     );
 
-    if (isConversationMessagesLoading || isParticipantsLoading) {
-        return null;
-    }
-
     const handleSend = (_event: ChatInputSubmitEvents, data: EditorInputValueData) => {
         if (data.value.trim() === '' || isSubmitting) {
             return;
@@ -341,8 +317,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             // need to define the extra fields for the message such as sender, timestamp, etc.
             // so that the message can be rendered correctly
             dispatch(
-                updateGetConversationMessagesQueryData(conversationId, [
-                    ...(conversationMessages ?? []),
+                updateGetConversationMessagesQueryData(conversation.id, [
+                    ...(messages ?? []),
                     {
                         id: 'optimistic',
                         sender: {
@@ -372,12 +348,12 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 attachmentInputRef.current.value = '';
             }
             if (files) {
-                await uploadConversationFiles({ conversationId, files });
+                await uploadConversationFiles({ conversationId: conversation.id, files });
             }
 
             // create the message
             await createMessage({
-                conversationId,
+                conversationId: conversation.id,
                 content,
                 messageType,
                 filenames,

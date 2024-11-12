@@ -14,28 +14,51 @@ const useConversationRemoveControls = () => {
     const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
     const dispatch = useAppDispatch();
     const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const handleRemove = async (conversationId: string, participantId: string, onRemove?: () => void) => {
-        if (activeConversationId === conversationId) {
-            // Clear the active conversation if it is the one being removed
-            dispatch(setActiveConversationId(undefined));
-        }
+    const handleRemove = React.useCallback(
+        async (conversationId: string, participantId: string, onRemove?: () => void) => {
+            if (submitted) {
+                return;
+            }
+            setSubmitted(true);
 
-        await removeConversationParticipant({
-            conversationId,
-            participantId,
-        });
-        onRemove?.();
-    };
+            try {
+                if (activeConversationId === conversationId) {
+                    // Clear the active conversation if it is the one being removed
+                    dispatch(setActiveConversationId(undefined));
+                }
 
-    const removeConversationForm = () => <p>Are you sure you want to remove this conversation from your list?</p>;
+                await removeConversationParticipant({
+                    conversationId,
+                    participantId,
+                });
+                onRemove?.();
+            } finally {
+                setSubmitted(false);
+            }
+        },
+        [activeConversationId, dispatch, removeConversationParticipant, submitted],
+    );
 
-    const removeConversationButton = (conversationId: string, participantId: string, onRemove?: () => void) => (
-        <DialogTrigger disableButtonEnhancement>
-            <Button appearance="primary" onClick={() => handleRemove(conversationId, participantId, onRemove)}>
-                Remove
-            </Button>
-        </DialogTrigger>
+    const removeConversationForm = React.useCallback(
+        () => <p>Are you sure you want to remove this conversation from your list?</p>,
+        [],
+    );
+
+    const removeConversationButton = React.useCallback(
+        (conversationId: string, participantId: string, onRemove?: () => void) => (
+            <DialogTrigger disableButtonEnhancement>
+                <Button
+                    appearance="primary"
+                    onClick={() => handleRemove(conversationId, participantId, onRemove)}
+                    disabled={submitted}
+                >
+                    {submitted ? 'Removing...' : 'Remove'}
+                </Button>
+            </DialogTrigger>
+        ),
+        [handleRemove, submitted],
     );
 
     return {

@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import debug from 'debug';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -6,7 +7,6 @@ import { Conversation } from '../models/Conversation';
 import { ConversationShare } from '../models/ConversationShare';
 import { useAppSelector } from '../redux/app/hooks';
 import { useUpdateConversationMutation } from '../services/workbench';
-import { Utility } from './Utility';
 
 const log = debug(Constants.debug.root).extend('useConversationUtility');
 
@@ -24,7 +24,7 @@ interface ParticipantAppMetadata {
 }
 
 export const useConversationUtility = () => {
-    const [isMessageVisible, setIsVisible] = React.useState(false);
+    const [isMessageVisible, setIsMessageVisible] = React.useState(false);
     const isMessageVisibleRef = React.useRef(null);
     const [updateConversation] = useUpdateConversationMutation();
     const localUserId = useAppSelector((state) => state.localUser.id);
@@ -161,7 +161,7 @@ export const useConversationUtility = () => {
     React.useEffect(() => {
         const observer = new IntersectionObserver(
             ([entry]) => {
-                setIsVisible(entry.isIntersecting);
+                setIsMessageVisible(entry.isIntersecting);
             },
             { threshold: 0.1 },
         );
@@ -201,7 +201,7 @@ export const useConversationUtility = () => {
                 return true;
             }
             const lastMessageTimestamp = getLastMessageTimestamp(conversation);
-            return lastMessageTimestamp > lastReadTimestamp;
+            return dayjs(lastMessageTimestamp).isAfter(lastReadTimestamp);
         },
         [getLastReadTimestamp, getLastMessageTimestamp],
     );
@@ -210,9 +210,9 @@ export const useConversationUtility = () => {
         (conversation: Conversation, messageTimestamp: string) => {
             const lastReadTimestamp = getLastReadTimestamp(conversation);
             if (!lastReadTimestamp) {
-                return false;
+                return true;
             }
-            return messageTimestamp > lastReadTimestamp;
+            return dayjs(messageTimestamp).isAfter(lastReadTimestamp);
         },
         [getLastReadTimestamp],
     );
@@ -235,7 +235,7 @@ export const useConversationUtility = () => {
         [hasUnreadMessages, setAppMetadata, getLastMessageTimestamp],
     );
 
-    const markAsUnread = React.useCallback(
+    const markAllAsUnread = React.useCallback(
         async (conversation: Conversation | Conversation[]) => {
             const markSingleConversation = async (c: Conversation) => {
                 if (hasUnreadMessages(c)) {
@@ -256,19 +256,25 @@ export const useConversationUtility = () => {
 
     const setLastRead = React.useCallback(
         async (conversation: Conversation | Conversation[], messageTimestamp: string) => {
-            const debouncedFunction = Utility.debounce(async () => {
-                if (Array.isArray(conversation)) {
-                    await Promise.all(
-                        conversation.map((c) => setAppMetadata(c, { lastReadTimestamp: messageTimestamp })),
-                    );
-                    return;
-                }
-                await setAppMetadata(conversation, { lastReadTimestamp: messageTimestamp });
-            }, 300);
-
-            debouncedFunction();
+            if (Array.isArray(conversation)) {
+                await Promise.all(conversation.map((c) => setAppMetadata(c, { lastReadTimestamp: messageTimestamp })));
+                return;
+            }
+            await setAppMetadata(conversation, { lastReadTimestamp: messageTimestamp });
         },
         [setAppMetadata],
+    );
+
+    // Create a debounced version of setLastRead
+    const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    const debouncedSetLastRead = React.useCallback(
+        (conversation: Conversation | Conversation[], messageTimestamp: string) => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+            timeoutRef.current = setTimeout(() => setLastRead(conversation, messageTimestamp), 300);
+        },
+        [setLastRead],
     );
 
     // endregion
@@ -312,8 +318,9 @@ export const useConversationUtility = () => {
         hasUnreadMessages,
         isUnread,
         markAllAsRead,
-        markAsUnread,
+        markAllAsUnread,
         setLastRead,
+        debouncedSetLastRead,
         isPinned,
         setPinned,
     };

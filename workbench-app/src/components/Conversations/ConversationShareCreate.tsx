@@ -46,32 +46,33 @@ export const ConversationShareCreate: React.FC<ConversationShareCreateProps> = (
     const conversationUtility = useConversationUtility();
 
     const handleCreate = React.useCallback(async () => {
+        if (submitted) {
+            return;
+        }
         setSubmitted(true);
-        // Get the permission and metadata for the share type.
-        const { permission, metadata } = conversationUtility.getShareTypeMetadata(shareType, linkToMessageId);
-        // Create the share.
-        const conversationShare = await createShare({
-            conversationId: conversation!.id,
-            label: shareLabel,
-            conversationPermission: permission,
-            metadata: metadata,
-        }).unwrap();
-        onCreated?.(conversationShare);
-        setSubmitted(false);
-    }, [
-        conversationUtility,
-        shareType,
-        linkToMessageId,
-        createShare,
-        conversation,
-        shareLabel,
-        setSubmitted,
-        onCreated,
-    ]);
 
-    const handleFocus = (event: React.FocusEvent<HTMLInputElement>) => event.target.select();
+        try {
+            // Get the permission and metadata for the share type.
+            const { permission, metadata } = conversationUtility.getShareTypeMetadata(shareType, linkToMessageId);
+            // Create the share.
+            const conversationShare = await createShare({
+                conversationId: conversation!.id,
+                label: shareLabel,
+                conversationPermission: permission,
+                metadata: metadata,
+            }).unwrap();
+            onCreated?.(conversationShare);
+        } finally {
+            setSubmitted(false);
+        }
+    }, [submitted, conversationUtility, shareType, linkToMessageId, createShare, conversation, shareLabel, onCreated]);
 
-    const createTitle = linkToMessageId ? 'Create a new message share link' : 'Create a new share link';
+    const handleFocus = React.useCallback((event: React.FocusEvent<HTMLInputElement>) => event.target.select(), []);
+
+    const createTitle = React.useMemo(
+        () => (linkToMessageId ? 'Create a new message share link' : 'Create a new share link'),
+        [linkToMessageId],
+    );
 
     const handleOpenChange = React.useCallback(
         (_: DialogOpenChangeEvent, data: DialogOpenChangeData) => {

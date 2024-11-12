@@ -1,20 +1,12 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    SelectTabData,
-    SelectTabEvent,
-    SelectTabEventHandler,
-    Tab,
-    TabList,
-    makeStyles,
-    shorthands,
-    tokens,
-} from '@fluentui/react-components';
+import { Overflow, OverflowItem, Tab, TabList, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useChatCanvasController } from '../../../libs/useChatCanvasController';
 import { Assistant } from '../../../models/Assistant';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
 import { useAppSelector } from '../../../redux/app/hooks';
+import { OverflowMenu, OverflowMenuItemData } from '../../App/OverflowMenu';
 import { AssistantInspector } from './AssistantInspector';
 
 const useClasses = makeStyles({
@@ -25,17 +17,8 @@ const useClasses = makeStyles({
     },
     header: {
         flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
-    },
-    headerContent: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: tokens.spacingHorizontalM,
+        height: 'fit-content',
+        overflow: 'hidden',
         ...shorthands.padding(tokens.spacingVerticalS),
         ...shorthands.borderBottom(tokens.strokeWidthThin, 'solid', tokens.colorNeutralStroke1),
     },
@@ -57,6 +40,34 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
     const chatCanvasState = useAppSelector((state) => state.chatCanvas);
     const chatCanvasController = useChatCanvasController();
 
+    const selectedStateDescription = React.useMemo(
+        () =>
+            stateDescriptions.find(
+                (stateDescription) => stateDescription.id === chatCanvasState.selectedAssistantStateId,
+            ) ?? stateDescriptions[0],
+        [stateDescriptions, chatCanvasState.selectedAssistantStateId],
+    );
+
+    const tabItems = React.useMemo(
+        () =>
+            stateDescriptions
+                .filter((stateDescription) => stateDescription.id !== 'config')
+                .map(
+                    (stateDescription): OverflowMenuItemData => ({
+                        id: stateDescription.id,
+                        name: stateDescription.displayName,
+                    }),
+                ),
+        [stateDescriptions],
+    );
+
+    const handleTabSelect = React.useCallback(
+        (id: string) => {
+            chatCanvasController.transitionToState({ selectedAssistantStateId: id });
+        },
+        [chatCanvasController],
+    );
+
     if (stateDescriptions.length === 1) {
         // Only one assistant state, no need to show tabs, just show the single assistant state
         return (
@@ -68,42 +79,37 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
         );
     }
 
-    const onTabSelect: SelectTabEventHandler = (_event: SelectTabEvent, data: SelectTabData) => {
-        chatCanvasController.transitionToState({ selectedAssistantStateId: data.value as string });
-    };
-
     if (stateDescriptions.length === 0) {
         return (
             <div className={classes.root}>
                 <div className={classes.header}>
-                    <div className={classes.headerContent}>
-                        <div>No assistant state inspectors available</div>
-                    </div>
+                    <div>No assistant state inspectors available</div>
                 </div>
             </div>
         );
     }
 
-    const selectedStateDescription =
-        stateDescriptions.find(
-            (stateDescription) => stateDescription.id === chatCanvasState.selectedAssistantStateId,
-        ) ?? stateDescriptions[0];
-    const selectedTab = selectedStateDescription.id;
-
     return (
         <div className={classes.root}>
             <div className={classes.header}>
-                <div className={classes.headerContent}>
-                    <TabList selectedValue={selectedTab} onTabSelect={onTabSelect} size="small">
-                        {stateDescriptions
-                            .filter((stateDescription) => stateDescription.id !== 'config')
-                            .map((stateDescription) => (
-                                <Tab key={stateDescription.id} value={stateDescription.id}>
-                                    {stateDescription.displayName}
-                                </Tab>
-                            ))}
+                <Overflow minimumVisible={1}>
+                    <TabList
+                        selectedValue={selectedStateDescription.id}
+                        onTabSelect={(_, data) => handleTabSelect(data.value as string)}
+                        size="small"
+                    >
+                        {tabItems.map((tabItem) => (
+                            <OverflowItem
+                                key={tabItem.id}
+                                id={tabItem.id}
+                                priority={tabItem.id === selectedStateDescription.id ? 2 : 1}
+                            >
+                                <Tab value={tabItem.id}>{tabItem.name}</Tab>
+                            </OverflowItem>
+                        ))}
+                        <OverflowMenu items={tabItems} onItemSelect={handleTabSelect} />
                     </TabList>
-                </div>
+                </Overflow>
             </div>
             <div className={classes.body}>
                 <AssistantInspector

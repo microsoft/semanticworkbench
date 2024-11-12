@@ -102,7 +102,10 @@ export const appSlice = createSlice({
 
             // dispatch to invalidate messages cache
             if (action.payload) {
-                conversationApi.endpoints.getConversationMessages.initiate(action.payload, { forceRefetch: true });
+                conversationApi.endpoints.getConversationMessages.initiate(
+                    { conversationId: action.payload },
+                    { forceRefetch: true },
+                );
             }
         },
     },

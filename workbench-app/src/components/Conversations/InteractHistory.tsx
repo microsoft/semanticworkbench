@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 import { CopilotChat, ResponseCount } from '@fluentui-copilot/react-copilot';
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
-import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -11,19 +10,10 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Constants } from '../../Constants';
 import { Utility } from '../../libs/Utility';
-import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../libs/WorkbenchEventSource';
 import { useConversationUtility } from '../../libs/useConversationUtility';
-import { useEnvironment } from '../../libs/useEnvironment';
 import { Conversation } from '../../models/Conversation';
-import { ConversationMessage, conversationMessageFromJSON } from '../../models/ConversationMessage';
+import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useAppDispatch } from '../../redux/app/hooks';
-import {
-    conversationApi,
-    updateGetConversationParticipantsQueryData,
-    useGetConversationMessagesQuery,
-} from '../../services/workbench';
-import { Loading } from '../App/Loading';
 import { MemoizedInteractMessage } from './InteractMessage';
 import { ParticipantStatus } from './ParticipantStatus';
 
@@ -34,6 +24,9 @@ dayjs.tz.guess();
 const useClasses = makeStyles({
     root: {
         height: '100%',
+    },
+    loading: {
+        ...shorthands.margin(tokens.spacingVerticalXXXL, 0),
     },
     virtuoso: {
         '::-webkit-scrollbar-thumb': {
@@ -53,79 +46,59 @@ const useClasses = makeStyles({
 
 interface InteractHistoryProps {
     conversation: Conversation;
+    messages: ConversationMessage[];
     participants: ConversationParticipant[];
     readOnly: boolean;
     className?: string;
+    onRewindToBefore?: (message: ConversationMessage, redo: boolean) => Promise<void>;
 }
 
 export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
-    const { conversation, participants, readOnly, className } = props;
+    const { conversation, messages, participants, readOnly, className, onRewindToBefore } = props;
     const classes = useClasses();
     const { hash } = useLocation();
+    const { debouncedSetLastRead } = useConversationUtility();
+    const [scrollToIndex, setScrollToIndex] = React.useState<number>();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
-    const [hashItemIndex, setHashItemIndex] = React.useState<number>();
-    const { setLastRead } = useConversationUtility();
-    const environment = useEnvironment();
-    const dispatch = useAppDispatch();
+    const [isAtBottom, setIsAtBottom] = React.useState<boolean>(true);
 
-    const {
-        data: messages,
-        error: getMessagesError,
-        isLoading: isLoadingMessages,
-    } = useGetConversationMessagesQuery(conversation.id);
-
-    if (getMessagesError) {
-        const errorMessage = JSON.stringify(getMessagesError);
-        throw new Error(`Error loading messages: ${errorMessage}`);
-    }
-
-    const virtuosoRef = React.useRef<VirtuosoHandle>(null);
-    const [shouldAutoScroll, setShouldAutoScroll] = React.useState<boolean>(true);
-
-    // create a function to scroll to the bottom of the chat
-    // to be used whenever we need to force a scroll to the bottom
-    const performScrollToBottom = React.useCallback(() => {
-        if (shouldAutoScroll) {
-            // wait a tick for the DOM to update
-            setTimeout(() => {
-                virtuosoRef.current?.scrollToIndex({ index: items.length - 1 });
-            }, 0);
-        }
-    }, [items.length, shouldAutoScroll]);
-
-    // scroll to the bottom when the component mounts
-    // and whenever the items change, such as when new messages are added
-    React.useEffect(() => {
-        performScrollToBottom();
-    }, [performScrollToBottom]);
-
-    // if hash index is set, scroll to the hash item
-    React.useEffect(() => {
-        if (hashItemIndex !== undefined) {
-            setTimeout(() => {
-                virtuosoRef.current?.scrollToIndex({ index: hashItemIndex });
-            }, 0);
-        }
-    }, [hashItemIndex]);
-
-    // scroll to the bottom when the participant status changes
-    const handleParticipantStatusChange = React.useCallback(() => {
-        performScrollToBottom();
-    }, [performScrollToBottom]);
-
+    // handler for when a message is read
     const handleOnRead = React.useCallback(
-        (message: ConversationMessage) => {
-            setLastRead(conversation, message.timestamp);
-        },
-        [setLastRead, conversation],
+        // update the last read timestamp for the conversation
+        async (message: ConversationMessage) => await debouncedSetLastRead(conversation, message.timestamp),
+        [debouncedSetLastRead, conversation],
     );
 
+    // create a ref for the virtuoso component for using its methods directly
+    const virtuosoRef = React.useRef<VirtuosoHandle>(null);
+
+    // set the scrollToIndex to the last item if the user is at the bottom of the history
+    const triggerAutoScroll = React.useCallback(() => {
+        if (isAtBottom) {
+            setScrollToIndex(items.length - 1);
+        }
+    }, [isAtBottom, items.length]);
+
+    // trigger auto scroll when the items change
     React.useEffect(() => {
-        if (isLoadingMessages || !messages) {
-            setItems([]);
+        triggerAutoScroll();
+    }, [items, triggerAutoScroll]);
+
+    // scroll to the bottom of the history when the scrollToIndex changes
+    React.useEffect(() => {
+        if (!scrollToIndex) {
             return;
         }
 
+        const index = scrollToIndex;
+        setScrollToIndex(undefined);
+
+        // wait a tick for the DOM to update
+        setTimeout(() => virtuosoRef.current?.scrollToIndex({ index, align: 'start' }), 0);
+    }, [scrollToIndex]);
+
+    // create a list of memoized interact message components for rendering in the virtuoso component
+    React.useEffect(() => {
         let lastMessageInfo = {
             participantId: '',
             attribution: undefined as string | undefined,
@@ -133,12 +106,14 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         };
         let lastDate = '';
         let generatedResponseCount = 0;
+
         const updatedItems = messages
             .filter((message) => message.messageType !== 'log')
             .map((message, index) => {
                 // if a hash is provided, check if the message id matches the hash
-                if (hash && hashItemIndex === undefined && hash === `#${message.id}`) {
-                    setHashItemIndex(index);
+                if (hash === `#${message.id}`) {
+                    // set the hash item index to scroll to the item
+                    setScrollToIndex(index);
                 }
 
                 const senderParticipant = participants.find(
@@ -201,10 +176,12 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                             hideParticipant={hideParticipant}
                             displayDate={displayDate}
                             onRead={handleOnRead}
+                            onRewind={onRewindToBefore}
                         />
                     </div>
                 );
             });
+
         if (generatedResponseCount > 0) {
             updatedItems.push(
                 <div className={classes.counter} key="response-count">
@@ -214,106 +191,33 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                 </div>,
             );
         }
+
         updatedItems.push(
             <div className={classes.status} key="participant-status">
-                <ParticipantStatus participants={participants} onChange={handleParticipantStatusChange} />
+                <ParticipantStatus participants={participants} onChange={() => triggerAutoScroll()} />
             </div>,
         );
+
         setItems(updatedItems);
     }, [
-        classes.counter,
-        classes.item,
+        messages,
         classes.status,
+        classes.item,
+        classes.counter,
+        participants,
+        hash,
+        readOnly,
         conversation,
         handleOnRead,
-        handleParticipantStatusChange,
-        hash,
-        hashItemIndex,
-        isLoadingMessages,
-        messages,
-        participants,
-        readOnly,
+        onRewindToBefore,
+        isAtBottom,
+        items.length,
+        triggerAutoScroll,
     ]);
 
-    React.useEffect(() => {
-        if (isLoadingMessages || !messages) {
-            return;
-        }
-
-        // handle new message events
-        const messageHandler = async (event: EventSourceMessage) => {
-            const { data } = JSON.parse(event.data);
-            const parsedEventData = {
-                timestamp: data.timestamp,
-                data: {
-                    message: conversationMessageFromJSON(data.message),
-                },
-            };
-
-            if (parsedEventData.data.message.messageType === 'log') {
-                // ignore log messages
-                return;
-            }
-
-            dispatch(
-                conversationApi.endpoints.getConversationMessages.initiate(conversation.id, {
-                    forceRefetch: true,
-                }),
-            );
-        };
-
-        // handle participant events
-        const handleParticipantEvent = (event: {
-            timestamp: string;
-            data: {
-                participant: ConversationParticipant;
-                participants: ConversationParticipant[];
-            };
-        }) => {
-            // update the conversation participants in the cache
-            dispatch(updateGetConversationParticipantsQueryData(conversation.id, event.data));
-        };
-
-        const participantCreatedHandler = (event: EventSourceMessage) => {
-            handleParticipantEvent(JSON.parse(event.data));
-        };
-
-        const participantUpdatedHandler = (event: EventSourceMessage) => {
-            handleParticipantEvent(JSON.parse(event.data));
-        };
-
-        (async () => {
-            // create or update the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
-                environment.url,
-                WorkbenchEventSourceType.Conversation,
-                conversation.id,
-            );
-            workbenchEventSource.addEventListener('message.created', messageHandler);
-            workbenchEventSource.addEventListener('message.deleted', messageHandler);
-            workbenchEventSource.addEventListener('participant.created', participantCreatedHandler);
-            workbenchEventSource.addEventListener('participant.updated', participantUpdatedHandler);
-        })();
-
-        return () => {
-            (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance(
-                    WorkbenchEventSourceType.Conversation,
-                );
-                workbenchEventSource.removeEventListener('message.created', messageHandler);
-                workbenchEventSource.removeEventListener('message.deleted', messageHandler);
-                workbenchEventSource.removeEventListener('participant.created', participantCreatedHandler);
-                workbenchEventSource.removeEventListener('participant.updated', participantUpdatedHandler);
-            })();
-        };
-    }, [conversation.id, dispatch, environment.url, isLoadingMessages, messages]);
-
-    if (isLoadingMessages || !messages) {
-        return <Loading />;
-    }
-
+    // render the history
     return (
-        <CopilotChat className={mergeClasses(classes.root, className ?? '')}>
+        <CopilotChat className={mergeClasses(classes.root, className)}>
             <AutoSizer>
                 {({ height, width }: { height: number; width: number }) => (
                     <Virtuoso
@@ -324,13 +228,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         itemContent={(_index, item) => item}
                         initialTopMostItemIndex={items.length}
                         atBottomThreshold={Constants.app.autoScrollThreshold}
-                        atBottomStateChange={(isAtBottom) => {
-                            if (isAtBottom) {
-                                setShouldAutoScroll(true);
-                            } else {
-                                setShouldAutoScroll(false);
-                            }
-                        }}
+                        atBottomStateChange={(isAtBottom) => setIsAtBottom(isAtBottom)}
                     />
                 )}
             </AutoSizer>

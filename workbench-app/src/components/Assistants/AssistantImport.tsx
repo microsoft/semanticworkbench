@@ -21,20 +21,23 @@ export const AssistantImport: React.FC<AssistantImportProps> = (props) => {
     const workbenchService = useWorkbenchService();
 
     const onFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files) {
-            setUploading(true);
-            try {
-                const file = event.target.files[0];
-                const result = await workbenchService.importConversationsAsync(file);
-                onImport?.(result);
-            } catch (error) {
-                onError?.(error as Error);
-            }
-            setUploading(false);
+        if (uploading || !event.target.files) {
+            return;
         }
+        setUploading(true);
 
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+        try {
+            const file = event.target.files[0];
+            const result = await workbenchService.importConversationsAsync(file);
+            onImport?.(result);
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        } catch (error) {
+            onError?.(error as Error);
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -51,7 +54,7 @@ export const AssistantImport: React.FC<AssistantImportProps> = (props) => {
                 icon={<ArrowUpload24Regular />}
                 iconOnly={iconOnly}
                 asToolbarButton={asToolbarButton}
-                label={label ?? 'Import'}
+                label={label ?? (uploading ? 'Uploading...' : 'Import')}
                 onClick={onUpload}
             />
         </div>

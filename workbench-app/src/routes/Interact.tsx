@@ -11,16 +11,10 @@ import { ConversationRename } from '../components/Conversations/ConversationRena
 import { ConversationShare } from '../components/Conversations/ConversationShare';
 import { InteractHistory } from '../components/Conversations/InteractHistory';
 import { InteractInput } from '../components/Conversations/InteractInput';
-import { useGetAssistantCapabilities } from '../libs/useAssistantCapabilities';
+import { useHistoryUtility } from '../libs/useHistoryUtility';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Assistant } from '../models/Assistant';
 import { useAppSelector } from '../redux/app/hooks';
-import {
-    useGetAssistantsInConversationQuery,
-    useGetConversationFilesQuery,
-    useGetConversationParticipantsQuery,
-    useGetConversationQuery,
-} from '../services/workbench';
 
 const useClasses = makeStyles({
     root: {
@@ -76,68 +70,25 @@ export const Interact: React.FC = () => {
     }
 
     const classes = useClasses();
-    const {
-        data: assistants,
-        error: assistantsError,
-        isLoading: isLoadingAssistants,
-        refetch: refetchAssistants,
-    } = useGetAssistantsInConversationQuery(conversationId);
-    const {
-        data: conversation,
-        error: conversationError,
-        isLoading: isLoadingConversation,
-    } = useGetConversationQuery(conversationId);
-    const {
-        data: conversationParticipants,
-        error: conversationParticipantsError,
-        isLoading: isLoadingConversationParticipants,
-    } = useGetConversationParticipantsQuery(conversationId);
-    const {
-        data: conversationFiles,
-        error: conversationFilesError,
-        isLoading: isLoadingConversationFiles,
-    } = useGetConversationFilesQuery(conversationId);
     const localUserId = useAppSelector((state) => state.localUser.id);
-    const { data: assistantCapabilities, isFetching: isFetchingAssistantCapabilities } = useGetAssistantCapabilities(
-        assistants ?? [],
-        { skip: isLoadingAssistants || assistantsError !== undefined },
-    );
-
     const siteUtility = useSiteUtility();
 
-    if (assistantsError) {
-        const errorMessage = JSON.stringify(assistantsError);
-        throw new Error(`Error loading assistants: ${errorMessage}`);
-    }
+    const {
+        conversation,
+        allConversationMessages,
+        conversationParticipants,
+        assistants,
+        conversationFiles,
+        assistantCapabilities,
+        error: historyError,
+        isLoading: historyIsLoading,
+        assistantsRefetch,
+        assistantCapabilitiesIsFetching,
+    } = useHistoryUtility(conversationId);
 
-    if (conversationError) {
-        const errorMessage = JSON.stringify(conversationError);
-        throw new Error(`Error loading conversation: ${errorMessage}`);
-    }
-
-    if (conversationParticipantsError) {
-        const errorMessage = JSON.stringify(conversationParticipantsError);
-        throw new Error(`Error loading participants: ${errorMessage}`);
-    }
-
-    if (conversationFilesError) {
-        const errorMessage = JSON.stringify(conversationFilesError);
-        throw new Error(`Error loading conversation files: ${errorMessage}`);
-    }
-
-    if (!isLoadingConversation && !conversation) {
-        const errorMessage = `No conversation loaded for ${conversationId}`;
-        throw new Error(errorMessage);
-    }
-
-    if (!isLoadingConversationParticipants && !conversationParticipants) {
-        const errorMessage = `No participants loaded for ${conversationId}`;
-        throw new Error(errorMessage);
-    }
-
-    if (!isLoadingConversationFiles && !conversationFiles) {
-        const errorMessage = `No conversation files loaded for ${conversationId}`;
-        throw new Error(errorMessage);
+    if (historyError) {
+        const errorMessage = JSON.stringify(historyError);
+        throw new Error(`Error loading conversation (${conversationId}): ${errorMessage}`);
     }
 
     React.useEffect(() => {
@@ -166,24 +117,22 @@ export const Interact: React.FC = () => {
                 results.push(assistant);
             } else {
                 // If the assistant is not found, refetch the assistants
-                refetchAssistants();
+                assistantsRefetch();
                 // Return early to avoid returning an incomplete list of assistants
                 return;
             }
         }
 
         return results.sort((a, b) => a.name.localeCompare(b.name));
-    }, [assistants, conversationParticipants, refetchAssistants]);
+    }, [assistants, conversationParticipants, assistantsRefetch]);
 
     if (
-        isLoadingAssistants ||
-        isLoadingConversation ||
-        isLoadingConversationParticipants ||
-        isLoadingConversationFiles ||
-        isFetchingAssistantCapabilities ||
+        historyIsLoading ||
+        assistantCapabilitiesIsFetching ||
         !assistants ||
         !assistantCapabilities ||
         !conversation ||
+        !allConversationMessages ||
         !conversationParticipants ||
         !conversationFiles
     ) {
@@ -204,7 +153,7 @@ export const Interact: React.FC = () => {
             title={
                 <div className={classes.title}>
                     <ConversationRename
-                        id={conversation.id}
+                        conversationId={conversation.id}
                         value={conversation.title}
                         disabled={conversation.ownerId !== localUserId}
                         iconOnly
@@ -222,6 +171,7 @@ export const Interact: React.FC = () => {
                             <InteractHistory
                                 readOnly={readOnly}
                                 conversation={conversation}
+                                messages={allConversationMessages}
                                 participants={conversationParticipants}
                             />
                         </div>
@@ -229,7 +179,9 @@ export const Interact: React.FC = () => {
                     <div className={classes.input}>
                         <InteractInput
                             readOnly={readOnly}
-                            conversationId={conversationId}
+                            conversation={conversation}
+                            messages={allConversationMessages}
+                            participants={conversationParticipants}
                             assistantCapabilities={assistantCapabilities}
                         />
                     </div>

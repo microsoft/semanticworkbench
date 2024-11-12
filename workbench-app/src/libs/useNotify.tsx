@@ -15,7 +15,7 @@ interface NotifyOptions {
     id: string;
     title?: string;
     message: string;
-    details?: string;
+    subtitle?: string;
     action?: Slot<'div'> | string;
     additionalActions?: React.ReactElement[];
     timeout?: number;
@@ -27,7 +27,7 @@ export const useNotify = (toasterId: string = Constants.app.globalToasterId) => 
 
     const notify = React.useCallback(
         (options: NotifyOptions) => {
-            const { id, title, message, details, action, additionalActions, timeout, intent } = options;
+            const { id, title, message, subtitle, action, additionalActions, timeout, intent } = options;
 
             const getAction = () => {
                 if (typeof action === 'string') {
@@ -43,7 +43,7 @@ export const useNotify = (toasterId: string = Constants.app.globalToasterId) => 
             dispatchToast(
                 <Toast>
                     <ToastTitle action={getAction()}>{title}</ToastTitle>
-                    <ToastBody subtitle={details}>{message}</ToastBody>
+                    <ToastBody subtitle={subtitle}>{message}</ToastBody>
                     {additionalActions && <ToastFooter>{additionalActions}</ToastFooter>}
                 </Toast>,
                 {
