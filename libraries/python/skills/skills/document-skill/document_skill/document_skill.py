@@ -1,10 +1,10 @@
-from chat_driver import ChatDriverConfig, ContextProtocol
-from context import Context
+from chat_driver import ChatDriverConfig
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import BaseModel  # temp to have something to experiment with
-from skill_library import RoutineTypes, Skill
+from skill_library import EmitterType, RoutineTypes, Skill
 from skill_library.routine import InstructionRoutine, ProgramRoutine
 
-from .chat_drivers import draft_content, draft_outline, get_user_feedback_decision
+from .chat_drivers import draft_content, draft_outline
 
 NAME = "document_skill"
 DESCRIPTION = "Anything related to documents - creation, edit, translation"
@@ -31,7 +31,7 @@ class Paper(BaseModel):
 
 
 class DocumentSkillContext:
-    def __init__(self, context: ContextProtocol) -> None:
+    def __init__(self) -> None:
         # TODO: Pull in all this state from a Drive.
         self.chat_history: str = ""
         self.attachments_list: list[Attachment] = []
@@ -41,14 +41,13 @@ class DocumentSkillContext:
 
 class DocumentSkill(Skill):
     def __init__(
-        self,
-        context: ContextProtocol,
-        chat_driver_config: ChatDriverConfig,
+        self, emit: EmitterType, chat_driver_config: ChatDriverConfig, openaai_client: AsyncAzureOpenAI | AsyncOpenAI
     ) -> None:
-        self.document_skill_context: DocumentSkillContext = DocumentSkillContext(context)
+        self.openai_client = openaai_client
+        self.document_skill_context: DocumentSkillContext = DocumentSkillContext()
 
         actions = [
-            self.ask_user,
+            # self.ask_user,
             self.draft_content,
             self.draft_outline,
             self.get_user_feedback_decision,
@@ -65,7 +64,6 @@ class DocumentSkill(Skill):
         super().__init__(
             name=NAME,
             description=DESCRIPTION,
-            context=context,
             chat_driver_config=chat_driver_config,
             skill_actions=actions,
             routines=routines,
@@ -102,13 +100,13 @@ class DocumentSkill(Skill):
     ##################################
     async def draft_content(
         self,
-        context: ContextProtocol,
+        session_id: str,
         decision: str | None = None,
         user_feedback: str | None = None,
     ) -> str:
         response = await draft_content(
-            context=context,
-            open_ai_client=self.open_ai_client,
+            session_id=session_id,
+            open_ai_client=self.openai_client,
             chat_history=self.document_skill_context.chat_history,
             attachments=self.document_skill_context.attachments_list,
             outline_versions=self.document_skill_context.outline_versions,
@@ -119,11 +117,11 @@ class DocumentSkill(Skill):
         return response.message or ""
 
     async def draft_outline(
-        self, context: ContextProtocol, decision: str | None = None, user_feedback: str | None = None
+        self, session_id: str, decision: str | None = None, user_feedback: str | None = None
     ) -> str:
         response = await draft_outline(
-            context=context,
-            open_ai_client=self.open_ai_client,
+            session_id=session_id,
+            open_ai_client=self.openai_client,
             chat_history=self.document_skill_context.chat_history,
             attachments=self.document_skill_context.attachments_list,
             outline_versions=self.document_skill_context.outline_versions,
@@ -131,10 +129,10 @@ class DocumentSkill(Skill):
         )
         return response.message or ""
 
-    async def get_user_feedback_decision(self, context: ContextProtocol, user_feedback: str, outline: bool) -> str:
+    async def get_user_feedback_decision(self, session_id: str, user_feedback: str, outline: bool) -> str:
         response = await get_user_feedback_decision(
-            context=context,
-            open_ai_client=self.open_ai_client,
+            session_id=session_id,
+            open_ai_client=self.openai_client,
             chat_history=self.document_skill_context.chat_history,
             attachments=self.document_skill_context.attachments_list,
             outline_versions=self.document_skill_context.outline_versions,
@@ -144,7 +142,7 @@ class DocumentSkill(Skill):
         )
         return response.message or ""
 
-    async def routine(self, context: ContextProtocol):
+    async def routine(self, session_id: str):
         # Define these vars here to make the following routine look more like a PROGRAM routine.
         document_skill = self
 
@@ -154,20 +152,18 @@ class DocumentSkill(Skill):
         # Routine.
         decision = "[ITERATE]"
         while decision == "[ITERATE]":
-            await document_skill.draft_outline(context, user_feedback=user_feedback)
+            await document_skill.draft_outline(session_id, user_feedback=user_feedback)
             user_feedback = await ask_user("This look good?")
-            decision = await document_skill.get_user_feedback_decision(context, user_feedback, outline=True)
+            decision = await document_skill.get_user_feedback_decision(user_feedback, outline=True)
         if decision == "[QUIT]":
             exit()
-        await document_skill.draft_content(context)
+        await document_skill.draft_content(session_id)
         user_feedback = await ask_user("This look good?")
-        decision = await document_skill.get_user_feedback_decision(context, user_feedback, outline=False)
+        decision = await document_skill.get_user_feedback_decision(session_id, user_feedback, outline=False)
         while decision != "[QUIT]":
-            content = await document_skill.draft_content(
-                context, user_feedback=user_feedback, chat_history=[], decision=decision
-            )
+            content = await document_skill.draft_content(session_id, user_feedback=user_feedback, decision=decision)
             decision, user_feedback = await document_skill.get_user_feedback_decision(
-                context, user_feedback, outline=False
+                session_id, user_feedback, outline=False
             )
         return content
 

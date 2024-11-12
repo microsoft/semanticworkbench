@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from chat_driver import ChatDriverConfig
 from events import BaseEvent
-from skill_library import FunctionRoutine, RoutineTypes, Skill
+from skill_library import EmitterType, FunctionRoutine, RoutineTypes, Skill
 from skill_library.run_context import RunContext
 
 from form_filler_skill.agenda import Agenda
@@ -11,15 +11,13 @@ from form_filler_skill.definition import GCDefinition
 from form_filler_skill.message import Conversation
 from form_filler_skill.resources import GCResource
 
-from .chat_drivers.unneeded.execute_reasoning import execute_reasoning
 from .chat_drivers.final_update import final_update
+from .chat_drivers.unneeded.execute_reasoning import execute_reasoning
 from .chat_drivers.update_agenda import update_agenda
 
 NAME = "guided-conversation"
 CLASS_NAME = "GuidedConversationSkill"
-DESCRIPTION = (
-    "Walks the user through a conversation about gathering info for the creation of an artifact."
-)
+DESCRIPTION = "Walks the user through a conversation about gathering info for the creation of an artifact."
 DEFAULT_MAX_RETRIES = 3
 INSTRUCTIONS = "You are an assistant."
 
@@ -28,6 +26,7 @@ class GuidedConversationSkill(Skill):
     def __init__(
         self,
         chat_driver_config: ChatDriverConfig,
+        emit: EmitterType,
         agenda: Agenda,
         artifact: Artifact,
         resource: GCResource,
@@ -48,6 +47,7 @@ class GuidedConversationSkill(Skill):
         ]
 
         # Configure the skill's chat driver.
+        # TODO: change where this is from.
         self.openai_client = chat_driver_config.openai_client
         chat_driver_config.instructions = INSTRUCTIONS
         chat_driver_config.commands = functions
@@ -82,9 +82,7 @@ class GuidedConversationSkill(Skill):
             skill=self,
         )
 
-    async def conversation_init_function(
-        self, context: RunContext, vars: dict[str, Any] | None = None
-    ):
+    async def conversation_init_function(self, context: RunContext, vars: dict[str, Any] | None = None):
         if vars is None:
             return
         state = {"definition": vars["definition"]}
@@ -120,10 +118,10 @@ class GuidedConversationSkill(Skill):
                         state["agenda"] = agenda
                     if done:
                         state["mode"] = "finalize"
-                    await self.message_user(context, agenda) # generates the next message
+                    await self.message_user(context, agenda)  # generates the next message
                     return
                 case "finalize":
-                    self.final_update() # Generates the final message.
+                    self.final_update()  # Generates the final message.
                     state["state"] = "done"
                     runner.send(message)
                     return
@@ -146,11 +144,7 @@ class GuidedConversationSkill(Skill):
         )
 
     async def execute_reasoning(self, context: RunContext, reasoning: str) -> BaseEvent:
-        return await execute_reasoning(
-            context, self.openai_client, reasoning, self.artifact.get_schema_for_prompt()
-        )
+        return await execute_reasoning(context, self.openai_client, reasoning, self.artifact.get_schema_for_prompt())
 
     async def final_update(self, context: RunContext, definition: GCDefinition):
-        await final_update(
-            context, self.openai_client, definition, self.chat_history, artifact=self.artifact
-        )
+        await final_update(context, self.openai_client, definition, self.chat_history, artifact=self.artifact)

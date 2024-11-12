@@ -25,7 +25,7 @@ class RunContext(ContextProtocol):
         assistant_drive: Drive,
         emit: Callable[[EventProtocol], None],
         run_routine: Callable[["RunContext", str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]],
-        drive_root: PathLike | None = None,
+        metadata_drive_root: PathLike | None = None,
     ) -> None:
         # A session id is useful for maintaining consistent session state across all
         # consumers of this context. For example, a session id can be set in an
@@ -53,7 +53,7 @@ class RunContext(ContextProtocol):
         # needs to be persisted across different calls to the assistant.
         self.metadrive: Drive = Drive(
             DriveConfig(
-                root=drive_root or f".data/{session_id}/.assistant",
+                root=metadata_drive_root or f".data/{session_id}/.assistant",
                 default_if_exists_behavior=IfDriveFileExistsBehavior.OVERWRITE,
             )
         )

@@ -1,8 +1,7 @@
 import logging
 
-from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
+from chat_driver import ChatDriver, ChatDriverConfig
 from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
-from chat_driver.message_formatter import liquid_format
 from events import BaseEvent
 from form_filler_skill.message import Conversation, ConversationMessageType
 from openai import AsyncAzureOpenAI, AsyncOpenAI
@@ -30,14 +29,13 @@ Return only the action, either UPDATE_ARTIFACT(value) or RESUME_CONVERSATION, as
 
 
 async def fix_artifact_error(
-    context: ContextProtocol,
     openai_client: AsyncOpenAI | AsyncAzureOpenAI,
     previous_attempts: str,
     artifact_schema: str,
     conversation: Conversation,
     field_name: str,
 ) -> BaseEvent:
-    history = InMemoryMessageHistoryProvider(formatter=liquid_format)
+    history = InMemoryMessageHistoryProvider()
     history.append_system_message(ARTIFACT_ERROR_CORRECTION_SYSTEM_TEMPLATE)
     history.append_user_message(
         (
@@ -57,7 +55,6 @@ async def fix_artifact_error(
     )
 
     config = ChatDriverConfig(
-        context=context,
         openai_client=openai_client,
         model="gpt-3.5-turbo",
         message_provider=history,

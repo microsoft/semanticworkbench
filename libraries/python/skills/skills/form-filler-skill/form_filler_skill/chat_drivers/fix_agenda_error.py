@@ -2,7 +2,6 @@ import logging
 
 from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
 from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
-from chat_driver.message_formatter import liquid_format
 from form_filler_skill.message import Conversation, ConversationMessageType
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
@@ -30,7 +29,7 @@ async def fix_agenda_error(
     previous_attempts: str,
     conversation: Conversation,
 ):
-    history = InMemoryMessageHistoryProvider(formatter=liquid_format)
+    history = InMemoryMessageHistoryProvider()
 
     history.append_system_message(AGENDA_ERROR_CORRECTION_SYSTEM_TEMPLATE)
     history.append_user_message(
@@ -47,7 +46,6 @@ async def fix_agenda_error(
     )
 
     config = ChatDriverConfig(
-        context=context,
         openai_client=openai_client,
         model="gpt-3.5-turbo",
         message_provider=history,

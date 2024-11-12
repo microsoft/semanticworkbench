@@ -109,7 +109,7 @@ def format_with_liquid(value: str, vars: dict[str, Any]) -> str:
 
 
 def create_system_message(
-    content: str, var: dict[str, Any] | None = None, formatter: MessageFormatter = format_with_dict
+    content: str, var: dict[str, Any] | None = None, formatter: MessageFormatter = format_with_liquid
 ) -> ChatCompletionSystemMessageParam:
     if var:
         content = formatter(content, var)
@@ -117,7 +117,7 @@ def create_system_message(
 
 
 def create_user_message(
-    content: str, var: dict[str, Any] | None = None, formatter: MessageFormatter = format_with_dict
+    content: str, var: dict[str, Any] | None = None, formatter: MessageFormatter = format_with_liquid
 ) -> ChatCompletionUserMessageParam:
     if var:
         content = formatter(content, var)
@@ -129,7 +129,7 @@ def create_assistant_message(
     refusal: Optional[str] = None,
     tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
     var: dict[str, Any] | None = None,
-    formatter: MessageFormatter = format_with_dict,
+    formatter: MessageFormatter = format_with_liquid,
 ) -> ChatCompletionAssistantMessageParam:
     if var:
         content = formatter(content, var)

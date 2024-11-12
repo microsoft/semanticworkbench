@@ -26,7 +26,7 @@ class AssistantRegistry:
 
     async def get_or_create_assistant(
         self,
-        session_id: str,
+        assistant_id: str,
         event_mapper: SkillEventMapperProtocol,
         chat_driver_config: ChatDriverConfig,
         skills: List[Skill] = [],
@@ -34,24 +34,22 @@ class AssistantRegistry:
         """
         Get or create an assistant for the given conversation context.
         """
-        assistant = self.get_assistant(session_id)
+        assistant = self.get_assistant(assistant_id)
         if not assistant:
-            assistant = await self.register_assistant(
-                session_id, event_mapper, chat_driver_config, skills
-            )
+            assistant = await self.register_assistant(assistant_id, event_mapper, chat_driver_config, skills)
         return assistant
 
     def get_assistant(
         self,
-        session_id: str,
+        assistant_id: str,
     ) -> Assistant | None:
-        if session_id in self.assistants:
-            return self.assistants[session_id]
+        if assistant_id in self.assistants:
+            return self.assistants[assistant_id]
         return None
 
     async def register_assistant(
         self,
-        session_id: str,
+        assistant_id: str,
         event_mapper: SkillEventMapperProtocol,
         chat_driver_config: ChatDriverConfig,
         skills: List[Skill] = [],
@@ -65,9 +63,10 @@ class AssistantRegistry:
         # Create the assistant.
         assistant = Assistant(
             name="Assistant",
+            assistant_id=assistant_id,
+            drive_root=Path(".data") / assistant_id / "assistant",
+            metadrive_drive_root=Path(".data") / assistant_id / ".assistant",
             chat_driver_config=chat_driver_config,
-            session_id=session_id,
-            metadrive_root=Path(".data") / session_id / ".assistant",
         )
         assistant.register_skills(skills)
 
@@ -82,7 +81,7 @@ class AssistantRegistry:
             await assistant.wait()
 
         # Register the assistant
-        self.assistants[session_id] = assistant
+        self.assistants[assistant_id] = assistant
 
         # Start an event consumer task and save a reference.
         task = asyncio.create_task(subscribe())

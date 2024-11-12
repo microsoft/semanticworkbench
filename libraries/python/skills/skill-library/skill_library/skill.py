@@ -1,11 +1,18 @@
+import logging
 from typing import Any, Callable
 
-from chat_driver import TEXT_RESPONSE_FORMAT, ChatDriver, ChatDriverConfig, ContextProtocol
-from events import BaseEvent
-from function_registry import FunctionRegistry
+from chat_driver import TEXT_RESPONSE_FORMAT, ChatDriver, ChatDriverConfig
+from events import BaseEvent, EventProtocol
 from openai.types.chat.completion_create_params import ResponseFormat
 
+from .actions import Actions
 from .routine import RoutineTypes
+
+EmitterType = Callable[[EventProtocol], None]
+
+
+def log_emitter(event: EventProtocol) -> None:
+    logging.info(event)
 
 
 class Skill:
@@ -18,10 +25,9 @@ class Skill:
         self,
         name: str,
         description: str,
-        context: ContextProtocol,
-        chat_driver_config: ChatDriverConfig | None = None,
         skill_actions: list[Callable] = [],  # Functions to be registered as skill actions.
         routines: list[RoutineTypes] = [],
+        chat_driver_config: ChatDriverConfig | None = None,
     ) -> None:
         # A skill should have a short name so that user commands can be routed
         # to them efficiently.
@@ -46,16 +52,17 @@ class Skill:
         self.openai_client = chat_driver_config.openai_client if chat_driver_config else None
 
         # Register all provided actions with the action registry.
-        self.action_registry = FunctionRegistry(context, skill_actions)
+        self.actions = Actions()
+        self.actions.add_functions(skill_actions)
 
         # Also, register any commands provided by the chat driver. All
         # commands will be available to the skill.
         if self.chat_driver:
-            self.action_registry.register_functions(self.chat_driver.get_commands())
+            self.actions.add_functions(self.chat_driver.get_commands())
 
         # Make actions available to be called as attributes from the skill
         # directly.
-        self.actions = self.action_registry.functions
+        self.actions = self.actions.functions
 
     async def respond(
         self,
@@ -75,10 +82,10 @@ class Skill:
         )
 
     def get_actions(self) -> list[Callable]:
-        return [function.fn for function in self.action_registry.get_functions()]
+        return [function.fn for function in self.actions.get_actions()]
 
     def list_actions(self) -> list[str]:
-        return self.action_registry.list_functions()
+        return [action.name for action in self.actions.get_actions()]
 
     def add_routine(self, routine: RoutineTypes) -> None:
         """
@@ -97,18 +104,6 @@ class Skill:
 
     def has_routine(self, name: str) -> bool:
         return name in self.routines
-
-    # Convenience methods for getting the chat driver's functions and commands.
-
-    def get_chat_functions(self) -> list[Callable]:
-        if not self.chat_driver:
-            return []
-        return self.chat_driver.get_functions()
-
-    def get_chat_commands(self) -> list[Callable]:
-        if not self.chat_driver:
-            return []
-        return self.chat_driver.get_commands()
 
     def __str__(self) -> str:
         return f"{self.name} - {self.description}"

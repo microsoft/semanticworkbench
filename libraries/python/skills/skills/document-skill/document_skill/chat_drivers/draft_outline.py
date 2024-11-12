@@ -1,20 +1,20 @@
-from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
+from chat_driver import ChatDriver, ChatDriverConfig
 from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
-from chat_driver.message_formatter import liquid_format
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.messages import format_with_liquid
 
 from ..document_skill import Outline
 
 
 async def draft_outline(
-    context: ContextProtocol,
+    session_id: str,
     open_ai_client: AsyncOpenAI | AsyncAzureOpenAI,
     chat_history: str,
     attachments: list,
     outline_versions: list[Outline] = [],
     user_feedback: str | None = None,
 ):
-    history = InMemoryMessageHistoryProvider(formatter=liquid_format)
+    history = InMemoryMessageHistoryProvider(formatter=format_with_liquid)
 
     history.append_system_message(
         (
@@ -46,7 +46,6 @@ async def draft_outline(
         )
 
     config = ChatDriverConfig(
-        context=context,
         openai_client=open_ai_client,
         model="gpt-3.5-turbo",
         message_provider=history,

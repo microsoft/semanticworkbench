@@ -9,10 +9,12 @@ from chat_driver import (
     ChatDriver,
     ChatDriverConfig,
 )
+from chat_driver.local_message_history_provider import LocalMessageHistoryProvider, LocalMessageHistoryProviderConfig
 from events import BaseEvent, EventProtocol
 from openai.types.chat.completion_create_params import (
     ResponseFormat,
 )
+from openai_client.messages import format_with_liquid
 
 from .run_context import RunContext
 from .skill import Skill
@@ -23,17 +25,27 @@ class Assistant:
     def __init__(
         self,
         name,
+        assistant_id: str | None,
+        drive_root: PathLike | None,
+        metadrive_drive_root: PathLike | None,
         chat_driver_config: ChatDriverConfig,
-        session_id: str | None = None,
         skills: list[Skill] = [],
-        drive_root: PathLike | None = None,
-        metadrive_root: PathLike | None = None,
     ) -> None:
         self.skill_registry: SkillRegistry = SkillRegistry()
 
         self.name = name
+
+        if not assistant_id:
+            assistant_id = str(uuid4())
+
+        # Configure the assistant chat interface.
+        if chat_driver_config.message_provider is None:
+            chat_driver_config.message_provider = LocalMessageHistoryProvider(
+                LocalMessageHistoryProviderConfig(session_id=assistant_id, formatter=format_with_liquid)
+            )
         self.chat_driver = self._register_chat_driver(chat_driver_config)
 
+        # Set up the assistant event queue.
         self._event_queue = asyncio.Queue()  # Async queue for events
         self._stopped = asyncio.Event()  # Event to signal when the assistant has stopped
         if skills:
@@ -44,7 +56,7 @@ class Assistant:
         # assistant-specific data and not for general data storage.
         self.drive: Drive = Drive(
             DriveConfig(
-                root=drive_root or f".data/{session_id}/assistant",
+                root=drive_root or f".data/{assistant_id}/assistant",
                 default_if_exists_behavior=IfDriveFileExistsBehavior.OVERWRITE,
             )
         )
@@ -55,11 +67,11 @@ class Assistant:
         # driver commands and functions and all skill actions and routines that
         # are run by the assistant.
         self.run_context = RunContext(
-            session_id=session_id or str(uuid4()),
+            session_id=assistant_id or str(uuid4()),
             assistant_drive=self.drive,
             emit=self._emit,
             run_routine=self.skill_registry.run_routine_by_name,
-            drive_root=metadrive_root,
+            metadata_drive_root=metadrive_drive_root,
         )
 
     ######################################
@@ -118,7 +130,7 @@ class Assistant:
         send the message to the chat driver.
         """
         # If a routine is running, send the message to the routine.
-        if self.run_context.routine_stack.peek():
+        if await self.run_context.routine_stack.peek():
             await self.step_active_routine(message)
         else:
             # Otherwise, send the message to the chat driver.
@@ -140,10 +152,6 @@ class Assistant:
             "These vars are like the routines' input.\n\n"
             "Available routines and their available vars: {routines}. "
         )
-
-        # Overwrite whatever run context was passed in with this assistant's
-        # actual context.
-        config.context = self.run_context
 
         chat_functions = ChatFunctions(self)
         functions = [chat_functions.list_routines, chat_functions.run_routine]
@@ -184,10 +192,6 @@ class Assistant:
         that an assistant uses at the same time so dependencies can be loaded in
         the correct order."""
         self.skill_registry.register_all_skills(skills)
-        if self.chat_driver:
-            for skill in skills:
-                self.chat_driver.register_functions(skill.get_chat_functions())
-                self.chat_driver.register_commands(skill.get_chat_commands())
 
     # def list_actions(self, context: Context) -> list[str]:
     #     """Lists all the actions the assistant is able to perform."""
@@ -217,11 +221,11 @@ class ChatFunctions:
     def __init__(self, assistant: Assistant) -> None:
         self.assistant = assistant
 
-    def list_routines(self, context: RunContext) -> list[str]:
+    def list_routines(self) -> list[str]:
         """Lists all the routines available in the assistant."""
         return self.assistant.list_routines()
 
-    async def run_routine(self, context: RunContext, name: str, vars: dict[str, Any] | None = None) -> Any:
+    async def run_routine(self, name: str, vars: dict[str, Any] | None = None) -> Any:
         """
         Run an assistant routine.
         """

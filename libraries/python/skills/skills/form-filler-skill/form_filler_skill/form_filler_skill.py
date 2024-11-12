@@ -32,6 +32,9 @@ class FormFillerSkill(Skill):
         chat_driver_config.commands = functions
         chat_driver_config.functions = functions
 
+        # TODO: change where this is from.
+        self.openai_client = chat_driver_config.openai_client
+
         # Initialize the skill!
         super().__init__(
             name=NAME,

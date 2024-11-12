@@ -1,13 +1,13 @@
-from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
+from chat_driver import ChatDriver, ChatDriverConfig
 from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
-from chat_driver.message_formatter import liquid_format
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.messages import format_with_liquid
 
 from ..document_skill import Outline, Paper
 
 
 async def get_user_feedback_for_page_decision(
-    context: ContextProtocol,
+    session_id: str,
     open_ai_client: AsyncOpenAI | AsyncAzureOpenAI,
     chat_history: str,
     outline_versions: list[Outline] = [],
@@ -15,7 +15,7 @@ async def get_user_feedback_for_page_decision(
     user_feedback: str | None = None,
     outline: bool = False,
 ):
-    history = InMemoryMessageHistoryProvider(formatter=liquid_format)
+    history = InMemoryMessageHistoryProvider(formatter=format_with_liquid)
 
     if outline:
         history.append_system_message(
@@ -65,7 +65,6 @@ async def get_user_feedback_for_page_decision(
         )
 
     config = ChatDriverConfig(
-        context=context,
         openai_client=open_ai_client,
         model="gpt-3.5-turbo",
         message_provider=history,

@@ -2,7 +2,6 @@ import logging
 
 from chat_driver import ChatDriver, ChatDriverConfig
 from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
-from chat_driver.message_formatter import liquid_format
 from form_filler_skill.agenda import Agenda, AgendaItem
 from form_filler_skill.definition import GCDefinition
 from form_filler_skill.message import Conversation
@@ -39,7 +38,9 @@ def _get_termination_instructions(resource: GCResource):
 
     # Termination condition under exact resource constraints
     if resource.resource_constraint.mode == ResourceConstraintMode.EXACT:
-        return "- You should only pick this action if the user is not cooperating so you cannot continue the conversation."
+        return (
+            "- You should only pick this action if the user is not cooperating so you cannot continue the conversation."
+        )
 
     # Termination condition under maximum resource constraints
     elif resource.resource_constraint.mode == ResourceConstraintMode.MAXIMUM:
@@ -65,7 +66,7 @@ async def update_agenda(
 ) -> bool:
     # STEP 1: Generate an updated agenda.
 
-    history = InMemoryMessageHistoryProvider(formatter=liquid_format)
+    history = InMemoryMessageHistoryProvider()
     history.append_system_message(
         update_artifact_template,
         {
@@ -92,7 +93,6 @@ async def update_agenda(
     )
 
     config = ChatDriverConfig(
-        context=context,
         openai_client=openai_client,
         model="gpt-4o",
         message_provider=history,
@@ -124,17 +124,13 @@ async def update_agenda(
         except (ValidationError, ValueError) as e:
             # If we have reached the maximum number of retries return a failure.
             if len(previous_attempts) >= agenda.max_agenda_retries:
-                logger.warning(
-                    f"Failed to update agenda after {agenda.max_agenda_retries} attempts."
-                )
+                logger.warning(f"Failed to update agenda after {agenda.max_agenda_retries} attempts.")
                 return False
 
             # Otherwise, get an error string.
             if isinstance(e, ValidationError):
                 error_str = "; ".join([e.get("msg") for e in e.errors()])
-                error_str = error_str.replace(
-                    "; Input should be 'Unanswered'", " or input should be 'Unanswered'"
-                )
+                error_str = error_str.replace("; Input should be 'Unanswered'", " or input should be 'Unanswered'")
             else:
                 error_str = str(e)
 
@@ -146,9 +142,7 @@ async def update_agenda(
             llm_formatted_attempts = "\n".join([
                 f"Attempt: {attempt}\nError: {error}" for attempt, error in previous_attempts
             ])
-            response = await fix_agenda_error(
-                context, openai_client, llm_formatted_attempts, chat_history
-            )
+            response = await fix_agenda_error(context, openai_client, llm_formatted_attempts, chat_history)
 
             # Now, update the items with the corrected agenda and try to
             # validate again.
@@ -170,9 +164,7 @@ def check_item_constraints(
     violations = []
     # In maximum mode, the total resources should not exceed the remaining
     # turns.
-    if (resource_constraint_mode == ResourceConstraintMode.MAXIMUM) and (
-        total_resources > remaining_turns
-    ):
+    if (resource_constraint_mode == ResourceConstraintMode.MAXIMUM) and (total_resources > remaining_turns):
         violations.append(
             "The total turns allocated in the agenda "
             f"must not exceed the remaining amount ({remaining_turns}); "
@@ -181,9 +173,7 @@ def check_item_constraints(
 
     # In exact mode if the total resources were not exactly equal to the
     # remaining turns.
-    if (resource_constraint_mode == ResourceConstraintMode.EXACT) and (
-        total_resources != remaining_turns
-    ):
+    if (resource_constraint_mode == ResourceConstraintMode.EXACT) and (total_resources != remaining_turns):
         violations.append(
             "The total turns allocated in the agenda "
             f"must equal the remaining amount ({remaining_turns}); "
@@ -212,8 +202,6 @@ def get_agenda_for_prompt(agenda: Agenda) -> str:
         f"{i + 1}. [{format_resource(item['resource'], ResourceConstraintUnit.TURNS)}] {item['title']}"
         for i, item in enumerate(agenda_items)
     ])
-    total_resource = format_resource(
-        sum([item["resource"] for item in agenda_items]), ResourceConstraintUnit.TURNS
-    )
+    total_resource = format_resource(sum([item["resource"] for item in agenda_items]), ResourceConstraintUnit.TURNS)
     agenda_str += f"\nTotal = {total_resource}"
     return agenda_str

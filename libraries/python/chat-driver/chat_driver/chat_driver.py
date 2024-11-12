@@ -1,9 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Union
 
-from context import Context, ContextProtocol
 from events import BaseEvent, ErrorEvent, MessageEvent
-from function_registry.function_registry import FunctionRegistry
 from openai import AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
@@ -14,13 +12,10 @@ from openai.types.chat.completion_create_params import ResponseFormat
 from openai_client.completion import TEXT_RESPONSE_FORMAT, message_content_from_completion
 from openai_client.errors import CompletionError
 from openai_client.messages import MessageFormatter, format_with_dict
-from openai_client.tools import complete_with_tool_calls, function_list_to_tools, function_registry_to_tools
+from openai_client.tools import ToolFunction, ToolFunctions, complete_with_tool_calls, function_list_to_tool_choice
 from pydantic import BaseModel
 
-from .local_message_history_provider import (
-    LocalMessageHistoryProvider,
-    LocalMessageHistoryProviderConfig,
-)
+from .in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from .message_history_provider import MessageHistoryProviderProtocol
 
 
@@ -30,10 +25,9 @@ class ChatDriverConfig:
     model: str
     instructions: str | list[str] = "You are a helpful assistant."
     instruction_formatter: MessageFormatter | None = None
-    context: ContextProtocol | None = None
     message_provider: MessageHistoryProviderProtocol | None = None
-    commands: list[Callable] = field(default_factory=list)
-    functions: list[Callable] = field(default_factory=list)
+    commands: list[Callable] | None = None
+    functions: list[Callable] | None = None
 
 
 class ChatDriver:
@@ -56,17 +50,11 @@ class ChatDriver:
     """
 
     def __init__(self, config: ChatDriverConfig) -> None:
-        # A context object holds information about the current session, such as
-        # the session ID, the user ID, and the conversation ID. It also provides
-        # a method to emit events. If you do not supply one, one will be created
-        # for you with a random session ID.
-        self.context: ContextProtocol = config.context or Context()
-
         # Set up a default message provider. This provider stores messages in a
         # local file. You can replace this with your own message provider that
         # implements the MessageHistoryProviderProtocol.
-        self.message_provider: MessageHistoryProviderProtocol = config.message_provider or LocalMessageHistoryProvider(
-            LocalMessageHistoryProviderConfig(context=self.context)
+        self.message_provider: MessageHistoryProviderProtocol = (
+            config.message_provider or InMemoryMessageHistoryProvider()
         )
 
         self.instructions: list[str] = (
@@ -83,15 +71,17 @@ class ChatDriver:
         # call to a function, the function will be executed, the result passed
         # back to the model, and the model will continue generating the
         # response.
-        self.function_registry = FunctionRegistry(self.context, config.functions)
-        self.functions = self.function_registry.functions
+        self.function_list = ToolFunctions(functions=[ToolFunction(function) for function in (config.functions or [])])
+        self.functions = self.function_list.functions
 
         # Commands are functions that can be called by the user by typing a
         # command in the chat. When a command is received, the chat driver will
         # execute the corresponding function and return the result to the user
         # directly.
-        self.command_registry = FunctionRegistry(self.context, config.commands)
-        self.commands = self.command_registry.functions
+        self.command_list = ToolFunctions(
+            functions=[ToolFunction(function) for function in (config.commands or [])], with_help=True
+        )
+        self.commands = self.command_list.functions
 
     def _formatted_instructions(self, vars: dict[str, Any] | None) -> list[ChatCompletionSystemMessageParam]:
         return ChatDriver.format_instructions(self.instructions, vars, self.instruction_formatter)
@@ -101,18 +91,20 @@ class ChatDriver:
 
     # Commands are available to be run by the user message.
     def register_command(self, function: Callable) -> None:
-        self.command_registry.register_function(function)
+        self.command_list.add_function(function)
 
     def register_commands(self, functions: list[Callable]) -> None:
-        self.command_registry.register_functions(functions)
+        for function in functions:
+            self.register_command(function)
 
     # Functions are available to be called by the model during response
     # generation.
     def register_function(self, function: Callable) -> None:
-        self.function_registry.register_function(function)
+        self.function_list.add_function(function)
 
     def register_functions(self, functions: list[Callable]) -> None:
-        self.function_registry.register_functions(functions)
+        for function in functions:
+            self.register_function
 
     # Sometimes we want to register a function to be used by both the user and
     # the model.
@@ -125,10 +117,10 @@ class ChatDriver:
         self.register_functions(functions)
 
     def get_functions(self) -> list[Callable]:
-        return [function.fn for function in self.function_registry.get_functions()]
+        return [function.fn for function in self.function_list.get_functions()]
 
     def get_commands(self) -> list[Callable]:
-        commands = [function.fn for function in self.command_registry.get_functions()]
+        commands = [function.fn for function in self.command_list.get_functions()]
         return commands
 
     async def respond(
@@ -158,7 +150,7 @@ class ChatDriver:
         if message and message.startswith("/"):
             command_string = message[1:]
             try:
-                results = await self.command_registry.execute_function_string_with_string_response(command_string)
+                results = await self.command_list.execute_function_string(command_string, string_response=True)
                 return MessageEvent(message=results)
             except Exception as e:
                 return ErrorEvent(message=f"Error! {e}", metadata={"error": str(e)})
@@ -177,15 +169,14 @@ class ChatDriver:
         completion_args = {
             "model": self.model,
             "messages": [*self._formatted_instructions(instruction_parameters), *(await self.message_provider.get())],
-            "tools": function_registry_to_tools(self.function_registry),
-            "tool_choice": function_list_to_tools(function_choice),
             "response_format": response_format,
+            "tool_choice": function_list_to_tool_choice(function_choice),
         }
         try:
             completion, new_messages = await complete_with_tool_calls(
                 self.client,
-                self.function_registry,
                 completion_args,
+                self.function_list,
                 metadata=metadata,
             )
         except CompletionError as e:
@@ -211,7 +202,7 @@ class ChatDriver:
         """
         Chat Driver instructions are system messages given to the OpenAI model
         before any other messages. These instructions are used to guide the model in
-        generating a response. We oftentimes need inject variables into the
+        generating a response. We oftentimes need to inject variables into the
         instructions, so we provide a formatter function to format the instructions
         with the variables. This method returns a list of system messages formatted
         with the variables.

@@ -2,7 +2,6 @@ import logging
 
 from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
 from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
-from chat_driver.message_formatter import liquid_format
 from form_filler_skill.artifact import Artifact
 from form_filler_skill.definition import GCDefinition
 from form_filler_skill.message import Conversation
@@ -63,7 +62,7 @@ async def final_update(
     chat_history: Conversation,
     artifact: Artifact,
 ):
-    history = InMemoryMessageHistoryProvider(formatter=liquid_format)
+    history = InMemoryMessageHistoryProvider()
 
     history.append_system_message(
         final_update_template,
@@ -81,7 +80,6 @@ async def final_update(
     )
 
     config = ChatDriverConfig(
-        context=context,
         openai_client=open_ai_client,
         model="gpt-3.5-turbo",
         message_provider=history,

@@ -4,7 +4,6 @@ from os import PathLike
 from pathlib import Path
 from typing import Any
 
-from context.context import ContextProtocol
 from openai.types.chat import (
     ChatCompletionMessageParam,
 )
@@ -17,7 +16,7 @@ DEFAULT_DATA_DIR = Path(".data")
 
 @dataclass
 class LocalMessageHistoryProviderConfig:
-    context: ContextProtocol
+    session_id: str
     data_dir: PathLike | str | None = None
     messages: list[ChatCompletionMessageParam] = field(default_factory=list)
     formatter: MessageFormatter | None = None
@@ -26,7 +25,7 @@ class LocalMessageHistoryProviderConfig:
 class LocalMessageHistoryProvider(MessageHistoryProviderProtocol):
     def __init__(self, config: LocalMessageHistoryProviderConfig) -> None:
         if not config.data_dir:
-            self.data_dir = DEFAULT_DATA_DIR / "chat_driver" / config.context.session_id
+            self.data_dir = DEFAULT_DATA_DIR / "chat_driver" / config.session_id
         else:
             self.data_dir = Path(config.data_dir)
         self.formatter = config.formatter or format_with_liquid

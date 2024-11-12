@@ -5,10 +5,10 @@ import json
 import logging
 from typing import Any, Literal, TypeVar, Union, get_args, get_origin, get_type_hints
 
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import BaseModel, ValidationError, create_model
 
 from form_filler_skill.base_model_llm import BaseModelLLM
-
 
 from .chat_drivers.fix_artifact_error import fix_artifact_error
 from .message import Conversation, ConversationMessageType, Message
@@ -28,7 +28,12 @@ class Artifact:
     get_artifact_for_prompt, get_schema_for_prompt, and get_failed_fields.
     """
 
-    def __init__(self, input_artifact: BaseModel, max_artifact_field_retries: int = 2) -> None:
+    def __init__(
+        self,
+        openai_client: AsyncOpenAI | AsyncAzureOpenAI,
+        input_artifact: BaseModel,
+        max_artifact_field_retries: int = 2,
+    ) -> None:
         """
         Initialize the Artifact plugin with the given Pydantic base model.
 
@@ -36,6 +41,8 @@ class Artifact:
             input_artifact (BaseModel): The Pydantic base model to use as the artifact
             max_artifact_field_retries (int): The maximum number of times to retry updating a field in the artifact
         """
+
+        self.openai_client = openai_client
 
         self.max_artifact_field_retries = max_artifact_field_retries
 
@@ -113,13 +120,8 @@ class Artifact:
             try:
                 # Check if there have been too many previous failed attempts to
                 # update the field.
-                if (
-                    len(self.failed_artifact_fields.get(field_name, []))
-                    >= self.max_artifact_field_retries
-                ):
-                    logger.warning(
-                        f"Updating field {field_name} has failed too many times. Skipping."
-                    )
+                if len(self.failed_artifact_fields.get(field_name, [])) >= self.max_artifact_field_retries:
+                    logger.warning(f"Updating field {field_name} has failed too many times. Skipping.")
                     return False, conversation
 
                 # Attempt to update the artifact.
@@ -142,16 +144,12 @@ class Artifact:
                 logger.warning(f"Error updating field {field_name}: {e}. Retrying...")
                 # Handle update error will increment failed_artifact_fields, once it has failed
                 # greater than self.max_artifact_field_retries the field will be skipped and the loop will break
-                success, new_field_value = await self._handle_update_error(
-                    field_name, field_value, conversation, e
-                )
+                success, new_field_value = await self._handle_update_error(field_name, field_value, conversation, e)
 
                 # The agent has successfully fixed the field.
                 if success:
                     if new_field_value is not None:
-                        logger.info(
-                            f"Agent successfully fixed field {field_name}. New value: {new_field_value}"
-                        )
+                        logger.info(f"Agent successfully fixed field {field_name}. New value: {new_field_value}")
                         field_value = new_field_value
                     else:
                         # This is the case where the agent has decided to resume the conversation.
@@ -169,9 +167,7 @@ class Artifact:
         fields artifact. Any fields that were failed are completely omitted.
         """
         failed_fields = self.get_failed_fields()
-        return json.dumps({
-            k: v for k, v in self.artifact.model_dump().items() if k not in failed_fields
-        })
+        return json.dumps({k: v for k, v in self.artifact.model_dump().items() if k not in failed_fields})
 
     def get_schema_for_prompt(self, filter_one_field: str | None = None) -> str:
         """Gets a clean version of the original artifact schema, optimized for use in an LLM prompt.
@@ -204,17 +200,9 @@ class Artifact:
         if filter_one_field:
             if not self._is_valid_field(filter_one_field):
                 logger.error(f'Field "{filter_one_field}" is not a valid field in the artifact.')
-                raise ValueError(
-                    f'Field "{filter_one_field}" is not a valid field in the artifact.'
-                )
-            filtered_schema = {
-                "properties": {
-                    filter_one_field: self.original_schema["properties"][filter_one_field]
-                }
-            }
-            filtered_schema.update(
-                (k, v) for k, v in self.original_schema.items() if k != "properties"
-            )
+                raise ValueError(f'Field "{filter_one_field}" is not a valid field in the artifact.')
+            filtered_schema = {"properties": {filter_one_field: self.original_schema["properties"][filter_one_field]}}
+            filtered_schema.update((k, v) for k, v in self.original_schema.items() if k != "properties")
             schema = filtered_schema
         else:
             schema = self.original_schema
@@ -262,7 +250,6 @@ class Artifact:
             if len(attempts) >= self.max_artifact_field_retries:
                 fields.append(field)
         return fields
-
 
     T = TypeVar("T")
 
@@ -340,9 +327,7 @@ class Artifact:
         for name, field_info in artifact_model.model_fields.items():
             # Replace original classes with modified version.
             if modified_classes is not None:
-                field_info.annotation = self._replace_type_annotations(
-                    field_info.annotation, modified_classes
-                )
+                field_info.annotation = self._replace_type_annotations(field_info.annotation, modified_classes)
 
             # This makes it possible to always set a field to "Unanswered".
             annotation = Union[field_info.annotation, Literal["Unanswered"]]
@@ -408,7 +393,6 @@ class Artifact:
         self.failed_artifact_fields[field_name] = previous_attempts + [attempt]
 
         result = await fix_artifact_error(
-            self.context,
             self.openai_client,
             previous_attempts="\n".join([
                 f"Attempt: {attempt}\nError: {error}" for attempt, error in previous_attempts
@@ -432,9 +416,7 @@ class Artifact:
             field_value = result.message.split("(")[1].split(")")[0]
             return True, field_value
 
-        logger.warning(
-            f"Failed to fix the artifact error due to an invalid response from the LLM: {result.message}"
-        )
+        logger.warning(f"Failed to fix the artifact error due to an invalid response from the LLM: {result.message}")
         return False, None
 
     def to_json(self) -> dict:
@@ -447,11 +429,12 @@ class Artifact:
     @classmethod
     def from_json(
         cls,
+        openai_client: AsyncOpenAI | AsyncAzureOpenAI,
         json_data: dict,
         input_artifact: BaseModel,
         max_artifact_field_retries: int = 2,
     ) -> "Artifact":
-        artifact = cls(input_artifact, max_artifact_field_retries)
+        artifact = cls(openai_client, input_artifact, max_artifact_field_retries)
 
         artifact.failed_artifact_fields = json_data["failed_fields"]
 

@@ -92,10 +92,6 @@
       "path": "libraries/python/events"
     },
     {
-      "name": "libraries:function-registry",
-      "path": "libraries/python/function-registry"
-    },
-    {
       "name": "libraries:guided-conversation",
       "path": "libraries/python/guided-conversation"
     },
@@ -150,10 +146,6 @@
     {
       "name": ".github",
       "path": ".github"
-    },
-    {
-      "name": "root",
-      "path": "."
     }
   ],
   "settings": {

@@ -12,7 +12,6 @@ INSTRUCTIONS = "You are an assistant that has access to the provided actions."
 class YourSkill(Skill):
     def __init__(
         self,
-        context: ContextProtocol,
         chat_driver_config: ChatDriverConfig,
     ) -> None:
         # Add some actions.
@@ -29,14 +28,12 @@ class YourSkill(Skill):
         # Configure the chat driver (if using). Register all the supplied actions to it as either
         # commands, functions, or both.
         chat_driver_config.instructions = INSTRUCTIONS
-        chat_driver_config.context = context
         chat_driver_config.commands = actions
         chat_driver_config.functions = actions
 
         super().__init__(
             name=NAME,
             description=DESCRIPTION,
-            context=context,
             chat_driver_config=chat_driver_config,
             skill_actions=actions,
             routines=routines,

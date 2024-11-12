@@ -13,7 +13,8 @@ from pathlib import Path
 import openai_client
 from chat_driver import ChatDriverConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
-from form_filler_skill import FormFillerSkill
+
+# from form_filler_skill import FormFillerSkill
 from posix_skill import PosixSkill
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -41,20 +42,20 @@ logger = logging.getLogger(__name__)
 # define the service ID, name, and description
 #
 
-# the service id to be registered in the workbench to identify the assistant
+# The service id to be registered in the workbench to identify the assistant.
 service_id = "skill-assistant.made-exploration"
-# the name of the assistant service, as it will appear in the workbench UI
+
+# The name of the assistant service, as it will appear in the workbench UI.
 service_name = "Skill Assistant"
-# a description of the assistant service, as it will appear in the workbench UI
+
+# A description of the assistant service, as it will appear in the workbench UI.
 service_description = "A skills-based assistant using the Semantic Workbench Assistant SDK."
 
-#
-# create the configuration provider, using the extended configuration model
-#
+# Create the configuration provider, using the extended configuration model.
 assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
-# define the content safety evaluator factory
+# Create the content safety interceptor.
 async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
     config = await assistant_config.get(context.assistant)
     return CombinedContentSafetyEvaluator(config.content_safety_config)
@@ -78,16 +79,20 @@ assistant = AssistantApp(
 app = assistant.fastapi_app()
 
 
-# The AssistantApp class provides a set of decorators for adding event handlers to respond to conversation
-# events. In VS Code, typing "@assistant." (or the name of your AssistantApp instance) will show available
-# events and methods.
+# The AssistantApp class provides a set of decorators for adding event handlers
+# to respond to conversation events. In VS Code, typing "@assistant." (or the
+# name of your AssistantApp instance) will show available events and methods.
 #
-# See the semantic-workbench-assistant AssistantApp class for more information on available events and methods.
-# Examples:
-# - @assistant.events.conversation.on_created (event triggered when the assistant is added to a conversation)
-# - @assistant.events.conversation.participant.on_created (event triggered when a participant is added)
-# - @assistant.events.conversation.message.on_created (event triggered when a new message of any type is created)
-# - @assistant.events.conversation.message.chat.on_created (event triggered when a new chat message is created)
+# See the semantic-workbench-assistant AssistantApp class for more information
+# on available events and methods. Examples:
+# - @assistant.events.conversation.on_created (event triggered when the
+#   assistant is added to a conversation)
+# - @assistant.events.conversation.participant.on_created (event triggered when
+#   a participant is added)
+# - @assistant.events.conversation.message.on_created (event triggered when a
+#   new message of any type is created)
+# - @assistant.events.conversation.message.chat.on_created (event triggered when
+#   a new chat message is created)
 
 assistant_registry = AssistantRegistry()
 
@@ -183,12 +188,12 @@ async def respond_to_conversation(
                 [
                     PosixSkill(
                         sandbox_dir=Path(".data") / conversation_context.id,
+                        chat_driver_config=chat_driver_config,
                         mount_dir="/mnt/data",
-                        chat_driver_config=chat_driver_config,
                     ),
-                    FormFillerSkill(
-                        chat_driver_config=chat_driver_config,
-                    ),
+                    # FormFillerSkill(
+                    #     chat_driver_config=chat_driver_config,
+                    # ),
                 ],
             )
 

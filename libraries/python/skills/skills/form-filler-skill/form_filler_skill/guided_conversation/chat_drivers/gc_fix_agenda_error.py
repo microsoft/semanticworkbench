@@ -2,7 +2,6 @@ import logging
 
 from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
 from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
-from chat_driver.message_formatter import liquid_format
 from form_filler_skill.guided_conversation.conversation_helpers import (
     Conversation,
     ConversationMessageType,
@@ -42,20 +41,17 @@ async def fix_agenda_error(
     previous_attempts: str,
     conversation: Conversation,
 ):
-    history = InMemoryMessageHistoryProvider(formatter=liquid_format)
+    history = InMemoryMessageHistoryProvider()
 
     history.append_system_message(
         AGENDA_ERROR_CORRECTION_SYSTEM_TEMPLATE,
         {
-            "conversation_history": conversation.get_repr_for_prompt(
-                exclude_types=[ConversationMessageType.REASONING]
-            ),
+            "conversation_history": conversation.get_repr_for_prompt(exclude_types=[ConversationMessageType.REASONING]),
             "previous_attempts": previous_attempts,
         },
     )
 
     config = ChatDriverConfig(
-        context=context,
         openai_client=openai_client,
         model="gpt-3.5-turbo",
         message_provider=history,
