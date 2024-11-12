@@ -88,7 +88,7 @@ class Mode(BaseModel):
     name: ModeName = ModeName.UNDEFINED
     status: Status = Status.UNDEFINED
     step: Step = Step()
-    step_order: list[StepName] = []
+    step_order: list[dict[str, StepName | int]] = [{}]
 
     def _error_check(self) -> None:
         # name and status should either both be UNDEFINED or both be defined. Always.
@@ -140,10 +140,10 @@ class Mode(BaseModel):
     def get_step(self) -> Step:
         return self.step
 
-    def set_step_order(self, steps: list[StepName]) -> None:
+    def set_step_order(self, steps: list[dict[str, StepName | int]]) -> None:
         self.step_order = steps
 
-    def get_step_order(self) -> list[StepName]:
+    def get_step_order(self) -> list[dict[str, StepName | int]]:
         return self.step_order
 
     def get_next_step(self) -> Step | None:
@@ -158,8 +158,12 @@ class Mode(BaseModel):
 
         for index, step in enumerate(steps[:-1]):
             if step is step_name:
-                next_step_name = steps[index + 1]
-                break
+                next_step_name = steps[index + 1].get("step_name")
+                if isinstance(next_step_name, StepName):
+                    break
+                else:
+                    next_step_name = StepName.UNDEFINED
+                    break
 
         return Step(name=next_step_name, status=Status.INITIATED)
 
@@ -404,6 +408,39 @@ class DocumentAgent:
                 logger.info("Document Agent in step: %s", step_name)
                 step_status, next_step_name = await step_method(config, context, message, metadata)
 
+                # Update run_count of step (This will need to be simplified--moved into its own function)
+                step_list = self._state.mode.get_step_order()
+                for step in step_list:
+                    list_step_name = step.get("step_name")
+                    if isinstance(list_step_name, StepName):
+                        if list_step_name is step_name:
+                            # This is bad... "run_count" and "step_name" dependent on implementation in a different function.  Need to cleanup.
+                            step_run_count = step.get("run_count")
+                            if isinstance(step_run_count, int):
+                                step_run_count += 1
+                                step["run_count"] = step_run_count
+                                self._state.mode.set_step_order(step_list)
+                                break  # done
+                            else:
+                                logger.error(
+                                    "Document Agent - step %s in step order does run_count not of type int.", step_name
+                                )
+                                self._state.mode.reset()
+                                self._write_state(context)
+                                return self._state.mode.get_status()  # problem
+                        else:
+                            # End of list
+                            if step is step_list[-1]:
+                                logger.error("Document Agent - step %s not found in step order.", step_name)
+                                self._state.mode.reset()
+                                self._write_state(context)
+                                return self._state.mode.get_status()  # problem
+                    else:
+                        logger.error("Document Agent - step_name of wrong type")
+                        self._state.mode.reset()
+                        self._write_state(context)
+                        return self._state.mode.get_status()  # problem
+
                 match step_status:  # resulting status of step_method()
                     case Status.NOT_COMPLETED:
                         self._state.mode.get_step().set_status(step_status)
@@ -492,14 +529,18 @@ class DocumentAgent:
         if mode_status is Status.INITIATED:
             self._state.mode.set_step_order(
                 [
-                    StepName.DO_GC_ATTACHMENT_CHECK,
-                    StepName.DO_DRAFT_OUTLINE,
-                    StepName.DO_GC_GET_OUTLINE_FEEDBACK,
-                    StepName.DO_FINISH,
+                    {"step_name": StepName.DO_GC_ATTACHMENT_CHECK, "run_count": 0},
+                    {"step_name": StepName.DO_DRAFT_OUTLINE, "run_count": 0},
+                    {"step_name": StepName.DO_GC_GET_OUTLINE_FEEDBACK, "run_count": 0},
+                    {"step_name": StepName.DO_FINISH, "run_count": 0},
                 ],
             )
             logger.info("Document Agent mode (%s) at beginning.", mode_name)
-            first_step_name = self._state.mode.get_step_order()[0]
+            first_step_name = self._state.mode.get_step_order()[0].get("step_name")
+            if not isinstance(first_step_name, StepName):
+                logger.error("Document Agent: StepName could not be found in Mode's step order.")
+                self._state.mode.reset()
+                return self._state.mode.get_status()
             self._state.mode.set_step(Step(name=first_step_name, status=Status.INITIATED))
             self._write_state(context)
 
@@ -546,14 +587,18 @@ class DocumentAgent:
         if mode_status is Status.INITIATED:
             self._state.mode.set_step_order(
                 [
-                    StepName.DO_GC_ATTACHMENT_CHECK,
-                    StepName.DO_DRAFT_OUTLINE,
-                    StepName.DO_GC_GET_OUTLINE_FEEDBACK,
-                    StepName.DP_DRAFT_CONTENT,
+                    {"step_name": StepName.DO_GC_ATTACHMENT_CHECK, "run_count": 0},
+                    {"step_name": StepName.DO_DRAFT_OUTLINE, "run_count": 0},
+                    {"step_name": StepName.DO_GC_GET_OUTLINE_FEEDBACK, "run_count": 0},
+                    {"step_name": StepName.DP_DRAFT_CONTENT, "run_count": 0},
                 ],
             )
             logger.info("Document Agent mode (%s) at beginning.", mode_name)
-            first_step_name = self._state.mode.get_step_order()[0]
+            first_step_name = self._state.mode.get_step_order()[0].get("step_name")
+            if not isinstance(first_step_name, StepName):
+                logger.error("Document Agent: StepName could not be found in Mode's step order.")
+                self._state.mode.reset()
+                return self._state.mode.get_status()
             self._state.mode.set_step(Step(name=first_step_name, status=Status.INITIATED))
             self._write_state(context)
 
@@ -909,6 +954,12 @@ class DocumentAgent:
     ) -> tuple[Status, StepName | None]:
         method_metadata_key = "document_agent_gc_outline_feedback"
 
+        # Pre-requisites
+        if self._state is None:
+            logger.error("Document Agent state is None. Returning.")
+            return Status.UNDEFINED, StepName.UNDEFINED
+
+        # Run
         if message is not None:
             user_message = message.content
         else:
@@ -924,6 +975,40 @@ class DocumentAgent:
         )
 
         # update artifact
+        # This step info approach is not cool. Rewriting code. Need to refactor.
+        step_name = self._state.mode.get_step().get_name()
+        step_list = self._state.mode.get_step_order()
+        for step in step_list:
+            list_step_name = step.get("step_name")
+            if isinstance(list_step_name, StepName):
+                if list_step_name is step_name:
+                    # This is bad... "run_count" and "step_name" dependent on implementation in a different function.  Need to cleanup.
+                    step_run_count = step.get("run_count")
+                else:
+                    # End of list
+                    if step is step_list[-1]:
+                        logger.error("Document Agent - step %s not found in step order.", step_name)
+                        self._state.mode.reset()
+                        self._write_state(context)
+                        return self._state.mode.get_status(), StepName.UNDEFINED  # problem
+            else:
+                logger.error("Document Agent - step_name of wrong type")
+                self._state.mode.reset()
+                self._write_state(context)
+                return self._state.mode.get_status(), StepName.UNDEFINED  # problem
+
+        if not isinstance(step_run_count, int):
+            logger.error("Document Agent - step %s in step order does run_count not of type int.", step_name)
+            self._state.mode.reset()
+            self._write_state(context)
+            return self._state.mode.get_status(), StepName.UNDEFINED  # problem
+        else:
+            match step_run_count:
+                case 0:
+                    conversation_status_str = "user_initiated"
+                case _:
+                    conversation_status_str = "user_returned"
+
         filenames = await self._attachments_extension.get_attachment_filenames(
             context, config=config.agents_config.attachment_agent
         )
@@ -935,8 +1020,10 @@ class DocumentAgent:
 
         artifact_dict = guided_conversation.get_artifact_dict()
         if artifact_dict is not None:
+            artifact_dict["conversation_status"] = conversation_status_str
             artifact_dict["filenames"] = filenames_str
             artifact_dict["current_outline"] = outline_str
+
             guided_conversation.set_artifact_dict(artifact_dict)
         else:
             logger.error("artifact_dict unavailable.")
