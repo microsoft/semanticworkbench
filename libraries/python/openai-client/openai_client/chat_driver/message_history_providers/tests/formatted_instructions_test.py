@@ -1,5 +1,5 @@
-from chat_driver.chat_driver import ChatDriver
-from openai_client.messages import format_with_dict
+from openai_client.chat_driver import ChatDriver
+from openai_client.messages import format_with_liquid
 
 
 def test_formatted_instructions() -> None:
@@ -34,7 +34,7 @@ def test_formatted_instructions() -> None:
             "user_feedback": user_feedback,
             "chat_history": chat_history,
         },
-        formatter=format_with_dict,
+        formatter=format_with_liquid,
     )
 
     expected = [

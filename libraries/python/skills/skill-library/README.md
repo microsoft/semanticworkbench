@@ -25,9 +25,10 @@ more easily:
   assistants by providing clearer purposeful abstractions and better defining or
   disambiguating commonly confused terms. For example, we separate out a lot of
   the complexity of interacting with the OpenAI Chat Completion API with the
-  [chat driver](../../chat-driver/README.md) abstraction and we now
-  distinguish between chat commands, chat tool functions, and routine actions in
-  a clear way, even though they're really all just functions.
+  [chat driver](../../openai-client/openai_client/chat_driver/README.md)
+  abstraction and we now distinguish between chat commands, chat tool functions,
+  and routine actions in a clear way, even though they're really all just
+  functions.
 - Routines (formerly referred to as "Recipes") make it clear that what we are
   developing agents that can automate productive work collaboratively with the
   user. We have several ideas here, from simply following a set of steps, to

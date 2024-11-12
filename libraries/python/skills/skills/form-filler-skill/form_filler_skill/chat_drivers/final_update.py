@@ -1,11 +1,10 @@
 import logging
 
-from chat_driver import ChatDriver, ChatDriverConfig
-from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from form_filler_skill.artifact import Artifact
 from form_filler_skill.definition import GCDefinition
 from form_filler_skill.message import Conversation
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,6 @@ requires-python = ">=3.11"
 dependencies = [
     "assistant-drive>=0.1.0",
     "azure-identity>=1.17.1",
-    "chat-driver>=0.1.0",
     "context>=0.1.0",
     "events>=0.1.0",
     "nest-asyncio>=1.6.0",
@@ -25,9 +24,8 @@ dev-dependencies = [
 
 [tool.uv.sources]
 assistant-drive = { path = "../../assistant-drive", editable = true }
-chat-driver = { path = "../../chat-driver", editable = true }
 context = { path = "../../context", editable = true }
 events = { path = "../../events", editable = true }
+openai-client = { path = "../../openai-client", editable = true }
 posix-skill = { path = "../skills/posix-skill", editable = true }
 skill-library = { path = "../skill-library/", editable = true }
-openai-client = { path = "../../openai-client", editable = true }

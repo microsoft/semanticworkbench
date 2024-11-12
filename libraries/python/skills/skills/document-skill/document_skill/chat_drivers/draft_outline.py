@@ -1,6 +1,5 @@
-from chat_driver import ChatDriver, ChatDriverConfig
-from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
 from openai_client.messages import format_with_liquid
 
 from ..document_skill import Outline

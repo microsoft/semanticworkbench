@@ -1,5 +1,5 @@
-from chat_driver import ChatDriverConfig
 from context import ContextProtocol
+from openai_client.chat_driver import ChatDriverConfig
 from skill_library import InstructionRoutine, RoutineTypes, Skill
 
 NAME = "prospector"

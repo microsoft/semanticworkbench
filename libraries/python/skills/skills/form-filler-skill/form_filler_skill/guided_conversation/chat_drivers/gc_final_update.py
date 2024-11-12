@@ -1,11 +1,10 @@
 import logging
 
-from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
-from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from form_filler_skill.guided_conversation.artifact import Artifact
 from form_filler_skill.guided_conversation.conversation_helpers import Conversation
 from form_filler_skill.guided_conversation.definition import GCDefinition
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,6 @@ Current state of the artifact:
 
 
 async def final_update(
-    context: ContextProtocol,
     open_ai_client: AsyncOpenAI | AsyncAzureOpenAI,
     definition: GCDefinition,
     chat_history: Conversation,

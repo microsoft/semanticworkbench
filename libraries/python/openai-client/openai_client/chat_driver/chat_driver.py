@@ -9,14 +9,14 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
+from pydantic import BaseModel
+
 from openai_client.completion import TEXT_RESPONSE_FORMAT, message_content_from_completion
 from openai_client.errors import CompletionError
 from openai_client.messages import MessageFormatter, format_with_dict
 from openai_client.tools import ToolFunction, ToolFunctions, complete_with_tool_calls, function_list_to_tool_choice
-from pydantic import BaseModel
 
-from .in_memory_message_history_provider import InMemoryMessageHistoryProvider
-from .message_history_provider import MessageHistoryProviderProtocol
+from .message_history_providers import InMemoryMessageHistoryProvider, MessageHistoryProviderProtocol
 
 
 @dataclass
@@ -34,19 +34,20 @@ class ChatDriver:
     """
     A ChatDriver is a class that manages a conversation with a user. It provides
     methods to add messages to the conversation, and to generate responses to
-    user messages. The ChatDriver uses the OpenAI API to generate responses, and
-    can call functions registered with the ChatDriver to generate parts of the
-    response. The ChatDriver also provides a way to register commands that can
-    be called by the user to execute functions directly.
+    user messages. The ChatDriver uses the OpenAI Chat Completion API to
+    generate responses, and can call functions registered with the ChatDriver to
+    generate parts of the response. The ChatDriver also provides a way to
+    register commands that can be called by the user to execute functions
+    directly.
 
     Instructions are messages that are sent to the OpenAI model before any other
     messages. These instructions are used to guide the model in generating a
     response. The ChatDriver allows you to set instructions that can be
     formatted with variables.
 
-    If you want to just generate responses using the OpenAI API, you should use
-    the client directly (but we do have some helpers in the openai_helpers
-    module) to make this simpler.
+    If you want to just generate responses using the OpenAI Chat Completion API,
+    you should use the client directly (but we do have some helpers in the
+    openai_helpers module) to make this simpler.
     """
 
     def __init__(self, config: ChatDriverConfig) -> None:

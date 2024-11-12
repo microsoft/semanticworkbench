@@ -1,12 +1,11 @@
 import logging
 
-from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
-from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from form_filler_skill.guided_conversation.conversation_helpers import (
     Conversation,
     ConversationMessageType,
 )
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,6 @@ Previous attempts to update the agenda:
 
 
 async def fix_agenda_error(
-    context: ContextProtocol,
     openai_client: AsyncOpenAI | AsyncAzureOpenAI,
     previous_attempts: str,
     conversation: Conversation,

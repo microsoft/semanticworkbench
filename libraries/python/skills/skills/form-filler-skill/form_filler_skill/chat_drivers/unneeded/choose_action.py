@@ -1,7 +1,5 @@
 import logging
 
-from chat_driver import ChatDriver, ChatDriverConfig
-from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from form_filler_skill.agenda import Agenda, AgendaItem
 from form_filler_skill.definition import GCDefinition
 from form_filler_skill.message import Conversation
@@ -12,6 +10,7 @@ from form_filler_skill.resources import (
     format_resource,
 )
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
 from pydantic import ValidationError
 from skill_library.run_context import RunContext
 

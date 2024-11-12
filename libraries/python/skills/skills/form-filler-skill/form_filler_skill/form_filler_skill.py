@@ -3,7 +3,7 @@
 
 from typing import Any, Optional
 
-from chat_driver import ChatDriverConfig
+from openai_client.chat_driver import ChatDriverConfig
 from skill_library import FunctionRoutine, RoutineTypes, Skill
 from skill_library.run_context import RunContext
 

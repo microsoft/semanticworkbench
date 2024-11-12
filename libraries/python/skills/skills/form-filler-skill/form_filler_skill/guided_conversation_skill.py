@@ -3,7 +3,7 @@
 
 from typing import Any, Optional
 
-from chat_driver import ChatDriverConfig
+from openai_client.chat_driver import ChatDriverConfig
 from events import BaseEvent, MessageEvent
 from skill_library import EmitterType, FunctionRoutine, RoutineTypes, Skill
 from skill_library.run_context import RunContext
@@ -148,7 +148,7 @@ class GuidedConversationSkill(Skill):
         )
 
     async def execute_reasoning(self, context: RunContext, reasoning: str) -> BaseEvent:
-        return await execute_reasoning(context, self.openai_client, reasoning, self.artifact.get_schema_for_prompt())
+        return await execute_reasoning(self.openai_client, reasoning, self.artifact.get_schema_for_prompt())
 
     async def final_update(self, context: RunContext, definition: GCDefinition):
         await final_update(self.openai_client, definition, self.chat_history, self.artifact)

@@ -1,8 +1,7 @@
 import logging
 
-from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
-from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,6 @@ Reasoning:
 
 
 async def execute_reasoning(
-    context: ContextProtocol,
     open_ai_client: AsyncOpenAI | AsyncAzureOpenAI,
     reasoning: str,
     artifact_schema: str,

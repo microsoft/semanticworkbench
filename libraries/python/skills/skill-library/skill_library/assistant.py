@@ -4,16 +4,17 @@ from typing import Any, AsyncIterator
 from uuid import uuid4
 
 from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
-from chat_driver import (
-    TEXT_RESPONSE_FORMAT,
-    ChatDriver,
-    ChatDriverConfig,
-)
-from chat_driver.local_message_history_provider import LocalMessageHistoryProvider, LocalMessageHistoryProviderConfig
 from events import BaseEvent, EventProtocol
 from openai.types.chat.completion_create_params import (
     ResponseFormat,
 )
+from openai_client.chat_driver import (
+    ChatDriver,
+    ChatDriverConfig,
+    LocalMessageHistoryProvider,
+    LocalMessageHistoryProviderConfig,
+)
+from openai_client.completion import TEXT_RESPONSE_FORMAT
 from openai_client.messages import format_with_liquid
 
 from .run_context import RunContext
@@ -26,9 +27,9 @@ class Assistant:
         self,
         name,
         assistant_id: str | None,
-        drive_root: PathLike | None,
-        metadrive_drive_root: PathLike | None,
         chat_driver_config: ChatDriverConfig,
+        drive_root: PathLike | None = None,
+        metadrive_drive_root: PathLike | None = None,
         skills: list[Skill] = [],
     ) -> None:
         self.skill_registry: SkillRegistry = SkillRegistry()
@@ -225,7 +226,7 @@ class ChatFunctions:
         """Lists all the routines available in the assistant."""
         return self.assistant.list_routines()
 
-    async def run_routine(self, name: str, vars: dict[str, Any] | None = None) -> Any:
+    async def run_routine(self, name: str, vars: dict[str, Any] | None) -> Any:
         """
         Run an assistant routine.
         """

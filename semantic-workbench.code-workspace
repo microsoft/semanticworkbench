@@ -76,10 +76,6 @@
       "path": "libraries/python/assistant-extensions"
     },
     {
-      "name": "libraries:chat-driver",
-      "path": "libraries/python/chat-driver"
-    },
-    {
       "name": "libraries:content-safety",
       "path": "libraries/python/content-safety"
     },

@@ -1,7 +1,7 @@
 # flake8: noqa
 # ruff: noqa
 
-from chat_driver import ChatDriverConfig
+from openai_client.chat_driver import ChatDriverConfig
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import BaseModel  # temp to have something to experiment with
 from skill_library import EmitterType, RoutineTypes, Skill

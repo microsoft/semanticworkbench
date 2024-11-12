@@ -1,9 +1,10 @@
 import logging
 from typing import Any, Callable
 
-from chat_driver import TEXT_RESPONSE_FORMAT, ChatDriver, ChatDriverConfig
 from events import BaseEvent, EventProtocol
 from openai.types.chat.completion_create_params import ResponseFormat
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig
+from openai_client.completion import TEXT_RESPONSE_FORMAT
 
 from .actions import Actions
 from .routine import RoutineTypes
@@ -52,17 +53,17 @@ class Skill:
         self.openai_client = chat_driver_config.openai_client if chat_driver_config else None
 
         # Register all provided actions with the action registry.
-        self.actions = Actions()
-        self.actions.add_functions(skill_actions)
+        self.action_registry = Actions()
+        self.action_registry.add_functions(skill_actions)
 
         # Also, register any commands provided by the chat driver. All
         # commands will be available to the skill.
         if self.chat_driver:
-            self.actions.add_functions(self.chat_driver.get_commands())
+            self.action_registry.add_functions(self.chat_driver.get_commands())
 
         # Make actions available to be called as attributes from the skill
         # directly.
-        self.actions = self.actions.functions
+        self.actions = self.action_registry.functions
 
     async def respond(
         self,
@@ -82,10 +83,10 @@ class Skill:
         )
 
     def get_actions(self) -> list[Callable]:
-        return [function.fn for function in self.actions.get_actions()]
+        return [function.fn for function in self.action_registry.get_actions()]
 
     def list_actions(self) -> list[str]:
-        return [action.name for action in self.actions.get_actions()]
+        return [action.name for action in self.action_registry.get_actions()]
 
     def add_routine(self, routine: RoutineTypes) -> None:
         """

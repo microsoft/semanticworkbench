@@ -11,8 +11,8 @@ import logging
 from pathlib import Path
 
 import openai_client
-from chat_driver import ChatDriverConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
+from openai_client.chat_driver import ChatDriverConfig
 
 # from form_filler_skill import FormFillerSkill
 from posix_skill import PosixSkill

@@ -89,7 +89,7 @@ class ActionHandler:
     def __getattr__(self, name: str) -> Callable:
         """Makes registered functions accessible as attributes of the functions object."""
         if name not in self.actions.action_map:
-            raise AttributeError(f"'FunctionHandler' object has no attribute '{name}'")
+            raise AttributeError(f"'Actions' object has no attribute '{name}'")
 
         async def wrapper(*args, **kwargs) -> Any:
             return await self.actions.execute_action(name, args, kwargs)
@@ -146,7 +146,10 @@ class Actions:
         return [function for function in self.action_map.values()]
 
     async def execute_action(
-        self, name: str, args: tuple = (), kwargs: dict[str, Any] = {}, string_response: bool = False
+        self,
+        name: str,
+        args: tuple = (),
+        kwargs: dict[str, Any] = {},
     ) -> Any:
         """
         Run a function from the ToolFunctions list by name. If string_response
@@ -155,9 +158,9 @@ class Actions:
         function = self.get_action(name)
         if not function:
             raise ValueError(f"Function {name} not found in registry.")
-        return await function.execute(string_response, *args, **kwargs)
+        return await function.execute(*args, **kwargs)
 
-    async def execute_action_string(self, function_string: str, string_response: bool = False) -> Any:
+    async def execute_action_string(self, function_string: str) -> Any:
         """Parse a function string and execute the function."""
         try:
             function, args, kwargs = self.parse_action_string(function_string)
@@ -165,7 +168,7 @@ class Actions:
             raise ValueError(f"{e}. Type: `/help` for more information.")
         if not function:
             raise ValueError("Function not found in registry. Type: `/help` for more information.")
-        return await function.execute(string_response, *args, **kwargs)
+        return await function.execute(*args, **kwargs)
 
     def parse_action_string(self, action_string: str) -> tuple[Action | None, list[Any], dict[str, Any]]:
         """Parse a function call string into a function and its arguments."""

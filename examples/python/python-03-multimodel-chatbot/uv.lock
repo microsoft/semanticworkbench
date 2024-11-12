@@ -445,6 +445,17 @@ wheels = [
 ]
 
 [[package]]
+name = "events"
+version = "0.1.0"
+source = { editable = "../../../libraries/python/events" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.6.1" }]
+
+[[package]]
 name = "fastapi"
 version = "0.115.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1023,6 +1034,7 @@ dependencies = [
     { name = "azure-ai-contentsafety" },
     { name = "azure-core", extra = ["aio"] },
     { name = "azure-identity" },
+    { name = "events" },
     { name = "openai" },
     { name = "pillow" },
     { name = "python-liquid" },
@@ -1035,6 +1047,7 @@ requires-dist = [
     { name = "azure-ai-contentsafety", specifier = ">=1.0.0" },
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
+    { name = "events", editable = "../../../libraries/python/events" },
     { name = "openai", specifier = ">=1.3.9" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "python-liquid", specifier = ">=1.12.1" },

@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-from chat_driver import ChatDriverConfig
+from openai_client.chat_driver import ChatDriverConfig
 from skill_library import Assistant, Skill
 
 from assistant.skill_event_mapper import SkillEventMapperProtocol

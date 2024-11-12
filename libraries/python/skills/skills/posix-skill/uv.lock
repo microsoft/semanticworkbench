@@ -307,37 +307,6 @@ wheels = [
 ]
 
 [[package]]
-name = "chat-driver"
-version = "0.1.0"
-source = { editable = "../../../chat-driver" }
-dependencies = [
-    { name = "azure-identity" },
-    { name = "context" },
-    { name = "events" },
-    { name = "openai" },
-    { name = "openai-client" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
-    { name = "requests" },
-    { name = "tiktoken" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "azure-identity", specifier = ">=1.17.1" },
-    { name = "context", editable = "../../../context" },
-    { name = "events", editable = "../../../events" },
-    { name = "openai", specifier = ">=1.16.1" },
-    { name = "openai-client", editable = "../../../openai-client" },
-    { name = "pydantic", specifier = ">=2.6.1" },
-    { name = "pydantic-settings", specifier = ">=2.3.4" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "requests", specifier = ">=2.32.0" },
-    { name = "tiktoken", specifier = ">=0.7.0" },
-]
-
-[[package]]
 name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
@@ -867,6 +836,7 @@ dependencies = [
     { name = "azure-ai-contentsafety" },
     { name = "azure-core", extra = ["aio"] },
     { name = "azure-identity" },
+    { name = "events" },
     { name = "openai" },
     { name = "pillow" },
     { name = "python-liquid" },
@@ -879,6 +849,7 @@ requires-dist = [
     { name = "azure-ai-contentsafety", specifier = ">=1.0.0" },
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
+    { name = "events", editable = "../../../events" },
     { name = "openai", specifier = ">=1.3.9" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "python-liquid", specifier = ">=1.12.1" },
@@ -964,17 +935,17 @@ name = "posix-skill"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "chat-driver" },
     { name = "context" },
     { name = "events" },
+    { name = "openai-client" },
     { name = "skill-library" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "chat-driver", editable = "../../../chat-driver" },
     { name = "context", editable = "../../../context" },
     { name = "events", editable = "../../../events" },
+    { name = "openai-client", editable = "../../../openai-client" },
     { name = "skill-library", editable = "../../skill-library" },
 ]
 
@@ -1397,10 +1368,10 @@ version = "0.1.0"
 source = { editable = "../../skill-library" }
 dependencies = [
     { name = "assistant-drive" },
-    { name = "chat-driver" },
     { name = "context" },
     { name = "events" },
     { name = "openai" },
+    { name = "openai-client" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
@@ -1411,10 +1382,10 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "assistant-drive", editable = "../../../assistant-drive" },
-    { name = "chat-driver", editable = "../../../chat-driver" },
     { name = "context", editable = "../../../context" },
     { name = "events", editable = "../../../events" },
     { name = "openai", specifier = ">=1.16.1" },
+    { name = "openai-client", editable = "../../../openai-client" },
     { name = "pydantic", specifier = ">=2.6.1" },
     { name = "pydantic-settings", specifier = ">=2.3.4" },
     { name = "python-dotenv", specifier = ">=1.0.1" },

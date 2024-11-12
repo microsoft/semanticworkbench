@@ -1,7 +1,5 @@
 import logging
 
-from chat_driver import ChatDriver, ChatDriverConfig, ContextProtocol
-from chat_driver.in_memory_message_history_provider import InMemoryMessageHistoryProvider
 from form_filler_skill.agenda import Agenda, AgendaItem
 from form_filler_skill.guided_conversation.definition import GCDefinition
 from form_filler_skill.message import Conversation
@@ -12,6 +10,7 @@ from form_filler_skill.resources import (
     format_resource,
 )
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
 from pydantic import ValidationError
 
 from ...artifact import Artifact
@@ -62,7 +61,6 @@ def _get_termination_instructions(resource: GCResource):
 
 
 async def update_agenda(
-    context: ContextProtocol,
     openai_client: AsyncOpenAI | AsyncAzureOpenAI,
     definition: GCDefinition,
     chat_history: Conversation,
