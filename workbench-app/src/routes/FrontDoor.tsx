@@ -10,7 +10,7 @@ import { GlobalContent } from '../components/FrontDoor/GlobalContent';
 import { MainContent } from '../components/FrontDoor/MainContent';
 import { useMediaQuery } from '../libs/useMediaQuery';
 import { useAppSelector } from '../redux/app/hooks';
-import { setActiveConversationId } from '../redux/features/app/appSlice';
+import { setActiveConversationId, setGlobalContentOpen } from '../redux/features/app/appSlice';
 
 const useClasses = makeStyles({
     documentBody: {
@@ -76,9 +76,9 @@ export const FrontDoor: React.FC = () => {
     const { conversationId } = useParams();
     const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
     const chatCanvasState = useAppSelector((state) => state.chatCanvas);
+    const globalContentOpen = useAppSelector((state) => state.app.globalContentOpen);
     const dispatch = useDispatch();
     const sideRailLeftRef = React.useRef<HTMLDivElement | null>(null);
-    const [sideRailLeftOpen, setSideRailLeftOpen] = React.useState(!activeConversationId && !conversationId);
     const [isInitialized, setIsInitialized] = React.useState(false);
     const isSmall = useMediaQuery({ maxWidth: 720 });
     const [sideRailLeftType, setSideRailLeftType] = React.useState<'inline' | 'overlay'>('inline');
@@ -101,33 +101,33 @@ export const FrontDoor: React.FC = () => {
         (event: MouseEvent) => {
             if (!sideRailLeftRef.current) return;
 
-            if (!sideRailLeftRef.current.contains(event.target as HTMLElement)) {
-                setSideRailLeftOpen(false);
+            if (!sideRailLeftRef.current.contains(event.target as HTMLElement) && globalContentOpen) {
+                dispatch(setGlobalContentOpen(false));
             }
         },
-        [sideRailLeftRef],
+        [dispatch, globalContentOpen],
     );
 
     React.useEffect(() => {
-        if (sideRailLeftOpen && sideRailLeftType === 'overlay') {
+        if (globalContentOpen && sideRailLeftType === 'overlay') {
             document.addEventListener('click', handleClickOutside);
         } else {
             document.removeEventListener('click', handleClickOutside);
         }
         return () => document.removeEventListener('click', handleClickOutside);
-    }, [handleClickOutside, sideRailLeftOpen, sideRailLeftRef, sideRailLeftType]);
+    }, [globalContentOpen, handleClickOutside, sideRailLeftRef, sideRailLeftType]);
 
     const sideRailLeftButton = React.useMemo(
         () => (
             <Button
-                icon={sideRailLeftOpen ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
+                icon={globalContentOpen ? <PanelLeftContractRegular /> : <PanelLeftExpandRegular />}
                 onClick={(event) => {
                     event.stopPropagation();
-                    setSideRailLeftOpen((prev) => !prev);
+                    dispatch(setGlobalContentOpen(!globalContentOpen));
                 }}
             />
         ),
-        [sideRailLeftOpen],
+        [dispatch, globalContentOpen],
     );
 
     React.useEffect(() => {
@@ -153,7 +153,7 @@ export const FrontDoor: React.FC = () => {
                 <Drawer
                     ref={sideRailLeftRef}
                     className={classes.sideRailLeft}
-                    open={sideRailLeftOpen}
+                    open={globalContentOpen}
                     modalType="non-modal"
                     type={sideRailLeftType}
                     size="small"
@@ -170,7 +170,7 @@ export const FrontDoor: React.FC = () => {
                                     className={mergeClasses(
                                         classes.controls,
                                         classes.transitionFade,
-                                        !sideRailLeftOpen ? 'in' : undefined,
+                                        !globalContentOpen ? 'in' : undefined,
                                     )}
                                 >
                                     {sideRailLeftButton}

@@ -1,18 +1,19 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+import { AppStorage } from '../../../libs/AppStorage';
 import { ChatCanvasState } from './ChatCanvasState';
 
 const localStorageKey = {
-    chatCanvasOpen: 'chatCanvasOpen',
-    chatCanvasMode: 'chatCanvasMode',
-    chatCanvasSelectedAssistantId: 'chatCanvasSelectedAssistantId',
-    chatCanvasSelectedAssistantStateId: 'chatCanvasSelectedAssistantStateId',
+    chatCanvasOpen: 'chat-canvas.open',
+    chatCanvasMode: 'chat-canvas.mode',
+    chatCanvasSelectedAssistantId: 'chat-canvas.selected-assistant-id',
+    chatCanvasSelectedAssistantStateId: 'chat-canvas.selected-assistant-state-id',
 };
 
 const initialState: ChatCanvasState = {
     open: localStorage.getItem(localStorageKey.chatCanvasOpen) === 'true',
-    mode: (localStorage.getItem(localStorageKey.chatCanvasMode) as ChatCanvasState['mode']) ?? 'conversation',
+    mode: localStorage.getItem(localStorageKey.chatCanvasMode) === 'assistant' ? 'assistant' : 'conversation',
     selectedAssistantId: localStorage.getItem(localStorageKey.chatCanvasSelectedAssistantId) ?? undefined,
     selectedAssistantStateId: localStorage.getItem(localStorageKey.chatCanvasSelectedAssistantStateId) ?? undefined,
 };
@@ -45,18 +46,13 @@ export const chatCanvasSlice = createSlice({
 });
 
 const persistState = (state: ChatCanvasState) => {
-    localStorage.setItem(localStorageKey.chatCanvasOpen, state.open.toString());
-    localStorage.setItem(localStorageKey.chatCanvasMode, state.mode);
-    if (state.selectedAssistantId) {
-        localStorage.setItem(localStorageKey.chatCanvasSelectedAssistantId, state.selectedAssistantId);
-    } else {
-        localStorage.removeItem(localStorageKey.chatCanvasSelectedAssistantId);
-    }
-    if (state.selectedAssistantStateId) {
-        localStorage.setItem(localStorageKey.chatCanvasSelectedAssistantStateId, state.selectedAssistantStateId);
-    } else {
-        localStorage.removeItem(localStorageKey.chatCanvasSelectedAssistantStateId);
-    }
+    AppStorage.getInstance().saveObject(localStorageKey.chatCanvasOpen, state.open);
+    AppStorage.getInstance().saveObject(localStorageKey.chatCanvasMode, state.mode);
+    AppStorage.getInstance().saveObject(localStorageKey.chatCanvasSelectedAssistantId, state.selectedAssistantId);
+    AppStorage.getInstance().saveObject(
+        localStorageKey.chatCanvasSelectedAssistantStateId,
+        state.selectedAssistantStateId,
+    );
 };
 
 export const {
