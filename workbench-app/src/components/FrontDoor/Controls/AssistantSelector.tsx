@@ -17,6 +17,9 @@ export const AssistantSelector: React.FC<AssistantSelectorProps> = (props) => {
             disabled={disabled}
             onOptionSelect={(_event, data) => onChange(data.optionValue as string)}
         >
+            <Option text="Create new assistant" value="new">
+                Create new assistant
+            </Option>
             <OptionGroup label="Existing Assistants">
                 {assistants
                     ?.slice()
@@ -26,11 +29,6 @@ export const AssistantSelector: React.FC<AssistantSelectorProps> = (props) => {
                             {assistant.name}
                         </Option>
                     ))}
-            </OptionGroup>
-            <OptionGroup label="New Assistant">
-                <Option text="Create new assistant" value="new">
-                    Create new assistant
-                </Option>
             </OptionGroup>
         </Dropdown>
     );

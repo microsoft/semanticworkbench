@@ -111,6 +111,14 @@ class RequestConfig(BaseModel):
         Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
     ] = "gpt-4o"
 
+    is_reasoning_model: Annotated[
+        bool,
+        Field(
+            title="Is Reasoning Model (o1-preview, o1-mini, etc)",
+            description="Experimental: enable support for reasoning models such as o1-preview, o1-mini, etc.",
+        ),
+    ] = False
+
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):

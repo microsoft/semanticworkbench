@@ -6,10 +6,8 @@ import { AppStorage } from '../../../libs/AppStorage';
 import { SettingsState } from './SettingsState';
 
 const storageKeys = {
-    theme: 'theme',
-    environmentId: 'environment-id',
-    speechKey: 'speech-key',
-    speechRegion: 'speech-region',
+    theme: 'settings.theme',
+    environmentId: 'settings.environment-id',
 };
 
 const initialState: SettingsState = {

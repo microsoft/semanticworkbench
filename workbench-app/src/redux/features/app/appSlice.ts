@@ -8,12 +8,13 @@ import { conversationApi } from '../../../services/workbench';
 import { AppState } from './AppState';
 
 const localStorageKey = {
-    devMode: 'devMode',
-    chatWidthPercent: 'chatWidthPercent',
-    completedFirstRunApp: 'completedFirstRun:app',
-    completedFirstRunExperimental: 'completedFirstRun:experimental',
-    completedFirstRunWorkflow: 'completedFirstRun:workflow',
-    hideExperimentalNotice: 'hideExperimentalNotice',
+    devMode: 'app.dev-mode',
+    completedFirstRunApp: 'app.completed-first-run.app',
+    completedFirstRunExperimental: 'app.completed-first-run.experimental',
+    completedFirstRunWorkflow: 'app.completed-first-run.workflow',
+    hideExperimentalNotice: 'app.hide-experimental-notice',
+    chatWidthPercent: 'app.chat-width-percent',
+    globalContentOpen: 'app.global-content-open',
 };
 
 const initialState: AppState = {
@@ -30,6 +31,7 @@ const initialState: AppState = {
     },
     hideExperimentalNotice:
         AppStorage.getInstance().loadObject<boolean>(localStorageKey.hideExperimentalNotice) ?? false,
+    globalContentOpen: AppStorage.getInstance().loadObject<boolean>(localStorageKey.globalContentOpen) ?? false,
 };
 
 export const appSlice = createSlice({
@@ -38,7 +40,7 @@ export const appSlice = createSlice({
     reducers: {
         toggleDevMode: (state: AppState) => {
             state.devMode = !state.devMode;
-            localStorage.setItem(localStorageKey.devMode, state.devMode.toString());
+            AppStorage.getInstance().saveObject(localStorageKey.devMode, state.devMode);
         },
         setIsDraggingOverBody: (state: AppState, action: PayloadAction<boolean>) => {
             state.isDraggingOverBody = action.payload;
@@ -108,6 +110,10 @@ export const appSlice = createSlice({
                 );
             }
         },
+        setGlobalContentOpen: (state: AppState, action: PayloadAction<boolean>) => {
+            AppStorage.getInstance().saveObject(localStorageKey.globalContentOpen, action.payload);
+            state.globalContentOpen = action.payload;
+        },
     },
 });
 
@@ -121,6 +127,7 @@ export const {
     setCompletedFirstRun,
     setHideExperimentalNotice,
     setActiveConversationId,
+    setGlobalContentOpen,
 } = appSlice.actions;
 
 export default appSlice.reducer;

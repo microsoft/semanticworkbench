@@ -1,12 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 export interface AppState {
+    // persisted
     devMode: boolean;
-    errors: {
-        id: string;
-        title?: string;
-        message?: string;
-    }[];
     completedFirstRun: {
         app: boolean;
         experimental: boolean;
@@ -14,6 +10,13 @@ export interface AppState {
     };
     hideExperimentalNotice: boolean;
     chatWidthPercent: number;
+    globalContentOpen: boolean;
+    // transient
     isDraggingOverBody?: boolean;
     activeConversationId?: string;
+    errors: {
+        id: string;
+        title?: string;
+        message?: string;
+    }[];
 }
