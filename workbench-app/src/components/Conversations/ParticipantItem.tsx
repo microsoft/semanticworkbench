@@ -3,6 +3,7 @@
 import {
     Button,
     Menu,
+    MenuItem,
     MenuList,
     MenuPopover,
     MenuTrigger,
@@ -10,16 +11,19 @@ import {
     makeStyles,
     tokens,
 } from '@fluentui/react-components';
-import { MoreHorizontalRegular } from '@fluentui/react-icons';
+import {
+    DatabaseRegular,
+    EditRegular,
+    MoreHorizontalRegular,
+    PlugDisconnectedRegular,
+    SettingsRegular,
+} from '@fluentui/react-icons';
 import React from 'react';
 import { useParticipantUtility } from '../../libs/useParticipantUtility';
+import { Assistant } from '../../models/Assistant';
 import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useGetAssistantQuery } from '../../services/workbench';
-import { AssistantConfigure } from '../Assistants/AssistantConfigure';
-import { AssistantRemove } from '../Assistants/AssistantRemove';
-import { AssistantRename } from '../Assistants/AssistantRename';
-import { AssistantServiceInfo } from '../Assistants/AssistantServiceInfo';
 
 const useClasses = makeStyles({
     root: {
@@ -44,11 +48,14 @@ interface ParticipantItemProps {
     conversation: Conversation;
     participant: ConversationParticipant;
     readOnly?: boolean;
-    preventAssistantModifyOnParticipantIds?: string[];
+    onConfigure?: (assistant: Assistant) => void;
+    onRename?: (assistant: Assistant) => void;
+    onServiceInfo?: (assistant: Assistant) => void;
+    onRemove?: (assistant: Assistant) => void;
 }
 
 export const ParticipantItem: React.FC<ParticipantItemProps> = (props) => {
-    const { conversation, participant, readOnly, preventAssistantModifyOnParticipantIds } = props;
+    const { conversation, participant, readOnly, onConfigure, onRename, onServiceInfo, onRemove } = props;
     const classes = useClasses();
     const { getAvatarData } = useParticipantUtility();
 
@@ -61,8 +68,16 @@ export const ParticipantItem: React.FC<ParticipantItemProps> = (props) => {
         throw new Error(`Error loading assistant (${participant.id}): ${errorMessage}`);
     }
 
+    const handleMenuItemClick = React.useCallback(
+        (event: React.MouseEvent<HTMLDivElement>, handler?: (conversation: Conversation) => void) => {
+            event.stopPropagation();
+            handler?.(conversation);
+        },
+        [conversation],
+    );
+
     const assistantActions = React.useMemo(() => {
-        if (participant.role !== 'assistant') {
+        if (participant.role !== 'assistant' || !assistant || readOnly) {
             return null;
         }
 
@@ -73,34 +88,44 @@ export const ParticipantItem: React.FC<ParticipantItemProps> = (props) => {
                 </MenuTrigger>
                 <MenuPopover>
                     <MenuList>
-                        {assistant && (
-                            <>
-                                <AssistantConfigure
-                                    assistant={assistant}
-                                    disabled={
-                                        readOnly || preventAssistantModifyOnParticipantIds?.includes(participant.id)
-                                    }
-                                    simulateMenuItem
-                                />
-                                <AssistantRename
-                                    assistant={assistant}
-                                    conversationId={conversation.id}
-                                    simulateMenuItem
-                                />
-                                <AssistantServiceInfo assistant={assistant} simulateMenuItem />
-                            </>
+                        {/* FIXME: complete the menu items */}
+                        {onConfigure && (
+                            <MenuItem
+                                icon={<SettingsRegular />}
+                                onClick={(event) => handleMenuItemClick(event, () => onConfigure(assistant))}
+                            >
+                                Configure
+                            </MenuItem>
                         )}
-                        <AssistantRemove
-                            conversation={conversation}
-                            participant={participant}
-                            disabled={readOnly || preventAssistantModifyOnParticipantIds?.includes(participant.id)}
-                            simulateMenuItem
-                        />
+                        {onRename && (
+                            <MenuItem
+                                icon={<EditRegular />}
+                                onClick={(event) => handleMenuItemClick(event, () => onRename(assistant))}
+                            >
+                                Rename
+                            </MenuItem>
+                        )}
+                        {onServiceInfo && (
+                            <MenuItem
+                                icon={<DatabaseRegular />}
+                                onClick={(event) => handleMenuItemClick(event, () => onServiceInfo(assistant))}
+                            >
+                                Service Info
+                            </MenuItem>
+                        )}
+                        {onRemove && (
+                            <MenuItem
+                                icon={<PlugDisconnectedRegular />}
+                                onClick={(event) => handleMenuItemClick(event, () => onRemove(assistant))}
+                            >
+                                Remove
+                            </MenuItem>
+                        )}
                     </MenuList>
                 </MenuPopover>
             </Menu>
         );
-    }, [assistant, conversation, participant, preventAssistantModifyOnParticipantIds, readOnly]);
+    }, [participant.role, assistant, readOnly, onConfigure, onRename, onServiceInfo, onRemove, handleMenuItemClick]);
 
     return (
         <div className={classes.participant} key={participant.id}>

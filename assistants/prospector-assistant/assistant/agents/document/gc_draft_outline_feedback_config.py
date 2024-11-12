@@ -7,7 +7,7 @@ from semantic_workbench_assistant.config import UISchema
 
 from ... import helpers
 from . import config_defaults as config_defaults
-from .config import GuidedConversationAgentConfigModel
+from .config import GuidedConversationConfigModel
 
 if TYPE_CHECKING:
     pass
@@ -20,6 +20,10 @@ class ArtifactModel(BaseModel):
     final_response: str = Field(description="The final response from the agent to the user.")
     conversation_status: str = Field(description="The status of the conversation.")
     user_decision: str = Field(description="The decision of the user on what should happen next.")
+    filenames: str = Field(
+        description="Names of the available files currently uploaded as attachments. Information from the content of these files was used to help draft the outline under review."
+    )
+    current_outline: str = Field(description="The most up-to-date version of the outline under review.")
 
 
 # Rules - These are the do's and don'ts that the agent should follow during the conversation.
@@ -110,7 +114,7 @@ def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="D
 #
 
 
-class GCDraftOutlineFeedbackConfigModel(GuidedConversationAgentConfigModel):
+class GCDraftOutlineFeedbackConfigModel(GuidedConversationConfigModel):
     enabled: Annotated[
         bool,
         Field(description=helpers.load_text_include("guided_conversation_agent_enabled.md")),

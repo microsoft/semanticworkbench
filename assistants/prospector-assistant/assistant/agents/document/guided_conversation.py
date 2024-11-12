@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 
-from guided_conversation.guided_conversation_agent import GuidedConversation
+from guided_conversation.guided_conversation_agent import GuidedConversation as GuidedConversationAgent
 from openai import AsyncOpenAI
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
@@ -12,7 +12,7 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from ...config import AssistantConfigModel
-from .config import GuidedConversationAgentConfigModel
+from .config import GuidedConversationConfigModel
 from .status import Status, StepName
 
 logger = logging.getLogger(__name__)
@@ -23,10 +23,60 @@ logger = logging.getLogger(__name__)
 #
 
 
-class GuidedConversationAgent:
+class GuidedConversation:
     """
     An agent for managing artifacts.
     """
+
+    def __init__(
+        self,
+        config: AssistantConfigModel,
+        openai_client: AsyncOpenAI,
+        agent_config: GuidedConversationConfigModel,
+        conversation_context: ConversationContext,
+    ) -> None:
+        self.guided_conversation_agent: GuidedConversationAgent
+        self.conversation_context: ConversationContext = conversation_context
+
+        self.kernel = Kernel()
+        self.service_id = "gc_main"
+
+        chat_service = OpenAIChatCompletion(
+            service_id=self.service_id,
+            async_client=openai_client,
+            ai_model_id=config.request_config.openai_model,
+        )
+        self.kernel.add_service(chat_service)
+
+        self.artifact_model = agent_config.get_artifact_model()
+        self.conversation_flow = agent_config.conversation_flow
+        self.context = agent_config.context
+        self.rules = agent_config.rules
+        self.resource_constraint = agent_config.resource_constraint
+
+        state = _read_guided_conversation_state(conversation_context)
+        if state:
+            self.guided_conversation_agent = GuidedConversationAgent.from_json(
+                json_data=state,
+                kernel=self.kernel,
+                artifact=self.artifact_model,  # type: ignore
+                conversation_flow=self.conversation_flow,
+                context=self.context,
+                rules=self.rules,
+                resource_constraint=self.resource_constraint,
+                service_id=self.service_id,
+            )
+        else:
+            self.guided_conversation_agent = GuidedConversationAgent(
+                kernel=self.kernel,
+                artifact=self.artifact_model,  # type: ignore
+                conversation_flow=self.conversation_flow,
+                context=self.context,
+                rules=self.rules,
+                resource_constraint=self.resource_constraint,
+                service_id=self.service_id,
+            )
+            _write_guided_conversation_state(conversation_context, self.guided_conversation_agent.to_json())
 
     @staticmethod
     def get_state(
@@ -37,12 +87,37 @@ class GuidedConversationAgent:
         """
         return _read_guided_conversation_state(conversation_context)
 
-    @staticmethod
+    def get_artifact_dict(self) -> dict | None:
+        artifact_dict = None
+        state_dict = self.get_state(self.conversation_context)
+        if state_dict is not None:
+            artifact_item = state_dict.get("artifact")
+            if artifact_item is not None:
+                artifact_dict = artifact_item.get("artifact")
+        return artifact_dict
+
+    def set_artifact_dict(self, artifact_dict: dict) -> None:
+        state_dict = self.get_state(self.conversation_context)
+        if state_dict is not None:
+            artifact_item = state_dict.get("artifact")
+            if artifact_item is not None:
+                artifact_item["artifact"] = artifact_dict
+                # Update storage with new state info
+                _write_guided_conversation_state(self.conversation_context, state_dict)
+                # Update GC with new state info
+                self.guided_conversation_agent = GuidedConversationAgent.from_json(
+                    json_data=state_dict,
+                    kernel=self.kernel,
+                    artifact=self.artifact_model,  # type: ignore
+                    conversation_flow=self.conversation_flow,
+                    context=self.context,
+                    rules=self.rules,
+                    resource_constraint=self.resource_constraint,
+                    service_id=self.service_id,
+                )
+
     async def step_conversation(
-        config: AssistantConfigModel,
-        openai_client: AsyncOpenAI,
-        agent_config: GuidedConversationAgentConfigModel,
-        conversation_context: ConversationContext,
+        self,
         last_user_message: str | None,
     ) -> tuple[str, Status, StepName | None]:
         """
@@ -50,55 +125,12 @@ class GuidedConversationAgent:
         """
         next_step_name = None
 
-        rules = agent_config.rules
-        conversation_flow = agent_config.conversation_flow
-        context = agent_config.context
-        resource_constraint = agent_config.resource_constraint
-        artifact = agent_config.get_artifact_model()
-
-        # plug in attachments
-
-        kernel = Kernel()
-        service_id = "gc_main"
-
-        chat_service = OpenAIChatCompletion(
-            service_id=service_id,
-            async_client=openai_client,
-            ai_model_id=config.request_config.openai_model,
-        )
-        kernel.add_service(chat_service)
-
-        guided_conversation_agent: GuidedConversation
-
-        state = _read_guided_conversation_state(conversation_context)
-        if state:
-            guided_conversation_agent = GuidedConversation.from_json(
-                json_data=state,
-                kernel=kernel,
-                artifact=artifact,  # type: ignore
-                conversation_flow=conversation_flow,
-                context=context,
-                rules=rules,
-                resource_constraint=resource_constraint,
-                service_id=service_id,
-            )
-        else:
-            guided_conversation_agent = GuidedConversation(
-                kernel=kernel,
-                artifact=artifact,  # type: ignore
-                conversation_flow=conversation_flow,
-                context=context,
-                rules=rules,
-                resource_constraint=resource_constraint,
-                service_id=service_id,
-            )
-
         # Step the conversation to start the conversation with the agent
         # or message
-        result = await guided_conversation_agent.step_conversation(last_user_message)
+        result = await self.guided_conversation_agent.step_conversation(last_user_message)
 
         # Save the state of the guided conversation agent
-        _write_guided_conversation_state(conversation_context, guided_conversation_agent.to_json())
+        _write_guided_conversation_state(self.conversation_context, self.guided_conversation_agent.to_json())
 
         # convert information in artifact for Document Agent
         # conversation_status:  # this should relate to result.is_conversation_over
@@ -110,7 +142,7 @@ class GuidedConversationAgent:
         response: str = ""
 
         # to_json is actually to dict, not to json.
-        gc_dict = guided_conversation_agent.to_json()
+        gc_dict = self.guided_conversation_agent.to_json()
         artifact_item = gc_dict.get("artifact")
         if artifact_item is not None:
             artifact_item = artifact_item.get("artifact")
@@ -129,7 +161,7 @@ class GuidedConversationAgent:
                     response = ""
                 status = Status.NOT_COMPLETED
             elif conversation_status == "user_completed":
-                _delete_guided_conversation_state(conversation_context)
+                _delete_guided_conversation_state(self.conversation_context)
                 response = final_response
                 if user_decision is None:
                     status = Status.USER_COMPLETED
@@ -146,7 +178,7 @@ class GuidedConversationAgent:
                     else:
                         logger.error("unknown user decision")
             else:
-                _delete_guided_conversation_state(conversation_context)
+                _delete_guided_conversation_state(self.conversation_context)
                 status = Status.USER_EXIT_EARLY
                 response = final_response
 
