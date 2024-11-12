@@ -22,10 +22,10 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import ConversationContext, storage_directory_for_context
 
 from ..config import AssistantConfigModel
-from .document.config import GuidedConversationAgentConfigModel
+from .document.config import GuidedConversationConfigModel
 from .document.gc_attachment_check_config import GCAttachmentCheckConfigModel
 from .document.gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
-from .document.guided_conversation import GuidedConversationAgent
+from .document.guided_conversation import GuidedConversation
 from .document.status import Status, StepName
 
 logger = logging.getLogger(__name__)
@@ -759,24 +759,33 @@ class DocumentAgent:
         message: ConversationMessage,
         metadata: dict[str, Any] = {},
     ) -> tuple[Status, StepName | None]:
-        method_metadata_key = "document_agent_gc_response"
+        method_metadata_key = "document_agent_gc_attachment_check"
 
-        gc_conversation_config: GuidedConversationAgentConfigModel = GCAttachmentCheckConfigModel()
-        # get attachment filenames for context
+        gc_attachment_conversation_config: GuidedConversationConfigModel = GCAttachmentCheckConfigModel()
+
+        guided_conversation = GuidedConversation(
+            config=config,
+            openai_client=openai_client.create_client(config.service_config),
+            agent_config=gc_attachment_conversation_config,
+            conversation_context=context,
+        )
+
+        # update artifact
         filenames = await self._attachments_extension.get_attachment_filenames(
             context, config=config.agents_config.attachment_agent
         )
-
         filenames_str = ", ".join(filenames)
-        filenames_str = "Filenames already attached: " + filenames_str
-        gc_conversation_config.context = gc_conversation_config.context + "\n\n" + filenames_str
 
+        artifact_dict = guided_conversation.get_artifact_dict()
+        if artifact_dict is not None:
+            artifact_dict["filenames"] = filenames_str
+            guided_conversation.set_artifact_dict(artifact_dict)
+        else:
+            logger.error("artifact_dict unavailable.")
+
+        # run guided conversation step
         try:
-            response_message, conversation_status, next_step_name = await GuidedConversationAgent.step_conversation(
-                config=config,
-                openai_client=openai_client.create_client(config.service_config),
-                agent_config=gc_conversation_config,
-                conversation_context=context,
+            response_message, conversation_status, next_step_name = await guided_conversation.step_conversation(
                 last_user_message=message.content,
             )
 
@@ -898,38 +907,43 @@ class DocumentAgent:
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
     ) -> tuple[Status, StepName | None]:
-        method_metadata_key = "document_agent_gc_response"
-
-        gc_do_feedback_config: GuidedConversationAgentConfigModel = GCDraftOutlineFeedbackConfigModel()
-        # get attachment filenames for context
-        filenames = await self._attachments_extension.get_attachment_filenames(
-            context, config=config.agents_config.attachment_agent
-        )
-
-        filenames_str = ", ".join(filenames)
-        filenames_str = "Filenames already attached: " + filenames_str
-        gc_do_feedback_config.context = gc_do_feedback_config.context + "\n\n" + filenames_str
-
-        # get current outline related info
-        current_outline: str | None = None
-        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
-            current_outline = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
-
-        if current_outline is not None:
-            outline_str = "Current outline under review: " + current_outline
-            gc_do_feedback_config.context = gc_do_feedback_config.context + "\n\n" + outline_str
+        method_metadata_key = "document_agent_gc_outline_feedback"
 
         if message is not None:
             user_message = message.content
         else:
             user_message = None
 
+        gc_outline_feedback_config: GuidedConversationConfigModel = GCDraftOutlineFeedbackConfigModel()
+
+        guided_conversation = GuidedConversation(
+            config=config,
+            openai_client=openai_client.create_client(config.service_config),
+            agent_config=gc_outline_feedback_config,
+            conversation_context=context,
+        )
+
+        # update artifact
+        filenames = await self._attachments_extension.get_attachment_filenames(
+            context, config=config.agents_config.attachment_agent
+        )
+        filenames_str = ", ".join(filenames)
+
+        outline_str: str = ""
+        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
+            outline_str = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+
+        artifact_dict = guided_conversation.get_artifact_dict()
+        if artifact_dict is not None:
+            artifact_dict["filenames"] = filenames_str
+            artifact_dict["current_outline"] = outline_str
+            guided_conversation.set_artifact_dict(artifact_dict)
+        else:
+            logger.error("artifact_dict unavailable.")
+
+        # run guided conversation step
         try:
-            response_message, conversation_status, next_step_name = await GuidedConversationAgent.step_conversation(
-                config=config,
-                openai_client=openai_client.create_client(config.service_config),
-                agent_config=gc_do_feedback_config,
-                conversation_context=context,
+            response_message, conversation_status, next_step_name = await guided_conversation.step_conversation(
                 last_user_message=user_message,
             )
 

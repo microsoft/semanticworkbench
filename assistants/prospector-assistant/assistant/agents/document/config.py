@@ -63,7 +63,7 @@ def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="D
 #
 
 
-class GuidedConversationAgentConfigModel(BaseModel):
+class GuidedConversationConfigModel(BaseModel):
     enabled: Annotated[
         bool,
         Field(description=helpers.load_text_include("guided_conversation_agent_enabled.md")),
