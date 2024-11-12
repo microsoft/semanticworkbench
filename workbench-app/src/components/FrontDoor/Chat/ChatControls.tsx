@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { Button, makeStyles, tokens, Tooltip } from '@fluentui/react-components';
-import { AppsList24Regular, BookInformation24Regular, Dismiss24Regular } from '@fluentui/react-icons';
+import { BookInformation24Regular, ChatSettingsRegular, Dismiss24Regular } from '@fluentui/react-icons';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useChatCanvasController } from '../../../libs/useChatCanvasController';
@@ -75,7 +75,7 @@ export const ChatControls: React.FC<ChatControlsProps> = (props) => {
             <Tooltip content="Open conversation canvas" relationship="label">
                 <Button
                     disabled={conversationActive || chatCanvasController.isTransitioning}
-                    icon={<AppsList24Regular />}
+                    icon={<ChatSettingsRegular />}
                     onClick={handleActivateConversation}
                 />
             </Tooltip>
