@@ -7,7 +7,7 @@ from semantic_workbench_assistant.config import UISchema
 
 from ... import helpers
 from . import config_defaults as config_defaults
-from .config import GuidedConversationAgentConfigModel
+from .config import GuidedConversationConfigModel
 
 if TYPE_CHECKING:
     pass
@@ -19,6 +19,9 @@ if TYPE_CHECKING:
 class ArtifactModel(BaseModel):
     final_response: str = Field(description="The final response from the agent to the user.")
     conversation_status: str = Field(description="The status of the conversation.")
+    filenames: str = Field(
+        description="Names of the available files currently uploaded as attachments. May be an empty string if no files are attached."
+    )
 
 
 # Rules - These are the do's and don'ts that the agent should follow during the conversation.
@@ -107,7 +110,7 @@ def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="D
 #
 
 
-class GCAttachmentCheckConfigModel(GuidedConversationAgentConfigModel):
+class GCAttachmentCheckConfigModel(GuidedConversationConfigModel):
     enabled: Annotated[
         bool,
         Field(description=helpers.load_text_include("guided_conversation_agent_enabled.md")),
