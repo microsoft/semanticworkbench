@@ -215,19 +215,13 @@ async def respond_to_conversation(
     # add the guardrails prompt to the system message content
     system_message_content += f"\n\n{config.guardrails_prompt}"
 
-    # reasoning models do not support system messages, so set the role to "user" for the system message
-    completion_messages: list[ChatCompletionMessageParam] = []
-    if config.request_config.is_reasoning_model:
-        # if the model is a reasoning model, add the system message as a user message
-        completion_messages.append({
-            "role": "user",
-            "content": system_message_content,
-        })
-    else:
-        completion_messages.append({
+    # initialize the completion messages with the system message
+    completion_messages: list[ChatCompletionMessageParam] = [
+        {
             "role": "system",
             "content": system_message_content,
-        })
+        }
+    ]
 
     # generate the attachment messages from the attachment agent
     attachment_messages = await attachments_extension.get_completion_messages_for_attachments(
@@ -284,6 +278,25 @@ async def respond_to_conversation(
     # generate a response from the AI model
     async with openai_client.create_client(config.service_config) as client:
         try:
+            if config.request_config.is_reasoning_model:
+                # convert all messages that use system role to user role as reasoning models do not support system role
+                completion_messages = [
+                    {
+                        "role": "user",
+                        "content": message["content"],
+                    }
+                    if message["role"] == "system"
+                    else message
+                    for message in completion_messages
+                ]
+
+                # for reasoning models, use max_completion_tokens instead of max_tokens
+                completion = await client.chat.completions.create(
+                    messages=completion_messages,
+                    model=config.request_config.openai_model,
+                    max_completion_tokens=config.request_config.response_tokens,
+                )
+
             if config.extensions_config.artifacts.enabled:
                 response = await artifacts_extension.get_openai_completion_response(
                     client,
