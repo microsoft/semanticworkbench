@@ -176,7 +176,8 @@ class GuidedConversation:
                     elif user_decision == "draft_paper":
                         status = Status.USER_COMPLETED
                         next_step_name = (
-                            StepName.DP_DRAFT_CONTENT
+                            StepName.DO_FINISH  # temp for mode_draft_outline.
+                            # StepName.DP_DRAFT_CONTENT
                         )  # problem if in draft outline mode... that is supposed to go to DO_FINISH.
                         # coupling is now a problem.  and Need to fix the two locations for setting the branching/flow.
                     else:

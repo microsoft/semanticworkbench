@@ -151,10 +151,18 @@ class Mode(BaseModel):
         if len(steps) == 0:
             return None
 
+        # logic below is repetitive... needs clean up
         step = self.get_step()
         step_name = step.get_name()
-        if step_name is steps[-1]:
-            return None  # on final step
+        current_step_name = steps[-1].get("step_name")
+        if isinstance(current_step_name, StepName):
+            if current_step_name is step_name:
+                return None  # on final step
+        else:
+            logger.error("step_name is not StepName instance")
+            next_step_name = StepName.UNDEFINED
+            status = Status.UNDEFINED
+            return Step(name=next_step_name, status=status)
 
         for index, step in enumerate(steps[:-1]):
             current_step_name = step.get("step_name")
@@ -170,7 +178,7 @@ class Mode(BaseModel):
                         status = Status.UNDEFINED
                         break
             else:
-                logger.error("step_name not found in step of step_list")
+                logger.error("step_name is not StepName instance")
                 next_step_name = StepName.UNDEFINED
                 status = Status.UNDEFINED
                 break
