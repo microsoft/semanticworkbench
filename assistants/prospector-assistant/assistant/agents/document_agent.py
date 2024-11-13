@@ -157,15 +157,25 @@ class Mode(BaseModel):
             return None  # on final step
 
         for index, step in enumerate(steps[:-1]):
-            if step is step_name:
-                next_step_name = steps[index + 1].get("step_name")
-                if isinstance(next_step_name, StepName):
-                    break
-                else:
-                    next_step_name = StepName.UNDEFINED
-                    break
+            current_step_name = step.get("step_name")
+            if isinstance(current_step_name, StepName):
+                if current_step_name is step_name:
+                    next_step_name = steps[index + 1].get("step_name")
+                    if isinstance(next_step_name, StepName):
+                        status = Status.INITIATED
+                        break
+                    else:
+                        logger.error("step_name not found in step of step_list")
+                        next_step_name = StepName.UNDEFINED
+                        status = Status.UNDEFINED
+                        break
+            else:
+                logger.error("step_name not found in step of step_list")
+                next_step_name = StepName.UNDEFINED
+                status = Status.UNDEFINED
+                break
 
-        return Step(name=next_step_name, status=Status.INITIATED)
+        return Step(name=next_step_name, status=status)
 
 
 class State(BaseModel):
@@ -984,6 +994,7 @@ class DocumentAgent:
                 if list_step_name is step_name:
                     # This is bad... "run_count" and "step_name" dependent on implementation in a different function.  Need to cleanup.
                     step_run_count = step.get("run_count")
+                    break
                 else:
                     # End of list
                     if step is step_list[-1]:

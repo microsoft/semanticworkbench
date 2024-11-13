@@ -154,7 +154,11 @@ class GuidedConversation:
         # should be returning str and Status for Document Agent to consume.  Update doc agent logic accordingly.
         status: Status = Status.UNDEFINED
         if conversation_status is not None:
-            if conversation_status == "Unanswered":
+            if (
+                conversation_status == "Unanswered"
+                or conversation_status == "user_initiated"  # highly coupled to config ...
+                or conversation_status == "user_returned"
+            ):
                 if result.ai_message is not None:
                     response = result.ai_message
                 else:
