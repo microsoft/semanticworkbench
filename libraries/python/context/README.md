@@ -3,7 +3,6 @@
 This library is shared among several different Make:Exploration projects including:
 
 - [Skill Library](../skills/skill-library/README.md)
-- [Chat Driver](../chat-driver/README.md)
 
 The [Context](./context/context.py) class in this library is designed to be
 instantiated once and passed to all relevant parts of a system.
