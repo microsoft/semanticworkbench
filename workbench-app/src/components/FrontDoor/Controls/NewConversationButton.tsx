@@ -3,6 +3,7 @@ import { ChatAddRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { useCreateConversation } from '../../../libs/useCreateConversation';
+import { useNotify } from '../../../libs/useNotify';
 import { DialogControl } from '../../App/DialogControl';
 import { ConversationsImport } from '../../Conversations/ConversationsImport';
 import { NewConversationForm } from './NewConversationForm';
@@ -17,6 +18,7 @@ export const NewConversationButton: React.FC = () => {
     const [assistantServiceId, setAssistantServiceId] = React.useState<string>();
     const [submitted, setSubmitted] = React.useState(false);
     const { navigateToConversation } = useConversationUtility();
+    const { notifyError } = useNotify();
 
     const handleCreate = React.useCallback(async () => {
         if (submitted || !isValid || !title || !assistantId) {
@@ -57,6 +59,16 @@ export const NewConversationButton: React.FC = () => {
         [navigateToConversation],
     );
 
+    const handleError = React.useCallback(
+        (error: Error) =>
+            notifyError({
+                id: 'new-conversation-error',
+                title: 'Error creating conversation',
+                message: error.message,
+            }),
+        [notifyError],
+    );
+
     return (
         <DialogControl
             open={open}
@@ -78,7 +90,13 @@ export const NewConversationButton: React.FC = () => {
             }
             hideDismissButton
             additionalActions={[
-                <ConversationsImport key="import" appearance="outline" onImport={handleImport} disabled={submitted} />,
+                <ConversationsImport
+                    key="import"
+                    appearance="outline"
+                    onImport={handleImport}
+                    onError={handleError}
+                    disabled={submitted}
+                />,
                 <DialogTrigger key="cancel" disableButtonEnhancement>
                     <Button appearance="secondary" disabled={submitted}>
                         Cancel

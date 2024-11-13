@@ -78,26 +78,23 @@ export const useWorkbenchService = () => {
         async (operationTitle: string, url: string, options?: RequestInit): Promise<Response> => {
             const accessToken = await getAccessTokenAsync();
             const idToken = await getIdTokenAsync();
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    headers: {
-                        ...options?.headers,
-                        Authorization: `Bearer ${accessToken}`,
-                        'X-OpenIdToken': idToken,
-                    },
-                });
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...options?.headers,
+                    Authorization: `Bearer ${accessToken}`,
+                    'X-OpenIdToken': idToken,
+                },
+            });
 
-                if (!response.ok) {
-                    dispatch(addError({ title: operationTitle, message: response.statusText }));
-                    throw new Error(`failed to fetch: ${response.statusText}`);
-                }
-
-                return response;
-            } catch (error) {
-                dispatch(addError({ title: operationTitle, message: (error as Error).message }));
-                throw error;
+            if (!response.ok) {
+                const json = await response.json();
+                const message = json?.detail ?? json?.detail ?? response.statusText;
+                dispatch(addError({ title: operationTitle, message }));
+                throw new Error(`Failed to ${operationTitle}: ${message}`);
             }
+
+            return response;
         },
         [dispatch, getAccessTokenAsync, getIdTokenAsync],
     );
@@ -106,20 +103,23 @@ export const useWorkbenchService = () => {
         async (operationTitle: string, url: string, options?: RequestInit): Promise<Response> => {
             const accessToken = await getAccessTokenAsync();
             const idToken = await getIdTokenAsync();
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    headers: {
-                        ...options?.headers,
-                        Authorization: `Bearer ${accessToken}`,
-                        'X-OpenIdToken': idToken,
-                    },
-                });
-                return response;
-            } catch (error) {
-                dispatch(addError({ title: operationTitle, message: (error as Error).message }));
-                throw error;
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...options?.headers,
+                    Authorization: `Bearer ${accessToken}`,
+                    'X-OpenIdToken': idToken,
+                },
+            });
+
+            if (!response.ok) {
+                const json = await response.json();
+                const message = json?.detail ?? json?.detail ?? response.statusText;
+                dispatch(addError({ title: operationTitle, message }));
+                throw new Error(`Failed to ${operationTitle}: ${message}`);
             }
+
+            return response;
         },
         [dispatch, getAccessTokenAsync, getIdTokenAsync],
     );

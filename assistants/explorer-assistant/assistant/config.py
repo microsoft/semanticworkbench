@@ -91,7 +91,7 @@ class RequestConfig(BaseModel):
             ),
         ),
         UISchema(enable_markdown_in_description=True),
-    ] = 50_000
+    ] = 128_000
 
     response_tokens: Annotated[
         int,
@@ -110,6 +110,14 @@ class RequestConfig(BaseModel):
         str,
         Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
     ] = "gpt-4o"
+
+    is_reasoning_model: Annotated[
+        bool,
+        Field(
+            title="Is Reasoning Model (o1-preview, o1-mini, etc)",
+            description="Experimental: enable support for reasoning models such as o1-preview, o1-mini, etc.",
+        ),
+    ] = False
 
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema

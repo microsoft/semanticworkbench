@@ -59,7 +59,7 @@ class CompletionError(Exception):
         super().__init__(message)
 
 
-def validate_completion(completion: ParsedChatCompletion[None]) -> None:
+def validate_completion(completion: ParsedChatCompletion | None) -> None:
     if completion is None:
         raise CompletionIsNoneError()
 

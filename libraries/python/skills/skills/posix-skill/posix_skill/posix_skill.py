@@ -1,8 +1,9 @@
 from pathlib import Path
-from skill_library import Skill, InstructionRoutine, RoutineTypes
-from chat_driver import ChatDriverConfig
+
+from openai_client.chat_driver import ChatDriverConfig
+from skill_library import InstructionRoutine, RoutineTypes, Skill
+
 from .sandbox_shell import SandboxShell
-from context import Context
 
 NAME = "posix"
 CLASS_NAME = "PosixSkill"
@@ -14,12 +15,11 @@ INSTRUCTIONS = "You are an assistant that has access to a sand-boxed Posix shell
 class PosixSkill(Skill):
     def __init__(
         self,
-        context: Context,
         sandbox_dir: Path,
         chat_driver_config: ChatDriverConfig,
         mount_dir: str = "/mnt/data",
     ) -> None:
-        self.shell = SandboxShell(sandbox_dir / context.session_id, mount_dir)
+        self.shell = SandboxShell(sandbox_dir, mount_dir)
 
         # Put all functions in a group. We are going to use all these as (1)
         # skill actions, but also as (2) chat functions and (3) chat commands.
@@ -43,9 +43,8 @@ class PosixSkill(Skill):
             self.make_home_dir_routine(),
         ]
 
-        # Configure the skill's chat driver.
+        # Re-configure the skill's chat driver.
         chat_driver_config.instructions = INSTRUCTIONS
-        chat_driver_config.context = context
         chat_driver_config.commands = functions
         chat_driver_config.functions = functions
 
@@ -53,7 +52,6 @@ class PosixSkill(Skill):
         super().__init__(
             name=NAME,
             description=DESCRIPTION,
-            context=context,
             chat_driver_config=chat_driver_config,
             skill_actions=functions,
             routines=routines,
@@ -78,13 +76,14 @@ class PosixSkill(Skill):
                 "mkdir Pictures\n"
                 "mkdir Videos\n"
             ),
+            skill=self,
         )
 
     ##################################
     # Actions
     ##################################
 
-    def cd(self, context: Context, directory: str) -> str:
+    def cd(self, directory: str) -> str:
         """
         Change the current working directory.
         """
@@ -94,60 +93,60 @@ class PosixSkill(Skill):
         except FileNotFoundError:
             return f"Directory {directory} not found."
 
-    def ls(self, context: Context, path: str = ".") -> list[str]:
+    def ls(self, path: str = ".") -> list[str]:
         """
         List directory contents.
         """
         return self.shell.ls(path)
 
-    def touch(self, context: Context, filename: str) -> str:
+    def touch(self, filename: str) -> str:
         """
         Create an empty file.
         """
         self.shell.touch(filename)
         return f"Created file {filename}."
 
-    def mkdir(self, context: Context, dirname: str) -> str:
+    def mkdir(self, dirname: str) -> str:
         """
         Create a new directory.
         """
         self.shell.mkdir(dirname)
         return f"Created directory {dirname}."
 
-    def mv(self, context: Context, src: str, dest: str) -> str:
+    def mv(self, src: str, dest: str) -> str:
         """
         Move a file or directory.
         """
         self.shell.mv(src, dest)
         return f"Moved {src} to {dest}."
 
-    def rm(self, context: Context, path: str) -> str:
+    def rm(self, path: str) -> str:
         """
         Remove a file or directory.
         """
         self.shell.rm(path)
         return f"Removed {path}."
 
-    def pwd(self, context: Context) -> str:
+    def pwd(self) -> str:
         """
         Return the current directory.
         """
         return self.shell.pwd()
 
-    def run_command(self, context: Context, command: str) -> str:
+    def run_command(self, command: str) -> str:
         """
         Run a shell command in the current directory.
         """
         stdout, stderr = self.shell.run_command(command)
         return f"Command output:\n{stdout}\nCommand errors:\n{stderr}"
 
-    def read_file(self, context: Context, filename: str) -> str:
+    def read_file(self, filename: str) -> str:
         """
         Read the contents of a file.
         """
         return self.shell.read_file(filename)
 
-    def write_file(self, context: Context, filename: str, content: str) -> str:
+    def write_file(self, filename: str, content: str) -> str:
         """
         Write content to a file.
         """

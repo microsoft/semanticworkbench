@@ -32,14 +32,14 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = (props) => {
         preventAssistantModifyOnParticipantIds,
         readOnly,
     } = props;
-    const chatCanvasState = useAppSelector((state) => state.chatCanvas);
+    const { open, mode, selectedAssistantId } = useAppSelector((state) => state.chatCanvas);
     const chatCanvasController = useChatCanvasController();
     const [firstRun, setFirstRun] = React.useState(true);
     const [selectedAssistant, setSelectedAssistant] = React.useState<Assistant>();
 
     // Set the selected assistant based on the chat canvas state
     React.useEffect(() => {
-        if (!chatCanvasState.selectedAssistantId || !chatCanvasState.open || chatCanvasState.mode !== 'assistant') {
+        if (!selectedAssistantId || !open || mode !== 'assistant') {
             // If the assistant id is not set, the canvas is closed, or the mode is not assistant, clear
             // the selected assistant and exit early
             setSelectedAssistant(undefined);
@@ -59,9 +59,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = (props) => {
         }
 
         // Find the assistant that corresponds to the selected assistant id
-        const assistant = conversationAssistants.find(
-            (assistant) => assistant.id === chatCanvasState.selectedAssistantId,
-        );
+        const assistant = conversationAssistants.find((assistant) => assistant.id === selectedAssistantId);
 
         // If the selected assistant is not found in the conversation, select the first assistant in the conversation
         if (!assistant) {
@@ -75,18 +73,10 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = (props) => {
             log(`Setting selected assistant to ${assistant.id}`);
             setSelectedAssistant(assistant);
         }
-    }, [
-        conversationAssistants,
-        chatCanvasController,
-        selectedAssistant,
-        firstRun,
-        chatCanvasState.selectedAssistantId,
-        chatCanvasState.open,
-        chatCanvasState.mode,
-    ]);
+    }, [conversationAssistants, chatCanvasController, selectedAssistant, firstRun, selectedAssistantId, open, mode]);
 
     // Determine which drawer to open, default to none
-    const openDrawer = chatCanvasState.open ? chatCanvasState.mode : 'none';
+    const openDrawer = open ? mode : 'none';
     return (
         <>
             <ConversationDrawer

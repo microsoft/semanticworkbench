@@ -15,7 +15,7 @@ from assistant_extensions.artifacts import ArtifactsExtension
 from assistant_extensions.artifacts._model import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
-from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import ChatCompletion, ChatCompletionMessageParam, ParsedChatCompletion
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     ConversationEvent,
@@ -215,6 +215,7 @@ async def respond_to_conversation(
     # add the guardrails prompt to the system message content
     system_message_content += f"\n\n{config.guardrails_prompt}"
 
+    # initialize the completion messages with the system message
     completion_messages: list[ChatCompletionMessageParam] = [
         {
             "role": "system",
@@ -269,6 +270,7 @@ async def respond_to_conversation(
     # initialize variables for the response content and total tokens used
     content = ""
     completion_total_tokens = 0
+    completion: ParsedChatCompletion | ChatCompletion | None = None
 
     # set default response message type
     message_type = MessageType.chat
@@ -276,6 +278,25 @@ async def respond_to_conversation(
     # generate a response from the AI model
     async with openai_client.create_client(config.service_config) as client:
         try:
+            if config.request_config.is_reasoning_model:
+                # convert all messages that use system role to user role as reasoning models do not support system role
+                completion_messages = [
+                    {
+                        "role": "user",
+                        "content": message["content"],
+                    }
+                    if message["role"] == "system"
+                    else message
+                    for message in completion_messages
+                ]
+
+                # for reasoning models, use max_completion_tokens instead of max_tokens
+                completion = await client.chat.completions.create(
+                    messages=completion_messages,
+                    model=config.request_config.openai_model,
+                    max_completion_tokens=config.request_config.response_tokens,
+                )
+
             if config.extensions_config.artifacts.enabled:
                 response = await artifacts_extension.get_openai_completion_response(
                     client,
@@ -312,19 +333,49 @@ async def respond_to_conversation(
 
             else:
                 # call the OpenAI API to generate a completion
-                completion = await client.chat.completions.create(
-                    messages=completion_messages,
-                    model=config.request_config.openai_model,
-                    max_tokens=config.request_config.response_tokens,
-                )
+                try:
+                    if config.request_config.is_reasoning_model:
+                        # for reasoning models, use max_completion_tokens instead of max_tokens
+                        completion = await client.chat.completions.create(
+                            messages=completion_messages,
+                            model=config.request_config.openai_model,
+                            max_completion_tokens=config.request_config.response_tokens,
+                        )
+                    else:
+                        completion = await client.chat.completions.create(
+                            messages=completion_messages,
+                            model=config.request_config.openai_model,
+                            max_tokens=config.request_config.response_tokens,
+                        )
 
-                content = completion.choices[0].message.content
+                    content = completion.choices[0].message.content
+                except Exception as e:
+                    logger.exception(f"exception occurred calling openai chat completion: {e}")
+                    content = (
+                        "An error occurred while calling the OpenAI API. Is it configured correctly?"
+                        " View the debug inspector for more information."
+                    )
+                    message_type = MessageType.notice
+                    deepmerge.always_merger.merge(
+                        metadata,
+                        {
+                            "debug": {
+                                method_metadata_key: {
+                                    "request": {
+                                        "model": config.request_config.openai_model,
+                                        "messages": completion_messages,
+                                    },
+                                    "error": str(e),
+                                },
+                            }
+                        },
+                    )
 
-            # get the total tokens used for the completion
-            completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
-            footer_items = [
-                _get_token_usage_message(config.request_config.max_tokens, completion_total_tokens),
-            ]
+            footer_items = []
+            if completion is not None:
+                # get the total tokens used for the completion
+                completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
+                footer_items.append(_get_token_usage_message(config.request_config.max_tokens, completion_total_tokens))
 
             # add the completion to the metadata for debugging
             deepmerge.always_merger.merge(
