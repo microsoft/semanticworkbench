@@ -1,5 +1,5 @@
 import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
@@ -17,14 +17,15 @@ class AttachmentsConfigModel(BaseModel):
         " provided for why they were included."
     )
 
-    include_in_response_generation: Annotated[
-        bool,
+    preferred_message_role: Annotated[
+        Literal["system", "user"],
         Field(
             description=(
-                "Whether to include the contents of attachments in the context for general response generation."
+                "The preferred role for attachment messages. Early testing suggests that the system role works best,"
+                " but you can experiment with the other roles. Image attachments will always use the user role."
             ),
         ),
-    ] = True
+    ] = "system"
 
 
 class Attachment(BaseModel):
