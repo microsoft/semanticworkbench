@@ -8,7 +8,7 @@
 import logging
 import re
 import time
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Sequence
 
 import deepmerge
 import openai_client
@@ -16,7 +16,13 @@ from assistant_extensions.artifacts import ArtifactsExtension
 from assistant_extensions.artifacts._model import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
-from openai.types.chat import ChatCompletion, ChatCompletionMessageParam, ParsedChatCompletion
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+    ParsedChatCompletion,
+)
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     ConversationEvent,
@@ -227,19 +233,19 @@ async def respond_to_conversation(
         }
     ]
 
-    # generate the attachment messages from the attachment agent
-    attachment_messages = await attachments_extension.get_completion_messages_for_attachments(
-        context, config=config.extensions_config.attachments
+    # calculate the token count for the messages so far
+    token_count = openai_client.num_tokens_from_messages(
+        messages=completion_messages, model=config.request_config.openai_model
     )
 
-    # add the attachment messages to the completion messages
-    completion_messages.extend(attachment_messages)
-
-    # calculate the token count for the messages so far
-    token_count = sum([
-        openai_client.num_tokens_from_message(model=config.request_config.openai_model, message=completion_message)
-        for completion_message in completion_messages
-    ])
+    # generate the attachment messages from the attachment agent
+    attachment_messages = await attachments_extension.get_completion_messages_for_attachments(
+        context,
+        config=config.extensions_config.attachments,
+    )
+    token_count += openai_client.num_tokens_from_messages(
+        messages=attachment_messages, model=config.request_config.openai_model
+    )
 
     # calculate the total available tokens for the response generation
     available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
@@ -251,6 +257,14 @@ async def respond_to_conversation(
         model=config.request_config.openai_model,
         token_limit=available_tokens - token_count,
     )
+
+    # add the attachment messages to the completion messages, either inline or as separate messages
+    if config.use_inline_attachments:
+        # inject the attachment messages inline into the history messages
+        history_messages = _inject_attachments_inline(history_messages, attachment_messages)
+    else:
+        # add the attachment messages to the completion messages before the history messages
+        completion_messages.extend(attachment_messages)
 
     # add the history messages to the completion messages
     completion_messages.extend(history_messages)
@@ -604,6 +618,59 @@ async def _get_history_messages(
 
     # return the formatted messages
     return history
+
+
+def _inject_attachments_inline(
+    history_messages: list[ChatCompletionMessageParam],
+    attachment_messages: Sequence[ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam],
+) -> list[ChatCompletionMessageParam]:
+    """
+    Inject the attachment messages inline into the history messages.
+    """
+
+    # iterate over the history messages and for every message that contains an attachment,
+    # find the related attachment message and replace the attachment message with the inline attachment content
+    for index, history_message in enumerate(history_messages):
+        # if the history message does not contain content, as a string value, skip
+        content = history_message.get("content")
+        if not content or not isinstance(content, str):
+            continue
+
+        # get the attachment filenames string from the history message content
+        attachment_filenames_string = re.findall(r"Attachment\(s\): (.+)", content)
+
+        # if the history message does not contain an attachment filenames string, skip
+        if not attachment_filenames_string:
+            continue
+
+        # split the attachment filenames string into a list of attachment filenames
+        attachment_filenames = [filename.strip() for filename in attachment_filenames_string[0].split(",")]
+
+        # initialize a list to store the replacement messages
+        replacement_messages = []
+
+        # iterate over the attachment filenames and find the related attachment message
+        for attachment_filename in attachment_filenames:
+            # find the related attachment message
+            attachment_message = next(
+                (
+                    attachment_message
+                    for attachment_message in attachment_messages
+                    if f"<ATTACHMENT><FILENAME>{attachment_filename}</FILENAME>"
+                    in str(attachment_message.get("content"))
+                ),
+                None,
+            )
+
+            if attachment_message:
+                # replace the attachment message with the inline attachment content
+                replacement_messages.append(attachment_message)
+
+        # if there are replacement messages, replace the history message with the replacement messages
+        if len(replacement_messages) > 0:
+            history_messages[index : index + 1] = replacement_messages
+
+    return history_messages
 
 
 def _get_response_duration_message(response_duration: float) -> str:
