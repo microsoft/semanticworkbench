@@ -207,6 +207,14 @@ class AssistantConfigModel(BaseModel):
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
 
+    use_inline_attachments: Annotated[
+        bool,
+        Field(
+            title="Use Inline Attachments",
+            description="Experimental: place attachment content where it was uploaded in the conversation history.",
+        ),
+    ] = False
+
     extensions_config: Annotated[
         ExtensionsConfigModel,
         Field(
