@@ -114,22 +114,11 @@ async def on_message_created(
     await legacy.provide_guidance_if_necessary(context)
 
 
-is_doc_agent_running = False
-
-
 @assistant.events.conversation.message.command.on_created
 async def on_command_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
-    config = await assistant_config.get(context.assistant)
-    metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
-
-    # config.agents_config.document_agent.enabled = True  # To do... tie into config.
-    global is_doc_agent_running
-    is_doc_agent_running = True
-
-    doc_agent = DocumentAgent(attachments_extension)
-    await doc_agent.receive_command(config, context, message, metadata)
+    pass
 
 
 @assistant.events.conversation.message.chat.on_created
@@ -151,24 +140,16 @@ async def on_chat_message_created(
 
     # update the participant status to indicate the assistant is thinking
     async with send_error_message_on_exception(context), context.set_status("thinking..."):
-        config = await assistant_config.get(context.assistant)
-
-        metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
-
         #
         # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
         #
+        config = await assistant_config.get(context.assistant)
+        metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
-        # if config.agents_config.document_agent.enabled:  # To do... tie into config.
-        global is_doc_agent_running
-        if is_doc_agent_running:
-            is_doc_agent_running = await document_agent_respond_to_conversation(config, context, message, metadata)
-            return
-
-        await form_fill_execute(context, message)
-
-        # # Prospector assistant response
-        # await respond_to_conversation(context, config, message, metadata)
+        if config.guided_workflow == "Form Completion":
+            await form_fill_execute(context, message)
+        else:  # "Document Creation"
+            await create_document_execute(config, context, message, metadata)
 
 
 background_tasks: set[asyncio.Task] = set()
@@ -179,30 +160,39 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
     """
-
     assistant_sent_messages = await context.get_messages(participant_ids=[context.assistant.id], limit=1)
     welcome_sent_before = len(assistant_sent_messages.messages) > 0
     if welcome_sent_before:
         return
 
-    task = asyncio.create_task(welcome_message(context))
+    #
+    # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
+    #
+    config = await assistant_config.get(context.assistant)
+    metadata: dict[str, Any] = {"debug": {}}
+
+    if config.guided_workflow == "Form Completion":
+        task = asyncio.create_task(welcome_message_form_fill(context))
+    else:  # "Document Creation"
+        task = asyncio.create_task(welcome_message_create_document(config, context, message=None, metadata=metadata))
+
     background_tasks.add(task)
     task.add_done_callback(background_tasks.remove)
 
-    # send a welcome message to the conversation
-    # welcome_message = config.welcome_message
-    # await context.send_messages(
-    #     NewConversationMessage(
-    #         content=welcome_message,
-    #         message_type=MessageType.chat,
-    #         metadata={"generated_content": False},
-    #     )
-    # )
 
-
-async def welcome_message(context: ConversationContext) -> None:
+async def welcome_message_form_fill(context: ConversationContext) -> None:
     async with send_error_message_on_exception(context), context.set_status("thinking..."):
         await form_fill_execute(context, None)
+
+
+async def welcome_message_create_document(
+    config: AssistantConfigModel,
+    context: ConversationContext,
+    message: ConversationMessage | None,
+    metadata: dict[str, Any],
+) -> None:
+    async with send_error_message_on_exception(context), context.set_status("thinking..."):
+        await create_document_execute(config, context, message, metadata)
 
 
 @asynccontextmanager
@@ -271,23 +261,22 @@ def form_fill_extension_get_attachment(
 
 
 #
-# region Response
+# region document agent extension helpers
 #
 
 
-async def document_agent_respond_to_conversation(
+async def create_document_execute(
     config: AssistantConfigModel,
     context: ConversationContext,
-    message: ConversationMessage,
+    message: ConversationMessage | None,
     metadata: dict[str, Any] = {},
-) -> bool:
+) -> None:
     """
     Respond to a conversation message using the document agent.
     """
     # create the document agent instance
     document_agent = DocumentAgent(attachments_extension)
-    is_doc_agent_running = await document_agent.respond_to_conversation(config, context, message, metadata)
-    return is_doc_agent_running
+    await document_agent.create_document(config, context, message, metadata)
 
 
 # demonstrates how to respond to a conversation message using the OpenAI API.
