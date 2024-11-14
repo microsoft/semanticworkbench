@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 import openai_client
 from assistant_extensions.attachments import AttachmentsConfigModel
@@ -117,6 +117,14 @@ class RequestConfig(BaseModel):
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
+    guided_workflow: Annotated[
+        Literal["Form Completion", "Document Creation"],
+        Field(
+            title="Guided Workflow",
+            description="The workflow extension to guide this conversation.",
+        ),
+    ] = "Form Completion"
+
     enable_debug_output: Annotated[
         bool,
         Field(
