@@ -140,9 +140,6 @@ class AttachmentsExtension:
             A list of messages for the chat completion.
         """
 
-        if not config.include_in_response_generation:
-            return []
-
         # get attachments, filtered by include_filenames and exclude_filenames
         attachments = await _get_attachments(
             context,
@@ -155,10 +152,7 @@ class AttachmentsExtension:
             return []
 
         messages: list[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam] = [
-            {
-                "role": "system",
-                "content": config.context_description,
-            }
+            _create_message(config, config.context_description)
         ]
 
         # process each attachment
@@ -189,24 +183,16 @@ class AttachmentsExtension:
 
             error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
             content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}>{error_element}<{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
-            messages.append({
-                # role of system seems to get better results in the chat completion
-                "role": "system",
-                "content": content,
-            })
+            messages.append(_create_message(config, content))
 
         return messages
 
     async def get_attachment_filenames(
         self,
         context: ConversationContext,
-        config: AttachmentsConfigModel,
         include_filenames: list[str] | None = None,
         exclude_filenames: list[str] = [],
     ) -> list[str]:
-        if not config.include_in_response_generation:
-            return []
-
         # get attachments, filtered by include_filenames and exclude_filenames
         attachments = await _get_attachments(
             context,
@@ -223,6 +209,24 @@ class AttachmentsExtension:
             filenames.append(attachment.filename)
 
         return filenames
+
+
+def _create_message(
+    config: AttachmentsConfigModel, content: str
+) -> chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam:
+    match config.preferred_message_role:
+        case "system":
+            return {
+                "role": "system",
+                "content": content,
+            }
+        case "user":
+            return {
+                "role": "user",
+                "content": content,
+            }
+        case _:
+            raise ValueError(f"unsupported preferred_message_role: {config.preferred_message_role}")
 
 
 async def _get_attachments(

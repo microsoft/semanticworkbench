@@ -843,9 +843,7 @@ class DocumentAgent:
         )
 
         # update artifact
-        filenames = await self._attachments_extension.get_attachment_filenames(
-            context, config=config.agents_config.attachment_agent
-        )
+        filenames = await self._attachments_extension.get_attachment_filenames(context)
         filenames_str = ", ".join(filenames)
 
         artifact_dict = guided_conversation.get_artifact_dict()
@@ -1039,9 +1037,7 @@ class DocumentAgent:
                 case _:
                     conversation_status_str = "user_returned"
 
-        filenames = await self._attachments_extension.get_attachment_filenames(
-            context, config=config.agents_config.attachment_agent
-        )
+        filenames = await self._attachments_extension.get_attachment_filenames(context)
         filenames_str = ", ".join(filenames)
 
         outline_str: str = ""
