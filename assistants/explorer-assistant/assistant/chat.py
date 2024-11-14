@@ -7,6 +7,7 @@
 
 import logging
 import re
+import time
 from typing import Any, Awaitable, Callable
 
 import deepmerge
@@ -182,6 +183,9 @@ async def respond_to_conversation(
 
     # define the metadata key for any metadata created within this method
     method_metadata_key = "respond_to_conversation"
+
+    # track the start time of the response generation
+    response_start_time = time.time()
 
     # get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
@@ -371,13 +375,22 @@ async def respond_to_conversation(
                         },
                     )
 
+            # create the footer items for the response
             footer_items = []
+
             if completion is not None:
                 # get the total tokens used for the completion
                 completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
                 footer_items.append(_get_token_usage_message(config.request_config.max_tokens, completion_total_tokens))
 
-            # add the completion to the metadata for debugging
+            # track the end time of the response generation
+            response_end_time = time.time()
+            response_duration = response_end_time - response_start_time
+
+            # add the response duration to the footer items
+            footer_items.append(_get_response_duration_message(response_duration))
+
+            # update the metadata with debug information
             deepmerge.always_merger.merge(
                 metadata,
                 {
@@ -591,6 +604,14 @@ async def _get_history_messages(
 
     # return the formatted messages
     return history
+
+
+def _get_response_duration_message(response_duration: float) -> str:
+    """
+    Generate a display friendly message for the response duration, to be added to the footer items.
+    """
+
+    return f"Response time: {response_duration:.2f} seconds"
 
 
 def _get_token_usage_message(
