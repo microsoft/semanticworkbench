@@ -381,6 +381,7 @@ class DocumentAgent:
             return mode.is_running()
 
         # Run
+        mode = self._state.mode
         logger.info("Document Agent in mode %s", mode.get_name())
         mode_method = self._get_mode_method(mode)
         if mode_method:

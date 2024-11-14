@@ -114,13 +114,6 @@ async def on_message_created(
     await legacy.provide_guidance_if_necessary(context)
 
 
-@assistant.events.conversation.message.command.on_created
-async def on_command_message_created(
-    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
-) -> None:
-    pass
-
-
 @assistant.events.conversation.message.chat.on_created
 async def on_chat_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
@@ -146,10 +139,13 @@ async def on_chat_message_created(
         config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
-        if config.guided_workflow == "Form Completion":
-            await form_fill_execute(context, message)
-        else:  # "Document Creation"
-            await create_document_execute(config, context, message, metadata)
+        match config.guided_workflow:
+            case "Form Completion":
+                await form_fill_execute(context, message)
+            case "Document Creation":
+                await create_document_execute(config, context, message, metadata)
+            case _:
+                logger.error("Guided workflow unknown or not supported.")
 
 
 background_tasks: set[asyncio.Task] = set()
