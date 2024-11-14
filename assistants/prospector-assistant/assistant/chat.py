@@ -167,10 +167,15 @@ async def on_conversation_created(context: ConversationContext) -> None:
     config = await assistant_config.get(context.assistant)
     metadata: dict[str, Any] = {"debug": {}}
 
-    if config.guided_workflow == "Form Completion":
-        task = asyncio.create_task(welcome_message_form_fill(context))
-    else:  # "Document Creation"
-        task = asyncio.create_task(welcome_message_create_document(config, context, message=None, metadata=metadata))
+    match config.guided_workflow:
+        case "Form Completion":
+            task = asyncio.create_task(welcome_message_form_fill(context))
+        case "Document Creation":
+            task = asyncio.create_task(
+                welcome_message_create_document(config, context, message=None, metadata=metadata)
+            )
+        case _:
+            logger.error("Guided workflow unknown or not supported.")
 
     background_tasks.add(task)
     task.add_done_callback(background_tasks.remove)
