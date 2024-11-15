@@ -23,7 +23,8 @@ class ApiKeySettings(BaseSettings):
 
 class AuthSettings(BaseSettings):
     allowed_jwt_algorithms: set[str] = {"RS256"}
-    allowed_app_ids: set[str] = {"22cb77c3-ca98-4a26-b4db-ac4dcecba690"}
+    # allowed_app_ids: set[str] = {"22cb77c3-ca98-4a26-b4db-ac4dcecba690"}
+    allowed_app_ids: set[str] = {"c43495da-e4bc-422b-9c8e-c8f84ee5149a"}
 
 
 class WebServiceSettings(BaseSettings):

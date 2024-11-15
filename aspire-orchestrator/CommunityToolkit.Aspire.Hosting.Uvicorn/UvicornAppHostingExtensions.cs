@@ -89,7 +89,7 @@ public static class DockerFileExtensions
 {
     public static IResourceBuilder<ExecutableResource> PublishAsDockerImage(this IResourceBuilder<ExecutableResource> builder,
         string? dockerContext = null,
-        string? dockerFilePath = null,
+        string? dockerFilePath = "Dockerfile",
         Action<IResourceBuilder<ContainerResource>>? configure = null)
     {
         if (!builder.ApplicationBuilder.ExecutionContext.IsPublishMode)

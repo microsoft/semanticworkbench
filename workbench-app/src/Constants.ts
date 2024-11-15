@@ -1,3 +1,9 @@
+const serviceUrl = (window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL && window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL.startsWith('http://'))
+    ? window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL.replace('http://', 'https://')
+    : (import.meta.env.VITE_SEMANTIC_WORKBENCH_SERVICE_URL)
+        ? import.meta.env.VITE_SEMANTIC_WORKBENCH_SERVICE_URL
+        : 'http://127.0.0.1:3000';
+
 export const Constants = {
     app: {
         name: 'Semantic Workbench',
@@ -26,7 +32,7 @@ export const Constants = {
                 id: 'local',
                 name: 'Semantic Workbench backend service on localhost or GitHub Codespaces',
                 // Can be overridden by env var VITE_SEMANTIC_WORKBENCH_SERVICE_URL
-                url: 'http://127.0.0.1:3000',
+                url: serviceUrl,
                 brand: 'light',
             },
             // {

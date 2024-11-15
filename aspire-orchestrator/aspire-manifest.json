@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json.schemastore.org/aspire-8.0.json",
+  "resources": {
+    "agent3": {
+      "type": "project.v0",
+      "path": "../examples/dotnet/dotnet-03-simple-chatbot/dotnet-03-simple-chatbot.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "Kestrel__Endpoints__http__Url": "http://*:{agent3.bindings.http.targetPort}",
+        "services__workbenchservice__http__0": "{workbenchservice.bindings.http.url}",
+        "services__agent3__http__0": "{agent3.bindings.http.url}",
+        "services__agent3__https__0": "{agent3.bindings.https.url}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 9103
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 9103
+        }
+      }
+    },
+    "workbenchapp": {
+      "type": "dockerfile.v0",
+      "path": "../workbench-app/Dockerfile",
+      "context": "../workbench-app",
+      "buildArgs": {
+        "VITE_SEMANTIC_WORKBENCH_SERVICE_URL": "{workbenchservice.bindings.http.url}"
+      },
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "{workbenchapp.bindings.https.targetPort}",
+        "VITE_SEMANTIC_WORKBENCH_SERVICE_URL": "{workbenchservice.bindings.http.url}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 8000,
+          "external": true
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 8001
+        }
+      }
+    },
+    "workbenchservice": {
+      "type": "container.v1",
+      "build": {
+        "context": "..",
+        "dockerfile": "../workbench-service/Dockerfile"
+      },
+      "env": {
+        "PORT": "{workbenchservice.bindings.http.targetPort}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 3000,
+          "external": true
+        }
+      }
+    }
+  }
+}
