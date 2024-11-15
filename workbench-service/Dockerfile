@@ -7,6 +7,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 COPY ./libraries/python/semantic-workbench-api-model /libraries/python/semantic-workbench-api-model
 COPY ./libraries/python/semantic-workbench-assistant /libraries/python/semantic-workbench-assistant
 COPY ./workbench-service /workbench-service
+COPY ./workbench-service/.env /workbench-service/.env
 
 RUN uv sync --directory /workbench-service --no-editable --no-dev --locked
 
@@ -32,6 +33,8 @@ ENV PATH=/workbench-service/.venv/bin:$PATH
 # alembic migrations related files
 COPY ./workbench-service/alembic.ini /workbench-service/alembic.ini
 COPY ./workbench-service/migrations /workbench-service/migrations
+
+COPY ./workbench-service/.env /workbench-service/.env
 
 # entrypoint script
 COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
