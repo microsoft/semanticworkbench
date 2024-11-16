@@ -37,6 +37,9 @@
     "**/__pycache__": true
   },
   "cSpell.words": [
+    "aiohttp",
+    "deepmerge",
+    "DMAIC",
     "endregion",
     "Excalidraw",
     "openai",

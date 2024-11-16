@@ -829,3 +829,22 @@ class AssistantController:
             assistant_ids=list(import_result.assistant_id_old_to_new.values()),
             conversation_ids=list(import_result.conversation_id_old_to_new.values()),
         )
+
+    async def duplicate_conversation(
+        self,
+        user_principal: auth.UserPrincipal,
+        conversation_id: uuid.UUID,
+    ) -> ConversationImportResult:
+        # export the conversation
+        export_result = await self.export_conversations(
+            user_principal=user_principal, conversation_ids={conversation_id}
+        )
+
+        # import the conversation
+        with open(export_result.file_path, "rb") as import_file:
+            import_result = await self.import_conversations(from_export=import_file, user_principal=user_principal)
+
+        # cleanup
+        export_result.cleanup()
+
+        return import_result
