@@ -1,5 +1,5 @@
-const serviceUrl = (window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL && window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL.startsWith('http://'))
-    ? window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL.replace('http://', 'https://')
+const serviceUrl = (window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL && window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL.startsWith('https://'))
+    ? window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL
     : (import.meta.env.VITE_SEMANTIC_WORKBENCH_SERVICE_URL)
         ? import.meta.env.VITE_SEMANTIC_WORKBENCH_SERVICE_URL
         : 'http://127.0.0.1:3000';

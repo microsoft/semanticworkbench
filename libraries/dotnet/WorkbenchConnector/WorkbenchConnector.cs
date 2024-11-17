@@ -33,11 +33,17 @@ public abstract class WorkbenchConnector : IDisposable
         if (Environment.GetEnvironmentVariable("services__agent3__http__0") is not null)
         {
             this.Config.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__http__0")}/myagents";
+        } else if (Environment.GetEnvironmentVariable("services__agent3__https__0") is not null)
+        {
+            this.Config.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__https__0")}/myagents";
         }
 
         if (Environment.GetEnvironmentVariable("services__workbenchservice__http__0") is not null)
         {
             this.Config.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__http__0");
+        } else if (Environment.GetEnvironmentVariable("services__workbenchservice__https__0") is not null)
+        {
+            this.Config.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__https__0");
         }
 
         this.Log = logger;
