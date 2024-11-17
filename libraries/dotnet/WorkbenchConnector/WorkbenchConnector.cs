@@ -30,10 +30,20 @@ public abstract class WorkbenchConnector : IDisposable
     {
         appConfig.GetSection("Workbench").Bind(this.Config);
 
+        if (Environment.GetEnvironmentVariable("services__agent3__http__0") is not null)
+        {
+            this.Config.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__http__0")}/myagents";
+        }
+
+        if (Environment.GetEnvironmentVariable("services__workbenchservice__http__0") is not null)
+        {
+            this.Config.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__http__0");
+        }
+
         this.Log = logger;
         this.Storage = storage;
         this.HttpClient = new HttpClient();
-        var baseAddress = Environment.GetEnvironmentVariable("services__workbenchservice__http__0") ?? this.Config.WorkbenchEndpoint;
+        var baseAddress = this.Config.WorkbenchEndpoint;
         this.HttpClient.BaseAddress = new Uri(baseAddress);
         this.Agents = new Dictionary<string, AgentBase>();
 

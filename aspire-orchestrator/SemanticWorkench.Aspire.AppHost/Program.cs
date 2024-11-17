@@ -18,13 +18,10 @@ workbenchService.WithExternalHttpEndpoints()
     .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."), dockerFilePath: Path.Combine("workbench-service", "Dockerfile"));
 var workbenchServiceEndpoint = workbenchService.GetEndpoint("http");
 
-if (!builder.ExecutionContext.IsPublishMode)
-{
-    var dotnetAgent3 = builder.AddProject<Projects.dotnet_03_simple_chatbot>("agent3")
-        .WithReference(workbenchServiceEndpoint)
-        .WaitFor(workbenchService);
-    dotnetAgent3.WithReference(dotnetAgent3);
-}
+var dotnetAgent3 = builder.AddProject<Projects.dotnet_03_simple_chatbot>("agent3")
+    .WithReference(workbenchServiceEndpoint)
+    .WaitFor(workbenchService);
+dotnetAgent3.WithReference(dotnetAgent3);
 
 // if (!builder.ExecutionContext.IsPublishMode)
 // {
