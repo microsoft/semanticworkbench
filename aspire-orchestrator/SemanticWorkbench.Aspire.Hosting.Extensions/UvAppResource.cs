@@ -2,9 +2,9 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
-namespace CommunityToolkit.Aspire.Hosting.Uvicorn;
+namespace Aspire.Hosting.ComponentModel;
 
-public class UvicornAppResource(string name, string workingDirectory)
+public class UvAppResource(string name, string workingDirectory)
     : ExecutableResource(name, "uv", workingDirectory), IResourceWithServiceDiscovery
 {
     internal const string HttpEndpointName = "http";

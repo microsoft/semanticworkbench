@@ -15,15 +15,15 @@
     <PackageReference Include="Aspire.Hosting" Version="9.0.0" />
     <PackageReference Include="Aspire.Hosting.AppHost" Version="9.0.0" />
     <PackageReference Include="Aspire.Hosting.Python" Version="9.0.0" />
-    <PackageReference Include="Aspire.CommunityToolkit.Hosting.NodeJS.Extensions"
-      Version="9.0.0-rc.1.24511.1.0-alpha.196" />
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.NodeJS.Extensions"
+      Version="9.0.1-beta.77" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference
       Include="..\..\examples\dotnet\dotnet-03-simple-chatbot\dotnet-03-simple-chatbot.csproj" />
     <ProjectReference
-      Include="..\CommunityToolkit.Aspire.Hosting.Uvicorn\CommunityToolkit.Aspire.Hosting.Uvicorn.csproj"
+      Include="..\SemanticWorkbench.Aspire.Hosting.Extensions\SemanticWorkbench.Aspire.Hosting.Extensions.csproj"
       IsAspireProjectResource="false" />
   </ItemGroup>
 

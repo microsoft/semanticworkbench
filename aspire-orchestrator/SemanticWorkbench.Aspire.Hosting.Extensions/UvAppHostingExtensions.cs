@@ -1,11 +1,11 @@
-﻿using System.Runtime.InteropServices;
-using Microsoft.Extensions.Hosting;
+﻿using Aspire.Hosting.ComponentModel;
+using Aspire.Hosting.Extensions;
 
-namespace CommunityToolkit.Aspire.Hosting.Uvicorn;
+namespace Aspire.Hosting;
 
-public static class UvicornAppHostingExtensions
+public static class UvAppHostingExtensions
 {
-    public static IResourceBuilder<UvicornAppResource> AddUvicornApp(
+    public static IResourceBuilder<UvAppResource> AddUvApp(
         this IDistributedApplicationBuilder builder,
         string name,
         string projectDirectory,
@@ -14,10 +14,10 @@ public static class UvicornAppHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        return builder.AddUvicornApp(name, scriptPath, projectDirectory, ".venv", scriptArgs);
+        return builder.AddUvApp(name, scriptPath, projectDirectory, ".venv", scriptArgs);
     }
 
-    private static IResourceBuilder<UvicornAppResource> AddUvicornApp(this IDistributedApplicationBuilder builder,
+    private static IResourceBuilder<UvAppResource> AddUvApp(this IDistributedApplicationBuilder builder,
         string name,
         string scriptPath,
         string projectDirectory,
@@ -44,7 +44,7 @@ public static class UvicornAppHostingExtensions
             ? ["run", scriptPath, .. args]
             : ["run", scriptPath];
 
-        var projectResource = new UvicornAppResource(name, projectDirectory);
+        var projectResource = new UvAppResource(name, projectDirectory);
 
         var resourceBuilder = builder.AddResource(projectResource)
             .WithArgs(allArgs)

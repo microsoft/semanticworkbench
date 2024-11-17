@@ -1,6 +1,6 @@
 using System;
 
-namespace CommunityToolkit.Aspire.Hosting.Uvicorn;
+namespace Aspire.Hosting.Extensions;
 
 internal static class PathNormalizer
 {
