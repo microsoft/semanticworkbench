@@ -122,7 +122,7 @@ class AttachmentsExtension:
         self,
         context: ConversationContext,
         config: AttachmentsConfigModel,
-        include_filenames: list[str] = [],
+        include_filenames: list[str] | None = None,
         exclude_filenames: list[str] = [],
     ) -> Sequence[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam]:
         """
@@ -140,9 +140,6 @@ class AttachmentsExtension:
             A list of messages for the chat completion.
         """
 
-        if not config.include_in_response_generation:
-            return []
-
         # get attachments, filtered by include_filenames and exclude_filenames
         attachments = await _get_attachments(
             context,
@@ -155,49 +152,88 @@ class AttachmentsExtension:
             return []
 
         messages: list[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam] = [
-            {
-                "role": "system",
-                "content": config.context_description,
-            }
+            _create_message(config, config.context_description)
         ]
 
         # process each attachment
         for attachment in attachments:
-            error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
-            content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}>{error_element}<{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
-
             # if the content is a data URI, include it as an image type within the message content
             if attachment.content.startswith("data:image/"):
-                content = [
-                    {
-                        "type": "text",
-                        "text": f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": attachment.content,
+                messages.append({
+                    # role of user is required for image_url messages
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
                         },
-                    },
-                    {
-                        "type": "text",
-                        "text": f"</{image_tag}></{attachment_tag}>",
-                    },
-                ]
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": attachment.content,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": f"</{image_tag}></{attachment_tag}>",
+                        },
+                    ],
+                })
+                continue
 
-            messages.append({
-                "role": "user",
-                "content": content,
-            })
+            error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
+            content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}>{error_element}<{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
+            messages.append(_create_message(config, content))
 
         return messages
+
+    async def get_attachment_filenames(
+        self,
+        context: ConversationContext,
+        include_filenames: list[str] | None = None,
+        exclude_filenames: list[str] = [],
+    ) -> list[str]:
+        # get attachments, filtered by include_filenames and exclude_filenames
+        attachments = await _get_attachments(
+            context,
+            error_handler=self._error_handler,
+            include_filenames=include_filenames,
+            exclude_filenames=exclude_filenames,
+        )
+
+        if not attachments:
+            return []
+
+        filenames: list[str] = []
+        for attachment in attachments:
+            filenames.append(attachment.filename)
+
+        return filenames
+
+
+def _create_message(
+    config: AttachmentsConfigModel, content: str
+) -> chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam:
+    match config.preferred_message_role:
+        case "system":
+            return {
+                "role": "system",
+                "content": content,
+            }
+        case "user":
+            return {
+                "role": "user",
+                "content": content,
+            }
+        case _:
+            raise ValueError(f"unsupported preferred_message_role: {config.preferred_message_role}")
 
 
 async def _get_attachments(
     context: ConversationContext,
     error_handler: AttachmentProcessingErrorHandler,
-    include_filenames: list[str] = [],
-    exclude_filenames: list[str] = [],
+    include_filenames: list[str] | None,
+    exclude_filenames: list[str],
 ) -> Sequence[Attachment]:
     """
     Gets all attachments for the current state of the conversation, updating the cache as needed.
@@ -209,7 +245,7 @@ async def _get_attachments(
     attachments = []
     # for all files, get the attachment
     for file in files_response.files:
-        if include_filenames and file.filename not in include_filenames:
+        if include_filenames is not None and file.filename not in include_filenames:
             continue
         if file.filename in exclude_filenames:
             continue
@@ -227,14 +263,15 @@ async def _get_attachments(
 async def _delete_attachments_not_in(context: ConversationContext, filenames: set[str]) -> None:
     """Deletes cached attachments that are not in the filenames argument."""
     drive = _attachment_drive_for_context(context)
-    for filename in drive.list():
-        if filename in filenames:
+    for attachment_filename in drive.list():
+        original_file_name = _attachment_to_original_filename(attachment_filename)
+        if original_file_name in filenames:
             continue
 
         with contextlib.suppress(FileNotFoundError):
-            drive.delete(filename)
+            drive.delete(attachment_filename)
 
-        await _delete_lock_for_context_file(context, filename)
+        await _delete_lock_for_context_file(context, original_file_name)
 
 
 _file_locks_lock = asyncio.Lock()
@@ -262,6 +299,14 @@ async def _lock_for_context_file(context: ConversationContext, filename: str) ->
         return _file_locks[key]
 
 
+def _original_to_attachment_filename(filename: str) -> str:
+    return filename + ".json"
+
+
+def _attachment_to_original_filename(filename: str) -> str:
+    return filename.removesuffix(".json")
+
+
 async def _get_attachment_for_file(
     context: ConversationContext, file: File, metadata: dict[str, Any], error_handler: AttachmentProcessingErrorHandler
 ) -> Attachment:
@@ -276,7 +321,7 @@ async def _get_attachment_for_file(
     file_lock = await _lock_for_context_file(context, file.filename)
     async with file_lock:
         with contextlib.suppress(FileNotFoundError):
-            attachment = drive.read_model(Attachment, file.filename)
+            attachment = drive.read_model(Attachment, _original_to_attachment_filename(file.filename))
 
             if attachment.updated_datetime.timestamp() >= file.updated_datetime.timestamp():
                 # if the attachment is up-to-date, return it
@@ -285,7 +330,7 @@ async def _get_attachment_for_file(
         content = ""
         error = ""
         # process the file to create an attachment
-        async with context.set_status_for_block(f"updating attachment {file.filename} ..."):
+        async with context.set_status(f"updating attachment {file.filename} ..."):
             try:
                 # read the content of the file
                 file_bytes = await _read_conversation_file(context, file)
@@ -302,7 +347,9 @@ async def _get_attachment_for_file(
             updated_datetime=file.updated_datetime,
             error=error,
         )
-        drive.write_model(attachment, file.filename, if_exists=IfDriveFileExistsBehavior.OVERWRITE)
+        drive.write_model(
+            attachment, _original_to_attachment_filename(file.filename), if_exists=IfDriveFileExistsBehavior.OVERWRITE
+        )
 
         return attachment
 

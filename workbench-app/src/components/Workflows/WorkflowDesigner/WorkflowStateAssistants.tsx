@@ -7,12 +7,6 @@ import {
     AccordionPanel,
     Button,
     Card,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
-    DialogSurface,
-    DialogTitle,
     DialogTrigger,
     Text,
     Tooltip,
@@ -25,6 +19,7 @@ import React from 'react';
 import { AssistantDefinition, WorkflowDefinition } from '../../../models/WorkflowDefinition';
 import { CommandButton } from '../../App/CommandButton';
 import { CopyButton } from '../../App/CopyButton';
+import { DialogControl } from '../../App/DialogControl';
 import { AssistantDefinitionAdd } from './AssistantDefinitionAdd';
 import { WorkflowStateAssistantEditor } from './WorkflowStateAssistantEditor';
 
@@ -143,21 +138,13 @@ export const WorkflowStateAssistants: React.FC<WorkflowStateAssistantsProps> = (
                 <Tooltip content="Paste an assistant definition from the clipboard" relationship="description">
                     <Button icon={<ClipboardPasteRegular />} onClick={handlePasteAssistantDefinition} />
                 </Tooltip>
-                <Dialog open={!!pasteError} onOpenChange={() => setPasteError(undefined)}>
-                    <DialogSurface>
-                        <DialogBody>
-                            <DialogTitle>Error Pasting Assistant Definition</DialogTitle>
-                            <DialogContent>
-                                <p>{pasteError}</p>
-                            </DialogContent>
-                            <DialogActions>
-                                <DialogTrigger disableButtonEnhancement>
-                                    <Button appearance="secondary">Close</Button>
-                                </DialogTrigger>
-                            </DialogActions>
-                        </DialogBody>
-                    </DialogSurface>
-                </Dialog>
+                <DialogControl
+                    open={!!pasteError}
+                    onOpenChange={() => setPasteError(undefined)}
+                    title="Error Pasting Assistant Definition"
+                    content={<p>{pasteError}</p>}
+                    closeLabel="Close"
+                />
             </div>
             <Accordion collapsible>
                 {stateToEdit.assistantDataList?.map((assistantData) => {
@@ -199,15 +186,18 @@ export const WorkflowStateAssistants: React.FC<WorkflowStateAssistantsProps> = (
                                                 ),
                                                 closeLabel: 'Cancel',
                                                 additionalActions: [
-                                                    <Button
-                                                        key="remove"
-                                                        appearance="primary"
-                                                        onClick={() =>
-                                                            handleRemoveAssistant(assistantData.assistantDefinitionId)
-                                                        }
-                                                    >
-                                                        Remove Assistant
-                                                    </Button>,
+                                                    <DialogTrigger key="remove" disableButtonEnhancement>
+                                                        <Button
+                                                            appearance="primary"
+                                                            onClick={() =>
+                                                                handleRemoveAssistant(
+                                                                    assistantData.assistantDefinitionId,
+                                                                )
+                                                            }
+                                                        >
+                                                            Remove Assistant
+                                                        </Button>
+                                                    </DialogTrigger>,
                                                 ],
                                             }}
                                         />

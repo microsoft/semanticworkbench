@@ -7,7 +7,7 @@ from typing import Protocol
 import cachetools
 import cachetools.keys
 from azure.core.credentials_async import AsyncTokenCredential
-from azure.core.exceptions import ResourceNotFoundError
+from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 from azure.identity.aio import DefaultAzureCredential
 from azure.keyvault.secrets.aio import SecretClient
 
@@ -63,12 +63,23 @@ class KeyVaultApiKeyStore(ApiKeyStore):
 
     async def reset(self, key_name: str) -> str:
         new_api_key = generate_api_key()
-        await self._secret_client.set_secret(name=key_name, value=new_api_key)
+        try:
+            await self._secret_client.set_secret(name=key_name, value=new_api_key)
+        except ResourceExistsError as e:
+            if "deleted" not in e.message:
+                raise
+
+            # If the secret is in a deleted state, purge it and create a new one.
+            await self._secret_client.purge_deleted_secret(name=key_name)
+            await self._secret_client.set_secret(name=key_name, value=new_api_key)
+
         return new_api_key
 
     async def delete(self, key_name: str) -> None:
         try:
-            await self._secret_client.delete_secret(name=key_name)
+            deleted_secret = await self._secret_client.delete_secret(name=key_name)
+            if deleted_secret.scheduled_purge_date is not None:
+                await self._secret_client.purge_deleted_secret(name=key_name)
         except ResourceNotFoundError:
             pass
 

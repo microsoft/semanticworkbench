@@ -97,7 +97,10 @@ class Conversation(BaseModel):
     imported_from_conversation_id: uuid.UUID | None
     metadata: dict[str, Any]
     created_datetime: datetime.datetime
+
     conversation_permission: ConversationPermission
+    latest_message: ConversationMessage | None
+    participants: list[ConversationParticipant]
 
 
 class ConversationList(BaseModel):
@@ -158,6 +161,7 @@ class ConversationMessage(BaseModel):
     content: str
     filenames: list[str]
     metadata: dict[str, Any]
+    has_debug_data: bool
 
     @property
     def command_name(self) -> str:
@@ -172,6 +176,11 @@ class ConversationMessage(BaseModel):
             return ""
 
         return "".join(self.content.split(" ", 1)[1:])
+
+
+class ConversationMessageDebug(BaseModel):
+    message_id: uuid.UUID
+    debug_data: dict[str, Any]
 
 
 class ConversationMessageList(BaseModel):
@@ -432,6 +441,7 @@ class NewConversationMessage(BaseModel):
     content_type: str = "text/plain"
     filenames: list[str] | None = None
     metadata: dict[str, Any] | None = None
+    debug_data: dict[str, Any] | None = None
 
 
 class NewConversationShare(BaseModel):

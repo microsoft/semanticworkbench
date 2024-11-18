@@ -54,7 +54,7 @@ const useClasses = makeStyles({
 
 export const WorkflowHelp: React.FC = () => {
     const classes = useClasses();
-    const { completedFirstRun } = useAppSelector((state) => state.app);
+    const completedFirstRun = useAppSelector((state) => state.app.completedFirstRun);
     const dispatch = useAppDispatch();
     const [showHelp, setShowHelp] = React.useState(!completedFirstRun?.workflow);
     const [currentIndex, setCurrentIndex] = React.useState(0);
@@ -104,7 +104,7 @@ export const WorkflowHelp: React.FC = () => {
                 }
             }}
         >
-            <DialogTrigger>
+            <DialogTrigger disableButtonEnhancement>
                 <CommandButton description="Help" iconOnly icon={<Question24Regular />} />
             </DialogTrigger>
             <DialogSurface className={classes.surface}>

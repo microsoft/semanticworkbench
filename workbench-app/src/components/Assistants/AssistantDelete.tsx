@@ -17,11 +17,21 @@ interface AssistantDeleteProps {
 export const AssistantDelete: React.FC<AssistantDeleteProps> = (props) => {
     const { assistant, onDelete, iconOnly, asToolbarButton } = props;
     const [deleteAssistant] = useDeleteAssistantMutation();
+    const [submitted, setSubmitted] = React.useState(false);
 
     const handleDelete = React.useCallback(async () => {
-        await deleteAssistant(assistant.id);
-        onDelete?.();
-    }, [assistant, onDelete, deleteAssistant]);
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
+        try {
+            await deleteAssistant(assistant.id);
+            onDelete?.();
+        } finally {
+            setSubmitted(false);
+        }
+    }, [submitted, deleteAssistant, assistant.id, onDelete]);
 
     return (
         <CommandButton
@@ -39,9 +49,9 @@ export const AssistantDelete: React.FC<AssistantDeleteProps> = (props) => {
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="delete">
-                        <Button appearance="primary" onClick={handleDelete}>
-                            Delete
+                    <DialogTrigger key="delete" disableButtonEnhancement>
+                        <Button appearance="primary" onClick={handleDelete} disabled={submitted}>
+                            {submitted ? 'Deleting...' : 'Delete'}
                         </Button>
                     </DialogTrigger>,
                 ],

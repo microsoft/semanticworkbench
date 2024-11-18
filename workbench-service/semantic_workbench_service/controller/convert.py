@@ -9,6 +9,7 @@ from semantic_workbench_api_model.workbench_model import (
     Conversation,
     ConversationList,
     ConversationMessage,
+    ConversationMessageDebug,
     ConversationMessageList,
     ConversationParticipant,
     ConversationParticipantList,
@@ -52,6 +53,7 @@ def user_list_from_db(models: Iterable[db.User]) -> UserList:
 
 def assistant_service_registration_from_db(
     model: db.AssistantServiceRegistration,
+    include_api_key_name: bool,
     api_key: str | None = None,
 ) -> AssistantServiceRegistration:
     return AssistantServiceRegistration(
@@ -62,7 +64,7 @@ def assistant_service_registration_from_db(
         name=model.name,
         description=model.description,
         include_in_listing=model.include_in_listing,
-        api_key_name=model.api_key_name,
+        api_key_name=model.api_key_name if include_api_key_name else "",
         api_key=api_key,
         assistant_service_url=model.assistant_service_url,
         assistant_service_online=model.assistant_service_online,
@@ -71,10 +73,12 @@ def assistant_service_registration_from_db(
 
 
 def assistant_service_registration_list_from_db(
-    models: Iterable[db.AssistantServiceRegistration],
+    models: Iterable[db.AssistantServiceRegistration], include_api_key_name: bool
 ) -> AssistantServiceRegistrationList:
     return AssistantServiceRegistrationList(
-        assistant_service_registrations=[assistant_service_registration_from_db(model=a) for a in models]
+        assistant_service_registrations=[
+            assistant_service_registration_from_db(model=a, include_api_key_name=include_api_key_name) for a in models
+        ]
     )
 
 
@@ -144,6 +148,11 @@ def conversation_participant_list_from_db(
 
 def conversation_from_db(
     model: db.Conversation,
+    user_participants: Iterable[db.UserParticipant],
+    assistant_participants: Iterable[db.AssistantParticipant],
+    assistants: Mapping[uuid.UUID, db.Assistant],
+    latest_message: db.ConversationMessage | None,
+    latest_message_has_debug: bool,
     permission: str,
 ) -> Conversation:
     return Conversation(
@@ -154,14 +163,43 @@ def conversation_from_db(
         metadata=model.meta_data,
         created_datetime=model.created_datetime,
         conversation_permission=ConversationPermission(permission),
+        latest_message=conversation_message_from_db(model=latest_message, has_debug=latest_message_has_debug)
+        if latest_message
+        else None,
+        participants=conversation_participant_list_from_db(
+            user_participants=user_participants,
+            assistant_participants=assistant_participants,
+            assistants=assistants,
+        ).participants,
     )
 
 
 def conversation_list_from_db(
-    models: Iterable[db.Conversation], permissions: Mapping[uuid.UUID, str]
+    models: Iterable[
+        tuple[
+            db.Conversation,
+            Iterable[db.UserParticipant],
+            Iterable[db.AssistantParticipant],
+            dict[uuid.UUID, db.Assistant],
+            db.ConversationMessage | None,
+            bool,
+            str,
+        ]
+    ],
 ) -> ConversationList:
     return ConversationList(
-        conversations=[conversation_from_db(model=m, permission=permissions[m.conversation_id]) for m in models]
+        conversations=[
+            conversation_from_db(
+                model=conversation,
+                user_participants=user_participants,
+                assistant_participants=assistant_participants,
+                assistants=assistants,
+                latest_message=latest_message,
+                latest_message_has_debug=latest_message_has_debug,
+                permission=permission,
+            )
+            for conversation, user_participants, assistant_participants, assistants, latest_message, latest_message_has_debug, permission in models
+        ]
     )
 
 
@@ -204,7 +242,7 @@ def conversation_share_redemption_list_from_db(
     )
 
 
-def conversation_message_from_db(model: db.ConversationMessage) -> ConversationMessage:
+def conversation_message_from_db(model: db.ConversationMessage, has_debug: bool) -> ConversationMessage:
     return ConversationMessage(
         id=model.message_id,
         sender=MessageSender(
@@ -217,13 +255,21 @@ def conversation_message_from_db(model: db.ConversationMessage) -> ConversationM
         content_type=model.content_type,
         metadata=model.meta_data,
         filenames=model.filenames,
+        has_debug_data=has_debug,
     )
 
 
 def conversation_message_list_from_db(
-    models: Iterable[db.ConversationMessage],
+    models: Iterable[tuple[db.ConversationMessage, bool]],
 ) -> ConversationMessageList:
-    return ConversationMessageList(messages=[conversation_message_from_db(m) for m in models])
+    return ConversationMessageList(messages=[conversation_message_from_db(m, debug) for m, debug in models])
+
+
+def conversation_message_debug_from_db(model: db.ConversationMessageDebug) -> ConversationMessageDebug:
+    return ConversationMessageDebug(
+        message_id=model.message_id,
+        debug_data=model.data,
+    )
 
 
 def file_from_db(models: tuple[db.File, db.FileVersion]) -> File:

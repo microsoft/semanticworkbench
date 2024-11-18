@@ -135,9 +135,13 @@ class AssistantService(FastAPIAssistantService):
 
     @asynccontextmanager
     async def lifespan(self) -> AsyncIterator[None]:
+        await self.assistant_app.events._on_service_start_handlers(True)
+
         try:
             yield
         finally:
+            await self.assistant_app.events._on_service_shutdown_handlers(True)
+
             for task in self._conversation_event_tasks:
                 task.cancel()
 
@@ -255,9 +259,9 @@ class AssistantService(FastAPIAssistantService):
 
         assistant_context = require_found(self.get_assistant_context(assistant_id))
         if is_new:
-            await self.assistant_app.events.assistant._on_created_handlers(assistant_context)
+            await self.assistant_app.events.assistant._on_created_handlers(True, assistant_context)
         else:
-            await self.assistant_app.events.assistant._on_updated_handlers(assistant_context)
+            await self.assistant_app.events.assistant._on_updated_handlers(True, assistant_context)
 
         if from_export is not None:
             await self.assistant_app.data_exporter.import_(assistant_context, from_export)
@@ -300,7 +304,7 @@ class AssistantService(FastAPIAssistantService):
         states.assistants.pop(assistant_id, None)
         self.write_assistant_states(states)
 
-        await self.assistant_app.events.assistant._on_deleted_handlers(assistant_context)
+        await self.assistant_app.events.assistant._on_deleted_handlers(True, assistant_context)
 
     @translate_assistant_errors
     async def get_config(self, assistant_id: str) -> assistant_model.ConfigResponseModel:
@@ -348,9 +352,9 @@ class AssistantService(FastAPIAssistantService):
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
         if is_new:
-            await self.assistant_app.events.conversation._on_created_handlers(conversation_context)
+            await self.assistant_app.events.conversation._on_created_handlers(True, conversation_context)
         else:
-            await self.assistant_app.events.conversation._on_updated_handlers(conversation_context)
+            await self.assistant_app.events.conversation._on_updated_handlers(True, conversation_context)
 
         if from_export is not None:
             await self.assistant_app.conversation_data_exporter.import_(conversation_context, from_export)
@@ -387,7 +391,7 @@ class AssistantService(FastAPIAssistantService):
             return
         self.write_assistant_states(states)
 
-        await self.assistant_app.events.conversation._on_deleted_handlers(conversation_context)
+        await self.assistant_app.events.conversation._on_deleted_handlers(True, conversation_context)
 
     async def _get_or_create_queue(self, assistant_id: str, conversation_id: str) -> asyncio.Queue[_Event]:
         key = (assistant_id, conversation_id)
@@ -483,17 +487,18 @@ class AssistantService(FastAPIAssistantService):
                     logging.exception("invalid message event data")
                     return
 
-                type_specific_events = getattr(
-                    self.assistant_app.events.conversation.message, str(message.message_type).replace("-", "_")
-                )
+                event_originated_externally = message.sender.participant_id != conversation_context.assistant.id
+
                 async with asyncio.TaskGroup() as tg:
                     tg.create_task(
                         self.assistant_app.events.conversation.message._on_created_handlers(
-                            conversation_context, updated_event, message
+                            event_originated_externally, conversation_context, updated_event, message
                         )
                     )
                     tg.create_task(
-                        type_specific_events._on_created_handlers(conversation_context, updated_event, message)
+                        self.assistant_app.events.conversation.message[message.message_type]._on_created_handlers(
+                            event_originated_externally, conversation_context, updated_event, message
+                        )
                     )
 
             case workbench_model.ConversationEventType.message_deleted:
@@ -503,17 +508,18 @@ class AssistantService(FastAPIAssistantService):
                     logging.exception("invalid message event data")
                     return
 
-                type_specific_events = getattr(
-                    self.assistant_app.events.conversation.message, str(message.message_type).replace("-", "_")
-                )
+                event_originated_externally = message.sender.participant_id != conversation_context.assistant.id
+
                 async with asyncio.TaskGroup() as tg:
                     tg.create_task(
                         self.assistant_app.events.conversation.message._on_deleted_handlers(
-                            conversation_context, updated_event, message
+                            event_originated_externally, conversation_context, updated_event, message
                         )
                     )
                     tg.create_task(
-                        type_specific_events._on_deleted_handlers(conversation_context, updated_event, message)
+                        self.assistant_app.events.conversation.message[message.message_type]._on_deleted_handlers(
+                            event_originated_externally, conversation_context, updated_event, message
+                        )
                     )
 
             case workbench_model.ConversationEventType.participant_created:
@@ -525,8 +531,9 @@ class AssistantService(FastAPIAssistantService):
                     logging.exception("invalid participant event data")
                     return
 
+                event_originated_externally = participant.id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.participant._on_created_handlers(
-                    conversation_context, updated_event, participant
+                    event_originated_externally, conversation_context, updated_event, participant
                 )
 
             case workbench_model.ConversationEventType.participant_updated:
@@ -538,8 +545,9 @@ class AssistantService(FastAPIAssistantService):
                     logging.exception("invalid participant event data")
                     return
 
+                event_originated_externally = participant.id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.participant._on_updated_handlers(
-                    conversation_context, updated_event, participant
+                    event_originated_externally, conversation_context, updated_event, participant
                 )
 
             case workbench_model.ConversationEventType.file_created:
@@ -549,8 +557,9 @@ class AssistantService(FastAPIAssistantService):
                     logging.exception("invalid file event data")
                     return
 
+                event_originated_externally = file.participant_id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.file._on_created_handlers(
-                    conversation_context, updated_event, file
+                    event_originated_externally, conversation_context, updated_event, file
                 )
 
             case workbench_model.ConversationEventType.file_updated:
@@ -560,8 +569,9 @@ class AssistantService(FastAPIAssistantService):
                     logging.exception("invalid file event data")
                     return
 
+                event_originated_externally = file.participant_id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.file._on_updated_handlers(
-                    conversation_context, updated_event, file
+                    event_originated_externally, conversation_context, updated_event, file
                 )
 
             case workbench_model.ConversationEventType.file_deleted:
@@ -571,8 +581,9 @@ class AssistantService(FastAPIAssistantService):
                     logging.exception("invalid file event data")
                     return
 
+                event_originated_externally = file.participant_id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.file._on_deleted_handlers(
-                    conversation_context, updated_event, file
+                    event_originated_externally, conversation_context, updated_event, file
                 )
 
     @translate_assistant_errors

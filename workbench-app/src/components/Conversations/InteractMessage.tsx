@@ -24,22 +24,22 @@ import {
 } from '@fluentui/react-components';
 import {
     AlertUrgent24Regular,
-    AppGenericRegular,
     Attach24Regular,
-    BotRegular,
     KeyCommandRegular,
     Note24Regular,
-    PersonRegular,
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React from 'react';
+import { useConversationUtility } from '../../libs/useConversationUtility';
+import { useParticipantUtility } from '../../libs/useParticipantUtility';
+import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { useCreateConversationMessageMutation } from '../../services/workbench';
+import {
+    useCreateConversationMessageMutation,
+    useGetConversationMessageDebugDataQuery,
+} from '../../services/workbench';
 import { CopyButton } from '../App/CopyButton';
 import { ContentRenderer } from './ContentRenderers/ContentRenderer';
 import { ConversationFileIcon } from './ConversationFileIcon';
@@ -47,10 +47,6 @@ import { DebugInspector } from './DebugInspector';
 import { MessageDelete } from './MessageDelete';
 import { MessageLink } from './MessageLink';
 import { RewindConversation } from './RewindConversation';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.tz.guess();
 
 const useClasses = makeStyles({
     root: {
@@ -103,6 +99,14 @@ const useClasses = makeStyles({
         alignItems: 'center',
         ...shorthands.padding(tokens.spacingVerticalXXS, 0, tokens.spacingVerticalXXS, tokens.spacingHorizontalS),
     },
+    footer: {
+        display: 'flex',
+        color: tokens.colorNeutralForeground3,
+        flexDirection: 'row',
+        gap: tokens.spacingHorizontalS,
+        alignItems: 'center',
+        ...shorthands.padding(tokens.spacingVerticalXS, 0, tokens.spacingVerticalXS, tokens.spacingHorizontalS),
+    },
     userContent: {
         alignItems: 'end',
     },
@@ -143,17 +147,30 @@ interface InteractMessageProps {
     hideParticipant?: boolean;
     displayDate?: boolean;
     readOnly: boolean;
+    onRead?: (message: ConversationMessage) => void;
+    onRewind?: (message: ConversationMessage, redo: boolean) => void;
 }
 
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
-    const { conversation, message, participant, hideParticipant, displayDate, readOnly } = props;
+    const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead, onRewind } = props;
     const classes = useClasses();
+    const { getAvatarData } = useParticipantUtility();
     const [createConversationMessage] = useCreateConversationMessageMutation();
+    const { isMessageVisibleRef, isMessageVisible, isUnread } = useConversationUtility();
+    const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
+    const {
+        data: debugData,
+        isLoading: isLoadingDebugData,
+        isUninitialized: isUninitializedDebugData,
+    } = useGetConversationMessageDebugDataQuery(
+        { conversationId: conversation.id, messageId: message.id },
+        { skip: skipDebugLoad },
+    );
 
     const isUser = participant.role === 'user';
 
-    const date = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('dddd, MMMM D');
-    const time = dayjs.utc(message.timestamp).tz(dayjs.tz.guess()).format('h:mm A');
+    const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
+    const time = Utility.toFormattedDateString(message.timestamp, 'h:mm A');
 
     const attribution = React.useMemo(() => {
         if (message.metadata?.attribution) {
@@ -171,6 +188,13 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         rootClassName = mergeClasses(rootClassName, classes.userRoot);
         contentClassName = mergeClasses(contentClassName, classes.userContent);
     }
+
+    React.useEffect(() => {
+        // if the message is visible, mark it as read
+        if (isMessageVisible && isUnread(conversation, message.timestamp)) {
+            onRead?.(message);
+        }
+    }, [isMessageVisible, isUnread, message.timestamp, onRead, conversation, message]);
 
     const content = React.useMemo(() => {
         const onSubmit = async (data: string) => {
@@ -217,17 +241,23 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         () => (
             <>
                 {!readOnly && <MessageLink conversation={conversation} messageId={message.id} />}
-                <DebugInspector debug={message.metadata?.debug} />
+                <DebugInspector
+                    debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
+                    loading={isLoadingDebugData || isUninitializedDebugData}
+                    onOpen={() => {
+                        setSkipDebugLoad(false);
+                    }}
+                />
                 <CopyButton data={message.content} tooltip="Copy message" size="small" appearance="transparent" />
                 {!readOnly && (
                     <>
                         <MessageDelete conversationId={conversation.id} message={message} />
-                        <RewindConversation conversationId={conversation.id} message={message} />
+                        <RewindConversation onRewind={(redo) => onRewind?.(message, redo)} />
                     </>
                 )}
             </>
         ),
-        [conversation, message, readOnly],
+        [conversation, debugData?.debugData, isLoadingDebugData, isUninitializedDebugData, message, onRewind, readOnly],
     );
 
     const getRenderedMessage = React.useCallback(() => {
@@ -296,13 +326,37 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 </AiGeneratedDisclaimer>
             );
 
+        let footerItems: React.ReactNode | null = null;
+        if (message.metadata?.['footer_items']) {
+            // may either be a string or an array of strings
+            const footerItemsArray = Array.isArray(message.metadata['footer_items'])
+                ? message.metadata['footer_items']
+                : [message.metadata['footer_items']];
+
+            footerItems = (
+                <>
+                    {footerItemsArray.map((item) => (
+                        <AiGeneratedDisclaimer key={item} className={classes.generated}>
+                            {item}
+                        </AiGeneratedDisclaimer>
+                    ))}
+                </>
+            );
+        }
+        const footerContent = (
+            <div ref={isMessageVisibleRef} className={classes.footer}>
+                {aiGeneratedDisclaimer}
+                {footerItems}
+            </div>
+        );
+
         return (
             <>
                 <div className={classes.actions}>
                     {(message.messageType !== 'notice' || (message.messageType === 'notice' && !isUser)) && actions}
                 </div>
                 <div className={contentClassName}>{renderedContent}</div>
-                {aiGeneratedDisclaimer}
+                {footerContent}
                 {attachmentList}
             </>
         );
@@ -310,6 +364,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         actions,
         classes.actions,
         classes.attachments,
+        classes.footer,
         classes.generated,
         classes.innerContent,
         classes.noteContent,
@@ -317,6 +372,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         content,
         contentClassName,
         isUser,
+        isMessageVisibleRef,
         message.filenames,
         message.messageType,
         message.metadata,
@@ -343,18 +399,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             ) : (
                 <>
                     <div className={classes.header}>
-                        <Persona
-                            size="extra-small"
-                            name={participant.name}
-                            avatar={{
-                                name: '',
-                                icon: {
-                                    user: <PersonRegular />,
-                                    assistant: <BotRegular />,
-                                    service: <AppGenericRegular />,
-                                }[participant.role],
-                            }}
-                        />
+                        <Persona size="extra-small" name={participant.name} avatar={getAvatarData(participant)} />
                         {attribution}
                         <div>
                             <Timestamp>{time}</Timestamp>
@@ -367,3 +412,5 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         </div>
     );
 };
+
+export const MemoizedInteractMessage = React.memo(InteractMessage);

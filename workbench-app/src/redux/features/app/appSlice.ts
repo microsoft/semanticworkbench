@@ -4,15 +4,17 @@ import { generateUuid } from '@azure/ms-rest-js';
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 import { Constants } from '../../../Constants';
 import { AppStorage } from '../../../libs/AppStorage';
-import { InteractCanvasState } from '../../../models/InteractCanvasState';
+import { conversationApi } from '../../../services/workbench';
 import { AppState } from './AppState';
 
 const localStorageKey = {
-    devMode: 'devMode',
-    chatWidthPercent: 'chatWidthPercent',
-    completedFirstRunApp: 'completedFirstRun:app',
-    completedFirstRunExperimental: 'completedFirstRun:experimental',
-    completedFirstRunWorkflow: 'completedFirstRun:workflow',
+    devMode: 'app.dev-mode',
+    completedFirstRunApp: 'app.completed-first-run.app',
+    completedFirstRunExperimental: 'app.completed-first-run.experimental',
+    completedFirstRunWorkflow: 'app.completed-first-run.workflow',
+    hideExperimentalNotice: 'app.hide-experimental-notice',
+    chatWidthPercent: 'app.chat-width-percent',
+    globalContentOpen: 'app.global-content-open',
 };
 
 const initialState: AppState = {
@@ -27,10 +29,9 @@ const initialState: AppState = {
             AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunExperimental) ?? false,
         workflow: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunWorkflow) ?? false,
     },
-    interactCanvasState: {
-        open: false,
-        mode: 'conversation',
-    },
+    hideExperimentalNotice:
+        AppStorage.getInstance().loadObject<boolean>(localStorageKey.hideExperimentalNotice) ?? false,
+    globalContentOpen: AppStorage.getInstance().loadObject<boolean>(localStorageKey.globalContentOpen) ?? false,
 };
 
 export const appSlice = createSlice({
@@ -39,12 +40,22 @@ export const appSlice = createSlice({
     reducers: {
         toggleDevMode: (state: AppState) => {
             state.devMode = !state.devMode;
-            localStorage.setItem(localStorageKey.devMode, state.devMode.toString());
+            AppStorage.getInstance().saveObject(localStorageKey.devMode, state.devMode);
         },
         setIsDraggingOverBody: (state: AppState, action: PayloadAction<boolean>) => {
             state.isDraggingOverBody = action.payload;
         },
         addError: (state: AppState, action: PayloadAction<{ title?: string; message?: string }>) => {
+            // exit if matching error already exists
+            if (
+                state.errors?.some(
+                    (error) => error.title === action.payload.title && error.message === action.payload.message,
+                )
+            ) {
+                return;
+            }
+
+            // add error
             state.errors?.push({
                 id: generateUuid(),
                 title: action.payload.title,
@@ -67,9 +78,6 @@ export const appSlice = createSlice({
         ) => {
             if (action.payload.app !== undefined) {
                 AppStorage.getInstance().saveObject(localStorageKey.completedFirstRunApp, action.payload.app);
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.app = action.payload.app;
             }
             if (action.payload.experimental !== undefined) {
@@ -77,22 +85,34 @@ export const appSlice = createSlice({
                     localStorageKey.completedFirstRunExperimental,
                     action.payload.experimental,
                 );
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.experimental = action.payload.experimental;
             }
             if (action.payload.workflow !== undefined) {
                 AppStorage.getInstance().saveObject(localStorageKey.completedFirstRunWorkflow, action.payload.workflow);
-                if (!state.completedFirstRun) {
-                    state.completedFirstRun = {};
-                }
                 state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
-        setInteractCanvasState: (state: AppState, action: PayloadAction<Partial<InteractCanvasState>>) => {
-            // merge with existing state
-            state.interactCanvasState = { ...state.interactCanvasState, ...action.payload };
+        setHideExperimentalNotice: (state: AppState, action: PayloadAction<boolean>) => {
+            AppStorage.getInstance().saveObject(localStorageKey.hideExperimentalNotice, action.payload);
+            state.hideExperimentalNotice = action.payload;
+        },
+        setActiveConversationId: (state: AppState, action: PayloadAction<string | undefined>) => {
+            if (action.payload === state.activeConversationId) {
+                return;
+            }
+            state.activeConversationId = action.payload;
+
+            // dispatch to invalidate messages cache
+            if (action.payload) {
+                conversationApi.endpoints.getConversationMessages.initiate(
+                    { conversationId: action.payload },
+                    { forceRefetch: true },
+                );
+            }
+        },
+        setGlobalContentOpen: (state: AppState, action: PayloadAction<boolean>) => {
+            AppStorage.getInstance().saveObject(localStorageKey.globalContentOpen, action.payload);
+            state.globalContentOpen = action.payload;
         },
     },
 });
@@ -105,7 +125,9 @@ export const {
     clearErrors,
     setChatWidthPercent,
     setCompletedFirstRun,
-    setInteractCanvasState,
+    setHideExperimentalNotice,
+    setActiveConversationId,
+    setGlobalContentOpen,
 } = appSlice.actions;
 
 export default appSlice.reducer;

@@ -69,7 +69,6 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
         return None
 
     allowed_jwt_algorithms = settings.auth.allowed_jwt_algorithms
-    allowed_app_ids = settings.auth.allowed_app_ids
 
     try:
         algorithm: str = jwt.get_unverified_header(token).get("alg") or ""
@@ -102,7 +101,7 @@ async def _user_principal_from_request(request: Request) -> auth.UserPrincipal |
     if algorithm not in allowed_jwt_algorithms:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token algorithm")
 
-    if app_id not in allowed_app_ids:
+    if app_id != settings.auth.allowed_app_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid app")
 
     return auth.UserPrincipal(user_id=user_id, name=name)

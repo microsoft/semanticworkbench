@@ -54,4 +54,4 @@ ENV assistant__port=3001
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
-CMD ["start-semantic-workbench-assistant"]
+CMD ["start-assistant"]

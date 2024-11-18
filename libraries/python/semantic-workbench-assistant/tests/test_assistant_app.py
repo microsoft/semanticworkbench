@@ -67,6 +67,7 @@ async def test_assistant_with_event_handlers(
     assistant_created_calls = 0
     conversation_created_calls = 0
     message_created_calls = 0
+    message_created_all_calls = 0
     message_chat_created_calls = 0
 
     @app.events.assistant.on_created
@@ -87,6 +88,15 @@ async def test_assistant_with_event_handlers(
     ) -> None:
         nonlocal message_created_calls
         message_created_calls += 1
+
+    @app.events.conversation.message.on_created_including_mine
+    def on_message_created_all(
+        conversation_context: ConversationContext,
+        _: workbench_model.ConversationEvent,
+        message: workbench_model.ConversationMessage,
+    ) -> None:
+        nonlocal message_created_all_calls
+        message_created_all_calls += 1
 
     @app.events.conversation.message.chat.on_created
     async def on_chat_message(
@@ -147,12 +157,14 @@ async def test_assistant_with_event_handlers(
                         content="Hello, world",
                         filenames=[],
                         metadata={},
+                        has_debug_data=False,
                     ).model_dump(mode="json")
                 },
             )
         )
 
         assert message_created_calls == 1
+        assert message_created_all_calls == 1
         assert message_chat_created_calls == 1
 
         # send a message of type "notice"
@@ -173,13 +185,46 @@ async def test_assistant_with_event_handlers(
                         content="Hello, world",
                         filenames=[],
                         metadata={},
+                        has_debug_data=False,
                     ).model_dump(mode="json")
                 },
             )
         )
 
         assert message_created_calls == 2
+        assert message_created_all_calls == 2
         assert message_chat_created_calls == 1
+
+        # send a message from this assistant
+        await instance_client.post_conversation_event(
+            event=workbench_model.ConversationEvent(
+                conversation_id=conversation_id,
+                correlation_id="",
+                event=workbench_model.ConversationEventType.message_created,
+                data={
+                    "message": workbench_model.ConversationMessage(
+                        id=message_id,
+                        sender=workbench_model.MessageSender(
+                            participant_role=workbench_model.ParticipantRole.assistant, participant_id=str(assistant_id)
+                        ),
+                        message_type=workbench_model.MessageType.chat,
+                        timestamp=datetime.datetime.now(),
+                        content_type="text/plain",
+                        content="Hello, world",
+                        filenames=[],
+                        metadata={},
+                        has_debug_data=False,
+                    ).model_dump(mode="json")
+                },
+            )
+        )
+
+        # these should remain unchanged
+        assert message_chat_created_calls == 1
+        assert message_created_calls == 2
+
+        # this should have been called
+        assert message_created_all_calls == 3
 
 
 async def test_assistant_with_inspector(
@@ -378,7 +423,7 @@ async def test_assistant_with_config_provider(
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
-            config={"test_key": "test_value", "secret_field": "**********"},
+            config={"test_key": "test_value", "secret_field": len("secret_default") * "*"},
             errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
@@ -391,7 +436,7 @@ async def test_assistant_with_config_provider(
             assistant_model.ConfigPutRequestModel(config={"test_key": "new_value", "secret_field": "new_secret"})
         )
         assert response == assistant_model.ConfigResponseModel(
-            config={"test_key": "new_value", "secret_field": "**********"},
+            config={"test_key": "new_value", "secret_field": len("new_secret") * "*"},
             errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,
@@ -406,7 +451,7 @@ async def test_assistant_with_config_provider(
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
-            config={"test_key": "new_value", "secret_field": "**********"},
+            config={"test_key": "new_value", "secret_field": len("new_secret") * "*"},
             errors=[],
             json_schema=TestConfigModel.model_json_schema(),
             ui_schema=expected_ui_schema,

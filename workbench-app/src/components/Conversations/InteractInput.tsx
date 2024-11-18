@@ -28,16 +28,15 @@ import {
 import React from 'react';
 import { Constants } from '../../Constants';
 import useDragAndDrop from '../../libs/useDragAndDrop';
-import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
+import { useNotify } from '../../libs/useNotify';
 import { AssistantCapability } from '../../models/AssistantCapability';
+import { Conversation } from '../../models/Conversation';
+import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { addError } from '../../redux/features/app/appSlice';
 import {
     updateGetConversationMessagesQueryData,
     useCreateConversationMessageMutation,
-    useGetConversationMessagesQuery,
-    useGetConversationParticipantsQuery,
     useUploadConversationFilesMutation,
 } from '../../services/workbench';
 import { ClearEditorPlugin } from './ChatInputPlugins/ClearEditorPlugin';
@@ -68,7 +67,8 @@ const useClasses = makeStyles({
         width: '100%',
         maxWidth: `${Constants.app.maxContentWidth}px`,
         gap: tokens.spacingVerticalS,
-        ...shorthands.padding(0, tokens.spacingHorizontalXXL, 0, tokens.spacingHorizontalM),
+
+        // ...shorthands.padding(0, tokens.spacingHorizontalXXL, 0, tokens.spacingHorizontalM),
         boxSizing: 'border-box',
     },
     row: {
@@ -106,7 +106,9 @@ const useClasses = makeStyles({
 });
 
 interface InteractInputProps {
-    conversationId: string;
+    conversation: Conversation;
+    messages: ConversationMessage[];
+    participants: ConversationParticipant[];
     additionalContent?: React.ReactNode;
     readOnly: boolean;
     assistantCapabilities: Set<AssistantCapability>;
@@ -133,9 +135,10 @@ class TemporaryTextNode extends TextNode {
 }
 
 export const InteractInput: React.FC<InteractInputProps> = (props) => {
-    const { conversationId, additionalContent, readOnly, assistantCapabilities } = props;
+    const { conversation, messages, participants, additionalContent, readOnly, assistantCapabilities } = props;
     const classes = useClasses();
     const dropTargetRef = React.useRef<HTMLDivElement>(null);
+    const localUserId = useAppSelector((state) => state.localUser.id);
     const isDraggingOverBody = useAppSelector((state) => state.app.isDraggingOverBody);
     const isDraggingOverTarget = useDragAndDrop(dropTargetRef.current, log);
     const [createMessage] = useCreateConversationMessageMutation();
@@ -149,31 +152,8 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
     const [editorIsInitialized, setEditorIsInitialized] = React.useState(false);
     const editorRef = React.useRef<LexicalEditor | null>();
     const attachmentInputRef = React.useRef<HTMLInputElement>(null);
+    const { notifyWarning } = useNotify();
     const dispatch = useAppDispatch();
-    const localUserAccount = useLocalUserAccount();
-    const userId = localUserAccount.getUserId();
-
-    const {
-        data: conversationMessages,
-        isLoading: isConversationMessagesLoading,
-        error: conversationMessagesError,
-    } = useGetConversationMessagesQuery(conversationId);
-
-    const {
-        data: participants,
-        isLoading: isParticipantsLoading,
-        error: participantsError,
-    } = useGetConversationParticipantsQuery(conversationId);
-
-    if (conversationMessagesError) {
-        const errorMessage = JSON.stringify(conversationMessagesError);
-        console.error(`Failed to load conversation messages: ${errorMessage}`);
-    }
-
-    if (participantsError) {
-        const errorMessage = JSON.stringify(participantsError);
-        console.error(`Failed to load conversation participants: ${errorMessage}`);
-    }
 
     const editorRefCallback = React.useCallback((editor: LexicalEditor) => {
         editorRef.current = editor;
@@ -182,27 +162,43 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         setEditorIsInitialized(true);
     }, []);
 
-    // add an attachment to the list of attachments
-    const addAttachment = React.useCallback(
-        (file: File) => {
-            // limit the number of attachments to the maximum allowed
-            if (attachmentFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
-                dispatch(
-                    addError({
-                        title: 'Attachment limit reached',
-                        message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
-                    }),
-                );
-                return;
-            }
-
+    // add a set of attachments to the list of attachments
+    const addAttachments = React.useCallback(
+        (files: Iterable<File>) => {
             setAttachmentFiles((prevFiles) => {
                 const updatedFiles = new Map(prevFiles);
-                updatedFiles.set(file.name, file);
+                const duplicates = new Map<string, number>();
+
+                for (const file of files) {
+                    // limit the number of attachments to the maximum allowed
+                    if (updatedFiles.size >= Constants.app.maxFileAttachmentsPerMessage) {
+                        notifyWarning({
+                            id: 'attachment-limit-reached',
+                            title: 'Attachment limit reached',
+                            message: `Only ${Constants.app.maxFileAttachmentsPerMessage} files can be attached per message`,
+                        });
+                        return updatedFiles;
+                    }
+
+                    if (updatedFiles.has(file.name)) {
+                        duplicates.set(file.name, (duplicates.get(file.name) || 0) + 1);
+                        continue;
+                    }
+
+                    updatedFiles.set(file.name, file);
+                }
+
+                for (const [filename, count] of duplicates.entries()) {
+                    notifyWarning({
+                        id: `duplicate-attachment-${filename}`,
+                        title: `Attachment with duplicate filename`,
+                        message: `Attachment with filename '${filename}' ${count !== 1 ? 'was' : 'were'} ignored`,
+                    });
+                }
                 return updatedFiles;
             });
         },
-        [attachmentFiles, dispatch, setAttachmentFiles],
+        [notifyWarning],
     );
 
     React.useEffect(() => {
@@ -223,31 +219,29 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 if (!clipboardItems) return false;
 
                 for (const item of clipboardItems) {
-                    if (item.kind === 'file') {
-                        const file = item.getAsFile();
-                        if (file) {
-                            // ensure the filename is unique by appending a timestamp before the extension
-                            const timestamp = new Date().getTime();
-                            const filename = `${file.name.replace(/\.[^/.]+$/, '')}_${timestamp}${file.name.match(
-                                /\.[^/.]+$/,
-                            )}`;
+                    if (item.kind !== 'file') continue;
+                    const file = item.getAsFile();
+                    if (!file) continue;
+                    // ensure the filename is unique by appending a timestamp before the extension
+                    const timestamp = new Date().getTime();
+                    const filename = `${file.name.replace(/\.[^/.]+$/, '')}_${timestamp}${file.name.match(
+                        /\.[^/.]+$/,
+                    )}`;
 
-                            // file.name is read-only, so create a new file object with the new name
-                            // make sure to use the same file contents, content type, etc.
-                            const updatedFile =
-                                filename !== file.name ? new File([file], filename, { type: file.type }) : file;
+                    // file.name is read-only, so create a new file object with the new name
+                    // make sure to use the same file contents, content type, etc.
+                    const updatedFile = filename !== file.name ? new File([file], filename, { type: file.type }) : file;
 
-                            // add the file to the list of attachments
-                            addAttachment(updatedFile);
+                    // add the file to the list of attachments
+                    log('calling add attachment from paste', file);
+                    addAttachments([updatedFile]);
 
-                            // Prevent default paste for file items
-                            event.preventDefault();
-                            event.stopPropagation();
+                    // Prevent default paste for file items
+                    event.preventDefault();
+                    event.stopPropagation();
 
-                            // Indicate command was handled
-                            return true;
-                        }
-                    }
+                    // Indicate command was handled
+                    return true;
                 }
 
                 // Allow default handling for non-file paste
@@ -260,13 +254,24 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             // Clean up listeners on unmount
             removePasteListener();
         };
-    }, [editorIsInitialized, addAttachment]);
+    }, [editorIsInitialized, addAttachments]);
 
     const tokenizer = React.useMemo(() => getEncoding('cl100k_base'), []);
 
-    if (isConversationMessagesLoading || isParticipantsLoading) {
-        return null;
-    }
+    const onAttachmentChanged = React.useCallback(() => {
+        if (!attachmentInputRef.current) {
+            return;
+        }
+        addAttachments(attachmentInputRef.current.files ?? []);
+        attachmentInputRef.current.value = '';
+    }, [addAttachments]);
+
+    const handleDrop = React.useCallback(
+        (event: React.DragEvent) => {
+            addAttachments(event.dataTransfer.files);
+        },
+        [addAttachments],
+    );
 
     const handleSend = (_event: ChatInputSubmitEvents, data: EditorInputValueData) => {
         if (data.value.trim() === '' || isSubmitting) {
@@ -274,6 +279,10 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
         }
 
         (async () => {
+            if (!localUserId) {
+                throw new Error('Local user ID is not set');
+            }
+
             setIsSubmitting(true);
             const content = data.value.trim();
             let metadata: Record<string, any> | undefined = directedAtId ? undefined : { directed_at: directedAtId };
@@ -308,12 +317,12 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
             // need to define the extra fields for the message such as sender, timestamp, etc.
             // so that the message can be rendered correctly
             dispatch(
-                updateGetConversationMessagesQueryData(conversationId, [
-                    ...(conversationMessages ?? []),
+                updateGetConversationMessagesQueryData(conversation.id, [
+                    ...(messages ?? []),
                     {
                         id: 'optimistic',
                         sender: {
-                            participantId: userId,
+                            participantId: localUserId,
                             participantRole: 'user',
                         },
                         timestamp: new Date().toISOString(),
@@ -322,6 +331,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                         contentType: 'text/plain',
                         filenames: [],
                         metadata,
+                        hasDebugData: false,
                     },
                 ]),
             );
@@ -338,12 +348,12 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 attachmentInputRef.current.value = '';
             }
             if (files) {
-                await uploadConversationFiles({ conversationId, files });
+                await uploadConversationFiles({ conversationId: conversation.id, files });
             }
 
             // create the message
             await createMessage({
-                conversationId,
+                conversationId: conversation.id,
                 content,
                 messageType,
                 filenames,
@@ -369,20 +379,6 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
 
     const onAttachment = () => {
         attachmentInputRef.current?.click();
-    };
-
-    const onAttachmentChanged = () => {
-        for (let file of attachmentInputRef.current?.files ?? []) {
-            addAttachment(file);
-        }
-    };
-
-    const handleDrop = (event: React.DragEvent) => {
-        log('drop event', event);
-
-        for (let file of event.dataTransfer.files) {
-            addAttachment(file);
-        }
     };
 
     // update the listening state when the speech recognizer starts or stops
@@ -579,7 +575,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                             <ClearEditorPlugin />
                             {participants && (
                                 <ParticipantMentionsPlugin
-                                    participants={participants.filter((participant) => participant.id !== userId)}
+                                    participants={participants.filter((participant) => participant.id !== localUserId)}
                                     parent={document.getElementById('app')}
                                 />
                             )}

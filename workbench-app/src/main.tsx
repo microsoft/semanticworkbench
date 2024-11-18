@@ -6,13 +6,13 @@ import { initializeFileTypeIcons } from '@fluentui/react-file-type-icons';
 import debug from 'debug';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { Provider } from 'react-redux';
+import { Provider as ReduxProvider } from 'react-redux';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { Constants } from './Constants';
 import { Root } from './Root';
 import './index.css';
 import { AuthHelper } from './libs/AuthHelper';
-import { getCustomTheme } from './libs/useCustomTheme';
+import { Theme } from './libs/Theme';
 import { getEnvironment } from './libs/useEnvironment';
 import { store } from './redux/app/store';
 import { AcceptTerms } from './routes/AcceptTerms';
@@ -20,6 +20,7 @@ import { AssistantEditor } from './routes/AssistantEditor';
 import { AssistantServiceRegistrationEditor } from './routes/AssistantServiceRegistrationEditor';
 import { Dashboard } from './routes/Dashboard';
 import { ErrorPage } from './routes/ErrorPage';
+import { FrontDoor } from './routes/FrontDoor';
 import { Interact } from './routes/Interact';
 import { Login } from './routes/Login';
 import { Settings } from './routes/Settings';
@@ -66,6 +67,14 @@ const authenticatedRouter = createBrowserRouter([
         children: [
             {
                 index: true,
+                element: <FrontDoor />,
+            },
+            {
+                path: '/:conversationId?',
+                element: <FrontDoor />,
+            },
+            {
+                path: '/dashboard',
                 element: <Dashboard />,
             },
             {
@@ -131,7 +140,7 @@ export const getMsalInstance = async () => {
     return msalInstance;
 };
 
-const customTheme = getCustomTheme('light', getEnvironment(store.getState().settings.environmentId)?.brand);
+const customTheme = Theme.getCustomTheme('light', getEnvironment(store.getState().settings.environmentId)?.brand);
 
 initializeFileTypeIcons();
 
@@ -143,24 +152,40 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('Could not find root element');
         }
         const root = ReactDOM.createRoot(container);
-        log('starting app');
-        root.render(
-            <React.StrictMode>
-                <Provider store={store}>
-                    <MsalProvider instance={msalInstance}>
-                        <FluentProvider className="app-container" theme={customTheme}>
-                            <CopilotProvider mode="canvas">
-                                <UnauthenticatedTemplate>
-                                    <RouterProvider router={unauthenticatedRouter} />
-                                </UnauthenticatedTemplate>
-                                <AuthenticatedTemplate>
-                                    <RouterProvider router={authenticatedRouter} />
-                                </AuthenticatedTemplate>
-                            </CopilotProvider>
-                        </FluentProvider>
-                    </MsalProvider>
-                </Provider>
-            </React.StrictMode>,
+
+        const app = (
+            <ReduxProvider store={store}>
+                <MsalProvider instance={msalInstance}>
+                    <FluentProvider className="app-container" theme={customTheme}>
+                        <CopilotProvider mode="canvas">
+                            <UnauthenticatedTemplate>
+                                <RouterProvider router={unauthenticatedRouter} />
+                            </UnauthenticatedTemplate>
+                            <AuthenticatedTemplate>
+                                <RouterProvider router={authenticatedRouter} />
+                            </AuthenticatedTemplate>
+                        </CopilotProvider>
+                    </FluentProvider>
+                </MsalProvider>
+            </ReduxProvider>
         );
+
+        // NOTE: React.StrictMode is used to help catch common issues in the app but will also double-render
+        // components.If you want to verify that any double rendering is coming from this, you can disable
+        // React.StrictMode by setting the env var VITE_DISABLE_STRICT_MODE = true. Please note that this
+        // will also disable the double-render check, so only use this for debugging purposes and make sure
+        // to test with React.StrictMode enabled before committing any changes.
+
+        // Can be overridden by env var VITE_DISABLE_STRICT_MODE
+        const disableStrictMode = import.meta.env.VITE_DISABLE_STRICT_MODE === 'true';
+
+        let startLogMessage = 'starting app';
+        if (import.meta.env.DEV) {
+            startLogMessage = `${startLogMessage} in development mode`;
+            startLogMessage = `${startLogMessage} [strict mode: ${disableStrictMode ? 'disabled' : 'enabled'}]`;
+        }
+
+        log(startLogMessage);
+        root.render(disableStrictMode ? app : <React.StrictMode>{app}</React.StrictMode>);
     }
 });

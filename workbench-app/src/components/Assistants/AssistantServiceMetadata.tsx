@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Card, Label, Text, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { Label, Text, makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { AssistantServiceRegistration } from '../../models/AssistantServiceRegistration';
 import { useGetAssistantServiceRegistrationsQuery } from '../../services/workbench';
@@ -9,10 +9,7 @@ const useClasses = makeStyles({
     root: {
         display: 'flex',
         flexDirection: 'column',
-        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
         gap: tokens.spacingVerticalM,
-        borderRadius: tokens.borderRadiusMedium,
-        ...shorthands.padding(tokens.spacingVerticalM),
     },
     data: {
         display: 'flex',
@@ -54,9 +51,9 @@ export const AssistantServiceMetadata: React.FC<AssistantServiceMetadataProps> =
     if (!assistantService) return null;
 
     return (
-        <Card className={classes.root}>
+        <div className={classes.root}>
             <Text size={400} weight="semibold">
-                Assistant Backend
+                Assistant Backend Service
             </Text>
             <div className={classes.data}>
                 <Label weight="semibold">{assistantService.name}</Label>
@@ -69,6 +66,6 @@ export const AssistantServiceMetadata: React.FC<AssistantServiceMetadataProps> =
                     Created by: {assistantService.createdByUserName} [{assistantService.createdByUserId}]
                 </Label>
             </div>
-        </Card>
+        </div>
     );
 };

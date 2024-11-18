@@ -3,14 +3,8 @@
 import { generateUuid } from '@azure/ms-rest-js';
 import {
     Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
-    DialogSurface,
-    DialogTitle,
     DialogTrigger,
     Divider,
     Dropdown,
@@ -29,6 +23,7 @@ import { Constants } from '../../../Constants';
 import { AssistantServiceRegistration } from '../../../models/AssistantServiceRegistration';
 import { AssistantDefinition } from '../../../models/WorkflowDefinition';
 import { useGetAssistantServiceRegistrationsQuery } from '../../../services/workbench';
+import { DialogControl } from '../../App/DialogControl';
 
 const useClasses = makeStyles({
     dialogContent: {
@@ -60,6 +55,7 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
     const classes = useClasses();
     const [name, setName] = React.useState('');
     const [assistantServiceId, setAssistantServiceId] = React.useState('');
+    const [submitted, setSubmitted] = React.useState(false);
 
     const {
         data: assistantServices,
@@ -72,14 +68,23 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
         throw new Error(`Error loading assistant services: ${errorMessage}`);
     }
 
-    const handleSave = async () => {
-        onOpenChange?.(false);
-        onCreate?.({
-            id: generateUuid(),
-            name,
-            assistantServiceId,
-        });
-    };
+    const handleSave = React.useCallback(async () => {
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
+        try {
+            onOpenChange?.(false);
+            onCreate?.({
+                id: generateUuid(),
+                name,
+                assistantServiceId,
+            });
+        } finally {
+            setSubmitted(false);
+        }
+    }, [assistantServiceId, name, onCreate, onOpenChange, submitted]);
 
     const handleOpenChange = React.useCallback(
         (_event: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
@@ -149,8 +154,15 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
     }
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogSurface>
+        <DialogControl
+            open={open}
+            onOpenChange={handleOpenChange}
+            trigger={<Button content="Create Assistant" />}
+            classNames={{
+                dialogContent: classes.dialogContent,
+            }}
+            title="New Instance of Assistant"
+            content={
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
@@ -158,51 +170,44 @@ export const AssistantDefinitionCreate: React.FC<AssistantCreateProps> = (props)
                         return true;
                     }}
                 >
-                    <DialogBody>
-                        <DialogTitle>New Instance of Assistant</DialogTitle>
-                        <DialogContent className={classes.dialogContent}>
-                            <Field label="Name">
-                                <Input
-                                    value={name}
-                                    onChange={(_event, data) => setName(data?.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
-                            <Field label="Assistant Service">
-                                <Dropdown
-                                    placeholder="Select an assistant service"
-                                    onOptionSelect={(_event, data) => {
-                                        if (data.optionValue) {
-                                            setAssistantServiceId(data.optionValue as string);
-                                        }
+                    <Field label="Name">
+                        <Input
+                            value={name}
+                            onChange={(_event, data) => setName(data?.value)}
+                            aria-autocomplete="none"
+                        />
+                    </Field>
+                    <Field label="Assistant Service">
+                        <Dropdown
+                            placeholder="Select an assistant service"
+                            onOptionSelect={(_event, data) => {
+                                if (data.optionValue) {
+                                    setAssistantServiceId(data.optionValue as string);
+                                }
 
-                                        if (data.optionText && name === '') {
-                                            setName(data.optionText);
-                                        }
-                                    }}
-                                >
-                                    {options}
-                                </Dropdown>
-                            </Field>
-                            <button type="submit" hidden disabled={!name || !assistantServiceId} />
-                        </DialogContent>
-                        <DialogActions>
-                            <DialogTrigger disableButtonEnhancement>
-                                <Button appearance="secondary">Cancel</Button>
-                            </DialogTrigger>
-                            <DialogTrigger>
-                                <Button
-                                    appearance="primary"
-                                    onClick={handleSave}
-                                    disabled={!name || !assistantServiceId}
-                                >
-                                    Save
-                                </Button>
-                            </DialogTrigger>
-                        </DialogActions>
-                    </DialogBody>
+                                if (data.optionText && name === '') {
+                                    setName(data.optionText);
+                                }
+                            }}
+                        >
+                            {options}
+                        </Dropdown>
+                    </Field>
+                    <button type="submit" hidden disabled={!name || !assistantServiceId} />
                 </form>
-            </DialogSurface>
-        </Dialog>
+            }
+            closeLabel="Cancel"
+            additionalActions={[
+                <DialogTrigger key="save" disableButtonEnhancement>
+                    <Button
+                        disabled={!name || !assistantServiceId || submitted}
+                        appearance="primary"
+                        onClick={handleSave}
+                    >
+                        {submitted ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogTrigger>,
+            ]}
+        />
     );
 };

@@ -11,21 +11,15 @@ import {
     Tooltip,
 } from '@fluentui/react-components';
 import { ArrowDownloadRegular, Delete16Regular } from '@fluentui/react-icons';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React from 'react';
 import * as StreamSaver from 'streamsaver';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
+import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationFile } from '../../models/ConversationFile';
 import { useDeleteConversationFileMutation } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
 import { ConversationFileIcon } from './ConversationFileIcon';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.tz.guess();
 
 const useClasses = makeStyles({
     cardHeader: {
@@ -52,8 +46,12 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
     const classes = useClasses();
     const workbenchService = useWorkbenchService();
     const [deleteConversationFile] = useDeleteConversationFileMutation();
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const time = dayjs.utc(conversationFile.updated).tz(dayjs.tz.guess()).format('M/D/YYYY h:mm A');
+    const time = React.useMemo(
+        () => Utility.toFormattedDateString(conversationFile.updated, 'M/D/YYYY h:mm A'),
+        [conversationFile.updated],
+    );
 
     const sizeToDisplay = (size: number) => {
         if (size < 1024) {
@@ -65,47 +63,63 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
         }
     };
 
-    const handleDelete = async () => {
-        await deleteConversationFile({ conversationId: conversation.id, filename: conversationFile.name });
-    };
-
-    const handleDownload = async () => {
-        const response: Response = await workbenchService.downloadConversationFileAsync(
-            conversation.id,
-            conversationFile,
-        );
-
-        if (!response.ok || !response.body) {
-            throw new Error('Failed to fetch file');
+    const handleDelete = React.useCallback(async () => {
+        if (submitted) {
+            return;
         }
+        setSubmitted(true);
 
-        // Create a file stream using StreamSaver
-        const fileStream = StreamSaver.createWriteStream(conversationFile.name);
-
-        const readableStream = response.body;
-
-        // Check if the browser supports pipeTo (most modern browsers do)
-        if (readableStream.pipeTo) {
-            await readableStream.pipeTo(fileStream);
-            console.log('Download complete');
-        } else {
-            // Fallback for browsers that don't support pipeTo
-            const reader = readableStream.getReader();
-            const writer = fileStream.getWriter();
-
-            const pump = () =>
-                reader.read().then(({ done, value }) => {
-                    if (done) {
-                        writer.close();
-                        return;
-                    }
-                    writer.write(value).then(pump);
-                });
-
-            await pump();
-            console.log('Download complete');
+        try {
+            await deleteConversationFile({ conversationId: conversation.id, filename: conversationFile.name });
+        } finally {
+            setSubmitted(false);
         }
-    };
+    }, [conversation.id, conversationFile.name, deleteConversationFile, submitted]);
+
+    const handleDownload = React.useCallback(async () => {
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
+        try {
+            const response: Response = await workbenchService.downloadConversationFileAsync(
+                conversation.id,
+                conversationFile,
+            );
+
+            if (!response.ok || !response.body) {
+                throw new Error('Failed to fetch file');
+            }
+
+            // Create a file stream using StreamSaver
+            const fileStream = StreamSaver.createWriteStream(conversationFile.name);
+
+            const readableStream = response.body;
+
+            // Check if the browser supports pipeTo (most modern browsers do)
+            if (readableStream.pipeTo) {
+                await readableStream.pipeTo(fileStream);
+            } else {
+                // Fallback for browsers that don't support pipeTo
+                const reader = readableStream.getReader();
+                const writer = fileStream.getWriter();
+
+                const pump = () =>
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            writer.close();
+                            return;
+                        }
+                        writer.write(value).then(pump);
+                    });
+
+                await pump();
+            }
+        } finally {
+            setSubmitted(false);
+        }
+    }, [conversation.id, conversationFile, workbenchService, submitted]);
 
     return (
         <Card key={conversationFile.name}>
@@ -130,6 +144,7 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
                             description="Download file from conversation"
                             icon={<ArrowDownloadRegular />}
                             onClick={handleDownload}
+                            disabled={submitted}
                         />
                         <CommandButton
                             description="Delete file from conversation"
@@ -144,9 +159,9 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
                                 ),
                                 closeLabel: 'Cancel',
                                 additionalActions: [
-                                    <DialogTrigger key="delete">
-                                        <Button appearance="primary" onClick={handleDelete}>
-                                            Delete
+                                    <DialogTrigger key="delete" disableButtonEnhancement>
+                                        <Button appearance="primary" onClick={handleDelete} disabled={submitted}>
+                                            {submitted ? 'Deleting...' : 'Delete'}
                                         </Button>
                                     </DialogTrigger>,
                                 ],

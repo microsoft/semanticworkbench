@@ -9,15 +9,17 @@ import {
     Image,
     Link,
     MessageBar,
+    MessageBarActions,
     MessageBarBody,
     MessageBarTitle,
     makeStyles,
     shorthands,
     tokens,
 } from '@fluentui/react-components';
+import { DismissRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
-import { setCompletedFirstRun } from '../../redux/features/app/appSlice';
+import { setCompletedFirstRun, setHideExperimentalNotice } from '../../redux/features/app/appSlice';
 
 const useClasses = makeStyles({
     surface: {
@@ -57,9 +59,16 @@ const useClasses = makeStyles({
     },
 });
 
-export const ExperimentalNotice: React.FC = () => {
+interface ExperimentalNoticeProps {
+    className?: string;
+    containerAction?: React.ReactElement;
+    actions?: React.ReactElement | React.ReactElement[];
+}
+
+export const ExperimentalNotice: React.FC<ExperimentalNoticeProps> = (props) => {
+    const { className, containerAction, actions } = props;
     const classes = useClasses();
-    const { completedFirstRun } = useAppSelector((state) => state.app);
+    const { completedFirstRun, hideExperimentalNotice } = useAppSelector((state) => state.app);
     const dispatch = useAppDispatch();
     const [showDialog, setShowDialog] = React.useState(!completedFirstRun?.experimental);
     const [currentIndex, setCurrentIndex] = React.useState(0);
@@ -137,6 +146,18 @@ export const ExperimentalNotice: React.FC = () => {
         },
     ];
 
+    const defaultContainerAction = (
+        <Button
+            appearance="transparent"
+            onClick={() => dispatch(setHideExperimentalNotice(true))}
+            icon={<DismissRegular />}
+        />
+    );
+
+    if (hideExperimentalNotice) {
+        return null;
+    }
+
     return (
         <Dialog
             open={showDialog}
@@ -150,12 +171,15 @@ export const ExperimentalNotice: React.FC = () => {
             }}
         >
             <DialogTrigger>
-                <MessageBar intent="warning" layout="multiline">
+                <MessageBar className={className} intent="warning" layout="multiline">
                     <MessageBarBody>
                         <MessageBarTitle>Experimental App Reminder:</MessageBarTitle>
                         features <em>will</em> break, data <em>will</em> be lost, data <em>is not</em> secure. &nbsp;
                         <Link>[details]</Link>
                     </MessageBarBody>
+                    <MessageBarActions containerAction={containerAction ?? defaultContainerAction}>
+                        {actions}
+                    </MessageBarActions>
                 </MessageBar>
             </DialogTrigger>
             <DialogSurface className={classes.surface}>

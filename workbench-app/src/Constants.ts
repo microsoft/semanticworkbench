@@ -7,6 +7,7 @@ const serviceUrl = (window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL && window.VITE_SE
 export const Constants = {
     app: {
         name: 'Semantic Workbench',
+        conversationRedirectPath: '',
         defaultTheme: 'light',
         defaultBrand: 'local',
         autoScrollThreshold: 100,
@@ -14,13 +15,15 @@ export const Constants = {
         maxInputLength: 2000000, // 2M tokens, effectively unlimited
         minChatWidthPercent: 20,
         defaultChatWidthPercent: 33,
+        maxMessagesPerRequest: 500,
         maxFileAttachmentsPerMessage: 10,
         loaderDelayMs: 100,
         responsiveBreakpoints: {
-            interactCanvas: '900px',
+            chatCanvas: '900px',
         },
         speechIdleTimeoutMs: 4000,
         azureSpeechTokenRefreshIntervalMs: 540000, // 540000 ms = 9 minutes
+        globalToasterId: 'global',
     },
     workflow: {
         maxOutlets: 5,
@@ -44,14 +47,14 @@ export const Constants = {
         ],
     },
     assistantCategories: {
-        Recommended: [''],
+        Recommended: ['explorer-assistant.made-exploration-team', 'guided-conversation-assistant.made-exploration'],
         'Example Implementations': [
             'python-01-echo-bot.workbench-explorer',
             'python-02-simple-chatbot.workbench-explorer',
             'python-03-multimodel-chatbot.workbench-explorer',
             'canonical-assistant.semantic-workbench',
         ],
-        Experimental: [''],
+        Experimental: ['prospector-assistant.made-exploration'],
     },
     msal: {
         method: 'redirect', // 'redirect' | 'popup'

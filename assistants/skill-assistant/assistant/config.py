@@ -86,7 +86,8 @@ class ChatDriverConfig(BaseModel):
     ] = "gpt-4o"
 
 
-# the workbench app builds dynamic forms based on the configuration model and UI schema
+# The workbench app builds dynamic forms based on the configuration model and UI
+# schema.
 class AssistantConfigModel(BaseModel):
     guardrails_prompt: Annotated[
         str,
@@ -128,6 +129,14 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
+
+    metadata_path: Annotated[
+        str,
+        Field(
+            title="Metadata Path",
+            description="The path for assistant metadata.",
+        ),
+    ] = ".data"
 
     # add any additional configuration fields
 

@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import React from 'react';
-import { useWorkbenchService } from '../../libs/useWorkbenchService';
+import { useExportUtility } from '../../libs/useExportUtility';
 import { ContentExport } from '../App/ContentExport';
 
 interface AssistantExportProps {
@@ -12,13 +12,13 @@ interface AssistantExportProps {
 
 export const AssistantExport: React.FC<AssistantExportProps> = (props) => {
     const { assistantId, iconOnly, asToolbarButton } = props;
-    const workbenchService = useWorkbenchService();
+    const { exportAssistantFunction } = useExportUtility();
 
     return (
         <ContentExport
             id={assistantId}
             contentTypeLabel="assistant"
-            exportFunction={workbenchService.exportAssistantAsync}
+            exportFunction={exportAssistantFunction}
             iconOnly={iconOnly}
             asToolbarButton={asToolbarButton}
         />

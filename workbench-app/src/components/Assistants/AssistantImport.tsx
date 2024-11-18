@@ -8,32 +8,36 @@ import { CommandButton } from '../App/CommandButton';
 interface AssistantImportProps {
     disabled?: boolean;
     iconOnly?: boolean;
+    label?: string;
     asToolbarButton?: boolean;
     onImport?: (result: { assistantIds: string[]; conversationIds: string[] }) => void;
     onError?: (error: Error) => void;
 }
 
 export const AssistantImport: React.FC<AssistantImportProps> = (props) => {
-    const { disabled, iconOnly, asToolbarButton, onImport, onError } = props;
+    const { disabled, iconOnly, label, asToolbarButton, onImport, onError } = props;
     const [uploading, setUploading] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const workbenchService = useWorkbenchService();
 
     const onFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files) {
-            setUploading(true);
-            try {
-                const file = event.target.files[0];
-                const result = await workbenchService.importConversationsAsync(file);
-                onImport?.(result);
-            } catch (error) {
-                onError?.(error as Error);
-            }
-            setUploading(false);
+        if (uploading || !event.target.files) {
+            return;
         }
+        setUploading(true);
 
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+        try {
+            const file = event.target.files[0];
+            const result = await workbenchService.importConversationsAsync(file);
+            onImport?.(result);
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        } catch (error) {
+            onError?.(error as Error);
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -50,7 +54,7 @@ export const AssistantImport: React.FC<AssistantImportProps> = (props) => {
                 icon={<ArrowUpload24Regular />}
                 iconOnly={iconOnly}
                 asToolbarButton={asToolbarButton}
-                label="Import"
+                label={label ?? (uploading ? 'Uploading...' : 'Import')}
                 onClick={onUpload}
             />
         </div>

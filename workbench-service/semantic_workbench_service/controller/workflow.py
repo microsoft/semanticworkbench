@@ -661,6 +661,7 @@ class WorkflowController:
             conversation = await self._conversation_controller.get_conversation(
                 conversation_id=uuid.UUID(conversation_id),
                 principal=service_user_principals.workflow,
+                latest_message_types=set(),
             )
         except Exception as e:
             raise exceptions.RuntimeError(
@@ -1607,6 +1608,7 @@ class WorkflowController:
             conversation = await self._conversation_controller.get_conversation(
                 conversation_id=conversation_id,
                 principal=service_user_principals.workflow,
+                latest_message_types=set(),
             )
         except Exception as e:
             raise exceptions.RuntimeError(

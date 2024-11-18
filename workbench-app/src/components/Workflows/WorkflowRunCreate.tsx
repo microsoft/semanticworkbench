@@ -2,14 +2,8 @@
 
 import {
     Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
-    DialogSurface,
-    DialogTitle,
     DialogTrigger,
     Field,
     Input,
@@ -19,6 +13,7 @@ import {
 import React from 'react';
 import { WorkflowRun } from '../../models/WorkflowRun';
 import { useCreateWorkflowRunMutation, useGetWorkflowRunsQuery } from '../../services/workbench';
+import { DialogControl } from '../App/DialogControl';
 
 const useClasses = makeStyles({
     dialogContent: {
@@ -43,20 +38,25 @@ export const WorkflowRunCreate: React.FC<WorkflowRunCreateProps> = (props) => {
     const [title, setTitle] = React.useState('');
     const [submitted, setSubmitted] = React.useState(false);
 
-    const handleSave = async () => {
+    const handleSave = React.useCallback(async () => {
         if (submitted) {
             return;
         }
         setSubmitted(true);
-        const workflowRun = await createWorkflowRun({
-            title,
-            workflowDefinitionId,
-        }).unwrap();
 
-        await refetchWorkflowRuns();
-        onOpenChange?.(false);
-        onCreate?.(workflowRun);
-    };
+        try {
+            const workflowRun = await createWorkflowRun({
+                title,
+                workflowDefinitionId,
+            }).unwrap();
+
+            await refetchWorkflowRuns();
+            onOpenChange?.(false);
+            onCreate?.(workflowRun);
+        } finally {
+            setSubmitted(false);
+        }
+    }, [createWorkflowRun, onCreate, onOpenChange, refetchWorkflowRuns, submitted, title, workflowDefinitionId]);
 
     React.useEffect(() => {
         if (!open) {
@@ -75,40 +75,38 @@ export const WorkflowRunCreate: React.FC<WorkflowRunCreateProps> = (props) => {
     );
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogSurface>
+        <DialogControl
+            open={open}
+            onOpenChange={handleOpenChange}
+            classNames={{
+                dialogContent: classes.dialogContent,
+            }}
+            title="New Run of Workflow"
+            content={
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
                         handleSave();
                     }}
                 >
-                    <DialogBody>
-                        <DialogTitle>New Run of Workflow</DialogTitle>
-                        <DialogContent className={classes.dialogContent}>
-                            <Field label="Title of Run">
-                                <Input
-                                    disabled={submitted}
-                                    value={title}
-                                    onChange={(_event, data) => setTitle(data?.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
-                            <button disabled={submitted} type="submit" hidden />
-                        </DialogContent>
-                        <DialogActions>
-                            <DialogTrigger disableButtonEnhancement>
-                                <Button appearance="secondary">Cancel</Button>
-                            </DialogTrigger>
-                            <DialogTrigger>
-                                <Button disabled={!title || submitted} appearance="primary" onClick={handleSave}>
-                                    {submitted ? 'Saving...' : 'Save'}
-                                </Button>
-                            </DialogTrigger>
-                        </DialogActions>
-                    </DialogBody>
+                    <Field label="Title of Run">
+                        <Input
+                            disabled={submitted}
+                            value={title}
+                            onChange={(_event, data) => setTitle(data?.value)}
+                            aria-autocomplete="none"
+                        />
+                    </Field>
                 </form>
-            </DialogSurface>
-        </Dialog>
+            }
+            closeLabel="Cancel"
+            additionalActions={[
+                <DialogTrigger key="save" disableButtonEnhancement>
+                    <Button disabled={!title || submitted} appearance="primary" onClick={handleSave}>
+                        {submitted ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogTrigger>,
+            ]}
+        />
     );
 };

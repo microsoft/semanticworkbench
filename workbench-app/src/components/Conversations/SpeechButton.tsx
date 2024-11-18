@@ -20,6 +20,7 @@ interface SpeechButtonProps {
 export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
     const { disabled, onListeningChange, onSpeechRecognizing, onSpeechRecognized } = props;
     const [recognizer, setRecognizer] = React.useState<speechSdk.SpeechRecognizer>();
+    const [isInitialized, setIsInitialized] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
     const [lastSpeechResultTimestamp, setLastSpeechResultTimestamp] = React.useState(0);
 
@@ -43,79 +44,88 @@ export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
         return { token, region };
     }, [azureSpeechTokenAcquisitionTimestamp, workbenchService, tokenResult]);
 
+    const getRecognizer = React.useCallback(async () => {
+        // Get the Azure Speech token
+        const { token, region } = await getAzureSpeechTokenAsync();
+        if (!token || !region) {
+            log('No Azure Speech token or region available, disabling speech input');
+            return;
+        }
+
+        // Create the speech recognizer
+        const speechConfig = speechSdk.SpeechConfig.fromAuthorizationToken(token, region);
+        speechConfig.outputFormat = speechSdk.OutputFormat.Detailed;
+        const speechRecognizer = new speechSdk.SpeechRecognizer(speechConfig);
+
+        // Setup the recognizer
+
+        // Triggered when the speech recognizer has started listening
+        speechRecognizer.sessionStarted = (_sender, event) => {
+            log('Session started', event);
+            setIsListening(true);
+            setLastSpeechResultTimestamp(Date.now());
+        };
+
+        // Triggered when the speech recognizer has detected that speech has started
+        speechRecognizer.speechStartDetected = (_sender, event) => {
+            log('Speech started', event);
+            setLastSpeechResultTimestamp(Date.now());
+        };
+
+        // Triggered periodically while the speech recognizer is recognizing speech
+        speechRecognizer.recognizing = (_sender, event) => {
+            log('Speech Recognizing', event);
+
+            const text = event.result.text;
+            if (text.trim() === '') return;
+
+            onSpeechRecognizing?.(text);
+            setLastSpeechResultTimestamp(Date.now());
+        };
+
+        // Triggered when the speech recognizer has recognized speech
+        speechRecognizer.recognized = (_sender, event) => {
+            log('Speech Recognized', event);
+
+            const text = event.result.text;
+            if (text.trim() === '') return;
+
+            onSpeechRecognized(text);
+            setLastSpeechResultTimestamp(Date.now());
+        };
+
+        // Triggered when the speech recognizer has detected that speech has stopped
+        speechRecognizer.speechEndDetected = (_sender, event) => {
+            log('Speech ended', event);
+        };
+
+        // Triggered when the speech recognizer has stopped listening
+        speechRecognizer.sessionStopped = (_sender, event) => {
+            log('Session stopped', event);
+            setIsListening(false);
+        };
+
+        // Triggered when the speech recognizer has canceled
+        speechRecognizer.canceled = (_sender, event) => {
+            log('Speech Canceled', event);
+            setIsListening(false);
+        };
+
+        setRecognizer(speechRecognizer);
+    }, [getAzureSpeechTokenAsync, onSpeechRecognized, onSpeechRecognizing]);
+
     React.useEffect(() => {
-        if (recognizer) return;
+        // If the recognizer is already initialized, return
+        if (isInitialized) return;
+
+        // Set the recognizer as initialized
+        setIsInitialized(true);
 
         (async () => {
-            // Get the Azure Speech token
-            const { token, region } = await getAzureSpeechTokenAsync();
-            if (!token || !region) {
-                log('No Azure Speech token or region available, disabling speech input');
-                return;
-            }
-
-            // Create the speech recognizer
-            const speechConfig = speechSdk.SpeechConfig.fromAuthorizationToken(token, region);
-            speechConfig.outputFormat = speechSdk.OutputFormat.Detailed;
-            const speechRecognizer = new speechSdk.SpeechRecognizer(speechConfig);
-
-            // Setup the recognizer
-
-            // Triggered when the speech recognizer has started listening
-            speechRecognizer.sessionStarted = (_sender, event) => {
-                log('Session started', event);
-                setIsListening(true);
-                setLastSpeechResultTimestamp(Date.now());
-            };
-
-            // Triggered when the speech recognizer has detected that speech has started
-            speechRecognizer.speechStartDetected = (_sender, event) => {
-                log('Speech started', event);
-                setLastSpeechResultTimestamp(Date.now());
-            };
-
-            // Triggered periodically while the speech recognizer is recognizing speech
-            speechRecognizer.recognizing = (_sender, event) => {
-                log('Speech Recognizing', event);
-
-                const text = event.result.text;
-                if (text.trim() === '') return;
-
-                onSpeechRecognizing?.(text);
-                setLastSpeechResultTimestamp(Date.now());
-            };
-
-            // Triggered when the speech recognizer has recognized speech
-            speechRecognizer.recognized = (_sender, event) => {
-                log('Speech Recognized', event);
-
-                const text = event.result.text;
-                if (text.trim() === '') return;
-
-                onSpeechRecognized(text);
-                setLastSpeechResultTimestamp(Date.now());
-            };
-
-            // Triggered when the speech recognizer has detected that speech has stopped
-            speechRecognizer.speechEndDetected = (_sender, event) => {
-                log('Speech ended', event);
-            };
-
-            // Triggered when the speech recognizer has stopped listening
-            speechRecognizer.sessionStopped = (_sender, event) => {
-                log('Session stopped', event);
-                setIsListening(false);
-            };
-
-            // Triggered when the speech recognizer has canceled
-            speechRecognizer.canceled = (_sender, event) => {
-                log('Speech Canceled', event);
-                setIsListening(false);
-            };
-
-            setRecognizer(speechRecognizer);
+            // Fetch the recognizer
+            await getRecognizer();
         })();
-    }, [getAzureSpeechTokenAsync, onSpeechRecognized, onSpeechRecognizing, recognizer, workbenchService]);
+    }, [getRecognizer, isInitialized, recognizer]);
 
     React.useEffect(() => {
         onListeningChange(isListening);

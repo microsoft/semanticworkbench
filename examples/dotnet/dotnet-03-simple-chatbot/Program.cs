@@ -27,7 +27,7 @@ internal static class Program
             .AddLogging()
             .AddCors(opt => opt.AddPolicy(CORSPolicyName, pol => pol.WithMethods("GET", "POST", "PUT", "DELETE")))
             .AddSingleton<IAgentServiceStorage, AgentServiceStorage>() // Agents storage layer for config and chats
-            .AddSingleton<WorkbenchConnector, MyWorkbenchConnector>() // Workbench backend connector
+            .AddSingleton<WorkbenchConnector<MyAgentConfig>, MyWorkbenchConnector>() // Workbench backend connector
             .AddAzureAIContentSafety(appBuilder.Configuration.GetSection("AzureContentSafety")); // Content moderation
 
         // Build
@@ -36,6 +36,7 @@ internal static class Program
 
         // Connect to workbench backend, keep alive, and accept incoming requests
         var connectorEndpoint = app.Configuration.GetSection("Workbench").Get<WorkbenchConfig>()!.ConnectorEndpoint;
+
         if(Environment.GetEnvironmentVariable("services__agent3__http__0") != null)
         {
             connectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__http__0")}/myagents";
@@ -43,6 +44,7 @@ internal static class Program
         Console.WriteLine($"The env var value is {Environment.GetEnvironmentVariable("services__agent3__http__0")}");
         Console.WriteLine($"The connector endpoint is {connectorEndpoint}");
         using var agentService = app.UseAgentWebservice(connectorEndpoint, true);
+
         await agentService.ConnectAsync().ConfigureAwait(false);
 
         // Start app and webservice

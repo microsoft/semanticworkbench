@@ -4,22 +4,26 @@ repo_root = $(shell git rev-parse --show-toplevel)
 
 .PHONY: clean
 clean:
-	$(rm) node_modules || $(true_expression)
+	$(rm_dir) node_modules $(ignore_failure)
 
 .PHONY: install
 install:
 	pnpm install
 
 .PHONY: test
-test:
+test: install
 	pnpm run type-check
 
 .PHONY: format
-format:
+format: install
 	pnpm run format
 
 .PHONY: lint
-lint:
+lint: install
 	pnpm run lint
+
+.PHONY: start
+start:
+	pnpm run start
 
 include $(repo_root)/tools/makefiles/shell.mk

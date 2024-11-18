@@ -3,11 +3,8 @@
 import { Chat24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Conversation } from '../../models/Conversation';
-import {
-    useGetAssistantsQuery,
-    useGetConversationsQuery,
-    useUpdateConversationMutation,
-} from '../../services/workbench';
+import { useAppSelector } from '../../redux/app/hooks';
+import { useGetAssistantsQuery, useGetConversationsQuery } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
 import { MiniControl } from '../App/MiniControl';
 import { MyItemsManager } from '../App/MyItemsManager';
@@ -18,7 +15,6 @@ import { ConversationRemove } from './ConversationRemove';
 import { ConversationRename } from './ConversationRename';
 import { ConversationShare } from './ConversationShare';
 import { ConversationsImport } from './ConversationsImport';
-import { useLocalUserAccount } from '../../libs/useLocalUserAccount';
 
 interface MyConversationsProps {
     conversations?: Conversation[];
@@ -33,8 +29,7 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
     const { refetch: refetchAssistants } = useGetAssistantsQuery();
     const { refetch: refetchConversations } = useGetConversationsQuery();
     const [conversationCreateOpen, setConversationCreateOpen] = React.useState(false);
-    const [updateConversation] = useUpdateConversationMutation();
-    const { getUserId } = useLocalUserAccount();
+    const localUserId = useAppSelector((state) => state.localUser.id);
 
     const handleConversationCreate = async (conversation: Conversation) => {
         await refetchConversations();
@@ -45,15 +40,6 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
         await refetchAssistants();
         await refetchConversations();
     };
-
-    const handleConversationRename = React.useCallback(
-        async (id: string, newTitle: string) => {
-            await updateConversation({ id, title: newTitle });
-        },
-        [updateConversation],
-    );
-
-    const userId = getUserId();
 
     return (
         <MyItemsManager
@@ -69,13 +55,13 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
                         actions={
                             <>
                                 <ConversationRename
-                                    disabled={conversation.ownerId !== userId}
-                                    id={conversation.id}
+                                    disabled={conversation.ownerId !== localUserId}
+                                    conversationId={conversation.id}
                                     value={conversation.title}
-                                    onRename={handleConversationRename}
+                                    iconOnly
                                 />
                                 <ConversationExport conversationId={conversation.id} iconOnly />
-                                <ConversationDuplicate conversation={conversation} iconOnly />
+                                <ConversationDuplicate conversationId={conversation.id} iconOnly />
                                 <ConversationShare conversation={conversation} iconOnly />
                                 <ConversationRemove
                                     conversation={conversation}

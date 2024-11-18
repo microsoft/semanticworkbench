@@ -11,30 +11,74 @@ const log = debug(Constants.debug.root).extend('workbench-event-source');
 
 type EventHandler = (event: EventSourceMessage) => void;
 
+// enum for the type of event source
+export enum WorkbenchEventSourceType {
+    Conversation = 'conversation',
+    User = 'user',
+}
+
 export class WorkbenchEventSource {
-    private currentUrl = '';
+    private currentEndpoint = '';
     private control: AbortController | null = null;
     private eventHandlers: Map<string, EventHandler[]> = new Map();
 
-    private static instance: WorkbenchEventSource;
+    private static conversationInstance: WorkbenchEventSource;
+    private static userInstance: WorkbenchEventSource;
 
     private constructor() {}
 
-    public static async getInstance(): Promise<WorkbenchEventSource> {
-        if (!WorkbenchEventSource.instance) {
-            throw new Error('Event source not created');
+    public static async getInstance(type: WorkbenchEventSourceType): Promise<WorkbenchEventSource> {
+        if (type === WorkbenchEventSourceType.Conversation) {
+            if (!WorkbenchEventSource.conversationInstance) {
+                throw new Error('Conversation event source not created');
+            }
+            return WorkbenchEventSource.conversationInstance;
         }
-        return WorkbenchEventSource.instance;
+
+        if (type === WorkbenchEventSourceType.User) {
+            if (!WorkbenchEventSource.userInstance) {
+                throw new Error('User event source not created');
+            }
+            return WorkbenchEventSource.userInstance;
+        }
+
+        throw new Error('Invalid event source type');
     }
 
-    public static async createOrUpdate(endpoint: string, conversationId: string): Promise<WorkbenchEventSource> {
-        if (!WorkbenchEventSource.instance) {
-            log('creating new event source');
-            WorkbenchEventSource.instance = new WorkbenchEventSource();
+    public static async createOrUpdate(
+        serviceUrl: string,
+        type: WorkbenchEventSourceType,
+        conversationId?: string,
+    ): Promise<WorkbenchEventSource> {
+        if (type === WorkbenchEventSourceType.Conversation) {
+            if (!conversationId) {
+                throw new Error('Conversation ID is required');
+            }
+
+            const endpoint = `${serviceUrl}/conversations/${conversationId}/events`;
+
+            if (!WorkbenchEventSource.conversationInstance) {
+                log('creating new conversation event source');
+                WorkbenchEventSource.conversationInstance = new WorkbenchEventSource();
+            }
+
+            await WorkbenchEventSource.conversationInstance.updateEndpoint(type, endpoint, conversationId);
+            return WorkbenchEventSource.conversationInstance;
         }
 
-        await WorkbenchEventSource.instance.updateEndpoint(endpoint, conversationId);
-        return WorkbenchEventSource.instance;
+        if (type === WorkbenchEventSourceType.User) {
+            const endpoint = `${serviceUrl}/events`;
+
+            if (!WorkbenchEventSource.userInstance) {
+                log('creating new user event source');
+                WorkbenchEventSource.userInstance = new WorkbenchEventSource();
+            }
+
+            await WorkbenchEventSource.userInstance.updateEndpoint(type, endpoint);
+            return WorkbenchEventSource.userInstance;
+        }
+
+        throw new Error('Invalid event source type');
     }
 
     public addEventListener(event: string, handler: EventHandler) {
@@ -114,11 +158,20 @@ export class WorkbenchEventSource {
         return response.idToken;
     }
 
-    private async updateEndpoint(endpoint: string, conversationId: string, force = false) {
-        const url = `${endpoint}/conversations/${conversationId}/events`;
-        if (this.currentUrl === url && !force) return;
-        this.currentUrl = url;
-        log('updateEndpoint; endpoint:', endpoint, 'conversationId:', conversationId);
+    private async updateEndpoint(
+        type: WorkbenchEventSourceType,
+        endpoint: string,
+        conversationId?: string,
+        force = false,
+    ) {
+        if (this.currentEndpoint === endpoint && !force) return;
+        this.currentEndpoint = endpoint;
+
+        log(
+            type === WorkbenchEventSourceType.Conversation
+                ? `update endpoint for conversation: ${endpoint}, conversationId: ${conversationId}`
+                : `update endpoint for user: ${endpoint}`,
+        );
 
         const eventHandlers = this.eventHandlers;
 
@@ -142,7 +195,7 @@ export class WorkbenchEventSource {
 
             // this promise is intentionally not awaited. it runs in the background and is cancelled when
             // the control is aborted or an error occurs.
-            fetchEventSource(url, {
+            fetchEventSource(endpoint, {
                 signal: abortSignal,
                 openWhenHidden: true,
                 headers: {

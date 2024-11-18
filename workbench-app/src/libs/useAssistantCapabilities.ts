@@ -3,11 +3,10 @@ import { Assistant } from '../models/Assistant';
 import { AssistantCapability } from '../models/AssistantCapability';
 import { useWorkbenchService } from './useWorkbenchService';
 
-export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
-    const [assistantCapabilities, setAssistantCapabilities] = React.useState<Set<AssistantCapability> | undefined>();
-    const workbenchService = useWorkbenchService();
+export function useGetAssistantCapabilities(assistants: Assistant[], skipToken: { skip: boolean } = { skip: false }) {
+    const [isFetching, setIsFetching] = React.useState<boolean>(true);
 
-    // Build a memo-ized set of all capabilities to be used as a default for assistants that do not
+    // Build a memoized set of all capabilities to be used as a default for assistants that do not
     // specify capabilities
     const allCapabilities = React.useMemo(
         () =>
@@ -18,35 +17,35 @@ export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
         [],
     );
 
+    const [assistantCapabilities, setAssistantCapabilities] = React.useState<Set<AssistantCapability>>(allCapabilities);
+    const workbenchService = useWorkbenchService();
+
     // Load the capabilities for all assistants and update the state with the result
     React.useEffect(() => {
-        let ignore = false;
+        if (skipToken.skip) {
+            return;
+        }
 
-        loadCapabilities();
+        let active = true;
 
-        return () => {
-            ignore = true;
-        };
-
-        async function loadCapabilities() {
-            if (assistants.length === 0) {
-                if (ignore) {
-                    return;
-                }
-                // only update the state if the capabilities have changed
-                if (!assistantCapabilities || allCapabilities.symmetricDifference(assistantCapabilities).size > 0) {
-                    setAssistantCapabilities(allCapabilities);
-                }
-                return;
+        if (assistants.length === 0) {
+            if (assistantCapabilities.symmetricDifference(allCapabilities).size > 0) {
+                setAssistantCapabilities(allCapabilities);
             }
+            setIsFetching(false);
+            return;
+        }
+
+        (async () => {
+            if (active) {
+                setIsFetching(true);
+            }
+
             // Get the service info for each assistant
-            const serviceInfos = (
-                await Promise.all(
-                    assistants.map(async (assistant) => {
-                        return await workbenchService.getAssistantServiceInfoAsync(assistant.assistantServiceId);
-                    }),
-                )
-            ).filter((info) => info !== undefined);
+            const infosResponse = await workbenchService.getAssistantServiceInfosAsync(
+                assistants.map((assistant) => assistant.assistantServiceId),
+            );
+            const serviceInfos = infosResponse.filter((info) => info !== undefined);
 
             // Combine all capabilities from all assistants into a single set
             const capabilities = serviceInfos.reduce<Set<AssistantCapability>>((acc, info) => {
@@ -67,16 +66,21 @@ export function useGetAssistantCapabilitiesSet(assistants: Assistant[]) {
                 return acc;
             }, new Set<AssistantCapability>());
 
-            if (ignore) {
-                return;
+            if (active) {
+                if (assistantCapabilities.symmetricDifference(capabilities).size > 0) {
+                    setAssistantCapabilities(capabilities);
+                }
+                setIsFetching(false);
             }
+        })();
 
-            // only update the state if the capabilities have changed
-            if (!assistantCapabilities || capabilities.symmetricDifference(assistantCapabilities).size > 0) {
-                setAssistantCapabilities(capabilities);
-            }
-        }
-    }, [allCapabilities, assistantCapabilities, assistants, workbenchService]);
+        return () => {
+            active = false;
+        };
+    }, [allCapabilities, assistants, assistantCapabilities, skipToken.skip, workbenchService]);
 
-    return assistantCapabilities;
+    return {
+        data: assistantCapabilities,
+        isFetching,
+    };
 }

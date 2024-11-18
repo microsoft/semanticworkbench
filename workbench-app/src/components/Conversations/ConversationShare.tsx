@@ -4,7 +4,40 @@ import { Share24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Conversation } from '../../models/Conversation';
 import { CommandButton } from '../App/CommandButton';
+import { DialogControl } from '../App/DialogControl';
 import { ConversationShareList } from './ConversationShareList';
+
+const useConversationShareControls = () => {
+    return {
+        shareConversationForm: React.useCallback(
+            (conversation: Conversation) => (
+                <p>
+                    <ConversationShareList conversation={conversation} />
+                </p>
+            ),
+            [],
+        ),
+    };
+};
+
+interface ConversationShareDialogProps {
+    conversation: Conversation;
+    onClose: () => void;
+}
+
+export const ConversationShareDialog: React.FC<ConversationShareDialogProps> = (props) => {
+    const { conversation, onClose } = props;
+    const { shareConversationForm } = useConversationShareControls();
+
+    return (
+        <DialogControl
+            open={true}
+            onOpenChange={onClose}
+            title="Share conversation"
+            content={shareConversationForm(conversation)}
+        />
+    );
+};
 
 interface ConversationShareProps {
     conversation: Conversation;
@@ -18,17 +51,15 @@ export const ConversationShare: React.FC<ConversationShareProps> = (props) => {
         throw new Error('ConversationId is required');
     }
 
+    const { shareConversationForm } = useConversationShareControls();
+
     const readOnly = conversation.conversationPermission !== 'read_write';
 
     const dialogContent = readOnly
         ? undefined
         : {
               title: 'Manage Shares for Conversation',
-              content: (
-                  <p>
-                      <ConversationShareList conversation={conversation} />
-                  </p>
-              ),
+              content: shareConversationForm(conversation),
           };
 
     return (

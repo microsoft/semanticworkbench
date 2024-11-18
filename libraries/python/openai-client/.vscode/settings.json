@@ -13,10 +13,13 @@
   "python.analysis.autoFormatStrings": true,
   "python.analysis.autoImportCompletions": true,
   "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.fixAll": ["source.unusedImports"],
+  "python.analysis.fixAll": [
+    "source.unusedImports"
+  ],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "basic",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  "python.testing.pytestEnabled": true,
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
@@ -32,5 +35,10 @@
     "**/.venv": true,
     "**/.data": true,
     "**/__pycache__": true
-  }
+  },
+  "cSpell.words": [
+    "openai",
+    "Pydantic",
+    "tiktoken"
+  ]
 }

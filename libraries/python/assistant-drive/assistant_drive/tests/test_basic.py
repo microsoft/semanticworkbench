@@ -180,8 +180,7 @@ def test_read_models(drive) -> None:
     models = list(drive.read_models(TestModel, "summaries"))
     assert len(models) == 2
 
-    assert models[0].name == "test1"
-    assert models[1].name == "test2"
+    assert sorted([models[0].name, models[1].name]) == ["test1", "test2"]
 
 
 def test_read_model_non_existent_file(drive) -> None:

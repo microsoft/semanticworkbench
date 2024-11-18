@@ -1,14 +1,18 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Persona, makeStyles, tokens } from '@fluentui/react-components';
-import { AppGenericRegular, BotRegular, PersonRegular } from '@fluentui/react-icons';
+import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
+import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Assistant } from '../../models/Assistant';
 import { Conversation } from '../../models/Conversation';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { useAddConversationParticipantMutation, useCreateConversationMessageMutation } from '../../services/workbench';
 import { AssistantAdd } from '../Assistants/AssistantAdd';
-import { AssistantRemove } from '../Assistants/AssistantRemove';
+import { AssistantConfigureDialog } from '../Assistants/AssistantConfigure';
+import { AssistantRemoveDialog } from '../Assistants/AssistantRemove';
+import { AssistantRenameDialog } from '../Assistants/AssistantRename';
+import { AssistantServiceInfoDialog } from '../Assistants/AssistantServiceInfo';
+import { ParticipantItem } from './ParticipantItem';
 
 const useClasses = makeStyles({
     root: {
@@ -21,6 +25,11 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+    },
+    actions: {
+        display: 'flex',
+        flexDirection: 'row',
+        gap: tokens.spacingHorizontalS,
     },
 });
 
@@ -35,8 +44,15 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
     const { conversation, participants, preventAssistantModifyOnParticipantIds = [], readOnly } = props;
     const classes = useClasses();
 
+    const { sortParticipants } = useParticipantUtility();
+
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
+
+    const [configureAssistant, setConfigureAssistant] = React.useState<Assistant>();
+    const [renameAssistant, setRenameAssistant] = React.useState<Assistant>();
+    const [serviceInfoAssistant, setServiceInfoAssistant] = React.useState<Assistant>();
+    const [removeAssistant, setRemoveAssistant] = React.useState<Assistant>();
 
     const handleAssistantAdd = async (assistant: Assistant) => {
         // send notice message first, to announce before assistant reacts to create event
@@ -52,49 +68,57 @@ export const ParticipantList: React.FC<ParticipantListProps> = (props) => {
         });
     };
 
+    const actionHelpers = React.useMemo(
+        () => (
+            <>
+                <AssistantConfigureDialog
+                    assistant={configureAssistant}
+                    open={configureAssistant !== undefined}
+                    onOpenChange={() => setConfigureAssistant(undefined)}
+                />
+                <AssistantRenameDialog
+                    assistant={renameAssistant}
+                    conversationId={conversation.id}
+                    open={renameAssistant !== undefined}
+                    onOpenChange={() => setRenameAssistant(undefined)}
+                    onRename={async () => setRenameAssistant(undefined)}
+                />
+                <AssistantServiceInfoDialog
+                    assistant={serviceInfoAssistant}
+                    open={serviceInfoAssistant !== undefined}
+                    onOpenChange={() => setServiceInfoAssistant(undefined)}
+                />
+                <AssistantRemoveDialog
+                    assistant={removeAssistant}
+                    conversationId={conversation.id}
+                    open={removeAssistant !== undefined}
+                    onOpenChange={() => setRemoveAssistant(undefined)}
+                    onRemove={async () => setRemoveAssistant(undefined)}
+                />
+            </>
+        ),
+        [configureAssistant, conversation.id, removeAssistant, renameAssistant, serviceInfoAssistant],
+    );
+
     const exceptAssistantIds = participants
         .filter((participant) => participant.active && participant.role === 'assistant')
         .map((participant) => participant.id);
 
-    const onlineParticipants = participants
-        .filter((participant) => participant.active)
-        .toSorted((a, b) => a.name.localeCompare(b.name));
-
     return (
         <div className={classes.root}>
+            {actionHelpers}
             <AssistantAdd disabled={readOnly} exceptAssistantIds={exceptAssistantIds} onAdd={handleAssistantAdd} />
-            {onlineParticipants.map((participant) => (
-                <div className={classes.participant} key={participant.id}>
-                    <Persona
-                        name={participant.name}
-                        avatar={{
-                            name: '',
-                            icon: {
-                                user: <PersonRegular />,
-                                assistant: <BotRegular />,
-                                service: <AppGenericRegular />,
-                            }[participant.role],
-                        }}
-                        secondaryText={
-                            participant.role +
-                            { read: ' (observer)', read_write: '' }[participant.conversationPermission]
-                        }
-                        presence={
-                            participant.online === undefined
-                                ? undefined
-                                : {
-                                      status: participant.online ? 'available' : 'offline',
-                                  }
-                        }
-                    />
-                    {participant.role === 'assistant' && (
-                        <AssistantRemove
-                            conversation={conversation}
-                            participant={participant}
-                            disabled={readOnly || preventAssistantModifyOnParticipantIds.includes(participant.id)}
-                        />
-                    )}
-                </div>
+            {sortParticipants(participants).map((participant) => (
+                <ParticipantItem
+                    key={participant.id}
+                    conversation={conversation}
+                    participant={participant}
+                    readOnly={readOnly || preventAssistantModifyOnParticipantIds?.includes(participant.id)}
+                    onConfigure={(assistant) => setConfigureAssistant(assistant)}
+                    onRename={(assistant) => setRenameAssistant(assistant)}
+                    onServiceInfo={(assistant) => setServiceInfoAssistant(assistant)}
+                    onRemove={(assistant) => setRemoveAssistant(assistant)}
+                />
             ))}
         </div>
     );

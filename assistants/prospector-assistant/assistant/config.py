@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 import openai_client
 from assistant_extensions.attachments import AttachmentsConfigModel
@@ -8,8 +8,7 @@ from semantic_workbench_assistant.config import UISchema
 
 from . import helpers
 from .agents.artifact_agent import ArtifactAgentConfigModel
-from .agents.guided_conversation.config import GuidedConversationAgentConfigModel
-from .agents.skills_agent import SkillsAgentConfigModel
+from .agents.form_fill_extension import FormFillConfig
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -27,6 +26,8 @@ from .agents.skills_agent import SkillsAgentConfigModel
 
 
 class AgentsConfigModel(BaseModel):
+    form_fill_agent: Annotated[FormFillConfig, Field(title="Form Fill Agent Configuration")] = FormFillConfig()
+
     artifact_agent: Annotated[
         ArtifactAgentConfigModel,
         Field(
@@ -42,22 +43,6 @@ class AgentsConfigModel(BaseModel):
             description="Configuration for the attachment agent.",
         ),
     ] = AttachmentsConfigModel()
-
-    guided_conversation_agent: Annotated[
-        GuidedConversationAgentConfigModel,
-        Field(
-            title="Guided Conversation Agent Configuration",
-            description="Configuration for the guided conversation agent.",
-        ),
-    ] = GuidedConversationAgentConfigModel()
-
-    skills_agent: Annotated[
-        SkillsAgentConfigModel,
-        Field(
-            title="Skills Agent Configuration",
-            description="Configuration for the skills agent.",
-        ),
-    ] = SkillsAgentConfigModel()
 
 
 class HighTokenUsageWarning(BaseModel):
@@ -132,6 +117,14 @@ class RequestConfig(BaseModel):
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
+    guided_workflow: Annotated[
+        Literal["Form Completion", "Document Creation"],
+        Field(
+            title="Guided Workflow",
+            description="The workflow extension to guide this conversation.",
+        ),
+    ] = "Form Completion"
+
     enable_debug_output: Annotated[
         bool,
         Field(
@@ -186,10 +179,8 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = (
-        'Hello! I am a "co-intelligence" assistant that can help you synthesize information from conversations and'
-        " documents to create a shared understanding of complex topics. Let's get started by having a conversation!"
-        " You can also attach .docx, text, and image files to your chat messages to help me better understand the"
-        " context of our conversation. Where would you like to start?"
+        'Hello! I am a "form-filling" assistant that can help you fill out forms.'
+        " Upload a .docx with a form, and we'll get started!"
     )
 
     high_token_usage_warning: Annotated[

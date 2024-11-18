@@ -35,7 +35,7 @@ def create_test_user(monkeypatch: pytest.MonkeyPatch) -> MockUser:
 
     # monkeypatch the allowed_jwt_algorithms and app_ids for tests
     monkeypatch.setattr(settings.auth, "allowed_jwt_algorithms", {test_user.token_algo})
-    monkeypatch.setattr(settings.auth, "allowed_app_ids", {test_user.app_id})
+    monkeypatch.setattr(settings.auth, "allowed_app_id", test_user.app_id)
 
     return test_user
 

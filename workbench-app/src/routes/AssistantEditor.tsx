@@ -1,27 +1,25 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { useAccount } from '@azure/msal-react';
-import { Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { Card, Title3, Toolbar, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
+import { AssistantConfiguration } from '../components/Assistants/AssistantConfiguration';
 import { AssistantDelete } from '../components/Assistants/AssistantDelete';
 import { AssistantDuplicate } from '../components/Assistants/AssistantDuplicate';
-import { AssistantEdit } from '../components/Assistants/AssistantEdit';
 import { AssistantExport } from '../components/Assistants/AssistantExport';
 import { AssistantRename } from '../components/Assistants/AssistantRename';
 import { AssistantServiceMetadata } from '../components/Assistants/AssistantServiceMetadata';
 import { MyConversations } from '../components/Conversations/MyConversations';
 import { useSiteUtility } from '../libs/useSiteUtility';
-import { Assistant } from '../models/Assistant';
 import { Conversation } from '../models/Conversation';
+import { useAppSelector } from '../redux/app/hooks';
 import {
     useAddConversationParticipantMutation,
     useCreateConversationMessageMutation,
     useGetAssistantConversationsQuery,
     useGetAssistantQuery,
-    useUpdateAssistantMutation,
 } from '../services/workbench';
 
 const useClasses = makeStyles({
@@ -50,6 +48,9 @@ const useClasses = makeStyles({
         backgroundColor: tokens.colorNeutralBackgroundAlpha,
         borderRadius: tokens.borderRadiusMedium,
     },
+    card: {
+        backgroundImage: `linear-gradient(to right, ${tokens.colorNeutralBackground1}, ${tokens.colorBrandBackground2})`,
+    },
 });
 
 export const AssistantEditor: React.FC = () => {
@@ -65,10 +66,9 @@ export const AssistantEditor: React.FC = () => {
         isLoading: isLoadingAssistantConversations,
     } = useGetAssistantConversationsQuery(assistantId);
     const { data: assistant, error: assistantError, isLoading: isLoadingAssistant } = useGetAssistantQuery(assistantId);
-    const [updateAssistant] = useUpdateAssistantMutation();
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
-    const account = useAccount();
+    const localUserName = useAppSelector((state) => state.localUser.name);
     const siteUtility = useSiteUtility();
     const navigate = useNavigate();
 
@@ -90,16 +90,6 @@ export const AssistantEditor: React.FC = () => {
         siteUtility.setDocumentTitle(`Edit ${assistant.name}`);
     }, [assistantId, assistant, isLoadingAssistant, siteUtility]);
 
-    const handleRename = React.useCallback(
-        async (newName: string) => {
-            if (!assistant) {
-                throw new Error('Assistant is not set, unable to update name');
-            }
-            await updateAssistant({ ...assistant, name: newName } as Assistant);
-        },
-        [assistant, updateAssistant],
-    );
-
     const handleDelete = React.useCallback(() => {
         // navigate to site root
         siteUtility.forceNavigateTo('/');
@@ -111,14 +101,11 @@ export const AssistantEditor: React.FC = () => {
 
     const handleConversationCreate = async (conversation: Conversation) => {
         // send event to notify the conversation that the user has joined
-        const accountName = account?.name;
-        if (accountName) {
-            await createConversationMessage({
-                conversationId: conversation.id,
-                content: `${accountName} created the conversation`,
-                messageType: 'notice',
-            });
-        }
+        await createConversationMessage({
+            conversationId: conversation.id,
+            content: `${localUserName ?? 'Unknown user'} created the conversation`,
+            messageType: 'notice',
+        });
 
         // send notice message first, to announce before assistant reacts to create event
         await createConversationMessage({
@@ -146,14 +133,16 @@ export const AssistantEditor: React.FC = () => {
         <AppView
             title={
                 <div className={classes.title}>
-                    <AssistantRename value={assistant.name} onRename={handleRename} />
+                    <AssistantRename iconOnly assistant={assistant} />
                     <Title3>{assistant.name}</Title3>
                 </div>
             }
         >
             <div className={classes.root}>
                 <div className={classes.content}>
-                    <AssistantServiceMetadata assistantServiceId={assistant.assistantServiceId} />
+                    <Card className={classes.card}>
+                        <AssistantServiceMetadata assistantServiceId={assistant.assistantServiceId} />
+                    </Card>
                     <MyConversations
                         title="Conversations"
                         conversations={assistantConversations}
@@ -161,7 +150,9 @@ export const AssistantEditor: React.FC = () => {
                         hideInstruction
                         onCreate={handleConversationCreate}
                     />
-                    <AssistantEdit assistant={assistant} />
+                    <Card className={classes.card}>
+                        <AssistantConfiguration assistant={assistant} />
+                    </Card>
                 </div>
                 <Toolbar className={classes.toolbar}>
                     <AssistantDelete asToolbarButton assistant={assistant} onDelete={handleDelete} />

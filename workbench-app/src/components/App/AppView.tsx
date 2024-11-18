@@ -8,6 +8,10 @@ import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 
 const useClasses = makeStyles({
+    documentBody: {
+        // backgroundImage: `url('/assets/background-1.jpg')`,
+        backgroundImage: `linear-gradient(to right, #FFFFFF, #E6EEFF)`,
+    },
     root: {
         display: 'grid',
         gridTemplateRows: 'auto 1fr auto',
@@ -45,8 +49,15 @@ interface AppViewProps {
 export const AppView: React.FC<AppViewProps> = (props) => {
     const { title, actions, fullSizeContent, children } = props;
     const classes = useClasses();
-    const { completedFirstRun } = useAppSelector((state) => state.app);
+    const completedFirstRun = useAppSelector((state) => state.app.completedFirstRun);
     const navigate = useNavigate();
+
+    React.useLayoutEffect(() => {
+        document.body.className = classes.documentBody;
+        return () => {
+            document.body.className = '';
+        };
+    }, [classes.documentBody]);
 
     React.useEffect(() => {
         if (!completedFirstRun?.app && window.location.pathname !== '/terms') {

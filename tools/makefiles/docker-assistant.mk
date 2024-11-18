@@ -1,5 +1,5 @@
 repo_root = $(shell git rev-parse --show-toplevel)
-this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
+mkfile_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
 
 # the directory containing the assistant's Makefile is expected to be
 # the directory of the assistant
@@ -16,10 +16,15 @@ DOCKER_IMAGE_NAME = $(ASSISTANT_IMAGE_NAME)
 
 AZURE_WEBSITE_NAME ?= $(ASSISTANT_PACKAGE)-service
 
-include $(this_dir)/docker.mk
+include $(mkfile_dir)/docker.mk
 
 
 ASSISTANT__WORKBENCH_SERVICE_URL ?= http://host.docker.internal:3000
 
 docker-run-local: docker-build
 	docker run --rm -it --add-host=host.docker.internal:host-gateway --env assistant__workbench_service_url=$(ASSISTANT__WORKBENCH_SERVICE_URL) $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)
+
+
+.PHONY: start
+start:
+	uv run start-assistant

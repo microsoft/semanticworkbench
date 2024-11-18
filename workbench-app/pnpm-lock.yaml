@@ -12,46 +12,46 @@ importers:
         specifier: ^2.7.0
         version: 2.7.0
       '@azure/msal-browser':
-        specifier: ^3.6.0
+        specifier: ^3.24.0
         version: 3.24.0
       '@azure/msal-react':
-        specifier: ^2.0.8
+        specifier: ^2.1.0
         version: 2.1.0(@azure/msal-browser@3.24.0)(react@18.3.1)
       '@fluentui-copilot/react-attachments':
         specifier: ^0.10.1
         version: 0.10.1(@fluentui/keyboard-keys@9.0.7)(@fluentui/react-components@9.54.17(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2))(@fluentui/react-context-selector@9.1.67(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2))(@fluentui/react-icons@2.0.259(react@18.3.1))(@fluentui/react-jsx-runtime@9.0.44(@types/react@18.3.10)(react@18.3.1))(@fluentui/react-shared-contexts@9.20.1(@types/react@18.3.10)(react@18.3.1))(@fluentui/react-utilities@9.18.15(@types/react@18.3.10)(react@18.3.1))(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@fluentui-copilot/react-copilot':
-        specifier: ^0.19.3
+        specifier: ^0.19.4
         version: 0.19.4(r3na3f35fnjdmwh2ajqtyfujne)
       '@fluentui/keyboard-keys':
-        specifier: '>=9.0.4 <10.0.0'
+        specifier: ^9.0.7
         version: 9.0.7
       '@fluentui/react-components':
-        specifier: '>=9.37.3 <10.0.0'
+        specifier: ^9.54.17
         version: 9.54.17(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
       '@fluentui/react-context-selector':
-        specifier: '>=9.1.34 <10.0.0'
+        specifier: ^9.1.67
         version: 9.1.67(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
       '@fluentui/react-file-type-icons':
-        specifier: ^8.11.21
+        specifier: ^8.12.0
         version: 8.12.0(@types/react@18.3.10)(react@18.3.1)
       '@fluentui/react-icons':
-        specifier: '>=2.0.217 <3.0.0'
+        specifier: ^2.0.259
         version: 2.0.259(react@18.3.1)
       '@fluentui/react-jsx-runtime':
-        specifier: '>=9.0.18 <10.0.0'
+        specifier: ^9.0.44
         version: 9.0.44(@types/react@18.3.10)(react@18.3.1)
       '@fluentui/react-motions-preview':
-        specifier: ^0.2.0
+        specifier: ^0.2.8
         version: 0.2.8(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@fluentui/react-shared-contexts':
-        specifier: '>=9.11.1 <10.0.0'
+        specifier: ^9.20.1
         version: 9.20.1(@types/react@18.3.10)(react@18.3.1)
       '@fluentui/react-tabster':
-        specifier: '>=9.14.3 <10.0.0'
+        specifier: ^9.22.7
         version: 9.22.7(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@fluentui/react-utilities':
-        specifier: '>=9.15.1 <10.0.0'
+        specifier: ^9.18.15
         version: 9.18.15(@types/react@18.3.10)(react@18.3.1)
       '@git-diff-view/file':
         specifier: ^0.0.16
@@ -69,28 +69,28 @@ importers:
         specifier: ^3.0.7
         version: 3.0.7(@azure/msal-browser@3.24.0)
       '@reduxjs/toolkit':
-        specifier: ^1.8.1
+        specifier: ^1.9.7
         version: 1.9.7(react-redux@8.1.3(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@4.2.1))(react@18.3.1)
       '@rjsf/core':
         specifier: ^5.21.1
         version: 5.21.1(@rjsf/utils@5.21.1(react@18.3.1))(react@18.3.1)
       '@rjsf/fluentui-rc':
-        specifier: ^5.16.1
+        specifier: ^5.21.1
         version: 5.21.1(@fluentui/react-northstar@0.66.5(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2))(@rjsf/utils@5.21.1(react@18.3.1))(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
       '@rjsf/utils':
-        specifier: ^5.15.1
+        specifier: ^5.21.1
         version: 5.21.1(react@18.3.1)
       '@rjsf/validator-ajv8':
-        specifier: ^5.15.1
+        specifier: ^5.21.1
         version: 5.21.1(@rjsf/utils@5.21.1(react@18.3.1))
       abcjs:
-        specifier: ^6.3.0
+        specifier: ^6.4.3
         version: 6.4.3
       dayjs:
-        specifier: ^1.11.10
+        specifier: ^1.11.13
         version: 1.11.13
       debug:
-        specifier: ^4.3.4
+        specifier: ^4.3.7
         version: 4.3.7
       deep-object-diff:
         specifier: ^1.1.9
@@ -102,7 +102,7 @@ importers:
         specifier: ^7.0.0
         version: 7.0.0
       js-tiktoken:
-        specifier: ^1.0.12
+        specifier: ^1.0.14
         version: 1.0.14
       js-yaml:
         specifier: ^4.1.0
@@ -111,16 +111,16 @@ importers:
         specifier: ^0.17.1
         version: 0.17.1
       mermaid:
-        specifier: ^10.9.0
-        version: 10.9.1
+        specifier: ^10.9.3
+        version: 10.9.3
       microsoft-cognitiveservices-speech-sdk:
-        specifier: ^1.38.0
+        specifier: ^1.40.0
         version: 1.40.0
       react:
-        specifier: ^18.2.0
+        specifier: ^18.3.1
         version: 18.3.1
       react-dom:
-        specifier: ^18.2.0
+        specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
       react-json-tree:
         specifier: ^0.19.0
@@ -129,22 +129,22 @@ importers:
         specifier: ^9.0.1
         version: 9.0.1(@types/react@18.3.10)(react@18.3.1)
       react-redux:
-        specifier: ^8.0.1
+        specifier: ^8.1.3
         version: 8.1.3(@types/react-dom@18.3.0)(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(redux@4.2.1)
       react-router-dom:
-        specifier: ^6.20.1
+        specifier: ^6.26.2
         version: 6.26.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-syntax-highlighter:
         specifier: ^15.5.0
         version: 15.5.0(react@18.3.1)
       react-virtualized-auto-sizer:
-        specifier: ^1.0.20
+        specifier: ^1.0.24
         version: 1.0.24(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-virtuoso:
-        specifier: ^4.6.2
+        specifier: ^4.10.4
         version: 4.10.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       reactflow:
-        specifier: ^11.10.3
+        specifier: ^11.11.4
         version: 11.11.4(@types/react@18.3.10)(immer@9.0.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       rehype-raw:
         specifier: ^7.0.0
@@ -169,16 +169,16 @@ importers:
         specifier: ^4.0.9
         version: 4.0.9
       '@types/node':
-        specifier: ^20.10.3
+        specifier: ^20.16.10
         version: 20.16.10
       '@types/react':
-        specifier: ^18.0.15
+        specifier: ^18.3.10
         version: 18.3.10
       '@types/react-dom':
-        specifier: ^18.0.6
+        specifier: ^18.3.0
         version: 18.3.0
       '@types/react-syntax-highlighter':
-        specifier: ^15.5.11
+        specifier: ^15.5.13
         version: 15.5.13
       '@types/streamsaver':
         specifier: ^2.0.5
@@ -187,46 +187,46 @@ importers:
         specifier: ^5.62.0
         version: 5.62.0(eslint@8.57.1)(typescript@5.6.2)
       '@vitejs/plugin-react':
-        specifier: ^4.0.0
+        specifier: ^4.3.2
         version: 4.3.2(vite@4.5.5(@types/node@20.16.10))
       depcheck:
         specifier: ^1.4.7
         version: 1.4.7
       eslint:
-        specifier: ^8.0.0
+        specifier: ^8.57.1
         version: 8.57.1
       eslint-config-react-app:
         specifier: ^7.0.1
         version: 7.0.1(@babel/plugin-syntax-flow@7.24.7(@babel/core@7.25.2))(@babel/plugin-transform-react-jsx@7.25.2(@babel/core@7.25.2))(eslint@8.57.1)(typescript@5.6.2)
       eslint-plugin-import:
-        specifier: ^2.29.0
+        specifier: ^2.30.0
         version: 2.30.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.6.2))(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: ^4.2.1
         version: 4.2.1(eslint@8.57.1)(prettier@2.8.8)
       eslint-plugin-react:
-        specifier: ^7.33.2
+        specifier: ^7.37.1
         version: 7.37.1(eslint@8.57.1)
       eslint-plugin-react-hooks:
-        specifier: ^4.6.0
+        specifier: ^4.6.2
         version: 4.6.2(eslint@8.57.1)
       eslint-plugin-react-security:
         specifier: ^0.1.0
         version: 0.1.0
       prettier:
-        specifier: ^2.7.1
+        specifier: ^2.8.8
         version: 2.8.8
       ts-prune:
         specifier: ^0.10.3
         version: 0.10.3
       typescript:
-        specifier: ^5.0.2
+        specifier: ^5.6.2
         version: 5.6.2
       vite:
-        specifier: ^4.0.0
+        specifier: ^4.5.5
         version: 4.5.5(@types/node@20.16.10)
       vite-plugin-mkcert:
-        specifier: ^1.17.1
+        specifier: ^1.17.6
         version: 1.17.6(vite@4.5.5(@types/node@20.16.10))
 
 packages:
@@ -968,6 +968,10 @@ packages:
 
   '@babel/runtime@7.25.6':
     resolution: {integrity: sha512-VBj9MYyDb9tuLq7yzqjgzt6Q+IBQLrGZfdjOekyEirZPHxXWoTSGUTMrpsfi58Up73d13NfYLv8HT9vmznjzhQ==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@7.26.0':
+    resolution: {integrity: sha512-FDSOghenHTiToteC/QRlv2q3DhPZ/oOXTBoirfWNx1Cx3TMVcGWQtMMmQcSvb/JjpNeGzx8Pq/b4fKEJuWm1sw==}
     engines: {node: '>=6.9.0'}
 
   '@babel/template@7.25.0':
@@ -3324,8 +3328,8 @@ packages:
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
 
-  dompurify@3.1.7:
-    resolution: {integrity: sha512-VaTstWtsneJY8xzy7DekmYWEOZcmzIe3Qb3zPd4STve1OBTa+e+WmS1ITQec1fZYXI3HCsOZZiSMpG6oxoWMWQ==}
+  dompurify@3.1.6:
+    resolution: {integrity: sha512-cTOAhc36AalkjtBpfG6O8JimdTMWNXjiePT2xQH/ppBGi/4uIpmj8eKyIkMJErXWARyINV/sB38yf8JCLF5pbQ==}
 
   downshift@5.0.5:
     resolution: {integrity: sha512-V1idov3Rkvz1YWA1K67aIx51EgokIDvep4x6KmU7HhsayI8DvTEZBeH4O92zeFVGximKujRO7ChBzBAf4PKWFA==}
@@ -3529,6 +3533,7 @@ packages:
   eslint@8.57.1:
     resolution: {integrity: sha512-ypowyDxpVSYpkXr9WPv2PAZCtNip1Mv5KTW0SCurXv/9iOpcrH9PaqUElksqEB6pChqHGDRCFTyrZlGhnLNGiA==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
 
   espree@9.6.1:
@@ -4273,8 +4278,8 @@ packages:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
     engines: {node: '>= 8'}
 
-  mermaid@10.9.1:
-    resolution: {integrity: sha512-Mx45Obds5W1UkW1nv/7dHRsbfMM1aOKA2+Pxs/IGHNonygDHwmng8xTHyS9z4KWVi0rbko8gjiBmuwwXQ7tiNA==}
+  mermaid@10.9.3:
+    resolution: {integrity: sha512-V80X1isSEvAewIL3xhmz/rVmc27CVljcsbWxkxlWJWY/1kQa4XOABqpDl2qQLGKzpKm6WbTfUEKImBlUfFYArw==}
 
   micromark-core-commonmark@1.1.0:
     resolution: {integrity: sha512-BgHO1aRbolh2hcrzL2d1La37V0Aoz73ymF8rAcKnohLy93titmv62E0gP8Hrx9PKcKrqCZ1BbLGbP3bEhoXYlw==}
@@ -6325,6 +6330,10 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
+  '@babel/runtime@7.26.0':
+    dependencies:
+      regenerator-runtime: 0.14.1
+
   '@babel/template@7.25.0':
     dependencies:
       '@babel/code-frame': 7.24.7
@@ -6927,7 +6936,7 @@ snapshots:
 
   '@fluentui/accessibility@0.66.5':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       lodash: 4.17.21
 
   '@fluentui/dom-utilities@1.1.2':
@@ -7042,7 +7051,7 @@ snapshots:
 
   '@fluentui/react-bindings@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       '@fluentui/accessibility': 0.66.5
       '@fluentui/dom-utilities': 1.1.2
       '@fluentui/react-component-event-listener': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -7153,20 +7162,20 @@ snapshots:
 
   '@fluentui/react-component-event-listener@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
   '@fluentui/react-component-nesting-registry@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       prop-types: 15.8.1
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
   '@fluentui/react-component-ref@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       react-is: 17.0.2
@@ -7328,7 +7337,7 @@ snapshots:
 
   '@fluentui/react-icons-northstar@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       '@fluentui/accessibility': 0.66.5
       '@fluentui/react-bindings': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
       '@fluentui/styles': 0.66.5
@@ -7537,7 +7546,7 @@ snapshots:
 
   '@fluentui/react-northstar-fela-renderer@0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       '@fluentui/react-northstar-styles-renderer': 0.66.5(react@18.3.1)
       '@fluentui/styles': 0.66.5
       css-in-js-utils: 3.1.0
@@ -7557,13 +7566,13 @@ snapshots:
 
   '@fluentui/react-northstar-styles-renderer@0.66.5(react@18.3.1)':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       '@fluentui/styles': 0.66.5
       react: 18.3.1
 
   '@fluentui/react-northstar@0.66.5(@types/react@18.3.10)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       '@fluentui/accessibility': 0.66.5
       '@fluentui/dom-utilities': 1.1.2
       '@fluentui/react-bindings': 0.66.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(scheduler@0.23.2)
@@ -7695,7 +7704,7 @@ snapshots:
 
   '@fluentui/react-proptypes@0.66.5':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       lodash: 4.17.21
       prop-types: 15.8.1
 
@@ -8159,7 +8168,7 @@ snapshots:
 
   '@fluentui/state@0.66.5':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
 
   '@fluentui/style-utilities@8.11.0(@types/react@18.3.10)(react@18.3.1)':
     dependencies:
@@ -8175,7 +8184,7 @@ snapshots:
 
   '@fluentui/styles@0.66.5':
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       csstype: 3.1.3
       lodash: 4.17.21
 
@@ -9196,7 +9205,7 @@ snapshots:
 
   babel-plugin-macros@3.1.0:
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       cosmiconfig: 7.1.0
       resolve: 1.22.8
 
@@ -9748,14 +9757,14 @@ snapshots:
 
   dom-helpers@5.2.1:
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       csstype: 3.1.3
 
-  dompurify@3.1.7: {}
+  dompurify@3.1.6: {}
 
   downshift@5.0.5(react@18.3.1):
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       compute-scroll-into-view: 1.0.11
       prop-types: 15.8.1
       react: 18.3.1
@@ -11014,7 +11023,7 @@ snapshots:
 
   merge2@1.4.1: {}
 
-  mermaid@10.9.1:
+  mermaid@10.9.3:
     dependencies:
       '@braintree/sanitize-url': 6.0.4
       '@types/d3-scale': 4.0.8
@@ -11025,7 +11034,7 @@ snapshots:
       d3-sankey: 0.12.3
       dagre-d3-es: 7.0.10
       dayjs: 1.11.13
-      dompurify: 3.1.7
+      dompurify: 3.1.6
       elkjs: 0.9.3
       katex: 0.16.11
       khroma: 2.1.0
@@ -11600,7 +11609,7 @@ snapshots:
 
   react-error-boundary@3.1.4(react@18.3.1):
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       react: 18.3.1
 
   react-is@16.13.1: {}
@@ -11673,7 +11682,7 @@ snapshots:
 
   react-transition-group@4.4.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
@@ -11727,7 +11736,7 @@ snapshots:
 
   redux@4.2.1:
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
 
   reflect.getprototypeof@1.0.6:
     dependencies:
@@ -11755,7 +11764,7 @@ snapshots:
 
   regenerator-transform@0.15.2:
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
 
   regexp.prototype.flags@1.5.2:
     dependencies:
@@ -11862,7 +11871,7 @@ snapshots:
 
   rtl-css-js@1.16.1:
     dependencies:
-      '@babel/runtime': 7.25.6
+      '@babel/runtime': 7.26.0
 
   run-parallel@1.2.0:
     dependencies:

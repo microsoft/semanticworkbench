@@ -17,21 +17,31 @@ interface MessageDeleteProps {
 export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
     const { conversationId, message, onDelete, disabled } = props;
     const [deleteMessage] = useDeleteConversationMessageMutation();
+    const [submitted, setSubmitted] = React.useState(false);
 
     const handleDelete = React.useCallback(async () => {
-        await deleteMessage({ conversationId, messageId: message.id });
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
 
-        onDelete?.(message);
-    }, [conversationId, deleteMessage, message, onDelete]);
+        try {
+            await deleteMessage({ conversationId, messageId: message.id });
+
+            onDelete?.(message);
+        } finally {
+            setSubmitted(false);
+        }
+    }, [conversationId, deleteMessage, message, onDelete, submitted]);
 
     return (
         <CommandButton
-            trigger={<Button appearance="subtle" icon={<Delete16Regular />} size="small" />}
             description="Delete message"
             icon={<Delete24Regular />}
             iconOnly={true}
             disabled={disabled}
             dialogContent={{
+                trigger: <Button appearance="subtle" icon={<Delete16Regular />} size="small" />,
                 title: 'Delete Message',
                 content: (
                     <>
@@ -49,9 +59,9 @@ export const MessageDelete: React.FC<MessageDeleteProps> = (props) => {
                 ),
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="delete">
-                        <Button appearance="primary" onClick={handleDelete}>
-                            Delete
+                    <DialogTrigger key="delete" disableButtonEnhancement>
+                        <Button appearance="primary" onClick={handleDelete} disabled={submitted}>
+                            {submitted ? 'Deleting...' : 'Delete'}
                         </Button>
                     </DialogTrigger>,
                 ],

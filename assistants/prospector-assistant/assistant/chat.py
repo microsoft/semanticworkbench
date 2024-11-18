@@ -5,9 +5,12 @@
 # This assistant helps you mine ideas from artifacts.
 #
 
+import asyncio
 import logging
 import re
-from typing import Any
+import traceback
+from contextlib import asynccontextmanager
+from typing import Any, Awaitable, Callable
 
 import deepmerge
 import openai_client
@@ -31,13 +34,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from . import legacy
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
-from .agents.guided_conversation_agent import (
-    GuidedConversationAgent,
-    GuidedConversationConversationInspectorStateProvider,
-)
-from .agents.skills_agent import SkillsAgent, SkillsAgentConversationInspectorStateProvider
+from .agents.form_fill_extension import FormFillExtension, LLMConfig
 from .config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
@@ -76,12 +76,11 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     inspector_state_providers={
         "artifacts": ArtifactConversationInspectorStateProvider(assistant_config),
-        "guided_conversation": GuidedConversationConversationInspectorStateProvider(assistant_config),
-        "skills_agent": SkillsAgentConversationInspectorStateProvider(assistant_config),
     },
 )
 
 attachments_extension = AttachmentsExtension(assistant)
+form_fill_extension = FormFillExtension(assistant)
 
 #
 # create the FastAPI app instance
@@ -108,24 +107,15 @@ app = assistant.fastapi_app()
 #
 
 
-@assistant.events.conversation.message.command.on_created
-async def on_command_message_created(
+@assistant.events.conversation.message.on_created
+async def on_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
-    config = await assistant_config.get(context.assistant)
-    metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
-
-    # For now, handling only commands from Document Agent for exploration of implementation
-    # We assume Document Agent is available and future logic would determine which agent
-    # the command is intended for. Assumption made in order to make doc agent available asap.
-
-    # if config.agents_config.document_agent.enabled:
-    doc_agent = DocumentAgent(attachments_extension)
-    await doc_agent.receive_command(config, context, message, metadata)
+    await legacy.provide_guidance_if_necessary(context)
 
 
 @assistant.events.conversation.message.chat.on_created
-async def on_message_created(
+async def on_chat_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     """
@@ -141,30 +131,24 @@ async def on_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
-    # ignore messages from this assistant
-    if message.sender.participant_id == context.assistant.id:
-        return
-
     # update the participant status to indicate the assistant is thinking
-    async with context.set_status_for_block("thinking..."):
-        config = await assistant_config.get(context.assistant)
-
-        metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
-
+    async with send_error_message_on_exception(context), context.set_status("thinking..."):
         #
         # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
         #
+        config = await assistant_config.get(context.assistant)
+        metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
-        # Guided conversation agent response
-        if config.agents_config.guided_conversation_agent.enabled:
-            return await guided_conversation_agent_respond_to_conversation(context, config, metadata)
+        match config.guided_workflow:
+            case "Form Completion":
+                await form_fill_execute(context, message)
+            case "Document Creation":
+                await create_document_execute(config, context, message, metadata)
+            case _:
+                logger.error("Guided workflow unknown or not supported.")
 
-        # Skills agent response
-        if config.agents_config.skills_agent.enabled:
-            return await skills_agent_respond_to_conversation(context, event, message)
 
-        # Prospector assistant response
-        await respond_to_conversation(context, config, message, metadata)
+background_tasks: set[asyncio.Task] = set()
 
 
 @assistant.events.conversation.on_created
@@ -172,59 +156,128 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
     """
-
     assistant_sent_messages = await context.get_messages(participant_ids=[context.assistant.id], limit=1)
     welcome_sent_before = len(assistant_sent_messages.messages) > 0
     if welcome_sent_before:
         return
 
-    # send a welcome message to the conversation
+    #
+    # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
+    #
     config = await assistant_config.get(context.assistant)
-    welcome_message = config.welcome_message
-    await context.send_messages(
-        NewConversationMessage(
-            content=welcome_message,
-            message_type=MessageType.chat,
-            metadata={"generated_content": False},
+    metadata: dict[str, Any] = {"debug": {}}
+
+    match config.guided_workflow:
+        case "Form Completion":
+            task = asyncio.create_task(welcome_message_form_fill(context))
+        case "Document Creation":
+            task = asyncio.create_task(
+                welcome_message_create_document(config, context, message=None, metadata=metadata)
+            )
+        case _:
+            logger.error("Guided workflow unknown or not supported.")
+
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.remove)
+
+
+async def welcome_message_form_fill(context: ConversationContext) -> None:
+    async with send_error_message_on_exception(context), context.set_status("thinking..."):
+        await form_fill_execute(context, None)
+
+
+async def welcome_message_create_document(
+    config: AssistantConfigModel,
+    context: ConversationContext,
+    message: ConversationMessage | None,
+    metadata: dict[str, Any],
+) -> None:
+    async with send_error_message_on_exception(context), context.set_status("thinking..."):
+        await create_document_execute(config, context, message, metadata)
+
+
+@asynccontextmanager
+async def send_error_message_on_exception(context: ConversationContext):
+    try:
+        yield
+    except Exception as e:
+        await context.send_messages(
+            NewConversationMessage(
+                content=f"An error occurred: {e}",
+                message_type=MessageType.notice,
+                metadata={"debug": {"stack_trace": traceback.format_exc()}},
+            )
         )
+
+
+# endregion
+
+#
+# region Form fill extension helpers
+#
+
+
+async def form_fill_execute(context: ConversationContext, message: ConversationMessage | None) -> None:
+    """
+    Execute the form fill agent to respond to the conversation message.
+    """
+    config = await assistant_config.get(context.assistant)
+    await form_fill_extension.execute(
+        llm_config=LLMConfig(
+            openai_client_factory=lambda: openai_client.create_client(config.service_config),
+            openai_model=config.request_config.openai_model,
+            max_response_tokens=config.request_config.response_tokens,
+        ),
+        config=config.agents_config.form_fill_agent,
+        context=context,
+        latest_user_message=message.content if message else None,
+        latest_attachment_filenames=message.filenames if message else [],
+        get_attachment_content=form_fill_extension_get_attachment(context, config),
     )
+
+
+def form_fill_extension_get_attachment(
+    context: ConversationContext, config: AssistantConfigModel
+) -> Callable[[str], Awaitable[str]]:
+    """Helper function for the form_fill_extension to get the content of an attachment by filename."""
+
+    async def get(filename: str) -> str:
+        messages = await attachments_extension.get_completion_messages_for_attachments(
+            context,
+            config.agents_config.attachment_agent,
+            include_filenames=[filename],
+        )
+        if not messages:
+            return ""
+
+        # filter down to the messages that contain the attachment (ie. don't include the system messages)
+        return "\n\n".join(
+            (str(message.get("content")) for message in messages if "<ATTACHMENT>" in str(message.get("content")))
+        )
+
+    return get
 
 
 # endregion
 
 
 #
-# region Response
+# region document agent extension helpers
 #
 
 
-async def guided_conversation_agent_respond_to_conversation(
-    context: ConversationContext, config: AssistantConfigModel, metadata: dict[str, Any] = {}
+async def create_document_execute(
+    config: AssistantConfigModel,
+    context: ConversationContext,
+    message: ConversationMessage | None,
+    metadata: dict[str, Any] = {},
 ) -> None:
     """
-    Respond to a conversation message using the guided conversation agent.
+    Respond to a conversation message using the document agent.
     """
-    # create the guided conversation agent instance
-    guided_conversation_agent = GuidedConversationAgent(config_provider=assistant_config)
-
-    # add the attachment agent messages to the completion messages
-    attachment_messages = await attachments_extension.get_completion_messages_for_attachments(
-        context, config=config.agents_config.attachment_agent
-    )
-    additional_messages: list[ChatCompletionMessageParam] = list(attachment_messages)
-
-    return await guided_conversation_agent.respond_to_conversation(context, metadata, additional_messages)
-
-
-async def skills_agent_respond_to_conversation(
-    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
-) -> None:
-    """
-    Respond to a conversation message using the skills agent.
-    """
-    # create the skills agent instance
-    skills_agent = SkillsAgent(config_provider=assistant_config)
-    return await skills_agent.respond_to_conversation(context, event, message)
+    # create the document agent instance
+    document_agent = DocumentAgent(attachments_extension)
+    await document_agent.create_document(config, context, message, metadata)
 
 
 # demonstrates how to respond to a conversation message using the OpenAI API.
@@ -301,13 +354,9 @@ async def respond_to_conversation(
     messages = messages_response.messages + [message]
 
     # calculate the token count for the messages so far
-    token_count = 0
-    for completion_message in completion_messages:
-        completion_message_content = completion_message.get("content")
-        if isinstance(completion_message_content, str):
-            token_count += openai_client.count_tokens(
-                model=config.request_config.openai_model, value=completion_message_content
-            )
+    token_count = openai_client.num_tokens_from_messages(
+        model=config.request_config.openai_model, messages=completion_messages
+    )
 
     # calculate the total available tokens for the response generation
     available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
@@ -317,35 +366,39 @@ async def respond_to_conversation(
 
     # add the messages in reverse order to get the most recent messages first
     for message in reversed(messages):
-        # calculate the token count for the message and check if it exceeds the available tokens
-        token_count += openai_client.count_tokens(
-            model=config.request_config.openai_model, value=_format_message(message, participants_response.participants)
-        )
-        if token_count > available_tokens:
-            # stop processing messages if the token count exceeds the available tokens
-            break
+        messages_to_add: list[ChatCompletionMessageParam] = []
 
         # add the message to the completion messages, treating any message from a source other than the assistant
         # as a user message
         if message.sender.participant_id == context.assistant.id:
-            history_messages.append({
+            messages_to_add.append({
                 "role": "assistant",
                 "content": _format_message(message, participants_response.participants),
             })
-            continue
-
-        # we are working with the messages in reverse order, so include any attachments before the message
-        if message.filenames and len(message.filenames) > 0:
-            # add a system message to indicate the attachments
-            history_messages.append({
-                "role": "system",
-                "content": f"Attachment(s): {', '.join(message.filenames)}",
+        else:
+            # we are working with the messages in reverse order, so include any attachments before the message
+            if message.filenames and len(message.filenames) > 0:
+                # add a system message to indicate the attachments
+                messages_to_add.append({
+                    "role": "system",
+                    "content": f"Attachment(s): {', '.join(message.filenames)}",
+                })
+            # add the user message to the completion messages
+            messages_to_add.append({
+                "role": "user",
+                "content": _format_message(message, participants_response.participants),
             })
-        # add the user message to the completion messages
-        history_messages.append({
-            "role": "user",
-            "content": _format_message(message, participants_response.participants),
-        })
+
+        # calculate the token count for the message and check if it exceeds the available tokens
+        messages_to_add_token_count = openai_client.num_tokens_from_messages(
+            model=config.request_config.openai_model, messages=messages_to_add
+        )
+        if (token_count + messages_to_add_token_count) > available_tokens:
+            # stop processing messages if the token count exceeds the available tokens
+            break
+
+        token_count += messages_to_add_token_count
+        history_messages.extend(messages_to_add)
 
     # reverse the history messages to get them back in the correct order
     history_messages.reverse()
@@ -433,7 +486,7 @@ async def respond_to_conversation(
                             method_metadata_key: {
                                 "request": {
                                     "model": config.request_config.openai_model,
-                                    "messages": openai_client.truncate_messages_for_logging(completion_messages),
+                                    "messages": completion_messages,
                                     "max_tokens": config.request_config.response_tokens,
                                     "response_format": StructuredResponseFormat.model_json_schema(),
                                 },
@@ -456,7 +509,7 @@ async def respond_to_conversation(
                             method_metadata_key: {
                                 "request": {
                                     "model": config.request_config.openai_model,
-                                    "messages": openai_client.truncate_messages_for_logging(completion_messages),
+                                    "messages": completion_messages,
                                 },
                                 "error": str(e),
                             },
@@ -489,7 +542,7 @@ async def respond_to_conversation(
                             method_metadata_key: {
                                 "request": {
                                     "model": config.request_config.openai_model,
-                                    "messages": openai_client.truncate_messages_for_logging(completion_messages),
+                                    "messages": completion_messages,
                                     "max_tokens": config.request_config.response_tokens,
                                 },
                                 "response": completion.model_dump() if completion else "[no response from openai]",
@@ -512,7 +565,7 @@ async def respond_to_conversation(
                             method_metadata_key: {
                                 "request": {
                                     "model": config.request_config.openai_model,
-                                    "messages": openai_client.truncate_messages_for_logging(completion_messages),
+                                    "messages": completion_messages,
                                 },
                                 "error": str(e),
                             },
@@ -573,7 +626,7 @@ async def respond_to_conversation(
 
         # check if the completion total tokens exceed the warning threshold
         if completion_total_tokens > token_count_for_warning:
-            content = f"{config.high_token_usage_warning.message}\n\n" f"Total tokens used: {completion_total_tokens}"
+            content = f"{config.high_token_usage_warning.message}\n\nTotal tokens used: {completion_total_tokens}"
 
             # send a notice message to the conversation that the token usage is high
             await context.send_messages(

@@ -55,13 +55,13 @@ class ConversationContext:
         return await self._workbench_client.update_participant_me(participant)
 
     @asynccontextmanager
-    async def set_status_for_block(self, status: str) -> AsyncGenerator[None, None]:
+    async def set_status(self, status: str) -> AsyncGenerator[None, None]:
         """
         Context manager to update the participant status and reset it when done.
 
         Example:
         ```python
-        async with conversation.set_status_for_block("processing"):
+        async with conversation.set_status("processing ..."):
             await do_some_work()
         ```
         """
@@ -77,6 +77,9 @@ class ConversationContext:
             await self._workbench_client.update_participant_me(
                 workbench_model.UpdateParticipant(status=revert_to_status)
             )
+
+    async def get_conversation(self) -> workbench_model.Conversation:
+        return await self._workbench_client.get_conversation()
 
     async def get_participants(self, include_inactive=False) -> workbench_model.ConversationParticipantList:
         return await self._workbench_client.get_participants(include_inactive=include_inactive)
@@ -125,6 +128,32 @@ class ConversationContext:
 
     async def delete_file(self, filename: str) -> None:
         return await self._workbench_client.delete_file(filename)
+
+    @asynccontextmanager
+    async def state_updated_event_after(self, state_id: str, focus_event: bool = False) -> AsyncIterator[None]:
+        """
+        Raise state "updated" event after the context manager block is executed, and optionally, a
+        state "focus" event.
+
+        Example:
+        ```python
+        # notify workbench that state has been updated
+        async with conversation.state_updated_event_after("my_state_id"):
+            await do_some_work()
+
+        # notify workbench that state has been updated and set focus
+        async with conversation.state_updated_event_after("my_state_id", focus_event=True):
+            await do_some_work()
+        ```
+        """
+        yield
+        if focus_event:
+            await self.send_conversation_state_event(
+                workbench_model.AssistantStateEvent(state_id=state_id, event="focus", state=None)
+            )
+        await self.send_conversation_state_event(
+            workbench_model.AssistantStateEvent(state_id=state_id, event="updated", state=None)
+        )
 
 
 def storage_directory_for_context(context: AssistantContext | ConversationContext, partition: str = "") -> pathlib.Path:

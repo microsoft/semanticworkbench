@@ -18,15 +18,23 @@ interface AssistantDuplicateProps {
 export const AssistantDuplicate: React.FC<AssistantDuplicateProps> = (props) => {
     const { assistant, iconOnly, asToolbarButton, onDuplicate, onDuplicateError } = props;
     const workbenchService = useWorkbenchService();
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const duplicateAssistant = async () => {
+    const duplicateAssistant = React.useCallback(async () => {
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
         try {
             const newAssistantId = await workbenchService.duplicateAssistantAsync(assistant.id);
             onDuplicate?.(newAssistantId);
         } catch (error) {
             onDuplicateError?.(error as Error);
+        } finally {
+            setSubmitted(false);
         }
-    };
+    }, [submitted, workbenchService, assistant.id, onDuplicate, onDuplicateError]);
 
     return (
         <CommandButton
@@ -40,9 +48,9 @@ export const AssistantDuplicate: React.FC<AssistantDuplicateProps> = (props) => 
                 content: <p>Are you sure you want to duplicate this assistant?</p>,
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="duplicate">
-                        <Button appearance="primary" onClick={duplicateAssistant}>
-                            Duplicate
+                    <DialogTrigger key="duplicate" disableButtonEnhancement>
+                        <Button appearance="primary" onClick={duplicateAssistant} disabled={submitted}>
+                            {submitted ? 'Duplicating...' : 'Duplicate'}
                         </Button>
                     </DialogTrigger>,
                 ],

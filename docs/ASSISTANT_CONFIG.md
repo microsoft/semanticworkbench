@@ -59,33 +59,66 @@ Below is an explanation using the YAML example for a guided conversation agent d
 
 ```yaml
 guided_conversation_agent:
-  artifact: |-
-    {
-      "title": "ArtifactModel",
-      "type": "object",
-      "properties": {
-        "student_poem": {"description": "The acrostic poem written by the student."},
-        "initial_feedback": {"description": "Feedback on the student's initial poem."},
-        "final_feedback": {"description": "Feedback on how the student improved their poem."},
-        "inappropriate_behavior": {
-          "description": "Any inappropriate behavior noted during the session."
-        }
-      },
-      "required": ["student_poem", "initial_feedback", "final_feedback", "inappropriate_behavior"]
-    }
-  rules:
-    - "DO NOT write the poem for the student."
-    - "Terminate the conversation immediately if inappropriate content is requested."
-  conversation_flow: |-
-    1. Explain interactively what an acrostic poem is.
-    2. Guide the student to choose a word and write an acrostic poem.
-    3. Provide feedback and suggest improvements.
-  context: |-
-    The assistant works one-on-one with a 4th-grade student in a computer lab supervised by a teacher.
-  resource_constraint:
-    quantity: 10
-    unit: turns
-    mode: exact
+  definition:
+    artifact: |-
+      {
+        "properties": {
+            "student_poem": {
+              "description": "The acrostic poem written by the student.",
+              "title": "Student Poem",
+              "type": "string"
+            },
+            "initial_feedback": {
+              "description": "Feedback on the student's final revised poem.",
+              "title": "Initial Feedback",
+              "type": "string"
+            },
+            "final_feedback": {
+              "description": "Feedback on how the student was able to improve their poem.",
+              "title": "Final Feedback",
+              "type": "string"
+            },
+            "inappropriate_behavior": {
+              "description": "\nList any inappropriate behavior the student attempted while chatting with you.\nIt is ok to leave this field Unanswered if there was none.\n",
+              "items": {
+                "type": "string"
+              },
+              "title": "Inappropriate Behavior",
+              "type": "array"
+            }
+          },
+          "required": [
+            "student_poem",
+            "initial_feedback",
+            "final_feedback",
+            "inappropriate_behavior"
+          ],
+          "title": "ArtifactModel",
+          "type": "object"
+      }
+    rules:
+      - "DO NOT write the poem for the student."
+      - "Terminate the conversation immediately if inappropriate content is requested."
+    conversation_flow: |-
+      1. Start by explaining what an acrostic poem is.
+      2. Then give the following instructions for how to go ahead and write one:
+         1. Choose a word or phrase that will be the subject of your acrostic poem.
+         2. Write the letters of your chosen word or phrase vertically down the page.
+         3. Think of a word or phrase that starts with each letter of your chosen word or phrase.
+         4. Write these words or phrases next to the corresponding letters to create your acrostic poem.
+      3. Then give the following example of a poem where the word or phrase is HAPPY:
+         Having fun with friends all day,
+         Awesome games that we all play.
+         Pizza parties on the weekend,
+         Puppies we bend down to tend,
+         Yelling yay when we win the game
+      4. Finally have the student write their own acrostic poem using the word or phrase of their choice. Encourage them to be creative and have fun with it. After they write it, you should review it and give them feedback on what they did well and what they could improve on. Have them revise their poem based on your feedback and then review it again.
+    context: |-
+      You are working one-on-one with a 4th-grade student who is chatting with you in the computer lab at school while being supervised by their teacher.
+    resource_constraint:
+      quantity: 10
+      unit: turns
+      mode: exact
 ```
 
 ---
@@ -190,48 +223,53 @@ guided_conversation_agent:
     "guided_conversation_agent": {
       "type": "object",
       "properties": {
-        "artifact": {
-          "type": "string",
-          "description": "String representation of the JSON schema for the artifact."
-        },
-        "rules": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Guidelines for the assistant's behavior."
-        },
-        "conversation_flow": {
-          "type": "string",
-          "description": "Step-by-step guide to interacting with the user."
-        },
-        "context": {
-          "type": "string",
-          "description": "Describes the interaction setting."
-        },
-        "resource_constraint": {
+        "definition": {
           "type": "object",
           "properties": {
-            "quantity": {
-              "type": "integer"
+            "artifact": {
+              "type": "string",
+              "description": "String representation of the JSON schema for the artifact."
             },
-            "unit": {
-              "type": "string"
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Guidelines for the assistant's behavior."
             },
-            "mode": {
-              "type": "string"
+            "conversation_flow": {
+              "type": "string",
+              "description": "Step-by-step guide to interacting with the user."
+            },
+            "context": {
+              "type": "string",
+              "description": "Describes the interaction setting."
+            },
+            "resource_constraint": {
+              "type": "object",
+              "properties": {
+                "quantity": {
+                  "type": "integer"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string"
+                }
+              },
+              "description": "Limits on conversation resources."
             }
           },
-          "description": "Limits on conversation resources."
+          "required": [
+            "artifact",
+            "rules",
+            "conversation_flow",
+            "context",
+            "resource_constraint"
+          ]
         }
-      },
-      "required": [
-        "artifact",
-        "rules",
-        "conversation_flow",
-        "context",
-        "resource_constraint"
-      ]
+      }
     },
     "request_config": {
       "type": "object",
@@ -311,38 +349,39 @@ properties:
   guided_conversation_agent:
     type: object
     properties:
-      artifact:
-        type: string
-        description: "String representation of the JSON schema for the artifact."
-      rules:
-        type: array
-        items:
-          type: string
-        description: "Guidelines for the assistant's behavior."
-      conversation_flow:
-        type: string
-        description: "Step-by-step guide to interacting with the user."
-      context:
-        type: string
-        description: "Describes the interaction setting."
-      resource_constraint:
+      definition:
         type: object
         properties:
-          quantity:
-            type: integer
-          unit:
+          artifact:
             type: string
-          mode:
+            description: "String representation of the JSON schema for the artifact."
+          rules:
+            type: array
+            items:
+              type: string
+            description: "Guidelines for the assistant's behavior."
+          conversation_flow:
             type: string
-        description: "Limits on conversation resources."
-    required:
-      [
-        "artifact",
-        "rules",
-        "conversation_flow",
-        "context",
-        "resource_constraint",
-      ]
+            description: "Step-by-step guide to interacting with the user."
+          context:
+            type: string
+            description: "Describes the interaction setting."
+          resource_constraint:
+            type: object
+            properties:
+              quantity:
+                type: integer
+              unit:
+                type: string
+              mode:
+                type: string
+            description: "Limits on conversation resources."
+        required:
+          - artifact
+          - rules
+          - conversation_flow
+          - context
+          - resource_constraint
   request_config:
     type: object
     properties:
@@ -384,12 +423,10 @@ properties:
         description: "Ensures all generated content adheres to safety standards."
     description: "Content safety settings."
 required:
-  [
-    "guided_conversation_agent",
-    "request_config",
-    "service_config",
-    "content_safety_config",
-  ]
+  - guided_conversation_agent
+  - request_config
+  - service_config
+  - content_safety_config
 ```
 
 ## Generic Artifact Schema

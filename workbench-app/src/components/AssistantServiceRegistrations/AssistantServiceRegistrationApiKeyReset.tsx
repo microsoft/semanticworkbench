@@ -24,22 +24,30 @@ export const AssistantServiceRegistrationApiKeyReset: React.FC<AssistantServiceR
     const [unmaskedApiKey, setUnmaskedApiKey] = React.useState<string | undefined>(undefined);
 
     const handleReset = React.useCallback(async () => {
+        if (submitted) {
+            return;
+        }
         setSubmitted(true);
-        let updatedRegistration: AssistantServiceRegistration | undefined;
+
         try {
-            updatedRegistration = await resetAssistantServiceRegistrationApiKey(
-                assistantServiceRegistration.assistantServiceId,
-            ).unwrap();
+            let updatedRegistration: AssistantServiceRegistration | undefined;
+            try {
+                updatedRegistration = await resetAssistantServiceRegistrationApiKey(
+                    assistantServiceRegistration.assistantServiceId,
+                ).unwrap();
+            } finally {
+                setSubmitted(false);
+            }
+
+            if (updatedRegistration) {
+                setUnmaskedApiKey(updatedRegistration.apiKey);
+            }
+
+            onRemove?.();
         } finally {
             setSubmitted(false);
         }
-
-        if (updatedRegistration) {
-            setUnmaskedApiKey(updatedRegistration.apiKey);
-        }
-
-        onRemove?.();
-    }, [assistantServiceRegistration.assistantServiceId, resetAssistantServiceRegistrationApiKey, onRemove]);
+    }, [submitted, onRemove, resetAssistantServiceRegistrationApiKey, assistantServiceRegistration.assistantServiceId]);
 
     return (
         <>
@@ -55,7 +63,7 @@ export const AssistantServiceRegistrationApiKeyReset: React.FC<AssistantServiceR
                 icon={<KeyResetRegular />}
                 iconOnly={iconOnly}
                 asToolbarButton={asToolbarButton}
-                label="Reset"
+                label={submitted ? 'Resetting...' : 'Reset'}
                 dialogContent={{
                     title: 'Reset API Key',
                     content: (
@@ -73,7 +81,7 @@ export const AssistantServiceRegistrationApiKeyReset: React.FC<AssistantServiceR
                     ),
                     closeLabel: 'Cancel',
                     additionalActions: [
-                        <DialogTrigger key="reset">
+                        <DialogTrigger key="reset" disableButtonEnhancement>
                             <Button appearance="primary" onClick={handleReset}>
                                 Reset
                             </Button>

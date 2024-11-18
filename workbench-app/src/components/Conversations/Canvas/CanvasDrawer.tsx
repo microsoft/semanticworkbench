@@ -8,7 +8,7 @@ const useClasses = makeStyles({
         transition: `width ${tokens.durationNormal} ${tokens.curveEasyEase}`,
         overflow: 'hidden',
         backgroundColor: tokens.colorNeutralBackground1,
-        zIndex: tokens.zIndexOverlay,
+        zIndex: tokens.zIndexContent,
         boxShadow: tokens.shadow8Brand,
         display: 'flex',
         flexDirection: 'column',

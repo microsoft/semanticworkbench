@@ -27,7 +27,7 @@ See the [Responsible AI FAQ](../../RESPONSIBLE_AI_FAQ.md) for more information.
 - Set up your dev environment
   - SUGGESTED: Use GitHub Codespaces for a quick, easy, and consistent dev
     environment: [/.devcontainer/README.md](../../.devcontainer/README.md)
-  - ALTERNATIVE: Local setup following the [main README](../../README.md#quick-start---local-development-environment)
+  - ALTERNATIVE: Local setup following the [main README](../../README.md#local-development-environment)
 - Set up and verify that the workbench app and service are running using the [semantic-workbench.code-workspace](../../semantic-workbench.code-workspace)
 - If using Azure OpenAI, set up an Azure account and create a Content Safety resource
   - See [Azure AI Content Safety](https://azure.microsoft.com/products/ai-services/ai-content-safety) for more information
@@ -51,9 +51,7 @@ command line, using `uv`:
 ```
 cd <PATH TO THIS FOLDER>
 
-uv sync
-
-uv run start-semantic-workbench-assistant assistant.chat:app
+uv run start-assistant
 ```
 
 ## Create your own assistant

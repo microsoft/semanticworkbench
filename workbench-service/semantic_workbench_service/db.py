@@ -294,7 +294,7 @@ class ConversationMessage(SQLModel, table=True):
     created_datetime: datetime.datetime = date_time_default_to_now()
     sender_participant_id: str
     sender_participant_role: str
-    message_type: str
+    message_type: str = Field(index=True)
     content: str
     content_type: str
     meta_data: dict[str, Any] = Field(sa_column=sqlalchemy.Column("metadata", sqlalchemy.JSON), default={})
@@ -302,6 +302,24 @@ class ConversationMessage(SQLModel, table=True):
 
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_conversation: Conversation = Relationship()
+
+
+class ConversationMessageDebug(SQLModel, table=True):
+    message_id: uuid.UUID = Field(
+        sa_column=sqlalchemy.Column(
+            sqlalchemy.ForeignKey(
+                "conversationmessage.message_id",
+                name="fk_conversationmessagedebug_message_id_conversationmessage",
+                ondelete="CASCADE",
+            ),
+            nullable=False,
+            primary_key=True,
+        ),
+    )
+    data: dict[str, Any] = Field(sa_column=sqlalchemy.Column(sqlalchemy.JSON, nullable=False), default={})
+
+    # this relationship is needed to enforce correct INSERT order by SQLModel
+    related_messag: ConversationMessage = Relationship()
 
 
 class File(SQLModel, table=True):

@@ -1,35 +1,25 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import {
-    Button,
     Divider,
-    Menu,
-    MenuItem,
-    MenuItemProps,
-    MenuList,
-    MenuPopover,
-    MenuTrigger,
     Overflow,
     OverflowItem,
     Tab,
     TabList,
-    Tooltip,
     makeStyles,
     shorthands,
     tokens,
-    useIsOverflowItemVisible,
-    useOverflowMenu,
 } from '@fluentui/react-components';
-import { MoreHorizontalRegular } from '@fluentui/react-icons';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { Constants } from '../Constants';
 import { AppView } from '../components/App/AppView';
 import { Loading } from '../components/App/Loading';
+import { OverflowMenu, OverflowMenuItemData } from '../components/App/OverflowMenu';
 import { WorkflowConversation } from '../components/Workflows/WorkflowConversation';
 import { WorkflowEdit } from '../components/Workflows/WorkflowEdit';
-import { WorkbenchEventSource } from '../libs/WorkbenchEventSource';
+import { WorkbenchEventSource, WorkbenchEventSourceType } from '../libs/WorkbenchEventSource';
 import { useEnvironment } from '../libs/useEnvironment';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { conversationMessageFromJSON } from '../models/ConversationMessage';
@@ -211,19 +201,59 @@ export const WorkflowInteract: React.FC = () => {
 
         (async () => {
             // get the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(environment.url, conversationId);
+            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
+                environment.url,
+                WorkbenchEventSourceType.Conversation,
+                conversationId,
+            );
             workbenchEventSource.addEventListener('message.created', messageHandler);
         })();
 
         return () => {
             (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance();
+                const workbenchEventSource = await WorkbenchEventSource.getInstance(
+                    WorkbenchEventSourceType.Conversation,
+                );
                 workbenchEventSource.removeEventListener('message.created', messageHandler);
             })();
         };
     }, [workflowRunId, refetchWorkflowRun, environment, conversationId, workflowRunIsLoading, workflowRun, dispatch]);
 
-    if (!workflowDefinition || !workflowRun || !conversationId) {
+    const tabItems = React.useMemo(
+        () =>
+            workflowRun?.conversationMappings.map((mapping): OverflowMenuItemData => {
+                const conversationDefinition = workflowDefinition?.definitions.conversations.find(
+                    (definition) => definition.id === mapping.conversationDefinitionId,
+                );
+
+                if (!conversationDefinition) {
+                    throw new Error('No conversation definition found');
+                }
+
+                return {
+                    id: mapping.conversationId,
+                    name: conversationDefinition.title,
+                };
+            }),
+        [workflowDefinition, workflowRun],
+    );
+
+    const handleTabSelect = React.useCallback((tabId: string) => {
+        setConversationId(tabId);
+    }, []);
+
+    const workflowCurrentConversationId = React.useMemo(
+        () =>
+            workflowRun?.conversationMappings.find(
+                (mapping) =>
+                    mapping.conversationDefinitionId ===
+                    workflowDefinition?.states.find((state) => state.id === workflowRun.currentStateId)
+                        ?.conversationDefinitionId,
+            )?.conversationId,
+        [workflowRun, workflowDefinition],
+    );
+
+    if (!tabItems || !workflowDefinition || !workflowRun || !conversationId) {
         return (
             <AppView title="Interact">
                 <Loading />
@@ -235,86 +265,6 @@ export const WorkflowInteract: React.FC = () => {
         items: [<WorkflowEdit key="edit" iconOnly workflowDefinition={workflowDefinition} />],
     };
 
-    const conversationTabListItems = workflowRun.conversationMappings.map((mapping) => {
-        const conversationDefinition = workflowDefinition.definitions.conversations.find(
-            (definition) => definition.id === mapping.conversationDefinitionId,
-        );
-
-        if (!conversationDefinition) {
-            throw new Error('No conversation definition found');
-        }
-
-        return {
-            key: mapping.conversationId,
-            text: conversationDefinition.title,
-            onClick: () => setConversationId(mapping.conversationId),
-        };
-    });
-
-    const OverflowMenuItem = (props: { tab: { key: string; text: string }; onClick: MenuItemProps['onClick'] }) => {
-        const { tab, onClick } = props;
-        const isVisible = useIsOverflowItemVisible(tab.key);
-
-        if (isVisible) {
-            return null;
-        }
-
-        return (
-            <MenuItem key={tab.key} onClick={onClick}>
-                {tab.text}
-            </MenuItem>
-        );
-    };
-
-    const OverflowMenu = (props: { onTabSelect?: (tabId: string) => void }) => {
-        const { onTabSelect } = props;
-        const { ref, isOverflowing, overflowCount } = useOverflowMenu<HTMLButtonElement>();
-
-        if (!isOverflowing) return null;
-
-        return (
-            <Menu hasIcons>
-                <MenuTrigger disableButtonEnhancement>
-                    <Tooltip content={`${overflowCount} more`} relationship="label">
-                        <Button
-                            appearance="transparent"
-                            className={classes.menuButton}
-                            ref={ref}
-                            icon={<MoreHorizontalRegular />}
-                            role="tab"
-                        />
-                    </Tooltip>
-                </MenuTrigger>
-                <MenuPopover>
-                    <MenuList>
-                        {conversationTabListItems.map((item) => (
-                            <OverflowMenuItem
-                                key={item.key}
-                                tab={item}
-                                onClick={() => {
-                                    if (onTabSelect) {
-                                        onTabSelect(item.key);
-                                    }
-                                }}
-                            />
-                        ))}
-                    </MenuList>
-                </MenuPopover>
-            </Menu>
-        );
-    };
-
-    const onTabSelect = (tabId: string) => {
-        setConversationId(tabId);
-    };
-
-    const workflowCurrentConversationId = workflowRun.conversationMappings.find(
-        (mapping) =>
-            mapping.conversationDefinitionId ===
-            workflowDefinition.states.find((state) => state.id === workflowRun.currentStateId)
-                ?.conversationDefinitionId,
-    )?.conversationId;
-
     return (
         <AppView title={`${workflowRun.title} - ${workflowDefinition.label}`} actions={actions} fullSizeContent>
             <div className={classes.root}>
@@ -322,20 +272,18 @@ export const WorkflowInteract: React.FC = () => {
                     <TabList
                         className={classes.tabs}
                         selectedValue={conversationId}
-                        onTabSelect={(_event, data) => onTabSelect(data.value as string)}
+                        onTabSelect={(_, data) => handleTabSelect(data.value as string)}
                     >
-                        {conversationTabListItems.map((tab) => (
-                            <OverflowItem key={tab.key} id={tab.key} priority={tab.key === conversationId ? 2 : 1}>
-                                <Tab value={tab.key}>
-                                    {workflowRun.conversationMappings.length > 1 &&
-                                        tab.key === workflowCurrentConversationId && (
-                                            <span className={classes.tab}>⬤</span>
-                                        )}
-                                    {tab.text}
-                                </Tab>
+                        {tabItems?.map((tabItem) => (
+                            <OverflowItem
+                                key={tabItem.id}
+                                id={tabItem.id}
+                                priority={tabItem.id === workflowCurrentConversationId ? 2 : 1}
+                            >
+                                <Tab value={tabItem.id}>{tabItem.name}</Tab>
                             </OverflowItem>
                         ))}
-                        <OverflowMenu onTabSelect={onTabSelect} />
+                        <OverflowMenu items={tabItems} onItemSelect={handleTabSelect} />
                     </TabList>
                 </Overflow>
                 <Divider />

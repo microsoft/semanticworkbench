@@ -5,7 +5,7 @@ import { ArrowLeft24Regular, Home24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { AppMenu } from './AppMenu';
-import { ErrorList } from './ErrorList';
+import { ErrorListFromAppState } from './ErrorListFromAppState';
 import { ProfileSettings } from './ProfileSettings';
 
 const useClasses = makeStyles({
@@ -83,7 +83,7 @@ export const AppHeader: React.FC<AppHeaderProps> = (props) => {
                 {title && typeof title === 'string' ? <Title3 className={classes.title}>{title}</Title3> : title}
                 <div className={classes.actions}>{actionItems}</div>
             </div>
-            <ErrorList />
+            <ErrorListFromAppState />
         </div>
     );
 };

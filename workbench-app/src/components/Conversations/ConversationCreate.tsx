@@ -2,14 +2,8 @@
 
 import {
     Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
-    DialogSurface,
-    DialogTitle,
     DialogTrigger,
     Field,
     Input,
@@ -19,6 +13,7 @@ import {
 import React from 'react';
 import { Conversation } from '../../models/Conversation';
 import { useCreateConversationMutation } from '../../services/workbench';
+import { DialogControl } from '../App/DialogControl';
 
 const useClasses = makeStyles({
     dialogContent: {
@@ -44,7 +39,7 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
     const [title, setTitle] = React.useState('');
     const [submitted, setSubmitted] = React.useState(false);
 
-    const handleSave = async () => {
+    const handleSave = React.useCallback(async () => {
         if (submitted) {
             return;
         }
@@ -57,7 +52,7 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
         } finally {
             setSubmitted(false);
         }
-    };
+    }, [createConversation, metadata, onCreate, onOpenChange, submitted, title]);
 
     React.useEffect(() => {
         if (!open) {
@@ -75,40 +70,34 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
     );
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogSurface>
+        <DialogControl
+            open={open}
+            classNames={{
+                dialogContent: classes.dialogContent,
+            }}
+            onOpenChange={handleOpenChange}
+            title="New Conversation"
+            content={
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
                         handleSave();
                     }}
                 >
-                    <DialogBody>
-                        <DialogTitle>New Conversation</DialogTitle>
-                        <DialogContent className={classes.dialogContent}>
-                            <Field label="Title">
-                                <Input
-                                    disabled={submitted}
-                                    value={title}
-                                    onChange={(_event, data) => setTitle(data?.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
-                            <button disabled={submitted} type="submit" hidden />
-                        </DialogContent>
-                        <DialogActions>
-                            <DialogTrigger disableButtonEnhancement>
-                                <Button appearance="secondary">Cancel</Button>
-                            </DialogTrigger>
-                            <DialogTrigger>
-                                <Button disabled={!title || submitted} appearance="primary" onClick={handleSave}>
-                                    {submitted ? 'Saving...' : 'Save'}
-                                </Button>
-                            </DialogTrigger>
-                        </DialogActions>
-                    </DialogBody>
+                    <Field label="Title">
+                        <Input disabled={submitted} value={title} onChange={(_event, data) => setTitle(data.value)} />
+                    </Field>
+                    <button disabled={!title || submitted} type="submit" hidden />
                 </form>
-            </DialogSurface>
-        </Dialog>
+            }
+            closeLabel="Cancel"
+            additionalActions={[
+                <DialogTrigger key="save" disableButtonEnhancement>
+                    <Button disabled={!title || submitted} appearance="primary" onClick={handleSave}>
+                        {submitted ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogTrigger>,
+            ]}
+        />
     );
 };

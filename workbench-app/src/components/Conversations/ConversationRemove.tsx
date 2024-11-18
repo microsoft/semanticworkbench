@@ -4,8 +4,90 @@ import { Button, DialogTrigger } from '@fluentui/react-components';
 import { PlugDisconnected24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Conversation } from '../../models/Conversation';
+import { useAppDispatch, useAppSelector } from '../../redux/app/hooks';
+import { setActiveConversationId } from '../../redux/features/app/appSlice';
 import { useRemoveConversationParticipantMutation } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
+import { DialogControl } from '../App/DialogControl';
+
+const useConversationRemoveControls = () => {
+    const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
+    const dispatch = useAppDispatch();
+    const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
+    const [submitted, setSubmitted] = React.useState(false);
+
+    const handleRemove = React.useCallback(
+        async (conversationId: string, participantId: string, onRemove?: () => void) => {
+            if (submitted) {
+                return;
+            }
+            setSubmitted(true);
+
+            try {
+                if (activeConversationId === conversationId) {
+                    // Clear the active conversation if it is the one being removed
+                    dispatch(setActiveConversationId(undefined));
+                }
+
+                await removeConversationParticipant({
+                    conversationId,
+                    participantId,
+                });
+                onRemove?.();
+            } finally {
+                setSubmitted(false);
+            }
+        },
+        [activeConversationId, dispatch, removeConversationParticipant, submitted],
+    );
+
+    const removeConversationForm = React.useCallback(
+        () => <p>Are you sure you want to remove this conversation from your list?</p>,
+        [],
+    );
+
+    const removeConversationButton = React.useCallback(
+        (conversationId: string, participantId: string, onRemove?: () => void) => (
+            <DialogTrigger disableButtonEnhancement>
+                <Button
+                    appearance="primary"
+                    onClick={() => handleRemove(conversationId, participantId, onRemove)}
+                    disabled={submitted}
+                >
+                    {submitted ? 'Removing...' : 'Remove'}
+                </Button>
+            </DialogTrigger>
+        ),
+        [handleRemove, submitted],
+    );
+
+    return {
+        removeConversationForm,
+        removeConversationButton,
+    };
+};
+
+interface ConversationRemoveDialogProps {
+    conversationId: string;
+    participantId: string;
+    onRemove: () => void;
+    onCancel: () => void;
+}
+
+export const ConversationRemoveDialog: React.FC<ConversationRemoveDialogProps> = (props) => {
+    const { conversationId, participantId, onRemove, onCancel } = props;
+    const { removeConversationForm, removeConversationButton } = useConversationRemoveControls();
+
+    return (
+        <DialogControl
+            open={true}
+            onOpenChange={onCancel}
+            title="Remove Conversation"
+            content={removeConversationForm()}
+            additionalActions={[removeConversationButton(conversationId, participantId, onRemove)]}
+        />
+    );
+};
 
 interface ConversationRemoveProps {
     conversation: Conversation;
@@ -17,15 +99,7 @@ interface ConversationRemoveProps {
 
 export const ConversationRemove: React.FC<ConversationRemoveProps> = (props) => {
     const { conversation, onRemove, iconOnly, asToolbarButton, participantId } = props;
-    const [removeConversationParticipant] = useRemoveConversationParticipantMutation();
-
-    const handleRemove = React.useCallback(async () => {
-        await removeConversationParticipant({
-            conversationId: conversation.id,
-            participantId: participantId,
-        });
-        onRemove?.();
-    }, [conversation.id, participantId, onRemove, removeConversationParticipant]);
+    const { removeConversationForm, removeConversationButton } = useConversationRemoveControls();
 
     return (
         <CommandButton
@@ -36,15 +110,9 @@ export const ConversationRemove: React.FC<ConversationRemoveProps> = (props) => 
             label="Remove"
             dialogContent={{
                 title: 'Remove Conversation',
-                content: <p>Are you sure you want to remove this conversation from your list?</p>,
+                content: removeConversationForm(),
                 closeLabel: 'Cancel',
-                additionalActions: [
-                    <DialogTrigger key="delete">
-                        <Button appearance="primary" onClick={handleRemove}>
-                            Remove
-                        </Button>
-                    </DialogTrigger>,
-                ],
+                additionalActions: [removeConversationButton(conversation.id, participantId, onRemove)],
             }}
         />
     );

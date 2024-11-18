@@ -157,6 +157,7 @@
         "devcontainers",
         "devtunnel",
         "dotenv",
+        "dppx",
         "echosql",
         "endregion",
         "epivision",
@@ -164,6 +165,7 @@
         "fastapi",
         "fileversion",
         "fluentui",
+        "frontdoor",
         "getfixturevalue",
         "griffel",
         "hashkey",
@@ -226,6 +228,7 @@
         "workbenchservice",
         "workflowdefinition",
         "workflowrun",
-        "workflowuserparticipant"
+        "workflowuserparticipant",
+        "YYYYMMDDH"
     ]
 }

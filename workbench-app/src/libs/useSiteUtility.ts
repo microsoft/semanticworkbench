@@ -1,16 +1,17 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import React from 'react';
 import { Constants } from '../Constants';
 
 export const useSiteUtility = () => {
-    const setDocumentTitle = (title: string) => {
-        document.title = `${title} - ${Constants.app.name}`;
-    };
+    const setDocumentTitle = React.useCallback((title?: string) => {
+        document.title = title ? `${title} - ${Constants.app.name}` : Constants.app.name;
+    }, []);
 
-    const forceNavigateTo = (url: string | URL) => {
+    const forceNavigateTo = React.useCallback((url: string | URL) => {
         window.history.pushState(null, '', url);
         window.location.reload();
-    };
+    }, []);
 
     return {
         setDocumentTitle,

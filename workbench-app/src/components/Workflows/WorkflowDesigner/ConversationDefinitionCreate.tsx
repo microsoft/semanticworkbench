@@ -3,15 +3,8 @@
 import { generateUuid } from '@azure/ms-rest-js';
 import {
     Button,
-    Dialog,
-    DialogActions,
-    DialogBody,
-    DialogContent,
     DialogOpenChangeData,
     DialogOpenChangeEvent,
-    DialogSurface,
-    DialogTitle,
-    DialogTrigger,
     Field,
     Input,
     makeStyles,
@@ -19,6 +12,7 @@ import {
 } from '@fluentui/react-components';
 import React from 'react';
 import { ConversationDefinition } from '../../../models/WorkflowDefinition';
+import { DialogControl } from '../../App/DialogControl';
 
 const useClasses = makeStyles({
     dialogContent: {
@@ -38,14 +32,24 @@ export const ConversationDefinitionCreate: React.FC<ConversationDefinitionCreate
     const { open, onOpenChange, onCreate } = props;
     const classes = useClasses();
     const [title, setTitle] = React.useState('');
+    const [submitted, setSubmitted] = React.useState(false);
 
-    const handleSave = () => {
-        onOpenChange?.(false);
-        onCreate?.({
-            id: generateUuid(),
-            title,
-        });
-    };
+    const handleSave = React.useCallback(() => {
+        if (submitted) {
+            return;
+        }
+        setSubmitted(true);
+
+        try {
+            onOpenChange?.(false);
+            onCreate?.({
+                id: generateUuid(),
+                title,
+            });
+        } finally {
+            setSubmitted(false);
+        }
+    }, [onCreate, onOpenChange, submitted, title]);
 
     React.useEffect(() => {
         if (!open) {
@@ -62,39 +66,36 @@ export const ConversationDefinitionCreate: React.FC<ConversationDefinitionCreate
     );
 
     return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogSurface>
+        <DialogControl
+            open={open}
+            onOpenChange={handleOpenChange}
+            classNames={{
+                dialogContent: classes.dialogContent,
+            }}
+            title="New Conversation"
+            content={
                 <form
                     onSubmit={(event) => {
                         event.preventDefault();
                         handleSave();
                     }}
                 >
-                    <DialogBody>
-                        <DialogTitle>New Conversation</DialogTitle>
-                        <DialogContent className={classes.dialogContent}>
-                            <Field label="Title">
-                                <Input
-                                    value={title}
-                                    onChange={(_event, data) => setTitle(data?.value)}
-                                    aria-autocomplete="none"
-                                />
-                            </Field>
-                            <button type="submit" hidden />
-                        </DialogContent>
-                        <DialogActions>
-                            <DialogTrigger disableButtonEnhancement>
-                                <Button appearance="secondary">Cancel</Button>
-                            </DialogTrigger>
-                            <DialogTrigger>
-                                <Button appearance="primary" onClick={handleSave}>
-                                    Save
-                                </Button>
-                            </DialogTrigger>
-                        </DialogActions>
-                    </DialogBody>
+                    <Field label="Title">
+                        <Input
+                            value={title}
+                            onChange={(_event, data) => setTitle(data?.value)}
+                            aria-autocomplete="none"
+                        />
+                    </Field>
+                    <button type="submit" hidden />
                 </form>
-            </DialogSurface>
-        </Dialog>
+            }
+            closeLabel="Cancel"
+            additionalActions={[
+                <Button key="save" appearance="primary" onClick={handleSave} disabled={submitted}>
+                    {submitted ? 'Saving...' : 'Save'}
+                </Button>,
+            ]}
+        />
     );
 };

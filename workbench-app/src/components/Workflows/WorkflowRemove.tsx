@@ -39,7 +39,7 @@ export const WorkflowRemove: React.FC<WorkflowRemoveProps> = (props) => {
                 content: <p> Are you sure you want to remove this workflow?</p>,
                 closeLabel: 'Cancel',
                 additionalActions: [
-                    <DialogTrigger key="remove">
+                    <DialogTrigger key="remove" disableButtonEnhancement>
                         <Button appearance="primary" onClick={handleRemove}>
                             Remove
                         </Button>

@@ -14,6 +14,7 @@ export interface ConversationMessage {
     metadata?: {
         [key: string]: any;
     };
+    hasDebugData: boolean;
 }
 
 export const conversationMessageFromJSON = (json: any): ConversationMessage => {
@@ -29,5 +30,6 @@ export const conversationMessageFromJSON = (json: any): ConversationMessage => {
         contentType: json.content_type,
         filenames: json.filenames,
         metadata: json.metadata,
+        hasDebugData: json.has_debug_data,
     };
 };

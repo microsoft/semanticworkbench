@@ -1,5 +1,5 @@
-this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
-include $(this_dir)/shell.mk
+mkfile_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
+include $(mkfile_dir)/shell.mk
 
 .DEFAULT_GOAL ?= install
 
@@ -11,7 +11,9 @@ venv_dir = .venv
 endif
 
 UV_SYNC_ARGS ?= --all-extras
-UV_RUN_ARGS ?= --all-extras
+UV_RUN_ARGS ?= --all-extras --locked
+
+PYTEST_ARGS ?= --color=yes
 
 ## Rules
 
@@ -25,17 +27,17 @@ lock:
 
 .PHONY: clean
 clean:
-	$(rm) $(venv_dir)
+	$(rm_dir) $(venv_dir) $(ignore_failure)
 
 .PHONY: lint
 lint:
-	uvx ruff check --fix .
+	uvx ruff check --no-cache --fix .
 
 .PHONY: format
 format:
-	uvx ruff format .
+	uvx ruff format --no-cache .
 
-ifneq ($(findstring pytest,$(if $(shell command -v uv $(null_stderr)),$(shell uv tree --depth 1),)),)
+ifneq ($(findstring pytest,$(if $(shell $(call command_exists,uv) $(stderr_redirect_null)),$(shell uv tree --depth 1 $(stderr_redirect_null)),)),)
 .PHONY: test
 test:
 	uv run $(uv_project_args) $(UV_RUN_ARGS) pytest $(PYTEST_ARGS)

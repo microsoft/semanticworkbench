@@ -19,7 +19,6 @@ dev-dependencies = [
     "pytest>=8.3.1",
     "pytest-asyncio>=0.23.8",
     "pytest-repeat>=0.9.3",
-    "ruff>=0.6.4",
     "ipykernel>=6.29.5",
 ]
 

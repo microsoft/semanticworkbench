@@ -1,7 +1,13 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import dayjs from 'dayjs';
+import tz from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { diff } from 'deep-object-diff';
 import merge from 'deepmerge';
+
+dayjs.extend(utc);
+dayjs.extend(tz);
 
 const deepEqual = (object1: object, object2: object) => {
     const differences = diff(object1, object2);
@@ -58,18 +64,44 @@ const deepDiff = (obj1: ObjectLiteral, obj2: ObjectLiteral, parentKey = ''): Obj
 
 type ObjectLiteral = { [key: string]: any };
 
-const getTimestampForExport = () => {
-    // return in format YYYYMMDDHHmmss
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
+const toDayJs = (value: string | Date, timezone: string = dayjs.tz.guess()) => {
+    return dayjs.utc(value).tz(timezone);
+};
 
-    const formattedMonth = month < 10 ? `0${month}` : month;
+const toDate = (value: string, timezone: string = dayjs.tz.guess()): Date => {
+    return toDayJs(value, timezone).toDate();
+};
 
-    return `${year}${formattedMonth}${day}${hours}${minutes}`;
+const toSimpleDateString = (value: string | Date, timezone: string = dayjs.tz.guess()): string => {
+    const now = dayjs.utc();
+    const date = toDayJs(value, timezone);
+
+    // If the date is today, return the time
+    if (date.isSame(now, 'day')) {
+        return date.format('h:mm A');
+    }
+
+    // If the date is within the last week, return the day of the week
+    if (date.isAfter(now.subtract(7, 'days'))) {
+        return date.format('ddd');
+    }
+
+    // Otherwise, return the month and day if it's within the current year
+    if (date.isSame(now, 'year')) {
+        return date.format('MMM D');
+    }
+
+    // Otherwise, return the month, day, and year
+    return date.format('MMM D, YYYY');
+};
+
+const toFormattedDateString = (value: string | Date, format: string, timezone: string = dayjs.tz.guess()): string => {
+    return toDayJs(value, timezone).format(format);
+};
+
+const getTimestampForFilename = (timezone: string = dayjs.tz.guess()) => {
+    // return in format YYYYMMDDHHmm
+    return toDayJs(new Date(), timezone).format('YYYYMMDDHHmm');
 };
 
 const sortKeys = (obj: any): any => {
@@ -86,11 +118,71 @@ const sortKeys = (obj: any): any => {
     return obj;
 };
 
+const errorToMessageString = (error?: Record<string, any> | string) => {
+    // Check if the error is undefined
+    if (error === undefined) {
+        // Return an empty string
+        return undefined;
+    }
+
+    // Check if the error is a string
+    if (typeof error === 'string') {
+        // Return the error as is
+        return error;
+    }
+
+    // Set the message for the error message, displayed as the error details
+    let message = '';
+
+    // Check if the action payload contains a 'data.detail' property
+    if ('data' in error && 'detail' in error.data) {
+        // Check if the 'detail' property is a string
+        if (typeof error.data.detail === 'string') {
+            // Set the message to the 'detail' property
+            message = (error.data as { detail: string }).detail;
+        } else {
+            // Set the message to the 'detail' property as a stringified JSON object
+            message = JSON.stringify(error.data.detail);
+        }
+    } else if ('message' in error) {
+        message = error.message;
+    } else if ('error' in error && 'status' in error) {
+        message = error.status;
+
+        // Additional error handling for specific error types
+        if (error.status === 'FETCH_ERROR') {
+            message = `Error connecting to Semantic Workbench service, ensure service is running`;
+            // Check if the url contains a GitHub Codespaces hostname
+            if (error.meta.baseQueryMeta.request.url.includes('app.github.dev')) {
+                // Append a message to the error message to indicate it may be due
+                // to the port not being forwarded correctly
+                message = `${message} and port is visible`;
+            }
+        }
+    }
+
+    return message;
+};
+
+const withStatus = async <T>(setStatus: (status: boolean) => void, callback: () => Promise<T>): Promise<T> => {
+    setStatus(true);
+    try {
+        return await callback();
+    } finally {
+        setStatus(false);
+    }
+};
+
 export const Utility = {
     deepEqual,
     deepCopy,
     deepMerge,
     deepDiff,
-    getTimestampForExport,
+    toDate,
+    toSimpleDateString,
+    toFormattedDateString,
+    getTimestampForFilename,
     sortKeys,
+    errorToMessageString,
+    withStatus,
 };
