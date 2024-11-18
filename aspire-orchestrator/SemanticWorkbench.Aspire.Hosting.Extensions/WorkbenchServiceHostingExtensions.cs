@@ -50,7 +50,7 @@ public static class WorkbenchServiceHostingExtensions
                 dockerFilePath: Path.Combine("tools", "docker", "Dockerfile.assistant"),
                 configure: new (configure => configure
                     .WithBuildArg("package", assistantModuleName)
-                    .WithBuildArg("app", assistantModuleName)
+                    .WithBuildArg("app", $"assistant.{assistantModuleName.Replace('-', '_')}:app")
                 ));
         if(builder.ExecutionContext.IsPublishMode)
         {
