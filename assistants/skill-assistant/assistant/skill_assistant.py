@@ -9,9 +9,12 @@
 
 import logging
 from pathlib import Path
+from typing import Any, Optional
 
 import openai_client
 from content_safety.evaluators import CombinedContentSafetyEvaluator
+from form_filler_skill import FormFillerSkill
+from form_filler_skill.guided_conversation import GuidedConversationSkill
 from openai_client.chat_driver import ChatDriverConfig
 
 # from form_filler_skill import FormFillerSkill
@@ -30,6 +33,7 @@ from semantic_workbench_assistant.assistant_app import (
     ContentSafetyEvaluator,
     ConversationContext,
 )
+from skill_library.types import Metadata
 
 from assistant.skill_event_mapper import SkillEventMapper
 
@@ -97,9 +101,28 @@ app = assistant.fastapi_app()
 assistant_registry = AssistantRegistry()
 
 
+# Handle the event triggered when the assistant is added to a conversation.
+@assistant.events.conversation.on_created
+async def on_conversation_created(conversation_context: ConversationContext) -> None:
+    """
+    Handle the event triggered when the assistant is added to a conversation.
+    """
+
+    # send a welcome message to the conversation
+    config = await assistant_config.get(conversation_context.assistant)
+    welcome_message = config.welcome_message
+    await conversation_context.send_messages(
+        NewConversationMessage(
+            content=welcome_message,
+            message_type=MessageType.chat,
+            metadata={"generated_content": False},
+        )
+    )
+
+
 @assistant.events.conversation.message.chat.on_created
 async def on_message_created(
-    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
+    conversation_context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     """
     Handle the event triggered when a new chat message is created in the conversation.
@@ -115,55 +138,37 @@ async def on_message_created(
     """
 
     # pass the message to the core response logic
-    await respond_to_conversation(context, event, message)
+    async with conversation_context.set_status("thinking..."):
+        config = await assistant_config.get(conversation_context.assistant)
+        metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
+        await respond_to_conversation(conversation_context, config, message, metadata)
 
 
-@assistant.events.conversation.message.command.on_created
-async def on_command_message_created(
-    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
-) -> None:
-    """
-    Handle the event triggered when a new command message is created in the conversation.
-    """
+# @assistant.events.conversation.message.command.on_created
+# async def on_command_message_created(
+#     conversation_context: ConversationContext, event: ConversationEvent, message: ConversationMessage
+# ) -> None:
+#     """
+#     Handle the event triggered when a new command message is created in the conversation.
+#     """
 
-    # pass the message to the core response logic
-    await respond_to_conversation(context, event, message)
-
-
-# Handle the event triggered when the assistant is added to a conversation.
-@assistant.events.conversation.on_created
-async def on_conversation_created(context: ConversationContext) -> None:
-    """
-    Handle the event triggered when the assistant is added to a conversation.
-    """
-
-    # send a welcome message to the conversation
-    config = await assistant_config.get(context.assistant)
-    welcome_message = config.welcome_message
-    await context.send_messages(
-        NewConversationMessage(
-            content=welcome_message,
-            message_type=MessageType.chat,
-            metadata={"generated_content": False},
-        )
-    )
+#     # pass the message to the core response logic
+#     async with conversation_context.set_status("thinking..."):
+#         config = await assistant_config.get(conversation_context.assistant)
+#         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
+#         await respond_to_conversation(conversation_context, config, message, metadata)
 
 
 # Core response logic for handling messages (chat or command) in the conversation.
 async def respond_to_conversation(
     conversation_context: ConversationContext,
-    event: ConversationEvent,
+    config: AssistantConfigModel,
     message: ConversationMessage,
+    metadata: Optional[Metadata] = None,
 ) -> None:
     """
     Respond to a conversation message.
     """
-
-    # Get the assistant configuration.
-    config = await assistant_config.get(conversation_context.assistant)
-
-    # TODO: pass metadata to the assistant for at least adding the content safety metadata to debug.
-    # metadata = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
     # Update the participant status to indicate the assistant is thinking.
     await conversation_context.update_participant_me(UpdateParticipant(status="thinking..."))
@@ -174,27 +179,31 @@ async def respond_to_conversation(
     # Create and register an assistant if necessary.
     if not assistant:
         try:
-            async_client = openai_client.create_client(config.service_config)
+            language_model = openai_client.create_client(config.service_config)
             chat_driver_config = ChatDriverConfig(
-                openai_client=async_client,
+                openai_client=language_model,
                 model=config.chat_driver_config.openai_model,
                 instructions=config.chat_driver_config.instructions,
-                # context will be overwritten by the assistant when initialized.
             )
             assistant = await assistant_registry.register_assistant(
                 conversation_context.id,
                 SkillEventMapper(conversation_context),
                 chat_driver_config,
-                [
-                    PosixSkill(
+                {
+                    "posix": PosixSkill(
                         sandbox_dir=Path(".data") / conversation_context.id,
                         chat_driver_config=chat_driver_config,
                         mount_dir="/mnt/data",
                     ),
-                    # FormFillerSkill(
-                    #     chat_driver_config=chat_driver_config,
-                    # ),
-                ],
+                    "form_filler": FormFillerSkill(
+                        chat_driver_config=chat_driver_config,
+                        language_model=language_model,
+                    ),
+                    "guided_conversation": GuidedConversationSkill(
+                        chat_driver_config=chat_driver_config,
+                        language_model=language_model,
+                    ),
+                },
             )
 
         except Exception as e:
@@ -210,7 +219,7 @@ async def respond_to_conversation(
             await conversation_context.update_participant_me(UpdateParticipant(status=None))
 
     try:
-        await assistant.put_message(message.content)
+        await assistant.put_message(message.content, metadata)
     except Exception as e:
         logging.exception("exception in on_message_created")
         await conversation_context.send_messages(
@@ -219,6 +228,3 @@ async def respond_to_conversation(
                 content=f"Unhandled error: {e}",
             )
         )
-    finally:
-        # update the participant status to indicate the assistant is done thinking
-        await conversation_context.update_participant_me(UpdateParticipant(status=None))

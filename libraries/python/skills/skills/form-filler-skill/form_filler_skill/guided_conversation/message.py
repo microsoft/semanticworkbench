@@ -2,6 +2,7 @@ from enum import StrEnum
 
 from attr import dataclass
 from openai.types.chat import ChatCompletionMessageParam
+from pydantic import BaseModel
 
 
 class ConversationMessageType(StrEnum):
@@ -10,7 +11,7 @@ class ConversationMessageType(StrEnum):
     REASONING = "reasoning"
 
 
-class Message:
+class Message(BaseModel):
     def __init__(
         self,
         chat_completion_message_param: ChatCompletionMessageParam,
@@ -23,7 +24,7 @@ class Message:
 
 
 @dataclass
-class Conversation:
+class Conversation(BaseModel):
     messages: list[Message] = []
 
     def exclude(self, types: list[ConversationMessageType]) -> list[Message]:

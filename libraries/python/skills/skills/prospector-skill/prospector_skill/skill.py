@@ -38,7 +38,7 @@ class ProspectorSkill(Skill):
             name=NAME,
             description=DESCRIPTION,
             chat_driver_config=chat_driver_config,
-            skill_actions=actions,
+            actions=actions,
             routines=routines,
         )
 
