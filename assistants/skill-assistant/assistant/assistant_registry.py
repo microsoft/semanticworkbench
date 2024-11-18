@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from pathlib import Path
-from typing import List
+from typing import Optional
 
 from openai_client.chat_driver import ChatDriverConfig
 from skill_library import Assistant, Skill
@@ -29,7 +29,7 @@ class AssistantRegistry:
         assistant_id: str,
         event_mapper: SkillEventMapperProtocol,
         chat_driver_config: ChatDriverConfig,
-        skills: List[Skill] = [],
+        skills: Optional[dict[str, Skill]] = None,
     ) -> Assistant:
         """
         Get or create an assistant for the given conversation context.
@@ -52,7 +52,7 @@ class AssistantRegistry:
         assistant_id: str,
         event_mapper: SkillEventMapperProtocol,
         chat_driver_config: ChatDriverConfig,
-        skills: List[Skill] = [],
+        skills: dict[str, Skill] | None = None,
     ) -> Assistant:
         """
         Define the skill assistant that you want to have backing this assistant
@@ -60,15 +60,18 @@ class AssistantRegistry:
         to include here.
         """
 
+        # for skill in skills:
+        # FIXME: add emit here?
+
         # Create the assistant.
         assistant = Assistant(
             name="Assistant",
             assistant_id=assistant_id,
             drive_root=Path(".data") / assistant_id / "assistant",
-            metadrive_drive_root=Path(".data") / assistant_id / ".assistant",
+            metadata_drive_root=Path(".data") / assistant_id / ".assistant",
             chat_driver_config=chat_driver_config,
+            skills=skills,
         )
-        assistant.register_skills(skills)
 
         # Assistant event consumer.
         async def subscribe() -> None:
