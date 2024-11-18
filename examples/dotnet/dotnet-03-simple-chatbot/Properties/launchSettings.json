@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "dotnet-03-simple-chatbot": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:59832;http://localhost:59833"
+    }
+  }
+}

@@ -33,12 +33,28 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         this.WorkbenchConfig = workbenchConfig ?? new();
         this.DefaultAgentConfig = defaultAgentConfig ?? new();
 
+        if (Environment.GetEnvironmentVariable("services__agent3__http__0") is not null)
+        {
+            this.Config.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__http__0")}/myagents";
+        } else if (Environment.GetEnvironmentVariable("services__agent3__https__0") is not null)
+        {
+            this.Config.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__https__0")}/myagents";
+        }
+
+        if (Environment.GetEnvironmentVariable("services__workbenchservice__http__0") is not null)
+        {
+            this.Config.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__http__0");
+        } else if (Environment.GetEnvironmentVariable("services__workbenchservice__https__0") is not null)
+        {
+            this.Config.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__https__0");
+        }
+
         this.Log = logger;
         this.Storage = storage;
         this.HttpClient = new HttpClient();
-        this.HttpClient.BaseAddress = new Uri(this.WorkbenchConfig.WorkbenchEndpoint);
-        this.Agents = new Dictionary<string, AgentBase<TAgentConfig>>();
-
+        var baseAddress = this.Config.WorkbenchEndpoint;
+        this.HttpClient.BaseAddress = new Uri(baseAddress);
+        this.Agents = new Dictionary<string, AgentBase<TAgentConfig>>()>();
         this.Log.LogTrace("Service instance created");
     }
 
