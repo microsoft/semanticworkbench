@@ -1,10 +1,8 @@
-import json
 import traceback
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, AsyncGenerator, Awaitable, Callable
 
-import aiohttp
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
@@ -79,9 +77,7 @@ class UserProxyRunner:
         self.config_provider = config_provider
         self.error_handler = error_handler
 
-    async def run(
-        self, context: ConversationContext, workflow_definition: UserProxyWorkflowDefinition, user_id: str
-    ) -> None:
+    async def run(self, context: ConversationContext, workflow_definition: UserProxyWorkflowDefinition) -> None:
         """
         Run the user proxy runner.
         """
@@ -90,12 +86,12 @@ class UserProxyRunner:
             f"Workflow {workflow_definition.name}: Starting..."
         ):
             # duplicate the current conversation and get the context
-            workflow_context = await self.duplicate_conversation(context, user_id)
+            workflow_context = await self.duplicate_conversation(context)
 
             # set the current workflow id
             workflow_state = WorkflowState(
                 id=workflow_context.id,
-                context=context,
+                context=workflow_context,
                 definition=workflow_definition,
                 current_step=1,
             )
@@ -103,31 +99,25 @@ class UserProxyRunner:
 
             # set up the event source for the workflow
             events_base_url = context._workbench_client._client._base_url
-            events_path = f"/conversations/{workflow_context.id}/events"
+            events_path = f"conversations/{workflow_context.id}/events"
             event_source_url = f"{events_base_url}{events_path}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(event_source_url) as response:
-                    async for line in response.content:
-                        # Process the SSE events
-                        if line:
-                            event_data = line.decode("utf-8").strip()
-                            if event_data.startswith("data:"):
-                                json_data = event_data[5:].strip()
-                                event = json.loads(json_data)
-                                if event["type"] == "message_created" and event["data"] is not None:
-                                    assistant_response = ConversationMessage.model_validate(event["data"])
-                                    await self._on_assistant_message(context, workflow_state, assistant_response)
+
+            async for event in context._workbench_client.get_sse_session(event_source_url):
+                # Process the SSE events
+                if event["type"] == "message_created" and event["data"] is not None:
+                    assistant_response = ConversationMessage.model_validate(event["data"])
+                    await self._on_assistant_message(context, workflow_state, assistant_response)
 
             # start the workflow
             await self._start_step(context, workflow_state)
 
-    async def duplicate_conversation(self, context: ConversationContext, user_id: str) -> ConversationContext:
+    async def duplicate_conversation(self, context: ConversationContext) -> ConversationContext:
         """
         Duplicate the current conversation
         """
 
         # duplicate the current conversation
-        response = await context._workbench_client.duplicate_conversation(user_id)
+        response = await context._workbench_client.duplicate_conversation()
 
         # create a new conversation context
         workflow_context = ConversationContext(

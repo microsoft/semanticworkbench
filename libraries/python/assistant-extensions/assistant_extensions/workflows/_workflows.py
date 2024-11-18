@@ -112,4 +112,4 @@ class WorkflowsExtension:
             return
 
         # run the user proxy runner
-        await self._user_proxy_runner.run(context, workflow_definition, message.sender.participant_id)
+        await self._user_proxy_runner.run(context, workflow_definition)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import types
 import uuid
 from contextlib import asynccontextmanager, suppress
@@ -76,6 +77,20 @@ class ConversationAPIClient:
     def _client(self) -> httpx.AsyncClient:
         return self._httpx_client_factory()
 
+    async def get_sse_session(self, event_source_url: str) -> AsyncIterator[dict]:
+        async with self._client as client:
+            async with client.stream("GET", event_source_url) as response:
+                try:
+                    async for line in response.aiter_lines():
+                        if line:
+                            event_data = line.strip()
+                            if event_data.startswith("data:"):
+                                json_data = event_data[5:].strip()
+                                event = json.loads(json_data)
+                                yield event
+                finally:
+                    await response.aclose()
+
     async def delete_conversation(self) -> None:
         async with self._client as client:
             http_response = await client.delete(f"/conversations/{self._conversation_id}")
@@ -83,9 +98,9 @@ class ConversationAPIClient:
                 return
             http_response.raise_for_status()
 
-    async def duplicate_conversation(self, user_id: str) -> workbench_model.ConversationImportResult:
+    async def duplicate_conversation(self) -> workbench_model.ConversationImportResult:
         async with self._client as client:
-            http_response = await client.post(f"/conversations/duplicate?id={self._conversation_id}&user_id={user_id}")
+            http_response = await client.post(f"/conversations/duplicate?id={self._conversation_id}")
             http_response.raise_for_status()
             return workbench_model.ConversationImportResult.model_validate(http_response.json())
 
