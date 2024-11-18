@@ -35,26 +35,26 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
 
         if (Environment.GetEnvironmentVariable("services__agent3__http__0") is not null)
         {
-            this.Config.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__http__0")}/myagents";
+            this.WorkbenchConfig.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__http__0")}/myagents";
         } else if (Environment.GetEnvironmentVariable("services__agent3__https__0") is not null)
         {
-            this.Config.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__https__0")}/myagents";
+            this.WorkbenchConfig.ConnectorEndpoint = $"{Environment.GetEnvironmentVariable("services__agent3__https__0")}/myagents";
         }
 
         if (Environment.GetEnvironmentVariable("services__workbenchservice__http__0") is not null)
         {
-            this.Config.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__http__0");
+            this.WorkbenchConfig.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__http__0");
         } else if (Environment.GetEnvironmentVariable("services__workbenchservice__https__0") is not null)
         {
-            this.Config.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__https__0");
+            this.WorkbenchConfig.WorkbenchEndpoint = Environment.GetEnvironmentVariable("services__workbenchservice__https__0");
         }
 
         this.Log = logger;
         this.Storage = storage;
         this.HttpClient = new HttpClient();
-        var baseAddress = this.Config.WorkbenchEndpoint;
+        var baseAddress = this.WorkbenchConfig.WorkbenchEndpoint;
         this.HttpClient.BaseAddress = new Uri(baseAddress);
-        this.Agents = new Dictionary<string, AgentBase<TAgentConfig>>()>();
+        this.Agents = new Dictionary<string, AgentBase<TAgentConfig>>();
         this.Log.LogTrace("Service instance created");
     }
 
@@ -77,7 +77,7 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        this.Log.LogInformation("Connecting {1} {2} {3}...", this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint);
+        this.Log.LogInformation("Connecting {1} {2} {3} to {4}...", this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint, this.WorkbenchConfig.WorkbenchEndpoint);
 #pragma warning disable CS4014 // ping runs in the background without blocking
         this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, 10000);
 #pragma warning restore CS4014

@@ -11,7 +11,7 @@ dotnetAgent3.WithReference(dotnetAgent3);
 
 builder.AddAssistantApp("skill-assistant",
                         projectDirectory: Path.Combine("..", "..", "assistants", "skill-assistant"),
-                        scriptArgs: ["assistant.skill_assistant:app"])
+                        assistantModuleName: "skill-assistant")
     .WithEnvironment(name: "assistant__workbench_service_url", workbenchServiceEndpoint);
 
 var workbenchapp = builder.AddViteApp("workbenchapp", workingDirectory: Path.Combine("..", "..", "workbench-app"), packageManager: "pnpm")

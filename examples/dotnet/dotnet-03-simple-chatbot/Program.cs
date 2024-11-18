@@ -43,7 +43,7 @@ internal static class Program
         }
         Console.WriteLine($"The env var value is {Environment.GetEnvironmentVariable("services__agent3__http__0")}");
         Console.WriteLine($"The connector endpoint is {connectorEndpoint}");
-        using var agentService = app.UseAgentWebservice(connectorEndpoint, true);
+        using var agentService = app.UseAgentWebservice<MyAgentConfig>(connectorEndpoint, true);
 
         await agentService.ConnectAsync().ConfigureAwait(false);
 

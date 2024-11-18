@@ -41,16 +41,16 @@ public static class WorkbenchServiceHostingExtensions
         this IDistributedApplicationBuilder builder,
         string name,
         string projectDirectory,
-        params string[] scriptArgs)
+        string assistantModuleName)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        var assistant = builder.AddUvApp(name, projectDirectory, "start-semantic-workbench-assistant", scriptArgs)
+        var assistant = builder.AddUvApp(name, projectDirectory, "start-assistant")
             .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
                 dockerFilePath: Path.Combine("tools", "docker", "Dockerfile.assistant"),
                 configure: new (configure => configure
-                    .WithBuildArg("package", "skill-assistant")
-                    .WithBuildArg("app", "assistant.skill_assistant:app")
+                    .WithBuildArg("package", assistantModuleName)
+                    .WithBuildArg("app", assistantModuleName)
                 ));
         if(builder.ExecutionContext.IsPublishMode)
         {
