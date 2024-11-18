@@ -73,13 +73,13 @@ class ProgramRoutine(Routine):
         return f"{self.name}(vars: {template_vars}): {self.description}"
 
 
-class FunctionRoutine(Routine):
+class StateMachineRoutine(Routine):
     def __init__(
         self,
         name: str,
         description: str,
         init_function: Callable[[RunContext, Optional[Dict[str, Any]]], Awaitable[None]],
-        step_function: Callable[[RunContext, Optional[str]], Awaitable[Optional[str]]],
+        step_function: Callable[[RunContext, Optional[str]], Awaitable[Optional[Any]]],
         skill: "Skill",
     ) -> None:
         super().__init__(
@@ -94,4 +94,4 @@ class FunctionRoutine(Routine):
         return f"{self.name}: {self.description}"
 
 
-RoutineTypes = Union[InstructionRoutine, ProgramRoutine, FunctionRoutine]
+RoutineTypes = Union[InstructionRoutine, ProgramRoutine, StateMachineRoutine]
