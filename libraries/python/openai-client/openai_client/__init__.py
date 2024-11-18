@@ -1,4 +1,4 @@
-import logging
+import logging as _logging  # Avoid name conflict with local logging module.
 
 from .client import (
     create_client,
@@ -33,8 +33,7 @@ from .tokens import (
     num_tokens_from_tools_and_messages,
 )
 
-logger = logging.getLogger(__name__)
-
+logger = _logging.getLogger(__name__)
 
 __all__ = [
     "add_serializable_data",
@@ -48,7 +47,6 @@ __all__ = [
     "create_user_message",
     "format_with_dict",
     "format_with_liquid",
-    "logger",
     "make_completion_args_serializable",
     "message_content_from_completion",
     "message_from_completion",
