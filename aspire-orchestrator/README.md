@@ -23,3 +23,4 @@
 3. [Configure the app registration and configure workbenchapp and workbench service](../docs/CUSTOM_APP_REGISTRATION.md)
 4. Run `azd login` to authenticate with Azure DevOps
 5. Run `azd up` to create the infrastructure and deploy the application
+6. Update the App Registration with the correct workbenchapp redirect URI
