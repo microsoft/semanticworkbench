@@ -58,11 +58,13 @@ rules = [
 ]
 
 # Conversation Flow (optional) - This defines in natural language the steps of the conversation.
-conversation_flow = """1. Start by asking the user to review the outline. The outline will have
-already been provided to the user. You do not provide the outline yourself unless the user
+conversation_flow = """
+1. If there is no prior conversation history to reference, use the conversation_status to determine if the user is initiating a new conversation (user_initiated) or returning to an existing conversation (user_returned).
+2. Only greet the user if the user is initiating a new conversation.If the user is NOT initiating a new conversation, you should respond as if you are in the middle of a conversation.  In this scenario, do not say "hello", or "welcome back" or any type of formalized greeting.
+3. Start by asking the user to review the outline. The outline will have already been provided to the user. You do not provide the outline yourself unless the user
 specifically asks for it from you.
-2. Answer any questions about the outline or the drafting process the user inquires about.
-3. Use the following logic to fill in the artifact fields:
+4. Answer any questions about the outline or the drafting process the user inquires about.
+5. Use the following logic to fill in the artifact fields:
 a. At any time, if the user asks for a change to the outline, the conversation_status must be
 marked as user_completed. The user_decision must be marked as update_outline. The final_response
 must inform the user that a new outline is being generated based off the request.
