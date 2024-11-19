@@ -24,6 +24,17 @@ This doc is intended to capture our team learnings with using Guided Conversatio
 
 ## GC and SK calls to OpenAI API
 
+Go to:
+`semantic_kernel > connectors > ai > open_ai > services > open_ai_handler.py > OpenAIHandler > _send_request`
+
+Breakpoints at:
+
+- 43 - `settings = request_settings.prepare_settings_dict()`
+- 47 - `response = await self.client.chat.completions.create(**settings)`
+- 49 - `response = await self.client.completions.create(**settings)`
+
+![Sample Image](images/sk_send_request.png "SK send_request")
+
 ### Generate Plan
 
 #### Callstack
