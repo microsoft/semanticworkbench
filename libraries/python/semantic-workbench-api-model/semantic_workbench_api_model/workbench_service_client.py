@@ -80,16 +80,35 @@ class ConversationAPIClient:
     async def get_sse_session(self, event_source_url: str) -> AsyncIterator[dict]:
         async with self._client as client:
             async with client.stream("GET", event_source_url) as response:
-                try:
-                    async for line in response.aiter_lines():
-                        if line:
-                            event_data = line.strip()
-                            if event_data.startswith("data:"):
-                                json_data = event_data[5:].strip()
-                                event = json.loads(json_data)
-                                yield event
-                finally:
-                    await response.aclose()
+                event = {}
+                async for line in response.aiter_lines():
+                    if line == "":
+                        # End of the event; process and yield it
+                        if "data" in event:
+                            # Concatenate multiline data
+                            data = event["data"]
+                            event["data"] = json.loads(data)
+                        yield event
+                        event = {}
+                    elif line.startswith(":"):
+                        # Comment line; ignore
+                        continue
+                    else:
+                        # Parse the field
+                        field, value = line.split(":", 1)
+                        value = value.lstrip()  # Remove leading whitespace
+                        if field == "data":
+                            # Handle multiline data
+                            event.setdefault("data", "")
+                            event["data"] += value + "\n"
+                        else:
+                            event[field] = value
+                # Handle the last event if the stream ends without a blank line
+                if event:
+                    if "data" in event:
+                        data = event["data"]
+                        event["data"] = json.loads(data)
+                    yield event
 
     async def delete_conversation(self) -> None:
         async with self._client as client:

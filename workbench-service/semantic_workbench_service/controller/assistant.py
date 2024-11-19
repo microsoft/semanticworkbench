@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import io
 import logging
 import pathlib
 import re
@@ -908,12 +909,15 @@ class AssistantController:
                 await asyncio.to_thread(shutil.copytree, original_files_path, new_files_path)
 
             # Associate existing assistant participants
-            assistant_participants = await session.exec(
-                select(db.AssistantParticipant).where(
-                    db.AssistantParticipant.conversation_id == conversation_id,
-                    db.AssistantParticipant.active_participant,
+            # Fetch assistant participants and collect into a list
+            assistant_participants = (
+                await session.exec(
+                    select(db.AssistantParticipant).where(
+                        db.AssistantParticipant.conversation_id == conversation_id,
+                        db.AssistantParticipant.active_participant,
+                    )
                 )
-            )
+            ).all()
             for participant in assistant_participants:
                 new_participant = db.AssistantParticipant(
                     conversation_id=new_conversation.conversation_id,
@@ -959,11 +963,22 @@ class AssistantController:
                     continue  # Assistant not found, skip
 
                 try:
-                    # Initialize the assistant's state for the new conversation
+                    # **Export the assistant's conversation data from the original conversation**
+                    assistant_client = await self._client_pool.assistant_instance_client(assistant)
+                    async with assistant_client.get_exported_conversation_data(
+                        conversation_id=conversation_id
+                    ) as export_response:
+                        # Read the exported data into a BytesIO buffer
+                        from_export = io.BytesIO()
+                        async for chunk in export_response:
+                            from_export.write(chunk)
+                        from_export.seek(0)  # Reset buffer position to the beginning
+
+                    # **Connect the assistant to the new conversation with the exported data**
                     await self.connect_assistant_to_conversation(
                         conversation=new_conversation,
                         assistant=assistant,
-                        from_export=None,
+                        from_export=from_export,
                     )
                 except AssistantError as e:
                     logger.error(

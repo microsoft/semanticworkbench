@@ -526,23 +526,6 @@ def init(
     ) -> ConversationImportResult:
         return await assistant_controller.duplicate_conversation(principal=principal, conversation_id=conversation_id)
 
-        # # check if it is a user or assistant
-        # if isinstance(principal, auth.UserPrincipal):
-        #     return await assistant_controller.duplicate_conversation(
-        #         principal=principal,
-        #         conversation_id=conversation_id,
-        #     )
-        # elif user_id is not None:
-        #     user_principal = auth.UserPrincipal(
-        #         user_id=user_id,
-        #         name="unknown",
-        #     )
-
-        #     return await assistant_controller.duplicate_conversation(
-        #         principal=user_principal,
-        #         conversation_id=conversation_id,
-        #     )
-
     @app.get("/assistants/{assistant_id}/config")
     async def get_assistant_config(
         user_principal: auth.DependsUserPrincipal,

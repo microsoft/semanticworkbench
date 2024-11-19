@@ -1,10 +1,12 @@
+import asyncio
 import traceback
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, AsyncGenerator, Awaitable, Callable
 
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
+    MessageSender,
     MessageType,
     NewConversationMessage,
 )
@@ -21,6 +23,7 @@ class WorkflowState:
     id: str
     context: ConversationContext
     definition: UserProxyWorkflowDefinition
+    send_as: MessageSender
     current_step: int
 
 
@@ -76,8 +79,14 @@ class UserProxyRunner:
         """
         self.config_provider = config_provider
         self.error_handler = error_handler
+        self._workflow_complete_event = asyncio.Event()
 
-    async def run(self, context: ConversationContext, workflow_definition: UserProxyWorkflowDefinition) -> None:
+    async def run(
+        self,
+        context: ConversationContext,
+        workflow_definition: UserProxyWorkflowDefinition,
+        send_as: MessageSender,
+    ) -> None:
         """
         Run the user proxy runner.
         """
@@ -93,23 +102,52 @@ class UserProxyRunner:
                 id=workflow_context.id,
                 context=workflow_context,
                 definition=workflow_definition,
+                send_as=send_as,
                 current_step=1,
             )
             self.current_workflow_state = workflow_state
 
-            # set up the event source for the workflow
-            events_base_url = context._workbench_client._client._base_url
-            events_path = f"conversations/{workflow_context.id}/events"
-            event_source_url = f"{events_base_url}{events_path}"
+            event_listener_task = asyncio.create_task(
+                self._listen_for_events(context, workflow_state, workflow_context.id)
+            )
 
-            async for event in context._workbench_client.get_sse_session(event_source_url):
-                # Process the SSE events
-                if event["type"] == "message_created" and event["data"] is not None:
-                    assistant_response = ConversationMessage.model_validate(event["data"])
-                    await self._on_assistant_message(context, workflow_state, assistant_response)
+            try:
+                # start the workflow
+                await self._start_step(context, workflow_state)
 
-            # start the workflow
-            await self._start_step(context, workflow_state)
+                # wait for the workflow to complete
+                await self._workflow_complete_event.wait()
+            except Exception as e:
+                await self.error_handler(context, workflow_state.definition.command, e)
+            finally:
+                event_listener_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await event_listener_task
+
+    async def _listen_for_events(
+        self, context: ConversationContext, workflow_state: WorkflowState, event_source_url: str
+    ) -> None:
+        """
+        Listen for events.
+        """
+
+        # set up the event source for the workflow
+        events_base_url = context._workbench_client._client._base_url
+        events_path = f"conversations/{workflow_state.context.id}/events"
+        event_source_url = f"{events_base_url}{events_path}"
+
+        async for sse_event in context._workbench_client.get_sse_session(event_source_url):
+            if (
+                sse_event["event"] == "message.created"
+                and sse_event["data"] is not None
+                and sse_event["data"]["data"] is not None
+                and sse_event["data"]["data"]["message"] is not None
+            ):
+                message_data = sse_event["data"]["data"]["message"]
+                message = ConversationMessage.model_validate(message_data)
+                if message.sender and message.sender.participant_role != "assistant":
+                    continue
+                await self._on_assistant_message(context, workflow_state, message)
 
     async def duplicate_conversation(self, context: ConversationContext) -> ConversationContext:
         """
@@ -143,6 +181,7 @@ class UserProxyRunner:
         user_message = workflow_state.definition.user_messages[workflow_state.current_step - 1]
         await workflow_state.context.send_messages(
             NewConversationMessage(
+                sender=workflow_state.send_as,
                 content=user_message,
                 message_type=MessageType.chat,
                 metadata={"attribution": "user"},
@@ -187,6 +226,9 @@ class UserProxyRunner:
 
             # cleanup
             await self._cleanup(context, workflow_state)
+
+            # Signal workflow completion
+            self._workflow_complete_event.set()
 
     async def _send_final_response(self, context: ConversationContext, assistant_response: ConversationMessage) -> None:
         """
