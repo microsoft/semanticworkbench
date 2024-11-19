@@ -60,7 +60,7 @@ rules = [
 # Conversation Flow (optional) - This defines in natural language the steps of the conversation.
 conversation_flow = """
 1. If there is no prior conversation history to reference, use the conversation_status to determine if the user is initiating a new conversation (user_initiated) or returning to an existing conversation (user_returned).
-2. Only greet the user if the user is initiating a new conversation.If the user is NOT initiating a new conversation, you should respond as if you are in the middle of a conversation.  In this scenario, do not say "hello", or "welcome back" or any type of formalized greeting.
+2. Only greet the user if the user is initiating a new conversation. If the user is NOT initiating a new conversation, you should respond as if you are in the middle of a conversation.  In this scenario, do not say "hello", or "welcome back" or any type of formalized greeting.
 3. Start by asking the user to review the outline. The outline will have already been provided to the user. You do not provide the outline yourself unless the user
 specifically asks for it from you.
 4. Answer any questions about the outline or the drafting process the user inquires about.
