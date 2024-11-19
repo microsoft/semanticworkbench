@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Union
 
 from events import BaseEvent, ErrorEvent, MessageEvent
-from openai import AsyncOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
@@ -21,7 +21,7 @@ from .message_history_providers import InMemoryMessageHistoryProvider, MessageHi
 
 @dataclass
 class ChatDriverConfig:
-    openai_client: AsyncOpenAI
+    openai_client: AsyncOpenAI | AsyncAzureOpenAI
     model: str
     instructions: str | list[str] = "You are a helpful assistant."
     instruction_formatter: MessageFormatter | None = None
@@ -130,6 +130,7 @@ class ChatDriver:
         response_format: Union[ResponseFormat, type[BaseModel]] = TEXT_RESPONSE_FORMAT,
         function_choice: list[str] | None = None,
         instruction_parameters: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> BaseEvent:
         """
         Respond to a user message.
@@ -165,7 +166,7 @@ class ChatDriver:
             await self.add_message(user_message)
 
         # Generate a response.
-        metadata = {}
+        metadata = metadata or {}
 
         completion_args = {
             "model": self.model,

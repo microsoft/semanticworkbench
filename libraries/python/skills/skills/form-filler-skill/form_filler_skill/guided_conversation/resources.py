@@ -5,6 +5,7 @@ import logging
 import math
 import time
 from enum import StrEnum
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -63,6 +64,23 @@ def format_resource(quantity: float, unit: ResourceConstraintUnit) -> str:
         return f"{quantity} {unit.value}"
 
 
+class GCResourceData(BaseModel):
+    """
+    Data class for GCResource. This class is used to store the data of the
+    GCResource class.
+
+    Args:
+        turn_number (int): The number of turns that have elapsed.
+        remaining_units (float): The remaining units of the resource constraint.
+        elapsed_units (float): The elapsed units of the resource constraint.
+    """
+
+    resource_constraint: Optional[ResourceConstraint]
+    turn_number: int
+    elapsed_units: float
+    remaining_units: float
+
+
 class GCResource:
     """
     Resource constraints for the GuidedConversation agent. This class is used to
@@ -80,20 +98,49 @@ class GCResource:
 
     def __init__(
         self,
-        resource_constraint: ResourceConstraint | None,
+        resource_constraint: ResourceConstraint | None = None,
+        turn_number: int = 0,
+        elapsed_units: float = 0,
+        remaining_units: float | None = None,
         initial_seconds_per_turn: int = 120,
     ):
         self.resource_constraint: ResourceConstraint | None = resource_constraint
+        self.turn_number = turn_number
+
+        # This is only used on the first turn.
         self.initial_seconds_per_turn: int = initial_seconds_per_turn
 
-        self.turn_number: int = 0
-
         if resource_constraint is not None:
-            self.elapsed_units = 0
-            self.remaining_units = resource_constraint.quantity
+            # If a resource constraint is given, then the initial remaining_units
+            # should be the quantity of the resource constraint.
+
+            self.elapsed_units = elapsed_units
+            if remaining_units is None:
+                self.remaining_units = resource_constraint.quantity
+            else:
+                self.remaining_units = remaining_units
         else:
-            self.elapsed_units = 0
+            # If there is no resource constraint, then these should all be zero.
+            self.elapsed_units = elapsed_units
             self.remaining_units = 0
+
+    @classmethod
+    def from_data(cls, data: GCResourceData, initial_seconds_per_turn: int = 120) -> "GCResource":
+        return cls(
+            resource_constraint=data.resource_constraint,
+            turn_number=data.turn_number,
+            elapsed_units=data.elapsed_units,
+            remaining_units=data.remaining_units,
+            initial_seconds_per_turn=120,
+        )
+
+    def to_data(self) -> GCResourceData:
+        return GCResourceData(
+            resource_constraint=self.resource_constraint,
+            turn_number=self.turn_number,
+            elapsed_units=self.elapsed_units,
+            remaining_units=self.remaining_units,
+        )
 
     def start_resource(self) -> None:
         """To be called at the start of a conversation turn"""
@@ -145,21 +192,11 @@ class GCResource:
         else:
             return self.turn_number
 
-    def get_remaining_turns(self, formatted_repr: bool = False) -> str | int:
+    def estimate_remaining_turns_formatted(self) -> str:
         """
-        Get the number of remaining turns.
-
-        Args:
-            formatted_repr (bool): If true, return a formatted string
-            representation of the remaining turns.
-
-        Returns:
-            str | int: The description/number of remaining turns.
+        Get the number of remaining turns in a formatted string.
         """
-        if formatted_repr:
-            return format_resource(self.estimate_remaining_turns(), ResourceConstraintUnit.TURNS)
-        else:
-            return self.estimate_remaining_turns()
+        return format_resource(self.estimate_remaining_turns(), ResourceConstraintUnit.TURNS)
 
     def estimate_remaining_turns(self) -> int:
         """
@@ -215,12 +252,8 @@ class GCResource:
         if self.resource_constraint is None:
             return ""
 
-        formatted_elapsed_resource = format_resource(
-            self.elapsed_units, ResourceConstraintUnit.TURNS
-        )
-        formatted_remaining_resource = format_resource(
-            self.remaining_units, ResourceConstraintUnit.TURNS
-        )
+        formatted_elapsed_resource = format_resource(self.elapsed_units, ResourceConstraintUnit.TURNS)
+        formatted_remaining_resource = format_resource(self.remaining_units, ResourceConstraintUnit.TURNS)
 
         # if the resource quantity is anything other than 1, the resource unit should be plural (e.g. "minutes" instead of "minute")
         is_plural_elapsed = self.elapsed_units != 1
