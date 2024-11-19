@@ -36,8 +36,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "root:Docker!" | chpasswd
 
 # azure sshd config
-COPY ./tools/docker/azure_website_sshd.conf /etc/ssh/sshd_config
-ENV SSHD_PORT=2222
+# COPY ./tools/docker/azure_website_sshd.conf /etc/ssh/sshd_config
+# ENV SSHD_PORT=2222
 ########
 # END: enable ssh in azure web app
 

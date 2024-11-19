@@ -11,7 +11,7 @@ public static class WorkbenchServiceHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
 
         var workbenchService = builder.AddUvApp(name, projectDirectory, "start-semantic-workbench-service", scriptArgs)
-            .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."), dockerFilePath: Path.Combine("workbench-service", "Dockerfile"));
+            .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."), dockerFilePath: Path.Combine("workbench-service", "Dockerfile.aspire"));
         if (builder.ExecutionContext.IsPublishMode)
         {
             workbenchService.WithHttpsEndpoint(port: 3000);
@@ -47,7 +47,7 @@ public static class WorkbenchServiceHostingExtensions
 
         var assistant = builder.AddUvApp(name, projectDirectory, "start-assistant")
             .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
-                dockerFilePath: Path.Combine("tools", "docker", "Dockerfile.assistant"),
+                dockerFilePath: Path.Combine("tools", "docker", "Dockerfile.aspire.assistant"),
                 configure: new (configure => configure
                     .WithBuildArg("package", assistantModuleName)
                     .WithBuildArg("app", $"assistant.{assistantModuleName.Replace('-', '_')}:app")
