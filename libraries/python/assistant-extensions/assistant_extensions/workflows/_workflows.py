@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any, Awaitable, Callable
 
@@ -5,6 +6,7 @@ import deepmerge
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
+    MessageSender,
     MessageType,
     NewConversationMessage,
 )
@@ -111,5 +113,17 @@ class WorkflowsExtension:
             await self.on_help(config, context, metadata)
             return
 
-        # run the user proxy runner
-        await self._user_proxy_runner.run(context, workflow_definition, message.sender)
+        # run the workflow in the background
+        asyncio.create_task(self.run_workflow(context, workflow_definition, message.sender, metadata))
+
+    async def run_workflow(
+        self,
+        context: ConversationContext,
+        workflow_definition: Any,
+        send_as: MessageSender,
+        metadata: dict[str, Any] = {},
+    ) -> None:
+        try:
+            await self._user_proxy_runner.run(context, workflow_definition, send_as, metadata)
+        except Exception as e:
+            await self._error_handler(context, workflow_definition.command, e)

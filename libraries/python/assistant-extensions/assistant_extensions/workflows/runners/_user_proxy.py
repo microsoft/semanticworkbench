@@ -2,13 +2,14 @@ import asyncio
 import traceback
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, AsyncGenerator, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Awaitable, Callable
 
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageSender,
     MessageType,
     NewConversationMessage,
+    UpdateParticipant,
 )
 from semantic_workbench_assistant.assistant_app import AssistantContext, ConversationContext
 
@@ -25,6 +26,7 @@ class WorkflowState:
     definition: UserProxyWorkflowDefinition
     send_as: MessageSender
     current_step: int
+    metadata: dict[str, Any]
 
 
 @asynccontextmanager
@@ -86,14 +88,18 @@ class UserProxyRunner:
         context: ConversationContext,
         workflow_definition: UserProxyWorkflowDefinition,
         send_as: MessageSender,
+        metadata: dict[str, Any] = {},
     ) -> None:
         """
         Run the user proxy runner.
         """
         # inform the user that the workflow has started and get going!
-        async with send_error_message_on_exception(context), context.set_status(
-            f"Workflow {workflow_definition.name}: Starting..."
-        ):
+        async with send_error_message_on_exception(context):
+            # context.set_status(f"Starting workflow: {workflow_definition.name}")
+            await context.update_participant_me(
+                UpdateParticipant(status=f"Starting workflow: {workflow_definition.name}")
+            )
+
             # duplicate the current conversation and get the context
             workflow_context = await self.duplicate_conversation(context)
 
@@ -104,6 +110,7 @@ class UserProxyRunner:
                 definition=workflow_definition,
                 send_as=send_as,
                 current_step=1,
+                metadata=metadata,
             )
             self.current_workflow_state = workflow_state
 
@@ -173,9 +180,7 @@ class UserProxyRunner:
         """
 
         # update status to indicate the workflow is on step #<current step>
-        context.set_status(
-            f"Workflow {workflow_state.definition.name}: Step {workflow_state.current_step}, sending user message..."
-        )
+        # context.set_status(f"Workflow {workflow_state.definition.name}: Step {workflow_state.current_step}")
 
         # create a new message on the new conversation, taken from the current step of the workflow definition
         user_message = workflow_state.definition.user_messages[workflow_state.current_step - 1]
@@ -189,8 +194,13 @@ class UserProxyRunner:
         )
 
         # update status to indicate the workflow is awaiting the assistant response
-        context.set_status(
-            f"Workflow {workflow_state.definition.name}: Step {workflow_state.current_step}, awaiting assistant response..."
+        # context.set_status(
+        #     f"Workflow {workflow_state.definition.name}: Step {workflow_state.current_step}, awaiting assistant response..."
+        # )
+        await context.update_participant_me(
+            UpdateParticipant(
+                status=f"Workflow {workflow_state.definition.name}: Step {workflow_state.current_step}, awaiting assistant response..."
+            )
         )
 
     async def _on_assistant_message(
@@ -222,7 +232,7 @@ class UserProxyRunner:
             await self._start_step(context, workflow_state)
         else:
             # send the final response
-            await self._send_final_response(context, assistant_response)
+            await self._send_final_response(context, workflow_state, assistant_response)
 
             # cleanup
             await self._cleanup(context, workflow_state)
@@ -230,10 +240,18 @@ class UserProxyRunner:
             # Signal workflow completion
             self._workflow_complete_event.set()
 
-    async def _send_final_response(self, context: ConversationContext, assistant_response: ConversationMessage) -> None:
+    async def _send_final_response(
+        self, context: ConversationContext, workflow_state: WorkflowState, assistant_response: ConversationMessage
+    ) -> None:
         """
         Send the final response to the user.
         """
+
+        # update status to indicate the workflow is complete
+        # context.set_status(f"Workflow {workflow_state.definition.name}: retrieving final response...")
+        # await context.update_participant_me(
+        #     UpdateParticipant(status=f"Workflow {workflow_state.definition.name}: retrieving final response...")
+        # )
 
         # create a new message on the original conversation using the final assistant response as content
         await context.send_messages(
@@ -248,6 +266,9 @@ class UserProxyRunner:
         """
         Disconnect the workflow conversation.
         """
+
+        # clear the status
+        await context.update_participant_me(UpdateParticipant(status=None))
 
         # disconnect the workflow conversation
         await context._workbench_client.delete_conversation()
