@@ -1,9 +1,9 @@
 import logging
-from os import PathLike
-from typing import Any, Callable, Coroutine, Optional
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Callable, Coroutine, Optional
 from uuid import uuid4
 
-from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
+from assistant_drive import Drive
 from context import ContextProtocol
 from events.events import EventProtocol
 
@@ -19,13 +19,19 @@ class LogEmitter:
 
 
 class RunContext(ContextProtocol):
+    """
+    "Run context" is passed to parts of the system (skill routines and
+    actions, and chat driver functions) that need to be able to run routines or
+    actions, set assistant state, or emit messages from the assistant.
+    """
+
     def __init__(
         self,
         session_id: str,
         assistant_drive: Drive,
         emit: Callable[[EventProtocol], None],
+        routine_stack: RoutineStack,
         run_routine: Callable[["RunContext", str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]],
-        metadata_drive_root: PathLike | None = None,
     ) -> None:
         # A session id is useful for maintaining consistent session state across all
         # consumers of this context. For example, a session id can be set in an
@@ -48,25 +54,28 @@ class RunContext(ContextProtocol):
         # event bus and handling the events sent to it with this function.
         self.emit = emit or LogEmitter().emit
 
-        # A metadrive to be used for managing assistant metadata. This can be
-        # useful for storing session data, logs, and other information that
-        # needs to be persisted across different calls to the assistant.
-        self.metadrive: Drive = Drive(
-            DriveConfig(
-                root=metadata_drive_root or f".data/{session_id}/.assistant",
-                default_if_exists_behavior=IfDriveFileExistsBehavior.OVERWRITE,
-            )
-        )
-
-        # Functions for running routines.
         self.run_routine = run_routine
 
-        # The routine stack is used to keep track of the current routine being
-        # run by the assistant.
-        self.routine_stack: RoutineStack = RoutineStack(self.metadrive)
-
         # Helper functions for managing state of the current routine being run.
-        self.state = self.routine_stack.get_current_state
-        self.state_key = self.routine_stack.get_current_state_key
-        self.update_state = self.routine_stack.set_current_state
-        self.update_state_key = self.routine_stack.set_current_state_key
+        self.get_state = routine_stack.get_current_state
+        self.get_state_key = routine_stack.get_current_state_key
+        self.set_state = routine_stack.set_current_state
+        self.set_state_key = routine_stack.set_current_state_key
+
+    @asynccontextmanager
+    async def stack_frame_state(self) -> AsyncGenerator[dict[str, Any], None]:
+        """
+        A context manager that allows you to get and set the state of the
+        current routine being run. This is useful for storing and retrieving
+        information that is needed across multiple steps of a routine.
+
+        Example:
+
+        ```
+        async with context.stack_frame_state() as state:
+            state["key"] = "value"
+        ```
+        """
+        state = await self.get_state()
+        yield state
+        await self.set_state(state)

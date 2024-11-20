@@ -1244,7 +1244,7 @@ draft_outline_main_system_message = (
     " consider the prior outline. The new outline should be a hierarchical structure with multiple levels of"
     " detail, and it should be clear and easy to understand. The outline should be generated in a way that is"
     " consistent with the document that will be generated from it. Do not include any explanation before or after"
-    " the outline, as the generated outline will be stored as its own document."
+    " the outline, as the generated outline will be stored as its own document. The generated outline should use Markdown."
 )
 # ("You are an AI assistant that helps draft outlines for a future flushed-out document."
 # " You use information from a chat history between a user and an assistant, a prior version of a draft"

@@ -2,8 +2,8 @@ import logging
 
 from pydantic import Field
 
-from form_filler_skill.base_model_llm import BaseModelLLM
-from form_filler_skill.resources import (
+from form_filler_skill.guided_conversation.chat_drivers.unneeded.base_model_llm import BaseModelLLM
+from form_filler_skill.guided_conversation.resources import (
     ResourceConstraintMode,
 )
 
@@ -17,7 +17,6 @@ class AgendaItem(BaseModelLLM):
 
 class Agenda(BaseModelLLM):
     resource_constraint_mode: ResourceConstraintMode | None = Field(default=None)
-    max_agenda_retries: int = Field(default=2)
     items: list[AgendaItem] = Field(
         description="Ordered list of items to be completed in the remainder of the conversation",
         default_factory=list,

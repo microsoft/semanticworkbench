@@ -1,15 +1,23 @@
 import logging
+from typing import cast
 
-from form_filler_skill.artifact import Artifact
-from form_filler_skill.definition import GCDefinition
-from form_filler_skill.message import Conversation
-from openai import AsyncAzureOpenAI, AsyncOpenAI
-from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
+from openai_client import (
+    CompletionError,
+    add_serializable_data,
+    create_system_message,
+    create_user_message,
+    make_completion_args_serializable,
+    validate_completion,
+)
+from skill_library.types import LanguageModel
+
+from ..artifact import Artifact
+from ..definition import GCDefinition
+from ..message import Conversation
 
 logger = logging.getLogger(__name__)
 
-
-final_update_template = """You are a helpful, thoughtful, and meticulous assistant.
+FINAL_UPDATE_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant.
 You just finished a conversation with a user.{% if context %} Here is some additional context about the conversation:
 {{ context }}{% endif %}
 
@@ -54,34 +62,52 @@ Current state of the artifact:
 {{ artifact_state }}"""
 
 
-async def final_update(
-    open_ai_client: AsyncOpenAI | AsyncAzureOpenAI,
+async def final_artifact_update(
+    language_model: LanguageModel,
     definition: GCDefinition,
     chat_history: Conversation,
     artifact: Artifact,
-):
-    history = InMemoryMessageHistoryProvider()
+) -> Artifact:
+    # TODO: Change out the chat driver.
 
-    history.append_system_message(
-        final_update_template,
-        {
-            "context": definition.conversation_context,
-            "artifact_schema": artifact.get_schema_for_prompt(),
-        },
-    )
-    history.append_user_message(
-        USER_MESSAGE_TEMPLATE,
-        {
-            "conversation_history": str(chat_history),
-            "artifact_state": artifact.get_artifact_for_prompt(),
-        },
-    )
+    completion_args = {
+        "model": "gpt-3.5-turbo",
+        "messages": [
+            create_system_message(
+                FINAL_UPDATE_TEMPLATE,
+                {
+                    "context": definition.conversation_context,
+                    "artifact_schema": artifact.get_schema_for_prompt(),
+                },
+            ),
+            create_user_message(
+                USER_MESSAGE_TEMPLATE,
+                {
+                    "conversation_history": str(chat_history),
+                    "artifact_state": artifact.get_artifact_for_prompt(),
+                },
+            ),
+        ],
+        "response_format": Artifact,
+    }
 
-    config = ChatDriverConfig(
-        openai_client=open_ai_client,
-        model="gpt-3.5-turbo",
-        message_provider=history,
-    )
-
-    chat_driver = ChatDriver(config)
-    return await chat_driver.respond()
+    metadata = {}
+    logger.debug("Completion call.", extra=add_serializable_data(make_completion_args_serializable(completion_args)))
+    metadata["completion_args"] = make_completion_args_serializable(completion_args)
+    try:
+        completion = await language_model.beta.chat.completions.parse(
+            **completion_args,
+        )
+        validate_completion(completion)
+        logger.debug("Completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
+        metadata["completion"] = completion.model_dump()
+    except CompletionError as e:
+        completion_error = CompletionError(e)
+        metadata["completion_error"] = completion_error.message
+        logger.error(
+            e.message, extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata})
+        )
+        raise completion_error from e
+    else:
+        agenda = cast(Artifact, completion.choices[0].message.parsed)
+        return agenda
