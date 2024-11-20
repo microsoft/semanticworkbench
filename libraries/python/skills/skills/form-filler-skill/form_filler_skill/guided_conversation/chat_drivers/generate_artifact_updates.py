@@ -14,7 +14,7 @@ from skill_library.types import LanguageModel
 
 from ..artifact import Artifact
 from ..message import Conversation
-from .fix_artifact_error import generate_artifact_field_update_error_fix
+from .fix_artifact_error import UpdateAttempt, generate_artifact_field_update_error_fix
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +59,6 @@ class ArtifactUpdate(BaseModel):
 
 class ArtifactUpdates(BaseModel):
     updates: list[ArtifactUpdate]
-
-
-class UpdateAttempt(BaseModel):
-    field_value: str
-    error: str
 
 
 async def generate_artifact_updates(
