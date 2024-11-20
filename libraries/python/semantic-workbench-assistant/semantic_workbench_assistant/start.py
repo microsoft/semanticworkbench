@@ -22,7 +22,7 @@ def main():
     parse_args.add_argument(
         "--app",
         type=str,
-        help="assistant app to start in format <module>:<attribute>; ex: assistant:app (also supports ASSISTANT_APP env var)",
+        help="assistant app to start in format <module>:<attribute> (also supports ASSISTANT_APP env var)",
         default=os.getenv("ASSISTANT_APP") or "assistant:app",
     )
     parse_args.add_argument(
