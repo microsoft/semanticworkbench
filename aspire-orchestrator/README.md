@@ -12,15 +12,27 @@
 ## Run with .NET Aspire
 
 1. Clone the repository
-2. In the root folder, run `make`
-3. cd into the [aspire-orchestrator](./aspire-orchestrator/SemanticWorkench.Aspire.AppHost) folder
-4. Run `dotnet run`
+
+```bash
+make
+cd aspire-orchestrator
+dotnet run
+```
 
 ## Deployment Steps with azd
 
 1. Clone the repository
-2. In the root folder, run `make`
+2. In the root folder, run
+```bash
+make
+```
 3. [Configure the app registration and configure workbenchapp and workbench service](../docs/CUSTOM_APP_REGISTRATION.md)
-4. Run `azd login` to authenticate with Azure DevOps
-5. Run `azd up` to create the infrastructure and deploy the application
+4. Authenticate with Azure Developer CLI
+```bash
+azd login
+```
+5. Create the infrastructure and deploy the application
+```bash
+azd up
+```
 6. Update the App Registration with the correct workbenchapp redirect URI
