@@ -18,6 +18,7 @@
 ```bash
 make
 cd aspire-orchestrator
+cd SemanticWorkench.Aspire.AppHost
 dotnet run
 ```
 
