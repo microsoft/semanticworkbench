@@ -33,7 +33,7 @@ def main():
         help="host IP to run service on",
     )
     parse_args.add_argument(
-         "--port", dest="port", type=int, default=settings.service.port, help="port to run service on"
+        "--port", dest="port", type=int, default=settings.service.port, help="port to run service on"
     )
     args = parse_args.parse_args()
 
