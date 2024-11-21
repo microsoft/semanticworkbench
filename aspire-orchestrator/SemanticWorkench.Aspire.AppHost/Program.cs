@@ -11,7 +11,7 @@ var workbenchApp = builder.AddViteApp("workbenchapp", workingDirectory: Path.Com
     .WithPnpmPackageInstallation()
     .WithEnvironment(name: "VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint)
     .WaitFor(workbenchService)
-    .PublishAsDockerFile();
+    .PublishAsDockerFile([new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint)]);
 
 // Sample Python agent
 builder.AddAssistantApp("skill-assistant", projectDirectory: Path.Combine("..", "..", "assistants", "skill-assistant"), assistantModuleName: "skill-assistant")

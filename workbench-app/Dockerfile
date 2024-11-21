@@ -1,3 +1,5 @@
+ARG VITE_SEMANTIC_WORKBENCH_SERVICE_URL
+
 # Stage 1: Build the React application
 FROM node:18-alpine AS build
 WORKDIR /app
