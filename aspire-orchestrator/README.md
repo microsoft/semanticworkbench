@@ -7,7 +7,9 @@
 ## Deployment Prerequisites
 
 - [Azure Developer CLI](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd?tabs=winget-windows%2Cbrew-mac%2Cscript-linux)
-- [dotnet (8 or greater)](https://dotnet.microsoft.com/en-us/download)
+- [dotnet (9 or greater)](https://dotnet.microsoft.com/en-us/download)
+- [Python 3.8 or greater](https://www.python.org/downloads/)
+- [NodeJs v18.12 or greater](https://nodejs.org/en/download/)
 
 ## Run with .NET Aspire
 
