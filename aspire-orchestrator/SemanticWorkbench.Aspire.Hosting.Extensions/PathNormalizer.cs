@@ -1,4 +1,4 @@
-using System;
+// Copyright (c) Microsoft. All rights reserved.
 
 namespace Aspire.Hosting.Extensions;
 
@@ -11,7 +11,7 @@ internal static class PathNormalizer
     /// <returns>Returns the normalized path value for the current platform.</returns>
     public static string NormalizePathForCurrentPlatform(this string path)
     {
-        if (string.IsNullOrWhiteSpace(path) == true)
+        if (string.IsNullOrWhiteSpace(path))
         {
             return path;
         }
