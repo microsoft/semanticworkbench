@@ -13,20 +13,6 @@ RUN uv sync --directory /workbench-service --no-editable --no-dev --locked
 
 FROM ${python_image}
 
-# BEGIN: enable ssh in azure web app - comment out if not needed
-########
-# install sshd and set password for root
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssh-server \
-    && rm -rf /var/lib/apt/lists/* \
-    && echo "root:Docker!" | chpasswd
-
-# azure sshd config
-# COPY ./tools/docker/azure_website_sshd.conf /etc/ssh/sshd_config
-# ENV SSHD_PORT=2222
-########
-# END: enable ssh in azure web app
-
 COPY --from=build /workbench-service/.venv /workbench-service/.venv
 ENV PATH=/workbench-service/.venv/bin:$PATH
 
