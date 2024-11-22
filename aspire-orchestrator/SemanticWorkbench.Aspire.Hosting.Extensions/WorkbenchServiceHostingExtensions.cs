@@ -8,6 +8,7 @@ public static class WorkbenchServiceHostingExtensions
         this IDistributedApplicationBuilder builder,
         string name,
         string projectDirectory,
+        IResourceBuilder<ParameterResource> clientId,
         params string[] scriptArgs)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -17,7 +18,7 @@ public static class WorkbenchServiceHostingExtensions
                 dockerFilePath: Path.Combine("workbench-service", "Dockerfile"),
                 configure: new (configure => configure
                     .WithBuildArg("SSHD_ENABLED", "false")))
-            .WithEnvironment(name: "WORKBENCH__AUTH__ALLOWED_APP_ID", Environment.GetEnvironmentVariable("EntraId__ClientId"));
+            .WithEnvironment(name: "WORKBENCH__AUTH__ALLOWED_APP_ID", clientId.Resource.Value);
         if (builder.ExecutionContext.IsPublishMode)
         {
             workbenchService.WithHttpsEndpoint(port: 3000);

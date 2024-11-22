@@ -2,8 +2,11 @@
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+var authority = builder.AddParameterFromConfiguration("authority", "EntraId:Authority");
+var clientId = builder.AddParameterFromConfiguration("clientId", "EntraId:ClientId");
+
 // Workbench backend
-var workbenchService = builder.AddWorkbenchService("workbenchservice", projectDirectory: Path.Combine("..", "..", "workbench-service"));
+var workbenchService = builder.AddWorkbenchService("workbenchservice", projectDirectory: Path.Combine("..", "..", "workbench-service"), clientId: clientId);
 var workbenchServiceEndpoint = workbenchService.GetSemanticWorkbenchEndpoint(builder.ExecutionContext.IsPublishMode);
 
 // Workbench frontend
@@ -11,8 +14,8 @@ var workbenchApp = builder.AddViteApp("workbenchapp", workingDirectory: Path.Com
     .WithPnpmPackageInstallation()
     .WithEnvironment(name: "VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint)
     .WaitFor(workbenchService)
-    .PublishAsDockerFile([new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", Environment.GetEnvironmentVariable("EntraId__ClientId")),
-        new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_AUTHORITY", Environment.GetEnvironmentVariable("EntraId__Authority")),
+    .PublishAsDockerFile([new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", clientId.Resource.Value),
+        new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_AUTHORITY", authority.Resource.Value),
         new DockerBuildArg("SSHD_ENABLED", "false")]);
 
 // Sample Python agent
