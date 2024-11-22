@@ -11,8 +11,7 @@ var workbenchApp = builder.AddViteApp("workbenchapp", workingDirectory: Path.Com
     .WithPnpmPackageInstallation()
     .WithEnvironment(name: "VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint)
     .WaitFor(workbenchService)
-    .PublishAsDockerFile([new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint),
-        new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", "c43495da-e4bc-422b-9c8e-c8f84ee5149a"),
+    .PublishAsDockerFile([new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", "c43495da-e4bc-422b-9c8e-c8f84ee5149a"),
         new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_AUTHORITY", "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47"),
         new DockerBuildArg("SSHD_ENABLED", "false")]);
 
