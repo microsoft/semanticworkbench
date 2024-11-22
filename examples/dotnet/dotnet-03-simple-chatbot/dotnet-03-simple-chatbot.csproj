@@ -10,7 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-         <PackageReference Include="Microsoft.SemanticWorkbench.Connector" Version="0.3.241104.1" /> 
+        <PackageReference Include="Microsoft.SemanticWorkbench.Connector" Version="0.3.241104.1" />
     </ItemGroup>
 
     <ItemGroup>
