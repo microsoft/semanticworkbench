@@ -1,6 +1,7 @@
 from pydantic import Field, HttpUrl
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from semantic_workbench_assistant.logging_config import LoggingSettings
 
 from .storage import FileStorageSettings
