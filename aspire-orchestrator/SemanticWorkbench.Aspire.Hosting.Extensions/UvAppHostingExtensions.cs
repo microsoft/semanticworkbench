@@ -51,16 +51,16 @@ public static class UvAppHostingExtensions
         var resourceBuilder = builder.AddResource(projectResource)
             .WithArgs(allArgs)
             .WithArgs(context =>
+            {
+                // If the project is to be automatically instrumented, add the instrumentation executable arguments first.
+                if (!string.IsNullOrEmpty(instrumentationExecutable))
                 {
-                    // If the project is to be automatically instrumented, add the instrumentation executable arguments first.
-                    if (!string.IsNullOrEmpty(instrumentationExecutable))
-                    {
-                        AddOpenTelemetryArguments(context);
+                    AddOpenTelemetryArguments(context);
 
-                        // // Add the python executable as the next argument so we can run the project.
-                        // context.Args.Add(pythonExecutable!);
-                    }
-                });
+                    // // Add the python executable as the next argument so we can run the project.
+                    // context.Args.Add(pythonExecutable!);
+                }
+            });
 
         if (!string.IsNullOrEmpty(instrumentationExecutable))
         {

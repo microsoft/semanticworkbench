@@ -16,16 +16,18 @@ public static class WorkbenchServiceHostingExtensions
         var workbenchService = builder.AddUvApp(name, projectDirectory, "start-semantic-workbench-service", scriptArgs)
             .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
                 dockerFilePath: Path.Combine("workbench-service", "Dockerfile"),
-                configure: new (configure => configure
+                configure: new(configure => configure
                     .WithBuildArg("SSHD_ENABLED", "false")))
             .WithEnvironment(name: "WORKBENCH__AUTH__ALLOWED_APP_ID", clientId.Resource.Value);
         if (builder.ExecutionContext.IsPublishMode)
         {
             workbenchService.WithHttpsEndpoint(port: 3000);
-        } else
+        }
+        else
         {
             workbenchService.WithHttpEndpoint(env: "PORT");
         }
+
         workbenchService.WithExternalHttpEndpoints();
 
         return workbenchService;
@@ -35,13 +37,7 @@ public static class WorkbenchServiceHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(workbenchService);
 
-        if (isPublishMode)
-        {
-            return workbenchService.GetEndpoint("https");
-        } else
-        {
-            return workbenchService.GetEndpoint("http");
-        }
+        return workbenchService.GetEndpoint(isPublishMode ? "https" : "http");
     }
 
     public static IResourceBuilder<ExecutableResource> AddAssistantApp(
@@ -55,17 +51,19 @@ public static class WorkbenchServiceHostingExtensions
         var assistant = builder.AddUvApp(name, projectDirectory, "start-assistant")
             .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
                 dockerFilePath: Path.Combine("tools", "docker", "Dockerfile.assistant"),
-                configure: new (configure => configure
+                configure: new(configure => configure
                     .WithBuildArg("package", assistantModuleName)
                     .WithBuildArg("app", $"assistant.{assistantModuleName.Replace('-', '_')}:app")
                 ));
-        if(builder.ExecutionContext.IsPublishMode)
+        if (builder.ExecutionContext.IsPublishMode)
         {
             assistant.WithHttpEndpoint(port: 3001, env: "ASSISTANT__PORT");
-        } else
+        }
+        else
         {
             assistant.WithHttpEndpoint(env: "ASSISTANT__PORT");
         }
+
         var assistantEndpoint = assistant.GetEndpoint("http");
         assistant.WithEnvironment(name: "assistant__assistant_service_url", assistantEndpoint);
 

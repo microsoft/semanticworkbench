@@ -14,9 +14,11 @@ var workbenchApp = builder.AddViteApp("workbenchapp", workingDirectory: Path.Com
     .WithPnpmPackageInstallation()
     .WithEnvironment(name: "VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint)
     .WaitFor(workbenchService)
-    .PublishAsDockerFile([new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", clientId.Resource.Value),
+    .PublishAsDockerFile([
+        new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", clientId.Resource.Value),
         new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_AUTHORITY", authority.Resource.Value),
-        new DockerBuildArg("SSHD_ENABLED", "false")]);
+        new DockerBuildArg("SSHD_ENABLED", "false")
+    ]);
 
 // Sample Python agent
 builder.AddAssistantApp("skill-assistant", projectDirectory: Path.Combine("..", "..", "assistants", "skill-assistant"), assistantModuleName: "skill-assistant")

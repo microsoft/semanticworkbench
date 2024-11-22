@@ -29,7 +29,7 @@ public static class DockerFileExtensions
         return builder;
     }
 
-    class ExecutableContainerResource(ExecutableResource er) : ContainerResource(er.Name)
+    private class ExecutableContainerResource(ExecutableResource er) : ContainerResource(er.Name)
     {
         public override ResourceAnnotationCollection Annotations => er.Annotations;
     }
