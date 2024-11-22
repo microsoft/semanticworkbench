@@ -13,7 +13,12 @@
 
 ## Run with .NET Aspire
 
-1. Clone the repository
+1. Make sure you have accepted the [dotnet trust dev certificate](https://learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl?view=aspnetcore-9.0&tabs=visual-studio%2Clinux-sles#trust-the-aspnet-core-https-development-certificate)
+```bash
+dotnet dev-certs https --trust
+```
+
+2. Clone the repository
 
 ```bash
 make
