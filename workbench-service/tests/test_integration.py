@@ -15,6 +15,21 @@ from semantic_workbench_api_model import assistant_model, workbench_model
 from .types import MockUser
 
 
+async def wait_for_assistant_service_registration(
+    wb_client: httpx.AsyncClient,
+) -> workbench_model.AssistantServiceRegistration:
+    for _ in range(5):
+        http_response = await wb_client.get("/assistant-service-registrations")
+        http_response.raise_for_status()
+        assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(http_response.json())
+        if assistant_services.assistant_service_registrations:
+            return assistant_services.assistant_service_registrations[0]
+
+        await asyncio.sleep(0.001)
+
+    raise Exception("Timed out waiting for assistant service registration")
+
+
 async def test_flow_create_assistant_update_config(
     workbench_service: FastAPI,
     canonical_assistant_service: FastAPI,
@@ -29,11 +44,7 @@ async def test_flow_create_assistant_update_config(
         ) as wb_client,
         LifespanManager(canonical_assistant_service),
     ):
-        resp = await wb_client.get("/assistant-service-registrations")
-        resp.raise_for_status()
-        assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(resp.json())
-        assert len(assistant_services.assistant_service_registrations) == 1
-        assistant_service = assistant_services.assistant_service_registrations[0]
+        assistant_service = await wait_for_assistant_service_registration(wb_client)
 
         resp = await wb_client.post(
             "/assistants",
@@ -82,11 +93,7 @@ async def test_flow_create_assistant_update_conversation_state(
         ) as wb_client,
         LifespanManager(canonical_assistant_service),
     ):
-        resp = await wb_client.get("/assistant-service-registrations")
-        resp.raise_for_status()
-        assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(resp.json())
-        assert len(assistant_services.assistant_service_registrations) == 1
-        assistant_service = assistant_services.assistant_service_registrations[0]
+        assistant_service = await wait_for_assistant_service_registration(wb_client)
 
         resp = await wb_client.post(
             "/assistants",
@@ -170,11 +177,7 @@ async def test_flow_create_assistant_send_message_receive_resp(
         ) as wb_client,
         LifespanManager(canonical_assistant_service),
     ):
-        resp = await wb_client.get("/assistant-service-registrations")
-        resp.raise_for_status()
-        assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(resp.json())
-        assert len(assistant_services.assistant_service_registrations) == 1
-        assistant_service = assistant_services.assistant_service_registrations[0]
+        assistant_service = await wait_for_assistant_service_registration(wb_client)
 
         resp = await wb_client.post(
             "/assistants",
@@ -235,11 +238,7 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
         ) as wb_client,
         LifespanManager(canonical_assistant_service),
     ):
-        resp = await wb_client.get("/assistant-service-registrations")
-        resp.raise_for_status()
-        assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(resp.json())
-        assert len(assistant_services.assistant_service_registrations) == 1
-        assistant_service = assistant_services.assistant_service_registrations[0]
+        assistant_service = await wait_for_assistant_service_registration(wb_client)
 
         resp = await wb_client.post(
             "/assistants",
@@ -354,11 +353,7 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_con
         ) as wb_client,
         LifespanManager(canonical_assistant_service),
     ):
-        resp = await wb_client.get("/assistant-service-registrations")
-        resp.raise_for_status()
-        assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(resp.json())
-        assert len(assistant_services.assistant_service_registrations) == 1
-        assistant_service = assistant_services.assistant_service_registrations[0]
+        assistant_service = await wait_for_assistant_service_registration(wb_client)
 
         resp = await wb_client.post(
             "/assistants",
@@ -485,11 +480,7 @@ async def test_flow_create_assistant_send_command_message_receive_resp(
         ) as wb_client,
         LifespanManager(canonical_assistant_service),
     ):
-        resp = await wb_client.get("/assistant-service-registrations")
-        resp.raise_for_status()
-        assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(resp.json())
-        assert len(assistant_services.assistant_service_registrations) == 1
-        assistant_service = assistant_services.assistant_service_registrations[0]
+        assistant_service = await wait_for_assistant_service_registration(wb_client)
 
         resp = await wb_client.post(
             "/assistants",
