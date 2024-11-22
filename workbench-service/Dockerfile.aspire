@@ -1,3 +1,8 @@
+# Note: this is a copy of workbench-service/Dockerfile with the exception of
+# SSHD configuration that's been removed. SSHD open port breaks Azure Container
+# deployment, plus SSH is not required and a potential issue public facing
+# deployments.
+
 ARG python_image=python:3.11-slim
 
 FROM ${python_image} AS build
