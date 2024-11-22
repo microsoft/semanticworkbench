@@ -34,10 +34,8 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         this.DefaultAgentConfig = defaultAgentConfig ?? new();
         this.Log = logger;
         this.Storage = storage;
-        this.HttpClient = new HttpClient();
-        var baseAddress = this.WorkbenchConfig.WorkbenchEndpoint;
-        this.HttpClient.BaseAddress = new Uri(baseAddress);
-        this.Agents = new Dictionary<string, AgentBase<TAgentConfig>>();
+        this.HttpClient = new HttpClient { BaseAddress = new Uri(this.WorkbenchConfig.WorkbenchEndpoint) };
+        this.Agents = [];
         this.Log.LogTrace("Service instance created");
     }
 
