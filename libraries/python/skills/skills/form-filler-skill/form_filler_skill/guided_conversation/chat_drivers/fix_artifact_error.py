@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from form_filler_skill.guided_conversation.message import Conversation, ConversationMessageType
@@ -10,11 +11,12 @@ from openai_client import (
     message_from_completion,
     validate_completion,
 )
+from pydantic import BaseModel
 from skill_library.types import LanguageModel
 
-from .. import logger
 from ..artifact import Artifact
-from .generate_artifact_updates import UpdateAttempt
+
+logger = logging.getLogger(__name__)
 
 ARTIFACT_ERROR_CORRECTION_SYSTEM_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant.
 
@@ -34,6 +36,11 @@ Your task is to return the best possible action to take next:
 
 Return only the action, either UPDATE_ARTIFACT(value) or RESUME_CONVERSATION, as your response. If you selected, UPDATE_ARTIFACT, make sure to replace "value" with the correct value.
 """
+
+
+class UpdateAttempt(BaseModel):
+    field_value: str
+    error: str
 
 
 async def generate_artifact_field_update_error_fix(
