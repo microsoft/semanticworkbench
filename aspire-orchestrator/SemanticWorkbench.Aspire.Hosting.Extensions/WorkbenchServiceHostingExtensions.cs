@@ -17,7 +17,7 @@ public static class WorkbenchServiceHostingExtensions
                 dockerFilePath: Path.Combine("workbench-service", "Dockerfile"),
                 configure: new (configure => configure
                     .WithBuildArg("SSHD_ENABLED", "false")))
-            .WithEnvironment(name: "WORKBENCH__AUTH__ALLOWED_APP_ID", "c43495da-e4bc-422b-9c8e-c8f84ee5149a");
+            .WithEnvironment(name: "WORKBENCH__AUTH__ALLOWED_APP_ID", Environment.GetEnvironmentVariable("EntraId__ClientId"));
         if (builder.ExecutionContext.IsPublishMode)
         {
             workbenchService.WithHttpsEndpoint(port: 3000);

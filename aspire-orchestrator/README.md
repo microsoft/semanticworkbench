@@ -34,7 +34,15 @@ dotnet run
 ```bash
 make
 ```
-3. [Configure the app registration and configure workbenchapp and workbench service](../docs/CUSTOM_APP_REGISTRATION.md)
+3. [Configure the app registration and configure workbenchapp and workbench service](../docs/CUSTOM_APP_REGISTRATION.md). Set the values in the `aspire-orchestrator/aspire-orchestrator/aspire-orchestrator/aspire-orchestrator/appsettings.json` file
+```json
+{
+    "EntraID": {
+        "ClientId": "<CLIENT_ID>",
+        "Authority": "https://login.microsoftonline.com/<TENANT_ID>"
+    }
+}
+```
 4. Authenticate with Azure Developer CLI
 ```bash
 azd login
