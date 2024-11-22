@@ -10,7 +10,6 @@ authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "aiohttp>=3.11.2",
     "openai>=1.51.2",
     "requests-sse>=0.3.2",
     "semantic-workbench-assistant>=0.1.0",
