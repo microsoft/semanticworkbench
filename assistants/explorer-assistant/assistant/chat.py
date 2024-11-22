@@ -15,6 +15,7 @@ import openai_client
 from assistant_extensions.artifacts import ArtifactsExtension
 from assistant_extensions.artifacts._model import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.workflows import WorkflowsConfigModel, WorkflowsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import (
     ChatCompletion,
@@ -79,12 +80,17 @@ assistant = AssistantApp(
 )
 
 
-async def artifact_config_provider(context: AssistantContext) -> ArtifactsConfigModel:
+async def artifacts_config_provider(context: AssistantContext) -> ArtifactsConfigModel:
     return (await assistant_config.get(context)).extensions_config.artifacts
 
 
-artifacts_extension = ArtifactsExtension(assistant, artifact_config_provider)
+async def workflows_config_provider(context: AssistantContext) -> WorkflowsConfigModel:
+    return (await assistant_config.get(context)).extensions_config.workflows
+
+
+artifacts_extension = ArtifactsExtension(assistant, artifacts_config_provider)
 attachments_extension = AttachmentsExtension(assistant)
+workflows_extension = WorkflowsExtension(assistant, "content_safety", workflows_config_provider)
 
 #
 # create the FastAPI app instance
@@ -134,7 +140,7 @@ async def on_message_created(
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
         # Prospector assistant response
-        await respond_to_conversation(context, config, message, metadata)
+        await respond_to_conversation(context, config, metadata)
 
 
 @assistant.events.conversation.on_created
@@ -172,7 +178,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
 async def respond_to_conversation(
     context: ConversationContext,
     config: AssistantConfigModel,
-    message: ConversationMessage,
     metadata: dict[str, Any] = {},
 ) -> None:
     """

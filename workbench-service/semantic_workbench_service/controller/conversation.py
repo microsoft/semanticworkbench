@@ -667,8 +667,13 @@ class ConversationController:
                     role = "user"
                     participant_id = principal.user_id
                 case auth.AssistantServicePrincipal():
-                    role = "assistant"
-                    participant_id = str(principal.assistant_id)
+                    # allow assistants to send messages as users, if provided
+                    if new_message.sender is not None and new_message.sender.participant_role == "user":
+                        role = "user"
+                        participant_id = new_message.sender.participant_id
+                    else:
+                        role = "assistant"
+                        participant_id = str(principal.assistant_id)
 
             # pop "debug" from metadata, if it exists, and merge with the debug field
             message_debug = (new_message.metadata or {}).pop("debug", None)

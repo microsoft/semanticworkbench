@@ -519,6 +519,13 @@ def init(
             user_principal=user_principal, from_export=from_export.file
         )
 
+    @app.post("/conversations/duplicate")
+    async def duplicate_conversation(
+        principal: auth.DependsActorPrincipal,
+        conversation_id: uuid.UUID = Query(alias="id"),
+    ) -> ConversationImportResult:
+        return await assistant_controller.duplicate_conversation(principal=principal, conversation_id=conversation_id)
+
     @app.get("/assistants/{assistant_id}/config")
     async def get_assistant_config(
         user_principal: auth.DependsUserPrincipal,
@@ -621,15 +628,23 @@ def init(
 
     @app.get("/conversations/{conversation_id}/events")
     async def conversation_server_sent_events(
-        conversation_id: uuid.UUID, request: Request, user_principal: auth.DependsUserPrincipal
+        conversation_id: uuid.UUID, request: Request, principal: auth.DependsActorPrincipal
     ) -> EventSourceResponse:
-        # ensure the conversation exists
+        # ensure the principal has access to the conversation
         await conversation_controller.get_conversation(
-            conversation_id=conversation_id, principal=user_principal, latest_message_types=set()
+            conversation_id=conversation_id,
+            principal=principal,
+            latest_message_types=set(),
         )
 
+        principal_id_type = "assistant_id" if isinstance(principal, auth.AssistantPrincipal) else "user_id"
+        principal_id = principal.assistant_id if isinstance(principal, auth.AssistantPrincipal) else principal.user_id
+
         logger.debug(
-            "client connected to sse; user_id: %s, conversation_id: %s", user_principal.user_id, conversation_id
+            "client connected to sse; %s: %s, conversation_id: %s",
+            principal_id_type,
+            principal_id,
+            conversation_id,
         )
         event_queue = asyncio.Queue[ConversationEvent]()
 
@@ -669,9 +684,10 @@ def init(
                         )
                         yield server_sent_event
                         logger.debug(
-                            "sent event to sse client; user_id: %s, conversation_id: %s, event: %s, id: %s, time since"
+                            "sent event to sse client; %s: %s, conversation_id: %s, event: %s, id: %s, time since"
                             " event: %s",
-                            user_principal.user_id,
+                            principal_id_type,
+                            principal_id,
                             conversation_id,
                             conversation_event.event,
                             conversation_event.id,

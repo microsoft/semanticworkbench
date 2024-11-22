@@ -436,6 +436,7 @@ class UpdateConversation(BaseModel):
 
 class NewConversationMessage(BaseModel):
     id: uuid.UUID | None = None
+    sender: MessageSender | None = None
     content: str
     message_type: MessageType = MessageType.chat
     content_type: str = "text/plain"

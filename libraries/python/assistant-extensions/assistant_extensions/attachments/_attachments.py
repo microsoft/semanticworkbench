@@ -330,7 +330,7 @@ async def _get_attachment_for_file(
         content = ""
         error = ""
         # process the file to create an attachment
-        async with context.set_status(f"updating attachment {file.filename} ..."):
+        async with context.set_status(f"updating attachment {file.filename}..."):
             try:
                 # read the content of the file
                 file_bytes = await _read_conversation_file(context, file)

@@ -1,18 +1,11 @@
 // Copyright (c) Microsoft. All rights reserved.
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
 import React from 'react';
 import { conversationMessageFromJSON } from '../models/ConversationMessage';
 import { ConversationParticipant } from '../models/ConversationParticipant';
 import { useAppDispatch } from '../redux/app/hooks';
 import { useEnvironment } from './useEnvironment';
 import { WorkbenchEventSource, WorkbenchEventSourceType } from './WorkbenchEventSource';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-dayjs.tz.guess();
 
 export const useConversationEvents = (
     conversationId: string,

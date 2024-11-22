@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import types
 import uuid
 from contextlib import asynccontextmanager, suppress
@@ -76,12 +77,51 @@ class ConversationAPIClient:
     def _client(self) -> httpx.AsyncClient:
         return self._httpx_client_factory()
 
+    async def get_sse_session(self, event_source_url: str) -> AsyncIterator[dict]:
+        async with self._client as client:
+            async with client.stream("GET", event_source_url) as response:
+                event = {}
+                async for line in response.aiter_lines():
+                    if line == "":
+                        # End of the event; process and yield it
+                        if "data" in event:
+                            # Concatenate multiline data
+                            data = event["data"]
+                            event["data"] = json.loads(data)
+                        yield event
+                        event = {}
+                    elif line.startswith(":"):
+                        # Comment line; ignore
+                        continue
+                    else:
+                        # Parse the field
+                        field, value = line.split(":", 1)
+                        value = value.lstrip()  # Remove leading whitespace
+                        if field == "data":
+                            # Handle multiline data
+                            event.setdefault("data", "")
+                            event["data"] += value + "\n"
+                        else:
+                            event[field] = value
+                # Handle the last event if the stream ends without a blank line
+                if event:
+                    if "data" in event:
+                        data = event["data"]
+                        event["data"] = json.loads(data)
+                    yield event
+
     async def delete_conversation(self) -> None:
         async with self._client as client:
             http_response = await client.delete(f"/conversations/{self._conversation_id}")
             if http_response.status_code == httpx.codes.NOT_FOUND:
                 return
             http_response.raise_for_status()
+
+    async def duplicate_conversation(self) -> workbench_model.ConversationImportResult:
+        async with self._client as client:
+            http_response = await client.post(f"/conversations/duplicate?id={self._conversation_id}")
+            http_response.raise_for_status()
+            return workbench_model.ConversationImportResult.model_validate(http_response.json())
 
     async def get_conversation(self) -> workbench_model.Conversation:
         async with self._client as client:
