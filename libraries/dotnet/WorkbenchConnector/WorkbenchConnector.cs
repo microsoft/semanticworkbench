@@ -32,10 +32,13 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
     {
         this.WorkbenchConfig = workbenchConfig ?? new();
         this.DefaultAgentConfig = defaultAgentConfig ?? new();
+
         this.Log = logger;
         this.Storage = storage;
-        this.HttpClient = new HttpClient { BaseAddress = new Uri(this.WorkbenchConfig.WorkbenchEndpoint) };
-        this.Agents = [];
+        this.HttpClient = new HttpClient();
+        this.HttpClient.BaseAddress = new Uri(this.WorkbenchConfig.WorkbenchEndpoint);
+        this.Agents = new Dictionary<string, AgentBase<TAgentConfig>>();
+
         this.Log.LogTrace("Service instance created");
     }
 
@@ -58,7 +61,7 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        this.Log.LogInformation("Connecting {1} {2} {3} to {4}...", this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint, this.WorkbenchConfig.WorkbenchEndpoint);
+        this.Log.LogInformation("Connecting {1} {2} {3}...", this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint);
 #pragma warning disable CS4014 // ping runs in the background without blocking
         this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, 10000);
 #pragma warning restore CS4014
