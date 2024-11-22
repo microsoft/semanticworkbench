@@ -1,4 +1,6 @@
-﻿using Aspire.Hosting.ComponentModel;
+﻿// Copyright (c) Microsoft. All rights reserved.
+
+using Aspire.Hosting.ComponentModel;
 using Aspire.Hosting.Extensions;
 
 namespace Aspire.Hosting;

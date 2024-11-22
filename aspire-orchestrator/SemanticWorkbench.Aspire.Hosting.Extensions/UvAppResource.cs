@@ -1,7 +1,4 @@
-using System;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-
+// Copyright (c) Microsoft. All rights reserved.
 namespace Aspire.Hosting.ComponentModel;
 
 public class UvAppResource(string name, string workingDirectory)

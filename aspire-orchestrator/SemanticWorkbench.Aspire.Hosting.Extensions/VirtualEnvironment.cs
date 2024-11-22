@@ -1,4 +1,4 @@
-using System;
+// Copyright (c) Microsoft. All rights reserved.
 
 namespace Aspire.Hosting.ComponentModel;
 

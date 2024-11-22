@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft. All rights reserved.
+
 namespace Aspire.Hosting;
 
 public static class WorkbenchServiceHostingExtensions
@@ -11,7 +13,11 @@ public static class WorkbenchServiceHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
 
         var workbenchService = builder.AddUvApp(name, projectDirectory, "start-semantic-workbench-service", scriptArgs)
-            .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."), dockerFilePath: Path.Combine("workbench-service", "Dockerfile.aspire"));
+            .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
+                dockerFilePath: Path.Combine("workbench-service", "Dockerfile"),
+                configure: new (configure => configure
+                    .WithBuildArg("SSHD_ENABLED", "false")))
+            .WithEnvironment(name: "WORKBENCH__AUTH__ALLOWED_APP_ID", "c43495da-e4bc-422b-9c8e-c8f84ee5149a");
         if (builder.ExecutionContext.IsPublishMode)
         {
             workbenchService.WithHttpsEndpoint(port: 3000);
@@ -30,7 +36,7 @@ public static class WorkbenchServiceHostingExtensions
 
         if (isPublishMode)
         {
-            return workbenchService.GetEndpoint("https");
+            return workbenchService.GetEndpoint("http");
         } else
         {
             return workbenchService.GetEndpoint("http");
@@ -47,7 +53,7 @@ public static class WorkbenchServiceHostingExtensions
 
         var assistant = builder.AddUvApp(name, projectDirectory, "start-assistant")
             .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
-                dockerFilePath: Path.Combine("tools", "docker", "Dockerfile.aspire.assistant"),
+                dockerFilePath: Path.Combine("tools", "docker", "Dockerfile.assistant"),
                 configure: new (configure => configure
                     .WithBuildArg("package", assistantModuleName)
                     .WithBuildArg("app", $"assistant.{assistantModuleName.Replace('-', '_')}:app")
