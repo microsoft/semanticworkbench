@@ -6,8 +6,8 @@ import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useChatCanvasController } from '../../../libs/useChatCanvasController';
 import { useEnvironment } from '../../../libs/useEnvironment';
-import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../../libs/WorkbenchEventSource';
 import { useAppSelector } from '../../../redux/app/hooks';
+import { workbenchConversationEvents } from '../../../routes/FrontDoor';
 
 const useClasses = makeStyles({
     root: {
@@ -29,8 +29,6 @@ export const ChatControls: React.FC<ChatControlsProps> = (props) => {
     const chatCanvasController = useChatCanvasController();
 
     React.useEffect(() => {
-        var workbenchEventSource: WorkbenchEventSource | undefined;
-
         const handleFocusEvent = async (event: EventSourceMessage) => {
             const { data } = JSON.parse(event.data);
             chatCanvasController.transitionToState({
@@ -41,17 +39,10 @@ export const ChatControls: React.FC<ChatControlsProps> = (props) => {
             });
         };
 
-        (async () => {
-            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
-                environment.url,
-                WorkbenchEventSourceType.Conversation,
-                conversationId,
-            );
-            workbenchEventSource.addEventListener('assistant.state.focus', handleFocusEvent);
-        })();
+        workbenchConversationEvents.addEventListener('assistant.state.focus', handleFocusEvent);
 
         return () => {
-            workbenchEventSource?.removeEventListener('assistant.state.focus', handleFocusEvent);
+            workbenchConversationEvents.removeEventListener('assistant.state.focus', handleFocusEvent);
         };
     }, [environment, conversationId, chatCanvasController]);
 

@@ -6,9 +6,9 @@ import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { useEnvironment } from '../../../libs/useEnvironment';
-import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../../libs/WorkbenchEventSource';
 import { Conversation } from '../../../models/Conversation';
 import { useAppSelector } from '../../../redux/app/hooks';
+import { workbenchUserEvents } from '../../../routes/FrontDoor';
 import { useGetConversationsQuery } from '../../../services/workbench';
 import { Loading } from '../../App/Loading';
 import { PresenceMotionList } from '../../App/PresenceMotionList';
@@ -73,29 +73,19 @@ export const ConversationList: React.FC = () => {
             await refetchConversations();
         };
 
-        (async () => {
-            // create or update the event source
-            const workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
-                environment.url,
-                WorkbenchEventSourceType.User,
-            );
-            workbenchEventSource.addEventListener('message.created', conversationHandler);
-            workbenchEventSource.addEventListener('message.deleted', conversationHandler);
-            workbenchEventSource.addEventListener('conversation.updated', conversationHandler);
-            workbenchEventSource.addEventListener('participant.created', conversationHandler);
-            workbenchEventSource.addEventListener('participant.updated', conversationHandler);
-        })();
+        workbenchUserEvents.addEventListener('message.created', conversationHandler);
+        workbenchUserEvents.addEventListener('message.deleted', conversationHandler);
+        workbenchUserEvents.addEventListener('conversation.updated', conversationHandler);
+        workbenchUserEvents.addEventListener('participant.created', conversationHandler);
+        workbenchUserEvents.addEventListener('participant.updated', conversationHandler);
 
         return () => {
             // remove event listeners
-            (async () => {
-                const workbenchEventSource = await WorkbenchEventSource.getInstance(WorkbenchEventSourceType.User);
-                workbenchEventSource.removeEventListener('message.created', conversationHandler);
-                workbenchEventSource.removeEventListener('message.deleted', conversationHandler);
-                workbenchEventSource.removeEventListener('conversation.updated', conversationHandler);
-                workbenchEventSource.removeEventListener('participant.created', conversationHandler);
-                workbenchEventSource.removeEventListener('participant.updated', conversationHandler);
-            })();
+            workbenchUserEvents.removeEventListener('message.created', conversationHandler);
+            workbenchUserEvents.removeEventListener('message.deleted', conversationHandler);
+            workbenchUserEvents.removeEventListener('conversation.updated', conversationHandler);
+            workbenchUserEvents.removeEventListener('participant.created', conversationHandler);
+            workbenchUserEvents.removeEventListener('participant.updated', conversationHandler);
         };
     }, [conversationsLoading, conversationsUninitialized, environment.url, refetchConversations]);
 
