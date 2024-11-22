@@ -36,7 +36,7 @@ public static class WorkbenchServiceHostingExtensions
 
         if (isPublishMode)
         {
-            return workbenchService.GetEndpoint("http");
+            return workbenchService.GetEndpoint("https");
         } else
         {
             return workbenchService.GetEndpoint("http");

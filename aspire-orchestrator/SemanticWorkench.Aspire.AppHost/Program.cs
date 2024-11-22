@@ -23,8 +23,8 @@ builder.AddAssistantApp("skill-assistant", projectDirectory: Path.Combine("..", 
 var dotnetAgent3 = builder.AddProject<Projects.dotnet_03_simple_chatbot>("agent3")
     .WithReference(workbenchServiceEndpoint)
     .WaitFor(workbenchService);
-dotnetAgent3.WithEnvironment("Workbench:ConnectorEndpoint", $"{dotnetAgent3.GetEndpoint("http")}/myagents")
-    .WithEnvironment("Workbench:WorkbenchEndpoint", workbenchServiceEndpoint);
+dotnetAgent3.WithEnvironment("Workbench__ConnectorEndpoint", $"{dotnetAgent3.GetEndpoint("http")}/myagents")
+    .WithEnvironment("Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
 
 if (!builder.ExecutionContext.IsPublishMode)
 {
