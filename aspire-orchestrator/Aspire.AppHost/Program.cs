@@ -26,7 +26,6 @@ builder.AddAssistantApp("skill-assistant", projectDirectory: Path.Combine("..", 
 
 // Sample .NET agent
 var dotnetAgent = builder.AddProject<Projects.dotnet_03_simple_chatbot>("agent3")
-    .WithReference(workbenchServiceEndpoint)
     .WaitFor(workbenchService);
 
 // The agent needs to reference its own endpoint, in order to send it to the workbench service when during the registration
