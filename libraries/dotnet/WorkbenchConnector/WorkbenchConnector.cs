@@ -376,22 +376,27 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         // Disable timer during the request
         this._pingTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 
-        string path = Constants.AgentServiceRegistration.Path
-            .Replace(Constants.AgentServiceRegistration.Placeholder, this.WorkbenchConfig.ConnectorId, StringComparison.OrdinalIgnoreCase);
-        this.Log.LogTrace("Pinging workbench backend at {Path}", path);
-
-        var data = new
+        try
         {
-            name = $"{this.WorkbenchConfig.ConnectorName} [{this.WorkbenchConfig.ConnectorId}]",
-            description = this.WorkbenchConfig.ConnectorDescription,
-            url = this.WorkbenchConfig.ConnectorEndpoint,
-            online_expires_in_seconds = 20
-        };
+            string path = Constants.AgentServiceRegistration.Path
+                .Replace(Constants.AgentServiceRegistration.Placeholder, this.WorkbenchConfig.ConnectorId, StringComparison.OrdinalIgnoreCase);
+            this.Log.LogTrace("Pinging workbench backend at {Path}", path);
 
-        await this.SendAsync(HttpMethod.Put, path, data, null, "PingSWBackend", cancellationToken).ConfigureAwait(false);
+            var data = new
+            {
+                name = $"{this.WorkbenchConfig.ConnectorName} [{this.WorkbenchConfig.ConnectorId}]",
+                description = this.WorkbenchConfig.ConnectorDescription,
+                url = this.WorkbenchConfig.ConnectorEndpoint,
+                online_expires_in_seconds = 20
+            };
 
-        // Activate timer
-        this._pingTimer?.Change(TimeSpan.FromMilliseconds(PingFrequencyMS), TimeSpan.FromMilliseconds(PingFrequencyMS));
+            await this.SendAsync(HttpMethod.Put, path, data, null, "PingSWBackend", cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Activate timer
+            this._pingTimer?.Change(TimeSpan.FromMilliseconds(PingFrequencyMS), TimeSpan.FromMilliseconds(PingFrequencyMS));
+        }
     }
 
     #region internals ===========================================================================
