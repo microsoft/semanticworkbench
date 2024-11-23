@@ -2,9 +2,9 @@
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.0.0
 MinimumVisualStudioVersion = 17.8.0.0
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SemanticWorkench.Aspire.AppHost", "SemanticWorkench.Aspire.AppHost\SemanticWorkench.Aspire.AppHost.csproj", "{85D9E2AF-8F25-4006-A375-A66E2259CB69}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SemanticWorkbench.Aspire.AppHost", "SemanticWorkbench.Aspire.AppHost\SemanticWorkbench.Aspire.AppHost.csproj", "{85D9E2AF-8F25-4006-A375-A66E2259CB69}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SemanticWorkench.Aspire.ServiceDefaults", "SemanticWorkench.Aspire.ServiceDefaults\SemanticWorkench.Aspire.ServiceDefaults.csproj", "{1A1BA42B-F071-42ED-BF6D-4BD51F2D7A41}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SemanticWorkbench.Aspire.ServiceDefaults", "SemanticWorkbench.Aspire.ServiceDefaults\SemanticWorkbench.Aspire.ServiceDefaults.csproj", "{1A1BA42B-F071-42ED-BF6D-4BD51F2D7A41}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dotnet-03-simple-chatbot", "..\examples\dotnet\dotnet-03-simple-chatbot\dotnet-03-simple-chatbot.csproj", "{670F22E3-71CC-4A9B-8BB8-DA855CFC0EEC}"
 EndProject

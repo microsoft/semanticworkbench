@@ -15,27 +15,13 @@ internal sealed class VirtualEnvironment(string virtualEnvironmentPath)
         {
             string[] allowedExtensions = [".exe", ".cmd", ".bat"];
 
-            foreach (var allowedExtension in allowedExtensions)
-            {
-                string executablePath = Path.Join(virtualEnvironmentPath, "Scripts", name + allowedExtension);
-
-                if (File.Exists(executablePath))
-                {
-                    return executablePath;
-                }
-            }
-        }
-        else
-        {
-            var executablePath = Path.Join(virtualEnvironmentPath, "bin", name);
-
-            if (File.Exists(executablePath))
-            {
-                return executablePath;
-            }
+            return allowedExtensions
+                .Select(allowedExtension => Path.Join(virtualEnvironmentPath, "Scripts", name + allowedExtension))
+                .FirstOrDefault(File.Exists);
         }
 
-        return null;
+        var executablePath = Path.Join(virtualEnvironmentPath, "bin", name);
+        return File.Exists(executablePath) ? executablePath : null;
     }
 
     /// <summary>

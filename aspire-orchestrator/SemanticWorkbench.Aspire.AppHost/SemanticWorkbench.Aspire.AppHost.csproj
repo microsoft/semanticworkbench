@@ -9,6 +9,7 @@
     <Nullable>enable</Nullable>
     <IsAspireHost>true</IsAspireHost>
     <UserSecretsId>b43d9a6d-f7bd-491d-b1f9-82372d537e4e</UserSecretsId>
+    <RootNamespace>SemanticWorkench.Aspire.AppHost</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
