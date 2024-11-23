@@ -61,7 +61,8 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        this.Log.LogInformation("Connecting {1} {2} {3}...", this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint);
+        this.Log.LogInformation("Connecting {1} {2} {3} to {4}...",
+            this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint, this.WorkbenchConfig.WorkbenchEndpoint);
 #pragma warning disable CS4014 // ping runs in the background without blocking
         this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, 10000);
 #pragma warning restore CS4014
@@ -426,7 +427,8 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         }
         catch (HttpRequestException e)
         {
-            this.Log.LogError("HTTP request failed: {0}. Request: {1} {2} [{3}]", e.Message.HtmlEncode(), method, url.HtmlEncode(), description);
+            this.Log.LogError("HTTP request failed: {Message} [{Error}, {Exception}, Status Code: {StatusCode}]. Request: {Method} {URL} [{RequestDescription}]",
+                e.Message.HtmlEncode(), e.HttpRequestError.ToString("G"), e.GetType().FullName, e.StatusCode, method, url.HtmlEncode(), description);
             throw;
         }
         catch (Exception e)
@@ -445,13 +447,17 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         HttpRequestMessage request = new(method, url);
         if (Constants.HttpMethodsWithBody.Contains(method))
         {
-            request.Content = new StringContent(JsonSerializer.Serialize(data), Encoding.UTF8, "application/json");
+            var json = JsonSerializer.Serialize(data);
+            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            this.Log.LogTrace("Request body: {Content}", json);
         }
 
         request.Headers.Add(Constants.HeaderServiceId, this.WorkbenchConfig.ConnectorId);
+        this.Log.LogTrace("Request header: {Content}: {Value}", Constants.HeaderServiceId, this.WorkbenchConfig.ConnectorId);
         if (!string.IsNullOrEmpty(agentId))
         {
             request.Headers.Add(Constants.HeaderAgentId, agentId);
+            this.Log.LogTrace("Request header: {Content}: {Value}", Constants.HeaderAgentId, agentId);
         }
 
         return request;

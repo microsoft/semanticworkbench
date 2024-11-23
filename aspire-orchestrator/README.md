@@ -23,7 +23,7 @@ dotnet dev-certs https --trust
 ```bash
 make
 cd aspire-orchestrator
-cd SemanticWorkench.Aspire.AppHost
+cd Aspire.AppHost
 dotnet run
 ```
 
