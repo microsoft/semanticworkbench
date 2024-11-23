@@ -64,7 +64,7 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         this.Log.LogInformation("Connecting {1} {2} {3} to {4}...",
             this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint, this.WorkbenchConfig.WorkbenchEndpoint);
 #pragma warning disable CS4014 // ping runs in the background without blocking
-        this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, 10000);
+        this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, PingFrequencyMS);
 #pragma warning restore CS4014
 
         List<AgentInfo> agents = await this.Storage.GetAllAgentsAsync(cancellationToken).ConfigureAwait(false);
@@ -373,9 +373,12 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
 
     public virtual async Task PingSemanticWorkbenchBackendAsync(CancellationToken cancellationToken)
     {
-        this.Log.LogTrace("Pinging workbench backend");
+        // Disable timer during the request
+        this._pingTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
         string path = Constants.AgentServiceRegistration.Path
             .Replace(Constants.AgentServiceRegistration.Placeholder, this.WorkbenchConfig.ConnectorId, StringComparison.OrdinalIgnoreCase);
+        this.Log.LogTrace("Pinging workbench backend at {Path}", path);
 
         var data = new
         {
@@ -386,9 +389,14 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         };
 
         await this.SendAsync(HttpMethod.Put, path, data, null, "PingSWBackend", cancellationToken).ConfigureAwait(false);
+
+        // Activate timer
+        this._pingTimer?.Change(TimeSpan.FromMilliseconds(PingFrequencyMS), TimeSpan.FromMilliseconds(PingFrequencyMS));
     }
 
     #region internals ===========================================================================
+
+    private const int PingFrequencyMS = 10000;
 
     public void Dispose()
     {
@@ -414,11 +422,12 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         string description,
         CancellationToken cancellationToken)
     {
+        url = url.TrimStart('/');
         try
         {
             this.Log.LogTrace("Preparing request: {2}", description);
             HttpRequestMessage request = this.PrepareRequest(method, url, data, agentId);
-            this.Log.LogTrace("Sending request {0} {1} [{2}]", method, url.HtmlEncode(), description);
+            this.Log.LogTrace("Sending request {Method} {BaseAddress}{Path} [{Description}]", method, this.HttpClient.BaseAddress, url.HtmlEncode(), description);
             HttpResponseMessage result = await this.HttpClient
                 .SendAsync(request, cancellationToken)
                 .ConfigureAwait(false);

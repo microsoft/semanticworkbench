@@ -29,10 +29,6 @@ var dotnetAgent = builder.AddProject<Projects.dotnet_03_simple_chatbot>("agent3"
     .WithReference(workbenchServiceEndpoint)
     .WaitFor(workbenchService);
 
-// Console.WriteLine($"{dotnetAgent.GetEndpoint("http")}");
-// Console.WriteLine(dotnetAgent.GetEndpoint("http").Url);
-// Environment.Exit(0);
-
 // The agent needs to reference its own endpoint, in order to send it to the workbench service when during the registration
 dotnetAgent
     .WithEnvironment("Workbench__ConnectorEndpoint", $"{dotnetAgent.GetEndpoint("http")}/myagents")
