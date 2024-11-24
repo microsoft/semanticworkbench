@@ -120,7 +120,10 @@ export const useHistoryUtility = (conversationId: string) => {
         (participant: ConversationParticipant) =>
             // add the new participant to the cached participants
             dispatch(
-                updateGetConversationParticipantsQueryData(conversationId, { participant, conversationParticipants }),
+                updateGetConversationParticipantsQueryData(conversationId, {
+                    participant,
+                    participants: conversationParticipants,
+                }),
             ),
         [dispatch, conversationId, conversationParticipants],
     );
@@ -130,7 +133,10 @@ export const useHistoryUtility = (conversationId: string) => {
         (participant: ConversationParticipant) =>
             // update the participant in the cached participants
             dispatch(
-                updateGetConversationParticipantsQueryData(conversationId, { participant, conversationParticipants }),
+                updateGetConversationParticipantsQueryData(conversationId, {
+                    participant,
+                    participants: conversationParticipants,
+                }),
             ),
         [dispatch, conversationId, conversationParticipants],
     );

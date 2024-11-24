@@ -1,82 +1,32 @@
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { EventSourceMessage, fetchEventSource } from '@microsoft/fetch-event-source';
+import { EventSourceMessage, EventStreamContentType, fetchEventSource } from '@microsoft/fetch-event-source';
+import debug from 'debug';
 import React from 'react';
+import { Constants } from '../Constants';
 import { getMsalInstance } from '../main';
 import { AuthHelper } from './AuthHelper';
 import { EventSubscriptionManager } from './EventSubscriptionManager';
 import { useEnvironment } from './useEnvironment';
 
+const log = debug(Constants.debug.root).extend('useWorkbenchEventSource');
+
+class RetriableError extends Error {}
+class FatalError extends Error {}
+
 const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: string) => {
-    const getAccessToken = React.useCallback(async (forceRefresh?: boolean) => {
-        const msalInstance = await getMsalInstance();
-
-        const account = msalInstance.getActiveAccount();
-        if (!account) {
-            throw new Error('No active account');
-        }
-
-        const response = await msalInstance
-            .acquireTokenSilent({
-                ...AuthHelper.loginRequest,
-                account,
-                forceRefresh,
-            })
-            .catch(async (error) => {
-                if (error instanceof InteractionRequiredAuthError) {
-                    return await AuthHelper.loginAsync(msalInstance);
-                }
-                throw error;
-            });
-        if (!response) {
-            throw new Error('Could not acquire access token');
-        }
-
-        return response.accessToken;
-    }, []);
-
-    const getIdTokenAsync = React.useCallback(async (forceRefresh?: boolean) => {
-        const msalInstance = await getMsalInstance();
-
-        const account = msalInstance.getActiveAccount();
-        if (!account) {
-            throw new Error('No active account');
-        }
-
-        const response = await msalInstance
-            .acquireTokenSilent({
-                ...AuthHelper.loginRequest,
-                account,
-                forceRefresh,
-            })
-            .catch(async (error) => {
-                if (error instanceof InteractionRequiredAuthError) {
-                    return await AuthHelper.loginAsync(msalInstance);
-                }
-                throw error;
-            });
-        if (!response) {
-            throw new Error('Could not acquire ID token');
-        }
-
-        return response.idToken;
-    }, []);
-
     React.useEffect(() => {
+        if (!endpoint) return;
+
+        log(`Connecting event source: ${endpoint}`);
+
         const abortController = new AbortController();
         let isMounted = true;
 
         const startEventSource = async () => {
-            if (!endpoint || !isMounted) return;
+            if (!isMounted) return;
 
             const accessToken = await getAccessToken();
             const idToken = await getIdTokenAsync();
-
-            const reconnect = () => {
-                // re-connect after a delay
-                setTimeout(() => {
-                    startEventSource();
-                }, 1000);
-            };
 
             // this promise is intentionally not awaited. it runs in the background and is cancelled when
             // the control is aborted or an error occurs.
@@ -87,22 +37,40 @@ const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: s
                     Authorization: `Bearer ${accessToken}`,
                     'X-OpenIdToken': idToken,
                 },
-                onmessage(event: EventSourceMessage) {
-                    if (!event.event) return;
-                    manager.emit(event.event, event);
+                async onopen(response) {
+                    if (!isMounted) return;
+                    if (response.ok && response.headers.get('content-type')?.includes(EventStreamContentType)) {
+                        log(`Event source connected: ${response.status} ${response.statusText} [${response.url}]`);
+                        return; // everything's good
+                    } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+                        // client-side errors are usually non-retriable:
+                        log(`Event source error: ${response.status} ${response.statusText} [${response.url}]`);
+                        throw new FatalError();
+                    } else {
+                        log(`Event source error: ${response.status} ${response.statusText} [${response.url}]`);
+                        throw new RetriableError();
+                    }
+                },
+                onmessage(message: EventSourceMessage) {
+                    if (!message.event) return;
+                    if (message.event === 'FatalError') {
+                        throw new FatalError();
+                    }
+                    manager.emit(message.event, message);
                 },
                 onclose() {
                     if (!isMounted) return;
-                    // retry if the server closes the connection unexpectedly
-                    reconnect();
+                    log(`Event source closed unexpectedly: ${endpoint}`);
+                    throw new RetriableError();
                 },
-                onerror(err) {
+                onerror(error) {
                     if (!isMounted) return;
-                    // retry if the fetch fails
-                    const fetchFailure = err instanceof TypeError;
-                    if (fetchFailure) {
-                        reconnect();
+                    log(`Event source error: ${error} [${endpoint}]`);
+                    if (error instanceof FatalError) {
+                        // fatal errors are not retried
+                        throw error; // rethrow to stop the event source
                     }
+                    // will retry
                 },
             });
         };
@@ -110,20 +78,85 @@ const useWorkbenchEventSource = (manager: EventSubscriptionManager, endpoint?: s
         startEventSource();
 
         return () => {
+            log(`Disconnecting event source: ${endpoint}`);
             isMounted = false;
             abortController.abort();
         };
-    }, [endpoint, getAccessToken, getIdTokenAsync, manager]);
+    }, [endpoint, manager]);
+};
+
+const getAccessToken = async (forceRefresh?: boolean) => {
+    const msalInstance = await getMsalInstance();
+
+    const account = msalInstance.getActiveAccount();
+    if (!account) {
+        throw new Error('No active account');
+    }
+
+    const response = await msalInstance
+        .acquireTokenSilent({
+            ...AuthHelper.loginRequest,
+            account,
+            forceRefresh,
+        })
+        .catch(async (error) => {
+            if (error instanceof InteractionRequiredAuthError) {
+                return await AuthHelper.loginAsync(msalInstance);
+            }
+            throw error;
+        });
+    if (!response) {
+        throw new Error('Could not acquire access token');
+    }
+
+    return response.accessToken;
+};
+
+const getIdTokenAsync = async (forceRefresh?: boolean) => {
+    const msalInstance = await getMsalInstance();
+
+    const account = msalInstance.getActiveAccount();
+    if (!account) {
+        throw new Error('No active account');
+    }
+
+    const response = await msalInstance
+        .acquireTokenSilent({
+            ...AuthHelper.loginRequest,
+            account,
+            forceRefresh,
+        })
+        .catch(async (error) => {
+            if (error instanceof InteractionRequiredAuthError) {
+                return await AuthHelper.loginAsync(msalInstance);
+            }
+            throw error;
+        });
+    if (!response) {
+        throw new Error('Could not acquire ID token');
+    }
+
+    return response.idToken;
 };
 
 export const useWorkbenchUserEventSource = (manager: EventSubscriptionManager) => {
     const environment = useEnvironment();
-    const endpoint = `${environment.url}/events`;
+    const [endpoint, setEndpoint] = React.useState<string>();
+
+    React.useEffect(() => {
+        setEndpoint(`${environment.url}/events`);
+    }, [environment]);
+
     return useWorkbenchEventSource(manager, endpoint);
 };
 
 export const useWorkbenchConversationEventSource = (manager: EventSubscriptionManager, conversationId?: string) => {
     const environment = useEnvironment();
-    const endpoint = conversationId ? `${environment.url}/conversations/${conversationId}/events` : undefined;
-    return useWorkbenchEventSource(manager, endpoint);
+    const [endpoint, setEndpoint] = React.useState<string>();
+
+    React.useEffect(() => {
+        setEndpoint(conversationId ? `${environment.url}/conversations/${conversationId}/events` : undefined);
+    }, [environment, conversationId]);
+
+    useWorkbenchEventSource(manager, endpoint);
 };
