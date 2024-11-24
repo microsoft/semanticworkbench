@@ -8,9 +8,8 @@ import Form from '@rjsf/fluentui-rc';
 import { RegistryWidgetsType } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import React from 'react';
-import { WorkbenchEventSource, WorkbenchEventSourceType } from '../../../libs/WorkbenchEventSource';
-import { useEnvironment } from '../../../libs/useEnvironment';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
+import { workbenchConversationEvents } from '../../../routes/FrontDoor';
 import { useGetConversationStateQuery, useUpdateConversationStateMutation } from '../../../services/workbench';
 import { CustomizedArrayFieldTemplate } from '../../App/FormWidgets/CustomizedArrayFieldTemplate';
 import { CustomizedObjectFieldTemplate } from '../../App/FormWidgets/CustomizedObjectFieldTemplate';
@@ -73,37 +72,30 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
     const [updateConversationState] = useUpdateConversationStateMutation();
     const [formData, setFormData] = React.useState<object>();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const environment = useEnvironment();
 
     if (stateError) {
         const errorMessage = JSON.stringify(stateError);
         throw new Error(`Error loading assistant state: ${errorMessage}`);
     }
 
-    React.useEffect(() => {
-        var workbenchEventSource: WorkbenchEventSource | undefined;
-
-        const handleEvent = (event: EventSourceMessage) => {
+    const handleEvent = React.useCallback(
+        (event: EventSourceMessage) => {
             const { data } = JSON.parse(event.data);
             if (assistantId !== data['assistant_id']) return;
             if (stateDescription.id !== data['state_id']) return;
             if (conversationId !== data['conversation_id']) return;
             refetchState();
-        };
+        },
+        [assistantId, stateDescription.id, conversationId, refetchState],
+    );
 
-        (async () => {
-            workbenchEventSource = await WorkbenchEventSource.createOrUpdate(
-                environment.url,
-                WorkbenchEventSourceType.Conversation,
-                conversationId,
-            );
-            workbenchEventSource.addEventListener('assistant.state.updated', handleEvent);
-        })();
+    React.useEffect(() => {
+        workbenchConversationEvents.addEventListener('assistant.state.updated', handleEvent);
 
         return () => {
-            workbenchEventSource?.removeEventListener('assistant.state.updated', handleEvent);
+            workbenchConversationEvents.removeEventListener('assistant.state.updated', handleEvent);
         };
-    }, [environment, assistantId, stateDescription.id, conversationId, refetchState]);
+    }, [handleEvent]);
 
     React.useEffect(() => {
         if (isFetchingState) return;
@@ -210,7 +202,6 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
             const a = document.createElement('a');
             a.download = filename;
             a.href = href;
-            // document.body.appendChild(a);
             a.click();
         };
 

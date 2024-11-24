@@ -8,7 +8,9 @@ import { NewConversationButton } from '../components/FrontDoor/Controls/NewConve
 import { SiteMenuButton } from '../components/FrontDoor/Controls/SiteMenuButton';
 import { GlobalContent } from '../components/FrontDoor/GlobalContent';
 import { MainContent } from '../components/FrontDoor/MainContent';
+import { EventSubscriptionManager } from '../libs/EventSubscriptionManager';
 import { useMediaQuery } from '../libs/useMediaQuery';
+import { useWorkbenchConversationEventSource, useWorkbenchUserEventSource } from '../libs/useWorkbenchEventSource';
 import { useAppSelector } from '../redux/app/hooks';
 import { setActiveConversationId, setGlobalContentOpen } from '../redux/features/app/appSlice';
 
@@ -71,6 +73,9 @@ const useClasses = makeStyles({
     },
 });
 
+export const workbenchUserEvents = new EventSubscriptionManager();
+export const workbenchConversationEvents = new EventSubscriptionManager();
+
 export const FrontDoor: React.FC = () => {
     const classes = useClasses();
     const { conversationId } = useParams();
@@ -82,6 +87,12 @@ export const FrontDoor: React.FC = () => {
     const [isInitialized, setIsInitialized] = React.useState(false);
     const isSmall = useMediaQuery({ maxWidth: 720 });
     const [sideRailLeftType, setSideRailLeftType] = React.useState<'inline' | 'overlay'>('inline');
+
+    // set up the workbench event sources and connect to the conversation and user event streams
+    // any child components can subscribe to these events using the subscription managers
+    // these should only reset when the conversation ID changes
+    useWorkbenchUserEventSource(workbenchUserEvents);
+    useWorkbenchConversationEventSource(workbenchConversationEvents, activeConversationId);
 
     React.useEffect(() => {
         document.body.className = classes.documentBody;

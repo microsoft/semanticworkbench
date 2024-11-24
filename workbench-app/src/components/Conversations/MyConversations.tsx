@@ -44,14 +44,13 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
     return (
         <MyItemsManager
             items={conversations
-                ?.filter((conversation) => conversation.metadata?.workflow_run_id === undefined)
-                .toSorted((a, b) => a.title.toLocaleLowerCase().localeCompare(b.title.toLocaleLowerCase()))
+                ?.toSorted((a, b) => a.title.toLocaleLowerCase().localeCompare(b.title.toLocaleLowerCase()))
                 .map((conversation) => (
                     <MiniControl
                         key={conversation.id}
                         icon={<Chat24Regular />}
                         label={conversation.title}
-                        linkUrl={`/conversation/${encodeURIComponent(conversation.id)}`}
+                        linkUrl={`/${encodeURIComponent(conversation.id)}`}
                         actions={
                             <>
                                 <ConversationRename

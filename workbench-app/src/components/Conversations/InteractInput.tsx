@@ -493,7 +493,7 @@ export const InteractInput: React.FC<InteractInputProps> = (props) => {
                 </div>
             ) : (
                 <div className={classes.content}>
-                    {/* // this is for injecting controls for supporting features like workflow */}
+                    {/* this is for injecting controls for other features */}
                     {additionalContent}
                     <InputOptionsControl
                         disabled={readOnly}
