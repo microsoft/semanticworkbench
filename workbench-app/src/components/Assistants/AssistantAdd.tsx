@@ -56,9 +56,7 @@ export const AssistantAdd: React.FC<AssistantAddProps> = (props) => {
         onAdd(assistant);
     };
 
-    const unusedAssistants = assistants
-        .filter((assistant) => assistant.metadata?.workflow_run_id === undefined)
-        .filter((assistant) => !exceptAssistantIds?.includes(assistant.id));
+    const unusedAssistants = assistants.filter((assistant) => !exceptAssistantIds?.includes(assistant.id));
 
     return (
         <div>

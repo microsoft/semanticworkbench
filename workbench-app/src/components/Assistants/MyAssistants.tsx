@@ -39,8 +39,7 @@ export const MyAssistants: React.FC<MyAssistantsProps> = (props) => {
     return (
         <MyItemsManager
             items={assistants
-                ?.filter((assistant) => assistant.metadata?.workflow_run_id === undefined)
-                .toSorted((a, b) => a.name.localeCompare(b.name))
+                ?.toSorted((a, b) => a.name.localeCompare(b.name))
                 .map((assistant) => (
                     <MiniControl
                         key={assistant.id}

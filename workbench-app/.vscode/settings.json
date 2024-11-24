@@ -227,9 +227,6 @@
         "westus",
         "winget",
         "workbenchservice",
-        "workflowdefinition",
-        "workflowrun",
-        "workflowuserparticipant",
         "YYYYMMDDH"
     ]
 }

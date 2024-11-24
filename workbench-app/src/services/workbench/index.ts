@@ -7,4 +7,3 @@ export * from './file';
 export * from './participant';
 export * from './state';
 export * from './workbench';
-export * from './workflow';

@@ -8,12 +8,10 @@ import { ExperimentalNotice } from '../components/App/ExperimentalNotice';
 import { Loading } from '../components/App/Loading';
 import { MyAssistants } from '../components/Assistants/MyAssistants';
 import { MyConversations } from '../components/Conversations/MyConversations';
-import { MyWorkflows } from '../components/Workflows/MyWorkflows';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { Conversation } from '../models/Conversation';
 import { useAppSelector } from '../redux/app/hooks';
 import { useGetAssistantsQuery, useGetConversationsQuery } from '../services/workbench';
-import { useGetWorkflowDefinitionsQuery } from '../services/workbench/workflow';
 
 const useClasses = makeStyles({
     root: {
@@ -41,11 +39,7 @@ export const Dashboard: React.FC = () => {
         error: conversationsError,
         isLoading: isLoadingConversations,
     } = useGetConversationsQuery();
-    const {
-        data: workflowDefinitions,
-        error: workflowDefinitionsError,
-        isLoading: isLoadingWorkflowDefinitions,
-    } = useGetWorkflowDefinitionsQuery();
+
     const localUserStateId = useAppSelector((state) => state.localUser.id);
     const navigate = useNavigate();
 
@@ -62,11 +56,6 @@ export const Dashboard: React.FC = () => {
         throw new Error(`Error loading conversations: ${errorMessage}`);
     }
 
-    if (workflowDefinitionsError) {
-        const errorMessage = JSON.stringify(workflowDefinitionsError);
-        throw new Error(`Error loading workflow definitions: ${errorMessage}`);
-    }
-
     const handleConversationCreate = React.useCallback(
         (conversation: Conversation) => {
             navigate(`/conversation/${conversation.id}`);
@@ -74,7 +63,7 @@ export const Dashboard: React.FC = () => {
         [navigate],
     );
 
-    if (isLoadingAssistants || isLoadingConversations || isLoadingWorkflowDefinitions) {
+    if (isLoadingAssistants || isLoadingConversations) {
         return (
             <AppView title="Dashboard">
                 <Loading />
@@ -107,7 +96,6 @@ export const Dashboard: React.FC = () => {
                             onCreate={handleConversationCreate}
                         />
                     )}
-                    <MyWorkflows workflowDefinitions={workflowDefinitions} />
                 </div>
             </div>
         </AppView>

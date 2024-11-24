@@ -11,13 +11,7 @@ import { ConversationMessage } from '../models/ConversationMessage';
 import { ConversationParticipant } from '../models/ConversationParticipant';
 import { useAppDispatch } from '../redux/app/hooks';
 import { addError } from '../redux/features/app/appSlice';
-import {
-    assistantApi,
-    assistantServiceRegistrationApi,
-    conversationApi,
-    workbenchApi,
-    workflowApi,
-} from '../services/workbench';
+import { assistantApi, assistantServiceRegistrationApi, conversationApi, workbenchApi } from '../services/workbench';
 import { AuthHelper } from './AuthHelper';
 import { Utility } from './Utility';
 import { useEnvironment } from './useEnvironment';
@@ -351,36 +345,6 @@ export const useWorkbenchService = () => {
         [getAssistantServiceInfoAsync, getAssistantServiceRegistrationAsync],
     );
 
-    const exportWorkflowDefinitionAsync = React.useCallback(
-        async (workflowId: string) => {
-            const workflowDefinition = await dispatch(
-                workflowApi.endpoints.getWorkflowDefinition.initiate(workflowId),
-            ).unwrap();
-
-            if (!workflowDefinition) {
-                throw new Error(`Workflow with ID ${workflowId} not found`);
-            }
-
-            const blob = new Blob([JSON.stringify(workflowDefinition)], { type: 'application/json' });
-            const filename = `workflow_${workflowDefinition.label.replace(
-                ' ',
-                '_',
-            )}_${Utility.getTimestampForFilename()}.json`;
-            return { blob, filename };
-        },
-        [dispatch],
-    );
-
-    // TODO: implement importWorkflowDefinitionAsync
-    // const duplicateWorkflowDefinitionAsync = async (workflowId: string) => {
-    //     const { blob, filename } = await exportWorkflowDefinitionAsync(workflowId);
-    //     return await importWorkflowDefinitionAsync(new File([blob], filename));
-    // };
-
-    const getWorkflowDefinitionDefaultsAsync = React.useCallback(async () => {
-        return await dispatch(workflowApi.endpoints.getWorkflowDefinitionDefaults.initiate()).unwrap();
-    }, [dispatch]);
-
     return {
         getAzureSpeechTokenAsync,
         downloadConversationFileAsync,
@@ -392,7 +356,5 @@ export const useWorkbenchService = () => {
         duplicateAssistantAsync,
         getAssistantServiceInfoAsync,
         getAssistantServiceInfosAsync,
-        exportWorkflowDefinitionAsync,
-        getWorkflowDefinitionDefaultsAsync,
     };
 };
