@@ -525,7 +525,7 @@ public static class Webservice
                             }
                             */
                             log.LogWarning("Event type '{0}' not supported", eventType.HtmlEncode());
-                            log.LogTrace(json.HtmlEncode());
+                            log.LogTrace(json);
                             break;
                     }
 
