@@ -102,7 +102,14 @@ public class MyAgent : AgentBase<MyAgentConfig>
         {
             // Show some status while working...
             await this.SetAgentStatusAsync(conversationId, "Thinking...", cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            this.Log.LogWarning(e, "Something went wrong while setting temporary status");
+        }
 
+        try
+        {
             // Update the chat history to include the message received
             var conversation = await base.AddMessageToHistoryAsync(conversationId, message, cancellationToken).ConfigureAwait(false);
 

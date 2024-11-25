@@ -12,11 +12,18 @@ public class WorkbenchConfig
     public string WorkbenchEndpoint { get; set; } = "http://127.0.0.1:3000";
 
     /// <summary>
-    /// The endpoint of your service, where semantic workbench will send communications too.
-    /// This should match hostname, port, protocol and path of the web service. You can use
-    /// this also to route semantic workbench through a proxy or a gateway if needed.
+    /// The host where the connector receives requests sent by the workbench.
+    /// Locally, this is usually "http://127.0.0.1:[some port]"
+    /// On Azure, this will be something like "https://contoso.azurewebsites.net"
+    /// Leave this setting empty to use "127.0.0.1" and autodetect the port in use.
+    /// You can use an env var to set this value, e.g. Workbench__ConnectorHost=https://contoso.azurewebsites.net
     /// </summary>
-    public string ConnectorEndpoint { get; set; } = "http://127.0.0.1:9001/myagents";
+    public string ConnectorHost { get; set; } = string.Empty;
+
+    /// <summary>
+    /// This is the prefix of all the endpoints exposed by the connector
+    /// </summary>
+    public string ConnectorApiPrefix { get; set; } = "/myagents";
 
     /// <summary>
     /// Unique ID of the service. Semantic Workbench will store this event to identify the server

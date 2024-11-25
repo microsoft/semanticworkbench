@@ -8,6 +8,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.SemanticWorkbench.Connector;
@@ -19,17 +21,23 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
     protected WorkbenchConfig WorkbenchConfig { get; private set; }
     protected TAgentConfig DefaultAgentConfig { get; private set; }
     protected HttpClient HttpClient { get; private set; }
+    protected string ConnectorEndpoint { get; private set; } = string.Empty;
     protected ILogger Log { get; private set; }
     protected Dictionary<string, AgentBase<TAgentConfig>> Agents { get; private set; }
 
+    private Timer? _initTimer;
     private Timer? _pingTimer;
+
+    private readonly IServer _httpServer;
 
     protected WorkbenchConnector(
         WorkbenchConfig? workbenchConfig,
         TAgentConfig? defaultAgentConfig,
         IAgentServiceStorage storage,
+        IServer httpServer,
         ILogger logger)
     {
+        this._httpServer = httpServer;
         this.WorkbenchConfig = workbenchConfig ?? new();
         this.DefaultAgentConfig = defaultAgentConfig ?? new();
 
@@ -61,10 +69,11 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
     /// <param name="cancellationToken">Async task cancellation token</param>
     public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        this.Log.LogInformation("Connecting {1} {2} {3} to {4}...",
-            this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.ConnectorEndpoint, this.WorkbenchConfig.WorkbenchEndpoint);
+        this.Log.LogInformation("Connecting {ConnectorName} {ConnectorId} to {WorkbenchEndpoint}...",
+            this.WorkbenchConfig.ConnectorName, this.WorkbenchConfig.ConnectorId, this.WorkbenchConfig.WorkbenchEndpoint);
 #pragma warning disable CS4014 // ping runs in the background without blocking
-        this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, 0, PingFrequencyMS);
+        this._initTimer ??= new Timer(_ => this.Init(), null, 0, 500);
+        this._pingTimer ??= new Timer(_ => this.PingSemanticWorkbenchBackendAsync(cancellationToken), null, Timeout.Infinite, Timeout.Infinite);
 #pragma warning restore CS4014
 
         List<AgentInfo> agents = await this.Storage.GetAllAgentsAsync(cancellationToken).ConfigureAwait(false);
@@ -133,7 +142,7 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
 
     /// <summary>
     /// Set a state content, visible in the state inspector.
-    /// The content is visibile in the state inspector, on the right side panel.
+    /// The content is visible in the state inspector, on the right side panel.
     /// </summary>
     /// <param name="agentId">Agent instance ID</param>
     /// <param name="conversationId">Conversation ID</param>
@@ -371,10 +380,73 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         await this.SendAsync(HttpMethod.Delete, url, null, agentId, "DeleteFile", cancellationToken).ConfigureAwait(false);
     }
 
+    public virtual void DisablePingTimer()
+    {
+        this._pingTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+    }
+
+    public virtual void DisableInitTimer()
+    {
+        this._initTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+    }
+
+    public virtual void EnablePingTimer()
+    {
+        this._pingTimer?.Change(TimeSpan.FromMilliseconds(PingFrequencyMS), TimeSpan.FromMilliseconds(PingFrequencyMS));
+    }
+
+    public virtual void EnableInitTimer()
+    {
+        this._initTimer?.Change(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+    }
+
+    /// <summary>
+    /// Detect the port where the connector is listening and define the value of this.ConnectorEndpoint
+    /// which is then passed to the workbench backend for incoming connections.
+    /// </summary>
+    public virtual void Init()
+    {
+        this.DisableInitTimer();
+
+        if (!string.IsNullOrWhiteSpace(this.ConnectorEndpoint))
+        {
+            this.Log.LogTrace("Init complete, connector endpoint: {Endpoint}", this.ConnectorEndpoint);
+            this.EnablePingTimer();
+            return;
+        }
+
+        try
+        {
+            this.Log.LogTrace("Init in progress...");
+            IServerAddressesFeature? feat = this._httpServer.Features.Get<IServerAddressesFeature>();
+            if (feat == null || feat.Addresses.Count == 0)
+            {
+                this.EnableInitTimer();
+                return;
+            }
+
+            // Example: http://[::]:64351
+            string first = feat.Addresses.First().Replace("[::]", "host", StringComparison.OrdinalIgnoreCase);
+            Uri uri = new(first);
+            this.ConnectorEndpoint = uri.Port > 0
+                ? $"{uri.Scheme}://127.0.0.1:{uri.Port}/{this.WorkbenchConfig.ConnectorApiPrefix.TrimStart('/')}"
+                : $"{uri.Scheme}://127.0.0.1:/{this.WorkbenchConfig.ConnectorApiPrefix.TrimStart('/')}";
+
+            this.Log.LogTrace("Init complete, connector endpoint: {Endpoint}", this.ConnectorEndpoint);
+            this.EnablePingTimer();
+        }
+#pragma warning disable CA1031
+        catch (Exception e)
+        {
+            this.Log.LogError(e, "Init error");
+            this.EnableInitTimer();
+        }
+#pragma warning restore CA1031
+    }
+
     public virtual async Task PingSemanticWorkbenchBackendAsync(CancellationToken cancellationToken)
     {
-        // Disable timer during the request
-        this._pingTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        this.DisablePingTimer();
 
         try
         {
@@ -386,16 +458,15 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
             {
                 name = $"{this.WorkbenchConfig.ConnectorName} [{this.WorkbenchConfig.ConnectorId}]",
                 description = this.WorkbenchConfig.ConnectorDescription,
-                url = this.WorkbenchConfig.ConnectorEndpoint,
-                online_expires_in_seconds = 20
+                url = this.ConnectorEndpoint,
+                online_expires_in_seconds = 2 + (int)(PingFrequencyMS / 1000)
             };
 
             await this.SendAsync(HttpMethod.Put, path, data, null, "PingSWBackend", cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            // Activate timer
-            this._pingTimer?.Change(TimeSpan.FromMilliseconds(PingFrequencyMS), TimeSpan.FromMilliseconds(PingFrequencyMS));
+            this.EnablePingTimer();
         }
     }
 
@@ -432,17 +503,20 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
         {
             this.Log.LogTrace("Preparing request: {2}", description);
             HttpRequestMessage request = this.PrepareRequest(method, url, data, agentId);
-            this.Log.LogTrace("Sending request {Method} {BaseAddress}{Path} [{Description}]", method, this.HttpClient.BaseAddress, url.HtmlEncode(), description);
+            this.Log.LogTrace("Sending request {Method} {BaseAddress}{Path} [{Description}]", method, this.HttpClient.BaseAddress, url, description);
+            this.Log.LogTrace("{0}: {1}", description, ToCurl(this.HttpClient, request, data));
             HttpResponseMessage result = await this.HttpClient
                 .SendAsync(request, cancellationToken)
                 .ConfigureAwait(false);
             request.Dispose();
+            this.Log.LogTrace("Response status code: {StatusCodeInt} {StatusCode}", (int)result.StatusCode, result.StatusCode);
+
             return result;
         }
         catch (HttpRequestException e)
         {
             this.Log.LogError("HTTP request failed: {Message} [{Error}, {Exception}, Status Code: {StatusCode}]. Request: {Method} {URL} [{RequestDescription}]",
-                e.Message.HtmlEncode(), e.HttpRequestError.ToString("G"), e.GetType().FullName, e.StatusCode, method, url.HtmlEncode(), description);
+                e.Message.HtmlEncode(), e.HttpRequestError.ToString("G"), e.GetType().FullName, e.StatusCode, method, url, description);
             throw;
         }
         catch (Exception e)
@@ -476,6 +550,44 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
 
         return request;
     }
+
+#pragma warning disable CA1305
+    private static string ToCurl(HttpClient httpClient, HttpRequestMessage? request, object? data)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.RequestUri);
+
+        var curl = new StringBuilder("curl -v ");
+
+        foreach (var header in request.Headers)
+        {
+            foreach (var value in header.Value)
+            {
+                curl.Append($"-H '{header.Key}: {value}' ");
+            }
+        }
+
+        if (request.Content?.Headers != null)
+        {
+            foreach (var header in request.Content.Headers)
+            {
+                foreach (var value in header.Value)
+                {
+                    curl.Append($"-H '{header.Key}: {value}' ");
+                }
+            }
+        }
+
+        if (Constants.HttpMethodsWithBody.Contains(request.Method))
+        {
+            curl.Append($"--data '{JsonSerializer.Serialize(data)}' ");
+        }
+
+        curl.Append($"-X {request.Method.Method} '{httpClient.BaseAddress}{request.RequestUri}' ");
+
+        return curl.ToString().TrimEnd();
+    }
+#pragma warning restore CA1305
 
     #endregion
 }

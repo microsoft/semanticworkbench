@@ -26,7 +26,7 @@ public static class Webservice
     }
 
     public static WorkbenchConnector<TAgentConfig> UseAgentWebservice<TAgentConfig>(
-        this IEndpointRouteBuilder builder, string endpoint, bool enableCatchAll = false)
+        this IEndpointRouteBuilder builder, string prefix, bool enableCatchAll = false)
         where TAgentConfig : AgentConfigBase, new()
     {
         WorkbenchConnector<TAgentConfig>? workbenchConnector = builder.ServiceProvider.GetService<WorkbenchConnector<TAgentConfig>>();
@@ -34,8 +34,6 @@ public static class Webservice
         {
             throw new InvalidOperationException("Unable to create instance of " + nameof(WorkbenchConnector<TAgentConfig>));
         }
-
-        string prefix = new Uri(endpoint).AbsolutePath;
 
         builder
             .UseFetchServiceInfo<TAgentConfig>(prefix)
