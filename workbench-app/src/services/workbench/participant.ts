@@ -65,6 +65,7 @@ export const transformResponseToConversationParticipant = (response: any): Conve
     try {
         return {
             id: response.id,
+            conversationId: response.conversation_id,
             role: response.role,
             name: response.name,
             image: response.image ?? undefined,
