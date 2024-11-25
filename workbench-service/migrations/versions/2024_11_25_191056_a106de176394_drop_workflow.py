@@ -35,6 +35,13 @@ def downgrade() -> None:
     op.drop_column("userparticipant", "metadata")
     op.drop_column("assistantparticipant", "metadata")
     op.create_table(
+        "workflowdefinition",
+        sa.Column("workflow_definition_id", sa.UUID(), autoincrement=False, nullable=False),
+        sa.Column("data", postgresql.JSON(astext_type=sa.Text()), autoincrement=False, nullable=True),
+        sa.PrimaryKeyConstraint("workflow_definition_id", name="workflowdefinition_pkey"),
+        postgresql_ignore_search_path=False,
+    )
+    op.create_table(
         "workflowuserparticipant",
         sa.Column("workflow_definition_id", sa.UUID(), autoincrement=False, nullable=False),
         sa.Column("user_id", sa.VARCHAR(), autoincrement=False, nullable=False),
@@ -49,13 +56,6 @@ def downgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("workflow_definition_id", "user_id", name="workflowuserparticipant_pkey"),
-    )
-    op.create_table(
-        "workflowdefinition",
-        sa.Column("workflow_definition_id", sa.UUID(), autoincrement=False, nullable=False),
-        sa.Column("data", postgresql.JSON(astext_type=sa.Text()), autoincrement=False, nullable=True),
-        sa.PrimaryKeyConstraint("workflow_definition_id", name="workflowdefinition_pkey"),
-        postgresql_ignore_search_path=False,
     )
     op.create_table(
         "workflowrun",
