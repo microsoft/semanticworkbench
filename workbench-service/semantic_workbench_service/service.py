@@ -68,8 +68,6 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversation,
     NewConversationMessage,
     NewConversationShare,
-    NewWorkflowDefinition,
-    NewWorkflowRun,
     ParticipantRole,
     UpdateAssistant,
     UpdateAssistantServiceRegistration,
@@ -77,15 +75,8 @@ from semantic_workbench_api_model.workbench_model import (
     UpdateConversation,
     UpdateParticipant,
     UpdateUser,
-    UpdateWorkflowDefinition,
-    UpdateWorkflowParticipant,
-    UpdateWorkflowRun,
     User,
     UserList,
-    WorkflowDefinition,
-    WorkflowDefinitionList,
-    WorkflowRun,
-    WorkflowRunList,
 )
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -295,12 +286,6 @@ def init(
         notify_event=_notify_event,
         file_storage=files.Storage(settings.storage),
     )
-    workflow_controller = controller.WorkflowController(
-        get_session=_controller_get_session,
-        assistant_controller=assistant_controller,
-        conversation_controller=conversation_controller,
-    )
-    conversation_controller.register_message_previewer(workflow_controller.preview_message)
 
     @asynccontextmanager
     async def _lifespan() -> AsyncIterator[None]:
@@ -1085,119 +1070,6 @@ def init(
     ) -> ConversationShareRedemptionList:
         return await conversation_share_controller.get_redemptions_for_user(
             user_principal=user_principal,
-        )
-
-    @app.post("/workflow-definitions")
-    async def create_workflow(
-        user_principal: auth.DependsUserPrincipal,
-        new_workflow_definition: NewWorkflowDefinition,
-    ) -> WorkflowDefinition:
-        return await workflow_controller.create_workflow_definition(
-            user_principal=user_principal, new_workflow_definition=new_workflow_definition
-        )
-
-    @app.patch("/workflow-definitions/{workflow_definition_id}")
-    async def update_workflow(
-        user_principal: auth.DependsUserPrincipal,
-        workflow_definition_id: uuid.UUID,
-        update_workflow_definition: UpdateWorkflowDefinition,
-    ) -> WorkflowDefinition:
-        return await workflow_controller.update_workflow_definition(
-            user_principal=user_principal,
-            workflow_definition_id=workflow_definition_id,
-            update_workflow_definition=update_workflow_definition,
-        )
-
-    @app.get("/workflow-definitions/defaults")
-    async def get_workflow_definition_defaults() -> NewWorkflowDefinition:
-        return await workflow_controller.get_workflow_definition_defaults()
-
-    @app.get("/workflow-definitions")
-    async def list_workflows(
-        user_principal: auth.DependsUserPrincipal,
-    ) -> WorkflowDefinitionList:
-        return await workflow_controller.get_workflow_definitions(user_principal=user_principal)
-
-    @app.get("/workflow-definitions/{workflow_definition_id}")
-    async def get_workflow(workflow_definition_id: uuid.UUID) -> WorkflowDefinition:
-        return await workflow_controller.get_workflow_definition(workflow_definition_id=workflow_definition_id)
-
-    @app.patch("/workflow-definitions/{workflow_definition_id}/participants/{participant_id}")
-    @app.put("/workflow-definitions/{workflow_definition_id}/participants/{participant_id}")
-    async def add_or_update_workflow_participant(
-        workflow_definition_id: uuid.UUID,
-        participant_id: str,
-        update_participant: UpdateWorkflowParticipant,
-        user_principal: auth.DependsUserPrincipal,
-    ) -> None:
-        if participant_id == "me":
-            participant_id = user_principal.user_id
-
-        await workflow_controller.add_or_update_workflow_participant(
-            workflow_definition_id=workflow_definition_id,
-            participant_id=participant_id,
-            update_participant=update_participant,
-        )
-
-    @app.get("/workflow-runs")
-    async def list_workflow_runs(
-        user_principal: auth.DependsUserPrincipal,
-        workflow_definition_id: uuid.UUID | None = None,
-    ) -> WorkflowRunList:
-        return await workflow_controller.get_workflow_runs(
-            user_principal=user_principal, workflow_definition_id=workflow_definition_id
-        )
-
-    @app.get("/workflow-runs/{workflow_run_id}")
-    async def get_workflow_run(workflow_run_id: uuid.UUID) -> WorkflowRun:
-        return await workflow_controller.get_workflow_run(workflow_run_id=workflow_run_id)
-
-    @app.post("/workflow-runs")
-    async def create_workflow_run(
-        new_workflow_run: NewWorkflowRun,
-    ) -> WorkflowRun:
-        return await workflow_controller.create_workflow_run(
-            new_workflow_run=new_workflow_run,
-        )
-
-    @app.patch("/workflow-runs/{workflow_run_id}")
-    async def update_workflow_run(
-        workflow_run_id: uuid.UUID,
-        update_workflow_run: UpdateWorkflowRun,
-    ) -> WorkflowRun:
-        return await workflow_controller.update_workflow_run(
-            workflow_run_id=workflow_run_id,
-            update_workflow_run=update_workflow_run,
-        )
-
-    @app.get("/workflow-runs/{workflow_run_id}/assistants")
-    async def get_workflow_run_assistants(
-        workflow_run_id: uuid.UUID,
-        user_principal: auth.DependsUserPrincipal,
-    ) -> AssistantList:
-        return await workflow_controller.get_workflow_run_assistants(
-            user_principal=user_principal,
-            workflow_run_id=workflow_run_id,
-        )
-
-    @app.post("/workflow-runs/{workflow_run_id}/switch-state")
-    async def switch_workflow_run_state(
-        workflow_run_id: uuid.UUID,
-        state_id: str,
-    ) -> WorkflowRun:
-        return await workflow_controller.switch_workflow_run_state(
-            workflow_run_id=workflow_run_id,
-            target_state_id=state_id,
-        )
-
-    @app.delete("/workflow-runs/{workflow_run_id}", status_code=status.HTTP_204_NO_CONTENT)
-    async def delete_workflow_run(
-        user_principal: auth.DependsUserPrincipal,
-        workflow_run_id: uuid.UUID,
-    ) -> None:
-        await workflow_controller.delete_workflow_run(
-            user_principal=user_principal,
-            workflow_run_id=workflow_run_id,
         )
 
     @app.get("/azure-speech/token")

@@ -52,13 +52,13 @@ The Semantic Workbench interface dashboard includes sections for your assistants
 
 Select any of your assistants to access and update the assistant's configuration. Select an existing conversation or create a new one to start interacting with your assistants.
 
-# Assistant Instances
+# Assistants
 
-Creating and configuring assistants in the Semantic Workbench allows you to utilize different AI functionalities tailored to specific needs. Note that you can create multiple instances of a single assistant service, each with its own configuration.
+Creating and configuring assistants in the Semantic Workbench allows you to utilize different AI functionalities tailored to specific needs. Note that you can create multiple assistants, all back by a single assistant service, each with its own configuration.
 
 ## Creating a New Assistant
 
-Creating a new assistant in the Semantic Workbench is straightforward. Begin by clicking on the `New Assistant` button on the dashboard. You will be presented with the available assistant services to choose from. Select the one that best suits your needs. You can accept the default name or choose your own then click `Save` to create the instance.
+Creating a new assistant in the Semantic Workbench is straightforward. Begin by clicking on the `New Assistant` button on the dashboard. You will be presented with the available assistant services to choose from. Select the one that best suits your needs. You can accept the default name or choose your own then click `Save` to create the assistant.
 
 ## Configuring Assistants
 
@@ -91,7 +91,7 @@ You have the ability to invite additional people to either observe or participat
 
 ## Creating a New Conversation
 
-To start a new conversation with your assistant, click on its instance and then click `New Conversation`. Provide a title for the conversation and click `Save`.
+To start a new conversation with your assistant, click on it and then click `New Conversation`. Provide a title for the conversation and click `Save`.
 
 ## Basics of Conversations
 
@@ -152,11 +152,11 @@ When you provide someone with a link to copy a conversation it will copy the con
 * Second person follows the link later, they get the additional messages and data you added before they followed the link.
 
 ### Duplicating conversation
-From the conversation list you can also duplicate them. This is useful for experimenting with taking conversations in different directions, or using one as a common base for further explorations. 
+From the conversation list you can also duplicate them. This is useful for experimenting with taking conversations in different directions, or using one as a common base for further explorations.
 
 ![Duplicate Conversation](images/conversation_duplicate.png)
 
-Note that this will also copy the assistant instance the conversation is a part of as there is some state associated between the assistant and the conversation.
+Note that this will also copy the assistant that the conversation is a part of as there is some state associated between the assistant and the conversation.
 
 ### Exporting and importing conversations
 

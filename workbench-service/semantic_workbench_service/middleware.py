@@ -35,8 +35,8 @@ async def _assistant_service_principal_from_request(
     assistant_service_id = assistant_service_params.assistant_service_id
     api_key = assistant_service_params.api_key
 
-    assistant_instance_params = workbench_service_client.AssistantInstanceRequestHeaders.from_headers(request.headers)
-    assistant_id = assistant_instance_params.assistant_id
+    assistant_params = workbench_service_client.AssistantRequestHeaders.from_headers(request.headers)
+    assistant_id = assistant_params.assistant_id
 
     expected_api_key = await api_key_source(assistant_service_id)
     if expected_api_key is None:

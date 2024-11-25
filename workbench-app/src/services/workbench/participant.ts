@@ -18,12 +18,12 @@ const participantApi = workbenchApi.injectEndpoints({
         }),
         updateConversationParticipant: builder.mutation<
             void,
-            { conversationId: string; participantId: string; status: string }
+            { conversationId: string; participantId: string; status?: string; metadata?: Record<string, any> }
         >({
-            query: ({ conversationId, participantId, status }) => ({
+            query: ({ conversationId, participantId, status, metadata }) => ({
                 url: `/conversations/${conversationId}/participants/${participantId}`,
                 method: 'PUT',
-                body: { status, active_participant: true },
+                body: { status, active_participant: true, metadata },
             }),
             invalidatesTags: ['Conversation'],
         }),
@@ -65,6 +65,7 @@ export const transformResponseToConversationParticipant = (response: any): Conve
     try {
         return {
             id: response.id,
+            conversationId: response.conversation_id,
             role: response.role,
             name: response.name,
             image: response.image ?? undefined,
@@ -73,6 +74,7 @@ export const transformResponseToConversationParticipant = (response: any): Conve
             statusTimestamp: response.status_updated_timestamp,
             conversationPermission: response.conversation_permission,
             active: response.active_participant,
+            metadata: response.metadata,
         };
     } catch (error) {
         throw new Error(`Failed to transform participant response: ${error}`);

@@ -40,18 +40,18 @@ class AssistantServiceRequestHeaders:
 
 
 @dataclass
-class AssistantInstanceRequestHeaders:
+class AssistantRequestHeaders:
     assistant_id: uuid.UUID | None
 
     def to_headers(self) -> Mapping[str, str]:
         return {HEADER_ASSISTANT_ID: str(self.assistant_id)}
 
     @staticmethod
-    def from_headers(headers: Mapping[str, str]) -> AssistantInstanceRequestHeaders:
+    def from_headers(headers: Mapping[str, str]) -> AssistantRequestHeaders:
         assistant_id: uuid.UUID | None = None
         with suppress(ValueError):
             assistant_id = uuid.UUID(headers.get(HEADER_ASSISTANT_ID) or "")
-        return AssistantInstanceRequestHeaders(
+        return AssistantRequestHeaders(
             assistant_id=assistant_id,
         )
 
@@ -480,7 +480,7 @@ class WorkbenchServiceClientBuilder:
         self._assistant_service_id = assistant_service_id
         self._api_key = api_key
 
-    def _client(self, *headers: AssistantServiceRequestHeaders | AssistantInstanceRequestHeaders) -> httpx.AsyncClient:
+    def _client(self, *headers: AssistantServiceRequestHeaders | AssistantRequestHeaders) -> httpx.AsyncClient:
         client = httpx.AsyncClient(
             transport=httpx_transport_factory(),
             base_url=self._base_url,
@@ -505,7 +505,7 @@ class WorkbenchServiceClientBuilder:
             conversation_id=conversation_id,
             httpx_client_factory=lambda: self._client(
                 AssistantServiceRequestHeaders(assistant_service_id=self._assistant_service_id, api_key=self._api_key),
-                AssistantInstanceRequestHeaders(assistant_id=uuid.UUID(assistant_id)),
+                AssistantRequestHeaders(assistant_id=uuid.UUID(assistant_id)),
             ),
         )
 

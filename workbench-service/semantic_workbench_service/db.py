@@ -56,16 +56,6 @@ class User(SQLModel, table=True):
             participant.service_user = self.service_user
             session.add(participant)
 
-        # update WorkflowUserParticipants for this user
-        participants = session.exec(
-            select(WorkflowUserParticipant).where(WorkflowUserParticipant.user_id == self.user_id),
-        )
-        for participant in participants:
-            participant.name = self.name
-            participant.image = self.image
-            participant.service_user = self.service_user
-            session.add(participant)
-
 
 class AssistantServiceRegistration(SQLModel, table=True):
     assistant_service_id: str = Field(primary_key=True)
@@ -214,6 +204,9 @@ class AssistantParticipant(SQLModel, table=True):
     status: str | None = None
     status_updated_datetime: datetime.datetime = date_time_default_to_now()
     active_participant: bool = True
+    meta_data: dict[str, Any] = Field(
+        sa_column=sqlalchemy.Column("metadata", sqlalchemy.JSON, server_default="{}", nullable=False), default={}
+    )
 
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_conversation: Conversation = Relationship()
@@ -254,6 +247,9 @@ class UserParticipant(SQLModel, table=True):
     status: str | None = None
     status_updated_datetime: datetime.datetime = date_time_default_to_now()
     active_participant: bool = True
+    meta_data: dict[str, Any] = Field(
+        sa_column=sqlalchemy.Column("metadata", sqlalchemy.JSON, server_default="{}", nullable=False), default={}
+    )
     conversation_permission: str
 
     # this relationship is needed to enforce correct INSERT order by SQLModel
@@ -370,68 +366,6 @@ class FileVersion(SQLModel, table=True):
 
     # this relationship is needed to enforce correct INSERT order by SQLModel
     related_file: File = Relationship()
-
-
-class WorkflowDefinition(SQLModel, table=True):
-    workflow_definition_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    data: dict[str, Any] = Field(sa_column=sqlalchemy.Column("data", sqlalchemy.JSON))
-
-
-class WorkflowUserParticipant(SQLModel, table=True):
-    workflow_definition_id: uuid.UUID = Field(
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.ForeignKey(
-                "workflowdefinition.workflow_definition_id",
-                name="fk_workflowuserparticipant_workflowdefinition",
-                ondelete="CASCADE",
-            ),
-            primary_key=True,
-        ),
-    )
-    user_id: str = Field(primary_key=True)
-    name: str = ""
-    image: str | None = None
-    service_user: bool = False
-    active_participant: bool = True
-
-    # this relationship is needed to enforce correct INSERT order by SQLModel
-    related_workflow_definition: WorkflowDefinition = Relationship()
-
-    def on_update(self, session: Session) -> None:
-        """Update this participant to match the related user, if one exists."""
-        user = session.exec(select(User).where(User.user_id == self.user_id)).one_or_none()
-        if user is None:
-            return
-
-        sqlalchemy.orm.attributes.set_attribute(self, "name", user.name)
-        sqlalchemy.orm.attributes.set_attribute(self, "image", user.image)
-        sqlalchemy.orm.attributes.set_attribute(self, "service_user", user.service_user)
-
-    def on_insert(self, session: Session) -> None:
-        """Update this participant to match the related user, requiring one to exist."""
-        user = session.exec(select(User).where(User.user_id == self.user_id)).one()
-
-        sqlalchemy.orm.attributes.set_attribute(self, "name", user.name)
-        sqlalchemy.orm.attributes.set_attribute(self, "image", user.image)
-        sqlalchemy.orm.attributes.set_attribute(self, "service_user", user.service_user)
-
-
-class WorkflowRun(SQLModel, table=True):
-    workflow_run_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    workflow_definition_id: uuid.UUID = Field(
-        sa_column=sqlalchemy.Column(
-            sqlalchemy.ForeignKey(
-                "workflowdefinition.workflow_definition_id",
-                name="fk_workflowrun_workflowdefinition",
-                ondelete="CASCADE",
-            ),
-            nullable=False,
-        ),
-    )
-    data: dict[str, Any] = Field(sa_column=sqlalchemy.Column("data", sqlalchemy.JSON))
-
-    # this relationship is needed to enforce correct INSERT order by SQLModel
-    related_workflow_definition: WorkflowDefinition = Relationship()
 
 
 NAMING_CONVENTION = {

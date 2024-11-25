@@ -1,7 +1,6 @@
 import datetime
 import logging
 import uuid
-from dataclasses import dataclass
 from typing import AsyncContextManager, Awaitable, Callable, Iterable, Literal, Sequence
 
 import deepmerge
@@ -35,12 +34,6 @@ from . import user as user_
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class MessagePreview:
-    conversation_id: uuid.UUID
-    message: ConversationMessage
-
-
 class ConversationController:
     def __init__(
         self,
@@ -51,11 +44,6 @@ class ConversationController:
         self._get_session = get_session
         self._notify_event = notify_event
         self._assistant_controller = assistant_controller
-
-        self._message_previewers: list[Callable[[MessagePreview], Awaitable[None]]] = []
-
-    def register_message_previewer(self, previewer: Callable[[MessagePreview], Awaitable[None]]) -> None:
-        self._message_previewers.append(previewer)
 
     async def create_conversation(
         self,
@@ -438,6 +426,12 @@ class ConversationController:
                     participant.status = update_participant.status
                     participant.status_updated_datetime = datetime.datetime.now(datetime.UTC)
 
+                if update_participant.metadata is not None:
+                    event_type = event_type or ConversationEventType.participant_updated
+                    participant.meta_data = deepmerge.always_merger.merge(
+                        participant.meta_data or {}, update_participant.metadata
+                    )
+
                 if event_type is not None:
                     session.add(participant)
                     await session.commit()
@@ -490,6 +484,12 @@ class ConversationController:
                     event_type = event_type or ConversationEventType.participant_updated
                     participant.status = update_participant.status
                     participant.status_updated_datetime = datetime.datetime.now(datetime.UTC)
+
+                if update_participant.metadata is not None:
+                    event_type = event_type or ConversationEventType.participant_updated
+                    participant.meta_data = deepmerge.always_merger.merge(
+                        participant.meta_data or {}, update_participant.metadata
+                    )
 
                 if event_type is not None:
                     session.add(participant)
@@ -708,11 +708,6 @@ class ConversationController:
             await session.refresh(message)
 
         message_response = convert.conversation_message_from_db(message, has_debug=bool(message_debug))
-
-        # share message with previewers
-        message_preview = MessagePreview(conversation_id=conversation_id, message=message_response)
-        for previewer in self._message_previewers:
-            await previewer(message_preview)
 
         await self._notify_event(
             ConversationEventQueueItem(

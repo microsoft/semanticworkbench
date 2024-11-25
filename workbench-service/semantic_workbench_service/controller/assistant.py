@@ -121,7 +121,7 @@ class AssistantController:
             await self._client_pool.service_client(
                 registration=assistant.related_assistant_service_registration,
             )
-        ).put_assistant_instance(
+        ).put_assistant(
             assistant_id=assistant.assistant_id,
             request=AssistantPutRequestModel(assistant_name=assistant.name),
             from_export=from_export,
@@ -138,7 +138,7 @@ class AssistantController:
             ).one()
 
         try:
-            await (await self._client_pool.assistant_instance_client(assistant)).post_conversation_event(event=event)
+            await (await self._client_pool.assistant_client(assistant)).post_conversation_event(event=event)
         except AssistantError as e:
             if e.status_code != httpx.codes.NOT_FOUND:
                 logger.exception(
@@ -190,14 +190,12 @@ class AssistantController:
         await session.flush()
 
     async def disconnect_assistant_from_conversation(self, conversation_id: uuid.UUID, assistant: db.Assistant) -> None:
-        await (await self._client_pool.assistant_instance_client(assistant)).delete_conversation(
-            conversation_id=conversation_id
-        )
+        await (await self._client_pool.assistant_client(assistant)).delete_conversation(conversation_id=conversation_id)
 
     async def connect_assistant_to_conversation(
         self, conversation: db.Conversation, assistant: db.Assistant, from_export: IO[bytes] | None
     ) -> None:
-        await (await self._client_pool.assistant_instance_client(assistant)).put_conversation(
+        await (await self._client_pool.assistant_client(assistant)).put_conversation(
             ConversationPutRequestModel(id=str(conversation.conversation_id), title=conversation.title),
             from_export=from_export,
         )
@@ -343,7 +341,7 @@ class AssistantController:
             try:
                 await (
                     await self._client_pool.service_client(assistant.related_assistant_service_registration)
-                ).delete_assistant_instance(assistant_id=assistant.assistant_id)
+                ).delete_assistant(assistant_id=assistant.assistant_id)
 
             except AssistantError:
                 logger.exception("error disconnecting assistant")
@@ -412,7 +410,7 @@ class AssistantController:
                 principal=user_principal, assistant_id=assistant_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).get_config()
+        return await (await self._client_pool.assistant_client(assistant)).get_config()
 
     async def update_assistant_config(
         self,
@@ -425,7 +423,7 @@ class AssistantController:
                 principal=user_principal, assistant_id=assistant_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).put_config(updated_config)
+        return await (await self._client_pool.assistant_client(assistant)).put_config(updated_config)
 
     async def get_assistant_conversation_state_descriptions(
         self,
@@ -444,7 +442,7 @@ class AssistantController:
                 assistant=assistant, conversation_id=conversation_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).get_state_descriptions(
+        return await (await self._client_pool.assistant_client(assistant)).get_state_descriptions(
             conversation_id=conversation_id
         )
 
@@ -466,7 +464,7 @@ class AssistantController:
                 assistant=assistant, conversation_id=conversation_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).get_state(
+        return await (await self._client_pool.assistant_client(assistant)).get_state(
             conversation_id=conversation_id, state_id=state_id
         )
 
@@ -489,7 +487,7 @@ class AssistantController:
                 assistant=assistant, conversation_id=conversation_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).put_state(
+        return await (await self._client_pool.assistant_client(assistant)).put_state(
             conversation_id=conversation_id, state_id=state_id, updated_state=updated_state
         )
 
@@ -611,14 +609,14 @@ class AssistantController:
         assistants = await session.exec(select(db.Assistant).where(col(db.Assistant.assistant_id).in_(assistant_ids)))
 
         for assistant in assistants:
-            assistant_client = await self._client_pool.assistant_instance_client(assistant)
+            assistant_client = await self._client_pool.assistant_client(assistant)
 
             # export assistant data
             assistant_dir = export_dir_path / "assistants" / str(assistant.assistant_id)
             assistant_dir.mkdir(parents=True)
 
             with (assistant_dir / AssistantController.EXPORT_ASSISTANT_DATA_FILENAME).open("wb") as assistant_file:
-                async with assistant_client.get_exported_instance_data() as response:
+                async with assistant_client.get_exported_data() as response:
                     async for chunk in response:
                         assistant_file.write(chunk)
 
@@ -964,7 +962,7 @@ class AssistantController:
 
                 try:
                     # **Export the assistant's conversation data from the original conversation**
-                    assistant_client = await self._client_pool.assistant_instance_client(assistant)
+                    assistant_client = await self._client_pool.assistant_client(assistant)
                     async with assistant_client.get_exported_conversation_data(
                         conversation_id=conversation_id
                     ) as export_response:
