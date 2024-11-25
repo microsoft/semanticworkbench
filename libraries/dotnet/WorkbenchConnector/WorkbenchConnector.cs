@@ -401,7 +401,7 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
 
     #region internals ===========================================================================
 
-    private const int PingFrequencyMS = 10000;
+    private const int PingFrequencyMS = 20000;
 
     public void Dispose()
     {
