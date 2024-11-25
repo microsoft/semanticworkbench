@@ -2,7 +2,7 @@ from typing import Any, TypeVar
 
 from semantic_workbench_api_model.workbench_model import MessageType
 from sqlalchemy import Function
-from sqlmodel import String, and_, cast, col, func, literal, or_, select
+from sqlmodel import and_, col, func, literal, or_, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from . import auth, db, settings
@@ -20,22 +20,6 @@ def select_assistants_for(
     return select(db.Assistant).where(
         or_(
             db.Assistant.owner_id == user_principal.user_id,
-            col(db.Assistant.assistant_id).in_(
-                select(db.Assistant.assistant_id)
-                .join(
-                    db.WorkflowRun,
-                    cast(json_extract_path(db.Assistant.meta_data, "workflow_run_id"), String)
-                    == cast(db.WorkflowRun.workflow_run_id, String),
-                )
-                .join(
-                    db.WorkflowUserParticipant,
-                    and_(
-                        db.WorkflowUserParticipant.workflow_definition_id == db.WorkflowRun.workflow_definition_id,
-                        db.WorkflowUserParticipant.user_id == user_principal.user_id,
-                    ),
-                )
-                .distinct()
-            ),
             and_(
                 include_assistants_from_conversations is True,
                 col(db.Assistant.assistant_id).in_(
@@ -237,34 +221,3 @@ def select_conversation_message_debugs_for(
                 .join(db.AssistantParticipant)
                 .where(db.AssistantParticipant.assistant_id == principal.assistant_id)
             )
-
-
-def select_workflow_definitions_for(
-    user_principal: auth.UserPrincipal,
-    include_inactive: bool = False,
-) -> SelectOfScalar[db.WorkflowDefinition]:
-    query = (
-        select(db.WorkflowDefinition)
-        .join(db.WorkflowUserParticipant)
-        .where(db.WorkflowUserParticipant.user_id == user_principal.user_id)
-    )
-    if not include_inactive:
-        query = query.where(col(db.WorkflowUserParticipant.active_participant).is_(True))
-
-    return query
-
-
-def select_workflow_runs_for(
-    user_principal: auth.UserPrincipal,
-    include_inactive: bool = False,
-) -> SelectOfScalar[db.WorkflowRun]:
-    query = (
-        select(db.WorkflowRun)
-        .join(db.WorkflowDefinition)
-        .join(db.WorkflowUserParticipant)
-        .where(db.WorkflowUserParticipant.user_id == user_principal.user_id)
-    )
-    if not include_inactive:
-        query = query.where(col(db.WorkflowUserParticipant.active_participant).is_(True))
-
-    return query

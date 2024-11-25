@@ -820,7 +820,7 @@ def test_create_assistant_send_assistant_message(
                 assistant_service_id=registration.assistant_service_id,
                 api_key=registration.api_key or "",
             ).to_headers(),
-            **workbench_service_client.AssistantInstanceRequestHeaders(
+            **workbench_service_client.AssistantRequestHeaders(
                 assistant_id=assistant_id,
             ).to_headers(),
         }
@@ -1417,65 +1417,12 @@ def test_conversation_not_visible_to_non_participants(
                 assistant_service_id=registration.assistant_service_id,
                 api_key=registration.api_key or "",
             ).to_headers(),
-            **workbench_service_client.AssistantInstanceRequestHeaders(
+            **workbench_service_client.AssistantRequestHeaders(
                 assistant_id=assistant_response.id,
             ).to_headers(),
         }
         http_response = client.get(url_template.format(conversation_id=conversation_id), headers=assistant_headers)
         assert http_response.status_code == httpx.codes.NOT_FOUND
-
-
-def test_create_update_workflow(workbench_service: FastAPI, test_user: MockUser) -> None:
-    with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
-        new_workflow = workbench_model.NewWorkflowDefinition(
-            label="",
-            start_state_id="",
-            states=[],
-            conversation_definitions=[],
-            assistant_definitions=[],
-            transitions=[],
-            context_transfer_instruction="",
-        )
-        http_response = client.post("/workflow-definitions", json=new_workflow.model_dump(mode="json"))
-        assert httpx.codes.is_success(http_response.status_code)
-
-        created_workflow = workbench_model.WorkflowDefinition.model_validate(http_response.json())
-        assert created_workflow.label == ""
-
-        http_response = client.get(f"/workflow-definitions/{created_workflow.id}")
-        assert httpx.codes.is_success(http_response.status_code)
-
-        retrieved_workflow = workbench_model.WorkflowDefinition.model_validate(http_response.json())
-
-        assert retrieved_workflow == created_workflow
-
-        http_response = client.get("/workflow-definitions")
-        assert httpx.codes.is_success(http_response.status_code)
-
-        retrieved_workflows = workbench_model.WorkflowDefinitionList.model_validate(http_response.json())
-
-        assert retrieved_workflows.workflow_definitions == [created_workflow]
-
-        updated_workflow = workbench_model.UpdateWorkflowDefinition(
-            label="updated",
-            start_state_id="",
-            states=[],
-            conversation_definitions=[],
-            assistant_definitions=[],
-            transitions=[],
-            context_transfer_instruction="",
-        )
-        http_response = client.patch(
-            f"/workflow-definitions/{created_workflow.id}",
-            json=updated_workflow.model_dump(mode="json"),
-        )
-
-        http_response = client.get(f"/workflow-definitions/{created_workflow.id}")
-        assert httpx.codes.is_success(http_response.status_code)
-
-        retrieved_workflow = workbench_model.WorkflowDefinition.model_validate(http_response.json())
-
-        assert retrieved_workflow.label == "updated"
 
 
 def test_create_assistant_service_registration(workbench_service: FastAPI, test_user: MockUser) -> None:

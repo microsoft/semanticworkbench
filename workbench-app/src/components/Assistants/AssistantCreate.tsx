@@ -226,7 +226,7 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
                     }}
                 >
                     <DialogBody>
-                        <DialogTitle>New Instance of Assistant</DialogTitle>
+                        <DialogTitle>New Assistant</DialogTitle>
                         <DialogContent className={classes.dialogContent}>
                             {!manualEntry && (
                                 <Field label="Assistant Service">

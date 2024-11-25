@@ -63,11 +63,6 @@ class ParticipantRole(StrEnum):
     service = "service"
 
 
-class ParticipantStatus(BaseModel):
-    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
-    message: str | None = None
-
-
 class ConversationPermission(StrEnum):
     read_write = "read_write"
     read = "read"
@@ -84,6 +79,7 @@ class ConversationParticipant(BaseModel):
     active_participant: bool
     online: bool | None = None
     conversation_permission: ConversationPermission
+    metadata: dict[str, Any]
 
 
 class ConversationParticipantList(BaseModel):
@@ -459,6 +455,7 @@ class UpdateParticipant(BaseModel):
 
     status: str | None = None
     active_participant: bool | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class ConversationEventType(StrEnum):

@@ -3,6 +3,7 @@
 export interface ConversationParticipant {
     role: 'user' | 'assistant' | 'service';
     id: string;
+    conversationId: string;
     name: string;
     image?: string;
     online?: boolean;
@@ -10,4 +11,7 @@ export interface ConversationParticipant {
     statusTimestamp: string | null;
     conversationPermission: 'read' | 'read_write';
     active: boolean;
+    metadata: {
+        [key: string]: any;
+    };
 }

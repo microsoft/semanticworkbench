@@ -78,7 +78,7 @@ class AssistantResponseError(AssistantError):
         )
 
 
-class AssistantInstanceClient:
+class AssistantClient:
     def __init__(self, httpx_client_factory: Callable[[], httpx.AsyncClient]) -> None:
         self._client = httpx_client_factory()
 
@@ -157,7 +157,7 @@ class AssistantInstanceClient:
         return ConfigResponseModel.model_validate(http_response.json())
 
     @asynccontextmanager
-    async def get_exported_instance_data(self) -> AsyncGenerator[AsyncIterator[bytes], Any]:
+    async def get_exported_data(self) -> AsyncGenerator[AsyncIterator[bytes], Any]:
         try:
             http_response = await self._client.send(self._client.build_request("GET", "/export-data"), stream=True)
         except httpx.RequestError as e:
@@ -266,7 +266,7 @@ class AssistantServiceClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def put_assistant_instance(
+    async def put_assistant(
         self,
         assistant_id: uuid.UUID,
         request: AssistantPutRequestModel,
@@ -284,7 +284,7 @@ class AssistantServiceClient:
         if not response.is_success:
             raise AssistantResponseError(response)
 
-    async def delete_assistant_instance(self, assistant_id: uuid.UUID) -> None:
+    async def delete_assistant(self, assistant_id: uuid.UUID) -> None:
         try:
             response = await self._client.delete(f"/{assistant_id}")
             if response.status_code == httpx.codes.NOT_FOUND:
@@ -331,7 +331,7 @@ class AssistantServiceClientBuilder:
     def for_service(self) -> AssistantServiceClient:
         return AssistantServiceClient(httpx_client_factory=self._client)
 
-    def for_assistant_instance(self, assistant_id: uuid.UUID) -> AssistantInstanceClient:
-        return AssistantInstanceClient(
+    def for_assistant(self, assistant_id: uuid.UUID) -> AssistantClient:
+        return AssistantClient(
             httpx_client_factory=lambda: self._client(str(assistant_id)),
         )

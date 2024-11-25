@@ -4,9 +4,9 @@ The Skill Assistant serves as a demonstration of integrating the Skill Library w
 
 ## Overview
 
-[skill_controller.py](assistant/skill_controller.py) file is responsible for managing the assistant instances. It includes functionality to create and retrieve assistants, configure chat drivers, and map skill events to the Semantic Workbench.
+[skill_controller.py](assistant/skill_controller.py) file is responsible for managing the assistants. It includes functionality to create and retrieve assistants, configure chat drivers, and map skill events to the Semantic Workbench.
 
-- AssistantRegistry: Manages multiple assistant instances, each associated with a unique conversation.
+- AssistantRegistry: Manages multiple assistants, each associated with a unique conversation.
 - \_event_mapper: Maps skill events to message types understood by the Semantic Workbench.
 - create_assistant: Defines how to create and configure a new assistant.
 

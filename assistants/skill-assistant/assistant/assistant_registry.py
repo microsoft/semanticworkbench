@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 # TODO: Put this registry in the skill library.
 class AssistantRegistry:
     """
-    This class handles the creation and management of skill assistant instances
-    for this service. Each conversation has its own assistant and we start each
-    assistant in it's own thread so that all events are able to be
-    asynchronously passed on to the Semantic Workbench.
+    This class handles the creation and management of skill assistants for this service.
+    Each conversation has its own assistant and we start each assistant in it's own
+    thread so that all events are able to be asynchronously passed on to the Semantic
+    Workbench.
     """
 
     def __init__(self) -> None:

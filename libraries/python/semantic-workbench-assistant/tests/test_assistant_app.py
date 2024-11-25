@@ -118,11 +118,9 @@ async def test_assistant_with_event_handlers(
 
         client_builder = assistant_service_client.AssistantServiceClientBuilder("https://fake", "")
         service_client = client_builder.for_service()
-        instance_client = client_builder.for_assistant_instance(assistant_id)
+        instance_client = client_builder.for_assistant(assistant_id)
 
-        await service_client.put_assistant_instance(
-            assistant_id=assistant_id, request=assistant_request, from_export=None
-        )
+        await service_client.put_assistant(assistant_id=assistant_id, request=assistant_request, from_export=None)
 
         assert assistant_created_calls == 1
 
@@ -263,11 +261,9 @@ async def test_assistant_with_inspector(
 
         client_builder = assistant_service_client.AssistantServiceClientBuilder("https://fake", "")
         service_client = client_builder.for_service()
-        instance_client = client_builder.for_assistant_instance(assistant_id)
+        instance_client = client_builder.for_assistant(assistant_id)
 
-        await service_client.put_assistant_instance(
-            assistant_id=assistant_id, request=assistant_request, from_export=None
-        )
+        await service_client.put_assistant(assistant_id=assistant_id, request=assistant_request, from_export=None)
         await instance_client.put_conversation(
             request=assistant_model.ConversationPutRequestModel(
                 id=str(conversation_id),
@@ -334,11 +330,9 @@ async def test_assistant_with_state_exporter(
 
         client_builder = assistant_service_client.AssistantServiceClientBuilder("https://fake", "")
         service_client = client_builder.for_service()
-        instance_client = client_builder.for_assistant_instance(assistant_id)
+        instance_client = client_builder.for_assistant(assistant_id)
 
-        await service_client.put_assistant_instance(
-            assistant_id=assistant_id, request=assistant_request, from_export=None
-        )
+        await service_client.put_assistant(assistant_id=assistant_id, request=assistant_request, from_export=None)
 
         conversation_id = uuid.uuid4()
 
@@ -415,11 +409,9 @@ async def test_assistant_with_config_provider(
 
         client_builder = assistant_service_client.AssistantServiceClientBuilder("https://fake", "")
         service_client = client_builder.for_service()
-        instance_client = client_builder.for_assistant_instance(assistant_id)
+        instance_client = client_builder.for_assistant(assistant_id)
 
-        await service_client.put_assistant_instance(
-            assistant_id=assistant_id, request=assistant_request, from_export=None
-        )
+        await service_client.put_assistant(assistant_id=assistant_id, request=assistant_request, from_export=None)
 
         response = await instance_client.get_config()
         assert response == assistant_model.ConfigResponseModel(
@@ -463,7 +455,7 @@ async def test_assistant_with_config_provider(
             temp_dir_path = pathlib.Path(temp_dir)
             export_file_path = temp_dir_path / "export.zip"
             with export_file_path.open("wb") as f:
-                async with instance_client.get_exported_instance_data() as response:
+                async with instance_client.get_exported_data() as response:
                     async for chunk in response:
                         f.write(chunk)
 

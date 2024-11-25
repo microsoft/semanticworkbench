@@ -2,7 +2,7 @@ import asyncio
 from typing import Self
 
 from semantic_workbench_api_model.assistant_service_client import (
-    AssistantInstanceClient,
+    AssistantClient,
     AssistantServiceClient,
     AssistantServiceClientBuilder,
 )
@@ -14,7 +14,7 @@ class AssistantServiceClientPool:
     def __init__(self, api_key_store: assistant_api_key.ApiKeyStore) -> None:
         self._api_key_store = api_key_store
         self._service_clients: dict[str, AssistantServiceClient] = {}
-        self._assistant_clients: dict[str, AssistantInstanceClient] = {}
+        self._assistant_clients: dict[str, AssistantClient] = {}
         self._client_lock = asyncio.Lock()
 
     def __aenter__(self) -> Self:
@@ -38,7 +38,7 @@ class AssistantServiceClientPool:
 
         return self._service_clients[key]
 
-    async def assistant_instance_client(self, assistant: db.Assistant) -> AssistantInstanceClient:
+    async def assistant_client(self, assistant: db.Assistant) -> AssistantClient:
         assistant_id = assistant.assistant_id
         url = assistant.related_assistant_service_registration.assistant_service_url
         key = f"{assistant_id}-{url}"
@@ -48,7 +48,7 @@ class AssistantServiceClientPool:
                 if key not in self._assistant_clients:
                     self._assistant_clients[key] = (
                         await self._client_builder(assistant.related_assistant_service_registration)
-                    ).for_assistant_instance(assistant_id)
+                    ).for_assistant(assistant_id)
 
         return self._assistant_clients[key]
 

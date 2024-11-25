@@ -27,11 +27,6 @@ from semantic_workbench_api_model.workbench_model import (
     ParticipantRole,
     User,
     UserList,
-    WorkflowDefinition,
-    WorkflowDefinitionList,
-    WorkflowParticipant,
-    WorkflowRun,
-    WorkflowRunList,
 )
 
 from .. import db
@@ -111,6 +106,7 @@ def conversation_participant_from_db_user(model: db.UserParticipant) -> Conversa
         status=model.status,
         status_updated_timestamp=model.status_updated_datetime,
         active_participant=model.active_participant,
+        metadata=model.meta_data,
         conversation_permission=ConversationPermission(model.conversation_permission),
     )
 
@@ -127,6 +123,7 @@ def conversation_participant_from_db_assistant(
         status=model.status,
         status_updated_timestamp=model.status_updated_datetime,
         active_participant=model.active_participant,
+        metadata=model.meta_data,
         online=assistant.related_assistant_service_registration.assistant_service_online if assistant else False,
         conversation_permission=ConversationPermission.read_write,
     )
@@ -309,33 +306,3 @@ def file_versions_from_db(file: db.File, versions: Iterable[db.FileVersion]) -> 
         current_version=file.current_version,
         versions=[file_version_from_db(v) for v in versions],
     )
-
-
-def workflow_definition_from_db(model: db.WorkflowDefinition) -> WorkflowDefinition:
-    return WorkflowDefinition.model_validate({
-        "id": model.workflow_definition_id,
-        **model.data,
-    })
-
-
-def workflow_definition_list_from_db(models: Iterable[db.WorkflowDefinition]) -> WorkflowDefinitionList:
-    return WorkflowDefinitionList(workflow_definitions=[workflow_definition_from_db(model) for model in models])
-
-
-def workflow_participant_from_db(model: db.WorkflowUserParticipant) -> WorkflowParticipant:
-    return WorkflowParticipant(
-        id=model.user_id,
-        active_participant=model.active_participant,
-    )
-
-
-def workflow_run_from_db(model: db.WorkflowRun) -> WorkflowRun:
-    return WorkflowRun(
-        id=model.workflow_run_id,
-        workflow_definition_id=model.workflow_definition_id,
-        **model.data,
-    )
-
-
-def workflow_run_list_from_db(models: Iterable[db.WorkflowRun]) -> WorkflowRunList:
-    return WorkflowRunList(workflow_runs=[workflow_run_from_db(model) for model in models])

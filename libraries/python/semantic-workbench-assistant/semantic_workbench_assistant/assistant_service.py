@@ -307,8 +307,7 @@ def _assistant_service_api(
     @app.put(
         "/{assistant_id}",
         description=(
-            "Connect an assistant instance to the workbench, optionally"
-            " providing exported-data to restore the assistant"
+            "Connect an assistant to the workbench, optionally providing exported-data to restore the assistant"
         ),
     )
     async def put_assistant(
@@ -328,21 +327,21 @@ def _assistant_service_api(
 
     @app.get(
         "/{assistant_id}",
-        description="Get an assistant instance",
+        description="Get an assistant",
     )
     async def get_assistant(assistant_id: str) -> assistant_model.AssistantResponseModel:
         return await service.get_assistant(assistant_id)
 
     @app.delete(
         "/{assistant_id}",
-        description="Delete an assistant instance",
+        description="Delete an assistant",
     )
     async def delete_assistant(assistant_id: str) -> None:
         return await service.delete_assistant(assistant_id)
 
     @app.get(
         "/{assistant_id}/export-data",
-        description="Export all data for this assistant instance",
+        description="Export all data for this assistant",
     )
     async def export_assistant_data(assistant_id: str) -> Response:
         response = await service.export_assistant_data(assistant_id)
@@ -356,14 +355,14 @@ def _assistant_service_api(
 
     @app.get(
         "/{assistant_id}/config",
-        description="Get config for this assistant instance",
+        description="Get config for this assistant",
     )
     async def get_config(assistant_id: str) -> assistant_model.ConfigResponseModel:
         return await service.get_config(assistant_id)
 
     @app.put(
         "/{assistant_id}/config",
-        description="Set config for this assistant instance",
+        description="Set config for this assistant",
     )
     async def put_config(
         assistant_id: str, updated_config: assistant_model.ConfigPutRequestModel
@@ -373,7 +372,7 @@ def _assistant_service_api(
     @app.put(
         "/{assistant_id}/conversations/{conversation_id}",
         description=(
-            "Join an assistant instance to a workbench conversation, optionally"
+            "Join an assistant to a workbench conversation, optionally"
             " providing exported-data to restore the conversation"
         ),
     )
