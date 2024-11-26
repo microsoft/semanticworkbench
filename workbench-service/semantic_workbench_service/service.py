@@ -504,13 +504,6 @@ def init(
             user_principal=user_principal, from_export=from_export.file
         )
 
-    @app.post("/conversations/duplicate")
-    async def duplicate_conversation(
-        principal: auth.DependsActorPrincipal,
-        conversation_id: uuid.UUID = Query(alias="id"),
-    ) -> ConversationImportResult:
-        return await assistant_controller.duplicate_conversation(principal=principal, conversation_id=conversation_id)
-
     @app.get("/assistants/{assistant_id}/config")
     async def get_assistant_config(
         user_principal: auth.DependsUserPrincipal,
@@ -759,6 +752,16 @@ def init(
         return await conversation_controller.create_conversation(
             user_principal=user_principal,
             new_conversation=new_conversation,
+        )
+
+    @app.post("/conversations/{conversation_id}")
+    async def duplicate_conversation(
+        conversation_id: uuid.UUID,
+        principal: auth.DependsActorPrincipal,
+        new_conversation: NewConversation,
+    ) -> ConversationImportResult:
+        return await assistant_controller.duplicate_conversation(
+            principal=principal, conversation_id=conversation_id, new_conversation=new_conversation
         )
 
     @app.get("/conversations")

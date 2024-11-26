@@ -117,9 +117,14 @@ class ConversationAPIClient:
                 return
             http_response.raise_for_status()
 
-    async def duplicate_conversation(self) -> workbench_model.ConversationImportResult:
+    async def duplicate_conversation(
+        self, new_conversation: workbench_model.NewConversation
+    ) -> workbench_model.ConversationImportResult:
         async with self._client as client:
-            http_response = await client.post(f"/conversations/duplicate?id={self._conversation_id}")
+            http_response = await client.post(
+                f"/conversations/{self._conversation_id}",
+                json=new_conversation.model_dump(exclude_defaults=True, exclude_unset=True, mode="json"),
+            )
             http_response.raise_for_status()
             return workbench_model.ConversationImportResult.model_validate(http_response.json())
 

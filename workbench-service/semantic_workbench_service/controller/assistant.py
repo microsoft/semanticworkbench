@@ -31,6 +31,7 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationEventType,
     ConversationImportResult,
     NewAssistant,
+    NewConversation,
     UpdateAssistant,
 )
 from sqlalchemy.orm import joinedload
@@ -829,32 +830,14 @@ class AssistantController:
             conversation_ids=list(import_result.conversation_id_old_to_new.values()),
         )
 
-    # async def duplicate_conversation(
-    #     self,
-    #     user_principal: auth.UserPrincipal,
-    #     conversation_id: uuid.UUID,
-    # ) -> ConversationImportResult:
-    #     # export the conversation
-    #     export_result = await self.export_conversations(
-    #         user_principal=user_principal, conversation_ids={conversation_id}
-    #     )
-
-    #     # import the conversation
-    #     with open(export_result.file_path, "rb") as import_file:
-    #         import_result = await self.import_conversations(from_export=import_file, user_principal=user_principal)
-
-    #     # cleanup
-    #     export_result.cleanup()
-
-    #     return import_result
-
+    # TODO: decide if we should move this to the conversation controller?
+    #   it's a bit of a mix between the two and reaches into the assistant controller
+    #   to access storage and assistant data, so it's not a clean fit in either
+    #   also, we should consider DRYing up the import/export code with this
     async def duplicate_conversation(
-        self,
-        principal: auth.ActorPrincipal,
-        conversation_id: uuid.UUID,
+        self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID, new_conversation: NewConversation
     ) -> ConversationImportResult:
         async with self._get_session() as session:
-            # Ensure the user has access to the conversation
             # Ensure the actor has access to the conversation
             original_conversation = await self._ensure_conversation_access(
                 session=session,
@@ -864,16 +847,24 @@ class AssistantController:
             if original_conversation is None:
                 raise exceptions.NotFoundError()
 
+            title = new_conversation.title or f"{original_conversation.title} (Copy)"
+
+            meta_data = {
+                **original_conversation.meta_data,
+                **new_conversation.metadata,
+                "original_conversation_id": str(original_conversation.conversation_id),
+            }
+
             # Create a new conversation with the same properties
-            new_conversation = db.Conversation(
+            conversation = db.Conversation(
                 owner_id=original_conversation.owner_id,
-                title=f"{original_conversation.title} (Copy)",
-                meta_data=original_conversation.meta_data.copy(),
+                title=title,
+                meta_data=meta_data,
                 imported_from_conversation_id=original_conversation.conversation_id,
                 # Use the current datetime for the new conversation
                 created_datetime=datetime.datetime.now(datetime.UTC),
             )
-            session.add(new_conversation)
+            session.add(conversation)
             await session.flush()  # To generate new_conversation.conversation_id
 
             # Copy messages from the original conversation
@@ -886,7 +877,7 @@ class AssistantController:
                 new_message = db.ConversationMessage(
                     # Do not set 'sequence'; let the database assign it
                     message_id=uuid.uuid4(),  # Generate a new unique message ID
-                    conversation_id=new_conversation.conversation_id,
+                    conversation_id=conversation.conversation_id,
                     created_datetime=message.created_datetime,
                     sender_participant_id=message.sender_participant_id,
                     sender_participant_role=message.sender_participant_role,
@@ -902,7 +893,7 @@ class AssistantController:
             original_files_path = self._file_storage.path_for(
                 namespace=str(original_conversation.conversation_id), filename=""
             )
-            new_files_path = self._file_storage.path_for(namespace=str(new_conversation.conversation_id), filename="")
+            new_files_path = self._file_storage.path_for(namespace=str(conversation.conversation_id), filename="")
             if original_files_path.exists():
                 await asyncio.to_thread(shutil.copytree, original_files_path, new_files_path)
 
@@ -918,7 +909,7 @@ class AssistantController:
             ).all()
             for participant in assistant_participants:
                 new_participant = db.AssistantParticipant(
-                    conversation_id=new_conversation.conversation_id,
+                    conversation_id=conversation.conversation_id,
                     assistant_id=participant.assistant_id,
                     name=participant.name,
                     image=participant.image,
@@ -938,7 +929,7 @@ class AssistantController:
             )
             for participant in user_participants:
                 new_user_participant = db.UserParticipant(
-                    conversation_id=new_conversation.conversation_id,
+                    conversation_id=conversation.conversation_id,
                     user_id=participant.user_id,
                     name=participant.name,
                     image=participant.image,
@@ -974,20 +965,20 @@ class AssistantController:
 
                     # **Connect the assistant to the new conversation with the exported data**
                     await self.connect_assistant_to_conversation(
-                        conversation=new_conversation,
+                        conversation=conversation,
                         assistant=assistant,
                         from_export=from_export,
                     )
                 except AssistantError as e:
                     logger.error(
-                        f"Error connecting assistant {assistant_id} to new conversation {new_conversation.conversation_id}: {e}",
+                        f"Error connecting assistant {assistant_id} to new conversation {conversation.conversation_id}: {e}",
                         exc_info=True,
                     )
                     # Optionally handle the error (e.g., remove assistant from the conversation)
 
             return ConversationImportResult(
                 assistant_ids=list(assistant_ids),
-                conversation_ids=[new_conversation.conversation_id],
+                conversation_ids=[conversation.conversation_id],
             )
 
     async def _ensure_conversation_access(

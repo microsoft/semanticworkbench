@@ -38,6 +38,7 @@ import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 import { useAppSelector } from '../../../redux/app/hooks';
+import { ConversationRemoveDialog } from '../../Conversations/ConversationRemove';
 
 const useClasses = makeStyles({
     root: {
@@ -99,6 +100,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
     const [filterString, setFilterString] = React.useState<string>('');
     const [displayFilter, setDisplayFilter] = React.useState<string>('');
     const [sortByName, setSortByName] = React.useState<boolean>(false);
+    const [removeConversations, setRemoveConversations] = React.useState<Conversation[]>();
     const [displayedConversations, setDisplayedConversations] = React.useState<Conversation[]>(conversations || []);
 
     const sortByNameHelper = React.useCallback(
@@ -380,20 +382,20 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                       unread: conversations?.some(
                           (conversation) => selectedForActions.has(conversation.id) && !hasUnreadMessages(conversation),
                       ),
-                      remove: true,
                       pin: conversations?.some(
                           (conversation) => selectedForActions.has(conversation.id) && !isPinned(conversation),
                       ),
                       unpin: conversations?.some(
                           (conversation) => selectedForActions.has(conversation.id) && isPinned(conversation),
                       ),
+                      remove: true,
                   }
                 : {
                       read: false,
                       unread: false,
-                      remove: false,
                       pin: false,
                       unpin: false,
+                      remove: false,
                   },
         [conversations, hasUnreadMessages, isPinned, selectedForActions],
     );
@@ -413,9 +415,10 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
     }, [getSelectedConversations, markAllAsUnread, onSelectedForActionsChanged]);
 
     const handleRemoveForSelected = React.useCallback(async () => {
-        // TODO: implement remove conversation
-        onSelectedForActionsChanged(new Set<string>());
-    }, [onSelectedForActionsChanged]);
+        // set removeConversations to show remove dialog
+        setRemoveConversations(getSelectedConversations());
+        // don't clear selected conversations until after the user confirms the removal
+    }, [getSelectedConversations]);
 
     const handlePinForSelected = React.useCallback(async () => {
         await setPinned(getSelectedConversations(), true);
@@ -426,6 +429,12 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         await setPinned(getSelectedConversations(), false);
         onSelectedForActionsChanged(new Set<string>());
     }, [getSelectedConversations, setPinned, onSelectedForActionsChanged]);
+
+    const handleRemoveConversations = React.useCallback(() => {
+        // reset removeConversations and clear selected conversations
+        setRemoveConversations(undefined);
+        onSelectedForActionsChanged(new Set<string>());
+    }, [onSelectedForActionsChanged]);
 
     const bulkSelectForActionsToolbar = React.useMemo(
         () => (
@@ -474,6 +483,14 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                             onClick={handleUnpinForSelected}
                         />
                     </Tooltip>
+                    <Tooltip content="Remove selected conversations" relationship="label">
+                        <Button
+                            appearance="subtle"
+                            icon={<PlugDisconnectedRegular />}
+                            disabled={!enableBulkActions.remove}
+                            onClick={handleRemoveForSelected}
+                        />
+                    </Tooltip>
                 </Toolbar>
             </Overflow>
         ),
@@ -494,6 +511,14 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
 
     return (
         <div className={classes.root}>
+            {removeConversations && localUserId && (
+                <ConversationRemoveDialog
+                    conversations={removeConversations}
+                    participantId={localUserId}
+                    onRemove={handleRemoveConversations}
+                    onCancel={() => setRemoveConversations(undefined)}
+                />
+            )}
             <div className={classes.header}>
                 <Text weight="semibold">Conversations</Text>
             </div>

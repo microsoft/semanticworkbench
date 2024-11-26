@@ -30,7 +30,13 @@ const useClasses = makeStyles({
     },
 });
 
-export const ConversationList: React.FC = () => {
+interface ConversationListProps {
+    parentConversationId?: string;
+    hideChildConversations?: boolean;
+}
+
+export const ConversationList: React.FC<ConversationListProps> = (props) => {
+    const { parentConversationId, hideChildConversations } = props;
     const classes = useClasses();
     const environment = useEnvironment();
     const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
@@ -43,6 +49,7 @@ export const ConversationList: React.FC = () => {
         isUninitialized: conversationsUninitialized,
         refetch: refetchConversations,
     } = useGetConversationsQuery();
+    const [filteredConversations, setFilteredConversations] = React.useState<Conversation[]>();
     const [displayedConversations, setDisplayedConversations] = React.useState<Conversation[]>([]);
 
     const [renameConversation, setRenameConversation] = React.useState<Conversation>();
@@ -88,6 +95,30 @@ export const ConversationList: React.FC = () => {
             workbenchUserEvents.removeEventListener('participant.updated', conversationHandler);
         };
     }, [conversationsLoading, conversationsUninitialized, environment.url, refetchConversations]);
+
+    React.useEffect(() => {
+        if (conversationsLoading) {
+            return;
+        }
+
+        setFilteredConversations(
+            conversations?.filter((conversation) => {
+                if (parentConversationId) {
+                    if (hideChildConversations) {
+                        return (
+                            conversation.metadata?.['parent_conversation_id'] === undefined ||
+                            conversation.metadata?.['parent_conversation_id'] !== parentConversationId
+                        );
+                    }
+                    return conversation.metadata?.['parent_conversation_id'] === parentConversationId;
+                }
+                if (hideChildConversations) {
+                    return conversation.metadata?.['parent_conversation_id'] === undefined;
+                }
+                return true;
+            }),
+        );
+    }, [conversations, conversationsLoading, hideChildConversations, parentConversationId]);
 
     const handleUpdateSelectedForActions = React.useCallback((conversationId: string, selected: boolean) => {
         if (selected) {
@@ -151,7 +182,7 @@ export const ConversationList: React.FC = () => {
                 )}
                 {removeConversation && localUserId && (
                     <ConversationRemoveDialog
-                        conversationId={removeConversation.id}
+                        conversations={removeConversation}
                         participantId={localUserId}
                         onRemove={() => {
                             if (activeConversationId === removeConversation.id) {
@@ -185,12 +216,12 @@ export const ConversationList: React.FC = () => {
         <>
             {actionHelpers}
             <ConversationListOptions
-                conversations={conversations}
+                conversations={filteredConversations}
                 selectedForActions={selectedForActions}
                 onSelectedForActionsChanged={setSelectedForActions}
                 onDisplayedConversationsChanged={setDisplayedConversations}
             />
-            {!conversations || conversations.length === 0 ? (
+            {!filteredConversations || filteredConversations.length === 0 ? (
                 <div className={classes.content}>
                     <Text weight="semibold">No conversations found</Text>
                 </div>
@@ -221,5 +252,3 @@ export const ConversationList: React.FC = () => {
         </>
     );
 };
-
-export const MemoizedConversationList = React.memo(ConversationList);

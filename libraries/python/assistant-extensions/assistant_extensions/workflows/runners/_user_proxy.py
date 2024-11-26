@@ -8,6 +8,7 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageSender,
     MessageType,
+    NewConversation,
     NewConversationMessage,
     UpdateParticipant,
 )
@@ -101,7 +102,7 @@ class UserProxyRunner:
             )
 
             # duplicate the current conversation and get the context
-            workflow_context = await self.duplicate_conversation(context)
+            workflow_context = await self.duplicate_conversation(context, workflow_definition)
 
             # set the current workflow id
             workflow_state = WorkflowState(
@@ -156,19 +157,39 @@ class UserProxyRunner:
                     continue
                 await self._on_assistant_message(context, workflow_state, message)
 
-    async def duplicate_conversation(self, context: ConversationContext) -> ConversationContext:
+    async def duplicate_conversation(
+        self, context: ConversationContext, workflow_definition: UserProxyWorkflowDefinition
+    ) -> ConversationContext:
         """
         Duplicate the current conversation
         """
 
+        title = f"Workflow: {workflow_definition.name} [{context.title}]"
+
         # duplicate the current conversation
-        response = await context._workbench_client.duplicate_conversation()
+        response = await context._workbench_client.duplicate_conversation(
+            new_conversation=NewConversation(
+                title=title,
+                metadata={"parent_conversation_id": context.id},
+            )
+        )
+
+        conversation_id = response.conversation_ids[0]
 
         # create a new conversation context
         workflow_context = ConversationContext(
-            id=str(response.conversation_ids[0]),
-            title="Workflow",
+            id=str(conversation_id),
+            title=title,
             assistant=context.assistant,
+        )
+
+        # send link to chat for the new conversation
+        await context.send_messages(
+            NewConversationMessage(
+                content=f"New conversation: {title}",
+                message_type=MessageType.command_response,
+                metadata={"attribution": "workflows:user_proxy", "href": f"/{conversation_id}"},
+            )
         )
 
         # return the new conversation context
@@ -187,7 +208,7 @@ class UserProxyRunner:
         await workflow_state.context.send_messages(
             NewConversationMessage(
                 sender=workflow_state.send_as,
-                content=user_message,
+                content=user_message.message,
                 message_type=MessageType.chat,
                 metadata={"attribution": "user"},
             )
@@ -199,7 +220,7 @@ class UserProxyRunner:
         # )
         await context.update_participant_me(
             UpdateParticipant(
-                status=f"Workflow {workflow_state.definition.name}: Step {workflow_state.current_step}, awaiting assistant response..."
+                status=f"Workflow {workflow_state.definition.name} [Step {workflow_state.current_step} - {user_message.status_label}]: awaiting assistant response..."
             )
         )
 
@@ -258,7 +279,7 @@ class UserProxyRunner:
             NewConversationMessage(
                 content=assistant_response.content,
                 message_type=MessageType.chat,
-                metadata={"attribution": "system"},
+                metadata={"attribution": "workflows:user_proxy"},
             )
         )
 

@@ -30,6 +30,7 @@ import {
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Utility } from '../../libs/Utility';
@@ -261,6 +262,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     );
 
     const getRenderedMessage = React.useCallback(() => {
+        let allowLink = true;
         let renderedContent: JSX.Element;
         if (message.messageType === 'notice') {
             renderedContent = (
@@ -299,9 +301,15 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 </div>
             );
         } else if (isUser) {
+            allowLink = false;
             renderedContent = <UserMessage>{content}</UserMessage>;
         } else {
+            allowLink = false;
             renderedContent = <CopilotMessage>{content}</CopilotMessage>;
+        }
+
+        if (message.metadata?.href && allowLink) {
+            renderedContent = <Link to={message.metadata?.href}>{renderedContent}</Link>;
         }
 
         const attachmentList =
