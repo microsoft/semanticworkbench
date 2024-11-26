@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.SemanticWorkbench.Connector;
 
@@ -14,11 +15,13 @@ public sealed class MyWorkbenchConnector : WorkbenchConnector<MyAgentConfig>
         IServiceProvider sp,
         IConfiguration appConfig,
         IAgentServiceStorage storage,
+        IServer httpServer,
         ILoggerFactory? loggerFactory = null)
         : base(
             workbenchConfig: appConfig.GetSection("Workbench").Get<WorkbenchConfig>(),
             defaultAgentConfig: appConfig.GetSection("Agent").Get<MyAgentConfig>(),
             storage,
+            httpServer: httpServer,
             loggerFactory?.CreateLogger<MyWorkbenchConnector>() ?? new NullLogger<MyWorkbenchConnector>())
     {
         this._sp = sp;

@@ -27,9 +27,6 @@ export const Constants = {
         azureSpeechTokenRefreshIntervalMs: 540000, // 540000 ms = 9 minutes
         globalToasterId: 'global',
     },
-    workflow: {
-        maxOutlets: 5,
-    },
     service: {
         defaultEnvironmentId: 'local',
         environments: [

@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import io
 import logging
 import pathlib
 import re
@@ -120,7 +121,7 @@ class AssistantController:
             await self._client_pool.service_client(
                 registration=assistant.related_assistant_service_registration,
             )
-        ).put_assistant_instance(
+        ).put_assistant(
             assistant_id=assistant.assistant_id,
             request=AssistantPutRequestModel(assistant_name=assistant.name),
             from_export=from_export,
@@ -137,7 +138,7 @@ class AssistantController:
             ).one()
 
         try:
-            await (await self._client_pool.assistant_instance_client(assistant)).post_conversation_event(event=event)
+            await (await self._client_pool.assistant_client(assistant)).post_conversation_event(event=event)
         except AssistantError as e:
             if e.status_code != httpx.codes.NOT_FOUND:
                 logger.exception(
@@ -189,14 +190,12 @@ class AssistantController:
         await session.flush()
 
     async def disconnect_assistant_from_conversation(self, conversation_id: uuid.UUID, assistant: db.Assistant) -> None:
-        await (await self._client_pool.assistant_instance_client(assistant)).delete_conversation(
-            conversation_id=conversation_id
-        )
+        await (await self._client_pool.assistant_client(assistant)).delete_conversation(conversation_id=conversation_id)
 
     async def connect_assistant_to_conversation(
         self, conversation: db.Conversation, assistant: db.Assistant, from_export: IO[bytes] | None
     ) -> None:
-        await (await self._client_pool.assistant_instance_client(assistant)).put_conversation(
+        await (await self._client_pool.assistant_client(assistant)).put_conversation(
             ConversationPutRequestModel(id=str(conversation.conversation_id), title=conversation.title),
             from_export=from_export,
         )
@@ -342,7 +341,7 @@ class AssistantController:
             try:
                 await (
                     await self._client_pool.service_client(assistant.related_assistant_service_registration)
-                ).delete_assistant_instance(assistant_id=assistant.assistant_id)
+                ).delete_assistant(assistant_id=assistant.assistant_id)
 
             except AssistantError:
                 logger.exception("error disconnecting assistant")
@@ -411,7 +410,7 @@ class AssistantController:
                 principal=user_principal, assistant_id=assistant_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).get_config()
+        return await (await self._client_pool.assistant_client(assistant)).get_config()
 
     async def update_assistant_config(
         self,
@@ -424,7 +423,7 @@ class AssistantController:
                 principal=user_principal, assistant_id=assistant_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).put_config(updated_config)
+        return await (await self._client_pool.assistant_client(assistant)).put_config(updated_config)
 
     async def get_assistant_conversation_state_descriptions(
         self,
@@ -443,7 +442,7 @@ class AssistantController:
                 assistant=assistant, conversation_id=conversation_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).get_state_descriptions(
+        return await (await self._client_pool.assistant_client(assistant)).get_state_descriptions(
             conversation_id=conversation_id
         )
 
@@ -465,7 +464,7 @@ class AssistantController:
                 assistant=assistant, conversation_id=conversation_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).get_state(
+        return await (await self._client_pool.assistant_client(assistant)).get_state(
             conversation_id=conversation_id, state_id=state_id
         )
 
@@ -488,7 +487,7 @@ class AssistantController:
                 assistant=assistant, conversation_id=conversation_id, session=session
             )
 
-        return await (await self._client_pool.assistant_instance_client(assistant)).put_state(
+        return await (await self._client_pool.assistant_client(assistant)).put_state(
             conversation_id=conversation_id, state_id=state_id, updated_state=updated_state
         )
 
@@ -610,14 +609,14 @@ class AssistantController:
         assistants = await session.exec(select(db.Assistant).where(col(db.Assistant.assistant_id).in_(assistant_ids)))
 
         for assistant in assistants:
-            assistant_client = await self._client_pool.assistant_instance_client(assistant)
+            assistant_client = await self._client_pool.assistant_client(assistant)
 
             # export assistant data
             assistant_dir = export_dir_path / "assistants" / str(assistant.assistant_id)
             assistant_dir.mkdir(parents=True)
 
             with (assistant_dir / AssistantController.EXPORT_ASSISTANT_DATA_FILENAME).open("wb") as assistant_file:
-                async with assistant_client.get_exported_instance_data() as response:
+                async with assistant_client.get_exported_data() as response:
                     async for chunk in response:
                         assistant_file.write(chunk)
 
@@ -829,3 +828,197 @@ class AssistantController:
             assistant_ids=list(import_result.assistant_id_old_to_new.values()),
             conversation_ids=list(import_result.conversation_id_old_to_new.values()),
         )
+
+    # async def duplicate_conversation(
+    #     self,
+    #     user_principal: auth.UserPrincipal,
+    #     conversation_id: uuid.UUID,
+    # ) -> ConversationImportResult:
+    #     # export the conversation
+    #     export_result = await self.export_conversations(
+    #         user_principal=user_principal, conversation_ids={conversation_id}
+    #     )
+
+    #     # import the conversation
+    #     with open(export_result.file_path, "rb") as import_file:
+    #         import_result = await self.import_conversations(from_export=import_file, user_principal=user_principal)
+
+    #     # cleanup
+    #     export_result.cleanup()
+
+    #     return import_result
+
+    async def duplicate_conversation(
+        self,
+        principal: auth.ActorPrincipal,
+        conversation_id: uuid.UUID,
+    ) -> ConversationImportResult:
+        async with self._get_session() as session:
+            # Ensure the user has access to the conversation
+            # Ensure the actor has access to the conversation
+            original_conversation = await self._ensure_conversation_access(
+                session=session,
+                principal=principal,
+                conversation_id=conversation_id,
+            )
+            if original_conversation is None:
+                raise exceptions.NotFoundError()
+
+            # Create a new conversation with the same properties
+            new_conversation = db.Conversation(
+                owner_id=original_conversation.owner_id,
+                title=f"{original_conversation.title} (Copy)",
+                meta_data=original_conversation.meta_data.copy(),
+                imported_from_conversation_id=original_conversation.conversation_id,
+                # Use the current datetime for the new conversation
+                created_datetime=datetime.datetime.now(datetime.UTC),
+            )
+            session.add(new_conversation)
+            await session.flush()  # To generate new_conversation.conversation_id
+
+            # Copy messages from the original conversation
+            messages = await session.exec(
+                select(db.ConversationMessage)
+                .where(db.ConversationMessage.conversation_id == conversation_id)
+                .order_by(col(db.ConversationMessage.sequence))
+            )
+            for message in messages:
+                new_message = db.ConversationMessage(
+                    # Do not set 'sequence'; let the database assign it
+                    message_id=uuid.uuid4(),  # Generate a new unique message ID
+                    conversation_id=new_conversation.conversation_id,
+                    created_datetime=message.created_datetime,
+                    sender_participant_id=message.sender_participant_id,
+                    sender_participant_role=message.sender_participant_role,
+                    message_type=message.message_type,
+                    content=message.content,
+                    content_type=message.content_type,
+                    meta_data=message.meta_data.copy(),
+                    filenames=message.filenames.copy(),
+                )
+                session.add(new_message)
+
+            # Copy files associated with the conversation
+            original_files_path = self._file_storage.path_for(
+                namespace=str(original_conversation.conversation_id), filename=""
+            )
+            new_files_path = self._file_storage.path_for(namespace=str(new_conversation.conversation_id), filename="")
+            if original_files_path.exists():
+                await asyncio.to_thread(shutil.copytree, original_files_path, new_files_path)
+
+            # Associate existing assistant participants
+            # Fetch assistant participants and collect into a list
+            assistant_participants = (
+                await session.exec(
+                    select(db.AssistantParticipant).where(
+                        db.AssistantParticipant.conversation_id == conversation_id,
+                        db.AssistantParticipant.active_participant,
+                    )
+                )
+            ).all()
+            for participant in assistant_participants:
+                new_participant = db.AssistantParticipant(
+                    conversation_id=new_conversation.conversation_id,
+                    assistant_id=participant.assistant_id,
+                    name=participant.name,
+                    image=participant.image,
+                    joined_datetime=participant.joined_datetime,
+                    status=participant.status,
+                    status_updated_datetime=participant.status_updated_datetime,
+                    active_participant=participant.active_participant,
+                )
+                session.add(new_participant)
+
+            # Associate existing user participants
+            user_participants = await session.exec(
+                select(db.UserParticipant).where(
+                    db.UserParticipant.conversation_id == conversation_id,
+                    db.UserParticipant.active_participant,
+                )
+            )
+            for participant in user_participants:
+                new_user_participant = db.UserParticipant(
+                    conversation_id=new_conversation.conversation_id,
+                    user_id=participant.user_id,
+                    name=participant.name,
+                    image=participant.image,
+                    service_user=participant.service_user,
+                    joined_datetime=participant.joined_datetime,
+                    status=participant.status,
+                    status_updated_datetime=participant.status_updated_datetime,
+                    active_participant=participant.active_participant,
+                    conversation_permission=participant.conversation_permission,
+                )
+                session.add(new_user_participant)
+
+            await session.commit()
+
+            # Initialize assistant state for the new conversation
+            assistant_ids = {participant.assistant_id for participant in assistant_participants}
+            for assistant_id in assistant_ids:
+                assistant = await session.get(db.Assistant, assistant_id)
+                if not assistant:
+                    continue  # Assistant not found, skip
+
+                try:
+                    # **Export the assistant's conversation data from the original conversation**
+                    assistant_client = await self._client_pool.assistant_client(assistant)
+                    async with assistant_client.get_exported_conversation_data(
+                        conversation_id=conversation_id
+                    ) as export_response:
+                        # Read the exported data into a BytesIO buffer
+                        from_export = io.BytesIO()
+                        async for chunk in export_response:
+                            from_export.write(chunk)
+                        from_export.seek(0)  # Reset buffer position to the beginning
+
+                    # **Connect the assistant to the new conversation with the exported data**
+                    await self.connect_assistant_to_conversation(
+                        conversation=new_conversation,
+                        assistant=assistant,
+                        from_export=from_export,
+                    )
+                except AssistantError as e:
+                    logger.error(
+                        f"Error connecting assistant {assistant_id} to new conversation {new_conversation.conversation_id}: {e}",
+                        exc_info=True,
+                    )
+                    # Optionally handle the error (e.g., remove assistant from the conversation)
+
+            return ConversationImportResult(
+                assistant_ids=list(assistant_ids),
+                conversation_ids=[new_conversation.conversation_id],
+            )
+
+    async def _ensure_conversation_access(
+        self,
+        session: AsyncSession,
+        principal: auth.ActorPrincipal,
+        conversation_id: uuid.UUID,
+    ) -> db.Conversation:
+        match principal:
+            case auth.UserPrincipal():
+                conversation = (
+                    await session.exec(
+                        query.select_conversations_for(
+                            principal=principal,
+                        ).where(db.Conversation.conversation_id == conversation_id)
+                    )
+                ).one_or_none()
+            case auth.AssistantPrincipal():
+                conversation = (
+                    await session.exec(
+                        select(db.Conversation)
+                        .join(db.AssistantParticipant)
+                        .where(db.Conversation.conversation_id == conversation_id)
+                        .where(db.AssistantParticipant.assistant_id == principal.assistant_id)
+                        .where(db.AssistantParticipant.active_participant)
+                    )
+                ).one_or_none()
+            case _:
+                raise exceptions.UnauthorizedError("Principal type not supported.")
+
+        if conversation is None:
+            raise exceptions.NotFoundError()
+
+        return conversation

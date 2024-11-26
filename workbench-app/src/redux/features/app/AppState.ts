@@ -6,7 +6,6 @@ export interface AppState {
     completedFirstRun: {
         app: boolean;
         experimental: boolean;
-        workflow: boolean;
     };
     hideExperimentalNotice: boolean;
     chatWidthPercent: number;

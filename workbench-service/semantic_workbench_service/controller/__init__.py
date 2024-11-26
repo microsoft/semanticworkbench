@@ -13,7 +13,6 @@ from .exceptions import (
 )
 from .file import FileController
 from .user import UserController
-from .workflow import WorkflowController
 
 __all__ = [
     "AssistantController",
@@ -29,6 +28,5 @@ __all__ = [
     "NotFoundError",
     "user",
     "participant",
-    "WorkflowController",
     "UserController",
 ]

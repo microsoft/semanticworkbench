@@ -213,7 +213,7 @@ async def send_error_message_on_exception(context: ConversationContext):
 # endregion
 
 #
-# region Form fill extension helpers
+# region Form Fill Extension Helpers
 #
 
 
@@ -262,7 +262,7 @@ def form_fill_extension_get_attachment(
 
 
 #
-# region document agent extension helpers
+# region Document Extension Helpers
 #
 
 

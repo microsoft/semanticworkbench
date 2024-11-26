@@ -3,6 +3,7 @@ from typing import Annotated
 import openai_client
 from assistant_extensions.artifacts import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
+from assistant_extensions.workflows import WorkflowsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import UISchema
@@ -25,6 +26,14 @@ from . import helpers
 
 
 class ExtensionsConfigModel(BaseModel):
+    workflows: Annotated[
+        WorkflowsConfigModel,
+        Field(
+            title="Workflows Extension Configuration",
+            description="Configuration for the workflows extension.",
+        ),
+    ] = WorkflowsConfigModel()
+
     attachments: Annotated[
         AttachmentsConfigModel,
         Field(

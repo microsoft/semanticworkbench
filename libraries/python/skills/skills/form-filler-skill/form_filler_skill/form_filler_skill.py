@@ -1,11 +1,9 @@
-# flake8: noqa
-# ruff: noqa
-
 from typing import Any, Optional
 
 from openai_client.chat_driver import ChatDriverConfig
-from skill_library import FunctionRoutine, RoutineTypes, Skill
+from skill_library import RoutineTypes, Skill, StateMachineRoutine
 from skill_library.run_context import RunContext
+from skill_library.types import LanguageModel
 
 NAME = "form-filler"
 CLASS_NAME = "FormFillerSkill"
@@ -18,6 +16,7 @@ class FormFillerSkill(Skill):
     def __init__(
         self,
         chat_driver_config: ChatDriverConfig,
+        language_model: LanguageModel,
     ) -> None:
         # Put all functions in a group. We are going to use all these as (1)
         # skill actions, but also as (2) chat functions and (3) chat commands.
@@ -43,7 +42,7 @@ class FormFillerSkill(Skill):
             name=NAME,
             description=DESCRIPTION,
             chat_driver_config=chat_driver_config,
-            skill_actions=functions,
+            actions=functions,
             routines=routines,
         )
 
@@ -51,8 +50,8 @@ class FormFillerSkill(Skill):
     # Routines
     ##################################
 
-    def form_filler_routine(self) -> FunctionRoutine:
-        return FunctionRoutine(
+    def form_filler_routine(self) -> StateMachineRoutine:
+        return StateMachineRoutine(
             name="form_filler",
             description="Run a form-filler routine.",
             init_function=self.form_fill_init,
@@ -70,7 +69,7 @@ class FormFillerSkill(Skill):
         message: Optional[str] = None,
     ) -> str | None:
         FormFiller = self
-        state = await context.state()
+        state = await context.get_state()
         while True:
             match state.get("mode"):
                 case None:
@@ -88,12 +87,12 @@ class FormFillerSkill(Skill):
                                 context, "guided_conversation.doc_upload", guided_conversation_vars
                             )
                             state["gc_id"] = gc_id
-                        # FIXME: This is not implemented yet.
+                        # TODO: What is the best way to subroutine?
                         # artifact = GuidedConversation.run(state["gce_id"], message)
                         # if artifact:
                         #     state["artifact"] = artifact
                         # else:
-                        #     await context.update_state(state)
+                        #     await context.set_state(state)
                         #     return
 
                     agenda, is_done = FormFiller.update_agenda(context)
@@ -101,7 +100,7 @@ class FormFillerSkill(Skill):
                     if is_done:
                         state["mode"] = "done"
                     state["mode"] = "conversation"
-                    await context.update_state(state)
+                    await context.set_state(state)
                     return agenda
                 case "conversation":
                     state["form"] = FormFiller.update_form(context)
@@ -109,12 +108,12 @@ class FormFillerSkill(Skill):
                     state["agenda"] = agenda
                     if is_done:
                         state["mode"] = "finalize"
-                    await context.update_state(state)
+                    await context.set_state(state)
                     return agenda
                 case "finalize":
                     message = FormFiller.generate_filled_form(context)
                     state["mode"] = "done"
-                    await context.update_state(state)
+                    await context.set_state(state)
                     return message
                 case "done":
                     return None

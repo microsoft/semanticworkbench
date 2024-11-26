@@ -199,6 +199,7 @@
         "reactflow",
         "reduxjs",
         "rehype",
+        "retriable",
         "rjsf",
         "rootpath",
         "selectin",
@@ -226,9 +227,6 @@
         "westus",
         "winget",
         "workbenchservice",
-        "workflowdefinition",
-        "workflowrun",
-        "workflowuserparticipant",
         "YYYYMMDDH"
     ]
 }

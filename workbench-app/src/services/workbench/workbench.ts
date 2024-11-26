@@ -59,8 +59,6 @@ export const workbenchApi = createApi({
         'ConversationShare',
         'Config',
         'State',
-        'WorkflowDefinition',
-        'WorkflowRun',
     ],
     endpoints: () => ({}),
 });

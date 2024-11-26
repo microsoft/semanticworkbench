@@ -66,7 +66,7 @@ Workspace files allow us to manage multiple projects within a monorepo more effe
   - Bring your own llm api keys
     - Use VS Code > `Run and Debug` (Ctrl/Cmd+Shift+D) > `examples: python-02-simple-chatbot` to start the example chatbot assistant. Either set your keys in your .env file or after creating the assistant as described below, select it and provide the keys in the configuration page.
 
-## Open the Workbench and create an Assistant instance
+## Open the Workbench and create an Assistant
 
 Open the app in your browser at [`https://localhost:4000`](https://localhost:4000). When you first log into the Semantic Workbench, follow these steps to get started:
 

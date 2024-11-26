@@ -47,10 +47,12 @@
   "cSpell.words": [
     "dotenv",
     "httpx",
+    "metadrive",
     "openai",
     "pydantic",
     "pypdf",
     "runtimes",
+    "subdrive",
     "tiktoken"
   ],
   "python.testing.pytestArgs": ["skill_library"],

@@ -21,14 +21,10 @@ import { AssistantServiceRegistrationEditor } from './routes/AssistantServiceReg
 import { Dashboard } from './routes/Dashboard';
 import { ErrorPage } from './routes/ErrorPage';
 import { FrontDoor } from './routes/FrontDoor';
-import { Interact } from './routes/Interact';
 import { Login } from './routes/Login';
 import { Settings } from './routes/Settings';
 import { ShareRedeem } from './routes/ShareRedeem';
 import { Shares } from './routes/Shares';
-import { WorkflowEditor } from './routes/WorkflowEditor';
-import { WorkflowInteract } from './routes/WorkflowInteract';
-import { WorkflowRunEditor } from './routes/WorkflowRunEditor';
 
 // Enable debug logging for the app
 localStorage.setItem('debug', `${Constants.debug.root}:*`);
@@ -92,22 +88,6 @@ const authenticatedRouter = createBrowserRouter([
             {
                 path: '/assistant-service-registration/:assistantServiceRegistrationId/edit',
                 element: <AssistantServiceRegistrationEditor />,
-            },
-            {
-                path: '/workflow/:workflowDefinitionId',
-                element: <WorkflowRunEditor />,
-            },
-            {
-                path: '/workflow/:workflowDefinitionId/edit',
-                element: <WorkflowEditor />,
-            },
-            {
-                path: '/workflow/:workflowDefinitionId/run/:workflowRunId',
-                element: <WorkflowInteract />,
-            },
-            {
-                path: '/conversation/:conversationId',
-                element: <Interact />,
             },
             {
                 path: '/conversation-share/:conversationShareId/redeem',

@@ -25,13 +25,11 @@ builder.AddAssistantApp("skill-assistant", projectDirectory: Path.Combine("..", 
     .WithEnvironment(name: "assistant__workbench_service_url", workbenchServiceEndpoint);
 
 // Sample .NET agent
-var dotnetAgent = builder.AddProject<Projects.dotnet_03_simple_chatbot>("agent3")
-    .WaitFor(workbenchService);
+var simpleChatBot = builder.AddProject<Projects.dotnet_03_simple_chatbot>("simple-chatbot-dotnet")
+    .WaitFor(workbenchService)
+    .WithEnvironment(name: "Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
 
-// The agent needs to reference its own endpoint, in order to send it to the workbench service when during the registration
-dotnetAgent
-    .WithEnvironment("Workbench__ConnectorEndpoint", $"{dotnetAgent.GetEndpoint("http")}/myagents")
-    .WithEnvironment("Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
+simpleChatBot.WithEnvironment("Workbench__ConnectorHost", $"{simpleChatBot.GetEndpoint("http")}/myagents");
 
 if (!builder.ExecutionContext.IsPublishMode)
 {

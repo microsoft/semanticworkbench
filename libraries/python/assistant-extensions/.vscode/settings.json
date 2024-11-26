@@ -37,10 +37,14 @@
     "**/__pycache__": true
   },
   "cSpell.words": [
+    "asyncio",
+    "deepmerge",
+    "DMAIC",
     "endregion",
     "Excalidraw",
     "openai",
     "pdfplumber",
-    "pydantic"
+    "pydantic",
+    "pytest"
   ]
 }

@@ -74,26 +74,14 @@ class FastAPIAssistantService(ABC):
 
         @asynccontextmanager
         async def lifespan() -> AsyncIterator[None]:
-            # connect to workbench on startup
             logger.info(
-                "connecting to semantic-workbench-service on startup; workbench_service_url: %s, assistant_service_id: %s, callback_url: %s",
+                "connecting to semantic-workbench-service; workbench_service_url: %s, assistant_service_id: %s, callback_url: %s",
                 settings.workbench_service_url,
                 self.service_id,
                 settings.callback_url,
             )
 
             async with self.workbench_client.for_service() as service_client:
-                try:
-                    await self._ping_semantic_workbench(service_client)
-                    logger.info(
-                        "connected to semantic-workbench-service on startup; workbench_service_url: %s, assistant_service_id: %s, callback_url: %s",
-                        settings.workbench_service_url,
-                        self.service_id,
-                        settings.callback_url,
-                    )
-                except httpx.HTTPError:
-                    logger.warning("failed to connect workbench on startup", exc_info=True)
-
                 # start periodic pings to workbench
                 ping_task = asyncio.create_task(
                     self._periodically_ping_semantic_workbench(service_client), name="ping-workbench"
@@ -116,16 +104,16 @@ class FastAPIAssistantService(ABC):
     ) -> NoReturn:
         while True:
             try:
-                jitter = random.uniform(0, settings.workbench_service_ping_interval_seconds / 2.0)
-                await asyncio.sleep(settings.workbench_service_ping_interval_seconds + jitter)
-
                 try:
                     await self._ping_semantic_workbench(client)
                 except httpx.HTTPError:
-                    logger.error("ping to workbench failed", exc_info=True)
+                    logger.exception("ping to workbench failed")
+
+                jitter = random.uniform(0, settings.workbench_service_ping_interval_seconds / 2.0)
+                await asyncio.sleep(settings.workbench_service_ping_interval_seconds + jitter)
 
             except Exception:
-                logger.exception("unexpected error in ping loop", exc_info=True)
+                logger.exception("unexpected error in ping loop")
 
     @backoff.on_exception(
         backoff.expo,
@@ -319,8 +307,7 @@ def _assistant_service_api(
     @app.put(
         "/{assistant_id}",
         description=(
-            "Connect an assistant instance to the workbench, optionally"
-            " providing exported-data to restore the assistant"
+            "Connect an assistant to the workbench, optionally providing exported-data to restore the assistant"
         ),
     )
     async def put_assistant(
@@ -340,21 +327,21 @@ def _assistant_service_api(
 
     @app.get(
         "/{assistant_id}",
-        description="Get an assistant instance",
+        description="Get an assistant",
     )
     async def get_assistant(assistant_id: str) -> assistant_model.AssistantResponseModel:
         return await service.get_assistant(assistant_id)
 
     @app.delete(
         "/{assistant_id}",
-        description="Delete an assistant instance",
+        description="Delete an assistant",
     )
     async def delete_assistant(assistant_id: str) -> None:
         return await service.delete_assistant(assistant_id)
 
     @app.get(
         "/{assistant_id}/export-data",
-        description="Export all data for this assistant instance",
+        description="Export all data for this assistant",
     )
     async def export_assistant_data(assistant_id: str) -> Response:
         response = await service.export_assistant_data(assistant_id)
@@ -368,14 +355,14 @@ def _assistant_service_api(
 
     @app.get(
         "/{assistant_id}/config",
-        description="Get config for this assistant instance",
+        description="Get config for this assistant",
     )
     async def get_config(assistant_id: str) -> assistant_model.ConfigResponseModel:
         return await service.get_config(assistant_id)
 
     @app.put(
         "/{assistant_id}/config",
-        description="Set config for this assistant instance",
+        description="Set config for this assistant",
     )
     async def put_config(
         assistant_id: str, updated_config: assistant_model.ConfigPutRequestModel
@@ -385,7 +372,7 @@ def _assistant_service_api(
     @app.put(
         "/{assistant_id}/conversations/{conversation_id}",
         description=(
-            "Join an assistant instance to a workbench conversation, optionally"
+            "Join an assistant to a workbench conversation, optionally"
             " providing exported-data to restore the conversation"
         ),
     )

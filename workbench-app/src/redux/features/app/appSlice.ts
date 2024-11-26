@@ -11,7 +11,6 @@ const localStorageKey = {
     devMode: 'app.dev-mode',
     completedFirstRunApp: 'app.completed-first-run.app',
     completedFirstRunExperimental: 'app.completed-first-run.experimental',
-    completedFirstRunWorkflow: 'app.completed-first-run.workflow',
     hideExperimentalNotice: 'app.hide-experimental-notice',
     chatWidthPercent: 'app.chat-width-percent',
     globalContentOpen: 'app.global-content-open',
@@ -27,7 +26,6 @@ const initialState: AppState = {
         app: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunApp) ?? false,
         experimental:
             AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunExperimental) ?? false,
-        workflow: AppStorage.getInstance().loadObject<boolean>(localStorageKey.completedFirstRunWorkflow) ?? false,
     },
     hideExperimentalNotice:
         AppStorage.getInstance().loadObject<boolean>(localStorageKey.hideExperimentalNotice) ?? false,
@@ -72,10 +70,7 @@ export const appSlice = createSlice({
             AppStorage.getInstance().saveObject(localStorageKey.chatWidthPercent, action.payload);
             state.chatWidthPercent = action.payload;
         },
-        setCompletedFirstRun: (
-            state: AppState,
-            action: PayloadAction<{ app?: boolean; experimental?: boolean; workflow?: boolean }>,
-        ) => {
+        setCompletedFirstRun: (state: AppState, action: PayloadAction<{ app?: boolean; experimental?: boolean }>) => {
             if (action.payload.app !== undefined) {
                 AppStorage.getInstance().saveObject(localStorageKey.completedFirstRunApp, action.payload.app);
                 state.completedFirstRun.app = action.payload.app;
@@ -86,10 +81,6 @@ export const appSlice = createSlice({
                     action.payload.experimental,
                 );
                 state.completedFirstRun.experimental = action.payload.experimental;
-            }
-            if (action.payload.workflow !== undefined) {
-                AppStorage.getInstance().saveObject(localStorageKey.completedFirstRunWorkflow, action.payload.workflow);
-                state.completedFirstRun.workflow = action.payload.workflow;
             }
         },
         setHideExperimentalNotice: (state: AppState, action: PayloadAction<boolean>) => {

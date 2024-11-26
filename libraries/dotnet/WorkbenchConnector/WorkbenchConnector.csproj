@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>0.3.0</Version>
+        <Version>0.4.0</Version>
         <AssemblyName>Microsoft.SemanticWorkbench.Connector</AssemblyName>
         <RootNamespace>Microsoft.SemanticWorkbench.Connector</RootNamespace>
         <TargetFramework>net8.0</TargetFramework>
@@ -9,7 +9,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>12</LangVersion>
         <RollForward>LatestMajor</RollForward>
-        <NoWarn>$(NoWarn);IDE0130;CA2254;CA1812;CA1813;</NoWarn>
+        <NoWarn>$(NoWarn);IDE0130;CA2254;CA1812;CA1813;IDE0290;</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
@@ -31,7 +31,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0">
+        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
@@ -39,7 +39,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.11.20">
+        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.12.19">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>

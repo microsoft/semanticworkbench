@@ -152,9 +152,6 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         // split conversations into pinned and unpinned
         const splitByPinned: Record<string, Conversation[]> = { pinned: [], unpinned: [] };
         filteredConversations.forEach((conversation) => {
-            if (conversation.metadata?.workflow_run_id !== undefined) {
-                return;
-            }
             if (isPinned(conversation)) {
                 splitByPinned.pinned.push(conversation);
             } else {

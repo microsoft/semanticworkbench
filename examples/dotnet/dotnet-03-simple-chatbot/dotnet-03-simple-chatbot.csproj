@@ -6,17 +6,14 @@
         <Nullable>enable</Nullable>
         <RootNamespace>AgentExample</RootNamespace>
         <PackageId>AgentExample</PackageId>
-        <NoWarn>$(NoWarn);SKEXP0010;CA1861;</NoWarn>
+        <NoWarn>$(NoWarn);SKEXP0010;CA1861;CA1515;IDE0290;CA1031;CA1812;</NoWarn>
     </PropertyGroup>
-
-    <ItemGroup>
-<!--        <PackageReference Include="Microsoft.SemanticWorkbench.Connector" Version="0.3.241104.1" />-->
-    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Azure.AI.ContentSafety" Version="1.0.0" />
         <PackageReference Include="Azure.Identity" Version="1.13.1" />
         <PackageReference Include="Microsoft.SemanticKernel" Version="1.26.0" />
+        <PackageReference Include="Microsoft.SemanticWorkbench.Connector" Version="0.4.241125.1" />
     </ItemGroup>
 
     <PropertyGroup>
@@ -34,7 +31,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0">
+        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
@@ -42,7 +39,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.11.20">
+        <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.12.19">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
@@ -61,7 +58,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\libraries\dotnet\WorkbenchConnector\WorkbenchConnector.csproj" />
+        <ProjectReference
+            Include="..\..\..\libraries\dotnet\WorkbenchConnector\WorkbenchConnector.csproj" />
     </ItemGroup>
 
 </Project>

@@ -19,11 +19,11 @@ public class Conversation
 
     [JsonPropertyName("participants")]
     [JsonPropertyOrder(2)]
-    public Dictionary<string, Participant> Participants { get; set; } = new();
+    public Dictionary<string, Participant> Participants { get; set; } = [];
 
     [JsonPropertyName("messages")]
     [JsonPropertyOrder(3)]
-    public List<Message> Messages { get; set; } = new();
+    public List<Message> Messages { get; set; } = [];
 
     public Conversation()
     {
