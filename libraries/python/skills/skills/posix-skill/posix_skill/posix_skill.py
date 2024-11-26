@@ -15,6 +15,7 @@ INSTRUCTIONS = "You are an assistant that has access to a sand-boxed Posix shell
 class PosixSkill(Skill):
     def __init__(
         self,
+        name: str,
         sandbox_dir: Path,
         chat_driver_config: ChatDriverConfig,
         mount_dir: str = "/mnt/data",
@@ -50,7 +51,7 @@ class PosixSkill(Skill):
 
         # Initialize the skill!
         super().__init__(
-            name=NAME,
+            name=name,
             description=DESCRIPTION,
             chat_driver_config=chat_driver_config,
             actions=functions,

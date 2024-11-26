@@ -1,8 +1,7 @@
 from enum import StrEnum
 
-from attr import dataclass
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ConversationMessageType(StrEnum):
@@ -12,20 +11,13 @@ class ConversationMessageType(StrEnum):
 
 
 class Message(BaseModel):
-    def __init__(
-        self,
-        chat_completion_message_param: ChatCompletionMessageParam,
-        type: ConversationMessageType | None = None,
-        turn: int | None = None,
-    ) -> None:
-        self.param = chat_completion_message_param
-        self.turn = turn
-        self.type = type or ConversationMessageType.DEFAULT
+    param: ChatCompletionMessageParam
+    type: ConversationMessageType = Field(default=ConversationMessageType.DEFAULT)
+    turn: int | None = None
 
 
-@dataclass
 class Conversation(BaseModel):
-    messages: list[Message] = []
+    messages: list[Message] = Field(default_factory=list)
 
     def exclude(self, types: list[ConversationMessageType]) -> list[Message]:
         return [message for message in self.messages if message.type not in types]
@@ -60,3 +52,7 @@ class Conversation(BaseModel):
                     message_strs.append(f"{name}: {user_string}")
 
         return "\n".join(message_strs)
+
+    def add_user_message(self, content: str) -> "Conversation":
+        self.messages.append(Message(param={"role": "user", "content": content}))
+        return self

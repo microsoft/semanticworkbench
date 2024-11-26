@@ -102,7 +102,7 @@ class Skill:
         """
         Get a routine by name.
         """
-        return self.routines[name]
+        return self.routines.get(name)
 
     def list_routines(self) -> list[str]:
         return [str(routine) for routine in self.routines.values()]

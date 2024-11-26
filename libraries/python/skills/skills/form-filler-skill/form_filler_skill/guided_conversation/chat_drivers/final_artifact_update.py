@@ -1,6 +1,7 @@
 import logging
-from typing import cast
+from typing import TypeVar, cast
 
+from form_filler_skill.guided_conversation.artifact_helpers import get_artifact_for_prompt, get_schema_for_prompt
 from openai_client import (
     CompletionError,
     add_serializable_data,
@@ -9,9 +10,9 @@ from openai_client import (
     make_completion_args_serializable,
     validate_completion,
 )
+from pydantic import BaseModel
 from skill_library.types import LanguageModel
 
-from ..artifact import Artifact
 from ..definition import GCDefinition
 from ..message import Conversation
 
@@ -61,13 +62,15 @@ USER_MESSAGE_TEMPLATE = """Conversation history:
 Current state of the artifact:
 {{ artifact_state }}"""
 
+T = TypeVar("T", bound=BaseModel)
+
 
 async def final_artifact_update(
     language_model: LanguageModel,
     definition: GCDefinition,
     chat_history: Conversation,
-    artifact: Artifact,
-) -> Artifact:
+    artifact: T,
+) -> T:
     # TODO: Change out the chat driver.
 
     completion_args = {
@@ -77,18 +80,18 @@ async def final_artifact_update(
                 FINAL_UPDATE_TEMPLATE,
                 {
                     "context": definition.conversation_context,
-                    "artifact_schema": artifact.get_schema_for_prompt(),
+                    "artifact_schema": get_schema_for_prompt(definition.artifact_schema),
                 },
             ),
             create_user_message(
                 USER_MESSAGE_TEMPLATE,
                 {
                     "conversation_history": str(chat_history),
-                    "artifact_state": artifact.get_artifact_for_prompt(),
+                    "artifact_state": get_artifact_for_prompt(artifact),
                 },
             ),
         ],
-        "response_format": Artifact,
+        "response_format": type(artifact),
     }
 
     metadata = {}
@@ -109,5 +112,4 @@ async def final_artifact_update(
         )
         raise completion_error from e
     else:
-        agenda = cast(Artifact, completion.choices[0].message.parsed)
-        return agenda
+        return cast(T, completion.choices[0].message.parsed)

@@ -1,6 +1,6 @@
-import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from form_filler_skill.guided_conversation.artifact_helpers import get_schema_for_prompt
 from form_filler_skill.guided_conversation.message import Conversation, ConversationMessageType
 from openai_client import (
     CompletionError,
@@ -11,12 +11,12 @@ from openai_client import (
     message_from_completion,
     validate_completion,
 )
-from pydantic import BaseModel
 from skill_library.types import LanguageModel
 
-from ..artifact import Artifact
+from ..logging import logger
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from .generate_artifact_updates import UpdateAttempt
 
 ARTIFACT_ERROR_CORRECTION_SYSTEM_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant.
 
@@ -38,18 +38,13 @@ Return only the action, either UPDATE_ARTIFACT(value) or RESUME_CONVERSATION, as
 """
 
 
-class UpdateAttempt(BaseModel):
-    field_value: str
-    error: str
-
-
 async def generate_artifact_field_update_error_fix(
     language_model: LanguageModel,
-    artifact: Artifact,
+    original_schema: dict[str, Any],
     field_name: str,
     field_value: Any,
     conversation: Conversation,
-    previous_attempts: list[UpdateAttempt],
+    previous_attempts: list["UpdateAttempt"],
 ) -> Any:
     previous_attempts_string = "\n".join([
         f"Attempt: {attempt.field_value}\nError: {attempt.error}" for attempt in previous_attempts
@@ -73,7 +68,7 @@ async def generate_artifact_field_update_error_fix(
                 ),
                 {
                     "conversation_history": str(conversation.exclude([ConversationMessageType.REASONING])),
-                    "artifact_schema": artifact.get_schema_for_prompt(filter_one_field=field_name),
+                    "artifact_schema": get_schema_for_prompt(original_schema, filter_one_field=field_name),
                     "field_name": field_name,
                     "previous_attempts": previous_attempts_string,
                 },

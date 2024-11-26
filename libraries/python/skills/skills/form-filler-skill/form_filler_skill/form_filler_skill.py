@@ -5,7 +5,6 @@ from skill_library import RoutineTypes, Skill, StateMachineRoutine
 from skill_library.run_context import RunContext
 from skill_library.types import LanguageModel
 
-NAME = "form-filler"
 CLASS_NAME = "FormFillerSkill"
 DESCRIPTION = "Walks the user through uploading and filling out a form."
 DEFAULT_MAX_RETRIES = 3
@@ -15,6 +14,7 @@ INSTRUCTIONS = "You are an assistant."
 class FormFillerSkill(Skill):
     def __init__(
         self,
+        name: str,
         chat_driver_config: ChatDriverConfig,
         language_model: LanguageModel,
     ) -> None:
@@ -39,7 +39,7 @@ class FormFillerSkill(Skill):
 
         # Initialize the skill!
         super().__init__(
-            name=NAME,
+            name=name,
             description=DESCRIPTION,
             chat_driver_config=chat_driver_config,
             actions=functions,

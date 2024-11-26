@@ -1,6 +1,7 @@
-import logging
-from typing import Any, cast
+import json
+from typing import TYPE_CHECKING, Annotated, cast
 
+from form_filler_skill.guided_conversation.artifact_helpers import get_schema_for_prompt
 from form_filler_skill.guided_conversation.definition import GCDefinition
 from openai_client import (
     CompletionError,
@@ -9,14 +10,15 @@ from openai_client import (
     make_completion_args_serializable,
     validate_completion,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from skill_library.types import LanguageModel
 
-from ..artifact import Artifact
+from ..logging import logger
 from ..message import Conversation
-from .fix_artifact_error import UpdateAttempt, generate_artifact_field_update_error_fix
+from .fix_artifact_error import generate_artifact_field_update_error_fix
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from .fix_artifact_error import UpdateAttempt
 
 UPDATE_ARTIFACT_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
 
@@ -52,9 +54,14 @@ Your task is to state your step-by-step reasoning for the best possible action(s
 """
 
 
+class UpdateAttempt(BaseModel):
+    field_value: str
+    error: str
+
+
 class ArtifactUpdate(BaseModel):
     field: str
-    value: Any
+    value_as_json: Annotated[str, Field(description="The value to update the field with as a JSON string.")]
 
 
 class ArtifactUpdates(BaseModel):
@@ -64,19 +71,18 @@ class ArtifactUpdates(BaseModel):
 async def generate_artifact_updates(
     language_model: LanguageModel,
     definition: GCDefinition,
-    artifact: Artifact,
+    artifact: BaseModel,
     conversation: Conversation,
     max_retries: int = 2,
 ) -> list[ArtifactUpdate]:
     # Use the language model to generate artifact updates.
-
     completion_args = {
         "model": "gpt-4o",
         "messages": [
             create_system_message(
                 UPDATE_ARTIFACT_TEMPLATE,
                 {
-                    "artifact_schema": artifact.get_schema_for_prompt(),
+                    "artifact_schema": get_schema_for_prompt(definition.artifact_schema),
                     "context": definition.conversation_context,
                     "rules": definition.rules,
                     "current_state_description": definition.conversation_flow,
@@ -96,11 +102,12 @@ async def generate_artifact_updates(
         validate_completion(completion)
         logger.debug("Completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
         metadata["completion"] = completion.model_dump()
-    except CompletionError as e:
+    except Exception as e:
         completion_error = CompletionError(e)
         metadata["completion_error"] = completion_error.message
         logger.error(
-            e.message, extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata})
+            completion_error.message,
+            extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata}),
         )
         raise completion_error from e
     else:
@@ -111,8 +118,10 @@ async def generate_artifact_updates(
     good_updates: list[ArtifactUpdate] = []
     for update in artifact_updates.updates:
         attempts: list[UpdateAttempt] = []
+
         while len(attempts) < max_retries:
-            # Don't try again if the attribute doesn't exist. Just skip this update.
+            # Don't try again if the attribute/field doesn't exist. Just skip
+            # this update.
             if not hasattr(artifact, update.field):
                 logger.warning(
                     f"Field {update.field} is not a valid field for this artifact.", extra=add_serializable_data(update)
@@ -120,22 +129,64 @@ async def generate_artifact_updates(
                 continue
 
             # If the update value isn't the right type, though, try to fix it.
-            if not isinstance(getattr(artifact, update.field), type(update.value)):
+
+            final_field_type = type(getattr(artifact, update.field))
+            failed = False
+
+            # First, check if it is parsable as JSON.
+            try:
+                field_value = json.loads(update.value_as_json)
+            except Exception:
                 attempts.append(
                     UpdateAttempt(
-                        field_value=update.value,
-                        error=f"Value is not the right type. Got {type(update.value)} but expected {type(getattr(artifact, update.field))}.",
+                        field_value=update.value_as_json,
+                        error=f"JSON value is not parsable. Got `{update.value_as_json}` but expected `{final_field_type}`.",
                     )
                 )
+                failed = True
+            else:
+                # If it is supposed to be a Pydantic model (the only custom
+                # types we support), try to parse it.
+                if issubclass(final_field_type, BaseModel):
+                    try:
+                        field_value = final_field_type.model_validate(field_value)
+                    except Exception as e:
+                        attempts.append(
+                            UpdateAttempt(
+                                field_value=update.value_as_json,
+                                error=f"JSON value is not parsable as a pydantic object. value: `{update.value_as_json}`. error: `{e}`.",
+                            )
+                        )
+                        failed = True
+
+                else:
+                    # If not a Pydantic model, just check the parsed JSON type.
+                    if not isinstance(getattr(artifact, update.field), type(field_value)):
+                        attempts.append(
+                            UpdateAttempt(
+                                field_value=field_value,
+                                error=f"Parsed value is not the right type. Got `{type(field_value)}` but expected `{final_field_type}`.",
+                            )
+                        )
+                        failed = True
+
+            if failed:
                 try:
                     new_field_value = await generate_artifact_field_update_error_fix(
-                        language_model, artifact, update.field, update.value, conversation, attempts
+                        language_model,
+                        definition.artifact_schema,
+                        update.field,
+                        update.value_as_json,
+                        conversation,
+                        attempts,
                     )
                 except Exception:
-                    # Do something here if it errored out.
+                    # Do something here if the fix attempt(s) errors out.
                     pass
                 else:
-                    update = ArtifactUpdate(field=update.field, value=new_field_value)
+                    update = ArtifactUpdate(field=update.field, value_as_json=new_field_value)
+                    # Loop to check this new value out again.
+                    continue
 
             # If it's the right type, we're good to go.
             else:

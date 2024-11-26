@@ -6,23 +6,41 @@ authors = [{name="MADE:Explorers"}]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "skill-library>=0.1.0",
+    "assistant-drive>=0.1.0",
     "context>=0.1.0",
+    "datamodel-code-generator>=0.26.3",
     "events>=0.1.0",
     "openai-client>=0.1.0",
-    # "guided-conversation>=0.1.0",
+    "skill-library>=0.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.1",
+    "pytest-asyncio>=0.23.8",
+    "pytest-repeat>=0.9.3",
+    "ipykernel>=6.29.4",
 ]
 
 [tool.uv]
 package = true
 
 [tool.uv.sources]
-skill-library = { path = "../../skill-library", editable= true }
+assistant-drive = { path = "../../../assistant-drive", editable = true }
 context = { path = "../../../context", editable = true }
 events = { path = "../../../events", editable = true }
 openai-client = { path = "../../../openai-client", editable = true }
-# guided-conversation = { path = "../../../guided-conversation", editable = true }
+skill-library = { path = "../../skill-library", editable= true }
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = "-vv"
+log_cli = true
+log_cli_level = "WARNING"
+log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
