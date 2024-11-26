@@ -35,8 +35,8 @@ internal static class Program
         app.UseCors(CORSPolicyName);
 
         // Connect to workbench backend, keep alive, and accept incoming requests
-        var connectorEndpoint = app.Configuration.GetSection("Workbench").Get<WorkbenchConfig>()!.ConnectorEndpoint;
-        using var agentService = app.UseAgentWebservice<MyAgentConfig>(connectorEndpoint, true);
+        var connectorApiPrefix = app.Configuration.GetSection("Workbench").Get<WorkbenchConfig>()!.ConnectorApiPrefix;
+        using var agentService = app.UseAgentWebservice<MyAgentConfig>(connectorApiPrefix, true);
         await agentService.ConnectAsync().ConfigureAwait(false);
 
         // Start app and webservice
