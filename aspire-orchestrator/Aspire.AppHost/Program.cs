@@ -25,6 +25,7 @@ builder.AddAssistantApp("skill-assistant", projectDirectory: Path.Combine("..", 
 
 // Sample .NET agent
 var simpleChatBot = builder.AddProject<Projects.dotnet_03_simple_chatbot>("simple-chatbot-dotnet")
+    .WithHttpEndpoint()
     .WaitFor(workbenchService)
     .WithEnvironment(name: "Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
 
