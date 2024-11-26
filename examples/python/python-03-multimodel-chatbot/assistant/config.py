@@ -1,7 +1,7 @@
 import pathlib
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import google.generativeai as genai
 import openai
@@ -48,12 +48,10 @@ class ServiceType(StrEnum):
 
 
 class ServiceConfig(ABC, BaseModel):
-    llm_service_type: Annotated[ServiceType, UISchema(widget="hidden")]
-
     @property
     def service_type_display_name(self) -> str:
         # get from the class title
-        return self.model_config.get("title") or self.llm_service_type
+        return self.model_config.get("title") or self.__class__.__name__
 
     @abstractmethod
     def new_client(self, **kwargs) -> Any:
@@ -76,7 +74,7 @@ class AzureOpenAIServiceConfig(ServiceConfig, openai_client.AzureOpenAIServiceCo
         },
     )
 
-    llm_service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.AzureOpenAI
+    llm_service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(widget="hidden")] = ServiceType.AzureOpenAI
 
     openai_model: Annotated[
         str,
@@ -103,7 +101,7 @@ class OpenAIServiceConfig(ServiceConfig, openai_client.OpenAIServiceConfig):
         },
     )
 
-    llm_service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.OpenAI
+    llm_service_type: Annotated[Literal[ServiceType.OpenAI], UISchema(widget="hidden")] = ServiceType.OpenAI
 
     openai_model: Annotated[
         str,
@@ -129,7 +127,7 @@ class AnthropicServiceConfig(ServiceConfig):
         },
     )
 
-    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.Anthropic
+    llm_service_type: Annotated[Literal[ServiceType.Anthropic], UISchema(widget="hidden")] = ServiceType.Anthropic
 
     anthropic_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -165,7 +163,7 @@ class GeminiServiceConfig(ServiceConfig):
         },
     )
 
-    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.Gemini
+    llm_service_type: Annotated[Literal[ServiceType.Gemini], UISchema(widget="hidden")] = ServiceType.Gemini
 
     gemini_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -202,7 +200,7 @@ class OllamaServiceConfig(ServiceConfig):
         },
     )
 
-    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.Ollama
+    llm_service_type: Annotated[Literal[ServiceType.Ollama], UISchema(widget="hidden")] = ServiceType.Ollama
 
     ollama_endpoint: Annotated[
         str,

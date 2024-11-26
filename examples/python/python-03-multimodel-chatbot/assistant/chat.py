@@ -245,7 +245,7 @@ async def respond_to_conversation(
 
         if result.error:
             logger.exception(
-                f"exception occurred calling {config.service_config.service_type} chat completion: {result.error}"
+                f"exception occurred calling {config.service_config.llm_service_type} chat completion: {result.error}"
             )
 
         # set the message type based on the content
@@ -281,9 +281,9 @@ async def respond_to_conversation(
 
         response_content = content
         if not response_content and "error" in metadata:
-            response_content = f"[error from {config.service_config.service_type}: {metadata['error']}]"
+            response_content = f"[error from {config.service_config.llm_service_type}: {metadata['error']}]"
         if not response_content:
-            response_content = f"[no response from {config.service_config.service_type}]"
+            response_content = f"[no response from {config.service_config.llm_service_type}]"
 
         # send the response to the conversation
         await context.send_messages(
