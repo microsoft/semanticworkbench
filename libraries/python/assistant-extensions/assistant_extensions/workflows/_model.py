@@ -4,6 +4,28 @@ from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 
+class UserMessage(BaseModel):
+    class Config:
+        json_schema_extra = {
+            "required": ["status_label", "message"],
+        }
+
+    status_label: Annotated[
+        str,
+        Field(
+            description="The status label to be displayed when the message is sent to the assistant.",
+        ),
+    ] = ""
+
+    message: Annotated[
+        str,
+        Field(
+            description="The message to be sent to the assistant.",
+        ),
+        UISchema(widget="textarea"),
+    ] = ""
+
+
 class UserProxyWorkflowDefinition(BaseModel):
     class Config:
         json_schema_extra = {
@@ -37,11 +59,10 @@ class UserProxyWorkflowDefinition(BaseModel):
         UISchema(widget="textarea"),
     ] = ""
     user_messages: Annotated[
-        list[str],
+        list[UserMessage],
         Field(
             description="A list of user messages that will be sequentially sent to the assistant during the workflow.",
         ),
-        UISchema(schema={"items": {"widget": "textarea"}}),
     ] = []
 
 

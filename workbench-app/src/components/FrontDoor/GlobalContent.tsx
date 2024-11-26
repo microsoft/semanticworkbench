@@ -2,7 +2,7 @@
 
 import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { MemoizedConversationList } from './Controls/ConversationList';
+import { ConversationList } from './Controls/ConversationList';
 
 const useClasses = makeStyles({
     root: {
@@ -34,15 +34,15 @@ export const GlobalContent: React.FC<GlobalContentProps> = (props) => {
     const { headerBefore, headerAfter } = props;
     const classes = useClasses();
 
+    const conversationList = React.useMemo(() => <ConversationList hideChildConversations />, []);
+
     return (
         <div className={classes.root}>
             <div className={classes.header}>
                 {headerBefore}
                 {headerAfter}
             </div>
-            <div className={classes.content}>
-                <MemoizedConversationList />
-            </div>
+            <div className={classes.content}>{conversationList}</div>
         </div>
     );
 };
