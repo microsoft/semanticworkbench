@@ -176,6 +176,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             )
         case _:
             logger.error("Guided workflow unknown or not supported.")
+            return
 
     background_tasks.add(task)
     task.add_done_callback(background_tasks.remove)

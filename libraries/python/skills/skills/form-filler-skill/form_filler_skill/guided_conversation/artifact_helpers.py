@@ -199,6 +199,7 @@ def get_schema_for_prompt(
 
     types_schema = schema.get("$defs", {})
     custom_types = []
+    type_name = None
     for type_name, type_info in types_schema.items():
         if f"'type': '{type_name}'" in properties:
             clean_schema = _clean_properties(type_info, [])

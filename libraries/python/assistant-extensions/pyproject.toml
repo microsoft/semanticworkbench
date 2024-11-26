@@ -20,7 +20,11 @@ attachments = ["docx2txt>=0.8", "pdfplumber>=0.11.2", "assistant-drive>=0.1.0"]
 
 [tool.uv]
 package = true
-dev-dependencies = ["pytest>=8.3.1", "pytest-asyncio>=0.23.8"]
+dev-dependencies = [
+    "pyright>=1.1.389",
+    "pytest>=8.3.1",
+    "pytest-asyncio>=0.23.8",
+]
 
 [tool.uv.sources]
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }

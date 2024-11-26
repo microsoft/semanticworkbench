@@ -164,6 +164,8 @@ class Mode(BaseModel):
             status = Status.UNDEFINED
             return Step(name=next_step_name, status=status)
 
+        next_step_name = StepName.UNDEFINED
+        status = Status.UNDEFINED
         for index, step in enumerate(steps[:-1]):
             current_step_name = step.get("step_name")
             if isinstance(current_step_name, StepName):
@@ -179,8 +181,6 @@ class Mode(BaseModel):
                         break
             else:
                 logger.error("step_name is not StepName instance")
-                next_step_name = StepName.UNDEFINED
-                status = Status.UNDEFINED
                 break
 
         return Step(name=next_step_name, status=status)
@@ -853,6 +853,8 @@ class DocumentAgent:
         else:
             logger.error("artifact_dict unavailable.")
 
+        conversation_status = Status.UNDEFINED
+        next_step_name = None
         # run guided conversation step
         try:
             if message is None:
@@ -911,6 +913,7 @@ class DocumentAgent:
 
         # get conversation related info -- for now, if no message, assuming no prior conversation
         conversation = None
+        participants_list = None
         if message is not None:
             conversation = await context.get_messages(before=message.id)
             if message.message_type == MessageType.chat:
@@ -931,7 +934,7 @@ class DocumentAgent:
         # create chat completion messages
         chat_completion_messages: list[ChatCompletionMessageParam] = []
         chat_completion_messages.append(_draft_outline_main_system_message())
-        if conversation is not None:
+        if conversation is not None and participants_list is not None:
             chat_completion_messages.append(
                 _chat_history_system_message(conversation.messages, participants_list.participants)
             )
@@ -1005,6 +1008,7 @@ class DocumentAgent:
         # This step info approach is not cool. Rewriting code. Need to refactor.
         step_name = self._state.mode.get_step().get_name()
         step_list = self._state.mode.get_step_order()
+        step_run_count = None
         for step in step_list:
             list_step_name = step.get("step_name")
             if isinstance(list_step_name, StepName):
@@ -1054,6 +1058,8 @@ class DocumentAgent:
         else:
             logger.error("artifact_dict unavailable.")
 
+        conversation_status = Status.UNDEFINED
+        next_step_name = None
         # run guided conversation step
         try:
             if message is None:
@@ -1112,6 +1118,7 @@ class DocumentAgent:
 
         # get conversation related info -- for now, if no message, assuming no prior conversation
         conversation = None
+        participants_list = None
         if message is not None:
             conversation = await context.get_messages(before=message.id)
             if message.message_type == MessageType.chat:
@@ -1126,7 +1133,7 @@ class DocumentAgent:
         # create chat completion messages
         chat_completion_messages: list[ChatCompletionMessageParam] = []
         chat_completion_messages.append(_draft_content_main_system_message())
-        if conversation is not None:
+        if conversation is not None and participants_list is not None:
             chat_completion_messages.append(
                 _chat_history_system_message(conversation.messages, participants_list.participants)
             )

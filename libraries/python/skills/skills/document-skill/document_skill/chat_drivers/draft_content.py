@@ -64,7 +64,7 @@ async def draft_content(
             full_content = ""
             for content in paper_versions[-1].contents:
                 full_content += content.content
-            history.append_system_message("<EXISTING_CONTENT>{{content}}</EXISTING_CONTENT>", {"content": content})
+            history.append_system_message("<EXISTING_CONTENT>{{content}}</EXISTING_CONTENT>", {"content": full_content})
 
     config = ChatDriverConfig(
         openai_client=open_ai_client,

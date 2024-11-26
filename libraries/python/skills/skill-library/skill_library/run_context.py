@@ -47,7 +47,7 @@ class RunContext(ContextProtocol):
         # A "run" is a particular series of calls within a session. The initial call will
         # set the run id and all subsequent calls will use the same run id. This is useful
         # for logging, metrics, and debugging.
-        self.run_id: str = str(uuid4())
+        self.run_id: str | None = str(uuid4())
 
         # The emit function is used to send events to the event bus. The component
         # that creates this context object will be responsible for instantiating an

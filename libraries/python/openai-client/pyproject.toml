@@ -19,7 +19,10 @@ dependencies = [
 
 [tool.uv]
 package = true
-dev-dependencies = ["pytest>=8.3.3"]
+dev-dependencies = [
+    "pyright>=1.1.389",
+    "pytest>=8.3.3",
+]
 
 [tool.uv.sources]
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }

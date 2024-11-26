@@ -7,7 +7,7 @@ from semantic_workbench_assistant.config import UISchema
 
 from ... import helpers
 from . import config_defaults as config_defaults
-from .config import GuidedConversationConfigModel
+from .config import GuidedConversationConfigModel, ResourceConstraintConfigModel
 
 if TYPE_CHECKING:
     pass
@@ -150,41 +150,17 @@ class GCAttachmentCheckConfigModel(GuidedConversationConfigModel):
         UISchema(widget="textarea", placeholder="[optional]"),
     ] = context.strip()
 
-    class ResourceConstraint(ResourceConstraint):
-        mode: Annotated[
-            ResourceConstraintMode,
-            Field(
-                title="Resource Mode",
-                description=(
-                    'If "exact", the agents will try to pace the conversation to use exactly the resource quantity. If'
-                    ' "maximum", the agents will try to pace the conversation to use at most the resource quantity.'
-                ),
-            ),
-        ] = resource_constraint.mode
-
-        unit: Annotated[
-            ResourceConstraintUnit,
-            Field(
-                title="Resource Unit",
-                description="The unit for the resource constraint.",
-            ),
-        ] = resource_constraint.unit
-
-        quantity: Annotated[
-            float,
-            Field(
-                title="Resource Quantity",
-                description="The quantity for the resource constraint. If <=0, the resource constraint is disabled.",
-            ),
-        ] = resource_constraint.quantity
-
     resource_constraint: Annotated[
-        ResourceConstraint,
+        ResourceConstraintConfigModel,
         Field(
             title="Resource Constraint",
         ),
         UISchema(schema={"quantity": {"ui:widget": "updown"}}),
-    ] = ResourceConstraint()
+    ] = ResourceConstraintConfigModel(
+        unit=resource_constraint.unit,
+        quantity=resource_constraint.quantity,
+        mode=resource_constraint.mode,
+    )
 
     def get_artifact_model(self) -> Type[BaseModel]:
         schema = json.loads(self.artifact)

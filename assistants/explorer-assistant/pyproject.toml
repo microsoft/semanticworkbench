@@ -30,3 +30,8 @@ assistant-extensions = { path = "../../libraries/python/assistant-extensions", e
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.389",
+]

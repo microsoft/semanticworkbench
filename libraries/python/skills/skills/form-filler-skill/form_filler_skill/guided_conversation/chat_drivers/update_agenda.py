@@ -118,6 +118,8 @@ async def generate_agenda(
     # include additional constraint instructions.
     remaining_resource = resource.remaining_units if resource.remaining_units else 0
     resource_instructions = resource.get_resource_instructions()
+    total_resource_str = ""
+    ample_time_str = ""
     if (resource_instructions != "") and (remaining_resource > 1):
         match resource.get_resource_mode():
             case ResourceConstraintMode.MAXIMUM:
@@ -135,9 +137,6 @@ async def generate_agenda(
                 )
             case _:
                 logger.error("Invalid resource mode.")
-    else:
-        total_resource_str = ""
-        ample_time_str = ""
 
     completion_args = {
         "model": "gpt-4o",

@@ -42,8 +42,8 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - name: pytest
-        run: uv run pytest --dbtype=${{ matrix.dbtype }}
+      - name: test
+        run: make test PYTEST_ARGS="--dbtype=${{ matrix.dbtype }}"
 
   build:
     runs-on: ubuntu-latest

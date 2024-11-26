@@ -25,7 +25,7 @@
   ],
   "python.analysis.fixAll": ["source.unusedImports"],
   "python.analysis.inlayHints.functionReturnTypes": true,
-  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.typeCheckingMode": "standard",
   "python.defaultInterpreterPath": "${workspaceFolder}/workbench-service/.venv",
   "python.languageServer": "Pylance",
   "python.testing.pytestEnabled": true,

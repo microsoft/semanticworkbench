@@ -389,6 +389,7 @@ class ToolFunctions:
                 "Function call.",
                 extra=add_serializable_data({"name": function.name, "arguments": function.arguments}),
             )
+            value: Any = None
             try:
                 kwargs: dict[str, Any] = json.loads(function.arguments)
                 value = await self.execute_function(function.name, (), kwargs, string_response=True)

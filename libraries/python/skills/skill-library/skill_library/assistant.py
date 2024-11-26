@@ -62,17 +62,6 @@ class Assistant:
         # Register all skills for the assistant.
         self.skill_registry = SkillRegistry(skills, self.routine_stack) if skills else None
 
-        # If a skill registry is provided, use it to run routines. Otherwise,
-        # raise an error if someone tries to run a routine.
-        if self.skill_registry:
-            self.run_routine = self.skill_registry.run_routine_by_designation
-        else:
-
-            async def run_routine(context: RunContext, name: str, vars: dict[str, Any] | None) -> None:
-                raise ValueError("No skill registry registered for this assistant.")
-
-            self.run_routine = run_routine
-
         # Set up the assistant event queue.
         self._event_queue = asyncio.Queue()  # Async queue for events
         self._stopped = asyncio.Event()  # Event to signal when the assistant has stopped

@@ -63,6 +63,35 @@ def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="D
 #
 
 
+class ResourceConstraintConfigModel(ResourceConstraint):
+    mode: Annotated[
+        ResourceConstraintMode,
+        Field(
+            title="Resource Mode",
+            description=(
+                'If "exact", the agents will try to pace the conversation to use exactly the resource quantity. If'
+                ' "maximum", the agents will try to pace the conversation to use at most the resource quantity.'
+            ),
+        ),
+    ] = config_defaults.resource_constraint.mode
+
+    unit: Annotated[
+        ResourceConstraintUnit,
+        Field(
+            title="Resource Unit",
+            description="The unit for the resource constraint.",
+        ),
+    ] = config_defaults.resource_constraint.unit
+
+    quantity: Annotated[
+        float,
+        Field(
+            title="Resource Quantity",
+            description="The quantity for the resource constraint. If <=0, the resource constraint is disabled.",
+        ),
+    ] = config_defaults.resource_constraint.quantity
+
+
 class GuidedConversationConfigModel(BaseModel):
     enabled: Annotated[
         bool,
@@ -103,41 +132,13 @@ class GuidedConversationConfigModel(BaseModel):
         UISchema(widget="textarea", placeholder="[optional]"),
     ] = config_defaults.context.strip()
 
-    class ResourceConstraint(ResourceConstraint):
-        mode: Annotated[
-            ResourceConstraintMode,
-            Field(
-                title="Resource Mode",
-                description=(
-                    'If "exact", the agents will try to pace the conversation to use exactly the resource quantity. If'
-                    ' "maximum", the agents will try to pace the conversation to use at most the resource quantity.'
-                ),
-            ),
-        ] = config_defaults.resource_constraint.mode
-
-        unit: Annotated[
-            ResourceConstraintUnit,
-            Field(
-                title="Resource Unit",
-                description="The unit for the resource constraint.",
-            ),
-        ] = config_defaults.resource_constraint.unit
-
-        quantity: Annotated[
-            float,
-            Field(
-                title="Resource Quantity",
-                description="The quantity for the resource constraint. If <=0, the resource constraint is disabled.",
-            ),
-        ] = config_defaults.resource_constraint.quantity
-
     resource_constraint: Annotated[
-        ResourceConstraint,
+        ResourceConstraintConfigModel,
         Field(
             title="Resource Constraint",
         ),
         UISchema(schema={"quantity": {"ui:widget": "updown"}}),
-    ] = ResourceConstraint()
+    ] = ResourceConstraintConfigModel()
 
     def get_artifact_model(self) -> Type[BaseModel]:
         schema = json.loads(self.artifact)

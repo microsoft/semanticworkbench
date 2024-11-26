@@ -94,6 +94,7 @@ async def test_poem_feedback():
     await skill.conversation_init_function(context=runContext)
 
     finished = False
+    artifact = None
     while not finished:
         user_message = input("You: ")
         finished, artifact = await skill.conversation_step_function(runContext, user_message)

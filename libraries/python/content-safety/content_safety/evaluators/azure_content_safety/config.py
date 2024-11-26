@@ -142,11 +142,11 @@ class AzureContentSafetyEvaluatorConfig(BaseModel):
     _azure_default_credential: DefaultAzureCredential | None = None
 
     def _get_azure_credentials(self) -> AzureKeyCredential | DefaultAzureCredential:
-        match self.auth_config.auth_method:
-            case AzureAuthConfigType.ServiceKey:
+        match self.auth_config:
+            case AzureServiceKeyAuthConfig():
                 return AzureKeyCredential(self.auth_config.azure_service_api_key)
 
-            case AzureAuthConfigType.Identity:
+            case AzureIdentityAuthConfig():
                 return get_azure_default_credential()
 
 
