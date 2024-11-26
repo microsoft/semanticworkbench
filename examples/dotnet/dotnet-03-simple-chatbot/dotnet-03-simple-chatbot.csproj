@@ -17,8 +17,6 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.SemanticWorkbench.Connector" Version="0.4.241126.1" />
-        <!-- <ProjectReference
-        Include="..\..\..\libraries\dotnet\WorkbenchConnector\WorkbenchConnector.csproj" /> -->
     </ItemGroup>
 
     <PropertyGroup>
@@ -60,11 +58,6 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference
-            Include="..\..\..\libraries\dotnet\WorkbenchConnector\WorkbenchConnector.csproj" />
     </ItemGroup>
 
 </Project>
