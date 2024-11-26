@@ -63,7 +63,7 @@ export const MyConversations: React.FC<MyConversationsProps> = (props) => {
                                 <ConversationDuplicate conversationId={conversation.id} iconOnly />
                                 <ConversationShare conversation={conversation} iconOnly />
                                 <ConversationRemove
-                                    conversation={conversation}
+                                    conversations={conversation}
                                     participantId={participantId}
                                     iconOnly
                                 />

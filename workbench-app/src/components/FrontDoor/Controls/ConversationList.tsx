@@ -182,7 +182,7 @@ export const ConversationList: React.FC<ConversationListProps> = (props) => {
                 )}
                 {removeConversation && localUserId && (
                     <ConversationRemoveDialog
-                        conversationId={removeConversation.id}
+                        conversations={removeConversation}
                         participantId={localUserId}
                         onRemove={() => {
                             if (activeConversationId === removeConversation.id) {
