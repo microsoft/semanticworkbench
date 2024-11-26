@@ -1,15 +1,14 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 
-import logging
 import math
 import time
 from enum import StrEnum
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from .logging import logger
 
 
 class ResourceConstraintUnit(StrEnum):
@@ -43,12 +42,12 @@ class ResourceConstraint(BaseModel):
     GuidedConversation agent.
     """
 
+    mode: ResourceConstraintMode
     quantity: float | int
     unit: ResourceConstraintUnit
-    mode: ResourceConstraintMode
 
-    class Config:
-        arbitrary_types_allowed = True
+    # class Config:
+    #     arbitrary_types_allowed = True
 
 
 def format_resource(quantity: float, unit: ResourceConstraintUnit) -> str:
@@ -68,17 +67,13 @@ class GCResourceData(BaseModel):
     """
     Data class for GCResource. This class is used to store the data of the
     GCResource class.
-
-    Args:
-        turn_number (int): The number of turns that have elapsed.
-        remaining_units (float): The remaining units of the resource constraint.
-        elapsed_units (float): The elapsed units of the resource constraint.
     """
 
-    resource_constraint: Optional[ResourceConstraint]
-    turn_number: int
-    elapsed_units: float
-    remaining_units: float
+    resource_constraint: Optional[ResourceConstraint] = Field(default=None)
+    turn_number: int = Field(default=0)
+    elapsed_units: float = Field(default=0)
+    remaining_units: float = Field(default=0.0)
+    initial_seconds_per_turn: int = Field(default=120)
 
 
 class GCResource:
@@ -104,7 +99,7 @@ class GCResource:
         remaining_units: float | None = None,
         initial_seconds_per_turn: int = 120,
     ):
-        self.resource_constraint: ResourceConstraint | None = resource_constraint
+        self.resource_constraint = resource_constraint
         self.turn_number = turn_number
 
         # This is only used on the first turn.
@@ -113,7 +108,6 @@ class GCResource:
         if resource_constraint is not None:
             # If a resource constraint is given, then the initial remaining_units
             # should be the quantity of the resource constraint.
-
             self.elapsed_units = elapsed_units
             if remaining_units is None:
                 self.remaining_units = resource_constraint.quantity
@@ -125,13 +119,13 @@ class GCResource:
             self.remaining_units = 0
 
     @classmethod
-    def from_data(cls, data: GCResourceData, initial_seconds_per_turn: int = 120) -> "GCResource":
+    def from_data(cls, data: GCResourceData) -> "GCResource":
         return cls(
             resource_constraint=data.resource_constraint,
             turn_number=data.turn_number,
             elapsed_units=data.elapsed_units,
             remaining_units=data.remaining_units,
-            initial_seconds_per_turn=120,
+            initial_seconds_per_turn=data.initial_seconds_per_turn,
         )
 
     def to_data(self) -> GCResourceData:
@@ -140,7 +134,29 @@ class GCResource:
             turn_number=self.turn_number,
             elapsed_units=self.elapsed_units,
             remaining_units=self.remaining_units,
+            initial_seconds_per_turn=self.initial_seconds_per_turn,
         )
+
+    def to_json(self) -> dict:
+        return {
+            "turn_number": self.turn_number,
+            "remaining_units": self.remaining_units,
+            "elapsed_units": self.elapsed_units,
+        }
+
+    @classmethod
+    def from_json(
+        cls,
+        json_data: dict,
+    ) -> "GCResource":
+        gc_resource = cls(
+            resource_constraint=None,
+            initial_seconds_per_turn=120,
+        )
+        gc_resource.turn_number = json_data["turn_number"]
+        gc_resource.remaining_units = json_data["remaining_units"]
+        gc_resource.elapsed_units = json_data["elapsed_units"]
+        return gc_resource
 
     def start_resource(self) -> None:
         """To be called at the start of a conversation turn"""
@@ -295,24 +311,3 @@ You will need to plan your actions carefully using the agenda: you want to avoid
             logger.error("Invalid resource mode provided.")
 
         return resource_instructions
-
-    def to_json(self) -> dict:
-        return {
-            "turn_number": self.turn_number,
-            "remaining_units": self.remaining_units,
-            "elapsed_units": self.elapsed_units,
-        }
-
-    @classmethod
-    def from_json(
-        cls,
-        json_data: dict,
-    ) -> "GCResource":
-        gc_resource = cls(
-            resource_constraint=None,
-            initial_seconds_per_turn=120,
-        )
-        gc_resource.turn_number = json_data["turn_number"]
-        gc_resource.remaining_units = json_data["remaining_units"]
-        gc_resource.elapsed_units = json_data["elapsed_units"]
-        return gc_resource

@@ -1,7 +1,13 @@
+"""
+How do agendas work? See:
+https://microsoft.sharepoint.com/:v:/t/NERDAIProgram2/EfRcEA2RSP9DuJhw8AHnAP4B12g__TFV21GOxlZvSR3mEA?e=91Wp9f&nav=eyJwbGF5YmFja09wdGlvbnMiOnt9LCJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTaGFyZVBvaW50IiwicmVmZXJyYWxNb2RlIjoibWlzIiwicmVmZXJyYWxWaWV3IjoidmlkZW9hY3Rpb25zLXNoYXJlIiwicmVmZXJyYWxQbGF5YmFja1Nlc3Npb25JZCI6ImMzYzUwNTEwLWQ1MzAtNGQyYS1iZGY3LTE2ZGViZTYwNjU4YiJ9fQ%3D%3D
+"""
+
 import logging
 from typing import cast
 
 from form_filler_skill.guided_conversation.agenda import Agenda, AgendaItem
+from form_filler_skill.guided_conversation.artifact_helpers import get_artifact_for_prompt
 from form_filler_skill.guided_conversation.definition import GCDefinition
 from form_filler_skill.guided_conversation.message import Conversation
 from form_filler_skill.guided_conversation.resources import (
@@ -18,10 +24,9 @@ from openai_client import (
     make_completion_args_serializable,
     validate_completion,
 )
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from skill_library.types import LanguageModel
 
-from ..artifact import Artifact
 from .fix_agenda_error import fix_agenda_error
 
 logger = logging.getLogger(__name__)
@@ -54,7 +59,7 @@ Update agenda (required parameters: items)
 - The latest agenda was created in the previous turn of the conversation. Even if the total turns in the latest agenda equals the remaining turns, you should still update the agenda if you think the current plan is suboptimal (e.g. the first item was completed, the order of items is not ideal, an item is too broad or not a conversation topic, etc.).
 - Each item must have a description and and your best guess for the number of turns required to complete it. Do not provide a range of turns. It is EXTREMELY important that the total turns allocated across all items in the updated agenda (including the first item for the current turn) {{ total_resource_str }} Everything in the agenda should be something you expect to complete in the remaining turns - there shouldn't be any optional "buffer" items. It can be helpful to include the cumulative turns allocated for each item in the agenda to ensure you adhere to this rule, e.g. item 1 = 2 turns (cumulative total = 2), item 2 = 4 turns (cumulative total = 6), etc.
 - Avoid high-level items like "ask follow-up questions" - be specific about what you need to do.
-- Do NOT include wrap-up items such as "review and confirm all information with the user" (you should be doing this throughout the conversation) or "thank the user for their time". Do NOT repeat topics that have already been sufficiently addressed. {{ ample_time_str }}{% endif %}
+- Do NOT include wrap-up items such as "review and confirm all information with the user" (you should be doing this throughout the conversation) or "thank the user for their time". Do NOT repeat topics that have already been sufficiently addressed. {{ ample_time_str }}
 """
 
 
@@ -103,7 +108,7 @@ async def generate_agenda(
     definition: GCDefinition,
     chat_history: Conversation,
     current_agenda: Agenda,
-    artifact: Artifact,
+    artifact: BaseModel | None,
     resource: GCResource,
     max_retries: int = 2,
 ) -> tuple[Agenda, bool]:
@@ -164,7 +169,7 @@ async def generate_agenda(
                 {
                     "chat_history": str(chat_history),
                     "agenda_state": get_agenda_for_prompt(current_agenda),
-                    "artifact_state": artifact.get_artifact_for_prompt(),
+                    "artifact_state": get_artifact_for_prompt(artifact),
                 },
             ),
         ],

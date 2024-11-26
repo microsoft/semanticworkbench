@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from os import PathLike
 from pathlib import Path
 from typing import Optional
 
@@ -53,6 +54,8 @@ class AssistantRegistry:
         event_mapper: SkillEventMapperProtocol,
         chat_driver_config: ChatDriverConfig,
         skills: dict[str, Skill] | None = None,
+        drive_root: PathLike | None = None,
+        metadata_drive_root: PathLike | None = None,
     ) -> Assistant:
         """
         Define the skill assistant that you want to have backing this assistant
@@ -67,8 +70,8 @@ class AssistantRegistry:
         assistant = Assistant(
             name="Assistant",
             assistant_id=assistant_id,
-            drive_root=Path(".data") / assistant_id / "assistant",
-            metadata_drive_root=Path(".data") / assistant_id / ".assistant",
+            drive_root=drive_root or Path(".data") / assistant_id / "assistant",
+            metadata_drive_root=metadata_drive_root or Path(".data") / assistant_id / ".assistant",
             chat_driver_config=chat_driver_config,
             skills=skills,
         )

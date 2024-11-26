@@ -91,7 +91,7 @@ def test_open_non_existent_file(drive):
 
 def test_auto_rename(drive, if_exists=IfDriveFileExistsBehavior.AUTO_RENAME):
     drive.write(file_content, "test.txt", "summaries")
-    metadata = drive.write(file_content, "test.txt", "summaries")
+    metadata = drive.write(file_content, "test.txt", "summaries", if_exists=IfDriveFileExistsBehavior.AUTO_RENAME)
     assert metadata.filename == "test(1).txt"
     assert sorted(list(drive.list(dir="summaries"))) == sorted(["test.txt", "test(1).txt"])
 

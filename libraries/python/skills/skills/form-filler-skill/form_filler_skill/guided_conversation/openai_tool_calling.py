@@ -4,7 +4,6 @@
 # type: ignore
 
 import json
-import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -12,7 +11,7 @@ from typing import Any
 from semantic_kernel.contents.function_call_content import FunctionCallContent
 from semantic_kernel.functions import FunctionResult
 
-logger = logging.getLogger(__name__)
+from .logging import logger
 
 
 @dataclass

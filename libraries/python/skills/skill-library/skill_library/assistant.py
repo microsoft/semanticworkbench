@@ -35,6 +35,7 @@ class Assistant:
         metadata_drive_root: PathLike | None = None,
         skills: dict[str, Skill] | None = None,
         startup_action: str | None = None,
+        startup_routine: str | None = None,
     ) -> None:
         # Do we ever use this? No. We don't. It just seems like it would be a
         # good idea, though.
@@ -42,17 +43,6 @@ class Assistant:
 
         # This, though, we use.
         self.assistant_id = assistant_id or str(uuid4())
-
-        # The routine stack is used to keep track of the current routine being
-        # run by the assistant.
-        self.routine_stack = RoutineStack(self.metadrive)
-
-        # Register all skills for the assistant.
-        self.skill_registry = SkillRegistry(skills, self.routine_stack) if skills else None
-
-        # Set up the assistant event queue.
-        self._event_queue = asyncio.Queue()  # Async queue for events
-        self._stopped = asyncio.Event()  # Event to signal when the assistant has stopped
 
         # A metadrive to be used for managing assistant metadata. This can be
         # useful for storing session data, logs, and other information that
@@ -64,6 +54,17 @@ class Assistant:
                 default_if_exists_behavior=IfDriveFileExistsBehavior.OVERWRITE,
             )
         )
+
+        # The routine stack is used to keep track of the current routine being
+        # run by the assistant.
+        self.routine_stack = RoutineStack(self.metadrive)
+
+        # Register all skills for the assistant.
+        self.skill_registry = SkillRegistry(skills, self.routine_stack) if skills else None
+
+        # Set up the assistant event queue.
+        self._event_queue = asyncio.Queue()  # Async queue for events
+        self._stopped = asyncio.Event()  # Event to signal when the assistant has stopped
 
         # The assistant drive is used as the storage bucket for all assistant
         # and skill data. Skills will generally create a subdrive off of this
@@ -82,9 +83,32 @@ class Assistant:
             )
         self.chat_driver = self._register_chat_driver(chat_driver_config)
 
+        self.startup_action = startup_action
+        self.startup_routine = startup_routine
+
+    async def clear(self) -> None:
+        """Clears the assistant's routine stack and event queue."""
+        await self.routine_stack.clear()
+        while not self._event_queue.empty():
+            self._event_queue.get_nowait()
+        self.metadrive.delete()
+        self.drive.delete()
+
     ######################################
     # Lifecycle and event handling
     ######################################
+
+    async def start(self) -> None:
+        """Start the assistant."""
+        self._stopped.clear()
+
+        # If a startup action is provided, run it.
+        if self.startup_action:
+            await self.run_action(self.startup_action)
+
+        # If a startup routine is provided, run it.
+        if self.startup_routine:
+            await self.run_routine(self.startup_routine)
 
     async def wait(self) -> str:
         """

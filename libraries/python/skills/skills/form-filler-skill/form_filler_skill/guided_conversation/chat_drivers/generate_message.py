@@ -1,6 +1,7 @@
 import logging
 from typing import Any
 
+from form_filler_skill.guided_conversation.artifact_helpers import get_schema_for_prompt
 from form_filler_skill.guided_conversation.definition import GCDefinition
 from openai_client import (
     CompletionError,
@@ -13,7 +14,6 @@ from openai_client import (
 from pydantic import BaseModel
 from skill_library.types import LanguageModel
 
-from ..artifact import Artifact
 from ..message import Conversation
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ class UpdateAttempt(BaseModel):
 async def generate_message(
     language_model: LanguageModel,
     definition: GCDefinition,
-    artifact: Artifact,
+    artifact: BaseModel | None,
     conversation: Conversation,
     max_retries: int = 2,
 ) -> str:
@@ -72,7 +72,7 @@ async def generate_message(
             create_system_message(
                 USER_MESSAGE_TEMPLATE,
                 {
-                    "artifact_schema": artifact.get_schema_for_prompt(),
+                    "artifact_schema": get_schema_for_prompt(definition.artifact_schema),
                     "context": definition.conversation_context,
                     "rules": definition.rules,
                     "current_state_description": definition.conversation_flow,

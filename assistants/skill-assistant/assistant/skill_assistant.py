@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import openai_client
+from assistant_drive import Drive, DriveConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from form_filler_skill import FormFillerSkill
 from form_filler_skill.guided_conversation import GuidedConversationSkill
@@ -174,7 +175,11 @@ async def respond_to_conversation(
     await conversation_context.update_participant_me(UpdateParticipant(status="thinking..."))
 
     # Get an assistant from the skill library.
-    assistant = assistant_registry.get_assistant(conversation_context.id)
+    assistant_id = conversation_context.id
+    assistant = assistant_registry.get_assistant(assistant_id)
+    drive_root = Path(".data") / assistant_id / "assistant"
+    metadata_drive_root = Path(".data") / assistant_id / ".assistant"
+    drive = Drive(DriveConfig(root=drive_root))
 
     # Create and register an assistant if necessary.
     if not assistant:
@@ -191,19 +196,25 @@ async def respond_to_conversation(
                 chat_driver_config,
                 {
                     "posix": PosixSkill(
+                        name="posix",
                         sandbox_dir=Path(".data") / conversation_context.id,
                         chat_driver_config=chat_driver_config,
                         mount_dir="/mnt/data",
                     ),
                     "form_filler": FormFillerSkill(
+                        name="form_filler",
                         chat_driver_config=chat_driver_config,
                         language_model=language_model,
                     ),
                     "guided_conversation": GuidedConversationSkill(
-                        chat_driver_config=chat_driver_config,
+                        name="guided_conversation",
                         language_model=language_model,
+                        drive=drive.subdrive("guided_conversation"),
+                        chat_driver_config=chat_driver_config,
                     ),
                 },
+                drive_root=drive_root,
+                metadata_drive_root=metadata_drive_root,
             )
 
         except Exception as e:

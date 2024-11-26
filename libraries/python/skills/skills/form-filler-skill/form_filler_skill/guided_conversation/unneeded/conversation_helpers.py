@@ -1,21 +1,19 @@
 # Copyright (c) Microsoft. All rights reserved.
-
-# FIXME: Copied code from Semantic Kernel repo, using as-is despite type errors
 # type: ignore
 
-import logging
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Union
-
-from semantic_kernel.contents import ChatMessageContent
 
 
 class ConversationMessageType(StrEnum):
     DEFAULT = "default"
     ARTIFACT_UPDATE = "artifact-update"
     REASONING = "reasoning"
+
+
+ChatMessageContent = dataclass()
 
 
 @dataclass
@@ -27,7 +25,6 @@ class Conversation:
         conversation_messages (list[ChatMessageContent]): A list of ChatMessageContent objects.
     """
 
-    logger = logging.getLogger(__name__)
     conversation_messages: list[ChatMessageContent] = field(default_factory=list)
 
     def add_messages(self, messages: Union[ChatMessageContent, list[ChatMessageContent], "Conversation", None]) -> None:
@@ -44,7 +41,7 @@ class Conversation:
             self.conversation_messages.extend(messages)
         elif isinstance(messages, Conversation):
             self.conversation_messages.extend(messages.conversation_messages)
-        elif isinstance(messages, ChatMessageContent):
+        elif isinstance(messages, ChatMessageContent):  # noqa: F821
             # if ChatMessageContent.metadata doesn't have type, then add default
             if "type" not in messages.metadata:
                 messages.metadata["type"] = ConversationMessageType.DEFAULT
@@ -105,7 +102,7 @@ class Conversation:
                     to_join.append(f"{participant_name}: <sent an empty message>")
                 else:
                     to_join.append(f"{participant_name}: {user_string}")
-        
+
         conversation_string = "\n".join(to_join)
         return conversation_string
 

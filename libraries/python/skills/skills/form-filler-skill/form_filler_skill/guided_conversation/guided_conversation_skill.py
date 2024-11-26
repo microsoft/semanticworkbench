@@ -1,49 +1,82 @@
+import json
 from typing import Any, Optional
 
+from assistant_drive import Drive
 from events import MessageEvent
 from openai_client.chat_driver import ChatDriverConfig
+from pydantic import BaseModel
 from skill_library import RoutineTypes, Skill, StateMachineRoutine
 from skill_library.run_context import RunContext
 from skill_library.types import LanguageModel
 
 from .agenda import Agenda
-from .artifact import Artifact
 from .chat_drivers.final_artifact_update import final_artifact_update
 from .chat_drivers.generate_artifact_updates import generate_artifact_updates
 from .chat_drivers.generate_message import generate_message
 from .chat_drivers.update_agenda import generate_agenda
-from .definition import GCDefinition, default_gc_definition
+from .definition import GCDefinition
+from .logging import logger
 from .message import Conversation
-from .resources import GCResource
+from .resources import GCResource, GCResourceData
 
-NAME = "guided-conversation"
 CLASS_NAME = "GuidedConversationSkill"
 DESCRIPTION = "Walks the user through a conversation about gathering info for the creation of an artifact."
 DEFAULT_MAX_RETRIES = 3
 INSTRUCTIONS = "You are an assistant."
 
 
+class Artifact(BaseModel):
+    pass
+
+    class Config:
+        arbitrary_types_allowed = True
+        extra = "allow"
+
+
 class GuidedConversationSkill(Skill):
     def __init__(
         self,
-        chat_driver_config: ChatDriverConfig,
+        name: str,
         language_model: LanguageModel,
+        drive: Drive,
         definition: GCDefinition | None = None,
-        agenda: Optional[Agenda] = None,
-        artifact: Optional[Artifact] = None,
-        resource: Optional[GCResource] = None,
+        # agenda: Optional[Agenda] = None,
+        # artifact: Optional[Artifact] = None,
+        # resource: Optional[GCResource] = None,
+        # conversation: Optional[Conversation] = None,
+        chat_driver_config: ChatDriverConfig | None = None,
     ) -> None:
         self.language_model = language_model
+        self.drive = drive
 
-        if definition is None:
-            definition = default_gc_definition()
-
-        # Persis these in a drive used just for the skill.
+        # Configuring the definition of a conversation here makes this skill
+        # instance for this one type of conversation. Alternatively, we could
+        # also have the conversation_init_function take in the definition as a
+        # parameter if we wanted to use the same instance for different kinds of
+        # conversations.
+        if definition:
+            self.drive.write_model(
+                definition,
+                "GCDefinition.json",
+            )
+        else:
+            definition = self.drive.read_model(GCDefinition, "GCDefinition.json")
         self.definition = definition
-        self.agenda = agenda
-        self.artifact = artifact
-        self.resource = resource
-        self.chat_history = Conversation()
+
+        # Initialize resources.
+        # if artifact is None:
+        #     artifact = Artifact(**self.definition.artifact_schema)
+        # if resource is None:
+        #     resource = GCResource(self.definition.resource_constraint)
+        # if conversation is None:
+        #     conversation = Conversation()
+
+        # These normally won't be passed in (they are created within the skill),
+        # but this is helpful for testing.
+        # self.agenda = self._config(Agenda, agenda)
+        # self.artifact = self._config(Artifact, artifact)
+        # self.resource = self._config(GCResource, resource)
+        # self.conversation = self._config(Conversation, conversation)
 
         # Add the skill routines.
         routines: list[RoutineTypes] = [
@@ -52,11 +85,12 @@ class GuidedConversationSkill(Skill):
 
         # Configure the skill's chat driver. This is just used for testing the
         # skill out directly, but won't be exposed in the assistant.
-        chat_driver_config.instructions = INSTRUCTIONS
+        if chat_driver_config:
+            chat_driver_config.instructions = INSTRUCTIONS
 
         # Initialize the skill!
         super().__init__(
-            name=NAME,
+            name=name,
             description=DESCRIPTION,
             chat_driver_config=chat_driver_config,
             actions=[],
@@ -78,19 +112,19 @@ class GuidedConversationSkill(Skill):
 
     async def conversation_init_function(self, context: RunContext, vars: dict[str, Any] | None = None):
         if vars is None:
-            return
+            vars = {}
 
-        definition = GCDefinition(**vars["definition"])
+        # if vars is None or vars.get("artifact") is None:
+        #     raise ValueError("The artifact must be provided to start the conversation.")
 
         # We can put all this data in the routine frame, or we could also put it
         # in the skill drive. All of this intermediate state can just go in the
         # frame. Only the final artifact needs to be saved to the drive.
         async with context.stack_frame_state() as state:
-            state["definition"] = definition
-            state["resource"] = GCResource(definition.resource_constraint).to_data()
-            state["conversation"] = Conversation()
-            state["agenda"] = Agenda()
-            state["artifact"] = Artifact(**definition.artifact_schema.model_dump())
+            state["resource"] = vars.get("resource") or GCResource(self.definition.resource_constraint).to_data()
+            state["conversation"] = vars.get("conversation") or Conversation()
+            state["agenda"] = vars.get("agenda") or Agenda()
+            state["artifact"] = vars.get("artifact")
 
         # For guided conversation, we want to go ahead and run the first step.
         await self.conversation_step_function(context)
@@ -99,7 +133,7 @@ class GuidedConversationSkill(Skill):
         self,
         context: RunContext,
         message: Optional[str] = None,
-    ) -> tuple[bool, Artifact]:
+    ) -> tuple[bool, Artifact | None]:
         """
         The original GC code is a bit more complex than this, but this is a
         simplified version of the code.
@@ -160,29 +194,35 @@ class GuidedConversationSkill(Skill):
         """
 
         async with context.stack_frame_state() as state:
-            definition = GCDefinition(**state["definition"])
-            resource = GCResource(**state["resource"])
+            definition = self.definition
+            resource = GCResource.from_data(GCResourceData(**state["resource"]))
             conversation = Conversation(**state["conversation"])
             agenda = Agenda(**state["agenda"])
-            artifact: Artifact | None = Artifact(**state["artifact"])
 
-            state["chat_history"] += message
+            if message:
+                conversation.add_user_message(message)
+                state["conversation"] = conversation
 
             # Update artifact, if we have one (we won't on first run).
-            if artifact:
+            artifact: Artifact | None
+            if state.get("artifact") is not None:
+                artifact = Artifact(**state["artifact"])
                 try:
                     # This function should generate VALID updates.
                     artifact_updates = await generate_artifact_updates(
                         self.language_model, definition, artifact, conversation, max_retries=DEFAULT_MAX_RETRIES
                     )
-                except Exception:
+                except Exception as e:
                     # DO something with this error.
-                    pass
+                    logger.fatal(f"Error generating artifact updates: {e}")
                 else:
                     # Apply the updates to the artifact.
                     for update in artifact_updates:
-                        artifact.__setattr__(update.field, update.value)
+                        value = json.loads(update.value_as_json)
+                        artifact.__setattr__(update.field, value)
                     state["artifact"] = artifact
+            else:
+                artifact = None
 
             # Update agenda.
             try:
@@ -196,6 +236,8 @@ class GuidedConversationSkill(Skill):
                     max_retries=DEFAULT_MAX_RETRIES,
                 )
                 state["agenda"] = agenda
+                if artifact is None:
+                    state["artifact"] = Artifact()
                 context.emit(MessageEvent(message="Agenda updated"))
             except Exception:
                 # TODO: DO something with this error.
@@ -203,7 +245,8 @@ class GuidedConversationSkill(Skill):
             else:
                 # If the agenda generation says we are done, generate the final artifact.
                 if is_done:
-                    artifact = await final_artifact_update(self.language_model, definition, conversation, artifact)
+                    if artifact:
+                        artifact = await final_artifact_update(self.language_model, definition, conversation, artifact)
                     context.emit(MessageEvent(session_id=context.session_id, message="Conversation complete!"))
                     return True, artifact
 
