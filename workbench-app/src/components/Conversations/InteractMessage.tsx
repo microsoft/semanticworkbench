@@ -30,7 +30,7 @@ import {
     TextBulletListSquareSparkleRegular,
 } from '@fluentui/react-icons';
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useConversationUtility } from '../../libs/useConversationUtility';
 import { useParticipantUtility } from '../../libs/useParticipantUtility';
 import { Utility } from '../../libs/Utility';
@@ -158,7 +158,6 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { getAvatarData } = useParticipantUtility();
     const [createConversationMessage] = useCreateConversationMessageMutation();
     const { isMessageVisibleRef, isMessageVisible, isUnread } = useConversationUtility();
-    const navigate = useNavigate();
     const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
     const {
         data: debugData,

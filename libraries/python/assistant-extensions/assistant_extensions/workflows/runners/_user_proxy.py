@@ -170,6 +170,7 @@ class UserProxyRunner:
         response = await context._workbench_client.duplicate_conversation(
             new_conversation=NewConversation(
                 title=title,
+                metadata={"parent_conversation_id": context.id},
             )
         )
 

@@ -852,7 +852,7 @@ class AssistantController:
             meta_data = {
                 **original_conversation.meta_data,
                 **new_conversation.metadata,
-                "parent_conversation_id": str(original_conversation.conversation_id),
+                "original_conversation_id": str(original_conversation.conversation_id),
             }
 
             # Create a new conversation with the same properties
