@@ -18,3 +18,4 @@
 **/__pycache__
 **/.pytest_cache
 **/.venv
+.azure
