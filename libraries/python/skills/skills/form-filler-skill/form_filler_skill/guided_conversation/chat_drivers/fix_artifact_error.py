@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 
 from form_filler_skill.guided_conversation.artifact_helpers import get_schema_for_prompt
@@ -15,7 +14,8 @@ from openai_client import (
 from pydantic import BaseModel
 from skill_library.types import LanguageModel
 
-logger = logging.getLogger(__name__)
+from ..logging import logger
+from .generate_artifact_updates import UpdateAttempt
 
 ARTIFACT_ERROR_CORRECTION_SYSTEM_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant.
 
