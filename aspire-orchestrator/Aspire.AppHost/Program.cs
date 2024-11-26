@@ -29,7 +29,7 @@ var simpleChatBot = builder.AddProject<Projects.dotnet_03_simple_chatbot>("simpl
     .WaitFor(workbenchService)
     .WithEnvironment(name: "Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
 
-simpleChatBot.WithEnvironment("Workbench__ConnectorHost", $"{simpleChatBot.GetEndpoint("http")}/myagents");
+simpleChatBot.WithEnvironment("Workbench__ConnectorHost", $"{simpleChatBot.GetEndpoint("http")}");
 
 if (!builder.ExecutionContext.IsPublishMode)
 {
