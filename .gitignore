@@ -30,4 +30,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+#azd files
 .azure
+azure.yaml
+next-steps.md
