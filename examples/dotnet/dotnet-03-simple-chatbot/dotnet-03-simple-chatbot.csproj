@@ -12,8 +12,12 @@
     <ItemGroup>
         <PackageReference Include="Azure.AI.ContentSafety" Version="1.0.0" />
         <PackageReference Include="Azure.Identity" Version="1.13.1" />
-        <PackageReference Include="Microsoft.SemanticKernel" Version="1.26.0" />
+        <PackageReference Include="Microsoft.SemanticKernel" Version="1.30.0" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Microsoft.SemanticWorkbench.Connector" Version="0.4.241125.1" />
+        <!-- <ProjectReference Include="..\..\..\libraries\dotnet\WorkbenchConnector\WorkbenchConnector.csproj" /> -->
     </ItemGroup>
 
     <PropertyGroup>
