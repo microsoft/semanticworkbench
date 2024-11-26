@@ -461,7 +461,6 @@ public static class Webservice
                         case "assistant.state.updated": // TODO
                         case "file.created": // TODO
                         case "file.deleted": // TODO
-                        default:
                             /*
                             {
                                "event":            "assistant.state.created",
@@ -476,7 +475,20 @@ public static class Webservice
                                 }
                             }
 
-                            {
+                           {
+                                "event":           "assistant.state.updated",
+                                "id":              "9ea3f9e2923045599f3ecfdbb07713b2",
+                                "correlation_id":  "26c74d31a35b4a2aa301720af2615196",
+                                "conversation_id": "483f6253-b5e1-478a-ac9e-4d1a58499c9d",
+                                "timestamp":       "2024-11-26T19:01:54.446203Z",
+                                "data": {
+                                    "assistant_id": "9e58298d-dbe4-4ed3-bfdf-422d1c275de4",
+                                    "state_id": "history",
+                                    "conversation_id": "483f6253-b5e1-478a-ac9e-4d1a58499c9d"
+                                }
+                           }
+
+                           {
                                 "event":           "file.created",
                                 "id":              "9b7ba8b35699482bbe368023796a978d",
                                 "correlation_id":  "40877ed10f104090a9996fbe9dd6d716",
@@ -522,7 +534,11 @@ public static class Webservice
                                 }
                             }
                             */
-                            log.LogWarning("Event type '{0}' not supported", eventType.HtmlEncode());
+                            log.LogInformation("Event type '{0}' not supported [TODO]", eventType.HtmlEncode());
+                            break;
+
+                        default:
+                            log.LogWarning("Unknown event type '{0}' not supported", eventType.HtmlEncode());
                             log.LogTrace(json);
                             break;
                     }

@@ -9,8 +9,8 @@ cd workbench-app
 
 # Check node version, it must be major version 20 (any minor), otherwise show an error and exit
 NODE_VERSION=$(node -v)
-if [[ $NODE_VERSION != v20.* ]]; then
-  echo "Node version is $NODE_VERSION, expected 20.x.x."
+if [[ ! $NODE_VERSION =~ ^v(1[8-9]|[2-9][0-9]).* ]]; then
+    echo "Node version is $NODE_VERSION, expected 18.x.x or higher."
 
   # Attempt to source nvm
   if [ -s "$NVM_DIR/nvm.sh" ]; then
@@ -19,18 +19,18 @@ if [[ $NODE_VERSION != v20.* ]]; then
     export NVM_DIR="$HOME/.nvm"
     . "$NVM_DIR/nvm.sh"
   else
-    echo "nvm not found. Please install Node 20 manually."
+    echo "nvm not found. Please install Node 18 or higher manually."
     echo "See also README.md for instructions."
     exit 1
   fi
 
-  echo "Installing Node 20 via nvm..."
-  nvm install 20
-  nvm use 20
+  echo "Installing latest LTS Node version via nvm..."
+  nvm install --lts
+  nvm use --lts
 
   NODE_VERSION=$(node -v)
-  if [[ $NODE_VERSION != v20.* ]]; then
-    echo "Failed to switch to Node 20 via nvm. You have $NODE_VERSION."
+  if [[ ! $NODE_VERSION =~ ^v(1[8-9]|[2-9][0-9]).* ]]; then
+    echo "Failed to switch to Node 18 or higher via nvm. You have $NODE_VERSION."
     exit 1
   fi
 fi
