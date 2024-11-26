@@ -62,6 +62,17 @@ class Assistant:
         # Register all skills for the assistant.
         self.skill_registry = SkillRegistry(skills, self.routine_stack) if skills else None
 
+        # If a skill registry is provided, use it to run routines. Otherwise,
+        # raise an error if someone tries to run a routine.
+        if self.skill_registry:
+            self.run_routine = self.skill_registry.run_routine_by_designation
+        else:
+
+            async def run_routine(context: RunContext, name: str, vars: dict[str, Any] | None) -> None:
+                raise ValueError("No skill registry registered for this assistant.")
+
+            self.run_routine = run_routine
+
         # Set up the assistant event queue.
         self._event_queue = asyncio.Queue()  # Async queue for events
         self._stopped = asyncio.Event()  # Event to signal when the assistant has stopped
@@ -146,11 +157,12 @@ class Assistant:
         # actions, and chat driver functions) that need to be able to run
         # routines or actions, set assistant state, or emit messages from the
         # assistant.
+
         return RunContext(
             session_id=self.assistant_id,
             assistant_drive=self.drive,
             emit=self._emit,
-            run_routine=self.skill_registry.run_routine_by_designation if self.skill_registry else None,
+            run_routine=self.run_routine,
             routine_stack=self.routine_stack,
         )
 
