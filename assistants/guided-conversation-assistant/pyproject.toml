@@ -33,5 +33,10 @@ openai-client = { path = "../../libraries/python/openai-client", editable = true
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "pyright>=1.1.389",
+]
+
 [tool.pyright]
 exclude = ["venv", ".venv"]

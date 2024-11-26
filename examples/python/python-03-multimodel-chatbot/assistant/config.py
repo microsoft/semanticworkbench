@@ -1,7 +1,7 @@
 import pathlib
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 import google.generativeai as genai
 import openai
@@ -48,19 +48,12 @@ class ServiceType(StrEnum):
 
 
 class ServiceConfig(ABC, BaseModel):
-    model_config = ConfigDict(
-        title="Service Configuration",
-        json_schema_extra={
-            "required": ["service_type"],
-        },
-    )
-
-    service_type: Annotated[str, UISchema(widget="hidden")] = ""
+    llm_service_type: Annotated[ServiceType, UISchema(widget="hidden")]
 
     @property
     def service_type_display_name(self) -> str:
         # get from the class title
-        return self.model_config.get("title") or self.service_type
+        return self.model_config.get("title") or self.llm_service_type
 
     @abstractmethod
     def new_client(self, **kwargs) -> Any:
@@ -83,7 +76,7 @@ class AzureOpenAIServiceConfig(ServiceConfig, openai_client.AzureOpenAIServiceCo
         },
     )
 
-    service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(widget="hidden")] = ServiceType.AzureOpenAI
+    llm_service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.AzureOpenAI
 
     openai_model: Annotated[
         str,
@@ -110,7 +103,7 @@ class OpenAIServiceConfig(ServiceConfig, openai_client.OpenAIServiceConfig):
         },
     )
 
-    service_type: Annotated[Literal[ServiceType.OpenAI], UISchema(widget="hidden")] = ServiceType.OpenAI
+    llm_service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.OpenAI
 
     openai_model: Annotated[
         str,
@@ -136,7 +129,7 @@ class AnthropicServiceConfig(ServiceConfig):
         },
     )
 
-    service_type: Annotated[Literal[ServiceType.Anthropic], UISchema(widget="hidden")] = ServiceType.Anthropic
+    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.Anthropic
 
     anthropic_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -172,7 +165,7 @@ class GeminiServiceConfig(ServiceConfig):
         },
     )
 
-    service_type: Annotated[Literal[ServiceType.Gemini], UISchema(widget="hidden")] = ServiceType.Gemini
+    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.Gemini
 
     gemini_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -209,7 +202,7 @@ class OllamaServiceConfig(ServiceConfig):
         },
     )
 
-    service_type: Annotated[Literal[ServiceType.Ollama], UISchema(widget="hidden")] = ServiceType.Ollama
+    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.Ollama
 
     ollama_endpoint: Annotated[
         str,
@@ -337,7 +330,7 @@ class AssistantConfigModel(BaseModel):
         | OllamaServiceConfig,
         Field(
             title="Service Configuration",
-            discriminator="service_type",
+            discriminator="llm_service_type",
         ),
         UISchema(widget="radio", hide_title=True),
     ] = AzureOpenAIServiceConfig.model_construct()

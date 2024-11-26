@@ -62,14 +62,14 @@ class SkillRegistry:
         return skill.get_routine(routine_name)
 
     async def run_routine_by_designation(
-        self, context: RunContext, designation: str, vars: dict[str, Any] | None = None
+        self, context: RunContext, name: str, vars: dict[str, Any] | None = None
     ) -> Any:
         """
         Run an assistant routine by designation (<skill_name>.<routine_name>).
         """
-        routine = self.get_routine(designation)
+        routine = self.get_routine(name)
         if not routine:
-            raise ValueError(f"Routine {designation} not found.")
+            raise ValueError(f"Routine {name} not found.")
         response = await self.run_routine(context, routine, vars)
         return response
 

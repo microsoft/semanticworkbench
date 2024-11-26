@@ -154,6 +154,7 @@ class DocumentSkill(Skill):
 
         # Routine.
         decision = "[ITERATE]"
+        user_feedback: str | None = None
         while decision == "[ITERATE]":
             await document_skill.draft_outline(session_id, user_feedback=user_feedback)
             user_feedback = await ask_user("This look good?")
@@ -163,6 +164,7 @@ class DocumentSkill(Skill):
         await document_skill.draft_content(session_id)
         user_feedback = await ask_user("This look good?")
         decision = await document_skill.get_user_feedback_decision(session_id, user_feedback, outline=False)
+        content = ""
         while decision != "[QUIT]":
             content = await document_skill.draft_content(session_id, user_feedback=user_feedback, decision=decision)
             decision, user_feedback = await document_skill.get_user_feedback_decision(

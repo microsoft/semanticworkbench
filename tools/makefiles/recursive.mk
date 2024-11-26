@@ -14,6 +14,8 @@ ifndef IS_RECURSIVE_MAKE
 # make with VERBOSE=1 to print all outputs of recursive makes
 VERBOSE ?= 0
 
+RECURSIVE_TARGETS = clean install test format lint type-check
+
 # You can pass in a list of files or directories to retain when running `clean/git-clean`
 # ex: make clean GIT_CLEAN_RETAIN=".env .data"
 # As always with make, you can also set this as an environment variable
@@ -63,11 +65,11 @@ else
 	fi
 endif
 
-.PHONY: clean install test format lint $(MAKE_DIRS)
+.PHONY: $(RECURSIVE_TARGETS) $(MAKE_DIRS)
 
 clean: git-clean
 
-clean install test format lint: .clean-error-log $(MAKE_DIRS) .print-error-log
+$(RECURSIVE_TARGETS): .clean-error-log $(MAKE_DIRS) .print-error-log
 
 $(MAKE_DIRS):
 ifdef FAIL_ON_ERROR

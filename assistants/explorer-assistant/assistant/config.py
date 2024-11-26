@@ -151,7 +151,7 @@ class AssistantConfigModel(BaseModel):
         " code snippets, and other types of content. If you wrap your response in triple backticks, you can specify the"
         " language for syntax highlighting. For example, ```python print('Hello, World!')``` will produce a code"
         " snippet in Python. Mermaid markdown is supported if you wrap the content in triple backticks and specify"
-        " 'mermaid' as the language. For example, ```mermaid graph TD; A-->B;``` will render a flowchart for the"
+        ' \'mermaid\' as the language. For example, ```mermaid graph TD; A["A"]-->B["B"];``` will render a flowchart for the'
         " user.ABC markdown is supported if you wrap the content in triple backticks and specify 'abc' as the"
         " language.For example, ```abc C4 G4 A4 F4 E4 G4``` will render a music score and an inline player with a link"
         " to download the midi file."

@@ -10,8 +10,8 @@ clean:
 install:
 	pnpm install
 
-.PHONY: test
-test: install
+.PHONY: test type-check
+test type-check: install
 	pnpm run type-check
 
 .PHONY: format

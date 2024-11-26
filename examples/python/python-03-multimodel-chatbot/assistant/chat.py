@@ -235,7 +235,7 @@ async def respond_to_conversation(
             messages.append(Message(role, content))
 
         # get the model adapter
-        adapter = get_model_adapter(config.service_config.service_type)
+        adapter = get_model_adapter(config.service_config.llm_service_type)
 
         # generate a response from the AI model
         result = await adapter.generate_response(messages, config.request_config, config.service_config)

@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 # TODO: Put this protocol in the skill library.
 class SkillEventMapperProtocol(Protocol):
-    @staticmethod
     async def map(
+        self,
         skill_event: skill_events.EventProtocol,
     ) -> None: ...
 

@@ -34,3 +34,8 @@ semantic-workbench-assistant = { path = "../../libraries/python/semantic-workben
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.389",
+]

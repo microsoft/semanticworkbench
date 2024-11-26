@@ -52,7 +52,7 @@ class AzureOpenAIServiceConfig(BaseModel):
         },
     )
 
-    service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(widget="hidden")] = ServiceType.AzureOpenAI
+    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.AzureOpenAI
 
     auth_config: Annotated[
         AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
@@ -89,7 +89,7 @@ class AzureOpenAIServiceConfig(BaseModel):
 class OpenAIServiceConfig(BaseModel):
     model_config = ConfigDict(title="OpenAI", json_schema_extra={"required": ["openai_api_key"]})
 
-    service_type: Annotated[Literal[ServiceType.OpenAI], UISchema(widget="hidden")] = ServiceType.OpenAI
+    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.OpenAI
 
     openai_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.

@@ -18,7 +18,7 @@
   "python.analysis.diagnosticMode": "workspace",
   "python.analysis.fixAll": ["source.unusedImports"],
   "python.analysis.inlayHints.functionReturnTypes": true,
-  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.typeCheckingMode": "standard",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python.testing.pytestEnabled": true,
   "search.exclude": {
