@@ -34,8 +34,6 @@ Project Structure
       * Extend `AgentBase`.
       * Implement essential methods:
         * `ReceiveMessageAsync()`: **handles incoming messages using intent detection, plugins, RAG, etc.**
-        * `GetDefaultConfig()`: provides default settings for new agent instances.
-        * `ParseConfig()`: deserializes a generic object into MyAgentConfig.
         * **You can override default implementation for additional customization.**
 4. `MyWorkbenchConnector.cs`:
     * Purpose: custom instance of WorkbenchConnector.
