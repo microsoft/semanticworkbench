@@ -26,7 +26,7 @@ class IfDriveFileExistsBehavior(StrEnum):
 
 class DriveConfig(BaseModel):
     root: str | PathLike
-    default_if_exists_behavior: IfDriveFileExistsBehavior = IfDriveFileExistsBehavior.AUTO_RENAME
+    default_if_exists_behavior: IfDriveFileExistsBehavior = IfDriveFileExistsBehavior.OVERWRITE
 
 
 class FileMetadata:
