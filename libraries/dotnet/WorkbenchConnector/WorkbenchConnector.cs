@@ -430,10 +430,16 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
             // Example: http://[::]:64351
             string first = feat.Addresses.First().Replace("[::]", "host", StringComparison.OrdinalIgnoreCase);
             Uri uri = new(first);
-            this.ConnectorEndpoint = uri.Port > 0
-                ? $"{uri.Scheme}://127.0.0.1:{uri.Port}/{this.WorkbenchConfig.ConnectorApiPrefix.TrimStart('/')}"
-                : $"{uri.Scheme}://127.0.0.1:/{this.WorkbenchConfig.ConnectorApiPrefix.TrimStart('/')}";
-
+            if (this.WorkbenchConfig.ConnectorHost is null)
+            {
+                this.ConnectorEndpoint = uri.Port > 0
+                    ? $"{uri.Scheme}://127.0.0.1:{uri.Port}/{this.WorkbenchConfig.ConnectorApiPrefix.TrimStart('/')}"
+                    : $"{uri.Scheme}://127.0.0.1:/{this.WorkbenchConfig.ConnectorApiPrefix.TrimStart('/')}";
+            }
+            else
+            {
+                this.ConnectorEndpoint = $"{this.WorkbenchConfig.ConnectorHost}/{this.WorkbenchConfig.ConnectorApiPrefix.TrimStart('/')}";
+            }
             this.Log.LogTrace("Init complete, connector endpoint: {Endpoint}", this.ConnectorEndpoint);
             this.EnablePingTimer();
         }
