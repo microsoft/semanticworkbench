@@ -87,20 +87,20 @@ public class MyAgent : AgentBase<MyAgentConfig>
         Message message,
         CancellationToken cancellationToken = default)
     {
-        switch (this.Config.Behavior.ToLowerInvariant())
+        return this.Config.Behavior.ToLowerInvariant() switch
         {
-            case "echo": return this.EchoExampleAsync(conversationId, message, cancellationToken);
-            case "reverse": return this.ReverseExampleAsync(conversationId, message, cancellationToken);
-            case "safety check": return this.SafetyCheckExampleAsync(conversationId, message, cancellationToken);
-            case "markdown sample": return this.MarkdownExampleAsync(conversationId, message, cancellationToken);
-            case "html sample": return this.HTMLExampleAsync(conversationId, message, cancellationToken);
-            case "code sample": return this.CodeExampleAsync(conversationId, message, cancellationToken);
-            case "json sample": return this.JSONExampleAsync(conversationId, message, cancellationToken);
-            case "mermaid sample": return this.MermaidExampleAsync(conversationId, message, cancellationToken);
-            case "music sample": return this.MusicExampleAsync(conversationId, message, cancellationToken);
-            case "none": return this.NoneExampleAsync(conversationId, message, cancellationToken);
-            default: return this.NoneExampleAsync(conversationId, message, cancellationToken);
-        }
+            "echo" => this.EchoExampleAsync(conversationId, message, cancellationToken),
+            "reverse" => this.ReverseExampleAsync(conversationId, message, cancellationToken),
+            "safety check" => this.SafetyCheckExampleAsync(conversationId, message, cancellationToken),
+            "markdown sample" => this.MarkdownExampleAsync(conversationId, message, cancellationToken),
+            "html sample" => this.HTMLExampleAsync(conversationId, message, cancellationToken),
+            "code sample" => this.CodeExampleAsync(conversationId, message, cancellationToken),
+            "json sample" => this.JSONExampleAsync(conversationId, message, cancellationToken),
+            "mermaid sample" => this.MermaidExampleAsync(conversationId, message, cancellationToken),
+            "music sample" => this.MusicExampleAsync(conversationId, message, cancellationToken),
+            "none" => this.NoneExampleAsync(conversationId, message, cancellationToken),
+            _ => this.NoneExampleAsync(conversationId, message, cancellationToken)
+        };
     }
 
     // Check text with Azure Content Safety
@@ -111,7 +111,7 @@ public class MyAgent : AgentBase<MyAgentConfig>
         Response<AnalyzeTextResult>? result = await this._contentSafety.AnalyzeTextAsync(text, cancellationToken).ConfigureAwait(false);
 
         bool isSafe = result.HasValue && result.Value.CategoriesAnalysis.All(x => x.Severity is 0);
-        IEnumerable<string> report = result.HasValue ? result.Value.CategoriesAnalysis.Select(x => $"{x.Category}: {x.Severity}") : Array.Empty<string>();
+        IEnumerable<string> report = result.HasValue ? result.Value.CategoriesAnalysis.Select(x => $"{x.Category}: {x.Severity}") : [];
 
         return (isSafe, report);
     }
