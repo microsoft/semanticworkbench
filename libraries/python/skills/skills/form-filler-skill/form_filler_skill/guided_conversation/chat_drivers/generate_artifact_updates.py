@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 from form_filler_skill.guided_conversation.artifact_helpers import get_schema_for_prompt
 from form_filler_skill.guided_conversation.definition import GCDefinition
@@ -15,7 +15,10 @@ from skill_library.types import LanguageModel
 
 from ..logging import logger
 from ..message import Conversation
-from .fix_artifact_error import UpdateAttempt, generate_artifact_field_update_error_fix
+from .fix_artifact_error import generate_artifact_field_update_error_fix
+
+if TYPE_CHECKING:
+    from .fix_artifact_error import UpdateAttempt
 
 UPDATE_ARTIFACT_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
 
@@ -49,6 +52,11 @@ update_artifact_field(required parameters: field, value)
 
 Your task is to state your step-by-step reasoning for the best possible action(s), followed by a final recommendation of which update(s) to make, including all required parameters. Someone else will be responsible for executing the update(s) you select and they will only have access to your output (not any of the conversation history, artifact schema, or other context) so it is EXTREMELY important that you clearly specify the value of all required parameters for each update you make.
 """
+
+
+class UpdateAttempt(BaseModel):
+    field_value: str
+    error: str
 
 
 class ArtifactUpdate(BaseModel):
