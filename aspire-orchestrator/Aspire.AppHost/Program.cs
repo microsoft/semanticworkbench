@@ -17,7 +17,6 @@ var workbenchApp = builder.AddViteApp("workbenchapp", workingDirectory: Path.Com
     .PublishAsDockerFile([
         new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", clientId.Resource.Value),
         new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_AUTHORITY", authority.Resource.Value),
-        new DockerBuildArg("SSHD_ENABLED", "false")
     ]);
 
 // Sample Python agent
