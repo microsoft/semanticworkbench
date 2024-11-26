@@ -10,11 +10,11 @@ public abstract class AgentConfigBase
 {
     public object ToWorkbenchFormat()
     {
-        Dictionary<string, object> result = new();
-        Dictionary<string, object> defs = new();
-        Dictionary<string, object> properties = new();
-        Dictionary<string, object> jsonSchema = new();
-        Dictionary<string, object> uiSchema = new();
+        Dictionary<string, object> result = [];
+        Dictionary<string, object> defs = [];
+        Dictionary<string, object> properties = [];
+        Dictionary<string, object> jsonSchema = [];
+        Dictionary<string, object> uiSchema = [];
 
         foreach (var property in this.GetType().GetProperties())
         {

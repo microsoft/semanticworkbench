@@ -19,7 +19,7 @@ public class ServiceInfo<TAgentConfig>(TAgentConfig cfg)
     public string Description { get; set; } = string.Empty;
 
     [JsonPropertyName("metadata")]
-    public Dictionary<string, object> Metadata { get; set; } = new();
+    public Dictionary<string, object> Metadata { get; set; } = [];
 
     [JsonPropertyName("default_config")]
     public object DefaultConfiguration => cfg.ToWorkbenchFormat() ?? new();

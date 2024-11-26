@@ -326,7 +326,7 @@ public class MyAgent : AgentBase<MyAgentConfig>
         Response<AnalyzeTextResult>? result = await this._contentSafety.AnalyzeTextAsync(text, cancellationToken).ConfigureAwait(false);
 
         bool isSafe = result.HasValue && result.Value.CategoriesAnalysis.All(x => x.Severity is 0);
-        IEnumerable<string> report = result.HasValue ? result.Value.CategoriesAnalysis.Select(x => $"{x.Category}: {x.Severity}") : Array.Empty<string>();
+        IEnumerable<string> report = result.HasValue ? result.Value.CategoriesAnalysis.Select(x => $"{x.Category}: {x.Severity}") : [];
 
         return (isSafe, report);
     }
