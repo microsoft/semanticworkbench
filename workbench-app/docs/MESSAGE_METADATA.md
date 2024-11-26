@@ -6,6 +6,8 @@ The app has built-in support for a few metadata child properties, which can be u
 
 -   `attribution`: A string that will be displayed after the sender of the message. The intent is to allow the sender to indicate the source of the message, possibly coming from an internal part of its system.
 
+-   `href`: If provided, the app will display the message as a hyperlink. The value of this property will be used as the URL of the hyperlink and use the React Router navigation system to navigate to the URL when the user clicks on the message. Will be ignored for messages of type `chat`.
+
 -   `debug`: A dictionary that can contain additional information that can be used for debugging purposes. If included, it will cause the app to display a button that will allow the user to see the contents of the dictionary in a popup for further inspection.
 
 -   `footer_items`: A list of strings that will be displayed in the footer of the message. The intent is to allow the sender to include additional information that is not part of the message body, but is still relevant to the message.
