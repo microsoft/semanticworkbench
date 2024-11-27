@@ -39,13 +39,11 @@ You will be provided the history of your conversation with the user up until now
 Note that if the value for a field in the artifact is 'Unanswered', it means that the field has not been completed.
 You need to select the best possible action(s), given the state of the conversation and the artifact.
 
-Your job is to create a list of field updates to update the artifact. Each update should be listed as:
+Your job is to create a list of field updates to update the artifact. Each update should be listed as a dictionary with two keys: 'field' and 'value_as_json'. The 'field' key should contain the name of the field in the artifact that you want to update, and the 'value_as_json' key should contain the new value for that field in JSON format. Only use fields that are present in the artifact schema.
 
-update_artifact_field(required parameters: field, value)
-
-- You should pick this action as soon as (a) the user provides new information that is not already reflected in the current state of the artifact and (b) you are able to submit a valid value for a field in the artifact using this new information. If you have already updated a field in the artifact and there is no new information to update the field with, you should not pick this action.
+- Create field updates only if (a) the user provides new information that is not already reflected in the current state of the artifact and (b) you are able to submit a valid value for a field in the artifact using this new information. If you have already updated a field in the artifact and there is no new information to update the field with, you should create a field update.
 - Make sure the value adheres to the constraints of the field as specified in the artifact schema.
-- If the user has provided all required information to complete a field (i.e. the criteria for "Send message to user" are not satisfied) but the information is in the wrong format, you should not ask the user to reformat their response. Instead, you should simply update the field with the correctly formatted value. For example, if the artifact asks for the date of birth in the format "YYYY-MM-DD", and the user provides their date of birth as "June 15, 2000", you should update the field with the value "2000-06-15".
+- If the user has provided all required information to complete a field but the information is in the wrong format, you should not ask the user to reformat their response. Instead, you should simply update the field with the correctly formatted value. For example, if the artifact asks for the date of birth in the format "YYYY-MM-DD", and the user provides their date of birth as "June 15, 2000", you should update the field with the value "2000-06-15".
 - Prioritize accuracy over completion. You should never make up information or make assumptions in order to complete a field. For example, if the field asks for a 10-digit phone number, and the user provided a 9-digit phone number, you should not add a digit to the phone number in order to complete the field. Instead, you should follow-up with the user to ask for the correct phone number. If they still aren't able to provide one, you should leave the field unanswered.
 - If the user isn't able to provide all of the information needed to complete a field, use your best judgment to determine if a partial answer is appropriate (assuming it adheres to the formatting requirements of the field). For example, if the field asks for a description of symptoms along with details about when the symptoms started, but the user isn't sure when their symptoms started, it's better to record the information they do have rather than to leave the field unanswered (and to indicate that the user was unsure about the start date).
 - If it's possible to update multiple fields at once (assuming you're adhering to the above rules in all cases), you should do so. For example, if the user provides their full name and date of birth in the same message, you should select the "update artifact fields" action twice, once for each field.
@@ -60,11 +58,14 @@ class UpdateAttempt(BaseModel):
 
 
 class ArtifactUpdate(BaseModel):
-    field: str
+    field: Annotated[str, Field(description="The name of a field from the artifact schema.")]
     value_as_json: Annotated[str, Field(description="The value to update the field with as a JSON string.")]
 
 
 class ArtifactUpdates(BaseModel):
+    """A list of updates to be applied to an artifact."""
+
+    step_by_step_reasoning: str
     updates: list[ArtifactUpdate]
 
 
