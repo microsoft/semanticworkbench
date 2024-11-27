@@ -151,7 +151,7 @@ class Assistant:
             session_id=self.assistant_id,
             assistant_drive=self.drive,
             emit=self._emit,
-            run_routine=self.run_routine,  # type: ignore - TODO: FIX THIS
+            run_routine=self.run_routine,
             routine_stack=self.routine_stack,
         )
 
