@@ -20,8 +20,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference
-            Include="..\..\examples\dotnet\dotnet-03-simple-chatbot\dotnet-03-simple-chatbot.csproj" />
+        <ProjectReference Include="..\..\examples\dotnet\dotnet-01-echo-bot\dotnet-01-echo-bot.csproj" />
+        <ProjectReference Include="..\..\examples\dotnet\dotnet-02-message-types-demo\dotnet-02-message-types-demo.csproj" />
+        <ProjectReference Include="..\..\examples\dotnet\dotnet-03-simple-chatbot\dotnet-03-simple-chatbot.csproj" />
         <ProjectReference Include="..\Aspire.Extensions\Aspire.Extensions.csproj" IsAspireProjectResource="false" />
     </ItemGroup>
 

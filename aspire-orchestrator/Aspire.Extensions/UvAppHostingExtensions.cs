@@ -22,7 +22,7 @@ public static class UvAppHostingExtensions
     private static IResourceBuilder<UvAppResource> AddUvApp(this IDistributedApplicationBuilder builder,
         string name,
         string scriptPath,
-        string projectDirectory,
+        string? projectDirectory,
         string virtualEnvironmentPath,
         params string[] args)
     {
@@ -43,8 +43,8 @@ public static class UvAppHostingExtensions
         // var projectExecutable = instrumentationExecutable ?? pythonExecutable;
 
         string[] allArgs = args is { Length: > 0 }
-            ? ["run", scriptPath, .. args]
-            : ["run", scriptPath];
+            ? ["run", "--frozen", scriptPath, .. args]
+            : ["run", "--frozen", scriptPath];
 
         var projectResource = new UvAppResource(name, projectDirectory);
 
