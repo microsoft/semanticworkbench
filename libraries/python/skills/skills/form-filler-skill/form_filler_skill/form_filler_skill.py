@@ -84,7 +84,7 @@ class FormFillerSkill(Skill):
                                 "objective": "Upload a form to be filled out by the form filler recipe.",
                             }
                             gc_id = await context.run_routine(
-                                context, "guided_conversation.doc_upload", guided_conversation_vars
+                                "guided_conversation.doc_upload", guided_conversation_vars
                             )
                             state["gc_id"] = gc_id
                         # TODO: What is the best way to subroutine?
