@@ -134,6 +134,14 @@ async def on_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
+    # ignore messages that are directed at a participant other than this assistant
+    if message.metadata.get("directed_at") and message.metadata["directed_at"] != context.assistant.id:
+        return
+
+    # ignore messages that @mention a participant other than this assistant
+    if message.metadata.get("mentions") and context.assistant.id not in message.metadata["mentions"]:
+        return
+
     # update the participant status to indicate the assistant is thinking
     async with context.set_status("thinking..."):
         config = await assistant_config.get(context.assistant)
