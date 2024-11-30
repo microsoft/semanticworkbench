@@ -47,6 +47,13 @@
     "**/__pycache__": true
   },
   // For use with optional extension: "streetsidesoftware.code-spell-checker"
+  "cSpell.ignorePaths": [
+    ".venv",
+    "node_modules",
+    "package-lock.json",
+    "settings.json",
+    "uv.lock"
+  ],
   "cSpell.words": [
     "Codespaces",
     "contentsafety",
@@ -63,8 +70,10 @@
     "pdfplumber",
     "pydantic",
     "pyproject",
+    "pyright",
     "tiktoken",
     "updown",
+    "venv",
     "virtualenvs"
   ]
 }

@@ -49,6 +49,14 @@
     }
   },
   "ruff.nativeServer": "on",
+  // For use with optional extension: "streetsidesoftware.code-spell-checker"
+  "cSpell.ignorePaths": [
+    ".venv",
+    "node_modules",
+    "package-lock.json",
+    "settings.json",
+    "uv.lock"
+  ],
   "cSpell.words": [
     "Contoso",
     "dotenv",
@@ -56,7 +64,9 @@
     "openai",
     "pydantic",
     "pypdf",
+    "pyright",
     "runtimes",
-    "tiktoken"
+    "tiktoken",
+    "venv"
   ]
 }
