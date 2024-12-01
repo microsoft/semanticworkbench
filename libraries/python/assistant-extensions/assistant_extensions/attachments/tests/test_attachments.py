@@ -7,6 +7,11 @@ from unittest import mock
 
 import pytest
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
+from assistant_extensions.clients.model import (
+    CompletionMessage,
+    CompletionMessageImageContent,
+    CompletionMessageTextContent,
+)
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_api_model.workbench_model import File, FileList, ParticipantRole
 from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, AssistantContext, ConversationContext
@@ -22,18 +27,18 @@ from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, Ass
                 "file2.txt": lambda: b"file 2",
             },
             [
-                {
-                    "role": "system",
-                    "content": AttachmentsConfigModel().context_description,
-                },
-                {
-                    "role": "system",
-                    "content": "<ATTACHMENT><FILENAME>file1.txt</FILENAME><CONTENT>file 1</CONTENT></ATTACHMENT>",
-                },
-                {
-                    "role": "system",
-                    "content": "<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
-                },
+                CompletionMessage(
+                    role="system",
+                    content=AttachmentsConfigModel().context_description,
+                ),
+                CompletionMessage(
+                    role="system",
+                    content="<ATTACHMENT><FILENAME>file1.txt</FILENAME><CONTENT>file 1</CONTENT></ATTACHMENT>",
+                ),
+                CompletionMessage(
+                    role="system",
+                    content="<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
+                ),
             ],
         ),
         (
@@ -42,18 +47,18 @@ from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, Ass
                 "file2.txt": lambda: b"file 2",
             },
             [
-                {
-                    "role": "system",
-                    "content": AttachmentsConfigModel().context_description,
-                },
-                {
-                    "role": "system",
-                    "content": "<ATTACHMENT><FILENAME>file1.txt</FILENAME><ERROR>error processing file: file 1 error</ERROR><CONTENT></CONTENT></ATTACHMENT>",
-                },
-                {
-                    "role": "system",
-                    "content": "<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
-                },
+                CompletionMessage(
+                    role="system",
+                    content=AttachmentsConfigModel().context_description,
+                ),
+                CompletionMessage(
+                    role="system",
+                    content="<ATTACHMENT><FILENAME>file1.txt</FILENAME><ERROR>error processing file: file 1 error</ERROR><CONTENT></CONTENT></ATTACHMENT>",
+                ),
+                CompletionMessage(
+                    role="system",
+                    content="<ATTACHMENT><FILENAME>file2.txt</FILENAME><CONTENT>file 2</CONTENT></ATTACHMENT>",
+                ),
             ],
         ),
         (
@@ -63,29 +68,28 @@ from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, Ass
                 ),
             },
             [
-                {
-                    "role": "system",
-                    "content": AttachmentsConfigModel().context_description,
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "<ATTACHMENT><FILENAME>img.png</FILENAME><IMAGE>",
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": "</IMAGE></ATTACHMENT>",
-                        },
+                CompletionMessage(
+                    role="system",
+                    content=AttachmentsConfigModel().context_description,
+                ),
+                CompletionMessage(
+                    role="user",
+                    content=[
+                        CompletionMessageTextContent(
+                            type="text",
+                            text="<ATTACHMENT><FILENAME>img.png</FILENAME><IMAGE>",
+                        ),
+                        CompletionMessageImageContent(
+                            type="image",
+                            media_type="image/png",
+                            data="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+                        ),
+                        CompletionMessageTextContent(
+                            type="text",
+                            text="</IMAGE></ATTACHMENT>",
+                        ),
                     ],
-                },
+                ),
             ],
         ),
     ],
