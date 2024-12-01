@@ -143,6 +143,14 @@ class AssistantConfigModel(BaseModel):
         " context of our conversation. Where would you like to start?"
     )
 
+    only_respond_to_mentions: Annotated[
+        bool,
+        Field(
+            title="Only Respond to @Mentions",
+            description="Only respond to messages that @mention the assistant.",
+        ),
+    ] = False
+
     high_token_usage_warning: Annotated[
         HighTokenUsageWarning,
         Field(
