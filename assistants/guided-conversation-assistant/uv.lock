@@ -252,6 +252,13 @@ dependencies = [
     { name = "semantic-workbench-assistant" },
 ]
 
+[package.optional-dependencies]
+attachments = [
+    { name = "assistant-drive" },
+    { name = "docx2txt" },
+    { name = "pdfplumber" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.40.0" },
@@ -1229,7 +1236,7 @@ name = "openai-client"
 version = "0.1.0"
 source = { editable = "../../libraries/python/openai-client" }
 dependencies = [
-    { name = "assistant-extensions" },
+    { name = "assistant-extensions", extra = ["attachments"] },
     { name = "azure-ai-contentsafety" },
     { name = "azure-core", extra = ["aio"] },
     { name = "azure-identity" },
@@ -1243,7 +1250,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "assistant-extensions", editable = "../../libraries/python/assistant-extensions" },
+    { name = "assistant-extensions", extras = ["attachments"], editable = "../../libraries/python/assistant-extensions" },
     { name = "azure-ai-contentsafety", specifier = ">=1.0.0" },
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },

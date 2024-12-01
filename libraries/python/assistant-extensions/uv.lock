@@ -978,7 +978,7 @@ name = "openai-client"
 version = "0.1.0"
 source = { editable = "../openai-client" }
 dependencies = [
-    { name = "assistant-extensions" },
+    { name = "assistant-extensions", extra = ["attachments"] },
     { name = "azure-ai-contentsafety" },
     { name = "azure-core", extra = ["aio"] },
     { name = "azure-identity" },
@@ -992,7 +992,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "assistant-extensions", editable = "." },
+    { name = "assistant-extensions", extras = ["attachments"], editable = "." },
     { name = "azure-ai-contentsafety", specifier = ">=1.0.0" },
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },

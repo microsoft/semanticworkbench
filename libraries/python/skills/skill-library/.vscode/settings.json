@@ -59,6 +59,8 @@
     "openai",
     "pydantic",
     "pypdf",
+    "pyright",
+    "pytest",
     "runtimes",
     "subdrive",
     "tiktoken"
