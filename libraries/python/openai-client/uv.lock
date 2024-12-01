@@ -97,6 +97,53 @@ wheels = [
 ]
 
 [[package]]
+name = "anthropic"
+version = "0.40.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4d/d9/c39005f04c602607d68d48d1c917b35af8d16b687b7ca427ca787c39d8b9/anthropic-0.40.0.tar.gz", hash = "sha256:3efeca6d9e97813f93ed34322c6c7ea2279bf0824cd0aa71b59ce222665e2b87", size = 190939 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/18/a68cfb9a11990377650c36c25b5dfb0baece900e9e505b68e1aa06ad0227/anthropic-0.40.0-py3-none-any.whl", hash = "sha256:442028ae8790ff9e3b6f8912043918755af1230d193904ae2ef78cc22995280c", size = 199484 },
+]
+
+[[package]]
+name = "anthropic-client"
+version = "0.1.0"
+source = { editable = "../anthropic-client" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "assistant-extensions" },
+    { name = "events" },
+    { name = "pillow" },
+    { name = "python-liquid" },
+    { name = "semantic-workbench-assistant" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "assistant-extensions", editable = "../assistant-extensions" },
+    { name = "events", editable = "../events" },
+    { name = "pillow", specifier = ">=11.0.0" },
+    { name = "python-liquid", specifier = ">=1.12.1" },
+    { name = "semantic-workbench-assistant", editable = "../semantic-workbench-assistant" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.3" },
+]
+
+[[package]]
 name = "anyio"
 version = "4.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -119,6 +166,67 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/be/81/15a920a166d38ce0685de33f3c5e64b86a3c112c7d646ed46d8ec1cb4047/asgi_correlation_id-4.3.3.tar.gz", hash = "sha256:25d89b52f3d32c0f3b4915a9fc38d9cffc7395960d05910bdce5c13023dc237b", size = 20052 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fe/e1/aa53fea4e367c1ec0e69cb78c234dec4ec50d80ce02279e1ec647dea1a47/asgi_correlation_id-4.3.3-py3-none-any.whl", hash = "sha256:62ba38c359aa004c1c3e2b8e0cdf0e8ad4aa5a93864eaadc46e77d5c142a206a", size = 15253 },
+]
+
+[[package]]
+name = "assistant-drive"
+version = "0.1.0"
+source = { editable = "../assistant-drive" }
+dependencies = [
+    { name = "context" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "context", editable = "../context" },
+    { name = "pydantic", specifier = ">=2.6.1" },
+    { name = "pydantic-settings", specifier = ">=2.5.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.23.8" },
+    { name = "pytest-repeat", specifier = ">=0.9.3" },
+]
+
+[[package]]
+name = "assistant-extensions"
+version = "0.1.0"
+source = { editable = "../assistant-extensions" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "anthropic-client" },
+    { name = "assistant-drive" },
+    { name = "openai" },
+    { name = "openai-client" },
+    { name = "requests-sse" },
+    { name = "semantic-workbench-assistant" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "anthropic-client", editable = "../anthropic-client" },
+    { name = "assistant-drive", editable = "../assistant-drive" },
+    { name = "assistant-drive", marker = "extra == 'attachments'", editable = "../assistant-drive" },
+    { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
+    { name = "openai", specifier = ">=1.51.2" },
+    { name = "openai-client", editable = "." },
+    { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
+    { name = "requests-sse", specifier = ">=0.3.2" },
+    { name = "semantic-workbench-assistant", editable = "../semantic-workbench-assistant" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.23.8" },
 ]
 
 [[package]]
@@ -299,6 +407,25 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335 },
+]
+
+[[package]]
+name = "context"
+version = "0.1.0"
+source = { editable = "../context" }
+dependencies = [
+    { name = "events" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "events", editable = "../events" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.23.8" },
+    { name = "pytest-repeat", specifier = ">=0.9.3" },
 ]
 
 [[package]]
@@ -749,7 +876,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.51.0"
+version = "1.55.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -761,9 +888,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/af/cc59b1447f5a02bb1f25b9b0cd94b607aa2c969a81d9a244d4067f91f6fe/openai-1.51.0.tar.gz", hash = "sha256:8dc4f9d75ccdd5466fc8c99a952186eddceb9fd6ba694044773f3736a847149d", size = 306880 }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/39/d4859d897da053b61b84403f67dbef1abd075e441cb354892ff14f98e2c7/openai-1.55.3.tar.gz", hash = "sha256:547e85b94535469f137a779d8770c8c5adebd507c2cc6340ca401a7c4d5d16f0", size = 314571 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c7/08/9f22356d4fbd273f734db1e6663b7ca6987943080567f5580471022e57ca/openai-1.51.0-py3-none-any.whl", hash = "sha256:d9affafb7e51e5a27dce78589d4964ce4d6f6d560307265933a94b2e3f3c5d2c", size = 383533 },
+    { url = "https://files.pythonhosted.org/packages/10/06/691ef3f0112ecf0d7420d0bf35b5d16cf81554141f4b4913a9831031013d/openai-1.55.3-py3-none-any.whl", hash = "sha256:2a235d0e1e312cd982f561b18c27692e253852f4e5fb6ccf08cb13540a9bdaa1", size = 389558 },
 ]
 
 [[package]]
@@ -771,6 +898,7 @@ name = "openai-client"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "assistant-extensions" },
     { name = "azure-ai-contentsafety" },
     { name = "azure-core", extra = ["aio"] },
     { name = "azure-identity" },
@@ -790,6 +918,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "assistant-extensions", editable = "../assistant-extensions" },
     { name = "azure-ai-contentsafety", specifier = ">=1.0.0" },
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
@@ -1187,6 +1316,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6", size = 64928 },
+]
+
+[[package]]
+name = "requests-sse"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2f/38/17d72af6819a3443c1d42a7d02adce430b11e39b03f8273d684385eaa53d/requests_sse-0.3.2.tar.gz", hash = "sha256:3e17bd324e500c9b11c7c23dd00af3f0222070328134bda67a8917985cfc4127", size = 8986 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/ba/02926da93761774b633f9b39363782712fe33d6db37e7dda7f63698be70b/requests_sse-0.3.2-py3-none-any.whl", hash = "sha256:c3399b689f6e7bf0eac7c2031211d66ffbb3ab77afc6c9226a71c73c06609f61", size = 9718 },
 ]
 
 [[package]]

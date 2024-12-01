@@ -1,22 +1,17 @@
-from typing import Any, Callable, Iterable, Literal, Optional
+from typing import Any, Callable, Iterable, Literal, Union
 
+from anthropic.types import ImageBlockParam, MessageParam, TextBlockParam
+from anthropic.types.beta import BetaImageBlockParam, BetaMessageParam, BetaTextBlockParam
 from assistant_extensions.clients.model import (
     CompletionMessage,
     CompletionMessageImageContent,
     CompletionMessageTextContent,
 )
 from liquid import Template
-from openai.types.chat import (
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionMessageParam,
-    ChatCompletionMessageToolCallParam,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam,
-)
 
 
 def truncate_messages_for_logging(
-    messages: list[ChatCompletionMessageParam],
+    messages: list[MessageParam],
     truncate_messages_for_roles: set[Literal["user", "system", "assistant", "tool", "function"]] = {
         "user",
         "system",
@@ -113,67 +108,105 @@ def format_with_liquid(template: str, vars: dict[str, Any]) -> str:
     return parsed
 
 
-def create_system_message(
+def create_system_prompt(
     content: str, var: dict[str, Any] | None = None, formatter: MessageFormatter = format_with_liquid
-) -> ChatCompletionSystemMessageParam:
+) -> str:
     if var:
         content = formatter(content, var)
-    return {"role": "system", "content": content}
+    return content.strip()
 
 
 def create_user_message(
     content: str | list[CompletionMessageImageContent | CompletionMessageTextContent],
     var: dict[str, Any] | None = None,
     formatter: MessageFormatter = format_with_liquid,
-) -> ChatCompletionUserMessageParam:
+) -> MessageParam:
     if isinstance(content, list):
-        items = []
+        items: Iterable[Union[TextBlockParam, ImageBlockParam]] = []
         for item in content:
             if item.type == "text":
                 if var:
                     item.text = formatter(item.text, var)
-                items.append({"type": "text", "text": item.text})
+                items.append(TextBlockParam(type="text", text=item.text.strip()))
             elif item.type == "image":
-                items.append({"type": "image_url", "image_url": {"url": item.data}})
-        return {"role": "user", "content": items}
+                items.append(
+                    ImageBlockParam(
+                        type="image",
+                        source={
+                            "type": "base64",
+                            "data": item.data,
+                            "media_type": item.media_type,
+                        },
+                    )
+                )
+        return MessageParam(role="user", content=items)
+
     if var:
         content = formatter(content, var)
-    return {"role": "user", "content": content}
+    return MessageParam(role="user", content=content.strip())
 
 
 def create_assistant_message(
     content: str,
-    refusal: Optional[str] = None,
-    tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
     var: dict[str, Any] | None = None,
     formatter: MessageFormatter = format_with_liquid,
-) -> ChatCompletionAssistantMessageParam:
+) -> MessageParam:
     if var:
         content = formatter(content, var)
-    message = ChatCompletionAssistantMessageParam(role="assistant", content=content, refusal=refusal)
-    if tool_calls is not None:
-        message["tool_calls"] = tool_calls
-    return message
+    return MessageParam(role="assistant", content=content.strip())
+
+
+def create_user_beta_message(
+    content: str | list[CompletionMessageImageContent | CompletionMessageTextContent],
+    var: dict[str, Any] | None = None,
+    formatter: MessageFormatter = format_with_liquid,
+) -> BetaMessageParam:
+    if isinstance(content, list):
+        items: Iterable[Union[BetaTextBlockParam, BetaImageBlockParam]] = []
+        for item in content:
+            if item.type == "text":
+                if var:
+                    item.text = formatter(item.text, var)
+                items.append(BetaTextBlockParam(type="text", text=item.text.strip()))
+            elif item.type == "image":
+                items.append(
+                    BetaImageBlockParam(
+                        type="image",
+                        source={
+                            "type": "base64",
+                            "data": item.data,
+                            "media_type": item.media_type,
+                        },
+                    )
+                )
+        return BetaMessageParam(role="user", content=items)
+
+    if var:
+        content = formatter(content, var)
+    return BetaMessageParam(role="user", content=content.strip())
+
+
+def create_assistant_beta_message(
+    content: str,
+    var: dict[str, Any] | None = None,
+    formatter: MessageFormatter = format_with_liquid,
+) -> BetaMessageParam:
+    if var:
+        content = formatter(content, var)
+    return BetaMessageParam(role="assistant", content=content.strip())
 
 
 def convert_from_completion_messages(
-    completion_message: Iterable[CompletionMessage],
-) -> list[ChatCompletionMessageParam]:
+    completion_messages: Iterable[CompletionMessage],
+) -> list[MessageParam]:
     """
-    Convert a list of service-agnostic completion message to a list of OpenAI chat completion message parameter.
+    Convert a service-agnostic completion message to an Anthropic message parameter.
     """
-    messages: list[ChatCompletionMessageParam] = []
+    messages: list[MessageParam] = []
 
-    for message in completion_message:
-        if message.role == "system" and isinstance(message.content, str):
-            messages.append(
-                create_system_message(
-                    content=message.content,
-                )
-            )
-            continue
-
-        if message.role == "assistant" and isinstance(message.content, str):
+    for message in completion_messages:
+        # Anthropic API does not support system role in messages, so convert system role to user role
+        if (message.role == "system" or message.role == "assistant") and isinstance(message.content, str):
             messages.append(
                 create_assistant_message(
                     content=message.content,
@@ -187,4 +220,30 @@ def convert_from_completion_messages(
             )
         )
 
+    return messages
+
+
+def beta_convert_from_completion_messages(
+    completion_messages: Iterable[CompletionMessage],
+) -> list[BetaMessageParam]:
+    """
+    Convert a service-agnostic completion message to an Anthropic message parameter.
+    """
+    messages: list[BetaMessageParam] = []
+
+    for message in completion_messages:
+        # Anthropic API does not support system role in messages, so convert system role to user role
+        if (message.role == "system" or message.role == "assistant") and isinstance(message.content, str):
+            messages.append(
+                create_assistant_beta_message(
+                    content=message.content,
+                )
+            )
+            continue
+
+        messages.append(
+            create_user_beta_message(
+                content=message.content,
+            )
+        )
     return messages

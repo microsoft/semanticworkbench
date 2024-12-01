@@ -1,5 +1,5 @@
 import json
-from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type
+from typing import Annotated, Any, Dict, List, Type
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field, create_model
@@ -8,9 +8,6 @@ from semantic_workbench_assistant.config import UISchema
 from ... import helpers
 from . import config_defaults as config_defaults
 from .config import GuidedConversationConfigModel, ResourceConstraintConfigModel
-
-if TYPE_CHECKING:
-    pass
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.

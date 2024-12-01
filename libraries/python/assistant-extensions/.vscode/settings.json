@@ -53,6 +53,7 @@
     "openai",
     "pdfplumber",
     "pydantic",
+    "pyright",
     "pytest"
   ]
 }

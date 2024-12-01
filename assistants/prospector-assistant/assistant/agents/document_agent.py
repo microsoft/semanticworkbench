@@ -938,7 +938,7 @@ class DocumentAgent:
             chat_completion_messages.append(
                 _chat_history_system_message(conversation.messages, participants_list.participants)
             )
-        chat_completion_messages.extend(attachment_messages)
+        chat_completion_messages.extend(openai_client.convert_from_completion_messages(attachment_messages))
         if outline is not None:
             chat_completion_messages.append(_outline_system_message(outline))
 
@@ -1137,7 +1137,7 @@ class DocumentAgent:
             chat_completion_messages.append(
                 _chat_history_system_message(conversation.messages, participants_list.participants)
             )
-        chat_completion_messages.extend(attachment_messages)
+        chat_completion_messages.extend(openai_client.convert_from_completion_messages(attachment_messages))
 
         # get outline related info
         if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):

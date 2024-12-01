@@ -252,9 +252,7 @@ def form_fill_extension_get_attachment(
             return ""
 
         # filter down to the messages that contain the attachment (ie. don't include the system messages)
-        return "\n\n".join(
-            (str(message.get("content")) for message in messages if "<ATTACHMENT>" in str(message.get("content")))
-        )
+        return "\n\n".join((str(message.content) for message in messages if "<ATTACHMENT>" in str(message.content)))
 
     return get
 
@@ -348,7 +346,7 @@ async def respond_to_conversation(
     )
 
     # add the attachment messages to the completion messages
-    completion_messages.extend(attachment_messages)
+    completion_messages.extend(openai_client.convert_from_completion_messages(attachment_messages))
 
     # get messages before the current message
     messages_response = await context.get_messages(before=message.id)

@@ -5,7 +5,6 @@ import logging
 from typing import Any, Awaitable, Callable, Sequence
 
 from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
-from openai.types import chat
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     File,
@@ -19,6 +18,7 @@ from semantic_workbench_assistant.assistant_app import (
     storage_directory_for_context,
 )
 
+from ..clients.model import CompletionMessage, CompletionMessageImageContent, CompletionMessageTextContent
 from . import _convert as convert
 from ._model import Attachment, AttachmentsConfigModel
 
@@ -124,7 +124,7 @@ class AttachmentsExtension:
         config: AttachmentsConfigModel,
         include_filenames: list[str] | None = None,
         exclude_filenames: list[str] = [],
-    ) -> Sequence[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam]:
+    ) -> Sequence[CompletionMessage]:
         """
         Generate user messages for each attachment that includes the filename and content.
 
@@ -151,34 +151,32 @@ class AttachmentsExtension:
         if not attachments:
             return []
 
-        messages: list[chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam] = [
-            _create_message(config, config.context_description)
-        ]
+        messages: list[CompletionMessage] = [_create_message(config, config.context_description)]
 
         # process each attachment
         for attachment in attachments:
             # if the content is a data URI, include it as an image type within the message content
             if attachment.content.startswith("data:image/"):
-                messages.append({
-                    # role of user is required for image_url messages
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": attachment.content,
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": f"</{image_tag}></{attachment_tag}>",
-                        },
-                    ],
-                })
+                messages.append(
+                    CompletionMessage(
+                        role="user",
+                        content=[
+                            CompletionMessageTextContent(
+                                type="text",
+                                text=f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
+                            ),
+                            CompletionMessageImageContent(
+                                type="image",
+                                media_type="image/png",
+                                data=attachment.content,
+                            ),
+                            CompletionMessageTextContent(
+                                type="text",
+                                text=f"</{image_tag}></{attachment_tag}>",
+                            ),
+                        ],
+                    )
+                )
                 continue
 
             error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
@@ -211,20 +209,18 @@ class AttachmentsExtension:
         return filenames
 
 
-def _create_message(
-    config: AttachmentsConfigModel, content: str
-) -> chat.ChatCompletionSystemMessageParam | chat.ChatCompletionUserMessageParam:
+def _create_message(config: AttachmentsConfigModel, content: str) -> CompletionMessage:
     match config.preferred_message_role:
         case "system":
-            return {
-                "role": "system",
-                "content": content,
-            }
+            return CompletionMessage(
+                role="system",
+                content=content,
+            )
         case "user":
-            return {
-                "role": "user",
-                "content": content,
-            }
+            return CompletionMessage(
+                role="user",
+                content=content,
+            )
         case _:
             raise ValueError(f"unsupported preferred_message_role: {config.preferred_message_role}")
 

@@ -65,6 +65,7 @@
     "pdfplumber",
     "pydantic",
     "pyproject",
+    "pyright",
     "tiktoken",
     "updown",
     "virtualenvs"

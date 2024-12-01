@@ -1,3 +1,3 @@
-from . import artifacts, attachments
+from . import artifacts, attachments, clients, workflows
 
-__all__ = ["artifacts", "attachments"]
+__all__ = ["artifacts", "attachments", "clients", "workflows"]

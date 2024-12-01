@@ -99,6 +99,53 @@ wheels = [
 ]
 
 [[package]]
+name = "anthropic"
+version = "0.40.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "jiter" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4d/d9/c39005f04c602607d68d48d1c917b35af8d16b687b7ca427ca787c39d8b9/anthropic-0.40.0.tar.gz", hash = "sha256:3efeca6d9e97813f93ed34322c6c7ea2279bf0824cd0aa71b59ce222665e2b87", size = 190939 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/18/a68cfb9a11990377650c36c25b5dfb0baece900e9e505b68e1aa06ad0227/anthropic-0.40.0-py3-none-any.whl", hash = "sha256:442028ae8790ff9e3b6f8912043918755af1230d193904ae2ef78cc22995280c", size = 199484 },
+]
+
+[[package]]
+name = "anthropic-client"
+version = "0.1.0"
+source = { editable = "../../libraries/python/anthropic-client" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "assistant-extensions" },
+    { name = "events" },
+    { name = "pillow" },
+    { name = "python-liquid" },
+    { name = "semantic-workbench-assistant" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "assistant-extensions", editable = "../../libraries/python/assistant-extensions" },
+    { name = "events", editable = "../../libraries/python/events" },
+    { name = "pillow", specifier = ">=11.0.0" },
+    { name = "python-liquid", specifier = ">=1.12.1" },
+    { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.3" },
+]
+
+[[package]]
 name = "anyio"
 version = "4.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -197,7 +244,11 @@ name = "assistant-extensions"
 version = "0.1.0"
 source = { editable = "../../libraries/python/assistant-extensions" }
 dependencies = [
+    { name = "anthropic" },
+    { name = "anthropic-client" },
+    { name = "assistant-drive" },
     { name = "openai" },
+    { name = "openai-client" },
     { name = "requests-sse" },
     { name = "semantic-workbench-assistant" },
 ]
@@ -211,9 +262,13 @@ attachments = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "anthropic-client", editable = "../../libraries/python/anthropic-client" },
+    { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
     { name = "assistant-drive", marker = "extra == 'attachments'", editable = "../../libraries/python/assistant-drive" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
     { name = "openai", specifier = ">=1.51.2" },
+    { name = "openai-client", editable = "../../libraries/python/openai-client" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
     { name = "requests-sse", specifier = ">=0.3.2" },
     { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
@@ -1204,6 +1259,7 @@ name = "openai-client"
 version = "0.1.0"
 source = { editable = "../../libraries/python/openai-client" }
 dependencies = [
+    { name = "assistant-extensions" },
     { name = "azure-ai-contentsafety" },
     { name = "azure-core", extra = ["aio"] },
     { name = "azure-identity" },
@@ -1217,6 +1273,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "assistant-extensions", editable = "../../libraries/python/assistant-extensions" },
     { name = "azure-ai-contentsafety", specifier = ">=1.0.0" },
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
