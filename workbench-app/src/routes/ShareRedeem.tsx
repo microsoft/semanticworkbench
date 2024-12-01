@@ -88,7 +88,7 @@ export const ShareRedeem: React.FC = () => {
             const redemption = await redeemShare(conversationShare.id).unwrap();
 
             // duplicate it
-            const duplicatedConversationIds = await workbenchService.duplicateConversationsAsync([
+            const duplicatedConversationIds = await workbenchService.exportThenImportConversationAsync([
                 redemption.conversationId,
             ]);
 

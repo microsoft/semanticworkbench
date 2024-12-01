@@ -25,6 +25,18 @@ export const conversationApi = workbenchApi.injectEndpoints({
             invalidatesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToConversation(response),
         }),
+        duplicateConversation: builder.mutation<
+            { conversationIds: string[]; assistantIds: string[] },
+            Pick<Conversation, 'id' | 'title' | 'metadata'>
+        >({
+            query: (body) => ({
+                url: `/conversations/${body.id}`,
+                method: 'POST',
+                body: transformConversationForRequest(body),
+            }),
+            invalidatesTags: ['Conversation'],
+            transformResponse: (response: any) => transformResponseToImportResult(response),
+        }),
         updateConversation: builder.mutation<Conversation, Pick<Conversation, 'id' | 'title' | 'metadata'>>({
             query: (body) => ({
                 url: `/conversations/${body.id}`,
@@ -163,6 +175,7 @@ export const updateGetConversationMessagesQueryData = (conversationId: string, d
 
 export const {
     useCreateConversationMutation,
+    useDuplicateConversationMutation,
     useUpdateConversationMutation,
     useGetConversationsQuery,
     useGetAssistantConversationsQuery,
@@ -200,6 +213,17 @@ const transformResponseToConversation = (response: any): Conversation => {
         };
     } catch (error) {
         throw new Error(`Failed to transform conversation response: ${error}`);
+    }
+};
+
+const transformResponseToImportResult = (response: any): { conversationIds: string[]; assistantIds: string[] } => {
+    try {
+        return {
+            conversationIds: response.conversation_ids,
+            assistantIds: response.assistant_ids,
+        };
+    } catch (error) {
+        throw new Error(`Failed to transform import result response: ${error}`);
     }
 };
 

@@ -27,7 +27,7 @@ export const AssistantDuplicate: React.FC<AssistantDuplicateProps> = (props) => 
         setSubmitted(true);
 
         try {
-            const newAssistantId = await workbenchService.duplicateAssistantAsync(assistant.id);
+            const newAssistantId = await workbenchService.exportThenImportAssistantAsync(assistant.id);
             onDuplicate?.(newAssistantId);
         } catch (error) {
             onDuplicateError?.(error as Error);

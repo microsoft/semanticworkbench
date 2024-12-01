@@ -873,21 +873,61 @@ class AssistantController:
                 .where(db.ConversationMessage.conversation_id == conversation_id)
                 .order_by(col(db.ConversationMessage.sequence))
             )
+            message_id_old_to_new = {}
             for message in messages:
+                new_message_id = uuid.uuid4()
+                message_id_old_to_new[message.message_id] = new_message_id
                 new_message = db.ConversationMessage(
                     # Do not set 'sequence'; let the database assign it
-                    message_id=uuid.uuid4(),  # Generate a new unique message ID
+                    **message.model_dump(exclude={"message_id", "conversation_id", "sequence"}),
+                    message_id=new_message_id,
                     conversation_id=conversation.conversation_id,
-                    created_datetime=message.created_datetime,
-                    sender_participant_id=message.sender_participant_id,
-                    sender_participant_role=message.sender_participant_role,
-                    message_type=message.message_type,
-                    content=message.content,
-                    content_type=message.content_type,
-                    meta_data=message.meta_data.copy(),
-                    filenames=message.filenames.copy(),
                 )
                 session.add(new_message)
+
+            # Copy message debug data from the original conversation
+            for old_message_id, new_message_id in message_id_old_to_new.items():
+                message_debugs = await session.exec(
+                    select(db.ConversationMessageDebug).where(db.ConversationMessageDebug.message_id == old_message_id)
+                )
+                for debug in message_debugs:
+                    new_debug = db.ConversationMessageDebug(
+                        **debug.model_dump(exclude={"message_id"}),
+                        message_id=new_message_id,
+                    )
+                    session.add(new_debug)
+
+            # Copy File entries associated with the conversation
+            files = await session.exec(
+                select(db.File)
+                .where(db.File.conversation_id == original_conversation.conversation_id)
+                .order_by(col(db.File.created_datetime).asc())
+            )
+
+            file_id_old_to_new = {}
+            for file in files:
+                new_file_id = uuid.uuid4()
+                file_id_old_to_new[file.file_id] = new_file_id
+                new_file = db.File(
+                    **file.model_dump(exclude={"file_id", "conversation_id"}),
+                    file_id=new_file_id,
+                    conversation_id=conversation.conversation_id,
+                )
+                session.add(new_file)
+
+            # Copy FileVersion entries associated with the files
+            for old_file_id, new_file_id in file_id_old_to_new.items():
+                file_versions = await session.exec(
+                    select(db.FileVersion)
+                    .where(db.FileVersion.file_id == old_file_id)
+                    .order_by(col(db.FileVersion.version).asc())
+                )
+                for version in file_versions:
+                    new_version = db.FileVersion(
+                        **version.model_dump(exclude={"file_id"}),
+                        file_id=new_file_id,
+                    )
+                    session.add(new_version)
 
             # Copy files associated with the conversation
             original_files_path = self._file_storage.path_for(
