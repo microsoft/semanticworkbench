@@ -53,8 +53,12 @@
     "uv.lock"
   ],
   "cSpell.words": [
+    "addopts",
+    "asctime",
+    "asyncio",
     "dotenv",
     "httpx",
+    "levelname",
     "metadrive",
     "openai",
     "pydantic",
@@ -63,6 +67,7 @@
     "pytest",
     "runtimes",
     "subdrive",
+    "testpaths",
     "tiktoken"
   ],
   "python.testing.pytestArgs": ["skill_library"],

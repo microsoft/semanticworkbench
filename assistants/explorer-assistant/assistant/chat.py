@@ -123,12 +123,8 @@ async def on_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
-    # ignore messages that are directed at a participant other than this assistant
-    if message.metadata.get("directed_at") and message.metadata["directed_at"] != context.assistant.id:
-        return
-
-    # ignore messages that @mention a participant other than this assistant
-    if message.metadata.get("mentions") and context.assistant.id not in message.metadata["mentions"]:
+    # check if the assistant should respond to the message
+    if not await should_respond_to_message(context, message):
         return
 
     # update the participant status to indicate the assistant is thinking
@@ -155,6 +151,59 @@ async def on_message_created(
                     metadata=metadata,
                 )
             )
+
+
+async def should_respond_to_message(context: ConversationContext, message: ConversationMessage) -> bool:
+    """
+    Determine if the assistant should respond to the message.
+
+    This method can be used to implement custom logic to determine if the assistant should respond to a message.
+    By default, the assistant will respond to all messages.
+
+    Args:
+        context: The conversation context.
+        message: The message to evaluate.
+
+    Returns:
+        bool: True if the assistant should respond to the message; otherwise, False.
+    """
+    config = await assistant_config.get(context.assistant)
+
+    # ignore messages that are directed at a participant other than this assistant
+    if message.metadata.get("directed_at") and message.metadata["directed_at"] != context.assistant.id:
+        return False
+
+    # if configure to only respond to mentions, ignore messages where the content does not mention the assistant somewhere in the message
+    if config.only_respond_to_mentions and f"@{context.assistant.name}" not in message.content:
+        # check to see if there are any other assistants in the conversation
+        participant_list = await context.get_participants()
+        other_assistants = [
+            participant
+            for participant in participant_list.participants
+            if participant.role == "assistant" and participant.id != context.assistant.id
+        ]
+        if len(other_assistants) == 0:
+            # no other assistants in the conversation, check the last 10 notices to see if the assistant has warned the user
+            assistant_messages = await context.get_messages(
+                participant_ids=[context.assistant.id], message_types=[MessageType.notice], limit=10
+            )
+            at_mention_warning_key = "at_mention_warning"
+            if len(assistant_messages.messages) == 0 or all(
+                at_mention_warning_key not in message.metadata for message in assistant_messages.messages
+            ):
+                # assistant has not been mentioned in the last 10 messages, send a warning message in case the user is not aware
+                # that the assistant needs to be mentioned to receive a response
+                await context.send_messages(
+                    NewConversationMessage(
+                        content=f"{context.assistant.name} is configured to only respond to messages that @mention it. Please @mention the assistant in your message to receive a response.",
+                        message_type=MessageType.notice,
+                        metadata={at_mention_warning_key: True},
+                    )
+                )
+
+        return False
+
+    return True
 
 
 @assistant.events.conversation.on_created
