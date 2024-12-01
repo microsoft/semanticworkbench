@@ -127,6 +127,8 @@ class OpenAIResponseProvider(ResponseProvider):
                         max_completion_tokens=self.request_config.response_tokens,
                     )
 
+                    response_result.content = completion.choices[0].message.content
+
                 elif self.assistant_config.extensions_config.artifacts.enabled:
                     response = await self.artifacts_extension.get_openai_completion_response(
                         client,
