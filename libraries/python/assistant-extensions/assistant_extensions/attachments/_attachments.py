@@ -18,7 +18,7 @@ from semantic_workbench_assistant.assistant_app import (
     storage_directory_for_context,
 )
 
-from ..clients.model import CompletionMessage, CompletionMessageImageContent, CompletionMessageTextContent
+from ..ai_clients.model import CompletionMessage, CompletionMessageImageContent, CompletionMessageTextContent
 from . import _convert as convert
 from ._model import Attachment, AttachmentsConfigModel
 

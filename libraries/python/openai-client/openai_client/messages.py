@@ -1,6 +1,6 @@
 from typing import Any, Callable, Iterable, Literal, Optional
 
-from assistant_extensions.clients.model import (
+from assistant_extensions.ai_clients.model import (
     CompletionMessage,
     CompletionMessageImageContent,
     CompletionMessageTextContent,

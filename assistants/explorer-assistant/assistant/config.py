@@ -1,8 +1,8 @@
 from typing import Annotated
 
+from assistant_extensions.ai_clients.config import AIClientConfig
 from assistant_extensions.artifacts import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
-from assistant_extensions.clients.config import AIClientConfig
 from assistant_extensions.workflows import WorkflowsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, Field
