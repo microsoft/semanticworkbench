@@ -145,6 +145,14 @@
       "italic": false
     }
   ],
+  // For use with optional extension: "streetsidesoftware.code-spell-checker"
+  "cSpell.ignorePaths": [
+    ".venv",
+    "node_modules",
+    "package-lock.json",
+    "settings.json",
+    "uv.lock"
+  ],
   "cSpell.words": [
     "abcjs",
     "activedescendant",

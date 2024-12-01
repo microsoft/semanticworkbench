@@ -1,13 +1,9 @@
 import json
-from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Optional, Type, Union
+from typing import Annotated, Any, Dict, List, Optional, Type, Union
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field, create_model
 from semantic_workbench_assistant.config import UISchema
-
-if TYPE_CHECKING:
-    pass
-
 
 #
 # region Helpers

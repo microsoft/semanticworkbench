@@ -72,6 +72,9 @@ def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> 
                     )
         elif isinstance(value, str):
             num_tokens += len(encoding.encode(value))
+        elif value is None:
+            # Null values do not consume tokens
+            pass
         else:
             raise ValueError(f"Could not encode unsupported message value type: {type(value)}")
         if key == "name":

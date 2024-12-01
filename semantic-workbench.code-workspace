@@ -68,6 +68,10 @@
       "path": "assistants/skill-assistant"
     },
     {
+      "name": "libraries:anthropic-client",
+      "path": "libraries/python/anthropic-client"
+    },
+    {
       "name": "libraries:assistant-drive",
       "path": "libraries/python/assistant-drive"
     },
@@ -93,7 +97,7 @@
     },
     {
       "name": "libraries:openai-client",
-      "path": "./libraries/python/openai-client"
+      "path": "libraries/python/openai-client"
     },
     {
       "name": "libraries:semantic-workbench-api-model",

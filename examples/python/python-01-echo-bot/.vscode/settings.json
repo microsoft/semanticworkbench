@@ -41,6 +41,13 @@
     "**/.data": true,
     "**/__pycache__": true
   },
+  "cSpell.ignorePaths": [
+    ".venv",
+    "node_modules",
+    "package-lock.json",
+    "settings.json",
+    "uv.lock"
+  ],
   "cSpell.words": [
     "Codespaces",
     "deepmerge",

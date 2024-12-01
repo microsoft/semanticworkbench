@@ -10,7 +10,11 @@ authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "anthropic>=0.40.0",
+    "anthropic-client>=0.1.0",
+    "assistant-drive>=0.1.0",
     "openai>=1.51.2",
+    "openai-client>=0.1.0",
     "requests-sse>=0.3.2",
     "semantic-workbench-assistant>=0.1.0",
 ]
@@ -27,8 +31,10 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
+anthropic-client = { path = "../anthropic-client", editable = true }
 assistant-drive = { path = "../assistant-drive", editable = true }
+openai-client = { path = "../openai-client", editable = true }
+semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "fixture"
