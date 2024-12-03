@@ -23,7 +23,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext, stor
 
 from ..config import AssistantConfigModel
 from .document.config import GuidedConversationConfigModel
-from .document.gc_attachment_check_config import GCAttachmentCheckConfigModel
 from .document.gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
 from .document.guided_conversation import GuidedConversation
 from .document.status import Status, StepName
@@ -556,7 +555,6 @@ class DocumentAgent:
         if mode_status is Status.INITIATED:
             self._state.mode.set_step_order(
                 [
-                    {"step_name": StepName.DO_GC_ATTACHMENT_CHECK, "run_count": 0},
                     {"step_name": StepName.DO_DRAFT_OUTLINE, "run_count": 0},
                     {"step_name": StepName.DO_GC_GET_OUTLINE_FEEDBACK, "run_count": 0},
                     {"step_name": StepName.DO_FINISH, "run_count": 0},
@@ -572,7 +570,6 @@ class DocumentAgent:
             self._write_state(context)
 
         self._step_name_to_method: dict[StepName, Callable] = {
-            StepName.DO_GC_ATTACHMENT_CHECK: self._step_gc_attachment_check,
             StepName.DO_DRAFT_OUTLINE: self._step_draft_outline,
             StepName.DO_GC_GET_OUTLINE_FEEDBACK: self._step_gc_get_outline_feedback,
             StepName.DO_FINISH: self._step_finish,
@@ -614,7 +611,6 @@ class DocumentAgent:
         if mode_status is Status.INITIATED:
             self._state.mode.set_step_order(
                 [
-                    {"step_name": StepName.DO_GC_ATTACHMENT_CHECK, "run_count": 0},
                     {"step_name": StepName.DO_DRAFT_OUTLINE, "run_count": 0},
                     {"step_name": StepName.DO_GC_GET_OUTLINE_FEEDBACK, "run_count": 0},
                     {"step_name": StepName.DP_DRAFT_CONTENT, "run_count": 0},
@@ -630,7 +626,6 @@ class DocumentAgent:
             self._write_state(context)
 
         self._step_name_to_method: dict[StepName, Callable] = {
-            StepName.DO_GC_ATTACHMENT_CHECK: self._step_gc_attachment_check,
             StepName.DO_DRAFT_OUTLINE: self._step_draft_outline,
             StepName.DO_GC_GET_OUTLINE_FEEDBACK: self._step_gc_get_outline_feedback,
             StepName.DP_DRAFT_CONTENT: self._step_draft_content,
@@ -638,47 +633,6 @@ class DocumentAgent:
 
         # Run
         return await self._run_mode(config, context, message, metadata)
-
-    async def _step_gc_attachment_check(
-        self,
-        config: AssistantConfigModel,
-        context: ConversationContext,
-        message: ConversationMessage | None,
-        metadata: dict[str, Any] = {},
-    ) -> tuple[Status, StepName | None]:
-        next_step = None
-
-        # Pre-requisites
-        if self._state is None:
-            logger.error("Document Agent state is None. Returning.")
-            return Status.UNDEFINED, next_step
-
-        step = self._state.mode.get_step()
-        step_name = step.get_name()
-        step_status = step.get_status()
-
-        # Pre-requisites
-        step_called = StepName.DO_GC_ATTACHMENT_CHECK
-        if step_name is not step_called or (
-            step_status is not Status.NOT_COMPLETED and step_status is not Status.INITIATED
-        ):
-            logger.error(
-                "Document Agent state step: %s, step called: %s, state step completion status: %s. Resetting Mode.",
-                step_name,
-                step_called,
-                step_status,
-            )
-            self._state.mode.reset()
-            self._write_state(context)
-            return self._state.mode.get_status(), next_step
-
-        # Run
-        logger.info("Document Agent running step: %s", step_name)
-        status, next_step_name = await self._gc_attachment_check(config, context, message, metadata)
-        step.set_status(status)
-        self._state.mode.set_step(step)
-        self._write_state(context)
-        return step.get_status(), next_step_name
 
     async def _step_draft_outline(
         self,
@@ -823,85 +777,6 @@ class DocumentAgent:
     #
     # region language model methods
     #
-
-    async def _gc_attachment_check(
-        self,
-        config: AssistantConfigModel,
-        context: ConversationContext,
-        message: ConversationMessage | None,
-        metadata: dict[str, Any] = {},
-    ) -> tuple[Status, StepName | None]:
-        method_metadata_key = "document_agent_gc_attachment_check"
-
-        gc_attachment_conversation_config: GuidedConversationConfigModel = GCAttachmentCheckConfigModel()
-
-        guided_conversation = GuidedConversation(
-            config=config,
-            openai_client=openai_client.create_client(config.service_config),
-            agent_config=gc_attachment_conversation_config,
-            conversation_context=context,
-        )
-
-        # update artifact
-        filenames = await self._attachments_extension.get_attachment_filenames(context)
-        filenames_str = ", ".join(filenames)
-
-        artifact_dict = guided_conversation.get_artifact_dict()
-        if artifact_dict is not None:
-            artifact_dict["filenames"] = filenames_str
-            guided_conversation.set_artifact_dict(artifact_dict)
-        else:
-            logger.error("artifact_dict unavailable.")
-
-        conversation_status = Status.UNDEFINED
-        next_step_name = None
-        # run guided conversation step
-        try:
-            if message is None:
-                user_message = None
-            else:
-                user_message = message.content
-            response_message, conversation_status, next_step_name = await guided_conversation.step_conversation(
-                last_user_message=user_message,
-            )
-
-            # add the completion to the metadata for debugging
-            deepmerge.always_merger.merge(
-                metadata,
-                {
-                    "debug": {
-                        f"{method_metadata_key}": {"response": response_message},
-                    }
-                },
-            )
-
-        except Exception as e:
-            logger.exception(f"exception occurred processing guided conversation: {e}")
-            response_message = "An error occurred while processing the guided conversation."
-            deepmerge.always_merger.merge(
-                metadata,
-                {
-                    "debug": {
-                        f"{method_metadata_key}": {
-                            "error": str(e),
-                        },
-                    }
-                },
-            )
-
-        await context.send_messages(
-            NewConversationMessage(
-                content=response_message,
-                message_type=MessageType.chat,
-                metadata=metadata,
-            )
-        )
-
-        # Need to add a good way to stop mode if an exception occurs.
-        # Also need to update the gc state turn count to 0 (and any thing else that needs to be reset) once conversation is over... or exception occurs?)
-
-        return conversation_status, next_step_name
-
     async def _draft_outline(
         self,
         config: AssistantConfigModel,
