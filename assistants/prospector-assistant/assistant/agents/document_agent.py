@@ -941,6 +941,13 @@ class DocumentAgent:
                 user_message = None
             else:
                 user_message = message.content
+
+                # if any files attached with message, include in user_message for GC knowledge:
+                if len(message.filenames) != 0:
+                    user_message = user_message + " Newly attached files: "
+                    filenames = ", ".join(message.filenames)
+                    user_message = user_message + filenames
+
             response_message, conversation_status, next_step_name = await guided_conversation.step_conversation(
                 last_user_message=user_message,
             )
