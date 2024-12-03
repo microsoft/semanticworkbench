@@ -65,7 +65,7 @@ specifically asks for it from you.
 a. At any time, if the user asks for a change to the outline, the conversation_status must be
 marked as user_completed. The user_decision must be marked as update_outline. The final_response
 must inform the user that a new outline is being generated based off the request.
-b. At any time, if the user has provided new attachments (detected via the filenames in the artifact),
+b. At any time, if the user has provided new attachments (detected via `Newly attached files:` in the user message),
 the conversation_status must be marked as user_completed. The user_decision must be marked as
 update_outline. The final_response must inform the user that a new outline is being generated based
 on the addition of new attachments.
