@@ -11,7 +11,6 @@ class Status(StrEnum):
 
 class StepName(StrEnum):
     UNDEFINED = "undefined"
-    DO_GC_ATTACHMENT_CHECK = "step_gc_attachment_check"
     DO_DRAFT_OUTLINE = "step_draft_outline"
     DO_GC_GET_OUTLINE_FEEDBACK = "step_gc_get_outline_feedback"
     DO_FINISH = "step_finish"
