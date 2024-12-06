@@ -32,7 +32,7 @@ public static class UvAppHostingExtensions
 
         string wd = projectDirectory ?? Path.Combine("..", name);
 
-        projectDirectory = PathNormalizer.NormalizePathForCurrentPlatform(Path.Combine(builder.AppHostDirectory, wd));
+        projectDirectory = Path.Combine(builder.AppHostDirectory, wd).NormalizePathForCurrentPlatform();
 
         var virtualEnvironment = new VirtualEnvironment(Path.IsPathRooted(virtualEnvironmentPath)
             ? virtualEnvironmentPath

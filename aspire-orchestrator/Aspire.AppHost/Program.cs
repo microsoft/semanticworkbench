@@ -1,116 +1,117 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-var builder = DistributedApplication.CreateBuilder(args);
+using Aspire.Hosting.Extensions;
+using Projects;
 
-var authority = builder.AddParameterFromConfiguration("authority", "EntraId:Authority");
-var clientId = builder.AddParameterFromConfiguration("clientId", "EntraId:ClientId");
-
-// Workbench backend
-var workbenchBackend = AddWorkbenchBackend();
-var workbenchEndpoint = workbenchBackend.GetSemanticWorkbenchEndpoint(builder.ExecutionContext.IsPublishMode);
-
-// Workbench frontend
-var workbenchApp = AddWorkbenchFrontend(workbenchEndpoint);
-
-switch (builder.ExecutionContext)
+internal static class Program
 {
-    // When publishing to Azure
-    case { IsPublishMode: true }:
-        AddPythonSkillAssistant(workbenchEndpoint);
-        AddDotnetAgent3(workbenchEndpoint);
-        break;
+    public static void Main(string[] args)
+    {
+        var builder = DistributedApplication.CreateBuilder(args);
 
-    // When running locally
-    case { IsPublishMode: false }:
-        workbenchApp.WithHttpsEndpoint(env: "PORT");
+        builder
+            .AddSemanticWorkbench(out IResourceBuilder<ExecutableResource> workbenchBackend, out EndpointReference workbenchEndpoint)
+            .AddPythonAssistant("skill-assistant", workbenchEndpoint)
+            .AddDotnetExample<dotnet_03_simple_chatbot>("simple-chatbot-dotnet", workbenchBackend, workbenchEndpoint);
 
-        AddPythonSkillAssistant(workbenchEndpoint);
-        // AddPythonMultiModelChatbot(workbenchEndpoint);
-        AddDotnetAgent1(workbenchEndpoint);
-        AddDotnetAgent2(workbenchEndpoint);
-        AddDotnetAgent3(workbenchEndpoint);
-        break;
+        // When running locally
+        if (!builder.ExecutionContext.IsPublishMode)
+        {
+            builder
+                .AddPythonExample("python-01-echo-bot", workbenchEndpoint)
+                .AddPythonExample("python-02-simple-chatbot", workbenchEndpoint)
+                .AddPythonExample("python-03-multimodel-chatbot", workbenchEndpoint)
+                .AddPythonAssistant("explorer-assistant", workbenchEndpoint)
+                .AddPythonAssistant("guided-conversation-assistant", workbenchEndpoint)
+                .AddPythonAssistant("prospector-assistant", workbenchEndpoint)
+                .AddDotnetExample<dotnet_01_echo_bot>("echo-bot-dotnet", workbenchBackend, workbenchEndpoint)
+                .AddDotnetExample<dotnet_02_message_types_demo>("sw-tutorial-bot-dotnet", workbenchBackend, workbenchEndpoint);
+        }
+
+        builder
+            .ShowDashboardUrl(true)
+            .LaunchDashboard(delay: 5000)
+            .Build()
+            .Run();
+    }
+
+    /// <summary>
+    /// Add the workbench frontend and backend components
+    /// </summary>
+    private static IDistributedApplicationBuilder AddSemanticWorkbench(this IDistributedApplicationBuilder builder,
+        out IResourceBuilder<ExecutableResource> workbenchBackend, out EndpointReference workbenchServiceEndpoint)
+    {
+        var authority = builder.AddParameterFromConfiguration("authority", "EntraId:Authority");
+        var clientId = builder.AddParameterFromConfiguration("clientId", "EntraId:ClientId");
+
+        // Workbench backend
+        workbenchBackend = builder.AddWorkbenchService(
+            name: "workbenchservice",
+            projectDirectory: Path.Combine("..", "..", "workbench-service"),
+            clientId: clientId);
+
+        workbenchServiceEndpoint = workbenchBackend.GetSemanticWorkbenchEndpoint(builder.ExecutionContext.IsPublishMode);
+
+        // Workbench frontend
+        var workbenchApp = builder.AddViteApp(
+                name: "workbenchapp",
+                workingDirectory: Path.Combine("..", "..", "workbench-app"),
+                packageManager: "pnpm")
+            .WithPnpmPackageInstallation()
+            .WithEnvironment(name: "VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint)
+            .WaitFor(workbenchBackend)
+            .PublishAsDockerFile([
+                new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", clientId.Resource.Value),
+                new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_AUTHORITY", authority.Resource.Value),
+            ]);
+
+        // When running locally
+        if (!builder.ExecutionContext.IsPublishMode)
+        {
+            workbenchApp.WithHttpsEndpoint(env: "PORT");
+        }
+
+        return builder;
+    }
+
+    private static IDistributedApplicationBuilder AddPythonAssistant(this IDistributedApplicationBuilder builder,
+        string name, EndpointReference workbenchServiceEndpoint)
+    {
+        builder
+            .AddAssistantUvPythonApp(
+                name: name,
+                projectDirectory: Path.Combine("..", "..", "assistants", name),
+                assistantModuleName: name)
+            .WithEnvironment(name: "assistant__workbench_service_url", workbenchServiceEndpoint);
+
+        return builder;
+    }
+
+    private static IDistributedApplicationBuilder AddPythonExample(this IDistributedApplicationBuilder builder,
+        string name, EndpointReference workbenchServiceEndpoint)
+    {
+        builder
+            .AddAssistantUvPythonApp(
+                name: name,
+                projectDirectory: Path.Combine("..", "..", "examples", "python", name),
+                assistantModuleName: "assistant")
+            .WithEnvironment(name: "assistant__workbench_service_url", workbenchServiceEndpoint);
+
+        return builder;
+    }
+
+    // .NET Agent Example 1
+    private static IDistributedApplicationBuilder AddDotnetExample<T>(this IDistributedApplicationBuilder builder,
+        string name, IResourceBuilder<ExecutableResource> workbenchBackend, EndpointReference workbenchServiceEndpoint) where T : IProjectMetadata, new()
+    {
+        var agent = builder
+            .AddProject<T>(name: name)
+            .WithHttpEndpoint()
+            .WaitFor(workbenchBackend)
+            .WithEnvironment(name: "Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
+
+        agent.WithEnvironment("Workbench__ConnectorHost", $"{agent.GetEndpoint("http")}");
+
+        return builder;
+    }
 }
-
-builder.Build().Run();
-
-IResourceBuilder<ExecutableResource> AddWorkbenchBackend()
-{
-    return builder.AddWorkbenchService(
-        name: "workbenchservice",
-        projectDirectory: Path.Combine("..", "..", "workbench-service"),
-        clientId: clientId);
-}
-
-IResourceBuilder<NodeAppResource> AddWorkbenchFrontend(EndpointReference workbenchServiceEndpoint)
-{
-    return builder.AddViteApp(
-            name: "workbenchapp",
-            workingDirectory: Path.Combine("..", "..", "workbench-app"),
-            packageManager: "pnpm")
-        .WithPnpmPackageInstallation()
-        .WithEnvironment(name: "VITE_SEMANTIC_WORKBENCH_SERVICE_URL", workbenchServiceEndpoint)
-        .WaitFor(workbenchBackend)
-        .PublishAsDockerFile([
-            new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_CLIENT_ID", clientId.Resource.Value),
-            new DockerBuildArg("VITE_SEMANTIC_WORKBENCH_AUTHORITY", authority.Resource.Value),
-        ]);
-}
-
-// .NET Agent Example 1
-IResourceBuilder<ProjectResource> AddDotnetAgent1(EndpointReference workbenchServiceEndpoint)
-{
-    var agent = builder
-        .AddProject<Projects.dotnet_01_echo_bot>(name: "echo-bot-dotnet")
-        .WithHttpEndpoint()
-        .WaitFor(workbenchBackend)
-        .WithEnvironment(name: "Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
-
-    return agent.WithEnvironment("Workbench__ConnectorHost", $"{agent.GetEndpoint("http")}");
-}
-
-// .NET Agent Example 2
-IResourceBuilder<ProjectResource> AddDotnetAgent2(EndpointReference workbenchServiceEndpoint)
-{
-    var agent = builder
-        .AddProject<Projects.dotnet_02_message_types_demo>(name: "sw-tutorial-bot-dotnet")
-        .WithHttpEndpoint()
-        .WaitFor(workbenchBackend)
-        .WithEnvironment(name: "Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
-
-    return agent.WithEnvironment("Workbench__ConnectorHost", $"{agent.GetEndpoint("http")}");
-}
-
-// .NET Agent Example 3
-IResourceBuilder<ProjectResource> AddDotnetAgent3(EndpointReference workbenchServiceEndpoint)
-{
-    var agent = builder
-        .AddProject<Projects.dotnet_03_simple_chatbot>(name: "simple-chatbot-dotnet")
-        .WithHttpEndpoint()
-        .WaitFor(workbenchBackend)
-        .WithEnvironment(name: "Workbench__WorkbenchEndpoint", workbenchServiceEndpoint);
-
-    return agent.WithEnvironment("Workbench__ConnectorHost", $"{agent.GetEndpoint("http")}");
-}
-
-// Python Agent example: Skill Assistant
-IResourceBuilder<ExecutableResource> AddPythonSkillAssistant(EndpointReference workbenchServiceEndpoint)
-{
-    return builder
-        .AddAssistantApp(
-            name: "skill-assistant",
-            projectDirectory: Path.Combine("..", "..", "assistants", "skill-assistant"),
-            assistantModuleName: "skill-assistant")
-        .WithEnvironment(name: "assistant__workbench_service_url", workbenchServiceEndpoint);
-}
-
-// Python Agent example: Multi-model chatbot
-// IResourceBuilder<ExecutableResource> AddPythonMultiModelChatbot(EndpointReference workbenchServiceEndpoint)
-// {
-//     return builder
-//         .AddAssistantApp(
-//             name: "skill-assistant",
-//             projectDirectory: Path.Combine("..", "examples", "python", "python-03-multimodel-chatbot"),
-//             assistantModuleName: "assistant")
-//         .WithEnvironment(name: "assistant__workbench_service_url", workbenchServiceEndpoint);
-// }
