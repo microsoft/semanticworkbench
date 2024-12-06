@@ -22,7 +22,7 @@ public static class UvAppHostingExtensions
     private static IResourceBuilder<UvAppResource> AddUvApp(this IDistributedApplicationBuilder builder,
         string name,
         string scriptPath,
-        string projectDirectory,
+        string? projectDirectory,
         string virtualEnvironmentPath,
         params string[] args)
     {
@@ -32,7 +32,7 @@ public static class UvAppHostingExtensions
 
         string wd = projectDirectory ?? Path.Combine("..", name);
 
-        projectDirectory = PathNormalizer.NormalizePathForCurrentPlatform(Path.Combine(builder.AppHostDirectory, wd));
+        projectDirectory = Path.Combine(builder.AppHostDirectory, wd).NormalizePathForCurrentPlatform();
 
         var virtualEnvironment = new VirtualEnvironment(Path.IsPathRooted(virtualEnvironmentPath)
             ? virtualEnvironmentPath
@@ -43,8 +43,8 @@ public static class UvAppHostingExtensions
         // var projectExecutable = instrumentationExecutable ?? pythonExecutable;
 
         string[] allArgs = args is { Length: > 0 }
-            ? ["run", scriptPath, .. args]
-            : ["run", scriptPath];
+            ? ["run", "--frozen", scriptPath, .. args]
+            : ["run", "--frozen", scriptPath];
 
         var projectResource = new UvAppResource(name, projectDirectory);
 
