@@ -16,12 +16,21 @@ App registration is a free service, but you may need to provide a credit card fo
 
 - Navigate to the [Azure portal > App registrations](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade)
   - Click on `New registration` and fill in the details
+    | ![image](https://github.com/user-attachments/assets/c9c8bb37-4ce5-40a9-a975-f0bf8fb08bbe) |
+    |:-:|
   - Name: `Semantic Workbench` (or any name you prefer)
   - Supported account types: `Accounts in any organizational directory and personal Microsoft accounts`
+    | ![image](https://github.com/user-attachments/assets/703f8611-369d-43cf-b9b9-199f1c1e0e03) |
+    |:-:|
   - Redirect URI: `Single-page application (SPA)` & `https://<YOUR_HOST>`
     - Example (if using [Codespaces](../.devcontainer/README.md)): `https://<YOUR_CODESPACE_HOST>-4000.app.github.dev`
+    - If you don't have a website deployed yet, enter `https://localhost:5001`, you can configure this later.
+    - Note: the same Entra App can be reused for multiple websites, and multiple URLs can be added.
+      | ![Image](https://github.com/user-attachments/assets/e709ee12-a3ef-4be3-9f2d-46d33c929f42) |
+      |:-:|
   - Click on `Register`
-- View the `Overview` page for the newly registered app and copy the `Application (client) ID` for the next steps
+- View the `Overview` page for the newly registered app and copy the `Application (client) ID` for the next steps.
+- You can return to the list of your Entra apps from [here](https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/RegisteredApps).
 
 ## Update your app and service files with the new app registration details
 
