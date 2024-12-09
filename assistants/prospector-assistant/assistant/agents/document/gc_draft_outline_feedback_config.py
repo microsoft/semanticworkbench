@@ -8,6 +8,15 @@ from semantic_workbench_assistant.config import UISchema
 from ... import helpers
 from . import config_defaults as config_defaults
 from .config import GuidedConversationConfigModel, ResourceConstraintConfigModel
+from .guided_conversation import ConversationStatus, UserDecision
+
+
+class ArtifactModelAttributeNames(BaseModel):
+    final_response: str = "final_response"
+    conversation_status: str = "conversation_status"
+    user_decision: str = "user_decision"
+    filenames: str = "filenames"
+    current_outline: str = "current_outline"
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
@@ -18,12 +27,12 @@ class ArtifactModel(BaseModel):
         description="The final response from the agent to the user. You will update this field."
     )
     conversation_status: str = Field(
-        description="The status of the conversation. May be user_initiated, user_returned, or "
-        "user_completed. You are only allowed to update this field to user_completed, otherwise you will not update it."
+        description=f"The status of the conversation. May be {ConversationStatus.USER_INITIATED}, {ConversationStatus.USER_RETURNED}, or "
+        f"{ConversationStatus.USER_COMPLETED}. You are only allowed to update this field to {ConversationStatus.USER_COMPLETED}, otherwise you will NOT update it.",
     )
     user_decision: str = Field(
-        description="The decision of the user on what should happen next. May be update_outline or "
-        "draft_paper. You will update this field."
+        description=f"The decision of the user on what should happen next. May be {UserDecision.UPDATE_OUTLINE}, "
+        f"{UserDecision.DRAFT_PAPER}, or {UserDecision.EXIT_EARLY}. You will update this field."
     )
     filenames: str = Field(
         description="Names of the available files currently uploaded as attachments. Information "
