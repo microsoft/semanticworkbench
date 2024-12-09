@@ -1,149 +1,133 @@
 import json
-from typing import Any, Literal, Union, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, create_model
+# from datamodel_code_generator import DataModelType, PythonVersion
+# from datamodel_code_generator.format import DatetimeClassType
+# from datamodel_code_generator.model import get_data_model_types
+# from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+# from pydantic import BaseModel
+import jsonschema
+from pydantic import BaseModel
 
-from .logging import logger
-from .message import ConversationMessageType, Message
-
-UNANSWERED = "Unanswered"
-
-TUnanswered = Literal["Unanswered"]
+if TYPE_CHECKING:
+    pass
 
 
-def modify_model_fields_to_allow_unanswered(
-    model: type[BaseModel],
-) -> type[BaseModel]:
+from .logging import add_serializable_data, logger
+
+
+class UpdateAttempt(BaseModel):
+    field_value: str
+    error: str
+
+
+# UNANSWERED = "Unanswered"
+
+# TUnanswered = Literal["Unanswered"]
+
+
+# def get_artifact_from_schema_and_data(schema: dict[str, Any], data: dict[str, Any]) -> BaseModel:
+#     """
+#     Create a Pydantic model from a dict representing a JSON Schema and fill it with data.
+#     """
+#     model = get_model_from_schema(schema)
+#     return model(**data)
+
+
+# def get_model_from_schema(schema: dict[str, Any]) -> type[BaseModel]:
+#     """
+#     Create a Pydantic model from a dict representing a JSON Schema.
+#     """
+#     data_model_types = get_data_model_types(
+#         DataModelType.PydanticV2BaseModel,
+#         target_python_version=PythonVersion.PY_311,
+#         target_datetime_class=DatetimeClassType.Datetime,
+#     )
+
+#     parser = JsonSchemaParser(
+#         str(schema),
+#         data_model_type=data_model_types.data_model,
+#         data_model_root_type=data_model_types.root_model,
+#         data_model_field_type=data_model_types.field_model,
+#         data_type_manager_type=data_model_types.data_type_manager,
+#         dump_resolve_reference_action=data_model_types.dump_resolve_reference_action,
+#     )
+#     namespace = {}
+#     code = parser.parse()
+#     exec(code, namespace)
+
+
+#     className = schema.get("title", "Model")
+#     return namespace[className]
+
+
+def validate_artifact_data(
+    schema: dict[str, Any],
+    data: dict[str, Any],
+) -> dict[str, Any]:
     """
-    Create a new artifact model with 'Unanswered' as a default and valid
-    value for all fields.
+    Validate a dict representing a JSON Schema against a dict.
     """
-    field_definitions = {}
-    for name, field_info in model.model_fields.items():
-        annotation = Union[field_info.annotation, TUnanswered]
-        default = UNANSWERED
-
-        # Add UNANSWERED as a possible value to any regex patterns.
-        metadata = field_info.metadata
-        for m in metadata:
-            if hasattr(m, "pattern"):
-                m.pattern += f"|{UNANSWERED}"
-
-        field_definitions[name] = (annotation, default, *metadata)
-
-    return create_model(model.__name__, __base__=BaseModel, **field_definitions)
+    try:
+        jsonschema.validate(instance=data, schema=schema)
+    except jsonschema.ValidationError as e:
+        logger.error(f"Validation failed for data {data}.", add_serializable_data({"schema": schema}))
+        raise e
+    return data
 
 
-def is_pydantic_model(type_hint):
-    """Check if a type hint refers to a subclass of Pydantic's BaseModel."""
-    # Handle generic types like list[str]
-    origin = get_origin(type_hint)
-    if origin is not None:
-        # If it's a generic type, its origin might not be BaseModel
-        return issubclass(origin, BaseModel) if isinstance(origin, type) else False
-
-    # Handle non-generic types
-    return isinstance(type_hint, type) and issubclass(type_hint, BaseModel)
+class InvalidArtifactFieldError(Exception):
+    pass
 
 
-def make_modified_pydantic_field_classes(artifact_class: type[BaseModel]) -> dict[str, type[BaseModel]]:
+def validate_field_presence_in_schema(
+    schema: dict[str, Any],
+    field_name: str,
+) -> None:
     """
-    Find all pydantic basemodel classes used as type hints in the first level of
-    fields of the artifact, and capture modified versions of them that set
-    'Unanswered' as a default and valid value for all their fields.
+    Validate the presence of a field in the schema.
     """
-    modified_classes = {}
-    # Find any instances of BaseModel in the artifact class in the first "level" of type hints.
-    for field_name, field_type in get_type_hints(artifact_class).items():
-        if is_pydantic_model(field_type):
-            modified_classes[field_name] = modify_model_fields_to_allow_unanswered(field_type)
-
-    return modified_classes
+    if field_name not in schema.get("properties", {}):
+        logger.warning(f"Field {field_name} not found in the schema.", add_serializable_data({"schema": schema}))
+        raise InvalidArtifactFieldError(f"Field {field_name} not found in the schema.")
 
 
-def replace_type_annotations(field_annotation: type[Any] | None, replacements: dict[str, type[BaseModel]]) -> type:
+def validate_field_value(
+    schema: dict[str, Any],
+    field_name: str,
+    field_value: Any,
+) -> Any:
     """
-    Recursively replace type annotations with replacement type args where
-    applicable.
+    Validate a field value against a JSON schema.
     """
-    if not replacements:
-        return field_annotation or object
-
-    # Get the origin of the field annotation, which is the base type for
-    # generic types (e.g., List[str] -> list, Dict[str, int] -> dict, int -> None)
-    origin = get_origin(field_annotation)
-
-    # Get the type arguments of the generic type (e.g., List[str] -> str,
-    # Dict[str, int] -> str, int)
-    args = get_args(field_annotation)
-
-    if origin:
-        # The base type is generic; recursively replace the type annotations of the arguments
-        new_args = tuple(replace_type_annotations(arg, replacements) for arg in args)
-        return origin[new_args]
-
-    # Check if the field annotation is a subclass that needs to be replaced.
-    # We only replace the annotation if it is a pydantic BaseModel.
-    if isinstance(field_annotation, type) and issubclass(field_annotation, BaseModel):
-        return replacements.get(field_annotation.__name__, field_annotation)
-
-    return field_annotation or object
+    # TODO: This may not handle optionals.
+    schema = {**schema}
+    if "required" in schema:
+        del schema["required"]
+    try:
+        jsonschema.validate(instance={field_name: field_value}, schema=schema)
+    except jsonschema.ValidationError as e:
+        logger.error(f"Validation failed for field {field_name} with value {field_value}.")
+        raise e
+    return field_value
 
 
-def artifact_from_schema(schema: type[BaseModel]) -> type[BaseModel]:
+def get_field_schema_string(
+    artifact_schema: dict[str, Any],
+    field_name: str,
+) -> str:
     """
-    Create a new artifact model with 'Unanswered' as a default and valid
-    value for all fields.
+    Get the schema for a field in the artifact schema.
     """
+    field_schema = {**artifact_schema["properties"][field_name]}
+    if "description" in field_schema:
+        del field_schema["description"]
+    if "default" in field_schema:
+        del field_schema["default"]
+    if "title" in field_schema:
+        del field_schema["title"]
 
-    # Make modified versions of all pydantic classes used as type hints in the
-    # artifact class. This is necessary because we need to set 'Unanswered' as a
-    # default and valid value for all these subfields, too.
-    modified_classes = make_modified_pydantic_field_classes(schema)
-
-    field_definitions = {}
-    for name, field_info in schema.model_fields.items():
-        # Replace all references to the original pydantic classes with modified versions.
-        field_info.annotation = replace_type_annotations(field_info.annotation, modified_classes)
-
-        # Modify field definition to allow unanswered fields.
-        annotation = Union[field_info.annotation, TUnanswered]
-        default = UNANSWERED
-        metadata = field_info.metadata
-        for m in metadata:
-            if hasattr(m, "pattern"):
-                m.pattern += f"|{UNANSWERED}"
-
-        # Update the field definition.
-        field_definitions[name] = (annotation, default, *metadata)
-
-    return create_model("Artifact", __base__=BaseModel, **field_definitions)
-
-
-def get_artifact_for_prompt(artifact: BaseModel | None, failed_fields: list[str] = []) -> str:
-    """
-    Returns a formatted JSON-like representation of the current state of the
-    artifact. Any fields that were failed are completely omitted.
-    """
-    if not artifact:
-        return "{}"
-    return json.dumps({k: v for k, v in artifact.model_dump().items() if k not in failed_fields})
-
-
-def is_valid_field(artifact: BaseModel, field_name: str) -> tuple[bool, Message | None]:
-    """
-    Check if the field_name is a valid field in the artifact. Returns True
-    if it is, False and an error message otherwise.
-    """
-    if field_name not in artifact.model_fields:
-        error_message = f'Field "{field_name}" is not a valid field in the artifact.'
-        msg = Message(
-            param={"role": "assistant", "content": error_message},
-            type=ConversationMessageType.ARTIFACT_UPDATE,
-            turn=None,
-        )
-        return False, msg
-    return True, None
+    return json.dumps(field_schema)
 
 
 def get_schema_for_prompt(
@@ -223,3 +207,13 @@ def get_schema_for_prompt(
         )
     else:
         return properties
+
+
+def get_artifact_for_prompt(artifact: dict[str, Any] | None, failed_fields: list[str] = []) -> str:
+    """
+    Returns a formatted JSON-like representation of the current state of the
+    artifact. Any fields that were failed are completely omitted.
+    """
+    if not artifact:
+        return "{}"
+    return json.dumps({k: v for k, v in artifact if k not in failed_fields})

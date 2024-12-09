@@ -24,8 +24,9 @@ from openai_client import (
     make_completion_args_serializable,
     validate_completion,
 )
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from skill_library.types import LanguageModel
+from traitlets import Any
 
 from .fix_agenda_error import fix_agenda_error
 
@@ -108,7 +109,7 @@ async def generate_agenda(
     definition: GCDefinition,
     chat_history: Conversation,
     current_agenda: Agenda,
-    artifact: BaseModel | None,
+    artifact: dict[str, Any],
     resource: GCResource,
     max_retries: int = 2,
 ) -> tuple[Agenda, bool]:

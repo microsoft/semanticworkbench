@@ -1,29 +1,28 @@
 from textwrap import dedent
 
-from form_filler_skill.guided_conversation import UNANSWERED, TUnanswered
+from pydantic import BaseModel, Field
+
 from form_filler_skill.guided_conversation.definition import GCDefinition
 from form_filler_skill.guided_conversation.resources import (
     ResourceConstraint,
     ResourceConstraintMode,
     ResourceConstraintUnit,
 )
-from pydantic import BaseModel, Field
 
 
 class Artifact(BaseModel):
-    student_poem: str | TUnanswered = Field(description="The acrostic poem written by the student.", default=UNANSWERED)
-    initial_feedback: str | TUnanswered = Field(
-        description="Feedback on the student's final revised poem.", default=UNANSWERED
+    student_poem: str = Field(description="The acrostic poem written by the student.")
+    initial_feedback: str = Field(
+        description="Feedback on the student's final revised poem.",
     )
-    final_feedback: str | TUnanswered = Field(
-        description="Feedback on how the student was able to improve their poem.", default=UNANSWERED
+    final_feedback: str = Field(
+        description="Feedback on how the student was able to improve their poem.",
     )
-    inappropriate_behavior: list[str] | TUnanswered = Field(
+    inappropriate_behavior: list[str] = Field(
         description=dedent("""
                 List any inappropriate behavior the student attempted while chatting with you.
                 It is ok to leave this field Unanswered if there was none.
             """),
-        default=UNANSWERED,
     )
 
 

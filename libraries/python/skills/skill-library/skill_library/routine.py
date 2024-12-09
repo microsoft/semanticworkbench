@@ -1,5 +1,5 @@
 import re
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, Tuple, Union
 
 from skill_library.run_context import RunContext
 
@@ -78,8 +78,8 @@ class StateMachineRoutine(Routine):
         self,
         name: str,
         description: str,
-        init_function: Callable[[RunContext, Optional[Dict[str, Any]]], Awaitable[None]],
-        step_function: Callable[[RunContext, Optional[str]], Awaitable[Optional[Any]]],
+        init_function: Callable[[RunContext, Optional[Dict[str, Any]]], Awaitable[Tuple[bool, Any]]],
+        step_function: Callable[[RunContext, Optional[str]], Awaitable[Optional[Tuple[bool, Any]]]],
         skill: "Skill",
     ) -> None:
         super().__init__(

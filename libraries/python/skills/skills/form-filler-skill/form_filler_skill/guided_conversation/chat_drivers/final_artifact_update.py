@@ -1,5 +1,6 @@
+import json
 import logging
-from typing import TypeVar, cast
+from typing import Any
 
 from form_filler_skill.guided_conversation.artifact_helpers import get_artifact_for_prompt, get_schema_for_prompt
 from openai_client import (
@@ -10,7 +11,6 @@ from openai_client import (
     make_completion_args_serializable,
     validate_completion,
 )
-from pydantic import BaseModel
 from skill_library.types import LanguageModel
 
 from ..definition import GCDefinition
@@ -62,15 +62,13 @@ USER_MESSAGE_TEMPLATE = """Conversation history:
 Current state of the artifact:
 {{ artifact_state }}"""
 
-T = TypeVar("T", bound=BaseModel)
-
 
 async def final_artifact_update(
     language_model: LanguageModel,
     definition: GCDefinition,
     chat_history: Conversation,
-    artifact: T,
-) -> T:
+    artifact: dict[str, Any],
+) -> dict[str, Any]:
     # TODO: Change out the chat driver.
 
     completion_args = {
@@ -91,7 +89,7 @@ async def final_artifact_update(
                 },
             ),
         ],
-        "response_format": type(artifact),
+        "response_format": "json",
     }
 
     metadata = {}
@@ -112,4 +110,5 @@ async def final_artifact_update(
         )
         raise completion_error from e
     else:
-        return cast(T, completion.choices[0].message.parsed)
+        raw_json = completion.choices[0].message.content or ""
+        return json.loads(raw_json)

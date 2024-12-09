@@ -1,12 +1,22 @@
 import json
-from typing import TYPE_CHECKING, Annotated, cast
+from typing import Annotated, Any, cast
 
-from form_filler_skill.guided_conversation.artifact_helpers import get_schema_for_prompt
+import jsonschema
+from form_filler_skill.guided_conversation.artifact_helpers import (
+    InvalidArtifactFieldError,
+    UpdateAttempt,
+    get_artifact_for_prompt,
+    get_field_schema_string,
+    get_schema_for_prompt,
+    validate_field_presence_in_schema,
+    validate_field_value,
+)
 from form_filler_skill.guided_conversation.definition import GCDefinition
 from openai_client import (
     CompletionError,
     add_serializable_data,
     create_system_message,
+    create_user_message,
     make_completion_args_serializable,
     validate_completion,
 )
@@ -14,11 +24,8 @@ from pydantic import BaseModel, Field
 from skill_library.types import LanguageModel
 
 from ..logging import logger
-from ..message import Conversation
+from ..message import Conversation, ConversationMessageType
 from .fix_artifact_error import generate_artifact_field_update_error_fix
-
-if TYPE_CHECKING:
-    from .fix_artifact_error import UpdateAttempt
 
 UPDATE_ARTIFACT_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
 
@@ -29,17 +36,20 @@ Here is some additional context about the conversation:
 {{ context }}{% endif %}
 
 Throughout the conversation, you must abide by these rules:
-{{ rules }}{% if current_state_description %}
-
+{{ rules }}
+{% if current_state_description %}
 Here's a description of the conversation flow:
+
 {{ current_state_description }}
-Follow this description, and exercise good judgment about when it is appropriate to deviate.{% endif %}
+
+Follow this description, and exercise good judgment about when it is appropriate to deviate.
+{% endif %}
 
 You will be provided the history of your conversation with the user up until now and the current state of the artifact.
 Note that if the value for a field in the artifact is 'Unanswered', it means that the field has not been completed.
-You need to select the best possible action(s), given the state of the conversation and the artifact.
+You need to select the best update(s), given the state of the conversation and the artifact.
 
-Your job is to create a list of field updates to update the artifact. Each update should be listed as a dictionary with two keys: 'field' and 'value_as_json'. The 'field' key should contain the name of the field in the artifact that you want to update, and the 'value_as_json' key should contain the new value for that field in JSON format. Only use fields that are present in the artifact schema.
+Your job is to create a list of field updates to update the artifact using only the information provided by the user. Each update should be listed as a dictionary with two keys: 'field' and 'value_as_json'. The 'field' key should contain the name of the field in the artifact that you want to update, and the 'value_as_json' key should contain the new value for that field in JSON format. Only use fields that are present in the artifact schema.
 
 - Create field updates only if (a) the user provides new information that is not already reflected in the current state of the artifact and (b) you are able to submit a valid value for a field in the artifact using this new information. If you have already updated a field in the artifact and there is no new information to update the field with, you should create a field update.
 - Make sure the value adheres to the constraints of the field as specified in the artifact schema.
@@ -47,14 +57,10 @@ Your job is to create a list of field updates to update the artifact. Each updat
 - Prioritize accuracy over completion. You should never make up information or make assumptions in order to complete a field. For example, if the field asks for a 10-digit phone number, and the user provided a 9-digit phone number, you should not add a digit to the phone number in order to complete the field. Instead, you should follow-up with the user to ask for the correct phone number. If they still aren't able to provide one, you should leave the field unanswered.
 - If the user isn't able to provide all of the information needed to complete a field, use your best judgment to determine if a partial answer is appropriate (assuming it adheres to the formatting requirements of the field). For example, if the field asks for a description of symptoms along with details about when the symptoms started, but the user isn't sure when their symptoms started, it's better to record the information they do have rather than to leave the field unanswered (and to indicate that the user was unsure about the start date).
 - If it's possible to update multiple fields at once (assuming you're adhering to the above rules in all cases), you should do so. For example, if the user provides their full name and date of birth in the same message, you should select the "update artifact fields" action twice, once for each field.
+- If the user's message contains no information relevant to updating the artifact, you should not create any field updates. For example, if the user sends a message that says "Hello" or "Goodbye", you should not create any field updates.
 
 Your task is to state your step-by-step reasoning for the best possible action(s), followed by a final recommendation of which update(s) to make, including all required parameters. Someone else will be responsible for executing the update(s) you select and they will only have access to your output (not any of the conversation history, artifact schema, or other context) so it is EXTREMELY important that you clearly specify the value of all required parameters for each update you make.
 """
-
-
-class UpdateAttempt(BaseModel):
-    field_value: str
-    error: str
 
 
 class ArtifactUpdate(BaseModel):
@@ -72,7 +78,7 @@ class ArtifactUpdates(BaseModel):
 async def generate_artifact_updates(
     language_model: LanguageModel,
     definition: GCDefinition,
-    artifact: BaseModel,
+    artifact: dict[str, Any],
     conversation: Conversation,
     max_retries: int = 2,
 ) -> list[ArtifactUpdate]:
@@ -86,7 +92,14 @@ async def generate_artifact_updates(
                     "artifact_schema": get_schema_for_prompt(definition.artifact_schema),
                     "context": definition.conversation_context,
                     "rules": definition.rules,
-                    "current_state_description": definition.conversation_flow,
+                    # "current_state_description": definition.conversation_flow,
+                },
+            ),
+            create_user_message(
+                ("Conversation history:\n{{ chat_history }}\n\nCurrent state of the artifact:\n{{ artifact }}"),
+                {
+                    "chat_history": str(conversation.exclude([ConversationMessageType.REASONING])),
+                    "artifact_state": get_artifact_for_prompt(artifact),
                 },
             ),
         ],
@@ -115,63 +128,20 @@ async def generate_artifact_updates(
         artifact_updates = cast(ArtifactUpdates, completion.choices[0].message.parsed)
 
     # Check if each update is valid. If not, try to fix it a few times.
-
     good_updates: list[ArtifactUpdate] = []
     for update in artifact_updates.updates:
-        attempts: list[UpdateAttempt] = []
+        failed_attempts: list[UpdateAttempt] = []
 
-        while len(attempts) < max_retries:
+        try:
+            attempt_failure = validate_update_attempt(definition.artifact_schema, update)
+        except InvalidArtifactFieldError:
             # Don't try again if the attribute/field doesn't exist. Just skip
             # this update.
-            if not hasattr(artifact, update.field):
-                logger.warning(
-                    f"Field {update.field} is not a valid field for this artifact.", extra=add_serializable_data(update)
-                )
-                continue
+            continue
 
-            # If the update value isn't the right type, though, try to fix it.
-
-            final_field_type = type(getattr(artifact, update.field))
-            failed = False
-
-            # First, check if it is parsable as JSON.
-            try:
-                field_value = json.loads(update.value_as_json)
-            except Exception:
-                attempts.append(
-                    UpdateAttempt(
-                        field_value=update.value_as_json,
-                        error=f"JSON value is not parsable. Got `{update.value_as_json}` but expected `{final_field_type}`.",
-                    )
-                )
-                failed = True
-            else:
-                # If it is supposed to be a Pydantic model (the only custom
-                # types we support), try to parse it.
-                if issubclass(final_field_type, BaseModel):
-                    try:
-                        field_value = final_field_type.model_validate(field_value)
-                    except Exception as e:
-                        attempts.append(
-                            UpdateAttempt(
-                                field_value=update.value_as_json,
-                                error=f"JSON value is not parsable as a pydantic object. value: `{update.value_as_json}`. error: `{e}`.",
-                            )
-                        )
-                        failed = True
-
-                else:
-                    # If not a Pydantic model, just check the parsed JSON type.
-                    if not isinstance(getattr(artifact, update.field), type(field_value)):
-                        attempts.append(
-                            UpdateAttempt(
-                                field_value=field_value,
-                                error=f"Parsed value is not the right type. Got `{type(field_value)}` but expected `{final_field_type}`.",
-                            )
-                        )
-                        failed = True
-
-            if failed:
+        while len(failed_attempts) < max_retries:
+            if attempt_failure:
+                failed_attempts.append(attempt_failure)
                 try:
                     new_field_value = await generate_artifact_field_update_error_fix(
                         language_model,
@@ -179,10 +149,10 @@ async def generate_artifact_updates(
                         update.field,
                         update.value_as_json,
                         conversation,
-                        attempts,
+                        failed_attempts,
                     )
                 except Exception:
-                    # Do something here if the fix attempt(s) errors out.
+                    # Do something here if the fix attempt(s) were unsuccessful.
                     pass
                 else:
                     update = ArtifactUpdate(field=update.field, value_as_json=new_field_value)
@@ -194,7 +164,34 @@ async def generate_artifact_updates(
                 good_updates.append(update)
                 break
 
-        # Failed.
-        logger.warning(f"Updating field {update.field} has failed too many times. Skipping.")
+        if len(failed_attempts) >= max_retries:
+            logger.warning(f"Updating field {update.field} has failed too many times. Skipping.")
 
     return good_updates
+
+
+def validate_update_attempt(artifact_schema: dict[str, Any], update: "ArtifactUpdate") -> UpdateAttempt | None:
+    """
+    Validate an update attempt against an artifact schema.
+    """
+
+    # Throw an error if it's not in the schema.
+    validate_field_presence_in_schema(artifact_schema, update.field)
+
+    type_string = get_field_schema_string(artifact_schema, update.field)
+    attempt_failure: "UpdateAttempt | None" = None
+
+    try:
+        update_value = json.loads(update.value_as_json)
+    except Exception:
+        update_value = update.value_as_json
+
+    try:
+        validate_field_value(artifact_schema, update.field, update_value)
+    except jsonschema.ValidationError:
+        attempt_failure = UpdateAttempt(
+            field_value=update_value,
+            error=f"Parsed value is not the right type. Got `{type(update_value)}` but expected `{type_string}`.",
+        )
+
+    return attempt_failure

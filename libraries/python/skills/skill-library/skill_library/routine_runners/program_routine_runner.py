@@ -10,7 +10,7 @@ class ProgramRoutineRunner:
 
     async def run(
         self, context: RunContext, routine: ProgramRoutine, vars: dict[str, Any] | None = None
-    ) -> Any:
+    ) -> tuple[bool, Any]:
         """
         This implementation is not yet working. It is a placeholder for the
         future implementation of running a program routine. A program routine
@@ -25,9 +25,9 @@ class ProgramRoutineRunner:
 
         # TODO: execute the program.
 
-        return
+        return True, None
 
-    async def next(self, context: RunContext, routine: ProgramRoutine, message: str) -> Any:
+    async def next(self, context: RunContext, routine: ProgramRoutine, message: str) -> tuple[bool, Any]:
         """
         Run the next step in the current routine.
         """

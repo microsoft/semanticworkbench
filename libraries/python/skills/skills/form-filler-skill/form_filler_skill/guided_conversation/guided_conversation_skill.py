@@ -4,8 +4,8 @@ from typing import Any, Optional
 from assistant_drive import Drive
 from events import MessageEvent
 from openai_client.chat_driver import ChatDriverConfig
-from pydantic import BaseModel
-from skill_library import RoutineTypes, Skill, StateMachineRoutine
+from skill_library import Skill
+from skill_library.routine import RoutineTypes, StateMachineRoutine
 from skill_library.run_context import RunContext
 from skill_library.types import LanguageModel
 
@@ -23,14 +23,6 @@ CLASS_NAME = "GuidedConversationSkill"
 DESCRIPTION = "Walks the user through a conversation about gathering info for the creation of an artifact."
 DEFAULT_MAX_RETRIES = 3
 INSTRUCTIONS = "You are an assistant."
-
-
-class Artifact(BaseModel):
-    pass
-
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "allow"
 
 
 class GuidedConversationSkill(Skill):
@@ -110,7 +102,9 @@ class GuidedConversationSkill(Skill):
             skill=self,
         )
 
-    async def conversation_init_function(self, context: RunContext, vars: dict[str, Any] | None = None):
+    async def conversation_init_function(
+        self, context: RunContext, vars: dict[str, Any] | None = None
+    ) -> tuple[bool, dict[str, Any] | None]:
         if vars is None:
             vars = {}
 
@@ -127,13 +121,13 @@ class GuidedConversationSkill(Skill):
             state["artifact"] = vars.get("artifact")
 
         # For guided conversation, we want to go ahead and run the first step.
-        await self.conversation_step_function(context)
+        return await self.conversation_step_function(context)
 
     async def conversation_step_function(
         self,
         context: RunContext,
         message: Optional[str] = None,
-    ) -> tuple[bool, Artifact | None]:
+    ) -> tuple[bool, dict[str, Any] | None]:
         """
         The original GC code is a bit more complex than this, but this is a
         simplified version of the code.
@@ -198,22 +192,23 @@ class GuidedConversationSkill(Skill):
             resource = GCResource.from_data(GCResourceData(**state["resource"]))
             conversation = Conversation(**state["conversation"])
             agenda = Agenda(**state["agenda"])
+            artifact: dict[str, Any] | None = state.get("artifact")
 
             if message:
                 conversation.add_user_message(message)
                 state["conversation"] = conversation
 
             # Update artifact, if we have one (we won't on first run).
-            artifact: Artifact | None
-            if state.get("artifact") is not None:
-                artifact = Artifact(**state["artifact"])
+            if artifact is None:
+                artifact = {}
+                state["artifact"] = artifact
+            else:
                 try:
-                    # This function should generate VALID updates.
                     artifact_updates = await generate_artifact_updates(
-                        self.language_model, definition, artifact, conversation, max_retries=DEFAULT_MAX_RETRIES
+                        self.language_model, definition, artifact or {}, conversation, max_retries=DEFAULT_MAX_RETRIES
                     )
                 except Exception as e:
-                    # DO something with this error.
+                    # TODO: DO something with this error.
                     logger.fatal(f"Error generating artifact updates: {e}")
                 else:
                     # Apply the updates to the artifact.
@@ -221,8 +216,7 @@ class GuidedConversationSkill(Skill):
                         value = json.loads(update.value_as_json)
                         artifact.__setattr__(update.field, value)
                     state["artifact"] = artifact
-            else:
-                artifact = None
+                    context.emit(MessageEvent(message="Artifact updated"))
 
             # Update agenda.
             try:
@@ -236,8 +230,6 @@ class GuidedConversationSkill(Skill):
                     max_retries=DEFAULT_MAX_RETRIES,
                 )
                 state["agenda"] = agenda
-                if artifact is None:
-                    state["artifact"] = Artifact()
                 context.emit(MessageEvent(message="Agenda updated"))
             except Exception:
                 # TODO: DO something with this error.
