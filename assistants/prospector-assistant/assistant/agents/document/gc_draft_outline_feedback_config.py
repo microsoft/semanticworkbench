@@ -8,7 +8,7 @@ from semantic_workbench_assistant.config import UISchema
 from ... import helpers
 from . import config_defaults as config_defaults
 from .config import GuidedConversationConfigModel, ResourceConstraintConfigModel
-from .guided_conversation import ConversationStatus, UserDecision
+from .guided_conversation import GC_ConversationStatus, GC_UserDecision
 
 
 class ArtifactModelAttributeNames(BaseModel):
@@ -27,12 +27,12 @@ class ArtifactModel(BaseModel):
         description="The final response from the agent to the user. You will update this field."
     )
     conversation_status: str = Field(
-        description=f"The status of the conversation. May be {ConversationStatus.USER_INITIATED}, {ConversationStatus.USER_RETURNED}, or "
-        f"{ConversationStatus.USER_COMPLETED}. You are only allowed to update this field to {ConversationStatus.USER_COMPLETED}, otherwise you will NOT update it.",
+        description=f"The status of the conversation. May be {GC_ConversationStatus.USER_INITIATED}, {GC_ConversationStatus.USER_RETURNED}, or "
+        f"{GC_ConversationStatus.USER_COMPLETED}. You are only allowed to update this field to {GC_ConversationStatus.USER_COMPLETED}, otherwise you will NOT update it.",
     )
     user_decision: str = Field(
-        description=f"The decision of the user on what should happen next. May be {UserDecision.UPDATE_OUTLINE}, "
-        f"{UserDecision.DRAFT_PAPER}, or {UserDecision.EXIT_EARLY}. You will update this field."
+        description=f"The decision of the user on what should happen next. May be {GC_UserDecision.UPDATE_OUTLINE}, "
+        f"{GC_UserDecision.DRAFT_PAPER}, or {GC_UserDecision.EXIT_EARLY}. You will update this field."
     )
     filenames: str = Field(
         description="Names of the available files currently uploaded as attachments. Information "

@@ -3,7 +3,7 @@ import logging
 from enum import StrEnum
 from os import path
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import deepmerge
 import openai_client
@@ -12,7 +12,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,
@@ -24,7 +24,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext, stor
 from ...config import AssistantConfigModel
 from .config import GuidedConversationConfigModel
 from .gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
-from .guided_conversation import GuidedConversation
+from .guided_conversation import GC_ConversationStatus, GC_UserDecision, GuidedConversation
 
 logger = logging.getLogger(__name__)
 
@@ -40,20 +40,6 @@ class Status(StrEnum):
     NOT_COMPLETED = "not_completed"
     USER_COMPLETED = "user_completed"
     USER_EXIT_EARLY = "user_exit_early"
-
-
-class GC_ConversationStatus(StrEnum):
-    UNDEFINED = "undefined"
-    USER_INITIATED = "user_initiated"
-    USER_RETURNED = "user_returned"
-    USER_COMPLETED = "user_completed"
-
-
-class GC_UserDecision(StrEnum):
-    UNDEFINED = "undefined"
-    UPDATE_OUTLINE = "update_outline"
-    DRAFT_PAPER = "draft_paper"
-    EXIT_EARLY = "exit_early"
 
 
 # endregion
@@ -78,12 +64,17 @@ class StepStatus(StrEnum):
     USER_EXIT_EARLY = "user_exit_early"
 
 
+class StepData(BaseModel):
+    step_name: StepName = StepName.UNDEFINED
+    run_count: int = 0
+
+
 class Step(BaseModel):
     name: StepName = StepName.UNDEFINED
     status: StepStatus = StepStatus.UNDEFINED
-    data: dict = {"run_count": 0}
     gc_conversation_status: GC_ConversationStatus = GC_ConversationStatus.UNDEFINED
     gc_user_decision: GC_UserDecision = GC_UserDecision.UNDEFINED
+    execute: Callable | None = Field(default=None, exclude=True)
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
@@ -93,30 +84,30 @@ class Step(BaseModel):
             self._error_check()
             match name:
                 case StepName.DRAFT_OUTLINE:
-                    self._execute = self._step_draft_outline
+                    self.execute = self._step_draft_outline
                 case StepName.GC_GET_OUTLINE_FEEDBACK:
-                    self._execute = self._step_gc_get_outline_feedback
+                    self.execute = self._step_gc_get_outline_feedback
                 case StepName.FINISH:
-                    self._execute = self._step_finish
+                    self.execute = self._step_finish
                 case _:
                     print(f"{name} mode.")
-            logger.info("Document Agent step (%s) initiated: %s", self.get_name())
+            logger.info("Document Agent step initiated: %s", self.get_name())
 
-    async def _execute(
-        self,
-        attachments_ext: AttachmentsExtension,
-        config: AssistantConfigModel,
-        context: ConversationContext,
-        message: ConversationMessage | None,
-        metadata: dict[str, Any] = {},
-    ) -> StepStatus:
-        status = StepStatus.UNDEFINED
-        return status
+    # async def _execute(
+    #    self,
+    #    attachments_ext: AttachmentsExtension,
+    #    config: AssistantConfigModel,
+    #    context: ConversationContext,
+    #    message: ConversationMessage | None,
+    #    metadata: dict[str, Any] = {},
+    # ) -> StepStatus:
+    #    status = StepStatus.UNDEFINED
+    #    return status
 
     def _error_check(self) -> None:
         # name and status should either both be UNDEFINED or both be defined. Always.
-        if (self.name is StepName.UNDEFINED and self.status is not Status.UNDEFINED) or (
-            self.status is Status.UNDEFINED and self.name is not StepName.UNDEFINED
+        if (self.name is StepName.UNDEFINED and self.status is not StepStatus.UNDEFINED) or (
+            self.status is StepStatus.UNDEFINED and self.name is not StepName.UNDEFINED
         ):
             logger.error(
                 "Either step name or step status is UNDEFINED, and the other is not. Both must be UNDEFINED at the same time: Step name is %s, status is %s",
@@ -163,12 +154,6 @@ class Step(BaseModel):
         self._error_check()
         return self.status
 
-    def set_data(self, run_count: int) -> None:
-        self.data["run_count"] = run_count
-
-    def get_data(self) -> dict[str, Any]:
-        return self.data
-
     def get_gc_user_decision(self) -> GC_UserDecision:
         self._error_check()
         return self.gc_user_decision
@@ -179,6 +164,7 @@ class Step(BaseModel):
 
     async def _step_draft_outline(
         self,
+        step_data: StepData,
         attachments_ext: AttachmentsExtension,
         config: AssistantConfigModel,
         context: ConversationContext,
@@ -259,6 +245,7 @@ class Step(BaseModel):
 
     async def _step_gc_get_outline_feedback(
         self,
+        step_data: StepData,
         attachments_ext: AttachmentsExtension,
         config: AssistantConfigModel,
         context: ConversationContext,
@@ -279,16 +266,11 @@ class Step(BaseModel):
 
         # Update artifact
         conversation_status_str = GC_ConversationStatus.UNDEFINED
-        step_data = self.get_data()
-        run_count_value = step_data.get("run_count")
-        if not isinstance(run_count_value, int):
-            logger.error("Document Agent - step run_count not of type int.")
-        else:
-            match run_count_value:  # could be bool instead. But maybe a run count use later?
-                case 0:
-                    conversation_status_str = GC_ConversationStatus.USER_INITIATED
-                case _:
-                    conversation_status_str = GC_ConversationStatus.USER_RETURNED
+        match step_data.run_count:  # could be bool instead. But maybe a run count use later?
+            case 0:
+                conversation_status_str = GC_ConversationStatus.USER_INITIATED
+            case _:
+                conversation_status_str = GC_ConversationStatus.USER_RETURNED
 
         filenames = await attachments_ext.get_attachment_filenames(context)
         filenames_str = ", ".join(filenames)
@@ -534,6 +516,7 @@ class Mode(BaseModel):
     name: ModeName = ModeName.UNDEFINED
     status: ModeStatus = ModeStatus.UNDEFINED
     current_step: Step = Step()
+    get_next_step: Callable | None = Field(default=None, exclude=True)
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
@@ -558,10 +541,11 @@ class Mode(BaseModel):
             self.set_step(Step(name=self.get_step().get_name(), status=self.get_step().get_status()))
 
         logger.info(
-            "Document Agent mode initiated. Mode Name: %s, Mode Status: %s, Current Step Name: %s",
+            "Document Agent mode initiated. Mode Name: %s, Mode Status: %s, Current Step Name: %s, Current Step Status: %s",
             self.get_name(),
             self.get_status(),
             self.get_step().get_name(),
+            self.get_step().get_status(),
         )
         return
 
@@ -636,16 +620,14 @@ class Mode(BaseModel):
         return False  # UNDEFINED, USER_EXIT_EARLY, USER_COMPLETED
 
     def set_step(self, step: Step) -> None:
-        self.cuurent_step = step
+        self.current_step = step
 
     def get_step(self) -> Step:
         return self.current_step
 
-    def get_next_step(self) -> Step:
-        return Step()
-
 
 # endregion
+
 
 #
 # region State
@@ -654,9 +636,28 @@ class Mode(BaseModel):
 
 class State(BaseModel):
     mode: Mode = Mode()
+    step_data_list: list[StepData] = []
 
-    def set_mode(self, mode) -> None:
+    def set_mode(self, mode: Mode) -> None:
         self.mode = mode
+
+    def set_step_data(self, step_data: StepData) -> None:
+        step_name = step_data.step_name
+        for sd in self.step_data_list:
+            if sd.step_name == step_name:
+                sd = step_data
+                break
+        # did not exist yet, so adding
+        self.step_data_list.append(step_data)
+
+    def get_step_data_list(self) -> list[StepData]:
+        return self.step_data_list
+
+    def get_step_data(self, step_name: StepName) -> StepData | None:
+        for sd in self.step_data_list:
+            if sd.step_name == step_name:
+                return sd
+        return None
 
 
 # endregion
@@ -671,7 +672,7 @@ def mode_prerequisite_check(state: State, correct_mode_name: ModeName) -> bool:
     mode_name = state.mode.get_name()
     mode_status = state.mode.get_status()
     if mode_name is not correct_mode_name or (
-        mode_status is not Status.NOT_COMPLETED and mode_status is not Status.INITIATED
+        mode_status is not ModeStatus.NOT_COMPLETED and mode_status is not ModeStatus.INITIATED
     ):
         logger.error(
             "Document Agent state mode: %s, mode called: %s, state mode completion status: %s.",

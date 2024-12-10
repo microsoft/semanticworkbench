@@ -14,7 +14,6 @@ from semantic_workbench_assistant.assistant_app import (
 
 from ...config import AssistantConfigModel
 from .config import GuidedConversationConfigModel
-from .state import GC_ConversationStatus, GC_UserDecision
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +21,15 @@ logger = logging.getLogger(__name__)
 #
 # region Agent
 #
-class ConversationStatus(StrEnum):
+class GC_ConversationStatus(StrEnum):
+    UNDEFINED = "undefined"
     USER_INITIATED = "user_initiated"
     USER_RETURNED = "user_returned"
     USER_COMPLETED = "user_completed"
 
 
-class UserDecision(StrEnum):
+class GC_UserDecision(StrEnum):
+    UNDEFINED = "undefined"
     UPDATE_OUTLINE = "update_outline"
     DRAFT_PAPER = "draft_paper"
     EXIT_EARLY = "exit_early"
@@ -134,8 +135,6 @@ class GuidedConversation:
         """
         Step the conversation to the next turn.
         """
-        next_step_name = None
-
         # Step the conversation to start the conversation with the agent
         # or message
         result = await self.guided_conversation_agent.step_conversation(last_user_message)

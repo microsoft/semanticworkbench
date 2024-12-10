@@ -13,7 +13,7 @@ from .document.state import (
     ModeName,
     ModeStatus,
     State,
-    Status,
+    StepData,
     StepName,
     StepStatus,
     mode_prerequisite_check,
@@ -77,30 +77,31 @@ class DocumentAgent:
         # State
         state = self._read_state(context)
         if state is None:
-            logger.error("Document Agent state is None. Returning.")
+            logger.error("Document Agent: State is None. Returning.")
             return False
 
-        # Initiate
+        # Load
+        logger.info("Document Agent: Mode %s loading.", mode_name)
         if not state.mode.is_running():
             state.set_mode(Mode(name=mode_name, status=ModeStatus.INITIATED))
         else:
-            state.set_mode(Mode(name=mode_name, status=state.mode.get_status))
+            state.set_mode(Mode(name=mode_name, status=state.mode.get_status()))
         self._write_state(state, context)
 
         # Prerequisites
         result = mode_prerequisite_check(state, mode_name)
         if result is False:
-            logger.error("Mode prerequisite check failed. Resetting mode. Returning.")
+            logger.error("Document Agent: Mode %s prerequisite check failed. Resetting mode. Returning.", mode_name)
             state.mode.reset()
             self._write_state(state, context)
             return False
 
         # Execute
-        logger.info("Document Agent in mode %s", mode_name)
+        logger.info("Document Agent: Mode %s executing.", mode_name)
         mode_result_status = await self._mode_execute(state, config, context, message, metadata)
         if mode_result_status is ModeStatus.UNDEFINED:
             logger.error(
-                "Running mode %s resulted in mode status %s. Resetting mode. Returning",
+                "Document Agent: Running mode %s resulted in mode status %s. Resetting mode. Returning",
                 mode_name,
                 mode_result_status,
             )
@@ -108,6 +109,7 @@ class DocumentAgent:
             self._write_state(state, context)
             return False
         else:
+            logger.info("Document Agent: Mode %s execution resulted in mode status: %s.", mode_name, mode_result_status)
             state.mode.set_status(mode_result_status)
             self._write_state(state, context)
             return True
@@ -123,49 +125,83 @@ class DocumentAgent:
         current_step_name = state.mode.get_step().get_name()
         current_step_status = state.mode.get_step().get_status()
 
-        while current_step_status is Status.INITIATED or current_step_status is Status.NOT_COMPLETED:
-            logger.info("Document Agent in Step Name: %s, Step Status: %s", current_step_name, current_step_status)
-            new_step_status = await state.mode.get_step()._execute(
-                self._attachments_extension, config, context, message, metadata
+        while current_step_status is StepStatus.INITIATED or current_step_status is StepStatus.NOT_COMPLETED:
+            # Execute step method
+            logger.info(
+                "Document Agent: Mode executing step. Current Step Name: %s, Current Step Status: %s",
+                current_step_name,
+                current_step_status,
+            )
+            execute_step_method = state.mode.get_step().execute
+            if execute_step_method is not None:
+                new_step_status = await execute_step_method(
+                    self._attachments_extension, config, context, message, metadata
+                )
+            else:
+                logger.error("Document Agent: step.execute not defined for Step Name: %s.", current_step_name)
+                break
+            logger.info(
+                "Document Agent: Mode executed step. Current Step Name: %s, New Step Status: %s",
+                current_step_name,
+                new_step_status,
             )
 
-            # Update run_count in step_data
-            step_data = state.mode.get_step().get_data()
-            run_count_value = step_data.get("run_count")
-            if not isinstance(run_count_value, int):
-                logger.error("Document Agent - step run_count not of type int.")
+            # Update step data
+            run_count_key = "run_count"
+            logger.info("Document Agent: Updating step data (%s). Step Name: %s", run_count_key, current_step_name)
+            step_data = state.get_step_data(current_step_name)
+            if step_data is None:
+                new_step_data = StepData(step_name=current_step_name, run_count=1)
+                state.set_step_data(new_step_data)
             else:
-                run_count_value += 1
-                state.mode.get_step().set_data(run_count=run_count_value)
-                self._write_state(state, context)
+                step_data.run_count += 1
+                state.set_step_data(step_data)
+            self._write_state(state, context)
 
+            # Workflow StepStatus check
             match new_step_status:
                 case StepStatus.NOT_COMPLETED:
                     state.mode.get_step().set_status(new_step_status)
                     state.mode.set_status(ModeStatus.NOT_COMPLETED)
+                    logger.info(
+                        "Document Agent: Getting more user input. Remaining in step. Step Name: %s", current_step_name
+                    )
                     break  # ok - get more user input
 
                 case StepStatus.USER_COMPLETED:
-                    next_step = state.mode.get_next_step()
-                    if next_step.get_name() is not StepName.UNDEFINED:
-                        state.mode.set_step(next_step)
-                        self._write_state(state, context)
-                        current_step_name = state.mode.get_step().get_name()
-                        current_step_status = state.mode.get_step().get_status()  # new step is Status.INITIATED
-                        continue  # ok - don't need user input yet
+                    if state.mode.get_next_step is not None:
+                        next_step = state.mode.get_next_step()
+                        if next_step.get_name() is not StepName.UNDEFINED:
+                            state.mode.set_step(next_step)
+                            self._write_state(state, context)
+                            current_step_name = state.mode.get_step().get_name()
+                            current_step_status = state.mode.get_step().get_status()  # new step is Status.INITIATED
+                            logger.info(
+                                "Document Agent: Moving on to next step. Next Step Name: %s, Next Step Status: %s",
+                                current_step_name,
+                                current_step_status,
+                            )
+                            continue  # ok - don't need user input yet
+                        else:
+                            state.mode.set_step(next_step)
+                            logger.info("Document Agent: No more steps in mode. Completed.")
+                            break  # ok - all done :)
                     else:
-                        state.mode.set_step(next_step)
-                        break  # ok - all done :)
+                        logger.error(
+                            "Document Agent: mode.get_next_step not defined for Mode Name: %s.", state.mode.get_name()
+                        )
+                        break
 
                 case StepStatus.USER_EXIT_EARLY:
                     state.mode.get_step().set_status(new_step_status)
                     state.mode.set_status(ModeStatus.USER_EXIT_EARLY)
+                    logger.info("Document Agent: User exited early. Completed.")
                     break  # ok - done early :)
 
                 case _:  # UNDEFINED, INITIATED
                     logger.error(
-                        "Document Agent: Calling corresponding step method for %s resulted in status %s. Resetting mode %s.",
-                        new_step_status,
+                        "Document Agent: step.execute for Step Name: %s resulted in Step Status: %s. Resetting mode %s.",
+                        current_step_name,
                         new_step_status,
                         state.mode.get_name(),
                     )
