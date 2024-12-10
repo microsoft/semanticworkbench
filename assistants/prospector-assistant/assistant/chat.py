@@ -37,8 +37,8 @@ from semantic_workbench_assistant.assistant_app import (
 from . import legacy
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
-from .agents.form_fill_extension import FormFillExtension, LLMConfig
 from .config import AssistantConfigModel
+from .form_fill_extension import FormFillExtension, LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +131,8 @@ async def on_chat_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
-    # update the participant status to indicate the assistant is thinking
-    async with send_error_message_on_exception(context), context.set_status("thinking..."):
+    # update the participant status to indicate the assistant is responding
+    async with send_error_message_on_exception(context), context.set_status("responding..."):
         #
         # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
         #
@@ -183,7 +183,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
 
 async def welcome_message_form_fill(context: ConversationContext) -> None:
-    async with send_error_message_on_exception(context), context.set_status("thinking..."):
+    async with send_error_message_on_exception(context), context.set_status("responding..."):
         await form_fill_execute(context, None)
 
 
@@ -193,7 +193,7 @@ async def welcome_message_create_document(
     message: ConversationMessage | None,
     metadata: dict[str, Any],
 ) -> None:
-    async with send_error_message_on_exception(context), context.set_status("thinking..."):
+    async with send_error_message_on_exception(context), context.set_status("responding..."):
         await create_document_execute(config, context, message, metadata)
 
 
@@ -223,6 +223,7 @@ async def form_fill_execute(context: ConversationContext, message: ConversationM
     Execute the form fill agent to respond to the conversation message.
     """
     config = await assistant_config.get(context.assistant)
+    participants = await context.get_participants(include_inactive=True)
     await form_fill_extension.execute(
         llm_config=LLMConfig(
             openai_client_factory=lambda: openai_client.create_client(config.service_config),
@@ -231,7 +232,7 @@ async def form_fill_execute(context: ConversationContext, message: ConversationM
         ),
         config=config.agents_config.form_fill_agent,
         context=context,
-        latest_user_message=message.content if message else None,
+        latest_user_message=_format_message(message, participants.participants) if message else None,
         latest_attachment_filenames=message.filenames if message else [],
         get_attachment_content=form_fill_extension_get_attachment(context, config),
     )
@@ -251,8 +252,23 @@ def form_fill_extension_get_attachment(
         if not messages:
             return ""
 
-        # filter down to the messages that contain the attachment (ie. don't include the system messages)
-        return "\n\n".join((str(message.content) for message in messages if "<ATTACHMENT>" in str(message.content)))
+        # filter down to the message with the attachment
+        user_message = next(
+            (message for message in messages if "<ATTACHMENT>" in str(message)),
+            None,
+        )
+        if not user_message:
+            return ""
+
+        content = user_message["content"]
+        if isinstance(content, str):
+            return content
+
+        for part in content:
+            if part.get("type") == "image_url" and "image_url" in part:
+                return part["image_url"]["url"]
+
+        return ""
 
     return get
 
