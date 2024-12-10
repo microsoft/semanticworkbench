@@ -9,7 +9,6 @@ const serviceUrl = (window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL && window.VITE_SE
 export const Constants = {
     app: {
         name: 'Semantic Workbench',
-        conversationRedirectPath: '',
         defaultTheme: 'light',
         defaultBrand: 'local',
         autoScrollThreshold: 100,
