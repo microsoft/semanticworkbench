@@ -78,31 +78,35 @@ class FormFillExtension:
 
                     case state.FormFillExtensionMode.extract_form_fields:
                         file_content = await get_attachment_content(agent_state.form_filename)
+                        attachment = UserAttachment(filename=agent_state.form_filename, content=file_content)
                         result = await extract_form_fields_step.execute(
                             step_context=build_step_context(config.extract_form_fields_config),
-                            file_content=file_content,
+                            potential_form_attachment=attachment,
                         )
 
                         match result:
                             case extract_form_fields_step.CompleteResult():
-                                await _send_message(context, result.message, result.debug)
+                                await _send_message(context, result.message, result.debug, MessageType.notice)
 
-                                agent_state.extracted_form_title = result.extracted_form_title
-                                agent_state.extracted_form_fields = result.extracted_form_fields
+                                agent_state.extracted_form = result.extracted_form
                                 agent_state.mode = state.FormFillExtensionMode.fill_form_step
 
                                 continue
 
                             case _:
                                 await _handle_incomplete_result(context, result)
+
+                                agent_state.mode = state.FormFillExtensionMode.acquire_form_step
                                 return
 
                     case state.FormFillExtensionMode.fill_form_step:
+                        if agent_state.extracted_form is None:
+                            raise ValueError("extracted_form is None")
+
                         result = await fill_form_step.execute(
                             step_context=build_step_context(config.fill_form_config),
                             form_filename=agent_state.form_filename,
-                            form_title=agent_state.extracted_form_title,
-                            form_fields=agent_state.extracted_form_fields,
+                            form=agent_state.extracted_form,
                         )
 
                         match result:
@@ -143,14 +147,16 @@ async def _handle_incomplete_result(context: ConversationContext, result: Incomp
             raise ValueError(f"Unexpected incomplete result type: {result}")
 
 
-async def _send_message(context: ConversationContext, message: str, debug: dict) -> None:
+async def _send_message(
+    context: ConversationContext, message: str, debug: dict, message_type: MessageType = MessageType.chat
+) -> None:
     if not message:
         return
 
     await context.send_messages(
         NewConversationMessage(
             content=message,
-            message_type=MessageType.chat,
+            message_type=message_type,
             debug_data=debug,
         )
     )
