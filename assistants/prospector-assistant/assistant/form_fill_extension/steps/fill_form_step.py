@@ -145,8 +145,6 @@ async def execute(
     if message_debug:
         debug["document-extractions"] = message_debug
 
-    # definition = step_context.config.definition.model_copy()
-    # definition.resource_constraint.quantity = int(len(form_fields) * 1.5)
     artifact_type = _form_fields_to_artifact_basemodel(form_fields)
 
     async with _guided_conversation.engine(
