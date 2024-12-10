@@ -14,6 +14,7 @@ from typing import Any, Awaitable, Callable
 
 import deepmerge
 import openai_client
+from assistant_extensions.ai_clients.model import CompletionMessageImageContent
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
@@ -260,13 +261,16 @@ def form_fill_extension_get_attachment(
         if not user_message:
             return ""
 
-        content = user_message["content"]
-        if isinstance(content, str):
-            return content
+        content = user_message.content
+        match content:
+            case str():
+                return content
 
-        for part in content:
-            if part.get("type") == "image_url" and "image_url" in part:
-                return part["image_url"]["url"]
+            case list():
+                for part in content:
+                    match part:
+                        case CompletionMessageImageContent():
+                            return part.data
 
         return ""
 
