@@ -38,7 +38,8 @@
 
     If your Entra App allows both organizational and personal accounts
     use `common` as Tenant Id, e.g. setting
-    `"Authority": "https://login.microsoftonline.com/common"`.
+    `"Authority": "https://login.microsoftonline.com/common"`. For other special
+    authority values refer to https://learn.microsoft.com/en-us/entra/identity-platform/v2-protocols-oidc
 
         {
           "EntraID": {
