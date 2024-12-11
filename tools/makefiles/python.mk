@@ -10,8 +10,9 @@ else
 venv_dir = .venv
 endif
 
-UV_SYNC_ARGS ?= --all-extras
-UV_RUN_ARGS ?= --all-extras --locked
+UV_SYNC_INSTALL_ARGS ?= --all-extras --frozen
+UV_SYNC_LOCK_ARGS ?= --all-extras
+UV_RUN_ARGS ?= --all-extras --frozen
 
 PYTEST_ARGS ?= --color=yes
 
@@ -19,11 +20,11 @@ PYTEST_ARGS ?= --color=yes
 
 .PHONY: install
 install:
-	uv sync $(uv_project_args) $(UV_SYNC_ARGS)
+	uv sync $(uv_project_args) $(UV_SYNC_INSTALL_ARGS)
 
 .PHONY: lock
 lock:
-	uv lock $(uv_project_args) $(UV_LOCK_ARGS)
+	uv sync $(uv_project_args) $(UV_SYNC_LOCK_ARGS)
 
 .PHONY: clean
 clean:
