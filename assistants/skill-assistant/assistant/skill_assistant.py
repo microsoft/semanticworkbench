@@ -15,7 +15,7 @@ import openai_client
 from assistant_drive import Drive, DriveConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from form_filler_skill import FormFillerSkill
-from form_filler_skill.guided_conversation import GuidedConversationSkill
+from guided_conversation_skill import GuidedConversationSkill
 from openai_client.chat_driver import ChatDriverConfig
 
 # from form_filler_skill import FormFillerSkill

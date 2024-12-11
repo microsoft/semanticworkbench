@@ -10,7 +10,9 @@ class InstructionRoutineRunner:
     def __init__(self) -> None:
         pass
 
-    async def run(self, context: RunContext, routine: InstructionRoutine, vars: dict[str, Any] | None = None) -> Any:
+    async def run(
+        self, context: RunContext, routine: InstructionRoutine, vars: dict[str, Any] | None = None
+    ) -> tuple[bool, Any]:
         """
         Run an Instruction routine. This just runs through the steps of a
         routine, sending each one to a skill's response endpoint. Note, this
@@ -35,10 +37,10 @@ class InstructionRoutineRunner:
             informationEvent = InformationEvent(**response.model_dump())
             context.emit(informationEvent)
 
-        return
+        return True, None
 
-    async def next(self, context: RunContext, routine: InstructionRoutine, message: str) -> Any:
+    async def next(self, context: RunContext, routine: InstructionRoutine, message: str) -> tuple[bool, Any]:
         """
         Run the next step in the current routine.
         """
-        pass
+        return True, None

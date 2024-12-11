@@ -1,8 +1,8 @@
 [project]
 name = "assistant"
 version = "0.1.0"
-description = "Exploration of a skill assistant library assistant (name to be updated)."
-authors = [{ name = "Semantic Workbench Team" }]
+description = "MADE:Exploration skill assistant."
+authors = [{ name = "MADE:Exploration" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,10 +13,20 @@ dependencies = [
     "context>=0.1.0",
     # "document-skill>=0.1.0",
     "form-filler-skill>=0.1.0",
+    "guided-conversation-skill>=0.1.0",
     "openai-client>=0.1.0",
     "openai>=1.3.9",
     "posix-skill>=0.1.0",
     "semantic-workbench-assistant>=0.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.1",
+    "pytest-asyncio>=0.23.8",
+    "pytest-repeat>=0.9.3",
+    "ipykernel>=6.29.4",
+    "pyright>=1.1.389",
 ]
 
 [tool.uv]
@@ -27,6 +37,7 @@ content-safety = { path = "../../libraries/python/content-safety", editable = tr
 context = { path = "../../libraries/python/context", editable = true }
 # document-skill = { path = "../../libraries/python/skills/skills/document-skill", editable = true }
 form-filler-skill = { path = "../../libraries/python/skills/skills/form-filler-skill", editable = true }
+guided-conversation-skill = { path = "../../libraries/python/skills/skills/guided-conversation-skill", editable = true }
 openai-client = { path = "../../libraries/python/openai-client", editable = true }
 posix-skill = { path = "../../libraries/python/skills/skills/posix-skill", editable = true }
 semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
@@ -35,7 +46,14 @@ semantic-workbench-assistant = { path = "../../libraries/python/semantic-workben
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[dependency-groups]
-dev = [
-    "pyright>=1.1.389",
-]
+[tool.pyright]
+exclude = ["venv", ".venv"]
+
+[tool.pytest.ini_options]
+addopts = "-vv"
+log_cli = true
+log_cli_level = "WARNING"
+log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

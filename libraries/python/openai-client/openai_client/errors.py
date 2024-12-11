@@ -51,7 +51,7 @@ class CompletionError(Exception):
             message = error.message
             body = error.body
         else:
-            message = "An unknown error occurred."
+            message = f"An unknown error occurred ({error.__class__.__name__})."
             body = str(error)
 
         self.message = message

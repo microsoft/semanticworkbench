@@ -61,13 +61,13 @@ class FormFillerSkill(Skill):
 
     async def form_fill_init(self, context: RunContext, vars: dict[str, Any] | None = None):
         # TODO: Use `vars` to config the form filler routine.
-        await self.form_fill_step(context)
+        return await self.form_fill_step(context)
 
     async def form_fill_step(
         self,
         context: RunContext,
         message: Optional[str] = None,
-    ) -> str | None:
+    ) -> tuple[bool, str | None]:
         FormFiller = self
         state = await context.get_state()
         while True:
@@ -84,7 +84,7 @@ class FormFillerSkill(Skill):
                                 "objective": "Upload a form to be filled out by the form filler recipe.",
                             }
                             gc_id = await context.run_routine(
-                                context, "guided_conversation.doc_upload", guided_conversation_vars
+                                "guided_conversation.doc_upload", guided_conversation_vars
                             )
                             state["gc_id"] = gc_id
                         # TODO: What is the best way to subroutine?
@@ -101,7 +101,7 @@ class FormFillerSkill(Skill):
                         state["mode"] = "done"
                     state["mode"] = "conversation"
                     await context.set_state(state)
-                    return agenda
+                    return is_done, agenda
                 case "conversation":
                     state["form"] = FormFiller.update_form(context)
                     agenda, is_done = FormFiller.update_agenda(context)
@@ -109,21 +109,23 @@ class FormFillerSkill(Skill):
                     if is_done:
                         state["mode"] = "finalize"
                     await context.set_state(state)
-                    return agenda
+                    return is_done, agenda
                 case "finalize":
                     message = FormFiller.generate_filled_form(context)
                     state["mode"] = "done"
                     await context.set_state(state)
-                    return message
+                    return False, message
                 case "done":
-                    return None
+                    return True, None
 
     ##################################
     # Actions
     ##################################
 
     def update_agenda(self, context: RunContext):
-        return "message", False
+        message = "message"
+        is_done = False
+        return message, is_done
 
     def update_form(self, context: RunContext):
         return "message", False

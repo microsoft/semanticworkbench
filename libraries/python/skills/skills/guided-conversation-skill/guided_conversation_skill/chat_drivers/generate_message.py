@@ -1,12 +1,13 @@
 import logging
 from typing import Any
 
-from form_filler_skill.guided_conversation.artifact_helpers import get_schema_for_prompt
-from form_filler_skill.guided_conversation.definition import GCDefinition
+from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt, get_schema_for_prompt
+from guided_conversation_skill.definition import GCDefinition
 from openai_client import (
     CompletionError,
     add_serializable_data,
     create_system_message,
+    create_user_message,
     make_completion_args_serializable,
     message_content_from_completion,
     validate_completion,
@@ -14,7 +15,7 @@ from openai_client import (
 from pydantic import BaseModel
 from skill_library.types import LanguageModel
 
-from ..message import Conversation
+from ..message import Conversation, ConversationMessageType
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ Here's a description of the conversation flow:
 
 Follow this description, and exercise good judgment about when it is appropriate to deviate.{% endif %}
 
-You will be provided the history of your conversation with the user up until now and the current state of the artifact. Note that if the value for a field in the artifact is 'Unanswered', it means that the field has not been completed.
+You will be provided the history of your conversation with the user up until now and the current state of the artifact. Note that if a field in the schema is not present in the artifact, it means that the field has not been completed.
 
 Your job is to respond to the user if they ask a question or make a statement that you need to respond to or if you need to follow-up with the user because the information they provided is incomplete, invalid, ambiguous, or in some way insufficient to complete the artifact.
 
@@ -60,7 +61,7 @@ class UpdateAttempt(BaseModel):
 async def generate_message(
     language_model: LanguageModel,
     definition: GCDefinition,
-    artifact: BaseModel | None,
+    artifact: dict[str, Any],
     conversation: Conversation,
     max_retries: int = 2,
 ) -> str:
@@ -78,6 +79,13 @@ async def generate_message(
                     "current_state_description": definition.conversation_flow,
                 },
             ),
+            create_user_message(
+                ("Conversation history:\n{{ chat_history }}\n\nCurrent state of the artifact:\n{{ artifact_state }}"),
+                {
+                    "chat_history": str(conversation.exclude([ConversationMessageType.REASONING])),
+                    "artifact_state": get_artifact_for_prompt(artifact),
+                },
+            ),
         ],
     }
 
@@ -91,11 +99,12 @@ async def generate_message(
         validate_completion(completion)
         logger.debug("Completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
         metadata["completion"] = completion.model_dump()
-    except CompletionError as e:
+    except Exception as e:
         completion_error = CompletionError(e)
         metadata["completion_error"] = completion_error.message
         logger.error(
-            e.message, extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata})
+            completion_error.message,
+            extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata}),
         )
         raise completion_error from e
     else:
