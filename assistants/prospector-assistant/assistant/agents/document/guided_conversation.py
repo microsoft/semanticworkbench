@@ -164,27 +164,30 @@ class GuidedConversation:
         gc_conversation_status = GC_ConversationStatus.UNDEFINED
         gc_user_decision: GC_UserDecision = GC_UserDecision.UNDEFINED
         if conversation_status_str is not None:
-            if conversation_status_str is not GC_ConversationStatus.USER_COMPLETED:
-                if result.ai_message is not None:
-                    response = result.ai_message
-                else:
-                    response = ""
-                match conversation_status_str:
-                    case GC_ConversationStatus.USER_INITIATED:
-                        gc_conversation_status = GC_ConversationStatus.USER_INITIATED
-                    case GC_ConversationStatus.USER_RETURNED:
-                        gc_conversation_status = GC_ConversationStatus.USER_RETURNED
-            else:
-                response = final_response
-                gc_conversation_status = GC_ConversationStatus.USER_COMPLETED
-                match user_decision_str:
-                    case GC_UserDecision.UPDATE_OUTLINE:
-                        gc_user_decision = GC_UserDecision.UPDATE_OUTLINE
-                    case GC_UserDecision.DRAFT_PAPER:
-                        gc_user_decision = GC_UserDecision.DRAFT_PAPER
-                    case GC_UserDecision.EXIT_EARLY:
-                        gc_user_decision = GC_UserDecision.EXIT_EARLY
-                _delete_guided_conversation_state(self.conversation_context)
+            match conversation_status_str:
+                case GC_ConversationStatus.USER_COMPLETED:
+                    response = final_response
+                    gc_conversation_status = GC_ConversationStatus.USER_COMPLETED
+                    match user_decision_str:
+                        case GC_UserDecision.UPDATE_OUTLINE:
+                            gc_user_decision = GC_UserDecision.UPDATE_OUTLINE
+                        case GC_UserDecision.DRAFT_PAPER:
+                            gc_user_decision = GC_UserDecision.DRAFT_PAPER
+                        case GC_UserDecision.EXIT_EARLY:
+                            gc_user_decision = GC_UserDecision.EXIT_EARLY
+                    _delete_guided_conversation_state(self.conversation_context)
+                case GC_ConversationStatus.USER_INITIATED:
+                    if result.ai_message is not None:
+                        response = result.ai_message
+                    else:
+                        response = ""
+                    gc_conversation_status = GC_ConversationStatus.USER_INITIATED
+                case GC_ConversationStatus.USER_RETURNED:
+                    if result.ai_message is not None:
+                        response = result.ai_message
+                    else:
+                        response = ""
+                    gc_conversation_status = GC_ConversationStatus.USER_RETURNED
 
         return response, gc_conversation_status, gc_user_decision
 

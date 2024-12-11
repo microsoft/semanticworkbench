@@ -33,15 +33,6 @@ logger = logging.getLogger(__name__)
 # region Other ... TBD
 #
 
-
-class Status(StrEnum):
-    UNDEFINED = "undefined"
-    INITIATED = "initiated"
-    NOT_COMPLETED = "not_completed"
-    USER_COMPLETED = "user_completed"
-    USER_EXIT_EARLY = "user_exit_early"
-
-
 # endregion
 
 #
@@ -80,7 +71,7 @@ class Step(BaseModel):
         super().__init__(**data)
 
         name = data.get("name")
-        if name is not None:
+        if name is not StepName.UNDEFINED:
             self._error_check()
             match name:
                 case StepName.DRAFT_OUTLINE:
@@ -91,18 +82,11 @@ class Step(BaseModel):
                     self.execute = self._step_finish
                 case _:
                     print(f"{name} mode.")
-            logger.info("Document Agent step initiated: %s", self.get_name())
-
-    # async def _execute(
-    #    self,
-    #    attachments_ext: AttachmentsExtension,
-    #    config: AssistantConfigModel,
-    #    context: ConversationContext,
-    #    message: ConversationMessage | None,
-    #    metadata: dict[str, Any] = {},
-    # ) -> StepStatus:
-    #    status = StepStatus.UNDEFINED
-    #    return status
+            logger.info(
+                "Document Agent State: Step loaded. StepName: %s, StepStatus: %s",
+                self.get_name(),
+                self.get_status(),
+            )
 
     def _error_check(self) -> None:
         # name and status should either both be UNDEFINED or both be defined. Always.
@@ -110,7 +94,7 @@ class Step(BaseModel):
             self.status is StepStatus.UNDEFINED and self.name is not StepName.UNDEFINED
         ):
             logger.error(
-                "Either step name or step status is UNDEFINED, and the other is not. Both must be UNDEFINED at the same time: Step name is %s, status is %s",
+                "Document Agent State: Either StepName or StepStatus is UNDEFINED, and the other is not. Both must be UNDEFINED at the same time. StepName: %s, StepStatus: %s",
                 self.name,
                 self.status,
             )
@@ -124,7 +108,7 @@ class Step(BaseModel):
             and self.gc_conversation_status is GC_ConversationStatus.USER_COMPLETED
         ):
             logger.error(
-                "Either GC conversation status is UNDEFINED, while GC user decision is not. Or GC user decision is UNDEFINED while GC conversation status is COMPLETED. GC conversation status is %s, GC user decision is %s",
+                "Document Agent State: Either GC conversation status is UNDEFINED, while GC user decision is not. Or GC user decision is UNDEFINED while GC conversation status is COMPLETED. GC conversation status: %s, GC user decision: %s",
                 self.gc_conversation_status,
                 self.gc_user_decision,
             )
@@ -136,7 +120,7 @@ class Step(BaseModel):
     def set_name(self, name: StepName) -> None:
         if name is StepName.UNDEFINED:  # need to reset step
             self.reset()
-        if name is not self.name:  # update if new step name
+        if name is not self.name:  # update if new StepName
             self = Step(name=name, status=StepStatus.NOT_COMPLETED)
         self._error_check()
 
@@ -145,7 +129,7 @@ class Step(BaseModel):
         return self.name
 
     def set_status(self, status: StepStatus) -> None:
-        if status is Status.UNDEFINED:  # need to reset mode
+        if status is StepStatus.UNDEFINED:  # need to reset mode
             self.reset()
         self.status = status
         self._error_check()
@@ -171,7 +155,7 @@ class Step(BaseModel):
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
     ) -> StepStatus:
-        logger.info("Document Agent running step: %s", self.get_name())
+        logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
         method_metadata_key = "_step_draft_outline"
 
         # get conversation related info -- for now, if no message, assuming no prior conversation
@@ -218,7 +202,7 @@ class Step(BaseModel):
                 _on_success_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, completion)
 
             except Exception as e:
-                logger.exception(f"exception occurred calling openai chat completion: {e}")
+                logger.exception(f"Document Agent State: Exception occurred calling openai chat completion: {e}")
                 message_content = (
                     "An error occurred while calling the OpenAI API. Is it configured correctly?"
                     "View the debug inspector for more information."
@@ -241,6 +225,7 @@ class Step(BaseModel):
             )
         )
 
+        logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
         return StepStatus.USER_COMPLETED
 
     async def _step_gc_get_outline_feedback(
@@ -252,7 +237,7 @@ class Step(BaseModel):
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
     ) -> StepStatus:
-        logger.info("Document Agent running step: %s", self.get_name())
+        logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
         method_metadata_key = "_step_gc_get_outline_feedback"
 
         # Initiate Guided Conversation
@@ -286,13 +271,13 @@ class Step(BaseModel):
             artifact_dict["current_outline"] = outline_str
             guided_conversation.set_artifact_dict(artifact_dict)
         else:
-            logger.error("artifact_dict unavailable.")
+            logger.error("Document Agent State: artifact_dict unavailable.")
 
         # Run conversation step
         step_status = StepStatus.UNDEFINED
         try:
             user_message = None
-            if message is not None and self.get_status() is not Status.INITIATED:
+            if message is not None and self.get_status() is not StepStatus.INITIATED:
                 user_message = message.content
                 if len(message.filenames) != 0:
                     user_message = user_message + " Newly attached files: " + filenames_str
@@ -314,6 +299,8 @@ class Step(BaseModel):
             else:
                 step_status = StepStatus.NOT_COMPLETED
 
+            # need to update gc state artifact?
+
             deepmerge.always_merger.merge(
                 metadata,
                 {
@@ -324,7 +311,7 @@ class Step(BaseModel):
             )
 
         except Exception as e:
-            logger.exception(f"exception occurred processing guided conversation: {e}")
+            logger.exception(f"Document Agent State: Exception occurred processing guided conversation: {e}")
             response = "An error occurred while processing the guided conversation."
             deepmerge.always_merger.merge(
                 metadata,
@@ -345,10 +332,12 @@ class Step(BaseModel):
             )
         )
 
+        logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
         return step_status
 
     async def _step_finish(
         self,
+        step_data: StepData,
         attachments_ext: AttachmentsExtension,
         config: AssistantConfigModel,
         context: ConversationContext,
@@ -522,7 +511,7 @@ class Mode(BaseModel):
         super().__init__(**data)
 
         name = data.get("name")
-        if name is not None:
+        if name is not ModeName.UNDEFINED:
             match name:
                 case ModeName.DRAFT_OUTLINE:
                     self._init_draft_outline_mode()
@@ -541,7 +530,7 @@ class Mode(BaseModel):
             self.set_step(Step(name=self.get_step().get_name(), status=self.get_step().get_status()))
 
         logger.info(
-            "Document Agent mode initiated. Mode Name: %s, Mode Status: %s, Current Step Name: %s, Current Step Status: %s",
+            "Document Agent State: Mode loaded. ModeName: %s, ModeStatus: %s, Current StepName: %s, Current StepStatus: %s",
             self.get_name(),
             self.get_status(),
             self.get_step().get_name(),
@@ -551,10 +540,7 @@ class Mode(BaseModel):
 
     def _draft_outline_mode_get_next_step(self) -> Step:
         current_step_name = self.get_step().get_name()
-        logger.info(
-            "Document Agent entered _draft_outline_mode_get_next_step. current_step_name: %s",
-            self.get_step().get_name(),
-        )
+        logger.info("Document Agent State: Getting next step.")
 
         match current_step_name:
             case StepName.UNDEFINED:
@@ -582,7 +568,7 @@ class Mode(BaseModel):
             self.status is ModeStatus.UNDEFINED and self.name is not ModeName.UNDEFINED
         ):
             logger.error(
-                "Either mode name or mode status is UNDEFINED, and the other is not. Both must be UNDEFINED at the same time: Mode name is %s, status is %s",
+                "Document Agent State: Either ModeName or ModeStatus is UNDEFINED, and the other is not. Both must be UNDEFINED at the same time. ModeName: %s, ModeStatus: %s",
                 self.name,
                 self.status,
             )
@@ -646,18 +632,21 @@ class State(BaseModel):
         for sd in self.step_data_list:
             if sd.step_name == step_name:
                 sd = step_data
-                break
+                return
         # did not exist yet, so adding
         self.step_data_list.append(step_data)
 
     def get_step_data_list(self) -> list[StepData]:
         return self.step_data_list
 
-    def get_step_data(self, step_name: StepName) -> StepData | None:
+    def get_step_data(self, step_name: StepName) -> StepData:
         for sd in self.step_data_list:
             if sd.step_name == step_name:
                 return sd
-        return None
+        # did not exist yet, so adding
+        new_step_data = StepData(step_name=step_name)
+        self.step_data_list.append(new_step_data)
+        return new_step_data
 
 
 # endregion
@@ -675,10 +664,10 @@ def mode_prerequisite_check(state: State, correct_mode_name: ModeName) -> bool:
         mode_status is not ModeStatus.NOT_COMPLETED and mode_status is not ModeStatus.INITIATED
     ):
         logger.error(
-            "Document Agent state mode: %s, mode called: %s, state mode completion status: %s.",
+            "Document Agent State: ModeName: %s, ModeStatus: %s, ModeName called: %s.",
             mode_name,
-            correct_mode_name,
             mode_status,
+            correct_mode_name,
         )
         return False
     return True

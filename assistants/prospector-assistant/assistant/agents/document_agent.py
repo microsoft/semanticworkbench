@@ -13,7 +13,6 @@ from .document.state import (
     ModeName,
     ModeStatus,
     State,
-    StepData,
     StepName,
     StepStatus,
     mode_prerequisite_check,
@@ -49,7 +48,7 @@ class DocumentAgent:
         if state_dict is not None:
             state = State(**state_dict)
         else:
-            logger.info("Document Agent: no state found in storage. Returning a new state.")
+            logger.info("Document Agent: no state found in storage. Returning an undefined state.")
             state = State()
         self._state = state
         return state
@@ -74,19 +73,16 @@ class DocumentAgent:
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
     ) -> bool:
-        # State
+        # Load State
+        logger.info("Document Agent: State loading.")
         state = self._read_state(context)
         if state is None:
             logger.error("Document Agent: State is None. Returning.")
             return False
-
-        # Load
-        logger.info("Document Agent: Mode %s loading.", mode_name)
         if not state.mode.is_running():
             state.set_mode(Mode(name=mode_name, status=ModeStatus.INITIATED))
-        else:
-            state.set_mode(Mode(name=mode_name, status=state.mode.get_status()))
-        self._write_state(state, context)
+            self._write_state(state, context)
+        logger.info("Document Agent: State loaded.")
 
         # Prerequisites
         result = mode_prerequisite_check(state, mode_name)
@@ -97,8 +93,11 @@ class DocumentAgent:
             return False
 
         # Execute
-        logger.info("Document Agent: Mode %s executing.", mode_name)
+        logger.info("Document Agent: Mode executing. ModeName: %s", mode_name)
         mode_result_status = await self._mode_execute(state, config, context, message, metadata)
+        logger.info(
+            "Document Agent: Mode executed. ModeName: %s, Resulting ModeStatus: %s", mode_name, mode_result_status
+        )
         if mode_result_status is ModeStatus.UNDEFINED:
             logger.error(
                 "Document Agent: Running mode %s resulted in mode status %s. Resetting mode. Returning",
@@ -109,7 +108,6 @@ class DocumentAgent:
             self._write_state(state, context)
             return False
         else:
-            logger.info("Document Agent: Mode %s execution resulted in mode status: %s.", mode_name, mode_result_status)
             state.mode.set_status(mode_result_status)
             self._write_state(state, context)
             return True
@@ -128,34 +126,35 @@ class DocumentAgent:
         while current_step_status is StepStatus.INITIATED or current_step_status is StepStatus.NOT_COMPLETED:
             # Execute step method
             logger.info(
-                "Document Agent: Mode executing step. Current Step Name: %s, Current Step Status: %s",
+                "Document Agent: Step executing. Current StepName: %s, Current StepStatus: %s",
                 current_step_name,
                 current_step_status,
             )
             execute_step_method = state.mode.get_step().execute
             if execute_step_method is not None:
+                step_data = state.get_step_data(current_step_name)
                 new_step_status = await execute_step_method(
-                    self._attachments_extension, config, context, message, metadata
+                    step_data, self._attachments_extension, config, context, message, metadata
                 )
+                logger.info(
+                    "Document Agent: Step executed. Current StepName: %s, Resulting StepStatus: %s",
+                    current_step_name,
+                    new_step_status,
+                )
+                state.mode.get_step().set_status(new_step_status)
+                self._write_state(state, context)
             else:
-                logger.error("Document Agent: step.execute not defined for Step Name: %s.", current_step_name)
+                logger.error("Document Agent: step.execute not defined for StepName: %s.", current_step_name)
                 break
-            logger.info(
-                "Document Agent: Mode executed step. Current Step Name: %s, New Step Status: %s",
-                current_step_name,
-                new_step_status,
-            )
 
             # Update step data
             run_count_key = "run_count"
-            logger.info("Document Agent: Updating step data (%s). Step Name: %s", run_count_key, current_step_name)
+            logger.info(
+                "Document Agent: StepData updating (%s). Current StepName: %s", run_count_key, current_step_name
+            )
             step_data = state.get_step_data(current_step_name)
-            if step_data is None:
-                new_step_data = StepData(step_name=current_step_name, run_count=1)
-                state.set_step_data(new_step_data)
-            else:
-                step_data.run_count += 1
-                state.set_step_data(step_data)
+            step_data.run_count += 1
+            state.set_step_data(step_data)
             self._write_state(state, context)
 
             # Workflow StepStatus check
@@ -163,8 +162,9 @@ class DocumentAgent:
                 case StepStatus.NOT_COMPLETED:
                     state.mode.get_step().set_status(new_step_status)
                     state.mode.set_status(ModeStatus.NOT_COMPLETED)
+                    self._write_state(state, context)
                     logger.info(
-                        "Document Agent: Getting more user input. Remaining in step. Step Name: %s", current_step_name
+                        "Document Agent: Getting more user input. Remaining in step. StepName: %s", current_step_name
                     )
                     break  # ok - get more user input
 
@@ -177,13 +177,15 @@ class DocumentAgent:
                             current_step_name = state.mode.get_step().get_name()
                             current_step_status = state.mode.get_step().get_status()  # new step is Status.INITIATED
                             logger.info(
-                                "Document Agent: Moving on to next step. Next Step Name: %s, Next Step Status: %s",
+                                "Document Agent: Moving on to next step. Next StepName: %s, Next StepStatus: %s",
                                 current_step_name,
                                 current_step_status,
                             )
                             continue  # ok - don't need user input yet
                         else:
                             state.mode.set_step(next_step)
+                            state.mode.set_status(ModeStatus.USER_COMPLETED)
+                            self._write_state(state, context)
                             logger.info("Document Agent: No more steps in mode. Completed.")
                             break  # ok - all done :)
                     else:
@@ -195,20 +197,21 @@ class DocumentAgent:
                 case StepStatus.USER_EXIT_EARLY:
                     state.mode.get_step().set_status(new_step_status)
                     state.mode.set_status(ModeStatus.USER_EXIT_EARLY)
+                    self._write_state(state, context)
                     logger.info("Document Agent: User exited early. Completed.")
                     break  # ok - done early :)
 
                 case _:  # UNDEFINED, INITIATED
                     logger.error(
-                        "Document Agent: step.execute for Step Name: %s resulted in Step Status: %s. Resetting mode %s.",
+                        "Document Agent: step.execute for StepName: %s resulted in StepStatus: %s. Resetting mode %s.",
                         current_step_name,
                         new_step_status,
                         state.mode.get_name(),
                     )
                     state.mode.reset()
+                    self._write_state(state, context)
                     break  # problem
 
-        self._write_state(state, context)
         return state.mode.get_status()
 
     # endregion
