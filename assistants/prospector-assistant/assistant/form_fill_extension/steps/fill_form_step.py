@@ -249,6 +249,12 @@ def _form_fields_to_artifact_basemodel(form_fields: list[state.FormField]):
             case state.FieldType.text | state.FieldType.signature | state.FieldType.date:
                 field_type = str
 
+            case state.FieldType.text_list:
+                field_type = list[str]
+
+            case state.FieldType.currency:
+                field_type = float
+
             case state.FieldType.multiple_choice:
                 match field.option_selections_allowed:
                     case state.AllowedOptionSelections.one:
@@ -330,12 +336,14 @@ def _generate_populated_form(
     form: state.Form,
     populated_fields: dict,
 ) -> str:
-    def field_value(field_id: str) -> str:
+    def field_value(field_id: str) -> str | list[str]:
         value = populated_fields.get(field_id) or ""
         if value == "Unanswered":
             return ""
         if value == "null":
             return ""
+        if isinstance(value, list):
+            return value
         return value
 
     def field_values(fields: list[state.FormField]) -> str:
@@ -349,8 +357,23 @@ def _generate_populated_form(
                 markdown_fields.append(f'<span style="font-size: 0.75em;opacity:0.6;">ℹ️ {field.description}</span>\n')
 
             match field.type:
-                case state.FieldType.text | state.FieldType.signature | state.FieldType.date:
-                    markdown_fields.append(f"{value}")
+                case (
+                    state.FieldType.text
+                    | state.FieldType.signature
+                    | state.FieldType.date
+                    | state.FieldType.text_list
+                    | state.FieldType.currency
+                ):
+                    match value:
+                        case str():
+                            markdown_fields.append(value)
+
+                        case int() | float():
+                            markdown_fields.append(str(value))
+
+                        case list():
+                            for item in value:
+                                markdown_fields.append(f"- {item}")
 
                 case state.FieldType.multiple_choice:
                     for option in field.options:
