@@ -2,7 +2,7 @@ import json
 from typing import Annotated, Any, cast
 
 import jsonschema
-from form_filler_skill.guided_conversation.artifact_helpers import (
+from guided_conversation_skill.artifact_helpers import (
     InvalidArtifactFieldError,
     UpdateAttempt,
     get_artifact_for_prompt,
@@ -11,7 +11,7 @@ from form_filler_skill.guided_conversation.artifact_helpers import (
     validate_field_presence_in_schema,
     validate_field_value,
 )
-from form_filler_skill.guided_conversation.definition import GCDefinition
+from guided_conversation_skill.definition import GCDefinition
 from openai_client import (
     CompletionError,
     add_serializable_data,

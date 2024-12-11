@@ -1,4 +1,4 @@
-from form_filler_skill.guided_conversation.base_model_llm import BaseModelLLM
+from guided_conversation_skill.base_model_llm import BaseModelLLM
 
 
 def test_parse_literal_eval():

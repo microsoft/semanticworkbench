@@ -1,8 +1,8 @@
 import logging
 from typing import Any
 
-from form_filler_skill.guided_conversation.artifact_helpers import get_artifact_for_prompt, get_schema_for_prompt
-from form_filler_skill.guided_conversation.definition import GCDefinition
+from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt, get_schema_for_prompt
+from guided_conversation_skill.definition import GCDefinition
 from openai_client import (
     CompletionError,
     add_serializable_data,

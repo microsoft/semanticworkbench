@@ -6,11 +6,11 @@ https://microsoft.sharepoint.com/:v:/t/NERDAIProgram2/EfRcEA2RSP9DuJhw8AHnAP4B12
 import logging
 from typing import cast
 
-from form_filler_skill.guided_conversation.agenda import Agenda, AgendaItem
-from form_filler_skill.guided_conversation.artifact_helpers import get_artifact_for_prompt
-from form_filler_skill.guided_conversation.definition import GCDefinition
-from form_filler_skill.guided_conversation.message import Conversation
-from form_filler_skill.guided_conversation.resources import (
+from guided_conversation_skill.agenda import Agenda, AgendaItem
+from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt
+from guided_conversation_skill.definition import GCDefinition
+from guided_conversation_skill.message import Conversation
+from guided_conversation_skill.resources import (
     GCResource,
     ResourceConstraintMode,
     ResourceConstraintUnit,

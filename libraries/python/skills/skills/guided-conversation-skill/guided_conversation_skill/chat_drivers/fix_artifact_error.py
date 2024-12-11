@@ -1,7 +1,7 @@
 from typing import Any
 
-from form_filler_skill.guided_conversation.artifact_helpers import UpdateAttempt, get_schema_for_prompt
-from form_filler_skill.guided_conversation.message import Conversation, ConversationMessageType
+from guided_conversation_skill.artifact_helpers import UpdateAttempt, get_schema_for_prompt
+from guided_conversation_skill.message import Conversation, ConversationMessageType
 from openai_client import (
     CompletionError,
     add_serializable_data,

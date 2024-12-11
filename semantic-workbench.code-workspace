@@ -112,6 +112,10 @@
       "path": "libraries/python/skills/skills/form-filler-skill"
     },
     {
+      "name": "libraries:skills:guided-conversation-skill",
+      "path": "libraries/python/skills/skills/guided-conversation-skill"
+    },
+    {
       "name": "libraries:skills:notebooks",
       "path": "libraries/python/skills/notebooks"
     },

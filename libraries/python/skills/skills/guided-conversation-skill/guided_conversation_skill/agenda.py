@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from form_filler_skill.guided_conversation.resources import (
+from guided_conversation_skill.resources import (
     ResourceConstraintMode,
 )
 

@@ -3,11 +3,11 @@ from typing import Any
 
 import pytest
 from assistant_drive import Drive, DriveConfig
-from form_filler_skill.guided_conversation.definitions.acrostic_poem import definition
-from form_filler_skill.guided_conversation.guided_conversation_skill import GuidedConversationSkill
+from guided_conversation_skill.definitions.acrostic_poem import definition
+from guided_conversation_skill.guided_conversation_skill import GuidedConversationSkill
 from openai_client import AzureOpenAIAzureIdentityAuthConfig, AzureOpenAIServiceConfig, create_client
 from openai_client.config import first_env_var
-from pydantic import HttpUrl
+from pydantic_core import Url
 from skill_library import Skill
 from skill_library.routine_stack import RoutineStack
 from skill_library.run_context import LogEmitter, RunContext
@@ -18,7 +18,7 @@ from skill_library.skill_registry import SkillRegistry
 async def test_poem_feedback():
     service_config = AzureOpenAIServiceConfig(
         auth_config=AzureOpenAIAzureIdentityAuthConfig(),
-        azure_openai_endpoint=HttpUrl(first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""),
+        azure_openai_endpoint=Url(first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or ""),
         azure_openai_deployment=first_env_var("azure_openai_deployment", "assistant__azure_openai_deployment")
         or "gpt-3.5-turbo",
     )

@@ -1,15 +1,15 @@
-# from form_filler_skill.guided_conversation.artifact_helpers import artifact_from_schema
+# from guided_conversation_skill.artifact_helpers import artifact_from_schema
 from typing import Literal, get_type_hints
 
 import jsonschema
 import pytest
-from form_filler_skill.guided_conversation.artifact_helpers import (
+from guided_conversation_skill.artifact_helpers import (
     InvalidArtifactFieldError,
     UpdateAttempt,
     validate_artifact_data,
     validate_field_value,
 )
-from form_filler_skill.guided_conversation.chat_drivers.generate_artifact_updates import (
+from guided_conversation_skill.chat_drivers.generate_artifact_updates import (
     ArtifactUpdate,
     validate_update_attempt,
 )

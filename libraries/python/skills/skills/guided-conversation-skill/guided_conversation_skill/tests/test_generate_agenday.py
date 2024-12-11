@@ -1,9 +1,9 @@
 import pytest
-from form_filler_skill.guided_conversation.agenda import Agenda
-from form_filler_skill.guided_conversation.chat_drivers.update_agenda import generate_agenda
-from form_filler_skill.guided_conversation.definitions import acrostic_poem
-from form_filler_skill.guided_conversation.message import Conversation
-from form_filler_skill.guided_conversation.resources import GCResource
+from guided_conversation_skill.agenda import Agenda
+from guided_conversation_skill.chat_drivers.update_agenda import generate_agenda
+from guided_conversation_skill.definitions import acrostic_poem
+from guided_conversation_skill.message import Conversation
+from guided_conversation_skill.resources import GCResource
 from skill_library.types import LanguageModel
 
 

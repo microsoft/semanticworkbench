@@ -2,8 +2,8 @@ from textwrap import dedent
 
 from pydantic import BaseModel, Field
 
-from form_filler_skill.guided_conversation.definition import GCDefinition
-from form_filler_skill.guided_conversation.resources import (
+from guided_conversation_skill.definition import GCDefinition
+from guided_conversation_skill.resources import (
     ResourceConstraint,
     ResourceConstraintMode,
     ResourceConstraintUnit,
