@@ -11,14 +11,6 @@ from .config import GuidedConversationConfigModel, ResourceConstraintConfigModel
 from .guided_conversation import GC_ConversationStatus, GC_UserDecision
 
 
-class ArtifactModelAttributeNames(BaseModel):
-    final_response: str = "final_response"
-    conversation_status: str = "conversation_status"
-    user_decision: str = "user_decision"
-    filenames: str = "filenames"
-    current_outline: str = "current_outline"
-
-
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
 # It can also be thought of as a working memory for the agent.
 # We allow any valid Pydantic BaseModel class to be used.

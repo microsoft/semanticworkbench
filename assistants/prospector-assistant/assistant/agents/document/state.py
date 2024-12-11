@@ -28,13 +28,6 @@ from .guided_conversation import GC_ConversationStatus, GC_UserDecision, GuidedC
 
 logger = logging.getLogger(__name__)
 
-
-#
-# region Other ... TBD
-#
-
-# endregion
-
 #
 # region Steps
 #
