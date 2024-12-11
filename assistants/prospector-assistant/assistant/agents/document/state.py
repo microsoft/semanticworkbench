@@ -62,24 +62,24 @@ class Step(BaseModel):
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
+        self._error_check()
 
         name = data.get("name")
-        if name is not StepName.UNDEFINED:
-            self._error_check()
-            match name:
-                case StepName.DRAFT_OUTLINE:
-                    self.execute = self._step_draft_outline
-                case StepName.GC_GET_OUTLINE_FEEDBACK:
-                    self.execute = self._step_gc_get_outline_feedback
-                case StepName.FINISH:
-                    self.execute = self._step_finish
-                case _:
-                    print(f"{name} mode.")
-            logger.info(
-                "Document Agent State: Step loaded. StepName: %s, StepStatus: %s",
-                self.get_name(),
-                self.get_status(),
-            )
+        match name:
+            case StepName.DRAFT_OUTLINE:
+                self.execute = self._step_draft_outline
+            case StepName.GC_GET_OUTLINE_FEEDBACK:
+                self.execute = self._step_gc_get_outline_feedback
+            case StepName.FINISH:
+                self.execute = self._step_finish
+            case _:
+                print(f"{name} mode.")
+
+        logger.info(
+            "Document Agent State: Step loaded. StepName: %s, StepStatus: %s",
+            self.get_name(),
+            self.get_status(),
+        )
 
     def _error_check(self) -> None:
         # name and status should either both be UNDEFINED or both be defined. Always.
@@ -502,25 +502,16 @@ class Mode(BaseModel):
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
-
-        name = data.get("name")
-        if name is not ModeName.UNDEFINED:
-            match name:
-                case ModeName.DRAFT_OUTLINE:
-                    self._init_draft_outline_mode()
-                case ModeName.DRAFT_PAPER:
-                    print(f"{name} mode not implemented.")
-                case _:
-                    print(f"{name} mode.")
-
-    def _init_draft_outline_mode(self) -> None:
         self._error_check()
 
-        self.get_next_step = self._draft_outline_mode_get_next_step
-        if self.get_status() is ModeStatus.INITIATED:
-            self.set_step(self.get_next_step())
-        else:
-            self.set_step(Step(name=self.get_step().get_name(), status=self.get_step().get_status()))
+        name = data.get("name")
+        match name:
+            case ModeName.DRAFT_OUTLINE:
+                self.get_next_step = self._draft_outline_mode_get_next_step
+                if self.get_step().get_name is StepName.UNDEFINED:
+                    self.set_step(self.get_next_step())
+            case ModeName.DRAFT_PAPER:
+                print(f"{name} mode not implemented.")
 
         logger.info(
             "Document Agent State: Mode loaded. ModeName: %s, ModeStatus: %s, Current StepName: %s, Current StepStatus: %s",
@@ -529,7 +520,6 @@ class Mode(BaseModel):
             self.get_step().get_name(),
             self.get_step().get_status(),
         )
-        return
 
     def _draft_outline_mode_get_next_step(self) -> Step:
         current_step_name = self.get_step().get_name()
