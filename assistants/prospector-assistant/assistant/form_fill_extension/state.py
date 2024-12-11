@@ -13,6 +13,8 @@ from .inspector import FileStateInspector
 
 class FieldType(StrEnum):
     text = "text"
+    text_list = "text_list"
+    currency = "currency"
     date = "date"
     signature = "signature"
     multiple_choice = "multiple_choice"
