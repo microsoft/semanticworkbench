@@ -508,7 +508,7 @@ class Mode(BaseModel):
         match name:
             case ModeName.DRAFT_OUTLINE:
                 self.get_next_step = self._draft_outline_mode_get_next_step
-                if self.get_step().get_name is StepName.UNDEFINED:
+                if self.get_step().get_name() is StepName.UNDEFINED:
                     self.set_step(self.get_next_step())
             case ModeName.DRAFT_PAPER:
                 print(f"{name} mode not implemented.")
