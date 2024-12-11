@@ -130,12 +130,12 @@ class Assistant:
         as they are emitted. The generator will continue to yield events until
         the assistant has completed AND all events have been emitted.
         """
-        while not self._stopped.is_set() or not self._event_queue.empty():
+        while not self._stopped.is_set():
             try:
-                event = self._event_queue.get_nowait()
-                yield event
-            except asyncio.QueueEmpty:
-                await asyncio.sleep(0.005)
+                async with asyncio.timeout(1):
+                    yield await self._event_queue.get()
+            except asyncio.TimeoutError:
+                continue
 
     def _emit(self, event: EventProtocol) -> None:
         event.session_id = self.assistant_id

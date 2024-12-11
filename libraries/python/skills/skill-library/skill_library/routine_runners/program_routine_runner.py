@@ -31,4 +31,4 @@ class ProgramRoutineRunner:
         """
         Run the next step in the current routine.
         """
-        pass
+        return True, None

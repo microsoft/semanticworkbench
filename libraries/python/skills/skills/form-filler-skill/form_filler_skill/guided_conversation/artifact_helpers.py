@@ -216,4 +216,4 @@ def get_artifact_for_prompt(artifact: dict[str, Any] | None, failed_fields: list
     """
     if not artifact:
         return "{}"
-    return json.dumps({k: v for k, v in artifact if k not in failed_fields})
+    return json.dumps({k: v for k, v in artifact.items() if k not in failed_fields})

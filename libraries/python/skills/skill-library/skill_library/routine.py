@@ -79,7 +79,7 @@ class StateMachineRoutine(Routine):
         name: str,
         description: str,
         init_function: Callable[[RunContext, Optional[Dict[str, Any]]], Awaitable[Tuple[bool, Any]]],
-        step_function: Callable[[RunContext, Optional[str]], Awaitable[Optional[Tuple[bool, Any]]]],
+        step_function: Callable[[RunContext, Optional[str]], Awaitable[Tuple[bool, Any]]],
         skill: "Skill",
     ) -> None:
         super().__init__(

@@ -35,24 +35,26 @@ logger = logging.getLogger(__name__)
 GENERATE_AGENDA_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
 
 This is the schema of the artifact you are completing:
-{{ artifact_schema }}{% if context %}
+{{ artifact_schema }}
 
+{% if context %}
 Here is some additional context about the conversation:
-{{ context }}{% endif %}
+{{ context }}
+{% endif %}
 
 Throughout the conversation, you must abide by these rules:
-{{ rules }}{% if current_state_description %}
+{{ rules }}
 
+{% if current_state_description %}
 Here's a description of the conversation flow:
 {{ current_state_description }}
 
-Follow this description, and exercise good judgment about when it is appropriate to deviate.{% endif %}
+Follow this description, and exercise good judgment about when it is appropriate to deviate.
+{% endif %}
 
-You will be provided the history of your conversation with the user up until now and the current state of the artifact.
-Note that if the value for a field in the artifact is 'Unanswered', it means that the field has not been completed.
-You need to select the best possible action(s), given the state of the conversation and the artifact.
+You will be provided the history of your conversation with the user up until now and the current state of the artifact. Note that if a required field from the artifact schema is missing from the artifact, it means that the field has not been completed. You need to create an agenda for the remaining conversation given the state of the conversation and the artifact.
 
-Update agenda (required parameters: items)
+How to update the agenda:
 
 - If you need to change your plan for the conversation to make the best use of the remaining turns available to you. Consider how long it usually takes to get the information you need (which is a function of the quality and pace of the user's responses), the number, complexity, and importance of the remaining fields in the artifact, and the number of turns remaining ({{ remaining_resource }}). Based on these factors, you might need to accelerate (e.g. combine several topics) or slow down the conversation (e.g. spread out a topic), in which case you should update the agenda accordingly. Note that skipping an artifact field is NOT a valid way to accelerate the conversation.
 - If you do not need to change your plan, just return the list of agenda items as is.
@@ -61,22 +63,19 @@ Update agenda (required parameters: items)
 - Each item must have a description and and your best guess for the number of turns required to complete it. Do not provide a range of turns. It is EXTREMELY important that the total turns allocated across all items in the updated agenda (including the first item for the current turn) {{ total_resource_str }} Everything in the agenda should be something you expect to complete in the remaining turns - there shouldn't be any optional "buffer" items. It can be helpful to include the cumulative turns allocated for each item in the agenda to ensure you adhere to this rule, e.g. item 1 = 2 turns (cumulative total = 2), item 2 = 4 turns (cumulative total = 6), etc.
 - Avoid high-level items like "ask follow-up questions" - be specific about what you need to do.
 - Do NOT include wrap-up items such as "review and confirm all information with the user" (you should be doing this throughout the conversation) or "thank the user for their time". Do NOT repeat topics that have already been sufficiently addressed. {{ ample_time_str }}
-"""
+
+When you determine the conversation is completed, just return an agenda with no items in it.
+""".replace("\n\n\n", "\n\n")
 
 
 def _get_termination_instructions(resource: GCResource):
     """
     Get the termination instructions for the conversation. This is contingent on the resources mode,
     if any, that is available.
-
-    Assumes we're always using turns as the resource unit.
-
-    Args:
-        resource (GCResource): The resource object.
-
-    Returns:
-        str: the termination instructions
     """
+
+    # TODO: Is this correct? It seems to assume we're always using turns as the resource unit.
+
     # Termination condition under no resource constraints
     if resource.resource_constraint is None:
         return (
@@ -149,7 +148,6 @@ async def generate_agenda(
                     "artifact_schema": definition.artifact_schema,
                     "rules": definition.rules,
                     "current_state_description": definition.conversation_flow,
-                    "show_agenda": True,
                     "remaining_resource": remaining_resource,
                     "total_resource_str": total_resource_str,
                     "ample_time_str": ample_time_str,
@@ -233,8 +231,7 @@ async def generate_agenda(
             new_agenda = possibly_fixed_agenda
             continue
         else:
-            # FIXME: this should be determinded from the LLM response.
-            is_done = False
+            is_done = True if len(new_agenda.items) == 0 else False
             logger.info(f"Agenda updated successfully: {get_agenda_for_prompt(new_agenda)}")
             return new_agenda, is_done
 

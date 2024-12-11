@@ -18,9 +18,12 @@ class Message(BaseModel):
 
 class Conversation(BaseModel):
     messages: list[Message] = Field(default_factory=list)
+    turn: int = 0
 
-    def exclude(self, types: list[ConversationMessageType]) -> list[Message]:
-        return [message for message in self.messages if message.type not in types]
+    def exclude(self, types: list[ConversationMessageType]) -> "Conversation":
+        return Conversation(
+            messages=[message for message in self.messages if message.type not in types], turn=self.turn
+        )
 
     def __str__(self) -> str:
         message_strs = []
@@ -54,5 +57,18 @@ class Conversation(BaseModel):
         return "\n".join(message_strs)
 
     def add_user_message(self, content: str) -> "Conversation":
-        self.messages.append(Message(param={"role": "user", "content": content}))
+        self.messages.append(Message(param={"role": "user", "content": content}, turn=self.turn))
+        return self
+
+    def add_assistant_message(self, content: str) -> "Conversation":
+        self.turn += 1
+        self.messages.append(
+            Message(
+                param={
+                    "role": "assistant",
+                    "content": content,
+                },
+                turn=self.turn,
+            )
+        )
         return self

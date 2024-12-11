@@ -4,7 +4,6 @@ from typing import Any, AsyncGenerator, Callable, Coroutine, Optional, Union
 from uuid import uuid4
 
 from assistant_drive import Drive
-from context import ContextProtocol
 from events.events import EventProtocol
 
 from .routine_stack import RoutineStack
@@ -23,7 +22,7 @@ async def unimplemented_runner(routine_name: str, *args: Any, **kwargs: Any) -> 
     logging.info(f"Routine {routine_name} has not been implemented.")
 
 
-class RunContext(ContextProtocol):
+class RunContext:
     """
     "Run context" is passed to parts of the system (skill routines and
     actions, and chat driver functions) that need to be able to run routines or

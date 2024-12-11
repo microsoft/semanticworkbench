@@ -209,12 +209,15 @@ class GuidedConversationSkill(Skill):
                     )
                 except Exception as e:
                     # TODO: DO something with this error.
-                    logger.fatal(f"Error generating artifact updates: {e}")
+                    logger.exception("Error generating artifact updates", exc_info=e)
                 else:
-                    # Apply the updates to the artifact.
+                    # Apply the validated updates to the artifact.
                     for update in artifact_updates:
-                        value = json.loads(update.value_as_json)
-                        artifact.__setattr__(update.field, value)
+                        try:
+                            artifact[update.field] = json.loads(update.value_as_json)
+                        except json.JSONDecodeError:
+                            logger.warning(f"Error decoding JSON for update: {update}")
+                            continue
                     state["artifact"] = artifact
                     context.emit(MessageEvent(message="Artifact updated"))
 
@@ -232,23 +235,32 @@ class GuidedConversationSkill(Skill):
                 state["agenda"] = agenda
                 context.emit(MessageEvent(message="Agenda updated"))
             except Exception:
-                # TODO: DO something with this error.
+                # TODO: DO something with this error?
+                logger.exception("Error generating agenda")
                 return False, artifact
-            else:
-                # If the agenda generation says we are done, generate the final artifact.
-                if is_done:
-                    if artifact:
-                        artifact = await final_artifact_update(self.language_model, definition, conversation, artifact)
-                    context.emit(MessageEvent(session_id=context.session_id, message="Conversation complete!"))
-                    return True, artifact
 
-                # If we are not done, use the agenda to ask the user for whatever is next.
-                else:
-                    message = await generate_message(
-                        self.language_model, definition, artifact, conversation, max_retries=DEFAULT_MAX_RETRIES
-                    )
-                    context.emit(MessageEvent(session_id=context.session_id, message=message))
-                    return False, artifact
+            # If the agenda generation says we are done, generate the final artifact.
+            if is_done:
+                if artifact:
+                    artifact = await final_artifact_update(self.language_model, definition, conversation, artifact)
+                context.emit(MessageEvent(session_id=context.session_id, message="Conversation complete!"))
+                return True, artifact
+
+            # If we are not done, use the agenda to ask the user for whatever is next.
+            else:
+                message = await generate_message(
+                    self.language_model, definition, artifact, conversation, max_retries=DEFAULT_MAX_RETRIES
+                )
+                context.emit(MessageEvent(session_id=context.session_id, message=message))
+                if message:
+                    conversation.add_assistant_message(message)
+                    state["conversation"] = conversation
+
+                # Increment the resource.
+                resource.increment_resource()
+                state["resource"] = resource.to_data()
+
+                return False, artifact
 
     ##################################
     # Actions
