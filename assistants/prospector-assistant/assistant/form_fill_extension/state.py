@@ -39,6 +39,21 @@ class FormField(BaseModel):
     )
 
 
+class Section(BaseModel):
+    title: str = Field(description="The title of the section if one is provided on the form.")
+    description: str = Field(description="The description of the section if one is provided on the form.")
+    instructions: str = Field(description="The instructions for the section if they are provided on the form.")
+    fields: list[FormField] = Field(description="The fields of the section.")
+
+
+class Form(BaseModel):
+    title: str = Field(description="The title of the form.")
+    description: str = Field(description="The description of the form if one is provided on the form.")
+    instructions: str = Field(description="The instructions for the form if they are provided on the form.")
+    fields: list[FormField] = Field(description="The fields of the form, if there are any at the top level.")
+    sections: list[Section] = Field(description="The sections of the form, if there are any.")
+
+
 class FormFillExtensionMode(StrEnum):
     acquire_form_step = "acquire_form"
     extract_form_fields = "extract_form_fields"
@@ -49,8 +64,7 @@ class FormFillExtensionMode(StrEnum):
 class FormFillExtensionState(BaseModel):
     mode: FormFillExtensionMode = FormFillExtensionMode.acquire_form_step
     form_filename: str = ""
-    extracted_form_title: str = ""
-    extracted_form_fields: list[FormField] = []
+    extracted_form: Form | None = None
     populated_form_markdown: str = ""
     fill_form_gc_artifact: dict | None = None
 
@@ -81,4 +95,4 @@ async def extension_state(context: ConversationContext) -> AsyncIterator[FormFil
         current_state.set(None)
 
 
-inspector = FileStateInspector(display_name="FormFill Agent", file_path_source=path_for_state)
+inspector = FileStateInspector(display_name="Debug: FormFill Agent", file_path_source=path_for_state)
