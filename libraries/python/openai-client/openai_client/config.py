@@ -1,6 +1,7 @@
 from enum import StrEnum
 from typing import Annotated, Literal
 
+from assistant_extensions.ai_clients.model import RequestConfigBaseModel
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema, first_env_var
 
@@ -52,7 +53,7 @@ class AzureOpenAIServiceConfig(BaseModel):
         },
     )
 
-    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.AzureOpenAI
+    service_type: Annotated[Literal[ServiceType.AzureOpenAI], UISchema(widget="hidden")] = ServiceType.AzureOpenAI
 
     auth_config: Annotated[
         AzureOpenAIAzureIdentityAuthConfig | AzureOpenAIApiKeyAuthConfig,
@@ -89,7 +90,7 @@ class AzureOpenAIServiceConfig(BaseModel):
 class OpenAIServiceConfig(BaseModel):
     model_config = ConfigDict(title="OpenAI", json_schema_extra={"required": ["openai_api_key"]})
 
-    service_type: Annotated[ServiceType, UISchema(widget="hidden")] = ServiceType.OpenAI
+    service_type: Annotated[Literal[ServiceType.OpenAI], UISchema(widget="hidden")] = ServiceType.OpenAI
 
     openai_api_key: Annotated[
         # ConfigSecretStr is a custom type that should be used for any secrets.
@@ -126,6 +127,56 @@ ServiceConfig = Annotated[
     ),
     UISchema(widget="radio", hide_title=True),
 ]
+
+
+class OpenAIRequestConfig(RequestConfigBaseModel):
+    model_config = ConfigDict(
+        title="Response Generation",
+        json_schema_extra={
+            "required": ["max_tokens", "response_tokens", "model"],
+        },
+    )
+
+    max_tokens: Annotated[
+        int,
+        Field(
+            title="Max Tokens",
+            description=(
+                "The maximum number of tokens to use for both the prompt and response. Current max supported by OpenAI"
+                " is 128,000 tokens, but varies by model [https://platform.openai.com/docs/models]"
+                "(https://platform.openai.com/docs/models)."
+            ),
+        ),
+        UISchema(enable_markdown_in_description=True),
+    ] = 128_000
+
+    response_tokens: Annotated[
+        int,
+        Field(
+            title="Response Tokens",
+            description=(
+                "The number of tokens to use for the response, will reduce the number of tokens available for the"
+                " prompt. Current max supported by OpenAI is 16,384 tokens [https://platform.openai.com/docs/models]"
+                "(https://platform.openai.com/docs/models)."
+            ),
+        ),
+        UISchema(enable_markdown_in_description=True),
+    ] = 8_196
+
+    model: Annotated[
+        str,
+        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
+    ] = "gpt-4o"
+
+    is_reasoning_model: Annotated[
+        bool,
+        Field(
+            title="Is Reasoning Model (o1-preview, o1-mini, etc)",
+            description="Experimental: enable support for reasoning models such as o1-preview, o1-mini, etc.",
+        ),
+    ] = False
+
+
 """
 Open AI client service configuration, allowing AzureOpenAIServiceConfig or OpenAIServiceConfig.
 This type is annotated with a title and UISchema to be used as a field type in an assistant configuration model.
@@ -135,6 +186,17 @@ Example:
 import openai_client
 
 class MyConfig(BaseModel):
-    service_config: openai_client.ServiceConfig
+    service_config: Annotated[
+        openai_client.ServiceConfig,
+        Field(
+            title="Service Configuration",
+        ),
+    ] = openai_client.ServiceConfig()
+    request_config: Annotated[
+        openai_client.RequestConfig,
+        Field(
+            title="Request Configuration",
+        ),
+    ] = openai_client.RequestConfig()
 ```
 """

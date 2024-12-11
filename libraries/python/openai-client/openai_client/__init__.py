@@ -8,6 +8,7 @@ from .config import (
     AzureOpenAIApiKeyAuthConfig,
     AzureOpenAIAzureIdentityAuthConfig,
     AzureOpenAIServiceConfig,
+    OpenAIRequestConfig,
     OpenAIServiceConfig,
     ServiceConfig,
 )
@@ -20,6 +21,7 @@ from .logging import (
     make_completion_args_serializable,
 )
 from .messages import (
+    convert_from_completion_messages,
     create_assistant_message,
     create_system_message,
     create_user_message,
@@ -41,6 +43,7 @@ __all__ = [
     "AzureOpenAIAzureIdentityAuthConfig",
     "AzureOpenAIServiceConfig",
     "CompletionError",
+    "convert_from_completion_messages",
     "create_client",
     "create_assistant_message",
     "create_system_message",
@@ -54,6 +57,7 @@ __all__ = [
     "num_tokens_from_messages",
     "num_tokens_from_tools_and_messages",
     "OpenAIServiceConfig",
+    "OpenAIRequestConfig",
     "ServiceConfig",
     "truncate_messages_for_logging",
     "validate_completion",

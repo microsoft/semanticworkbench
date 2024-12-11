@@ -44,15 +44,30 @@
     }
   },
   "ruff.nativeServer": "on",
+  // For use with optional extension: "streetsidesoftware.code-spell-checker"
+  "cSpell.ignorePaths": [
+    ".venv",
+    "node_modules",
+    "package-lock.json",
+    "settings.json",
+    "uv.lock"
+  ],
   "cSpell.words": [
+    "addopts",
+    "asctime",
+    "asyncio",
     "dotenv",
     "httpx",
+    "levelname",
     "metadrive",
     "openai",
     "pydantic",
     "pypdf",
+    "pyright",
+    "pytest",
     "runtimes",
     "subdrive",
+    "testpaths",
     "tiktoken"
   ],
   "python.testing.pytestArgs": ["skill_library"],

@@ -1,5 +1,5 @@
 import json
-from typing import TYPE_CHECKING, Annotated, Any, Dict, List, Type
+from typing import Annotated, Any, Dict, List, Type
 
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field, create_model
@@ -8,9 +8,6 @@ from semantic_workbench_assistant.config import UISchema
 from ... import helpers
 from . import config_defaults as config_defaults
 from .config import GuidedConversationConfigModel, ResourceConstraintConfigModel
-
-if TYPE_CHECKING:
-    pass
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
@@ -68,7 +65,7 @@ specifically asks for it from you.
 a. At any time, if the user asks for a change to the outline, the conversation_status must be
 marked as user_completed. The user_decision must be marked as update_outline. The final_response
 must inform the user that a new outline is being generated based off the request.
-b. At any time, if the user has provided new attachments (detected via the filenames in the artifact),
+b. At any time, if the user has provided new attachments (detected via `Newly attached files:` in the user message),
 the conversation_status must be marked as user_completed. The user_decision must be marked as
 update_outline. The final_response must inform the user that a new outline is being generated based
 on the addition of new attachments.

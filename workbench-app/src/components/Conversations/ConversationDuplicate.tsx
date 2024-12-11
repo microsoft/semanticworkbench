@@ -1,35 +1,93 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, DialogOpenChangeData, DialogOpenChangeEvent, DialogTrigger } from '@fluentui/react-components';
+import {
+    Button,
+    DialogOpenChangeData,
+    DialogOpenChangeEvent,
+    DialogTrigger,
+    Field,
+    Input,
+    Radio,
+    RadioGroup,
+} from '@fluentui/react-components';
 import { SaveCopy24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { useNotify } from '../../libs/useNotify';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
 import { Utility } from '../../libs/Utility';
+import { useDuplicateConversationMutation } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
 import { DialogControl } from '../App/DialogControl';
 
+const enum AssistantParticipantOption {
+    SameAssistants = 'Include the same assistants in the new conversation.',
+    CloneAssistants = 'Create copies of the assistants in the new conversation.',
+}
+
 const useConversationDuplicateControls = (id: string) => {
     const workbenchService = useWorkbenchService();
+    const [assistantParticipantOption, setAssistantParticipantOption] = React.useState<AssistantParticipantOption>(
+        AssistantParticipantOption.SameAssistants,
+    );
+    const [duplicateConversation] = useDuplicateConversationMutation();
     const [submitted, setSubmitted] = React.useState(false);
+    const [title, setTitle] = React.useState('');
 
-    const duplicateConversation = React.useCallback(
+    const handleDuplicateConversation = React.useCallback(
         async (onDuplicate?: (conversationId: string) => Promise<void>, onError?: (error: Error) => void) => {
             try {
                 await Utility.withStatus(setSubmitted, async () => {
-                    const duplicates = await workbenchService.duplicateConversationsAsync([id]);
-                    await onDuplicate?.(duplicates[0]);
+                    switch (assistantParticipantOption) {
+                        case AssistantParticipantOption.SameAssistants:
+                            const results = await duplicateConversation({ id, title }).unwrap();
+                            if (results.conversationIds.length === 0) {
+                                throw new Error('No conversation ID returned');
+                            }
+                            await onDuplicate?.(results.conversationIds[0]);
+                            break;
+                        case AssistantParticipantOption.CloneAssistants:
+                            const duplicateIds = await workbenchService.exportThenImportConversationAsync([id]);
+                            await onDuplicate?.(duplicateIds[0]);
+                            break;
+                    }
                 });
             } catch (error) {
                 onError?.(error as Error);
             }
         },
-        [id, workbenchService],
+        [assistantParticipantOption, duplicateConversation, id, title, workbenchService],
     );
 
     const duplicateConversationForm = React.useCallback(
-        () => <p>Are you sure you want to duplicate this conversation?</p>,
-        [],
+        () => (
+            <>
+                <Field label="Title" required={true}>
+                    <Input
+                        value={title}
+                        onChange={(_, data) => setTitle(data.value)}
+                        required={true}
+                        placeholder="Enter a title for the duplicated conversation"
+                    />
+                </Field>
+                <Field label="Assistant Duplication Options" required={true}>
+                    <RadioGroup
+                        defaultValue={assistantParticipantOption}
+                        onChange={(_, data) => setAssistantParticipantOption(data.value as AssistantParticipantOption)}
+                        required={true}
+                    >
+                        <Radio
+                            value={AssistantParticipantOption.SameAssistants}
+                            label={AssistantParticipantOption.SameAssistants}
+                        />
+                        <Radio
+                            value={AssistantParticipantOption.CloneAssistants}
+                            label={AssistantParticipantOption.CloneAssistants}
+                        />
+                    </RadioGroup>
+                </Field>
+            </>
+        ),
+        [assistantParticipantOption, title],
     );
 
     const duplicateConversationButton = React.useCallback(
@@ -37,13 +95,13 @@ const useConversationDuplicateControls = (id: string) => {
             <Button
                 key="duplicate"
                 appearance="primary"
-                onClick={() => duplicateConversation(onDuplicate, onError)}
+                onClick={() => handleDuplicateConversation(onDuplicate, onError)}
                 disabled={submitted}
             >
                 {submitted ? 'Duplicating...' : 'Duplicate'}
             </Button>
         ),
-        [duplicateConversation, submitted],
+        [handleDuplicateConversation, submitted],
     );
 
     return {

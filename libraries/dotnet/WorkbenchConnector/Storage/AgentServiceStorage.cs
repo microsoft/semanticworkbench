@@ -64,7 +64,7 @@ public class AgentServiceStorage : IAgentServiceStorage
 
     public Task DeleteAgentAsync(IAgentBase agent, CancellationToken cancellationToken = default)
     {
-        File.Delete(this.GetAgentFilename(agent));
+        File.Delete(this.GetAgentFilename(agent)); // codeql [cs/path-injection]: safe
         return Task.CompletedTask;
     }
 
@@ -92,7 +92,7 @@ public class AgentServiceStorage : IAgentServiceStorage
     public async Task DeleteConversationAsync(string conversationId, string agentId, CancellationToken cancellationToken = default)
     {
         var filename = this.GetConversationFilename(agentId: agentId, conversationId: conversationId);
-        File.Delete(filename);
+        File.Delete(filename); // codeql [cs/path-injection]: safe
 
         var insights = await this.GetAllInsightsAsync(agentId: agentId, conversationId: conversationId, cancellationToken).ConfigureAwait(false);
         foreach (Insight x in insights)
@@ -104,7 +104,7 @@ public class AgentServiceStorage : IAgentServiceStorage
     public Task DeleteConversationAsync(Conversation conversation, CancellationToken cancellationToken = default)
     {
         var filename = this.GetConversationFilename(conversation);
-        File.Delete(filename);
+        File.Delete(filename); // codeql [cs/path-injection]: safe
         return Task.CompletedTask;
     }
 
@@ -122,7 +122,7 @@ public class AgentServiceStorage : IAgentServiceStorage
     public Task DeleteInsightAsync(string agentId, string conversationId, string insightId, CancellationToken cancellationToken = default)
     {
         var filename = this.GetInsightFilename(agentId: agentId, conversationId: conversationId, insightId: insightId);
-        File.Delete(filename);
+        File.Delete(filename); // codeql [cs/path-injection]: safe
         return Task.CompletedTask;
     }
 

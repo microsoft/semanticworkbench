@@ -439,8 +439,12 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
                 return;
             }
 
-            // Example: http://[::]:64351
-            string first = feat.Addresses.First().Replace("[::]", "host", StringComparison.OrdinalIgnoreCase);
+            // Example: http://[::]:64351 - Prefer non-HTTPS to avoid cert validation errors
+            string first = feat.Addresses.Any(x => !x.Contains("https:", StringComparison.OrdinalIgnoreCase))
+                ? feat.Addresses.First(x => !x.Contains("https:", StringComparison.OrdinalIgnoreCase)).Replace("[::]", "host", StringComparison.OrdinalIgnoreCase)
+                : feat.Addresses.First().Replace("[::]", "host", StringComparison.OrdinalIgnoreCase);
+
+            this.Log.LogTrace("Address: {Address}", first);
             Uri uri = new(first);
             this.ConnectorEndpoint = uri.Port > 0
                 ? $"{uri.Scheme}://127.0.0.1:{uri.Port}/{this.WorkbenchConfig.ConnectorApiPrefix.TrimStart('/')}"
@@ -473,7 +477,7 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
                 name = $"{this.WorkbenchConfig.ConnectorName} [{this.WorkbenchConfig.ConnectorId}]",
                 description = this.WorkbenchConfig.ConnectorDescription,
                 url = this.ConnectorEndpoint,
-                online_expires_in_seconds = 2 + (int)(PingFrequencyMsecs / 1000)
+                online_expires_in_seconds = 1 + (2 * (int)(PingFrequencyMsecs / 1000))
             };
 
             await this.SendAsync(HttpMethod.Put, path, data, null, "PingSWBackend", cancellationToken).ConfigureAwait(false);
@@ -486,7 +490,7 @@ public abstract class WorkbenchConnector<TAgentConfig> : IDisposable
 
     #region internals ===========================================================================
 
-    private const int PingFrequencyMsecs = 20000;
+    private const int PingFrequencyMsecs = 15000;
 
     public void Dispose()
     {

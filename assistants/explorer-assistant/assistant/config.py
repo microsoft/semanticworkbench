@@ -1,11 +1,11 @@
 from typing import Annotated
 
-import openai_client
+from assistant_extensions.ai_clients.config import AIClientConfig
 from assistant_extensions.artifacts import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
 from assistant_extensions.workflows import WorkflowsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 from . import helpers
@@ -81,54 +81,6 @@ class HighTokenUsageWarning(BaseModel):
     ] = 90
 
 
-class RequestConfig(BaseModel):
-    model_config = ConfigDict(
-        title="Response Generation",
-        json_schema_extra={
-            "required": ["max_tokens", "response_tokens", "openai_model"],
-        },
-    )
-
-    max_tokens: Annotated[
-        int,
-        Field(
-            title="Max Tokens",
-            description=(
-                "The maximum number of tokens to use for both the prompt and response. Current max supported by OpenAI"
-                " is 128k tokens, but varies by model [https://platform.openai.com/docs/models]"
-                "(https://platform.openai.com/docs/models)."
-            ),
-        ),
-        UISchema(enable_markdown_in_description=True),
-    ] = 128_000
-
-    response_tokens: Annotated[
-        int,
-        Field(
-            title="Response Tokens",
-            description=(
-                "The number of tokens to use for the response, will reduce the number of tokens available for the"
-                " prompt. Current max supported by OpenAI is 4096 tokens [https://platform.openai.com/docs/models]"
-                "(https://platform.openai.com/docs/models)."
-            ),
-        ),
-        UISchema(enable_markdown_in_description=True),
-    ] = 4_048
-
-    openai_model: Annotated[
-        str,
-        Field(title="OpenAI Model", description="The OpenAI model to use for generating responses."),
-    ] = "gpt-4o"
-
-    is_reasoning_model: Annotated[
-        bool,
-        Field(
-            title="Is Reasoning Model (o1-preview, o1-mini, etc)",
-            description="Experimental: enable support for reasoning models such as o1-preview, o1-mini, etc.",
-        ),
-    ] = False
-
-
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
     enable_debug_output: Annotated[
@@ -191,6 +143,14 @@ class AssistantConfigModel(BaseModel):
         " context of our conversation. Where would you like to start?"
     )
 
+    only_respond_to_mentions: Annotated[
+        bool,
+        Field(
+            title="Only Respond to @Mentions",
+            description="Only respond to messages that @mention the assistant.",
+        ),
+    ] = False
+
     high_token_usage_warning: Annotated[
         HighTokenUsageWarning,
         Field(
@@ -199,14 +159,7 @@ class AssistantConfigModel(BaseModel):
         ),
     ] = HighTokenUsageWarning()
 
-    request_config: Annotated[
-        RequestConfig,
-        Field(
-            title="Request Configuration",
-        ),
-    ] = RequestConfig()
-
-    service_config: openai_client.ServiceConfig
+    ai_client_config: AIClientConfig
 
     content_safety_config: Annotated[
         CombinedContentSafetyEvaluatorConfig,

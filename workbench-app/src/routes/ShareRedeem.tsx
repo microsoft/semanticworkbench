@@ -6,7 +6,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AppView } from '../components/App/AppView';
 import { DialogControl } from '../components/App/DialogControl';
 import { Loading } from '../components/App/Loading';
-import { Constants } from '../Constants';
 import { ConversationShareType, useConversationUtility } from '../libs/useConversationUtility';
 import { useSiteUtility } from '../libs/useSiteUtility';
 import { useWorkbenchService } from '../libs/useWorkbenchService';
@@ -88,7 +87,7 @@ export const ShareRedeem: React.FC = () => {
             const redemption = await redeemShare(conversationShare.id).unwrap();
 
             // duplicate it
-            const duplicatedConversationIds = await workbenchService.duplicateConversationsAsync([
+            const duplicatedConversationIds = await workbenchService.exportThenImportConversationAsync([
                 redemption.conversationId,
             ]);
 
@@ -235,7 +234,7 @@ export const ShareRedeem: React.FC = () => {
                 {existingDuplicateConversations.map((conversation) => (
                     <li key={conversation.id}>
                         <a
-                            href={`${window.location.origin}/${Constants.app.conversationRedirectPath}/${conversation.id}`}
+                            href={`${window.location.origin}/${conversation.id}`}
                         >
                             {conversation.title}
                         </a>

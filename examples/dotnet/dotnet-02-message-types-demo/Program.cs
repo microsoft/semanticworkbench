@@ -54,7 +54,7 @@ internal static class Program
         IConfiguration config)
     {
         var authType = config.GetValue<string>("AuthType");
-        var endpoint = new Uri(config.GetValue<string>("Endpoint")!);
+        var endpoint = new Uri(config.GetValue<string>("Endpoint")!) ?? throw new ArgumentException("Failed to set Azure AI Content Safety Endpoint");
         var apiKey = config.GetValue<string>("ApiKey");
 
         return services.AddSingleton<ContentSafetyClient>(_ => authType == "AzureIdentity"

@@ -267,7 +267,7 @@ export const useWorkbenchService = () => {
         [dispatch, environment.url, tryFetchAsync],
     );
 
-    const duplicateConversationsAsync = React.useCallback(
+    const exportThenImportConversationAsync = React.useCallback(
         async (conversationIds: string[]) => {
             const { blob, filename } = await exportConversationsAsync(conversationIds);
             const result = await importConversationsAsync(new File([blob], filename));
@@ -289,7 +289,7 @@ export const useWorkbenchService = () => {
         [tryFetchFileAsync],
     );
 
-    const duplicateAssistantAsync = React.useCallback(
+    const exportThenImportAssistantAsync = React.useCallback(
         async (assistantId: string) => {
             const { blob, filename } = await exportAssistantAsync(assistantId);
             const result = await importConversationsAsync(new File([blob], filename));
@@ -351,9 +351,9 @@ export const useWorkbenchService = () => {
         exportTranscriptAsync,
         exportConversationsAsync,
         importConversationsAsync,
-        duplicateConversationsAsync,
+        exportThenImportConversationAsync,
         exportAssistantAsync,
-        duplicateAssistantAsync,
+        exportThenImportAssistantAsync,
         getAssistantServiceInfoAsync,
         getAssistantServiceInfosAsync,
     };

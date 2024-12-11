@@ -9,8 +9,19 @@ import {
     DialogSurface,
     DialogTitle,
     DialogTrigger,
+    makeStyles,
+    mergeClasses,
+    tokens,
 } from '@fluentui/react-components';
 import React from 'react';
+
+const useClasses = makeStyles({
+    dialogContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
+    },
+});
 
 export interface DialogControlContent {
     open?: boolean;
@@ -42,13 +53,19 @@ export const DialogControl: React.FC<DialogControlContent> = (props) => {
         onOpenChange,
     } = props;
 
+    const classes = useClasses();
+
     return (
         <Dialog open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
             <DialogTrigger disableButtonEnhancement>{trigger}</DialogTrigger>
             <DialogSurface className={classNames?.dialogSurface}>
                 <DialogBody>
                     {title && <DialogTitle>{title}</DialogTitle>}
-                    {content && <DialogContent className={classNames?.dialogContent}>{content}</DialogContent>}
+                    {content && (
+                        <DialogContent className={mergeClasses(classes.dialogContent, classNames?.dialogContent)}>
+                            {content}
+                        </DialogContent>
+                    )}
                     <DialogActions fluid>
                         {!hideDismissButton && (
                             <DialogTrigger disableButtonEnhancement>

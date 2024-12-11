@@ -1,10 +1,5 @@
-from typing import TYPE_CHECKING
-
 from guided_conversation.utils.resources import ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    pass
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
