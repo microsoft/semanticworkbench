@@ -52,8 +52,8 @@ rules = [
         " will be preset."
     ),
     (
-        "If the conversation_status is marked as user_completed, the final_response cannot be left as "
-        "Unanswered. The final_response must be set based on the conversation flow instructions."
+        "If the conversation_status is marked as user_completed, the final_response and user_decision cannot be left as "
+        "Unanswered. The final_response and user_decision must be set based on the conversation flow instructions."
     ),
     "Terminate the conversation immediately if the user asks for harmful or inappropriate content.",
 ]
@@ -71,7 +71,7 @@ the user. You do not provide the page content yourself unless the user specifica
 4. Answer any questions about the page content or the drafting process the user inquires about.
 5. Use the following logic to fill in the artifact fields:
 a. At any time, if the user asks for a change to the page content, the conversation_status must be
-marked as user_completed. The user_decision must be marked as {GC_UserDecision.UPDATE_CONTENT}. The final_response
+marked as {GC_ConversationStatus.USER_COMPLETED}. The user_decision must be marked as {GC_UserDecision.UPDATE_CONTENT}. The final_response
 must inform the user that new content is being generated based off the request.
 b. At any time, if the user is good with the page content in its current form and ready to move on to
 drafting the next page content from the outline, the conversation_status must be marked as {GC_ConversationStatus.USER_COMPLETED}. The
