@@ -38,7 +38,7 @@ class StepName(StrEnum):
     UNDEFINED = "undefined"
     DRAFT_OUTLINE = "step_draft_outline"
     GC_GET_OUTLINE_FEEDBACK = "step_gc_get_outline_feedback"
-    CREATE_CONTENT = "step_create_content"
+    DRAFT_CONTENT = "step_draft_content"
     GC_GET_CONTENT_FEEDBACK = "step_gc_get_content_feedback"
     FINISH = "step_finish"
 
@@ -73,8 +73,8 @@ class Step(BaseModel):
                 self.execute = self._step_draft_outline
             case StepName.GC_GET_OUTLINE_FEEDBACK:
                 self.execute = self._step_gc_get_outline_feedback
-            case StepName.CREATE_CONTENT:
-                self.execute = self._step_create_content
+            case StepName.DRAFT_CONTENT:
+                self.execute = self._step_draft_content
             case StepName.GC_GET_CONTENT_FEEDBACK:
                 self.execute = self._step_gc_get_content_feedback
             case StepName.FINISH:
@@ -335,7 +335,7 @@ class Step(BaseModel):
         logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
         return step_status
 
-    async def _step_create_content(
+    async def _step_draft_content(
         self,
         step_data: StepData,
         attachments_ext: AttachmentsExtension,
@@ -345,7 +345,7 @@ class Step(BaseModel):
         metadata: dict[str, Any] = {},
     ) -> StepStatus:
         logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
-        method_metadata_key = "_step_create_content"
+        method_metadata_key = "_step_draft_content"
 
         # get conversation related info -- for now, if no message, assuming no prior conversation
         conversation = None
@@ -613,10 +613,21 @@ class Mode(BaseModel):
                         case GC_UserDecision.UPDATE_OUTLINE:
                             current_step_name = StepName.DRAFT_OUTLINE
                         case GC_UserDecision.DRAFT_PAPER:
-                            current_step_name = StepName.CREATE_CONTENT
+                            current_step_name = StepName.DRAFT_CONTENT
                         case GC_UserDecision.EXIT_EARLY:
                             current_step_name = StepName.FINISH
-            case StepName.CREATE_CONTENT:
+            case StepName.DRAFT_CONTENT:
+                current_step_name = StepName.GC_GET_CONTENT_FEEDBACK
+            case StepName.GC_GET_CONTENT_FEEDBACK:
+                user_decision = self.get_step().get_gc_user_decision()
+                if user_decision is not GC_UserDecision.UNDEFINED:
+                    match user_decision:
+                        case GC_UserDecision.UPDATE_CONTENT:
+                            current_step_name = StepName.DRAFT_CONTENT
+                        case GC_UserDecision.DRAFT_NEXT_CONTENT:  # not implemented yet
+                            current_step_name = StepName.FINISH
+                        case GC_UserDecision.EXIT_EARLY:
+                            current_step_name = StepName.FINISH
                 current_step_name = StepName.FINISH
             case StepName.FINISH:
                 return Step(name=StepName.UNDEFINED, status=StepStatus.UNDEFINED)
