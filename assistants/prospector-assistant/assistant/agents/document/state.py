@@ -23,6 +23,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext, stor
 
 from ...config import AssistantConfigModel
 from .config import GuidedConversationConfigModel
+from .gc_draft_content_feedback_config import GCDraftContentFeedbackConfigModel
 from .gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
 from .guided_conversation import GC_ConversationStatus, GC_UserDecision, GuidedConversation
 
@@ -37,7 +38,8 @@ class StepName(StrEnum):
     UNDEFINED = "undefined"
     DRAFT_OUTLINE = "step_draft_outline"
     GC_GET_OUTLINE_FEEDBACK = "step_gc_get_outline_feedback"
-    CREATE_CONTENT = "step_create_content"
+    DRAFT_CONTENT = "step_draft_content"
+    GC_GET_CONTENT_FEEDBACK = "step_gc_get_content_feedback"
     FINISH = "step_finish"
 
 
@@ -71,8 +73,10 @@ class Step(BaseModel):
                 self.execute = self._step_draft_outline
             case StepName.GC_GET_OUTLINE_FEEDBACK:
                 self.execute = self._step_gc_get_outline_feedback
-            case StepName.CREATE_CONTENT:
-                self.execute = self._step_create_content
+            case StepName.DRAFT_CONTENT:
+                self.execute = self._step_draft_content
+            case StepName.GC_GET_CONTENT_FEEDBACK:
+                self.execute = self._step_gc_get_content_feedback
             case StepName.FINISH:
                 self.execute = self._step_finish
             case _:
@@ -331,7 +335,7 @@ class Step(BaseModel):
         logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
         return step_status
 
-    async def _step_create_content(
+    async def _step_draft_content(
         self,
         step_data: StepData,
         attachments_ext: AttachmentsExtension,
@@ -341,7 +345,7 @@ class Step(BaseModel):
         metadata: dict[str, Any] = {},
     ) -> StepStatus:
         logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
-        method_metadata_key = "_step_create_content"
+        method_metadata_key = "_step_draft_content"
 
         # get conversation related info -- for now, if no message, assuming no prior conversation
         conversation = None
@@ -417,6 +421,118 @@ class Step(BaseModel):
 
         logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
         return StepStatus.USER_COMPLETED
+
+    async def _step_gc_get_content_feedback(
+        self,
+        step_data: StepData,
+        attachments_ext: AttachmentsExtension,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage | None,
+        metadata: dict[str, Any] = {},
+    ) -> StepStatus:
+        logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
+        method_metadata_key = "_step_gc_get_content_feedback"
+
+        # Initiate Guided Conversation
+        gc_outline_feedback_config: GuidedConversationConfigModel = GCDraftContentFeedbackConfigModel()
+        guided_conversation = GuidedConversation(
+            config=config,
+            openai_client=openai_client.create_client(config.service_config),
+            agent_config=gc_outline_feedback_config,
+            conversation_context=context,
+        )
+
+        # Update artifact
+        conversation_status_str = GC_ConversationStatus.UNDEFINED
+        match step_data.run_count:  # could be bool instead. But maybe a run count use later?
+            case 0:
+                conversation_status_str = GC_ConversationStatus.USER_INITIATED
+            case _:
+                conversation_status_str = GC_ConversationStatus.USER_RETURNED
+
+        filenames = await attachments_ext.get_attachment_filenames(context)
+        filenames_str = ", ".join(filenames)
+
+        outline_str: str = ""
+        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
+            outline_str = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+
+        content_str: str = ""
+        if path.exists(storage_directory_for_context(context) / "document_agent/content.txt"):
+            content_str = (storage_directory_for_context(context) / "document_agent/content.txt").read_text()
+
+        artifact_dict = guided_conversation.get_artifact_dict()
+        if artifact_dict is not None:
+            artifact_dict["conversation_status"] = conversation_status_str
+            artifact_dict["filenames"] = filenames_str
+            artifact_dict["approved_outline"] = outline_str
+            artifact_dict["current_content"] = content_str
+            guided_conversation.set_artifact_dict(artifact_dict)
+        else:
+            logger.error("Document Agent State: artifact_dict unavailable.")
+
+        # Run conversation step
+        step_status = StepStatus.UNDEFINED
+        try:
+            user_message = None
+            if message is not None and self.get_status() is not StepStatus.INITIATED:
+                user_message = message.content
+                # if len(message.filenames) != 0:  # Not sure we want to support this right now for content/page
+                #    user_message = user_message + " Newly attached files: " + filenames_str
+
+            (
+                response,
+                self.gc_conversation_status,
+                self.gc_user_decision,
+            ) = await guided_conversation.step_conversation(
+                last_user_message=user_message,
+            )
+
+            # this could get cleaned up
+            if self.gc_conversation_status is GC_ConversationStatus.USER_COMPLETED:
+                if self.gc_user_decision is GC_UserDecision.EXIT_EARLY:
+                    step_status = StepStatus.USER_EXIT_EARLY
+                else:
+                    step_status = StepStatus.USER_COMPLETED
+            else:
+                step_status = StepStatus.NOT_COMPLETED
+
+            # need to update gc state artifact?
+
+            deepmerge.always_merger.merge(
+                metadata,
+                {
+                    "debug": {
+                        f"{method_metadata_key}": {"response": response},
+                    }
+                },
+            )
+
+        except Exception as e:
+            logger.exception(f"Document Agent State: Exception occurred processing guided conversation: {e}")
+            response = "An error occurred while processing the guided conversation."
+            deepmerge.always_merger.merge(
+                metadata,
+                {
+                    "debug": {
+                        f"{method_metadata_key}": {
+                            "error": str(e),
+                        },
+                    }
+                },
+            )
+
+        await context.send_messages(
+            NewConversationMessage(
+                content=response,
+                message_type=MessageType.chat,
+                metadata=metadata,
+            )
+        )
+
+        logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
+        return step_status
 
     async def _step_finish(
         self,
@@ -497,11 +613,21 @@ class Mode(BaseModel):
                         case GC_UserDecision.UPDATE_OUTLINE:
                             current_step_name = StepName.DRAFT_OUTLINE
                         case GC_UserDecision.DRAFT_PAPER:
-                            current_step_name = StepName.CREATE_CONTENT
+                            current_step_name = StepName.DRAFT_CONTENT
                         case GC_UserDecision.EXIT_EARLY:
                             current_step_name = StepName.FINISH
-            case StepName.CREATE_CONTENT:
-                current_step_name = StepName.FINISH
+            case StepName.DRAFT_CONTENT:
+                current_step_name = StepName.GC_GET_CONTENT_FEEDBACK
+            case StepName.GC_GET_CONTENT_FEEDBACK:
+                user_decision = self.get_step().get_gc_user_decision()
+                if user_decision is not GC_UserDecision.UNDEFINED:
+                    match user_decision:
+                        case GC_UserDecision.UPDATE_CONTENT:
+                            current_step_name = StepName.DRAFT_CONTENT
+                        case GC_UserDecision.DRAFT_NEXT_CONTENT:  # not implemented yet
+                            current_step_name = StepName.FINISH
+                        case GC_UserDecision.EXIT_EARLY:
+                            current_step_name = StepName.FINISH
             case StepName.FINISH:
                 return Step(name=StepName.UNDEFINED, status=StepStatus.UNDEFINED)
 

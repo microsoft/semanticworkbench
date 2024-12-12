@@ -23,26 +23,29 @@ class ArtifactModel(BaseModel):
         f"{GC_ConversationStatus.USER_COMPLETED}. You are only allowed to update this field to {GC_ConversationStatus.USER_COMPLETED}, otherwise you will NOT update it.",
     )
     user_decision: str = Field(
-        description=f"The decision of the user on what should happen next. May be {GC_UserDecision.UPDATE_OUTLINE}, "
-        f"{GC_UserDecision.DRAFT_PAPER}, or {GC_UserDecision.EXIT_EARLY}. You will update this field."
+        description=f"The decision of the user on what should happen next. May be {GC_UserDecision.UPDATE_CONTENT}, "
+        f"{GC_UserDecision.DRAFT_NEXT_CONTENT}, or {GC_UserDecision.EXIT_EARLY}. You will update this field."
     )
     filenames: str = Field(
         description="Names of the available files currently uploaded as attachments. Information "
-        "from the content of these files was used to help draft the outline under review. You "
+        "from the content of these files was used to help draft the outline and the current drafted paper content under review. You "
         "CANNOT change this field."
     )
-    current_outline: str = Field(
-        description="The most up-to-date version of the outline under review. You CANNOT change this field."
+    approved_outline: str = Field(
+        description="The approved outline used to help generate the current page content. You CANNOT change this field."
+    )
+    current_content: str = Field(
+        description="The most up-to-date version of the page content under review. You CANNOT change this field."
     )
 
 
 # Rules - These are the do's and don'ts that the agent should follow during the conversation.
 rules = [
-    "Do NOT rewrite or update the outline, even if the user asks you to.",
-    "Do NOT show the outline, unless the user asks you to.",
+    "Do NOT rewrite or update the page content, even if the user asks you to.",
+    "Do NOT show the page content, unless the user asks you to.",
     (
-        "You are ONLY allowed to help the user decide on any changes to the outline or answer questions "
-        "about writing an outline."
+        "You are ONLY allowed to help the user decide on any changes to the page content or answer questions "
+        "about writing content for a paper."
     ),
     (
         "You are only allowed to update conversation_status to user_completed. All other values for that field"
@@ -57,33 +60,34 @@ rules = [
 
 # Conversation Flow (optional) - This defines in natural language the steps of the conversation.
 conversation_flow = f"""
-1. If there is no prior conversation history to reference, use the conversation_status to determine if the user is initiating a new conversation (user_initiated) or returning to an existing conversation (user_returned).
-2. Only greet the user if the user is initiating a new conversation. If the user is NOT initiating a new conversation, you should respond as if you are in the middle of a conversation.  In this scenario, do not say "hello", or "welcome back" or any type of formalized greeting.
-3. Start by asking the user to review the outline. The outline will have already been provided to the user. You do not provide the outline yourself unless the user
-specifically asks for it from you.
-4. Answer any questions about the outline or the drafting process the user inquires about.
+1. If there is no prior conversation history to reference, use the conversation_status to determine
+if the user is initiating a new conversation (user_initiated) or returning to an existing
+conversation (user_returned).
+2. Only greet the user if the user is initiating a new conversation. If the user is NOT initiating
+a new conversation, you should respond as if you are in the middle of a conversation.  In this
+scenario, do not say "hello", or "welcome back" or any type of formalized greeting.
+3. Start by asking the user to review the page content. The page content will have already been provided to
+the user. You do not provide the page content yourself unless the user specifically asks for it from you.
+4. Answer any questions about the page content or the drafting process the user inquires about.
 5. Use the following logic to fill in the artifact fields:
-a. At any time, if the user asks for a change to the outline, the conversation_status must be
-marked as user_completed. The user_decision must be marked as update_outline. The final_response
-must inform the user that a new outline is being generated based off the request.
-b. At any time, if the user has provided new attachments (detected via `Newly attached files:` in the user message),
-the conversation_status must be marked as {GC_ConversationStatus.USER_COMPLETED}. The user_decision must be marked as
-{GC_UserDecision.UPDATE_OUTLINE}. The final_response must inform the user that a new outline is being generated based
-on the addition of new attachments.
-c. At any time, if the user is good with the outline in its current form and ready to move on to
-drafting a paper from it, the conversation_status must be marked as {GC_ConversationStatus.USER_COMPLETED}. The
-user_decision must be marked as {GC_UserDecision.DRAFT_PAPER}. The final_response must inform the user that you will
-start drafting the beginning of the document based on this outline.
+a. At any time, if the user asks for a change to the page content, the conversation_status must be
+marked as {GC_ConversationStatus.USER_COMPLETED}. The user_decision must be marked as {GC_UserDecision.UPDATE_CONTENT}. The final_response
+must inform the user that new content is being generated based off the request.
+b. At any time, if the user is good with the page content in its current form and ready to move on to
+drafting the next page content from the outline, the conversation_status must be marked as {GC_ConversationStatus.USER_COMPLETED}. The
+user_decision must be marked as {GC_UserDecision.DRAFT_NEXT_CONTENT}. The final_response must inform the user that you will
+start drafting the beginning of the next content page based on the outline.
 """
 
 # Context (optional) - This is any additional information or the circumstances the agent is in that it should be aware of.
 # It can also include the high level goal of the conversation if needed.
-context = """You are working with a user on drafting an outline. The current drafted outline is
-provided, along with any filenames that were used to help draft the outline. You do not have access
-to the content within the filenames that were used to help draft the outline. Your purpose here is
-to help the user decide on any changes to the outline they might want or answer questions about it.
-This may be the first time the user is asking for you help (conversation_status is user_initiated),
-or the nth time (conversation_status is user_returned)."""
+context = """You are working with a user on drafting content for a paper. The current drafted content
+is based on the provided outline and is only a subsection of the final paper.  You are also provided
+any filenames that were used to help draft both the content and the outline. You do not have access
+to the content within the filenames that were used to help draft the current page content, nor used
+to draft the outline. Your purpose here is to help the user decide on any changes to the current page content
+they might want or answer questions about it. This may be the first time the user is asking for you
+help (conversation_status is user_initiated), or the nth time (conversation_status is user_returned)."""
 
 
 # Resource Constraints (optional) - This defines the constraints on the conversation such as time or turns.
@@ -147,7 +151,7 @@ def create_pydantic_model_from_json_schema(schema: Dict[str, Any], model_name="D
 #
 
 
-class GCDraftOutlineFeedbackConfigModel(GuidedConversationConfigModel):
+class GCDraftContentFeedbackConfigModel(GuidedConversationConfigModel):
     enabled: Annotated[
         bool,
         Field(description=helpers.load_text_include("guided_conversation_agent_enabled.md")),
