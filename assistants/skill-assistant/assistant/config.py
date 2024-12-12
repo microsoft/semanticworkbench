@@ -1,11 +1,9 @@
 import pathlib
-from abc import abstractmethod
-from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated
 
 import openai_client
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 # The semantic workbench app uses react-jsonschema-form for rendering
@@ -35,33 +33,6 @@ def load_text_include(filename) -> str:
     return file_path.read_text()
 
 
-# mapping service types to an enum to use as keys in the configuration model
-# to prevent errors if the service type is changed where string values were used
-class ServiceType(StrEnum):
-    AzureOpenAI = "azure_openai"
-    OpenAI = "openai"
-
-
-class ServiceConfig(BaseModel):
-    model_config = ConfigDict(
-        title="Service Configuration",
-        json_schema_extra={
-            "required": ["service_type"],
-        },
-    )
-
-    service_type: Annotated[str, UISchema(widget="hidden")] = ""
-
-    @property
-    def service_type_display_name(self) -> str:
-        # get from the class title
-        return self.model_config.get("title") or self.service_type
-
-    @abstractmethod
-    def new_client(self, **kwargs) -> Any:
-        pass
-
-
 # endregion
 
 
@@ -86,9 +57,47 @@ class ChatDriverConfig(BaseModel):
     ] = "gpt-4o"
 
 
+class HighTokenUsageWarning(BaseModel):
+    enabled: Annotated[
+        bool,
+        Field(
+            title="Enabled",
+            description="Whether to warn when the assistant's token usage is high.",
+        ),
+    ] = True
+
+    message: Annotated[
+        str,
+        Field(
+            title="Message",
+            description="The message to display when the assistant's token usage is high.",
+        ),
+        UISchema(widget="textarea"),
+    ] = (
+        "The assistant's token usage is high. If there are attachments that are no longer needed, you can delete them"
+        " to free up tokens."
+    )
+
+    threshold: Annotated[
+        int,
+        Field(
+            title="Threshold",
+            description="The threshold percentage at which to warn about high token usage.",
+        ),
+    ] = 90
+
+
 # The workbench app builds dynamic forms based on the configuration model and UI
 # schema.
 class AssistantConfigModel(BaseModel):
+    enable_debug_output: Annotated[
+        bool,
+        Field(
+            title="Include Debug Output",
+            description="Include debug output on conversation messages.",
+        ),
+    ] = False
+
     guardrails_prompt: Annotated[
         str,
         Field(
@@ -110,15 +119,15 @@ class AssistantConfigModel(BaseModel):
             description="The message to display when the conversation starts.",
         ),
         UISchema(widget="textarea"),
-    ] = "Hello! How can I help you today?"
+    ] = "Hi."
 
-    chat_driver_config: Annotated[
-        ChatDriverConfig,
+    high_token_usage_warning: Annotated[
+        HighTokenUsageWarning,
         Field(
-            title="Chat Driver Configuration",
-            description="The configuration for the chat driver.",
+            title="High Token Usage Warning",
+            description="Configuration for the high token usage warning.",
         ),
-    ] = ChatDriverConfig()
+    ] = HighTokenUsageWarning()
 
     service_config: openai_client.ServiceConfig
 
@@ -130,6 +139,16 @@ class AssistantConfigModel(BaseModel):
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
 
+    # add any additional configuration fields
+
+    chat_driver_config: Annotated[
+        ChatDriverConfig,
+        Field(
+            title="Chat Driver Configuration",
+            description="The configuration for the chat driver.",
+        ),
+    ] = ChatDriverConfig()
+
     metadata_path: Annotated[
         str,
         Field(
@@ -137,8 +156,6 @@ class AssistantConfigModel(BaseModel):
             description="The path for assistant metadata.",
         ),
     ] = ".data"
-
-    # add any additional configuration fields
 
 
 # endregion
