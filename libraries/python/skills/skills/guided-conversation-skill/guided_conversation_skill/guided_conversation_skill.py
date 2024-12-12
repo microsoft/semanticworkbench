@@ -2,7 +2,7 @@ import json
 from typing import Any, Optional
 
 from assistant_drive import Drive
-from events import MessageEvent
+from events import InformationEvent, MessageEvent
 from openai_client.chat_driver import ChatDriverConfig
 from skill_library import Skill
 from skill_library.routine import RoutineTypes, StateMachineRoutine
@@ -25,6 +25,10 @@ DEFAULT_MAX_RETRIES = 3
 INSTRUCTIONS = "You are an assistant."
 
 
+class NoDefinitionConfiguredError(Exception):
+    pass
+
+
 class GuidedConversationSkill(Skill):
     def __init__(
         self,
@@ -42,17 +46,29 @@ class GuidedConversationSkill(Skill):
         self.drive = drive
 
         # Configuring the definition of a conversation here makes this skill
-        # instance for this one type of conversation. Alternatively, we could
-        # also have the conversation_init_function take in the definition as a
-        # parameter if we wanted to use the same instance for different kinds of
+        # instance for this one type (definition) of conversation.
+        # Alternatively, you can not supply a definition and have the
+        # conversation_init_function take in the definition as a parameter if
+        # you wanted to use the same instance for different kinds of
         # conversations.
         if definition:
+            # If a definition is supplied, we'll use this for every
+            # conversation. Save it so we can use it when this skill is run
+            # again in the future.
             self.drive.write_model(
                 definition,
                 "GCDefinition.json",
             )
         else:
-            definition = self.drive.read_model(GCDefinition, "GCDefinition.json")
+            # As a convenience, check to see if a definition was already saved
+            # previously in this drive.
+            try:
+                definition = self.drive.read_model(GCDefinition, "GCDefinition.json")
+            except FileNotFoundError:
+                logger.debug(
+                    "No definition supplied or found in the drive. Will expect one as a var in the conversation_init_function"
+                )
+
         self.definition = definition
 
         # Initialize resources.
@@ -105,20 +121,50 @@ class GuidedConversationSkill(Skill):
     async def conversation_init_function(
         self, context: RunContext, vars: dict[str, Any] | None = None
     ) -> tuple[bool, dict[str, Any] | None]:
+        """
+        Start a new guided conversation.
+
+        This function is called when the conversation routine is started. It
+        initializes the conversation state and starts the conversation.
+
+        Args:
+            context (RunContext): The context for the current run. vars
+            (dict[str, Any], optional): Optional variables to pass in. Defaults
+            to None.
+
+        Vars:
+            definition (optional): The definition of the conversation if not already supplied in the skill config.
+            resource: The resource constraints for the conversation.
+            conversation: The conversation state.
+            agenda: The agenda state.
+            artifact: The artifact state.
+
+        Returns:
+            tuple[bool, dict[str, Any] | None]: A tuple containing a boolean
+            indicating if the conversation is complete and the current state of
+            the artifact.
+        """
+
         if vars is None:
             vars = {}
 
-        # if vars is None or vars.get("artifact") is None:
-        #     raise ValueError("The artifact must be provided to start the conversation.")
+        # The definition is required to run the conversation. It can be provided
+        # in the skill config or as a var when initializing the conversation.
+        definition = self.definition
+        if not definition:
+            if "definition" not in vars:
+                raise NoDefinitionConfiguredError("No definition was provided to the skill.")
+            definition = GCDefinition(**vars["definition"])
 
         # We can put all this data in the routine frame, or we could also put it
         # in the skill drive. All of this intermediate state can just go in the
         # frame. Only the final artifact needs to be saved to the drive.
         async with context.stack_frame_state() as state:
-            state["resource"] = vars.get("resource") or GCResource(self.definition.resource_constraint).to_data()
+            state["definition"] = definition
             state["conversation"] = vars.get("conversation") or Conversation()
             state["agenda"] = vars.get("agenda") or Agenda()
-            state["artifact"] = vars.get("artifact")
+            state["artifact"] = vars.get("artifact", {})
+            state["resource"] = GCResource(definition.resource_constraint).to_data()
 
         # For guided conversation, we want to go ahead and run the first step.
         return await self.conversation_step_function(context)
@@ -188,21 +234,18 @@ class GuidedConversationSkill(Skill):
         """
 
         async with context.stack_frame_state() as state:
-            definition = self.definition
-            resource = GCResource.from_data(GCResourceData(**state["resource"]))
+            definition = GCDefinition(**state["definition"])
             conversation = Conversation(**state["conversation"])
             agenda = Agenda(**state["agenda"])
-            artifact: dict[str, Any] | None = state.get("artifact")
+            artifact: dict[str, Any] = state.get("artifact", {})
+            resource = GCResource.from_data(GCResourceData(**state["resource"]))
 
             if message:
                 conversation.add_user_message(message)
                 state["conversation"] = conversation
 
-            # Update artifact, if we have one (we won't on first run).
-            if artifact is None:
-                artifact = {}
-                state["artifact"] = artifact
-            else:
+            # Update artifact, if it's not the first turn.
+            if resource.turn_number > 0:
                 try:
                     artifact_updates = await generate_artifact_updates(
                         self.language_model, definition, artifact or {}, conversation, max_retries=DEFAULT_MAX_RETRIES
@@ -219,7 +262,7 @@ class GuidedConversationSkill(Skill):
                             logger.warning(f"Error decoding JSON for update: {update}")
                             continue
                     state["artifact"] = artifact
-                    context.emit(MessageEvent(message="Artifact updated"))
+                    context.emit(InformationEvent(message="Artifact updated", metadata={"artifact": artifact}))
 
             # Update agenda.
             try:
@@ -233,17 +276,25 @@ class GuidedConversationSkill(Skill):
                     max_retries=DEFAULT_MAX_RETRIES,
                 )
                 state["agenda"] = agenda
-                context.emit(MessageEvent(message="Agenda updated"))
+                context.emit(InformationEvent(message="Agenda updated", metadata={"agenda": agenda.model_dump()}))
             except Exception:
                 # TODO: DO something with this error?
                 logger.exception("Error generating agenda")
                 return False, artifact
 
-            # If the agenda generation says we are done, generate the final artifact.
+            # If the agenda generation says we are done, generate the final
+            # artifact.
+            # TODO: Maybe we should put the check for "done" in the
+            #   message generation function? Or... a separate function after the
+            #   message is generated?
             if is_done:
                 if artifact:
                     artifact = await final_artifact_update(self.language_model, definition, conversation, artifact)
-                context.emit(MessageEvent(session_id=context.session_id, message="Conversation complete!"))
+                context.emit(
+                    InformationEvent(
+                        session_id=context.session_id, message="Conversation complete!", metadata={"artifact": artifact}
+                    )
+                )
                 return True, artifact
 
             # If we are not done, use the agenda to ask the user for whatever is next.
