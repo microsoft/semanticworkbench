@@ -32,6 +32,8 @@ class GC_UserDecision(StrEnum):
     UNDEFINED = "undefined"
     UPDATE_OUTLINE = "update_outline"
     DRAFT_PAPER = "draft_paper"
+    UPDATE_CONTENT = "update_content"
+    DRAFT_NEXT_CONTENT = "draft_next_content"
     EXIT_EARLY = "exit_early"
 
 
