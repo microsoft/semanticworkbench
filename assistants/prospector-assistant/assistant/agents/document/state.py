@@ -628,7 +628,6 @@ class Mode(BaseModel):
                             current_step_name = StepName.FINISH
                         case GC_UserDecision.EXIT_EARLY:
                             current_step_name = StepName.FINISH
-                current_step_name = StepName.FINISH
             case StepName.FINISH:
                 return Step(name=StepName.UNDEFINED, status=StepStatus.UNDEFINED)
 

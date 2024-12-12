@@ -175,8 +175,13 @@ class GuidedConversation:
                             gc_user_decision = GC_UserDecision.UPDATE_OUTLINE
                         case GC_UserDecision.DRAFT_PAPER:
                             gc_user_decision = GC_UserDecision.DRAFT_PAPER
+                        case GC_UserDecision.UPDATE_CONTENT:
+                            gc_user_decision = GC_UserDecision.UPDATE_CONTENT
+                        case GC_UserDecision.DRAFT_NEXT_CONTENT:
+                            gc_user_decision = GC_UserDecision.DRAFT_NEXT_CONTENT
                         case GC_UserDecision.EXIT_EARLY:
                             gc_user_decision = GC_UserDecision.EXIT_EARLY
+
                     _delete_guided_conversation_state(self.conversation_context)
                 case GC_ConversationStatus.USER_INITIATED:
                     if result.ai_message is not None:
