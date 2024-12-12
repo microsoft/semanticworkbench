@@ -31,8 +31,11 @@ class ArtifactModel(BaseModel):
         "from the content of these files was used to help draft the outline and the current drafted paper content under review. You "
         "CANNOT change this field."
     )
+    approved_outline: str = Field(
+        description="The approved outline used to help generate the current page content. You CANNOT change this field."
+    )
     current_content: str = Field(
-        description="The most up-to-date version of the content under review. You CANNOT change this field."
+        description="The most up-to-date version of the page content under review. You CANNOT change this field."
     )
 
 

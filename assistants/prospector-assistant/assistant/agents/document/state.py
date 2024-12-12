@@ -23,8 +23,8 @@ from semantic_workbench_assistant.assistant_app import ConversationContext, stor
 
 from ...config import AssistantConfigModel
 from .config import GuidedConversationConfigModel
-from .gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
 from .gc_draft_content_feedback_config import GCDraftContentFeedbackConfigModel
+from .gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
 from .guided_conversation import GC_ConversationStatus, GC_UserDecision, GuidedConversation
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ class Step(BaseModel):
                 self.execute = self._step_gc_get_outline_feedback
             case StepName.CREATE_CONTENT:
                 self.execute = self._step_create_content
-            case StepName.GC_GET_CONTENT_FEEDBACK
+            case StepName.GC_GET_CONTENT_FEEDBACK:
                 self.execute = self._step_gc_get_content_feedback
             case StepName.FINISH:
                 self.execute = self._step_finish
@@ -454,6 +454,10 @@ class Step(BaseModel):
         filenames = await attachments_ext.get_attachment_filenames(context)
         filenames_str = ", ".join(filenames)
 
+        outline_str: str = ""
+        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
+            outline_str = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+
         content_str: str = ""
         if path.exists(storage_directory_for_context(context) / "document_agent/content.txt"):
             content_str = (storage_directory_for_context(context) / "document_agent/content.txt").read_text()
@@ -462,6 +466,7 @@ class Step(BaseModel):
         if artifact_dict is not None:
             artifact_dict["conversation_status"] = conversation_status_str
             artifact_dict["filenames"] = filenames_str
+            artifact_dict["approved_outline"] = outline_str
             artifact_dict["current_content"] = content_str
             guided_conversation.set_artifact_dict(artifact_dict)
         else:
@@ -473,7 +478,7 @@ class Step(BaseModel):
             user_message = None
             if message is not None and self.get_status() is not StepStatus.INITIATED:
                 user_message = message.content
-                #if len(message.filenames) != 0:  # Not sure we want to support this right now for content/page
+                # if len(message.filenames) != 0:  # Not sure we want to support this right now for content/page
                 #    user_message = user_message + " Newly attached files: " + filenames_str
 
             (
