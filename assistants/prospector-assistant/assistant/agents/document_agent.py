@@ -60,6 +60,15 @@ class DocumentAgent:
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
     ) -> bool:
+        return await self._run(ModeName.DRAFT_PAPER, config, context, message, metadata)
+
+    async def create_outline(
+        self,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage | None,
+        metadata: dict[str, Any] = {},
+    ) -> bool:
         return await self._run(ModeName.DRAFT_OUTLINE, config, context, message, metadata)
 
     #
