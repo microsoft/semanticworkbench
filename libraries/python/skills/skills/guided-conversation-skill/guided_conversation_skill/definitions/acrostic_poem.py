@@ -2,12 +2,7 @@ from textwrap import dedent
 
 from pydantic import BaseModel, Field
 
-from guided_conversation_skill.definition import GCDefinition
-from guided_conversation_skill.resources import (
-    ResourceConstraint,
-    ResourceConstraintMode,
-    ResourceConstraintUnit,
-)
+from guided_conversation_skill import GCDefinition, ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
 
 
 class Artifact(BaseModel):
