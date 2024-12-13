@@ -873,8 +873,9 @@ draft_outline_main_system_message = (
 # "outline draft. Provide ONLY any outline. Provide no further instructions to the user.")
 
 draft_content_continue_main_system_message = (
-    "Following the structure of the outline, create the content for the next (or first) page of the"
-    " document - don't try to create the entire document in one pass nor wrap it up too quickly, it will be a"
+    "Following the structure of the provided outline, create the content for the next page of the"
+    " document. If there is no existing content supplied, start with the beginning of the provided outline to create the first page of content."
+    " Don't try to create the entire document in one pass nor wrap it up too quickly, it will be a"
     " multi-page document so just create the next page. It's more important to maintain"
     " an appropriately useful level of detail. After this page is generated, the system will follow up"
     " and ask for the next page. If you have already generated all the pages for the"
