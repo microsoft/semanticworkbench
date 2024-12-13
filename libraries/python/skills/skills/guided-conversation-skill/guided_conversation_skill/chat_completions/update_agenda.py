@@ -8,7 +8,7 @@ from typing import cast
 
 from guided_conversation_skill.agenda import Agenda, AgendaItem
 from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt
-from guided_conversation_skill.definition import ConversationGuide
+from guided_conversation_skill.guide import ConversationGuide
 from guided_conversation_skill.message import Conversation
 from guided_conversation_skill.resources import (
     GCResource,
@@ -32,7 +32,8 @@ from .fix_agenda_error import fix_agenda_error
 
 logger = logging.getLogger(__name__)
 
-GENERATE_AGENDA_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
+GENERATE_AGENDA_TEMPLATE = """
+You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
 
 This is the schema of the artifact you are completing:
 {{ artifact_schema }}
@@ -65,7 +66,7 @@ How to update the agenda:
 - Do NOT include wrap-up items such as "review and confirm all information with the user" (you should be doing this throughout the conversation) or "thank the user for their time". Do NOT repeat topics that have already been sufficiently addressed. {{ ample_time_str }}
 
 When you determine the conversation is completed, just return an agenda with no items in it.
-""".replace("\n\n\n", "\n\n")
+""".replace("\n\n\n", "\n\n").strip()
 
 
 def _get_termination_instructions(resource: GCResource):

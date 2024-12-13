@@ -11,7 +11,7 @@ from guided_conversation_skill.artifact_helpers import (
     validate_field_presence_in_schema,
     validate_field_value,
 )
-from guided_conversation_skill.definition import ConversationGuide
+from guided_conversation_skill.guide import ConversationGuide
 from openai_client import (
     CompletionError,
     add_serializable_data,
@@ -61,7 +61,7 @@ Your job is to create a list of field updates to update the artifact using only 
 - If the user's message contains no information relevant to updating the artifact, you should not create any field updates. For example, if the user sends a message that says "Hello" or "Goodbye", you should not create any field updates.
 
 Your task is to state your step-by-step reasoning for the best possible action(s), followed by a final recommendation of which update(s) to make, including all required parameters. Someone else will be responsible for executing the update(s) you select and they will only have access to your output (not any of the conversation history, artifact schema, or other context) so it is EXTREMELY important that you clearly specify the value of all required parameters for each update you make.
-""".replace("\n\n\n", "\n\n")
+""".replace("\n\n\n", "\n\n").strip()
 
 
 class ArtifactUpdate(BaseModel):

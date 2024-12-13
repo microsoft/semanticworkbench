@@ -1,6 +1,6 @@
 import pytest
 from guided_conversation_skill.chat_completions.generate_artifact_updates import generate_artifact_updates
-from guided_conversation_skill.definitions.acrostic_poem import definition
+from guided_conversation_skill.conversation_guides.acrostic_poem import definition
 from guided_conversation_skill.message import Conversation
 from skill_library.types import LanguageModel
 

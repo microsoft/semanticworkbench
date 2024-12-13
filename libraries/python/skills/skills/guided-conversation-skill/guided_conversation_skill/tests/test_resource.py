@@ -1,7 +1,7 @@
 from guided_conversation_skill.resources import GCResource, ResourceConstraintMode, ResourceConstraintUnit
 
 
-async def test_resource_init() -> None:
+def test_resource_init() -> None:
     data = {
         "resource_constraint": {
             "mode": "maximum",

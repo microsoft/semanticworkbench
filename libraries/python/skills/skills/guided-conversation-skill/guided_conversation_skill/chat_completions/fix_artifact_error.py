@@ -33,7 +33,7 @@ Your task is to return the best possible action to take next:
 - You should pick this action if: (a) you do NOT have a valid value to submit for the field in question, and (b) you need to ask the user for more information in order to obtain a valid value. For example, if the user stated that their date of birth is June 2000, but the artifact field asks for the date of birth in the format "YYYY-MM-DD", you should resume the conversation and ask the user for the day.
 
 Return only the action, either UPDATE_ARTIFACT(value) or RESUME_CONVERSATION, as your response. If you selected, UPDATE_ARTIFACT, make sure to replace "value" with the correct value.
-""".replace("\n\n\n", "\n\n")
+""".replace("\n\n\n", "\n\n").strip()
 
 
 async def generate_artifact_field_update_error_fix(

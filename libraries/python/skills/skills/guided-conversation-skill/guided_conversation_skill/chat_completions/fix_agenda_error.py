@@ -16,7 +16,8 @@ from ..message import Conversation, ConversationMessageType
 
 logger = logging.getLogger(__name__)
 
-AGENDA_ERROR_CORRECTION_SYSTEM_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant.
+AGENDA_ERROR_CORRECTION_SYSTEM_TEMPLATE = """
+You are a helpful, thoughtful, and meticulous assistant.
 You are conducting a conversation with a user. You tried to update the agenda, but the update was invalid.
 
 You will be provided the history of your conversation with the user, your previous attempt(s) at updating the agenda, and the error message(s) that resulted from your attempt(s).
@@ -29,7 +30,7 @@ Note that if the resource allocation is invalid, you must follow these rules:
 1. You should not change the description of the first item (since it has already been executed), but you can change its resource allocation.
 2. For all other items, you can combine or split them, or assign them fewer or more resources, but the content they cover collectively should not change (i.e. don't eliminate or add new topics).
 For example, the invalid attempt was "item 1 = ask for date of birth (1 turn), item 2 = ask for phone number (1 turn), item 3 = ask for phone type (1 turn), item 4 = explore treatment history (6 turns)", and the error says you need to correct the total resource allocation to 7 turns. A bad solution is "item 1 = ask for date of birth (1 turn), item 2 = explore treatment history (6 turns)" because it eliminates the phone number and phone type topics. A good solution is "item 1 = ask for date of birth (2 turns), item 2 = ask for phone number, phone type, and treatment history (2 turns), item 3 = explore treatment history (3 turns)."
-"""
+""".replace("\n\n\n", "\n\n").strip()
 
 
 async def fix_agenda_error(
