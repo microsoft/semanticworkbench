@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from .resources import ResourceConstraint
 
 
-class GCDefinition(BaseModel):
+class ConversationGuide(BaseModel):
     artifact_schema: dict[str, Any]
     rules: list[str]
     conversation_context: str

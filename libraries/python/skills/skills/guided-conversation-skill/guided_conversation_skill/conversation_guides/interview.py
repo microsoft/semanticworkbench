@@ -1,6 +1,11 @@
 from pydantic import BaseModel, Field
 
-from guided_conversation_skill import GCDefinition, ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
+from guided_conversation_skill import (
+    ConversationGuide,
+    ResourceConstraint,
+    ResourceConstraintMode,
+    ResourceConstraintUnit,
+)
 
 
 # Define models for candidate evaluation
@@ -53,7 +58,7 @@ resource_constraint = ResourceConstraint(
 )
 
 # Create instance of the GuidedConversationDefinition model with the above configuration.
-interview = GCDefinition(
+definition = ConversationGuide(
     artifact_schema=Artifact.model_json_schema(),
     rules=rules,
     conversation_flow=conversation_flow,

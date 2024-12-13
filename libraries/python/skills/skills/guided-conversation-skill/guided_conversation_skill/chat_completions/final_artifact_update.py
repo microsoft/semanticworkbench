@@ -11,11 +11,12 @@ from openai_client import (
 )
 from skill_library.types import LanguageModel
 
-from ..definition import GCDefinition
+from ..guide import ConversationGuide
 from ..logging import add_serializable_data, logger
 from ..message import Conversation
 
-FINAL_UPDATE_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant.
+FINAL_UPDATE_TEMPLATE = """
+You are a helpful, thoughtful, and meticulous assistant.
 
 You just finished a conversation with a user.
 
@@ -52,7 +53,7 @@ Current state of the artifact:
 
 async def final_artifact_update(
     language_model: LanguageModel,
-    definition: GCDefinition,
+    definition: ConversationGuide,
     conversation: Conversation,
     artifact: dict[str, Any],
 ) -> dict[str, Any]:

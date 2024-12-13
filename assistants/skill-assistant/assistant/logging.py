@@ -6,9 +6,9 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-logger = logging.getLogger("guided-conversation-skill")
-logger.addHandler(logging.NullHandler())
+logger = logging.getLogger("skill-assistant")
 logger.setLevel(logging.DEBUG)
+# logger.addHandler(NullHandler())
 
 
 def convert_to_serializable(data: Any) -> Any:
@@ -37,7 +37,7 @@ class CustomEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def add_serializable_data(data: Any) -> dict[str, Any]:
+def extra_data(data: Any) -> dict[str, Any]:
     """
     Helper function to use when adding extra data to log messages.
     """
@@ -58,4 +58,4 @@ def add_serializable_data(data: Any) -> dict[str, Any]:
     return extra
 
 
-extra_data = add_serializable_data
+extra_data = extra_data

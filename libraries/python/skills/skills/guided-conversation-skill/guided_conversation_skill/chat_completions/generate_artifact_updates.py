@@ -11,7 +11,7 @@ from guided_conversation_skill.artifact_helpers import (
     validate_field_presence_in_schema,
     validate_field_value,
 )
-from guided_conversation_skill.definition import GCDefinition
+from guided_conversation_skill.definition import ConversationGuide
 from openai_client import (
     CompletionError,
     add_serializable_data,
@@ -27,7 +27,8 @@ from ..logging import logger
 from ..message import Conversation, ConversationMessageType
 from .fix_artifact_error import generate_artifact_field_update_error_fix
 
-UPDATE_ARTIFACT_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
+UPDATE_ARTIFACT_TEMPLATE = """
+You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
 
 This is the schema of the artifact you are completing:
 {{ artifact_schema }}
@@ -77,7 +78,7 @@ class ArtifactUpdates(BaseModel):
 
 async def generate_artifact_updates(
     language_model: LanguageModel,
-    definition: GCDefinition,
+    definition: ConversationGuide,
     artifact: dict[str, Any],
     conversation: Conversation,
     max_retries: int = 2,

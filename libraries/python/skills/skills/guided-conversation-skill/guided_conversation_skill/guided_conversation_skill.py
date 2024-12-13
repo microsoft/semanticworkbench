@@ -1,3 +1,4 @@
+import importlib
 import json
 from typing import Any, Optional
 
@@ -10,14 +11,14 @@ from skill_library.run_context import RunContext
 from skill_library.types import LanguageModel
 
 from .agenda import Agenda
-from .chat_drivers.final_artifact_update import final_artifact_update
-from .chat_drivers.generate_artifact_updates import generate_artifact_updates
-from .chat_drivers.generate_message import generate_message
-from .chat_drivers.update_agenda import generate_agenda
-from .definition import GCDefinition
-from .logging import logger
+from .chat_completions.final_artifact_update import final_artifact_update
+from .chat_completions.generate_artifact_updates import generate_artifact_updates
+from .chat_completions.generate_message import generate_message
+from .chat_completions.update_agenda import generate_agenda
+from .guide import ConversationGuide
+from .logging import add_serializable_data, logger
 from .message import Conversation
-from .resources import GCResource, GCResourceData
+from .resources import GCResource
 
 CLASS_NAME = "GuidedConversationSkill"
 DESCRIPTION = "Walks the user through a conversation about gathering info for the creation of an artifact."
@@ -35,7 +36,7 @@ class GuidedConversationSkill(Skill):
         name: str,
         language_model: LanguageModel,
         drive: Drive,
-        definition: GCDefinition | None = None,
+        definition: ConversationGuide | None = None,
         # agenda: Optional[Agenda] = None,
         # artifact: Optional[Artifact] = None,
         # resource: Optional[GCResource] = None,
@@ -63,9 +64,9 @@ class GuidedConversationSkill(Skill):
             # As a convenience, check to see if a definition was already saved
             # previously in this drive.
             try:
-                definition = self.drive.read_model(GCDefinition, "GCDefinition.json")
+                definition = self.drive.read_model(ConversationGuide, "GCDefinition.json")
             except FileNotFoundError:
-                logger.debug(
+                logger.warning(
                     "No definition supplied or found in the drive. Will expect one as a var in the conversation_init_function"
                 )
 
@@ -110,6 +111,17 @@ class GuidedConversationSkill(Skill):
     ##################################
 
     def conversation_routine(self) -> StateMachineRoutine:
+        """
+        Conduct a guided conversation with the user. This conversation will
+        result in an artifact. The conversation will follow a defined flow and
+        will update the artifact as the conversation progresses. If a resource
+        constraint is reached, the conversation will end. An agenda will be
+        created and followed to guide the conversation. Either supply a
+        conversation definition in vars["definition"] or use a pre-configured
+        definition by supplying the name of your defintion in
+        vars["conversation_type"]. Current conversation types you can use are:
+        "acrostic_poem", "patient_intake", "er_triage", or "interview".
+        """
         return StateMachineRoutine(
             name="conversation",
             description="Run a guided conversation.",
@@ -134,6 +146,7 @@ class GuidedConversationSkill(Skill):
 
         Vars:
             definition (optional): The definition of the conversation if not already supplied in the skill config.
+            conversation_type (optional): Run a pre-defined conversation definition (in the `definitions` module).
             resource: The resource constraints for the conversation.
             conversation: The conversation state.
             agenda: The agenda state.
@@ -145,6 +158,11 @@ class GuidedConversationSkill(Skill):
             the artifact.
         """
 
+        logger.debug(
+            "Initializing guided conversation skill.",
+            add_serializable_data({"session_id": context.session_id, "vars": vars}),
+        )
+
         if vars is None:
             vars = {}
 
@@ -152,9 +170,23 @@ class GuidedConversationSkill(Skill):
         # in the skill config or as a var when initializing the conversation.
         definition = self.definition
         if not definition:
-            if "definition" not in vars:
-                raise NoDefinitionConfiguredError("No definition was provided to the skill.")
-            definition = GCDefinition(**vars["definition"])
+            if "definition" in vars:
+                definition = ConversationGuide(**vars["definition"])
+            else:
+                if "conversation_type" in vars:
+                    # Load the definition dynamically from the `definitions`
+                    # module.
+                    try:
+                        definitions_dir = "guided_conversation_skill.definitions"
+                        definition_module_name = f"{definitions_dir}.{vars['conversation_type']}"
+                        definition_module = importlib.import_module(definition_module_name)
+                        definition = definition_module.definition
+                    except ImportError:
+                        raise NoDefinitionConfiguredError(
+                            f"Could not import the definition module: {vars['conversation_type']}"
+                        )
+                else:
+                    raise NoDefinitionConfiguredError("No definition was provided to the skill.")
 
         # We can put all this data in the routine frame, or we could also put it
         # in the skill drive. All of this intermediate state can just go in the
@@ -164,7 +196,7 @@ class GuidedConversationSkill(Skill):
             state["conversation"] = vars.get("conversation") or Conversation()
             state["agenda"] = vars.get("agenda") or Agenda()
             state["artifact"] = vars.get("artifact", {})
-            state["resource"] = GCResource(definition.resource_constraint).to_data()
+            state["resource"] = GCResource(definition.resource_constraint)
 
         # For guided conversation, we want to go ahead and run the first step.
         return await self.conversation_step_function(context)
@@ -174,71 +206,13 @@ class GuidedConversationSkill(Skill):
         context: RunContext,
         message: Optional[str] = None,
     ) -> tuple[bool, dict[str, Any] | None]:
-        """
-        The original GC code is a bit more complex than this, but this is a
-        simplified version of the code.
-
-        Original:
-
-        ``` while not max_decision_retries:
-            plan = kernel_function_generate_plan success, plugins,
-            terminal_plugins = execute_plan(plan) if not
-            success:
-                max_decision_retries += 1 continue
-
-            # run each tool: update_artifact, update_agenda, send_msg, end_conv
-        ```
-
-        Note that in this flow, the "plan" is like an action chooser and the
-        plugins are like actions. We don't need any of that part because we
-        actually just want to run an artifact update and an agenda update on
-        every step.
-
-        However, we do need to have the model generate which agenda items to
-        update and which artifact items to update.
-
-        The flow:
-        - add user message to conversation
-        - while not max_decision_retries:
-            - run function/conversation_plan template to produce a conversation plan (aka reasoning):
-                - Update agenda (required parameters: items)
-                - Update artifact fields (required parameters: field, value)
-                - Send message to user (required parameters: message)
-                - End conversation (required parameters: None)
-
-            - run function/execution template to produce the tool calls w/ args for all the things.
-            - Parse result with gc.execute_plan method into sucess, plugins, terminal_plugins
-            - try again if not a success
-
-            - update artifact with tool calls (update the actual data object)
-                - if error, try to fix with plugins/artifact/_fix_artifact_error (ARTIFACT_ERROR_CORRECTION_SYSTEM_TEMPLATE)
-            - update agenda with tool calls (update the actual data object)
-                - if error, try to fix with plugins/agenda/_fix_agenda_error (AGENDA_ERROR_CORRECTION_SYSTEM_TEMPLATE)
-            - if user message: return user message with tool calls and increment resource (end turn)
-            - if end conversation:
-                - run functions/final_update_plan to produce a final conversation plan that only does update artifact tool calls
-                - run function/execution template to with only agenda update tools calls to produce tool calls w/ args
-                - run tool calls to update artifact, update all messages
-                - increment resource and return final message (end turn, end convo)
-        - increment resource and return error message (inc resource)
-
-        Revised flow will be:
-        if not first time:
-            - updates = generate_artifact_updates
-            - apply_updates(updates)
-        - agenda, done = generate_new_agenda
-        - if done:
-            - artifact = generate_final_artifact
-        - else:
-            - generate_message
-        """
-
+        logger.debug("Continuing guided conversation.", add_serializable_data({"session_id": context.session_id}))
         async with context.stack_frame_state() as state:
-            definition = GCDefinition(**state["definition"])
+            definition = ConversationGuide(**state["definition"])
             conversation = Conversation(**state["conversation"])
             agenda = Agenda(**state["agenda"])
             artifact: dict[str, Any] = state.get("artifact", {})
-            resource = GCResource.from_data(GCResourceData(**state["resource"]))
+            resource = GCResource(**state["resource"])
 
             if message:
                 conversation.add_user_message(message)
@@ -309,7 +283,7 @@ class GuidedConversationSkill(Skill):
 
                 # Increment the resource.
                 resource.increment_resource()
-                state["resource"] = resource.to_data()
+                state["resource"] = resource
 
                 return False, artifact
 

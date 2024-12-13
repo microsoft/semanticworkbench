@@ -8,7 +8,7 @@ from typing import cast
 
 from guided_conversation_skill.agenda import Agenda, AgendaItem
 from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt
-from guided_conversation_skill.definition import GCDefinition
+from guided_conversation_skill.definition import ConversationGuide
 from guided_conversation_skill.message import Conversation
 from guided_conversation_skill.resources import (
     GCResource,
@@ -105,7 +105,7 @@ def _get_termination_instructions(resource: GCResource):
 
 async def generate_agenda(
     language_model: LanguageModel,
-    definition: GCDefinition,
+    definition: ConversationGuide,
     chat_history: Conversation,
     current_agenda: Agenda,
     artifact: dict[str, Any],

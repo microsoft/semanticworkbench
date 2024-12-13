@@ -1,6 +1,11 @@
 from pydantic import BaseModel, Field
 
-from guided_conversation_skill import GCDefinition, ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
+from guided_conversation_skill import (
+    ConversationGuide,
+    ResourceConstraint,
+    ResourceConstraintMode,
+    ResourceConstraintUnit,
+)
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
@@ -58,7 +63,7 @@ resource_constraint = ResourceConstraint(
 )
 
 # Create instance of the GuidedConversationDefinition model with the above configuration.
-patient_intake = GCDefinition(
+definition = ConversationGuide(
     artifact_schema=PatientIntakeArtifact.model_json_schema(),
     rules=rules,
     conversation_flow=conversation_flow.strip(),

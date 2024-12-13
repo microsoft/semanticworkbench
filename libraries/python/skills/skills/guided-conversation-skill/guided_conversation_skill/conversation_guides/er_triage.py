@@ -1,6 +1,11 @@
 from pydantic import BaseModel, Field
 
-from guided_conversation_skill import GCDefinition, ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
+from guided_conversation_skill import (
+    ConversationGuide,
+    ResourceConstraint,
+    ResourceConstraintMode,
+    ResourceConstraintUnit,
+)
 
 
 # Define nested models for emergency room triage
@@ -56,7 +61,7 @@ Assisting patients in providing essential information during emergency room tria
 
 
 # Create instance of the GuidedConversationDefinition model with the above configuration.
-er_triage = GCDefinition(
+definition = ConversationGuide(
     artifact_schema=Artifact.model_json_schema(),
     rules=rules,
     conversation_flow=conversation_flow,

@@ -2,7 +2,12 @@ from textwrap import dedent
 
 from pydantic import BaseModel, Field
 
-from guided_conversation_skill import GCDefinition, ResourceConstraint, ResourceConstraintMode, ResourceConstraintUnit
+from guided_conversation_skill import (
+    ConversationGuide,
+    ResourceConstraint,
+    ResourceConstraintMode,
+    ResourceConstraintUnit,
+)
 
 
 class Artifact(BaseModel):
@@ -21,7 +26,7 @@ class Artifact(BaseModel):
     )
 
 
-definition = GCDefinition(
+definition = ConversationGuide(
     artifact_schema=Artifact.model_json_schema(),
     rules=[
         "DO NOT write the poem for the student.",

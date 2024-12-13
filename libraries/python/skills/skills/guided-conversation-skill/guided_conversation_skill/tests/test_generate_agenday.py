@@ -1,6 +1,6 @@
 import pytest
 from guided_conversation_skill.agenda import Agenda
-from guided_conversation_skill.chat_drivers.update_agenda import generate_agenda
+from guided_conversation_skill.chat_completions.update_agenda import generate_agenda
 from guided_conversation_skill.definitions import acrostic_poem
 from guided_conversation_skill.message import Conversation
 from guided_conversation_skill.resources import GCResource

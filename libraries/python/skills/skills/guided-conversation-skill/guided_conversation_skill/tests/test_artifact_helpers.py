@@ -9,7 +9,7 @@ from guided_conversation_skill.artifact_helpers import (
     validate_artifact_data,
     validate_field_value,
 )
-from guided_conversation_skill.chat_drivers.generate_artifact_updates import (
+from guided_conversation_skill.chat_completions.generate_artifact_updates import (
     ArtifactUpdate,
     validate_update_attempt,
 )

@@ -19,7 +19,7 @@ from openai_client.messages import format_with_liquid
 
 from skill_library.routine_stack import RoutineStack
 
-from .logging import logger
+from .logging import extra_data, logger
 from .run_context import RunContext
 from .skill import Skill
 from .skill_registry import SkillRegistry
@@ -131,17 +131,21 @@ class Assistant:
         as they are emitted. The generator will continue to yield events until
         the assistant has completed AND all events have been emitted.
         """
+        logger.debug("Assistant started. Listening for events.")
         while not self._stopped.is_set():
             try:
-                async with asyncio.timeout(1):
-                    yield await self._event_queue.get()
+                # async with asyncio.timeout(1):
+                yield await self._event_queue.get()
             except asyncio.TimeoutError:
                 continue
-        logger.info("Assistant stopped. No more events will be emitted.")
+        logger.debug("Assistant stopped. No more events will be emitted.")
 
     def _emit(self, event: EventProtocol) -> None:
         event.session_id = self.assistant_id
         self._event_queue.put_nowait(event)
+        logger.debug(
+            "Assistant queud an event (_emit).", extra_data({"event": {"id": event.id, "message": event.message}})
+        )
 
     def create_run_context(self) -> RunContext:
         # The run context is passed to parts of the system (skill routines and
@@ -287,7 +291,7 @@ class ChatFunctions:
         """Lists all the routines available in the assistant."""
         return self.assistant.list_routines()
 
-    async def run_routine(self, name: str, vars: dict[str, Any] | None = None) -> Any:
+    async def run_routine(self, name: str, vars: dict[str, Any] | None) -> Any:
         """
         Run an assistant routine.
         """

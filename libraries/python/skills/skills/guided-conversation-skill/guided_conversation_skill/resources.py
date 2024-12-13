@@ -46,9 +46,6 @@ class ResourceConstraint(BaseModel):
     quantity: float | int
     unit: ResourceConstraintUnit
 
-    # class Config:
-    #     arbitrary_types_allowed = True
-
 
 def format_resource(quantity: float, unit: ResourceConstraintUnit) -> str:
     """
@@ -63,20 +60,20 @@ def format_resource(quantity: float, unit: ResourceConstraintUnit) -> str:
         return f"{quantity} {unit.value}"
 
 
-class GCResourceData(BaseModel):
-    """
-    Data class for GCResource. This class is used to store the data of the
-    GCResource class.
-    """
+# class GCResourceData(BaseModel):
+#     """
+#     Data class for GCResource. This class is used to store the data of the
+#     GCResource class.
+#     """
 
-    resource_constraint: Optional[ResourceConstraint] = Field(default=None)
-    turn_number: int = Field(default=0)
-    elapsed_units: float = Field(default=0)
-    remaining_units: float = Field(default=0.0)
-    initial_seconds_per_turn: int = Field(default=120)
+#     resource_constraint: Optional[ResourceConstraint] = Field(default=None)
+#     turn_number: int = Field(default=0)
+#     elapsed_units: float = Field(default=0)
+#     remaining_units: float = Field(default=0.0)
+#     initial_seconds_per_turn: int = Field(default=120)
 
 
-class GCResource:
+class GCResource(BaseModel):
     """
     Resource constraints for the GuidedConversation agent. This class is used to
     keep track of the resource constraints. If resource_constraint is None, then
@@ -90,6 +87,12 @@ class GCResource:
         initial_seconds_per_turn (int): The initial number of seconds per turn.
         Defaults to 120 seconds.
     """
+
+    resource_constraint: Optional[ResourceConstraint] = Field(default=None)
+    turn_number: int = Field(default=0)
+    elapsed_units: float = Field(default=0)
+    remaining_units: float = Field(default=0.0)
+    initial_seconds_per_turn: int = Field(default=120)
 
     def __init__(
         self,
@@ -118,45 +121,24 @@ class GCResource:
             self.elapsed_units = elapsed_units
             self.remaining_units = 0
 
-    @classmethod
-    def from_data(cls, data: GCResourceData) -> "GCResource":
-        return cls(
-            resource_constraint=data.resource_constraint,
-            turn_number=data.turn_number,
-            elapsed_units=data.elapsed_units,
-            remaining_units=data.remaining_units,
-            initial_seconds_per_turn=data.initial_seconds_per_turn,
-        )
+    # @classmethod
+    # def from_data(cls, data: GCResourceData) -> "GCResource":
+    #     return cls(
+    #         resource_constraint=data.resource_constraint,
+    #         turn_number=data.turn_number,
+    #         elapsed_units=data.elapsed_units,
+    #         remaining_units=data.remaining_units,
+    #         initial_seconds_per_turn=data.initial_seconds_per_turn,
+    #     )
 
-    def to_data(self) -> GCResourceData:
-        return GCResourceData(
-            resource_constraint=self.resource_constraint,
-            turn_number=self.turn_number,
-            elapsed_units=self.elapsed_units,
-            remaining_units=self.remaining_units,
-            initial_seconds_per_turn=self.initial_seconds_per_turn,
-        )
-
-    def to_json(self) -> dict:
-        return {
-            "turn_number": self.turn_number,
-            "remaining_units": self.remaining_units,
-            "elapsed_units": self.elapsed_units,
-        }
-
-    @classmethod
-    def from_json(
-        cls,
-        json_data: dict,
-    ) -> "GCResource":
-        gc_resource = cls(
-            resource_constraint=None,
-            initial_seconds_per_turn=120,
-        )
-        gc_resource.turn_number = json_data["turn_number"]
-        gc_resource.remaining_units = json_data["remaining_units"]
-        gc_resource.elapsed_units = json_data["elapsed_units"]
-        return gc_resource
+    # def to_data(self) -> GCResourceData:
+    #     return GCResourceData(
+    #         resource_constraint=self.resource_constraint,
+    #         turn_number=self.turn_number,
+    #         elapsed_units=self.elapsed_units,
+    #         remaining_units=self.remaining_units,
+    #         initial_seconds_per_turn=self.initial_seconds_per_turn,
+    #     )
 
     def start_resource(self) -> None:
         """To be called at the start of a conversation turn"""
@@ -190,29 +172,6 @@ class GCResource:
         if self.resource_constraint is None:
             return None
         return self.resource_constraint.mode
-
-    def get_elapsed_turns(self, formatted_repr: bool = False) -> str | int:
-        """
-        Get the number of elapsed turns.
-
-        Args:
-            formatted_repr (bool): If true, return a formatted string
-            representation of the elapsed turns. If false, return an integer.
-            Defaults to False.
-
-        Returns:
-            str | int: The description/number of elapsed turns.
-        """
-        if formatted_repr:
-            return format_resource(self.turn_number, ResourceConstraintUnit.TURNS)
-        else:
-            return self.turn_number
-
-    def estimate_remaining_turns_formatted(self) -> str:
-        """
-        Get the number of remaining turns in a formatted string.
-        """
-        return format_resource(self.estimate_remaining_turns(), ResourceConstraintUnit.TURNS)
 
     def estimate_remaining_turns(self) -> int:
         """
@@ -258,9 +217,10 @@ class GCResource:
                 raise ValueError("Invalid resource unit provided.")
 
     def get_resource_instructions(self) -> str:
-        """Get the resource instructions for the conversation.
+        """
+        Get the resource instructions for the conversation.
 
-        Assumes we're always using turns as the resource unit.
+        Note: Assumes we're always using turns as the resource unit.
 
         Returns:
             str: the resource instructions
@@ -271,12 +231,16 @@ class GCResource:
         formatted_elapsed_resource = format_resource(self.elapsed_units, ResourceConstraintUnit.TURNS)
         formatted_remaining_resource = format_resource(self.remaining_units, ResourceConstraintUnit.TURNS)
 
-        # if the resource quantity is anything other than 1, the resource unit should be plural (e.g. "minutes" instead of "minute")
+        # If the resource quantity is anything other than 1, the resource unit
+        # should be plural (e.g. "minutes" instead of "minute").
         is_plural_elapsed = self.elapsed_units != 1
         is_plural_remaining = self.remaining_units != 1
 
         if self.elapsed_units > 0:
-            resource_instructions = f"So far, {formatted_elapsed_resource} {'have' if is_plural_elapsed else 'has'} elapsed since the conversation began. "
+            resource_instructions = (
+                f"So far, {formatted_elapsed_resource} {'have' if is_plural_elapsed else 'has'} "
+                "elapsed since the conversation began. "
+            )
         else:
             resource_instructions = ""
 
@@ -294,19 +258,33 @@ class GCResource:
             )
 
             if is_plural_remaining:
-                resource_instructions += f"""{exact_mode_instructions}. This will require you to plan your actions carefully using the agenda: you want to avoid the situation where you have to pack too many topics into the final turns because you didn't account for them earlier, \
-or where you've rushed through the conversation and all fields are completed but there are still many turns left."""
+                resource_instructions += (
+                    f"{exact_mode_instructions}. This will require you to "
+                    "plan your actions carefully using the agenda: you want to avoid the situation "
+                    "where you have to pack too many topics into the final turns because you didn't "
+                    "account for them earlier, or where you've rushed through the conversation and "
+                    "all fields are completed but there are still many turns left."
+                )
 
             # special instruction for the final turn (i.e. 1 remaining) in exact mode
             else:
-                resource_instructions += f"""{exact_mode_instructions}, including this one. Therefore, you should use this turn to ask for any remaining information needed to complete the artifact, \
-        or, if the artifact is already completed, continue to broaden/deepen the discussion in a way that's directly relevant to the artifact. Do NOT indicate to the user that the conversation is ending."""
+                resource_instructions += (
+                    f"{exact_mode_instructions}, including this one. Therefore, you should use this "
+                    "turn to ask for any remaining information needed to complete the artifact, or, "
+                    "if the artifact is already completed, continue to broaden/deepen the discussion "
+                    "in a way that's directly relevant to the artifact. Do NOT indicate to the user "
+                    "that the conversation is ending."
+                )
 
         elif self.resource_constraint.mode == ResourceConstraintMode.MAXIMUM:
-            resource_instructions += f"""You have a maximum of {formatted_remaining_resource} (including this one) left to complete the conversation. \
-You can decide to terminate the conversation at any point (including now), otherwise the conversation will automatically terminate when 0 turns are left. \
-You will need to plan your actions carefully using the agenda: you want to avoid the situation where you have to pack too many topics into the final turns because you didn't account for them earlier."""
-
+            resource_instructions += (
+                f"You have a maximum of {formatted_remaining_resource} (including this one) left to "
+                "complete the conversation. You can decide to terminate the conversation at any point "
+                "(including now), otherwise the conversation will automatically terminate when 0 turns "
+                "are left. You will need to plan your actions carefully using the agenda: you want to "
+                "avoid the situation where you have to pack too many topics into the final turns because "
+                "you didn't account for them earlier."
+            )
         else:
             logger.error("Invalid resource mode provided.")
 

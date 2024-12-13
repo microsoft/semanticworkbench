@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt, get_schema_for_prompt
-from guided_conversation_skill.definition import GCDefinition
+from guided_conversation_skill.definition import ConversationGuide
 from openai_client import (
     CompletionError,
     add_serializable_data,
@@ -19,7 +19,8 @@ from ..message import Conversation, ConversationMessageType
 
 logger = logging.getLogger(__name__)
 
-USER_MESSAGE_TEMPLATE = """You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
+USER_MESSAGE_TEMPLATE = """
+You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
 
 This is the schema of the artifact you are completing:
 {{ artifact_schema }}{% if context %}
@@ -41,7 +42,7 @@ Your job is to respond to the user if they ask a question or make a statement th
 
 For example, if the artifact schema indicates that the "date of birth" field must be in the format "YYYY-MM-DD", but the user has only provided the month and year, you should send a message to the user asking for the day. Likewise, if the user claims that their date of birth is February 30, you should send a message to the user asking for a valid date. If the artifact schema is open-ended (e.g. it asks you to rate how pressing the user's issue is, without specifying rules for doing so), use your best judgment to determine whether you have enough information or you need to continue
 probing the user. It's important to be thorough, but also to avoid asking the user for unnecessary information.
-"""
+""".replace("\n\n\n", "\n\n")
 
 
 class ArtifactUpdate(BaseModel):
@@ -60,7 +61,7 @@ class UpdateAttempt(BaseModel):
 
 async def generate_message(
     language_model: LanguageModel,
-    definition: GCDefinition,
+    definition: ConversationGuide,
     artifact: dict[str, Any],
     conversation: Conversation,
     max_retries: int = 2,
