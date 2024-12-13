@@ -102,12 +102,12 @@ class RequestConfig(BaseModel):
             title="Response Tokens",
             description=(
                 "The number of tokens to use for the response, will reduce the number of tokens available for the"
-                " prompt. Current max supported by OpenAI is 4096 tokens [https://platform.openai.com/docs/models]"
+                " prompt. Current max supported by OpenAI is 16k tokens for gpt-4o, and 4098 for all others [https://platform.openai.com/docs/models]"
                 "(https://platform.openai.com/docs/models)."
             ),
         ),
         UISchema(enable_markdown_in_description=True),
-    ] = 4_048
+    ] = 16_000
 
     openai_model: Annotated[
         str,

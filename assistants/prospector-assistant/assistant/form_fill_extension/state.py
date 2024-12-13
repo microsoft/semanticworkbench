@@ -46,9 +46,10 @@ class Section(BaseModel):
     description: str = Field(description="The description of the section if one is provided on the form.")
     instructions: str = Field(description="The instructions for the section if they are provided on the form.")
     fields: list[FormField] = Field(description="The fields of the section.")
+    sections: list["Section"] = Field(description="The sub-sections of the section, if any.")
 
 
-class Form(BaseModel):
+class Form(Section):
     title: str = Field(description="The title of the form.")
     description: str = Field(description="The description of the form if one is provided on the form.")
     instructions: str = Field(description="The instructions for the form if they are provided on the form.")
