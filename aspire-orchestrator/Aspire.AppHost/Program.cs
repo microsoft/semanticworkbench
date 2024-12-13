@@ -68,7 +68,8 @@ internal static class Program
         // When running locally
         if (!builder.ExecutionContext.IsPublishMode)
         {
-            workbenchApp.WithHttpsEndpoint(env: "PORT");
+            if (!int.TryParse(builder.Configuration["Workbench:AppPort"], out var appPort)) { appPort = 4000; }
+            workbenchApp.WithHttpsEndpoint(port: appPort, env: "PORT", isProxied: false);
         }
 
         return builder;
