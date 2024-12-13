@@ -131,9 +131,13 @@ async def execute(
     Approach: Guided conversation / direct chat-completion (for document extraction)
     """
 
-    form_fields = form.fields.copy()
-    for section in form.sections:
-        form_fields.extend(section.fields)
+    def fields_for(section: state.Section) -> list[state.FormField]:
+        form_fields = section.fields.copy()
+        for sub_section in section.sections:
+            form_fields.extend(fields_for(sub_section))
+        return form_fields
+
+    form_fields = fields_for(form)
 
     debug = {}
 
@@ -177,14 +181,14 @@ async def execute(
         populated_fields=fill_form_gc_artifact,
     )
 
-    async with step_state(step_context.context) as state:
-        state.populated_form_markdown = populated_form_markdown
+    async with step_state(step_context.context) as current_state:
+        current_state.populated_form_markdown = populated_form_markdown
 
         if result.is_conversation_over:
             return CompleteResult(
-                message=state.populated_form_markdown,
+                message=current_state.populated_form_markdown,
                 artifact=fill_form_gc_artifact,
-                populated_form_markdown=state.populated_form_markdown,
+                populated_form_markdown=current_state.populated_form_markdown,
                 debug=debug,
             )
 
@@ -387,22 +391,19 @@ def _generate_populated_form(
 
         return "\n\n".join(markdown_fields)
 
-    top_level_fields = field_values(form.fields)
-
-    sections = (
-        f"## {section.title}\n{section.description}\n{section.instructions}\n{field_values(section.fields)}"
-        for section in form.sections
-    )
+    def for_section(level: int, section: state.Section) -> str:
+        sections = (for_section(level + 1, section) for section in section.sections)
+        return "\n".join((
+            f"{'#' * level} {section.title}",
+            section.description,
+            section.instructions,
+            field_values(section.fields),
+            *sections,
+        ))
 
     return "\n".join((
         "```markdown",
-        f"# {form.title}",
-        form.description,
-        form.instructions,
-        "",
-        top_level_fields,
-        "",
-        *sections,
+        for_section(1, form),
         "```",
     ))
 
