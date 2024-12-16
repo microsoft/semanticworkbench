@@ -47,32 +47,12 @@ class ResourceConstraint(BaseModel):
     unit: ResourceConstraintUnit = Field(default=ResourceConstraintUnit.TURNS)
 
 
-def format_resource(quantity: float, unit: ResourceConstraintUnit) -> str:
-    """
-    Get formatted string for a given quantity and unit (e.g. 1 second, 20
-    seconds)
-    """
-    if unit != ResourceConstraintUnit.TURNS:
-        quantity = round(quantity, 1)
-    if quantity == 1:
-        return f"{quantity} {unit.value.rstrip('s')}"
-    else:
-        return f"{quantity} {unit.value}"
-
-
 class GCResource(BaseModel):
     """
     Resource constraints for the GuidedConversation agent. This class is used to
     keep track of the resource constraints. If resource_constraint is None, then
     the agent can continue indefinitely. This also means that no agenda will be
     created for the conversation.
-
-    Args:
-        resource_constraint (ResourceConstraint | None): The resource constraint
-        for the conversation.
-
-        initial_seconds_per_turn (int): The initial number of seconds per turn.
-        Defaults to 120 seconds.
     """
 
     resource_constraint: Optional[ResourceConstraint] = Field(default=None)
@@ -98,7 +78,7 @@ class GCResource(BaseModel):
             return 0.0
 
     def start_resource(self) -> None:
-        """To be called at the start of a conversation turn"""
+        """To be called at the start of a conversation turn."""
         if self.resource_constraint is not None and (
             self.resource_constraint.unit == ResourceConstraintUnit.SECONDS
             or self.resource_constraint.unit == ResourceConstraintUnit.MINUTES
@@ -118,8 +98,6 @@ class GCResource(BaseModel):
                 case ResourceConstraintUnit.TURNS:
                     self.elapsed_units += 1
                     self.remaining_units -= 1
-                case _:
-                    raise ValueError("Invalid resource unit provided.")
         self.turn_number += 1
 
     def get_resource_mode(self) -> ResourceConstraintMode | None:

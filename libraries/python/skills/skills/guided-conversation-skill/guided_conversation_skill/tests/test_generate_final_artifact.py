@@ -1,5 +1,5 @@
 import pytest
-from guided_conversation_skill.chat_completions.final_artifact_update import final_artifact_update
+from guided_conversation_skill.chat_completions.generate_final_artifact import final_artifact_update
 from guided_conversation_skill.conversation_guides import acrostic_poem
 from guided_conversation_skill.message import Conversation, Message
 from skill_library.types import LanguageModel

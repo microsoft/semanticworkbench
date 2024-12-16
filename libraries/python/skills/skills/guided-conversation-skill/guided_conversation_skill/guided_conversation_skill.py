@@ -11,10 +11,10 @@ from skill_library.run_context import RunContext
 from skill_library.types import LanguageModel
 
 from .agenda import Agenda
-from .chat_completions.final_artifact_update import final_artifact_update
+from .chat_completions.generate_agenda import generate_agenda
 from .chat_completions.generate_artifact_updates import generate_artifact_updates
+from .chat_completions.generate_final_artifact import final_artifact_update
 from .chat_completions.generate_message import generate_message
-from .chat_completions.update_agenda import generate_agenda
 from .guide import ConversationGuide
 from .logging import add_serializable_data, logger
 from .message import Conversation

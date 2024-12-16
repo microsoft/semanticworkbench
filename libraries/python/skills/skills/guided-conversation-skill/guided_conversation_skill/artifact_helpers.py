@@ -1,17 +1,8 @@
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-# from datamodel_code_generator import DataModelType, PythonVersion
-# from datamodel_code_generator.format import DatetimeClassType
-# from datamodel_code_generator.model import get_data_model_types
-# from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
-# from pydantic import BaseModel
 import jsonschema
 from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    pass
-
 
 from .logging import add_serializable_data, logger
 
@@ -19,46 +10,6 @@ from .logging import add_serializable_data, logger
 class UpdateAttempt(BaseModel):
     field_value: str
     error: str
-
-
-# UNANSWERED = "Unanswered"
-
-# TUnanswered = Literal["Unanswered"]
-
-
-# def get_artifact_from_schema_and_data(schema: dict[str, Any], data: dict[str, Any]) -> BaseModel:
-#     """
-#     Create a Pydantic model from a dict representing a JSON Schema and fill it with data.
-#     """
-#     model = get_model_from_schema(schema)
-#     return model(**data)
-
-
-# def get_model_from_schema(schema: dict[str, Any]) -> type[BaseModel]:
-#     """
-#     Create a Pydantic model from a dict representing a JSON Schema.
-#     """
-#     data_model_types = get_data_model_types(
-#         DataModelType.PydanticV2BaseModel,
-#         target_python_version=PythonVersion.PY_311,
-#         target_datetime_class=DatetimeClassType.Datetime,
-#     )
-
-#     parser = JsonSchemaParser(
-#         str(schema),
-#         data_model_type=data_model_types.data_model,
-#         data_model_root_type=data_model_types.root_model,
-#         data_model_field_type=data_model_types.field_model,
-#         data_type_manager_type=data_model_types.data_type_manager,
-#         dump_resolve_reference_action=data_model_types.dump_resolve_reference_action,
-#     )
-#     namespace = {}
-#     code = parser.parse()
-#     exec(code, namespace)
-
-
-#     className = schema.get("title", "Model")
-#     return namespace[className]
 
 
 def validate_artifact_data(

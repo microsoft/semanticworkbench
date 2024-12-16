@@ -1,9 +1,23 @@
 """
+`update_agenda` will run a chat completion to create an agenda for the
+conversation. The completion will be based on the current state of the
+conversation, the artifact, and the resource constraints. The completion will
+provide a list of items to be completed sequentially, where the first item
+contains everything that will be done in the current turn of the conversation.
+The completion will also provide an estimate of the number of turns required to
+complete each item. The completion will ensure that the total number of turns
+allocated across all items in the updated agenda does not exceed the remaining
+turns available. If the completion fails, the function will attempt to fix the
+error and generate a new agenda. The function will return the updated agenda and
+a boolean indicating whether the conversation is complete. If the completion
+fails after multiple attempts, the function will return the current agenda and a
+boolean indicating that the conversation is not complete. The function will log
+any errors that occur during the completion process.
+
 How do agendas work? See:
 https://microsoft.sharepoint.com/:v:/t/NERDAIProgram2/EfRcEA2RSP9DuJhw8AHnAP4B12g__TFV21GOxlZvSR3mEA?e=91Wp9f&nav=eyJwbGF5YmFja09wdGlvbnMiOnt9LCJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTaGFyZVBvaW50IiwicmVmZXJyYWxNb2RlIjoibWlzIiwicmVmZXJyYWxWaWV3IjoidmlkZW9hY3Rpb25zLXNoYXJlIiwicmVmZXJyYWxQbGF5YmFja1Nlc3Npb25JZCI6ImMzYzUwNTEwLWQ1MzAtNGQyYS1iZGY3LTE2ZGViZTYwNjU4YiJ9fQ%3D%3D
 """
 
-import logging
 from typing import cast
 
 from guided_conversation_skill.agenda import Agenda, AgendaItem
@@ -14,11 +28,9 @@ from guided_conversation_skill.resources import (
     GCResource,
     ResourceConstraintMode,
     ResourceConstraintUnit,
-    format_resource,
 )
 from openai_client import (
     CompletionError,
-    add_serializable_data,
     create_system_message,
     create_user_message,
     make_completion_args_serializable,
@@ -28,9 +40,8 @@ from pydantic import ValidationError
 from skill_library.types import LanguageModel
 from traitlets import Any
 
+from ..logging import extra_data, logger
 from .fix_agenda_error import fix_agenda_error
-
-logger = logging.getLogger(__name__)
 
 GENERATE_AGENDA_TEMPLATE = """
 You are a helpful, thoughtful, and meticulous assistant. You are conducting a conversation with a user. Your goal is to complete an artifact as thoroughly as possible by the end of the conversation, and to ensure a smooth experience for the user.
@@ -61,50 +72,30 @@ How to update the agenda:
 - If you do not need to change your plan, just return the list of agenda items as is.
 - You must provide an ordered list of items to be completed sequentially, where the first item contains everything you will do in the current turn of the conversation (in addition to updating the agenda). For example, if you choose to send a message to the user asking for their name and medical history, then you would write "ask for name and medical history" as the first item. If you think medical history will take longer than asking for the name, then you would write "complete medical history" as the second item, with an estimate of how many turns you think it will take. Do NOT include items that have already been completed. Items must always represent a conversation topic (corresponding to the "Send message to user" action). Updating the artifact (e.g. "update field X based on the discussion") or terminating the conversation is NOT a valid item.
 - The latest agenda was created in the previous turn of the conversation. Even if the total turns in the latest agenda equals the remaining turns, you should still update the agenda if you think the current plan is suboptimal (e.g. the first item was completed, the order of items is not ideal, an item is too broad or not a conversation topic, etc.).
-- Each item must have a description and and your best guess for the number of turns required to complete it. Do not provide a range of turns. It is EXTREMELY important that the total turns allocated across all items in the updated agenda (including the first item for the current turn) {{ total_resource_str }} Everything in the agenda should be something you expect to complete in the remaining turns - there shouldn't be any optional "buffer" items. It can be helpful to include the cumulative turns allocated for each item in the agenda to ensure you adhere to this rule, e.g. item 1 = 2 turns (cumulative total = 2), item 2 = 4 turns (cumulative total = 6), etc.
+- Each item must have a description and and your best guess for the number of turns required to complete it. Do not provide a range of turns. It is EXTREMELY important that the total turns allocated across all items in the updated agenda (including the first item for the current turn) {{ total_resource_phrase }} Everything in the agenda should be something you expect to complete in the remaining turns - there shouldn't be any optional "buffer" items. It can be helpful to include the cumulative turns allocated for each item in the agenda to ensure you adhere to this rule, e.g. item 1 = 2 turns (cumulative total = 2), item 2 = 4 turns (cumulative total = 6), etc.
 - Avoid high-level items like "ask follow-up questions" - be specific about what you need to do.
-- Do NOT include wrap-up items such as "review and confirm all information with the user" (you should be doing this throughout the conversation) or "thank the user for their time". Do NOT repeat topics that have already been sufficiently addressed. {{ ample_time_str }}
+- Do NOT include wrap-up items such as "review and confirm all information with the user" (you should be doing this throughout the conversation) or "thank the user for their time". Do NOT repeat topics that have already been sufficiently addressed. {{ ample_time_phrase }}
 
 When you determine the conversation is completed, just return an agenda with no items in it.
 """.replace("\n\n\n", "\n\n").strip()
 
 
-def _get_termination_instructions(resource: GCResource):
+def resource_phrase(quantity: float, unit: ResourceConstraintUnit) -> str:
     """
-    Get the termination instructions for the conversation. This is contingent on the resources mode,
-    if any, that is available.
+    Get rounded, formatted string for a given quantity and unit (e.g. 1
+    turn/second/minute, 20 turns/seconds/minutes).
     """
+    quantity = round(quantity)
+    s = f"{quantity} {unit.value}"
 
-    # TODO: Is this correct? It seems to assume we're always using turns as the resource unit.
-
-    # Termination condition under no resource constraints
-    if resource.resource_constraint is None:
-        return (
-            "- You should pick this action as soon as you have completed the artifact to the best of your ability, the"
-            " conversation has come to a natural conclusion, or the user is not cooperating so you cannot continue the"
-            " conversation."
-        )
-
-    # Termination condition under exact resource constraints
-    if resource.resource_constraint.mode == ResourceConstraintMode.EXACT:
-        return (
-            "- You should only pick this action if the user is not cooperating so you cannot continue the conversation."
-        )
-
-    # Termination condition under maximum resource constraints
-    elif resource.resource_constraint.mode == ResourceConstraintMode.MAXIMUM:
-        return (
-            "- You should pick this action as soon as you have completed the artifact to the best of your ability, the"
-            " conversation has come to a natural conclusion, or the user is not cooperating so you cannot continue the"
-            " conversation."
-        )
-
+    # Remove the 's' from if the quantity is 1.
+    if quantity == 1:
+        return s[:-1]
     else:
-        logger.error("Invalid resource mode provided.")
-        return ""
+        return s
 
 
-def get_resource_instructions(resource: GCResource) -> str:
+def resource_instructions(resource: GCResource) -> str:
     """
     Get the resource instructions for the conversation.
 
@@ -116,25 +107,22 @@ def get_resource_instructions(resource: GCResource) -> str:
     if resource.resource_constraint is None:
         return ""
 
-    formatted_elapsed_resource = format_resource(resource.elapsed_units, ResourceConstraintUnit.TURNS)
-    formatted_remaining_resource = format_resource(resource.remaining_units, ResourceConstraintUnit.TURNS)
-
-    # If the resource quantity is anything other than 1, the resource unit
-    # should be plural (e.g. "minutes" instead of "minute").
     is_plural_elapsed = resource.elapsed_units != 1
     is_plural_remaining = resource.remaining_units != 1
 
     if resource.elapsed_units > 0:
-        resource_instructions = (
-            f"So far, {formatted_elapsed_resource} {'have' if is_plural_elapsed else 'has'} "
+        elapsed_resource_phrase = resource_phrase(resource.elapsed_units, ResourceConstraintUnit.TURNS)
+        instructions = (
+            f"So far, {elapsed_resource_phrase} {'have' if is_plural_elapsed else 'has'} "
             "elapsed since the conversation began. "
         )
     else:
-        resource_instructions = ""
+        instructions = ""
 
+    remaining_resource_phrase = resource_phrase(resource.remaining_units, ResourceConstraintUnit.TURNS)
     if resource.resource_constraint.mode == ResourceConstraintMode.EXACT:
         exact_mode_instructions = (
-            f"There {'are' if is_plural_remaining else 'is'} {formatted_remaining_resource} "
+            f"There {'are' if is_plural_remaining else 'is'} {remaining_resource_phrase} "
             "remaining (including this one) - the conversation will automatically terminate "
             "when 0 turns are left. You should continue the conversation until it is "
             "automatically terminated. This means you should NOT preemptively end the "
@@ -146,7 +134,7 @@ def get_resource_instructions(resource: GCResource) -> str:
         )
 
         if is_plural_remaining:
-            resource_instructions += (
+            instructions += (
                 f"{exact_mode_instructions}. This will require you to "
                 "plan your actions carefully using the agenda: you want to avoid the situation "
                 "where you have to pack too many topics into the final turns because you didn't "
@@ -154,9 +142,9 @@ def get_resource_instructions(resource: GCResource) -> str:
                 "all fields are completed but there are still many turns left."
             )
 
-        # special instruction for the final turn (i.e. 1 remaining) in exact mode
+        # Special instruction for the final turn (i.e. 1 remaining) in exact mode.
         else:
-            resource_instructions += (
+            instructions += (
                 f"{exact_mode_instructions}, including this one. Therefore, you should use this "
                 "turn to ask for any remaining information needed to complete the artifact, or, "
                 "if the artifact is already completed, continue to broaden/deepen the discussion "
@@ -165,8 +153,8 @@ def get_resource_instructions(resource: GCResource) -> str:
             )
 
     elif resource.resource_constraint.mode == ResourceConstraintMode.MAXIMUM:
-        resource_instructions += (
-            f"You have a maximum of {formatted_remaining_resource} (including this one) left to "
+        instructions += (
+            f"You have a maximum of {remaining_resource_phrase} (including this one) left to "
             "complete the conversation. You can decide to terminate the conversation at any point "
             "(including now), otherwise the conversation will automatically terminate when 0 turns "
             "are left. You will need to plan your actions carefully using the agenda: you want to "
@@ -176,145 +164,21 @@ def get_resource_instructions(resource: GCResource) -> str:
     else:
         logger.error("Invalid resource mode provided.")
 
-    return resource_instructions
+    return instructions
 
 
-async def generate_agenda(
-    language_model: LanguageModel,
-    definition: ConversationGuide,
-    chat_history: Conversation,
-    current_agenda: Agenda,
-    artifact: dict[str, Any],
-    resource: GCResource,
-    max_retries: int = 2,
-) -> tuple[Agenda, bool]:
-    # STEP 1: Generate an updated agenda.
-
-    # If there is a resource constraint and there's more than one turn left,
-    # include additional constraint instructions.
-    remaining_resource = resource.remaining_units if resource.remaining_units else 0
-    resource_instructions = get_resource_instructions(resource)
-    total_resource_str = ""
-    ample_time_str = ""
-    if (resource_instructions != "") and (remaining_resource > 1):
-        match resource.get_resource_mode():
-            case ResourceConstraintMode.MAXIMUM:
-                total_resource_str = f"does not exceed the remaining turns ({remaining_resource})."
-                ample_time_str = ""
-            case ResourceConstraintMode.EXACT:
-                total_resource_str = (
-                    f"is equal to the remaining turns ({remaining_resource}). Do not leave any turns unallocated."
-                )
-                ample_time_str = (
-                    "If you have many turns remaining, instead of including wrap-up items or repeating "
-                    "topics, you should include items that increase the breadth and/or depth of the conversation "
-                    'in a way that\'s directly relevant to the artifact (e.g. "collect additional details about X", '
-                    '"ask for clarification about Y", "explore related topic Z", etc.).'
-                )
-            case _:
-                logger.error("Invalid resource mode.")
-
-    completion_args = {
-        "model": "gpt-4o",
-        "messages": [
-            create_system_message(
-                GENERATE_AGENDA_TEMPLATE,
-                {
-                    "context": definition.conversation_context,
-                    "artifact_schema": definition.artifact_schema,
-                    "rules": definition.rules,
-                    "current_state_description": definition.conversation_flow,
-                    "remaining_resource": remaining_resource,
-                    "total_resource_str": total_resource_str,
-                    "ample_time_str": ample_time_str,
-                    "termination_instructions": _get_termination_instructions(resource),
-                    "resource_instructions": resource_instructions,
-                },
-            ),
-            create_user_message(
-                (
-                    "Conversation history:\n"
-                    "{{ chat_history }}\n\n"
-                    "Latest agenda:\n"
-                    "{{ agenda_state }}\n\n"
-                    "Current state of the artifact:\n"
-                    "{{ artifact_state }}"
-                ),
-                {
-                    "chat_history": str(chat_history),
-                    "agenda_state": get_agenda_for_prompt(current_agenda),
-                    "artifact_state": get_artifact_for_prompt(artifact),
-                },
-            ),
-        ],
-        "response_format": Agenda,
-    }
-
-    metadata = {}
-    logger.debug("Completion call.", extra=add_serializable_data(make_completion_args_serializable(completion_args)))
-    metadata["completion_args"] = make_completion_args_serializable(completion_args)
-    try:
-        completion = await language_model.beta.chat.completions.parse(
-            **completion_args,
-        )
-        validate_completion(completion)
-        logger.debug("Completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
-        metadata["completion"] = completion.model_dump()
-    except Exception as e:
-        completion_error = CompletionError(e)
-        metadata["completion_error"] = completion_error.message
-        logger.error(
-            completion_error.message,
-            extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata}),
-        )
-        raise completion_error from e
-    else:
-        new_agenda = cast(Agenda, completion.choices[0].message.parsed)
-        new_agenda.resource_constraint_mode = current_agenda.resource_constraint_mode
-
-    # STEP 2: Validate/fix the updated agenda if necessary.
-
-    previous_attempts = []
-    while len(previous_attempts) < max_retries:
-        try:
-            # Check resource constraints (will raise an error if violated).
-            if new_agenda.resource_constraint_mode is not None:
-                check_item_constraints(
-                    new_agenda.resource_constraint_mode,
-                    new_agenda.items,
-                    resource.estimate_remaining_turns(),
-                )
-
-        except (ValidationError, ValueError) as e:
-            # Try again.
-            if isinstance(e, ValidationError):
-                error_str = "; ".join([e.get("msg") for e in e.errors()])
-                error_str = error_str.replace("; Input should be 'Unanswered'", " or input should be 'Unanswered'")
-            else:
-                error_str = str(e)
-
-            # Add it to our list of previous attempts.
-            previous_attempts.append((str(new_agenda.items), error_str))
-
-            # Generate a new agenda.
-            logger.info(f"Attempting to fix the agenda error. Attempt {len(previous_attempts)}.")
-            llm_formatted_attempts = "\n".join([
-                f"Attempt: {attempt}\nError: {error}" for attempt, error in previous_attempts
-            ])
-            possibly_fixed_agenda = await fix_agenda_error(language_model, llm_formatted_attempts, chat_history)
-            if possibly_fixed_agenda is None:
-                raise ValueError("Invalid response from the LLM.")
-            new_agenda = possibly_fixed_agenda
-            continue
-        else:
-            is_done = True if len(new_agenda.items) == 0 else False
-            logger.info(f"Agenda updated successfully: {get_agenda_for_prompt(new_agenda)}")
-            return new_agenda, is_done
-
-    logger.error(f"Failed to update agenda after {max_retries} attempts.")
-
-    # Let's keep going anyway.
-    return current_agenda, False
+def agenda_phrase(agenda: Agenda) -> str:
+    """
+    Gets a string representation of the agenda for use in an LLM prompt.
+    """
+    if not agenda.items:
+        return "None"
+    item_list = "\n".join([
+        f"{i + 1}. [{resource_phrase(item.resource, ResourceConstraintUnit.TURNS)}] {item.title}"
+        for i, item in enumerate(agenda.items)
+    ])
+    total_resource = resource_phrase(sum([item.resource for item in agenda.items]), ResourceConstraintUnit.TURNS)
+    return item_list + f"\nTotal = {total_resource}"
 
 
 def check_item_constraints(
@@ -358,18 +222,133 @@ def check_item_constraints(
         raise ValueError(" ".join(violations))
 
 
-def get_agenda_for_prompt(agenda: Agenda) -> str:
-    """
-    Gets a string representation of the agenda for use in an LLM prompt.
-    """
-    agenda_json = agenda.model_dump()
-    agenda_items = agenda_json.get("items", [])
-    if len(agenda_items) == 0:
-        return "None"
-    agenda_str = "\n".join([
-        f"{i + 1}. [{format_resource(item['resource'], ResourceConstraintUnit.TURNS)}] {item['title']}"
-        for i, item in enumerate(agenda_items)
-    ])
-    total_resource = format_resource(sum([item["resource"] for item in agenda_items]), ResourceConstraintUnit.TURNS)
-    agenda_str += f"\nTotal = {total_resource}"
-    return agenda_str
+async def generate_agenda(
+    language_model: LanguageModel,
+    definition: ConversationGuide,
+    chat_history: Conversation,
+    current_agenda: Agenda,
+    artifact: dict[str, Any],
+    resource: GCResource,
+    max_retries: int = 2,
+) -> tuple[Agenda, bool]:
+    # STEP 1: Generate an updated agenda.
+
+    # If there is a resource constraint and there's more than one turn left,
+    # include additional constraint instructions.
+    total_resource_phrase = ""
+    ample_time_phrase = ""
+    if resource.resource_constraint and resource.elapsed_units and resource.remaining_units > 1:
+        match resource.resource_constraint.mode:
+            case ResourceConstraintMode.MAXIMUM:
+                total_resource_phrase = f"does not exceed the remaining turns ({resource.remaining_units})."
+            case ResourceConstraintMode.EXACT:
+                total_resource_phrase = (
+                    f"is equal to the remaining turns ({resource.remaining_units}). Do not leave any turns unallocated."
+                )
+                ample_time_phrase = (
+                    "If you have many turns remaining, instead of including wrap-up items or repeating "
+                    "topics, you should include items that increase the breadth and/or depth of the conversation "
+                    'in a way that\'s directly relevant to the artifact (e.g. "collect additional details about X", '
+                    '"ask for clarification about Y", "explore related topic Z", etc.).'
+                )
+
+    completion_args = {
+        "model": "gpt-4o",
+        "messages": [
+            create_system_message(
+                GENERATE_AGENDA_TEMPLATE,
+                {
+                    "ample_time_phrase": ample_time_phrase,
+                    "artifact_schema": definition.artifact_schema,
+                    "context": definition.conversation_context,
+                    "current_state_description": definition.conversation_flow,
+                    "remaining_resource": resource.remaining_units,
+                    "resource_instructions": resource_instructions(resource),
+                    "rules": definition.rules,
+                    "total_resource_phrase": total_resource_phrase,
+                },
+            ),
+            create_user_message(
+                (
+                    "Conversation history:\n"
+                    "{{ chat_history }}\n\n"
+                    "Latest agenda:\n"
+                    "{{ agenda_state }}\n\n"
+                    "Current state of the artifact:\n"
+                    "{{ artifact_state }}"
+                ),
+                {
+                    "chat_history": str(chat_history),
+                    "agenda_state": agenda_phrase(current_agenda),
+                    "artifact_state": get_artifact_for_prompt(artifact),
+                },
+            ),
+        ],
+        "response_format": Agenda,
+    }
+
+    metadata = {}
+    logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
+    metadata["completion_args"] = make_completion_args_serializable(completion_args)
+    try:
+        completion = await language_model.beta.chat.completions.parse(
+            **completion_args,
+        )
+        validate_completion(completion)
+        logger.debug("Completion response.", extra=extra_data({"completion": completion.model_dump()}))
+        metadata["completion"] = completion.model_dump()
+    except Exception as e:
+        completion_error = CompletionError(e)
+        metadata["completion_error"] = completion_error.message
+        logger.error(
+            completion_error.message,
+            extra=extra_data({"completion_error": completion_error.body, "metadata": metadata}),
+        )
+        raise completion_error from e
+    else:
+        new_agenda = cast(Agenda, completion.choices[0].message.parsed)
+        new_agenda.resource_constraint_mode = current_agenda.resource_constraint_mode
+
+    # STEP 2: Validate/fix the updated agenda if necessary.
+
+    previous_attempts = []
+    while len(previous_attempts) < max_retries:
+        try:
+            # Check resource constraints (will raise an error if violated).
+            if new_agenda.resource_constraint_mode is not None:
+                check_item_constraints(
+                    new_agenda.resource_constraint_mode,
+                    new_agenda.items,
+                    resource.estimate_remaining_turns(),
+                )
+
+        except (ValidationError, ValueError) as e:
+            # Try again.
+            if isinstance(e, ValidationError):
+                error_str = "; ".join([e.get("msg") for e in e.errors()])
+                error_str = error_str.replace("; Input should be 'Unanswered'", " or input should be 'Unanswered'")
+            else:
+                error_str = str(e)
+
+            # Add it to our list of previous attempts.
+            previous_attempts.append((str(new_agenda.items), error_str))
+
+            # Generate a new agenda.
+            logger.info(f"Attempting to fix the agenda error. Attempt {len(previous_attempts)}.")
+            llm_formatted_attempts = "\n".join([
+                f"Attempt: {attempt}\nError: {error}" for attempt, error in previous_attempts
+            ])
+            possibly_fixed_agenda = await fix_agenda_error(language_model, llm_formatted_attempts, chat_history)
+            if possibly_fixed_agenda is None:
+                raise ValueError("Invalid response from the LLM.")
+            new_agenda = possibly_fixed_agenda
+            continue
+        else:
+            is_done = True if len(new_agenda.items) == 0 else False
+            logger.info("Agenda updated successfully", extra=extra_data(new_agenda))
+            return new_agenda, is_done
+
+    logger.error(f"Failed to update agenda after {max_retries} attempts.")
+
+    # Let's keep going anyway.
+    return current_agenda, False

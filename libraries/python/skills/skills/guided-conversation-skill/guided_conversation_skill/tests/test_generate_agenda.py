@@ -1,9 +1,9 @@
 import pytest
 from guided_conversation_skill.agenda import Agenda
-from guided_conversation_skill.chat_completions.update_agenda import generate_agenda
+from guided_conversation_skill.chat_completions.generate_agenda import generate_agenda, resource_phrase
 from guided_conversation_skill.conversation_guides import acrostic_poem
 from guided_conversation_skill.message import Conversation
-from guided_conversation_skill.resources import GCResource
+from guided_conversation_skill.resources import GCResource, ResourceConstraintUnit
 from skill_library.types import LanguageModel
 
 
@@ -24,3 +24,14 @@ async def test_generate_agenda(client: LanguageModel) -> None:
     )
     assert agenda is not None
     assert not is_done
+
+
+def test_format_resource():
+    assert resource_phrase(1, ResourceConstraintUnit.TURNS) == "1 turn"
+    assert resource_phrase(1, ResourceConstraintUnit.SECONDS) == "1 second"
+    assert resource_phrase(1, ResourceConstraintUnit.MINUTES) == "1 minute"
+    assert resource_phrase(2, ResourceConstraintUnit.TURNS) == "2 turns"
+    assert resource_phrase(2, ResourceConstraintUnit.SECONDS) == "2 seconds"
+    assert resource_phrase(2, ResourceConstraintUnit.MINUTES) == "2 minutes"
+    assert resource_phrase(1.5, ResourceConstraintUnit.SECONDS) == "2 seconds"
+    assert resource_phrase(1.5, ResourceConstraintUnit.MINUTES) == "2 minutes"
