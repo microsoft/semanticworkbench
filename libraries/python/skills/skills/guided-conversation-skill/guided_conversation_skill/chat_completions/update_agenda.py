@@ -104,6 +104,81 @@ def _get_termination_instructions(resource: GCResource):
         return ""
 
 
+def get_resource_instructions(resource: GCResource) -> str:
+    """
+    Get the resource instructions for the conversation.
+
+    Note: Assumes we're always using turns as the resource unit.
+
+    Returns:
+        str: the resource instructions
+    """
+    if resource.resource_constraint is None:
+        return ""
+
+    formatted_elapsed_resource = format_resource(resource.elapsed_units, ResourceConstraintUnit.TURNS)
+    formatted_remaining_resource = format_resource(resource.remaining_units, ResourceConstraintUnit.TURNS)
+
+    # If the resource quantity is anything other than 1, the resource unit
+    # should be plural (e.g. "minutes" instead of "minute").
+    is_plural_elapsed = resource.elapsed_units != 1
+    is_plural_remaining = resource.remaining_units != 1
+
+    if resource.elapsed_units > 0:
+        resource_instructions = (
+            f"So far, {formatted_elapsed_resource} {'have' if is_plural_elapsed else 'has'} "
+            "elapsed since the conversation began. "
+        )
+    else:
+        resource_instructions = ""
+
+    if resource.resource_constraint.mode == ResourceConstraintMode.EXACT:
+        exact_mode_instructions = (
+            f"There {'are' if is_plural_remaining else 'is'} {formatted_remaining_resource} "
+            "remaining (including this one) - the conversation will automatically terminate "
+            "when 0 turns are left. You should continue the conversation until it is "
+            "automatically terminated. This means you should NOT preemptively end the "
+            'conversation, either explicitly (by selecting the "End conversation" action) '
+            "or implicitly (e.g. by telling the user that you have all required information "
+            "and they should wait for the next step). Your goal is not to maximize efficiency "
+            "(i.e. complete the artifact as quickly as possible then end the conversation), "
+            "but rather to make the best use of ALL remaining turns available to you"
+        )
+
+        if is_plural_remaining:
+            resource_instructions += (
+                f"{exact_mode_instructions}. This will require you to "
+                "plan your actions carefully using the agenda: you want to avoid the situation "
+                "where you have to pack too many topics into the final turns because you didn't "
+                "account for them earlier, or where you've rushed through the conversation and "
+                "all fields are completed but there are still many turns left."
+            )
+
+        # special instruction for the final turn (i.e. 1 remaining) in exact mode
+        else:
+            resource_instructions += (
+                f"{exact_mode_instructions}, including this one. Therefore, you should use this "
+                "turn to ask for any remaining information needed to complete the artifact, or, "
+                "if the artifact is already completed, continue to broaden/deepen the discussion "
+                "in a way that's directly relevant to the artifact. Do NOT indicate to the user "
+                "that the conversation is ending."
+            )
+
+    elif resource.resource_constraint.mode == ResourceConstraintMode.MAXIMUM:
+        resource_instructions += (
+            f"You have a maximum of {formatted_remaining_resource} (including this one) left to "
+            "complete the conversation. You can decide to terminate the conversation at any point "
+            "(including now), otherwise the conversation will automatically terminate when 0 turns "
+            "are left. You will need to plan your actions carefully using the agenda: you want to "
+            "avoid the situation where you have to pack too many topics into the final turns because "
+            "you didn't account for them earlier."
+        )
+    else:
+        logger.error("Invalid resource mode provided.")
+
+    return resource_instructions
+
+
 async def generate_agenda(
     language_model: LanguageModel,
     definition: ConversationGuide,
@@ -118,7 +193,7 @@ async def generate_agenda(
     # If there is a resource constraint and there's more than one turn left,
     # include additional constraint instructions.
     remaining_resource = resource.remaining_units if resource.remaining_units else 0
-    resource_instructions = resource.get_resource_instructions()
+    resource_instructions = get_resource_instructions(resource)
     total_resource_str = ""
     ample_time_str = ""
     if (resource_instructions != "") and (remaining_resource > 1):

@@ -8,12 +8,12 @@ from skill_library.types import LanguageModel
 
 
 @pytest.mark.skip("For manual testing.")
-async def test_generage_agenda(client: LanguageModel) -> None:
+async def test_generate_agenda(client: LanguageModel) -> None:
     conversation = Conversation().add_user_message("Hi!")
     agenda = Agenda()
     artifact = {}
     definition = acrostic_poem.definition
-    resource = GCResource(definition.resource_constraint)
+    resource = GCResource(resource_constraint=definition.resource_constraint)
     agenda, is_done = await generate_agenda(
         client,
         definition,

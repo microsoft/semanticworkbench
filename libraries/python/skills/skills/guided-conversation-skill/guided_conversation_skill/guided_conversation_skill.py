@@ -118,7 +118,7 @@ class GuidedConversationSkill(Skill):
         constraint is reached, the conversation will end. An agenda will be
         created and followed to guide the conversation. Either supply a
         conversation definition in vars["definition"] or use a pre-configured
-        definition by supplying the name of your defintion in
+        definition by supplying the name of your definition in
         vars["conversation_type"]. Current conversation types you can use are:
         "acrostic_poem", "patient_intake", "er_triage", or "interview".
         """
@@ -196,7 +196,7 @@ class GuidedConversationSkill(Skill):
             state["conversation"] = vars.get("conversation") or Conversation()
             state["agenda"] = vars.get("agenda") or Agenda()
             state["artifact"] = vars.get("artifact", {})
-            state["resource"] = GCResource(definition.resource_constraint)
+            state["resource"] = GCResource(resource_constraint=definition.resource_constraint)
 
         # For guided conversation, we want to go ahead and run the first step.
         return await self.conversation_step_function(context)
