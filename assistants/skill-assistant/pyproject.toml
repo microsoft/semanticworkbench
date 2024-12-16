@@ -54,6 +54,5 @@ addopts = "-vv"
 log_cli = true
 log_cli_level = "WARNING"
 log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
