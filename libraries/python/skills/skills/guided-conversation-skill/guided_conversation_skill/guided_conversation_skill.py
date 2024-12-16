@@ -37,10 +37,6 @@ class GuidedConversationSkill(Skill):
         language_model: LanguageModel,
         drive: Drive,
         definition: ConversationGuide | None = None,
-        # agenda: Optional[Agenda] = None,
-        # artifact: Optional[Artifact] = None,
-        # resource: Optional[GCResource] = None,
-        # conversation: Optional[Conversation] = None,
         chat_driver_config: ChatDriverConfig | None = None,
     ) -> None:
         self.language_model = language_model
@@ -71,21 +67,6 @@ class GuidedConversationSkill(Skill):
                 )
 
         self.definition = definition
-
-        # Initialize resources.
-        # if artifact is None:
-        #     artifact = Artifact(**self.definition.artifact_schema)
-        # if resource is None:
-        #     resource = GCResource(self.definition.resource_constraint)
-        # if conversation is None:
-        #     conversation = Conversation()
-
-        # These normally won't be passed in (they are created within the skill),
-        # but this is helpful for testing.
-        # self.agenda = self._config(Agenda, agenda)
-        # self.artifact = self._config(Artifact, artifact)
-        # self.resource = self._config(GCResource, resource)
-        # self.conversation = self._config(Conversation, conversation)
 
         # Add the skill routines.
         routines: list[RoutineTypes] = [
@@ -273,9 +254,7 @@ class GuidedConversationSkill(Skill):
 
             # If we are not done, use the agenda to ask the user for whatever is next.
             else:
-                message = await generate_message(
-                    self.language_model, definition, artifact, conversation, max_retries=DEFAULT_MAX_RETRIES
-                )
+                message = await generate_message(self.language_model, definition, artifact, conversation)
                 context.emit(MessageEvent(session_id=context.session_id, message=message))
                 if message:
                     conversation.add_assistant_message(message)

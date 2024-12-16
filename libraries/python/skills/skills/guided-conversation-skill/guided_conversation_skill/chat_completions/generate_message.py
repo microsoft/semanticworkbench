@@ -64,7 +64,6 @@ async def generate_message(
     definition: ConversationGuide,
     artifact: dict[str, Any],
     conversation: Conversation,
-    max_retries: int = 2,
 ) -> str:
     # Use the language model to generate a response to the user.
 
