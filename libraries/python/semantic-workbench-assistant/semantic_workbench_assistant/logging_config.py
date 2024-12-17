@@ -17,6 +17,24 @@ class LoggingSettings(BaseSettings):
     log_level: str = "INFO"
 
 
+class CustomFormatter(logging.Formatter):
+    def format(self, record):
+        # The default formatter format (configured below) includes a "data"
+        # field, which is not always present in the record. We add it here to
+        # avoid a KeyError. If you want to add data to be printed out in the
+        # logs, add it to the `extra`` dict in the `data`` parameter.
+        #
+        # For example: logger.info("This is a log message", extra={"data": {"key": "value"}})
+        #
+        # Note: The JSON Formatter automatically adds anything in the extra dict
+        # to its formatted output.
+        if "data" not in record.__dict__["args"]:
+            record.data = ""
+        else:
+            record.data = record.__dict__["args"]["data"]
+        return super().format(record)
+
+
 class CustomJSONFormatter(jsonlogger.JsonFormatter):
     def __init__(self, *args, **kwargs):
         self.max_message_length = kwargs.pop("max_message_length", 15_000)
@@ -71,7 +89,8 @@ def config(settings: LoggingSettings):
         "disable_existing_loggers": False,
         "formatters": {
             "default": {
-                "format": "%(name)35s [%(correlation_id)s] %(message)s",
+                "()": CustomFormatter,
+                "format": "%(name)35s [%(correlation_id)s] %(message)s %(data)s",
                 "datefmt": "[%X]",
             },
             "json": {

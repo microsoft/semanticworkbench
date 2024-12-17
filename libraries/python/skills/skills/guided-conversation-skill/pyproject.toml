@@ -1,23 +1,23 @@
 [project]
-name = "form-filler-skill"
+name = "guided-conversation-skill"
 version = "0.1.0"
-description = "MADE:Exploration Form-filler skill"
-authors = [{name="MADE:Explorers"}]
+description = "MADE:Exploration guided conversation skill"
+authors = [{ name = "MADE:Exploration" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "assistant-drive>=0.1.0",
-    "assistant-extensions[attachments]>=0.1.0",
     "events>=0.1.0",
+    "jsonschema>=4.23.0",
     "openai-client>=0.1.0",
     "skill-library>=0.1.0",
 ]
 
 [dependency-groups]
 dev = [
-    # "pytest>=8.3.1",
-    # "pytest-asyncio>=0.23.8",
-    # "pytest-repeat>=0.9.3",
+    "pytest>=8.3.1",
+    "pytest-asyncio>=0.23.8",
+    "pytest-repeat>=0.9.3",
     "ipykernel>=6.29.4",
     "pyright>=1.1.389",
 ]
@@ -27,20 +27,22 @@ package = true
 
 [tool.uv.sources]
 assistant-drive = { path = "../../../assistant-drive", editable = true }
-assistant-extensions = { path = "../../../assistant-extensions", editable = true }
 events = { path = "../../../events", editable = true }
 openai-client = { path = "../../../openai-client", editable = true }
-skill-library = { path = "../../skill-library", editable= true }
+skill-library = { path = "../../skill-library", editable = true }
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pyright]
+exclude = ["venv", ".venv"]
 
 [tool.pytest.ini_options]
 addopts = "-vv"
 log_cli = true
 log_cli_level = "WARNING"
 log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-testpaths = ["tests"]
+# testpaths = ["guided_conversation_skill/tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
