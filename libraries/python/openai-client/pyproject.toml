@@ -18,9 +18,8 @@ dependencies = [
     "tiktoken>=0.7.0",
 ]
 
-[tool.uv]
-package = true
-dev-dependencies = ["pyright>=1.1.389", "pytest>=8.3.3"]
+[dependency-groups]
+dev = ["pyright>=1.1.389", "pytest>=8.3.3"]
 
 [tool.uv.sources]
 assistant-extensions = { path = "../assistant-extensions", editable = true }

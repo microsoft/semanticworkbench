@@ -17,8 +17,8 @@ dependencies = [
     "skill-library>=0.1.0",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "ipykernel>=6.29.4",
     "pyright>=1.1.389",
 ]
