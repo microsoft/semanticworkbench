@@ -34,6 +34,7 @@ const useClasses = makeStyles({
         },
     },
     item: {
+        lineHeight: tokens.lineHeightBase400,
         ...shorthands.padding(0, tokens.spacingHorizontalM),
     },
     counter: {

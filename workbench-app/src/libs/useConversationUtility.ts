@@ -34,7 +34,7 @@ export const useConversationUtility = () => {
 
     const navigateToConversation = React.useCallback(
         (conversationId?: string, hash?: string) => {
-            let path = conversationId ? [Constants.app.conversationRedirectPath, conversationId].join('/') : '';
+            let path = conversationId ? '/' + conversationId : '';
             if (hash) {
                 path += `#${hash}`;
             }

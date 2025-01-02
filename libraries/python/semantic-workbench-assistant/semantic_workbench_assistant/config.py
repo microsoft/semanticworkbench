@@ -204,7 +204,7 @@ def replace_config_secret_str_masked_values(model_values: ModelT, original_model
     updated_model_values = model_values.model_copy()
     for field_name, field_info in updated_model_values.model_fields.items():
         field_value = getattr(updated_model_values, field_name)
-        if isinstance(field_value, BaseModel):
+        if isinstance(field_value, BaseModel) and hasattr(original_model_values, field_name):
             updated_value = replace_config_secret_str_masked_values(
                 field_value,
                 getattr(original_model_values, field_name),

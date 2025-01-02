@@ -18,6 +18,12 @@ This doc is intended to capture our team learnings with using Guided Conversatio
 
    > NOTE: It is possible the prompt instructions for setting a conversation status to "complete" will not coincide with GC setting its result "conversation_is_over". It is likely best to depend on one or the other, and not depend on both to be true at the same time.
 
+## Potential improvements
+
+1. Make conversation-ending optional - ie. leave it to whatever is controlling the conversation flow, and leveraging guided-conversation, to decide when the conversation is over (ie. to stop calling guided conversation)
+   - As mentioned above, guided-conversation can arbitrarily end the conversation. This can happen unexpectedly, and for some workflows, such as when delegatin to guided-conversation in a larger flow, it may not make sense for guided-conversation to decide when this happens.
+   - Ideally it would be an optional behavior
+
 ## Observations
 
 - 11/8/24: GC conversation plan function was called 21 times before final update plan was called. Appeared as an endless loop to the user. Possibility an endless loop could actually occur? Need to investigate further.

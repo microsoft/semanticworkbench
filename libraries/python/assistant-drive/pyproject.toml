@@ -13,9 +13,8 @@ dependencies = [
     # "python-magic-bin>=0.4.14",
 ]
 
-[tool.uv]
-package = true
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.3.1",
     "pytest-asyncio>=0.23.8",
     "pytest-repeat>=0.9.3",

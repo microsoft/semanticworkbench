@@ -1,5 +1,6 @@
 import json
 import logging
+from enum import StrEnum
 from pathlib import Path
 
 from guided_conversation.guided_conversation_agent import GuidedConversation as GuidedConversationAgent
@@ -13,7 +14,6 @@ from semantic_workbench_assistant.assistant_app import (
 
 from ...config import AssistantConfigModel
 from .config import GuidedConversationConfigModel
-from .status import Status, StepName
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,20 @@ logger = logging.getLogger(__name__)
 #
 # region Agent
 #
+class GC_ConversationStatus(StrEnum):
+    UNDEFINED = "undefined"
+    USER_INITIATED = "user_initiated"
+    USER_RETURNED = "user_returned"
+    USER_COMPLETED = "user_completed"
+
+
+class GC_UserDecision(StrEnum):
+    UNDEFINED = "undefined"
+    UPDATE_OUTLINE = "update_outline"
+    DRAFT_PAPER = "draft_paper"
+    UPDATE_CONTENT = "update_content"
+    DRAFT_NEXT_CONTENT = "draft_next_content"
+    EXIT_EARLY = "exit_early"
 
 
 class GuidedConversation:
@@ -119,12 +133,10 @@ class GuidedConversation:
     async def step_conversation(
         self,
         last_user_message: str | None,
-    ) -> tuple[str, Status, StepName | None]:
+    ) -> tuple[str, GC_ConversationStatus, GC_UserDecision]:
         """
         Step the conversation to the next turn.
         """
-        next_step_name = None
-
         # Step the conversation to start the conversation with the agent
         # or message
         result = await self.guided_conversation_agent.step_conversation(last_user_message)
@@ -137,57 +149,54 @@ class GuidedConversation:
         # final_response:  # replace result.ai_message with final_response if "user_completed"
 
         final_response: str = ""
-        conversation_status: str | None = None
-        user_decision: str = ""
+        conversation_status_str: str | None = None
+        user_decision_str: str | None = None
         response: str = ""
 
-        # to_json is actually to dict, not to json.
+        # to_json is actually to dict
         gc_dict = self.guided_conversation_agent.to_json()
         artifact_item = gc_dict.get("artifact")
         if artifact_item is not None:
             artifact_item = artifact_item.get("artifact")
             if artifact_item is not None:
                 final_response = artifact_item.get("final_response")
-                conversation_status = artifact_item.get("conversation_status")
-                user_decision = artifact_item.get("user_decision")
+                conversation_status_str = artifact_item.get("conversation_status")
+                user_decision_str = artifact_item.get("user_decision")
 
-        # should be returning str and Status for Document Agent to consume.  Update doc agent logic accordingly.
-        status: Status = Status.UNDEFINED
-        if conversation_status is not None:
-            if (
-                conversation_status == "Unanswered"
-                or conversation_status == "user_initiated"  # highly coupled to config ...
-                or conversation_status == "user_returned"
-            ):
-                if result.ai_message is not None:
-                    response = result.ai_message
-                else:
-                    response = ""
-                status = Status.NOT_COMPLETED
-            elif conversation_status == "user_completed":
-                _delete_guided_conversation_state(self.conversation_context)
-                response = final_response
-                if user_decision is None:
-                    status = Status.USER_COMPLETED
-                else:
-                    if user_decision == "update_outline":  # this code is becoming highly coupled fyi to the gc configs
-                        status = Status.USER_COMPLETED
-                        next_step_name = StepName.DO_DRAFT_OUTLINE
-                    elif user_decision == "draft_paper":
-                        status = Status.USER_COMPLETED
-                        next_step_name = (
-                            StepName.DO_FINISH  # temp for mode_draft_outline.
-                            # StepName.DP_DRAFT_CONTENT
-                        )  # problem if in draft outline mode... that is supposed to go to DO_FINISH.
-                        # coupling is now a problem.  and Need to fix the two locations for setting the branching/flow.
+        gc_conversation_status = GC_ConversationStatus.UNDEFINED
+        gc_user_decision: GC_UserDecision = GC_UserDecision.UNDEFINED
+        if conversation_status_str is not None:
+            match conversation_status_str:
+                case GC_ConversationStatus.USER_COMPLETED:
+                    response = final_response
+                    gc_conversation_status = GC_ConversationStatus.USER_COMPLETED
+                    match user_decision_str:
+                        case GC_UserDecision.UPDATE_OUTLINE:
+                            gc_user_decision = GC_UserDecision.UPDATE_OUTLINE
+                        case GC_UserDecision.DRAFT_PAPER:
+                            gc_user_decision = GC_UserDecision.DRAFT_PAPER
+                        case GC_UserDecision.UPDATE_CONTENT:
+                            gc_user_decision = GC_UserDecision.UPDATE_CONTENT
+                        case GC_UserDecision.DRAFT_NEXT_CONTENT:
+                            gc_user_decision = GC_UserDecision.DRAFT_NEXT_CONTENT
+                        case GC_UserDecision.EXIT_EARLY:
+                            gc_user_decision = GC_UserDecision.EXIT_EARLY
+
+                    _delete_guided_conversation_state(self.conversation_context)
+                case GC_ConversationStatus.USER_INITIATED:
+                    if result.ai_message is not None:
+                        response = result.ai_message
                     else:
-                        logger.error("unknown user decision")
-            else:
-                _delete_guided_conversation_state(self.conversation_context)
-                status = Status.USER_EXIT_EARLY
-                response = final_response
+                        response = ""
+                    gc_conversation_status = GC_ConversationStatus.USER_INITIATED
+                case GC_ConversationStatus.USER_RETURNED:
+                    if result.ai_message is not None:
+                        response = result.ai_message
+                    else:
+                        response = ""
+                    gc_conversation_status = GC_ConversationStatus.USER_RETURNED
 
-        return response, status, next_step_name
+        return response, gc_conversation_status, gc_user_decision
 
     # endregion
 

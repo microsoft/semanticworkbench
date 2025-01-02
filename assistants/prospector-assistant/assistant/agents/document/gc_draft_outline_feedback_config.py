@@ -8,6 +8,7 @@ from semantic_workbench_assistant.config import UISchema
 from ... import helpers
 from . import config_defaults as config_defaults
 from .config import GuidedConversationConfigModel, ResourceConstraintConfigModel
+from .guided_conversation import GC_ConversationStatus, GC_UserDecision
 
 
 # Artifact - The artifact is like a form that the agent must complete throughout the conversation.
@@ -18,12 +19,12 @@ class ArtifactModel(BaseModel):
         description="The final response from the agent to the user. You will update this field."
     )
     conversation_status: str = Field(
-        description="The status of the conversation. May be user_initiated, user_returned, or "
-        "user_completed. You are only allowed to update this field to user_completed, otherwise you will not update it."
+        description=f"The status of the conversation. May be {GC_ConversationStatus.USER_INITIATED}, {GC_ConversationStatus.USER_RETURNED}, or "
+        f"{GC_ConversationStatus.USER_COMPLETED}. You are only allowed to update this field to {GC_ConversationStatus.USER_COMPLETED}, otherwise you will NOT update it.",
     )
     user_decision: str = Field(
-        description="The decision of the user on what should happen next. May be update_outline or "
-        "draft_paper. You will update this field."
+        description=f"The decision of the user on what should happen next. May be {GC_UserDecision.UPDATE_OUTLINE}, "
+        f"{GC_UserDecision.DRAFT_PAPER}, or {GC_UserDecision.EXIT_EARLY}. You will update this field."
     )
     filenames: str = Field(
         description="Names of the available files currently uploaded as attachments. Information "
@@ -48,14 +49,14 @@ rules = [
         " will be preset."
     ),
     (
-        "If the conversation_status is marked as user_completed, the final_response cannot be left as "
-        "Unanswered. The final_response must be set based on the conversation flow instructions."
+        "If the conversation_status is marked as user_completed, the final_response and user_decision cannot be left as "
+        "Unanswered. The final_response and user_decision must be set based on the conversation flow instructions."
     ),
     "Terminate the conversation immediately if the user asks for harmful or inappropriate content.",
 ]
 
 # Conversation Flow (optional) - This defines in natural language the steps of the conversation.
-conversation_flow = """
+conversation_flow = f"""
 1. If there is no prior conversation history to reference, use the conversation_status to determine if the user is initiating a new conversation (user_initiated) or returning to an existing conversation (user_returned).
 2. Only greet the user if the user is initiating a new conversation. If the user is NOT initiating a new conversation, you should respond as if you are in the middle of a conversation.  In this scenario, do not say "hello", or "welcome back" or any type of formalized greeting.
 3. Start by asking the user to review the outline. The outline will have already been provided to the user. You do not provide the outline yourself unless the user
@@ -65,13 +66,13 @@ specifically asks for it from you.
 a. At any time, if the user asks for a change to the outline, the conversation_status must be
 marked as user_completed. The user_decision must be marked as update_outline. The final_response
 must inform the user that a new outline is being generated based off the request.
-b. At any time, if the user has provided new attachments (detected via the filenames in the artifact),
-the conversation_status must be marked as user_completed. The user_decision must be marked as
-update_outline. The final_response must inform the user that a new outline is being generated based
+b. At any time, if the user has provided new attachments (detected via `Newly attached files:` in the user message),
+the conversation_status must be marked as {GC_ConversationStatus.USER_COMPLETED}. The user_decision must be marked as
+{GC_UserDecision.UPDATE_OUTLINE}. The final_response must inform the user that a new outline is being generated based
 on the addition of new attachments.
 c. At any time, if the user is good with the outline in its current form and ready to move on to
-drafting a paper from it, the conversation_status must be marked as user_completed. The
-user_decision must be marked as draft_paper. The final_response must inform the user that you will
+drafting a paper from it, the conversation_status must be marked as {GC_ConversationStatus.USER_COMPLETED}. The
+user_decision must be marked as {GC_UserDecision.DRAFT_PAPER}. The final_response must inform the user that you will
 start drafting the beginning of the document based on this outline.
 """
 

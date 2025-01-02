@@ -35,4 +35,4 @@ fi
 
 cd Aspire.AppHost
 
-dotnet run
+dotnet run --launch-profile https

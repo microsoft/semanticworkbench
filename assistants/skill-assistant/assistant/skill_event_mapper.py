@@ -1,4 +1,3 @@
-import logging
 from typing import Protocol
 
 from events import events as skill_events
@@ -11,10 +10,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-logger = logging.getLogger(__name__)
+from .logging import extra_data, logger
 
 
-# TODO: Put this protocol in the skill library.
 class SkillEventMapperProtocol(Protocol):
     async def map(
         self,
@@ -35,6 +33,13 @@ class SkillEventMapper(SkillEventMapperProtocol):
         routines) to message types understood by the Semantic Workbench.
         """
         metadata = {"debug": skill_event.metadata} if skill_event.metadata else None
+        logger.debug(
+            "Mapping skill event to Workbench conversation message.",
+            extra_data({
+                "event_id": skill_event.id,
+                "conversation_context_id": self.conversation_context.id,
+            }),
+        )
 
         match skill_event:
             case skill_events.MessageEvent():
@@ -50,7 +55,7 @@ class SkillEventMapper(SkillEventMapperProtocol):
                     await self.conversation_context.send_messages(
                         NewConversationMessage(
                             content=f"Information event: {skill_event.message}",
-                            message_type=MessageType.note,
+                            message_type=MessageType.notice,
                             metadata=metadata,
                         ),
                     )
@@ -67,4 +72,4 @@ class SkillEventMapper(SkillEventMapperProtocol):
                 await self.conversation_context.update_participant_me(UpdateParticipant(status=skill_event.message))
 
             case _:
-                logger.warning("Unhandled event: %s", skill_event)
+                logger.warning("Unhandled event.", extra_data({"event": skill_event}))

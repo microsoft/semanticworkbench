@@ -88,15 +88,18 @@ class SkillRegistry:
         match routine:
             case InstructionRoutine():
                 runner = InstructionRoutineRunner()
-                done = await runner.run(context, routine, vars)
+                done, output = await runner.run(context, routine, vars)
             case ProgramRoutine():
                 runner = ProgramRoutineRunner()
-                done = await runner.run(context, routine, vars)
+                done, output = await runner.run(context, routine, vars)
             case StateMachineRoutine():
                 runner = StateMachineRoutineRunner()
-                done = await runner.run(context, routine, vars)
+                done, output = await runner.run(context, routine, vars)
+            case _:
+                raise ValueError(f"Routine type {type(routine)} not supported.")
         if done:
             _ = await self.routine_stack.pop()
+            return output
 
     async def run_action_by_designation(
         self, context: RunContext, designation: str, vars: Optional[dict[str, Any]] = None
@@ -128,17 +131,17 @@ class SkillRegistry:
         match routine:
             case InstructionRoutine():
                 runner = InstructionRoutineRunner()
-                done = await runner.next(context, routine, message)
+                done, output = await runner.next(context, routine, message)
             case ProgramRoutine():
                 runner = ProgramRoutineRunner()
-                done = await runner.next(context, routine, message)
+                done, output = await runner.next(context, routine, message)
             case StateMachineRoutine():
                 runner = StateMachineRoutineRunner()
-                done = await runner.next(context, routine, message)
+                done, output = await runner.next(context, routine, message)
 
         if done:
             await self.routine_stack.pop()
-            # TODO: Manage return state for composition in parent steps.
+            return output
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))

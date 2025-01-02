@@ -30,9 +30,8 @@ dependencies = [
     "sse-starlette>=1.8.2",
 ]
 
-[tool.uv]
-package = true
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "asgi-lifespan>=2.1.0",
     "pyright>=1.1.389",
     "pytest>=7.4.3",

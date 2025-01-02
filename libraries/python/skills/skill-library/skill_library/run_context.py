@@ -1,10 +1,9 @@
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Callable, Coroutine, Optional
+from typing import Any, AsyncGenerator, Callable, Coroutine, Optional, Union
 from uuid import uuid4
 
 from assistant_drive import Drive
-from context import ContextProtocol
 from events.events import EventProtocol
 
 from .routine_stack import RoutineStack
@@ -18,7 +17,12 @@ class LogEmitter:
         logging.info(event.to_json())
 
 
-class RunContext(ContextProtocol):
+async def unimplemented_runner(routine_name: str, *args: Any, **kwargs: Any) -> None:
+    """A runner that logs a message when a routine has not been implemented."""
+    logging.info(f"Routine {routine_name} has not been implemented.")
+
+
+class RunContext:
     """
     "Run context" is passed to parts of the system (skill routines and
     actions, and chat driver functions) that need to be able to run routines or
@@ -31,7 +35,7 @@ class RunContext(ContextProtocol):
         assistant_drive: Drive,
         emit: Callable[[EventProtocol], None],
         routine_stack: RoutineStack,
-        run_routine: Callable[["RunContext", str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]],
+        run_routine: Union[Callable[[str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]], None],
     ) -> None:
         # A session id is useful for maintaining consistent session state across all
         # consumers of this context. For example, a session id can be set in an
@@ -54,7 +58,7 @@ class RunContext(ContextProtocol):
         # event bus and handling the events sent to it with this function.
         self.emit = emit or LogEmitter().emit
 
-        self.run_routine = run_routine
+        self.run_routine = run_routine or unimplemented_runner
 
         # Helper functions for managing state of the current routine being run.
         self.get_state = routine_stack.get_current_state

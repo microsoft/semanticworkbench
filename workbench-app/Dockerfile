@@ -24,7 +24,7 @@ ENV VITE_SEMANTIC_WORKBENCH_AUTHORITY=${VITE_SEMANTIC_WORKBENCH_AUTHORITY}
 ENV VITE_SEMANTIC_WORKBENCH_CLIENT_ID=${VITE_SEMANTIC_WORKBENCH_CLIENT_ID}
 
 # Build the application
-RUN pnpm run build
+RUN NODE_OPTIONS=--max-old-space-size=4096 pnpm run build
 
 # Stage 2: Serve the app with Nginx
 FROM nginx:alpine

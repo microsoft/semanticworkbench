@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <RootNamespace>AgentExample</RootNamespace>
         <PackageId>AgentExample</PackageId>
-        <NoWarn>$(NoWarn);CA1308;CA1861;CA1515;IDE0290;</NoWarn>
+        <NoWarn>$(NoWarn);CA1308;CA1861;CA1515;IDE0290;CA1508;</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

@@ -13,18 +13,22 @@ public static class WorkbenchServiceHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        var workbenchService = builder.AddUvApp(name, projectDirectory, "start-semantic-workbench-service", scriptArgs)
+        var workbenchService = builder
+            .AddUvApp(name, projectDirectory, "start-semantic-workbench-service", scriptArgs)
             .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
                 dockerFilePath: Path.Combine("workbench-service", "Dockerfile"),
                 configure: new(configure => configure
                     .WithBuildArg("SSHD_ENABLED", "false")))
             .WithEnvironment(name: "WORKBENCH__AUTH__ALLOWED_APP_ID", clientId.Resource.Value);
+
         if (builder.ExecutionContext.IsPublishMode)
         {
+            // When running on Azure
             workbenchService.WithHttpsEndpoint(port: 3000);
         }
         else
         {
+            // When running locally
             workbenchService.WithHttpEndpoint(env: "PORT");
         }
 
@@ -40,7 +44,7 @@ public static class WorkbenchServiceHostingExtensions
         return workbenchService.GetEndpoint(isPublishMode ? "https" : "http");
     }
 
-    public static IResourceBuilder<ExecutableResource> AddAssistantApp(
+    public static IResourceBuilder<ExecutableResource> AddAssistantUvPythonApp(
         this IDistributedApplicationBuilder builder,
         string name,
         string projectDirectory,
@@ -48,19 +52,23 @@ public static class WorkbenchServiceHostingExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        var assistant = builder.AddUvApp(name, projectDirectory, "start-assistant")
+        var assistant = builder
+            .AddUvApp(name, projectDirectory, "start-assistant")
             .PublishAsDockerImage(dockerContext: Path.Combine("..", ".."),
                 dockerFilePath: Path.Combine("tools", "docker", "Dockerfile.assistant"),
                 configure: new(configure => configure
                     .WithBuildArg("package", assistantModuleName)
                     .WithBuildArg("app", $"assistant.{assistantModuleName.Replace('-', '_')}:app")
                 ));
+
         if (builder.ExecutionContext.IsPublishMode)
         {
+            // When running on Azure
             assistant.WithHttpEndpoint(port: 3001, env: "ASSISTANT__PORT");
         }
         else
         {
+            // When running locally
             assistant.WithHttpEndpoint(env: "ASSISTANT__PORT");
         }
 

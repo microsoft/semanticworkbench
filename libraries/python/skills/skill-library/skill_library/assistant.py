@@ -19,6 +19,7 @@ from openai_client.messages import format_with_liquid
 
 from skill_library.routine_stack import RoutineStack
 
+from .logging import extra_data, logger
 from .run_context import RunContext
 from .skill import Skill
 from .skill_registry import SkillRegistry
@@ -130,16 +131,21 @@ class Assistant:
         as they are emitted. The generator will continue to yield events until
         the assistant has completed AND all events have been emitted.
         """
-        while not self._stopped.is_set() or not self._event_queue.empty():
+        logger.debug("Assistant started. Listening for events.")
+        while not self._stopped.is_set():
             try:
-                event = self._event_queue.get_nowait()
-                yield event
-            except asyncio.QueueEmpty:
-                await asyncio.sleep(0.005)
+                # async with asyncio.timeout(1):
+                yield await self._event_queue.get()
+            except asyncio.TimeoutError:
+                continue
+        logger.debug("Assistant stopped. No more events will be emitted.")
 
     def _emit(self, event: EventProtocol) -> None:
         event.session_id = self.assistant_id
         self._event_queue.put_nowait(event)
+        logger.debug(
+            "Assistant queud an event (_emit).", extra_data({"event": {"id": event.id, "message": event.message}})
+        )
 
     def create_run_context(self) -> RunContext:
         # The run context is passed to parts of the system (skill routines and
@@ -151,7 +157,7 @@ class Assistant:
             session_id=self.assistant_id,
             assistant_drive=self.drive,
             emit=self._emit,
-            run_routine=self.run_routine,  # type: ignore - TODO: FIX THIS
+            run_routine=self.run_routine,
             routine_stack=self.routine_stack,
         )
 

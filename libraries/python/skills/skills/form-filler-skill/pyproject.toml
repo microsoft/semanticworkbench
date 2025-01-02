@@ -8,8 +8,6 @@ requires-python = ">=3.11"
 dependencies = [
     "assistant-drive>=0.1.0",
     "assistant-extensions[attachments]>=0.1.0",
-    "context>=0.1.0",
-    "datamodel-code-generator>=0.26.3",
     "events>=0.1.0",
     "openai-client>=0.1.0",
     "skill-library>=0.1.0",
@@ -17,9 +15,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.1",
-    "pytest-asyncio>=0.23.8",
-    "pytest-repeat>=0.9.3",
+    # "pytest>=8.3.1",
+    # "pytest-asyncio>=0.23.8",
+    # "pytest-repeat>=0.9.3",
     "ipykernel>=6.29.4",
     "pyright>=1.1.389",
 ]
@@ -30,7 +28,6 @@ package = true
 [tool.uv.sources]
 assistant-drive = { path = "../../../assistant-drive", editable = true }
 assistant-extensions = { path = "../../../assistant-extensions", editable = true }
-context = { path = "../../../context", editable = true }
 events = { path = "../../../events", editable = true }
 openai-client = { path = "../../../openai-client", editable = true }
 skill-library = { path = "../../skill-library", editable= true }
