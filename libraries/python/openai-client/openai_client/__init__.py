@@ -18,6 +18,7 @@ from .errors import (
 )
 from .logging import (
     add_serializable_data,
+    extra_data,
     make_completion_args_serializable,
 )
 from .messages import (
@@ -48,6 +49,7 @@ __all__ = [
     "create_assistant_message",
     "create_system_message",
     "create_user_message",
+    "extra_data",
     "format_with_dict",
     "format_with_liquid",
     "make_completion_args_serializable",
