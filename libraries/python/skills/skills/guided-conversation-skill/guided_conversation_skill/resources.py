@@ -47,7 +47,7 @@ class ResourceConstraint(BaseModel):
     unit: ResourceConstraintUnit = Field(default=ResourceConstraintUnit.TURNS)
 
 
-class GCResource(BaseModel):
+class ConversationResource(BaseModel):
     """
     Resource constraints for the GuidedConversation agent. This class is used to
     keep track of the resource constraints. If resource_constraint is None, then
