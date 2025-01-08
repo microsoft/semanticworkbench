@@ -80,10 +80,6 @@ class Assistant:
         )
 
         # Configure the assistant chat interface.
-        if chat_driver_config.message_provider is None:
-            chat_driver_config.message_provider = LocalMessageHistoryProvider(
-                LocalMessageHistoryProviderConfig(session_id=self.assistant_id, formatter=format_with_liquid)
-            )
         self.chat_driver = self._register_chat_driver(chat_driver_config)
 
         self.startup_action = startup_action
@@ -207,9 +203,13 @@ class Assistant:
             "and arguments."
             "Available routines: {routines}. "
         )
+        if chat_driver_config.message_provider is None:
+            chat_driver_config.message_provider = LocalMessageHistoryProvider(
+                LocalMessageHistoryProviderConfig(session_id=self.assistant_id, formatter=format_with_liquid)
+            )
         chat_functions = ChatFunctions(self)
         config.commands = chat_functions.list_functions()
-        config.functions = chat_functions.list_functions()
+        config.functions = [chat_functions.list_actions, chat_functions.list_routines]
         return ChatDriver(config)
 
     async def generate_response(
