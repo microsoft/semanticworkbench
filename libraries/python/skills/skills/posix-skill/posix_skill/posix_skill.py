@@ -15,12 +15,10 @@ INSTRUCTIONS = "You are an assistant that has access to a sand-boxed Posix shell
 class PosixSkill(Skill):
     def __init__(
         self,
-        name: str,
-        sandbox_dir: Path,
-        chat_driver_config: ChatDriverConfig,
-        mount_dir: str = "/mnt/data",
+        skill_definition: "PosixSkillDefinition",
+        run_context_provider: RunContextProvider,
     ) -> None:
-        self.shell = SandboxShell(sandbox_dir, mount_dir)
+        self.shell = SandboxShell(skill_definition.sandbox_dir, skill_definition.mount_dir)
 
         # Put all functions in a group. We are going to use all these as (1)
         # skill actions, but also as (2) chat functions and (3) chat commands.
@@ -51,10 +49,9 @@ class PosixSkill(Skill):
 
         # Initialize the skill!
         super().__init__(
-            name=name,
-            description=DESCRIPTION,
-            chat_driver_config=chat_driver_config,
-            actions=functions,
+            skill_definition=skill_definition,
+            run_context_provider=run_context_provider,
+            actions=action_functions,
             routines=routines,
         )
 
@@ -62,22 +59,23 @@ class PosixSkill(Skill):
     # Routines
     ##################################
 
-    def make_home_dir_routine(self) -> InstructionRoutine:
+    def make_home_dir_routine(self, skill_name: str) -> InstructionRoutine:
         """Makes a home directory for the user."""
         return InstructionRoutine(
             "make_home_dir",
+            skill_name,
             "Create a home directory for the user.",
-            routine=(
-                "cd /mnt/data\n"
-                "mkdir {{username}}\n"
-                "cd {{username}}\n"
-                "mkdir Documents\n"
-                "mkdir Downloads\n"
-                "mkdir Music\n"
-                "mkdir Pictures\n"
-                "mkdir Videos\n"
-            ),
-            skill=self,
+            routine=dedent("""
+                cd /mnt/data
+                mkdir {{username}}
+                cd {{username}}
+                mkdir Documents
+                mkdir Downloads
+                mkdir Music
+                mkdir Pictures
+                mkdir Videos
+                cd /mnt/data
+            """),
         )
 
     ##################################
@@ -153,3 +151,21 @@ class PosixSkill(Skill):
         """
         self.shell.write_file(filename, content)
         return f"Wrote content to {filename}."
+
+
+class PosixSkillDefinition(SkillDefinition):
+    def __init__(
+        self,
+        name: str,
+        sandbox_dir: Path,
+        mount_dir: str = "/mnt/data",
+        description: str | None = None,
+        chat_driver_config: ChatDriverConfig | None = None,
+        skill_class: Type[Skill] = PosixSkill,
+    ) -> None:
+        self.name = name
+        self.description = description or DESCRIPTION
+        self.sandbox_dir = sandbox_dir
+        self.mount_dir = mount_dir
+        self.chat_driver_config = chat_driver_config
+        self.skill_class = skill_class

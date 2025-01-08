@@ -1,3 +1,3 @@
-from posix_skill.posix_skill import PosixSkill
+from posix_skill.posix_skill import PosixSkill, PosixSkillDefinition
 
-export = PosixSkill
+__all__ = ["PosixSkill", "PosixSkillDefinition"]
