@@ -1,8 +1,8 @@
-from typing import Callable, Type
+from typing import Type
 
 from assistant_drive import Drive
 from openai_client.chat_driver import ChatDriverConfig
-from skill_library import RunContext, RunContextProvider, Skill, SkillDefinition
+from skill_library import ActionCallable, ChatDriverFunctions, RunContext, RunContextProvider, Skill, SkillDefinition
 from skill_library.routine import RoutineTypes
 from skill_library.types import LanguageModel
 
@@ -23,18 +23,21 @@ class CommonSkill(Skill):
         self.drive = skill_definition.drive
 
         routines: list[RoutineTypes] = []
-        actions: list[Callable] = Actions(skill_definition.language_model).list_actions()
+        action_functions: list[ActionCallable] = Actions(skill_definition.language_model).list_actions()
 
         # Configure the skill's chat driver. This is just used for testing the
         # skill out directly, but won't be exposed in the assistant.
         if skill_definition.chat_driver_config:
-            skill_definition.chat_driver_config.instructions = INSTRUCTIONS
+            chat_driver_commands = ChatDriverFunctions(action_functions, run_context_provider).all()
+            chat_driver_functions = ChatDriverFunctions(action_functions, run_context_provider).all()
+            skill_definition.chat_driver_config.commands = chat_driver_commands
+            skill_definition.chat_driver_config.functions = chat_driver_functions
 
         # Initialize the skill!
         super().__init__(
             skill_definition=skill_definition,
             run_context_provider=run_context_provider,
-            actions=actions,
+            actions=action_functions,
             routines=routines,
         )
 
@@ -70,7 +73,7 @@ class Actions:
         content, metadata = await web_search(self.language_model, query)
         return content
 
-    def list_actions(self) -> list[Callable]:
+    def list_actions(self) -> list[ActionCallable]:
         return [self.gpt_complete, self.web_search]
 
 
@@ -80,6 +83,7 @@ class CommonSkillDefinition(SkillDefinition):
         name: str,
         language_model: LanguageModel,
         drive: Drive,
+        description: str | None = None,
         chat_driver_config: ChatDriverConfig | None = None,
         skill_class: Type[Skill] = CommonSkill,
     ) -> None:
@@ -93,6 +97,6 @@ class CommonSkillDefinition(SkillDefinition):
         super().__init__(
             name=name,
             skill_class=skill_class,
-            description=DESCRIPTION,
+            description=description or DESCRIPTION,
             chat_driver_config=chat_driver_config,
         )

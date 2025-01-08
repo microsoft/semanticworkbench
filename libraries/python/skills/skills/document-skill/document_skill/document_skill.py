@@ -2,16 +2,17 @@
 # ruff: noqa
 
 from openai_client.chat_driver import ChatDriverConfig
-from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import BaseModel  # temp to have something to experiment with
-from skill_library import EmitterType, RoutineTypes, Skill
+from skill_library import RoutineTypes, RunContextProvider, Skill, SkillDefinition, ChatDriverFunctions
 from skill_library.routine import InstructionRoutine, ProgramRoutine
+from skill_library.types import LanguageModel
 
 from .chat_drivers import draft_content, draft_outline
 from .chat_drivers.get_user_feedback_for_outline_decision import get_user_feedback_for_outline_decision
 
 NAME = "document_skill"
 DESCRIPTION = "Anything related to documents - creation, edit, translation"
+INSTRUCTIONS = "You are an assistant."
 
 
 class Attachment(BaseModel):
@@ -44,13 +45,12 @@ class DocumentSkillContext:
 
 
 class DocumentSkill(Skill):
-    def __init__(
-        self, emit: EmitterType, chat_driver_config: ChatDriverConfig, openaai_client: AsyncAzureOpenAI | AsyncOpenAI
-    ) -> None:
-        self.openai_client = openaai_client
+    def __init__(self, skill_definition: "DocumentSkillDefinition", run_context_provider: RunContextProvider) -> None:
+        self.skill_name = skill_definition.name
+        self.openai_client = skill_definition.language_model
         self.document_skill_context: DocumentSkillContext = DocumentSkillContext()
 
-        actions = [
+        action_functions = [
             # self.ask_user,
             self.draft_content,
             self.draft_outline,
@@ -62,14 +62,16 @@ class DocumentSkill(Skill):
         ]
 
         # Configure the skill's chat driver.
-        chat_driver_config.commands = actions
-        chat_driver_config.functions = actions
+        if skill_definition.chat_driver_config:
+            chat_driver_commands = ChatDriverFunctions(action_functions, run_context_provider).all()
+            chat_driver_functions = ChatDriverFunctions(action_functions, run_context_provider).all()
+            skill_definition.chat_driver_config.commands = chat_driver_commands
+            skill_definition.chat_driver_config.functions = chat_driver_functions
 
         super().__init__(
-            name=NAME,
-            description=DESCRIPTION,
-            chat_driver_config=chat_driver_config,
-            actions=actions,
+            skill_definition=skill_definition,
+            run_context_provider=run_context_provider,
+            actions=action_functions,
             routines=routines,
         )
 
@@ -83,9 +85,9 @@ class DocumentSkill(Skill):
         """
         return InstructionRoutine(
             name="test_instruction_routine",
+            skill_name=self.skill_name,
             description="Description of what the routine does.",
             routine=("test_action"),
-            skill=self,
         )
 
     def template_example_routine(self) -> ProgramRoutine:
@@ -94,9 +96,9 @@ class DocumentSkill(Skill):
         """
         return ProgramRoutine(
             name="template_example_routine",
+            skill_name=self.skill_name,
             description="Description of what the routine does.",
             program=("TBD"),
-            skill=self,
         )
 
     ##################################
@@ -189,3 +191,26 @@ class DocumentSkill(Skill):
         #         context, user_feedback, outline=False
         #     )
         # return content
+
+
+class DocumentSkillDefinition(SkillDefinition):
+    def __init__(
+        self,
+        name: str,
+        language_model: LanguageModel,
+        description: str | None = None,
+        chat_driver_config: ChatDriverConfig | None = None,
+        skill_class: type[Skill] = DocumentSkill,
+    ) -> None:
+        self.language_model = language_model
+
+        if chat_driver_config:
+            chat_driver_config.instructions = INSTRUCTIONS
+
+        # Initialize the skill!
+        super().__init__(
+            name=name,
+            skill_class=skill_class,
+            description=description or DESCRIPTION,
+            chat_driver_config=chat_driver_config,
+        )
