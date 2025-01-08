@@ -1,7 +1,15 @@
 import ast
 import inspect
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Protocol
+
+from .run_context import RunContext, RunContextProvider
+
+
+class ActionCallable(Protocol):
+    def __call__(self, run_context: RunContext, *args: Any, **kwargs: Any) -> Any: ...
+
+    __name__: str
 
 
 @dataclass
@@ -16,16 +24,44 @@ class Parameter:
     description: str | None
     default_value: Any | None = None
 
+    def __str__(self) -> str:
+        param_type = self.type
+        try:
+            param_type = self.type.__name__
+        except AttributeError:
+            param_type = self.type
+        usage = f"{self.name}: {param_type}"
+        if self.default_value is not inspect.Parameter.empty:
+            if isinstance(self.default_value, str):
+                usage += f' = "{self.default_value}"'
+            else:
+                usage += f" = {self.default_value}"
+        return usage
+
+
+@dataclass
+class Usage:
+    """
+    A usage string for this function. This can be used in help messages.
+    """
+
+    name: str
+    parameters: list[Parameter]
+    description: str
+
+    def __str__(self) -> str:
+        param_usage = ", ".join(str(param) for param in self.parameters)
+        return f"{self.name}({param_usage}): {self.description}"
+
 
 class Action:
     """
-    A tool function is a Python function that can be called as a tool from the
-    chat completion API. This class wraps a function so you can generate it's
-    JSON schema for the chat completion API, execute it with arguments, and
-    generate a usage string (for help messages)
+    An action is a Python function that can be called as part of a skill. This
+    class wraps a function and provides metadata about it. It also provides a
+    way to execute the action with a RunContext.
     """
 
-    def __init__(self, fn: Callable, name: str | None = None, description: str | None = None) -> None:
+    def __init__(self, fn: ActionCallable, name: str | None = None, description: str | None = None) -> None:
         self.fn = fn
         self.name = name or fn.__name__
         self.description = description or inspect.getdoc(fn) or self.name.replace("_", " ").title()
@@ -36,7 +72,8 @@ class Action:
         """
         parameters = dict(inspect.signature(self.fn).parameters)
         for param_name in exclude:
-            del parameters[param_name]
+            if param_name in parameters:
+                del parameters[param_name]
         return [
             Parameter(
                 name=param_name,
@@ -47,36 +84,18 @@ class Action:
             for param_name, param in parameters.items()
         ]
 
-    def usage(self) -> str:
+    def usage(self) -> Usage:
         """
         A usage string for this function. This can be used in help messages.
         """
-        name = self.name
-        param_usages = []
-        for param in self.parameters():
-            param_type = param.type
-            try:
-                param_type = param.type.__name__
-            except AttributeError:
-                param_type = param.type
-            usage = f"{param.name}: {param_type}"
-            if param.default_value is not inspect.Parameter.empty:
-                if isinstance(param.default_value, str):
-                    usage += f' = "{param.default_value}"'
-                else:
-                    usage += f" = {param.default_value}"
-            param_usages.append(usage)
+        return Usage(name=self.name, parameters=self.parameters(exclude=["run_context"]), description=self.description)
 
-        description = self.description
-        return f"{name}({', '.join(param_usages)}): {description}"
-
-    async def execute(self, *args, **kwargs) -> Any:
+    async def execute(self, run_context: RunContext, *args, **kwargs) -> Any:
         """
-        Run this function, and return its value. If the function is a coroutine,
-        it will be awaited. If string_response is True, the response will be
-        converted to a string.
+        Run this action, and return its value. If the function is a coroutine,
+        it will be awaited.
         """
-        result = self.fn(*args, **kwargs)
+        result = self.fn(run_context, *args, **kwargs)
         if inspect.iscoroutine(result):
             result = await result
         return result
@@ -86,30 +105,32 @@ class ActionHandler:
     def __init__(self, actions: "Actions") -> None:
         self.actions = actions
 
-    def __getattr__(self, name: str) -> Callable:
-        """Makes registered functions accessible as attributes of the functions object."""
+    def __getattr__(self, name: str) -> ActionCallable:
+        """Makes registered functions accessible as attributes of the Actions object."""
         if name not in self.actions.action_map:
-            raise AttributeError(f"'Actions' object has no attribute '{name}'")
+            raise AttributeError(f"No action named '{name}'")
 
         async def wrapper(*args, **kwargs) -> Any:
-            return await self.actions.execute_action(name, args, kwargs)
+            return await self.actions.run_action_by_name(name, args, kwargs)
 
         return wrapper
 
 
 class Actions:
     """
-    A set of tool functions that can be called from the Chat Completions API.
-    Pass this into the `complete_with_tool_calls` helper function to run a full
-    tool-call completion against the API.
+    A set of a skill's actions.
     """
 
-    def __init__(self, actions: list[Action] | None = None, with_help: bool = False) -> None:
+    def __init__(
+        self, run_context_provider: RunContextProvider, actions: list[Action] | None = None, with_help: bool = False
+    ) -> None:
         # Set up function map.
-        self.action_map = {}
+        self.action_map: dict[str, Action] = {}
         if actions:
-            for function in actions:
-                self.action_map[function.name] = function
+            for action in actions:
+                self.action_map[action.name] = action
+
+        self.run_context_provider = run_context_provider
 
         # A help message can be generated for the function map.
         if with_help:
@@ -118,20 +139,20 @@ class Actions:
         # This allows actions to be called as attributes.
         self.functions = ActionHandler(self)
 
-    def help(self) -> str:
-        """Return this help message."""
+    def help(self, run_context: RunContext) -> str:
+        """Return a help message."""
 
-        usage = [f"{command.usage()}" for command in self.action_map.values()]
+        usage = [f"{action.usage()}" for action in self.action_map.values()]
         usage.sort()
-        return "Commands:\n" + "\n".join(usage)
+        return "Actions:\n" + "\n".join(usage)
 
-    def add_function(self, function: Callable, name: str | None = None, description: str | None = None) -> None:
+    def add_function(self, function: ActionCallable, name: str | None = None, description: str | None = None) -> None:
         """Register a function as an action."""
         if not name:
             name = function.__name__
         self.action_map[name] = Action(function, name, description)
 
-    def add_functions(self, functions: list[Callable]) -> None:
+    def add_functions(self, functions: list[ActionCallable]) -> None:
         """Register a list of functions as actions."""
         for function in functions:
             self.add_function(function)
@@ -143,38 +164,37 @@ class Actions:
         return self.action_map.get(name)
 
     def get_actions(self) -> list[Action]:
-        return [function for function in self.action_map.values()]
+        return list(self.action_map.values())
 
-    async def execute_action(
+    async def run_action_by_name(
         self,
         name: str,
         args: tuple = (),
         kwargs: dict[str, Any] = {},
     ) -> Any:
         """
-        Run a function from the ToolFunctions list by name. If string_response
-        is True, the function return value will be converted to a string.
+        Run an action by name.
         """
-        function = self.get_action(name)
-        if not function:
+        action = self.get_action(name)
+        if not action:
             raise ValueError(f"Function {name} not found in registry.")
-        return await function.execute(*args, **kwargs)
 
-    async def execute_action_string(self, function_string: str) -> Any:
-        """Parse a function string and execute the function."""
-        try:
-            function, args, kwargs = self.parse_action_string(function_string)
-        except ValueError as e:
-            raise ValueError(f"{e}. Type: `/help` for more information.")
-        if not function:
-            raise ValueError("Function not found in registry. Type: `/help` for more information.")
-        return await function.execute(*args, **kwargs)
+        run_context = self.run_context_provider.create_run_context()
+        return await action.execute(run_context, *args, **kwargs)
+
+    async def run_action_string(self, action_string: str) -> Any:
+        """Parse an action string and execute the action. Used in running routines."""
+        # TODO: If used in routines, need to handle skill namespacing (designations).
+        action, args, kwargs = self.parse_action_string(action_string)
+        if not action:
+            raise ValueError("Action not found in registry.")
+        run_context = self.run_context_provider.create_run_context()
+        return await action.execute(run_context, *args, **kwargs)
 
     def parse_action_string(self, action_string: str) -> tuple[Action | None, list[Any], dict[str, Any]]:
-        """Parse a function call string into a function and its arguments."""
+        """Parse an action string into an action and its arguments."""
 
-        # As a convenience, remove any leading slashes.
-        action_string = action_string.lstrip("/")
+        # TODO: If used in routines, need to handle skill namespacing (designations).
 
         # As a convenience, add parentheses if they are missing.
         if " " not in action_string and "(" not in action_string:

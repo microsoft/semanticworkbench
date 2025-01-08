@@ -1,7 +1,7 @@
 import os
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 
 
 class SandboxShell:
@@ -11,7 +11,7 @@ class SandboxShell:
         os.makedirs(self.sandbox_dir, exist_ok=True)
         self.current_dir = self.sandbox_dir
 
-    def _resolve_path(self, path) -> str:
+    def _resolve_path(self, path: str) -> str:
         """Resolve the given path within the sandbox."""
 
         # If the path is a mount path, return the corresponding sandbox path.
@@ -37,7 +37,7 @@ class SandboxShell:
             raise FileNotFoundError(f"No such directory: {path}")
         self.current_dir = new_dir
 
-    def ls(self, path=".") -> list[str]:
+    def ls(self, path: str = ".") -> list[str]:
         """List directory contents."""
         target_dir = self._resolve_path(path)
         return os.listdir(target_dir)

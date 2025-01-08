@@ -25,7 +25,7 @@ from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt
 from guided_conversation_skill.guide import ConversationGuide
 from guided_conversation_skill.message import Conversation
 from guided_conversation_skill.resources import (
-    GCResource,
+    ConversationResource,
     ResourceConstraintMode,
     ResourceConstraintUnit,
 )
@@ -95,7 +95,7 @@ def resource_phrase(quantity: float, unit: ResourceConstraintUnit) -> str:
         return s
 
 
-def resource_instructions(resource: GCResource) -> str:
+def resource_instructions(resource: ConversationResource) -> str:
     """
     Get the resource instructions for the conversation.
 
@@ -228,7 +228,7 @@ async def generate_agenda(
     chat_history: Conversation,
     current_agenda: Agenda,
     artifact: dict[str, Any],
-    resource: GCResource,
+    resource: ConversationResource,
     max_retries: int = 2,
 ) -> tuple[Agenda, bool]:
     # STEP 1: Generate an updated agenda.

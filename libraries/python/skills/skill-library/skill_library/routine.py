@@ -1,33 +1,34 @@
 import re
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, Tuple, Union
 
 from skill_library.run_context import RunContext
 
 if TYPE_CHECKING:
-    from skill_library.skill import Skill
+    pass
 
 
 def find_template_vars(text: str) -> list[str]:
     """
-    Find mustache template variables in a string.
+    Find mustache template variables in a string. Variables will be
+    de-duplicated and returned in order of first appearance.
     """
     matches = re.compile(r"\{\{([a-zA-Z0-9_]+)\}\}")
-    return sorted(list(set(matches.findall(text))))
+    return list(set(matches.findall(text)))
 
 
 class Routine:
     def __init__(
         self,
         name: str,
+        skill_name: str,
         description: str,
-        skill: "Skill",
     ) -> None:
         self.name = name
+        self.skill_name = skill_name
         self.description = description
-        self.skill = skill
 
     def fullname(self) -> str:
-        return f"{self.skill.name}.{self.name}"
+        return f"{self.skill_name}.{self.name}"
 
     def __str__(self) -> str:
         return self.fullname()
@@ -37,16 +38,19 @@ class InstructionRoutine(Routine):
     def __init__(
         self,
         name: str,
+        skill_name: str,
         description: str,
         routine: str,
-        skill: "Skill",
     ) -> None:
         super().__init__(
             name=name,
+            skill_name=skill_name,
             description=description,
-            skill=skill,
         )
         self.routine = routine
+
+    def template_vars(self) -> list[str]:
+        return find_template_vars(self.routine)
 
     def __str__(self) -> str:
         template_vars = find_template_vars(self.routine)
@@ -57,14 +61,14 @@ class ProgramRoutine(Routine):
     def __init__(
         self,
         name: str,
+        skill_name: str,
         description: str,
         program: str,
-        skill: "Skill",
     ) -> None:
         super().__init__(
             name=name,
+            skill_name=skill_name,
             description=description,
-            skill=skill,
         )
         self.program = program
 
@@ -77,15 +81,15 @@ class StateMachineRoutine(Routine):
     def __init__(
         self,
         name: str,
+        skill_name: str,
         description: str,
-        init_function: Callable[[RunContext, Optional[Dict[str, Any]]], Awaitable[Tuple[bool, Any]]],
+        init_function: Callable[[RunContext, Any], Awaitable[Tuple[bool, Any]]],
         step_function: Callable[[RunContext, Optional[str]], Awaitable[Tuple[bool, Any]]],
-        skill: "Skill",
     ) -> None:
         super().__init__(
             name=name,
+            skill_name=skill_name,
             description=description,
-            skill=skill,
         )
         self.init_function = init_function
         self.step_function = step_function

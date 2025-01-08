@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Callable, Type
 
+from attr import dataclass
 from events import BaseEvent, EventProtocol
 from openai.types.chat.completion_create_params import ResponseFormat
 from openai_client.chat_driver import ChatDriver, ChatDriverConfig
@@ -8,12 +9,21 @@ from openai_client.completion import TEXT_RESPONSE_FORMAT
 
 from .actions import Action, Actions
 from .routine import RoutineTypes
+from .run_context import RunContextProvider
 
 EmitterType = Callable[[EventProtocol], None]
 
 
 def log_emitter(event: EventProtocol) -> None:
     logging.info(event)
+
+
+@dataclass
+class SkillDefinition:
+    name: str
+    skill_class: Type["Skill"]
+    description: str
+    chat_driver_config: ChatDriverConfig | None
 
 
 class Skill:
@@ -24,16 +34,15 @@ class Skill:
 
     def __init__(
         self,
-        name: str,
-        description: str,
+        skill_definition: SkillDefinition,
+        run_context_provider: RunContextProvider,
         actions: list[Callable] = [],  # Functions to be registered as skill actions.
         routines: list[RoutineTypes] = [],
-        chat_driver_config: ChatDriverConfig | None = None,
     ) -> None:
         # A skill should have a short name so that user commands can be routed
         # to them efficiently.
-        self.name = name
-        self.description = description
+        self.name = skill_definition.name
+        self.description = skill_definition.description
         self.routines: dict[str, RoutineTypes] = {routine.name: routine for routine in routines}
 
         # The routines in this skill might use actions from other skills. The dependency on
@@ -47,24 +56,20 @@ class Skill:
         # chat driver. If you want to register a function with the chat driver,
         # do so when configuring the chat driver passed in (usually done in the
         # skill subclass).
-        self.chat_driver = ChatDriver(chat_driver_config) if chat_driver_config else None
-
-        # TODO: We maybe want to add actions to the skill's chat driver. If we
-        # do, strip the RunContext param.
+        self.chat_driver = (
+            ChatDriver(skill_definition.chat_driver_config) if skill_definition.chat_driver_config else None
+        )
 
         # Register all provided actions with the action registry so they can be executed by name.
-        self.action_registry = Actions()
+        self.action_registry = Actions(run_context_provider)
         self.action_registry.add_functions(actions)
-
-        # TODO: Is this helpful?
-        # Also, register any commands provided by the chat driver. All
-        # commands will be available to the skill.
-        # if self.chat_driver:
-        #     self.action_registry.add_functions(self.chat_driver.get_commands())
 
         # Make actions available to be called as attributes from the skill
         # directly.
         self.actions = self.action_registry.functions
+
+        # Actions and routines can get a RunContext whenever they want.
+        self.run_context_provider = run_context_provider
 
     async def respond(
         self,
@@ -104,7 +109,14 @@ class Skill:
         """
         return self.routines.get(name)
 
+    def get_routines(self) -> list[RoutineTypes]:
+        """
+        Return a list of routines.
+        """
+        return [routine for routine in self.routines.values()]
+
     def list_routines(self) -> list[str]:
+        """Return a list of routine names."""
         return [str(routine) for routine in self.routines.values()]
 
     def has_routine(self, name: str) -> bool:

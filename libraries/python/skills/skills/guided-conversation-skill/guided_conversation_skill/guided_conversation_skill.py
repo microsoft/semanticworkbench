@@ -1,11 +1,11 @@
 import importlib
 import json
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 from assistant_drive import Drive
 from events import InformationEvent, MessageEvent
 from openai_client.chat_driver import ChatDriverConfig
-from skill_library import Skill
+from skill_library import RunContextProvider, Skill, SkillDefinition
 from skill_library.routine import RoutineTypes, StateMachineRoutine
 from skill_library.run_context import RunContext
 from skill_library.types import LanguageModel
@@ -18,7 +18,7 @@ from .chat_completions.generate_message import generate_message
 from .guide import ConversationGuide
 from .logging import add_serializable_data, logger
 from .message import Conversation
-from .resources import GCResource
+from .resources import ConversationResource
 
 CLASS_NAME = "GuidedConversationSkill"
 DESCRIPTION = "Walks the user through a conversation about gathering info for the creation of an artifact."
@@ -33,14 +33,12 @@ class NoDefinitionConfiguredError(Exception):
 class GuidedConversationSkill(Skill):
     def __init__(
         self,
-        name: str,
-        language_model: LanguageModel,
-        drive: Drive,
-        definition: ConversationGuide | None = None,
-        chat_driver_config: ChatDriverConfig | None = None,
+        skill_definition: "GuidedConversationSkillDefinition",
+        run_context_provider: RunContextProvider,
     ) -> None:
-        self.language_model = language_model
-        self.drive = drive
+        self.skill_name = skill_definition.name
+        self.language_model = skill_definition.language_model
+        self.drive = skill_definition.drive
 
         # Configuring the definition of a conversation here makes this skill
         # instance for this one type (definition) of conversation.
@@ -48,25 +46,25 @@ class GuidedConversationSkill(Skill):
         # conversation_init_function take in the definition as a parameter if
         # you wanted to use the same instance for different kinds of
         # conversations.
-        if definition:
+        if skill_definition.definition:
             # If a definition is supplied, we'll use this for every
             # conversation. Save it so we can use it when this skill is run
             # again in the future.
             self.drive.write_model(
-                definition,
+                skill_definition.definition,
                 "GCDefinition.json",
             )
         else:
             # As a convenience, check to see if a definition was already saved
             # previously in this drive.
             try:
-                definition = self.drive.read_model(ConversationGuide, "GCDefinition.json")
+                skill_definition.definition = self.drive.read_model(ConversationGuide, "GCDefinition.json")
             except FileNotFoundError:
                 logger.warning(
                     "No definition supplied or found in the drive. Will expect one as a var in the conversation_init_function"
                 )
 
-        self.definition = definition
+        self.guide = skill_definition.definition
 
         # Add the skill routines.
         routines: list[RoutineTypes] = [
@@ -75,14 +73,13 @@ class GuidedConversationSkill(Skill):
 
         # Configure the skill's chat driver. This is just used for testing the
         # skill out directly, but won't be exposed in the assistant.
-        if chat_driver_config:
-            chat_driver_config.instructions = INSTRUCTIONS
+        if skill_definition.chat_driver_config:
+            skill_definition.chat_driver_config.instructions = INSTRUCTIONS
 
         # Initialize the skill!
         super().__init__(
-            name=name,
-            description=DESCRIPTION,
-            chat_driver_config=chat_driver_config,
+            skill_definition=skill_definition,
+            run_context_provider=run_context_provider,
             actions=[],
             routines=routines,
         )
@@ -105,14 +102,20 @@ class GuidedConversationSkill(Skill):
         """
         return StateMachineRoutine(
             name="conversation",
+            skill_name=self.skill_name,
             description="Run a guided conversation.",
             init_function=self.conversation_init_function,
             step_function=self.conversation_step_function,
-            skill=self,
         )
 
     async def conversation_init_function(
-        self, context: RunContext, vars: dict[str, Any] | None = None
+        self,
+        context: RunContext,
+        conversation_guide: ConversationGuide | str | None = None,
+        conversation: Conversation | None = None,
+        resource: ConversationResource | None = None,
+        agenda: Agenda | None = None,
+        artifact: dict[str, Any] | None = None,
     ) -> tuple[bool, dict[str, Any] | None]:
         """
         Start a new guided conversation.
@@ -120,18 +123,17 @@ class GuidedConversationSkill(Skill):
         This function is called when the conversation routine is started. It
         initializes the conversation state and starts the conversation.
 
-        Args:
-            context (RunContext): The context for the current run. vars
-            (dict[str, Any], optional): Optional variables to pass in. Defaults
-            to None.
 
-        Vars:
-            definition (optional): The definition of the conversation if not already supplied in the skill config.
-            conversation_type (optional): Run a pre-defined conversation definition (in the `definitions` module).
-            resource: The resource constraints for the conversation.
-            conversation: The conversation state.
-            agenda: The agenda state.
-            artifact: The artifact state.
+        Vars for selecting the conversation guide:
+            conversation_guide: You can supply a ConversationGuide or a string.
+            If you use a string, a conversation guide by that name will be used
+            from the `conversation_guides` module.
+
+        Vars for prefilling state:
+            resource: The current resource state.
+            conversation: The current conversation state.
+            agenda: The current agenda state.
+            artifact: The current artifact state.
 
         Returns:
             tuple[bool, dict[str, Any] | None]: A tuple containing a boolean
@@ -144,40 +146,37 @@ class GuidedConversationSkill(Skill):
             add_serializable_data({"session_id": context.session_id, "vars": vars}),
         )
 
-        if vars is None:
-            vars = {}
-
         # The definition is required to run the conversation. It can be provided
-        # in the skill config or as a var when initializing the conversation.
-        definition = self.definition
-        if not definition:
-            if "definition" in vars:
-                definition = ConversationGuide(**vars["definition"])
-            else:
-                if "conversation_type" in vars:
-                    # Load the definition dynamically from the `definitions`
-                    # module.
+        # in the skill config or as a param when initializing the conversation.
+        guide = self.guide
+        if not guide:
+            if not conversation_guide:
+                raise NoDefinitionConfiguredError("No guide was provided to the skill.")
+
+            match conversation_guide:
+                case ConversationGuide():
+                    guide = conversation_guide
+                case str():
+                    # Load the definition dynamically from the `conversation_guides` module.
                     try:
-                        definitions_dir = "guided_conversation_skill.definitions"
-                        definition_module_name = f"{definitions_dir}.{vars['conversation_type']}"
-                        definition_module = importlib.import_module(definition_module_name)
-                        definition = definition_module.definition
+                        guides_dir = "guided_conversation_skill.conversation_guides"
+                        guide_module_name = f"{guides_dir}.{conversation_guide}"
+                        guide_module = importlib.import_module(guide_module_name)
+                        guide = guide_module.definition
                     except ImportError:
                         raise NoDefinitionConfiguredError(
-                            f"Could not import the definition module: {vars['conversation_type']}"
+                            f"Could not import the definition module: {conversation_guide}"
                         )
-                else:
-                    raise NoDefinitionConfiguredError("No definition was provided to the skill.")
 
         # We can put all this data in the routine frame, or we could also put it
         # in the skill drive. All of this intermediate state can just go in the
         # frame. Only the final artifact needs to be saved to the drive.
         async with context.stack_frame_state() as state:
-            state["definition"] = definition
-            state["conversation"] = vars.get("conversation") or Conversation()
-            state["agenda"] = vars.get("agenda") or Agenda()
-            state["artifact"] = vars.get("artifact", {})
-            state["resource"] = GCResource(resource_constraint=definition.resource_constraint)
+            state["guide"] = guide
+            state["conversation"] = conversation or Conversation()
+            state["agenda"] = agenda or Agenda()
+            state["artifact"] = artifact or {}
+            state["resource"] = resource or ConversationResource(resource_constraint=guide.resource_constraint)
 
         # For guided conversation, we want to go ahead and run the first step.
         return await self.conversation_step_function(context)
@@ -189,11 +188,11 @@ class GuidedConversationSkill(Skill):
     ) -> tuple[bool, dict[str, Any] | None]:
         logger.debug("Continuing guided conversation.", add_serializable_data({"session_id": context.session_id}))
         async with context.stack_frame_state() as state:
-            definition = ConversationGuide(**state["definition"])
+            definition = ConversationGuide(**state["guide"])
             conversation = Conversation(**state["conversation"])
             agenda = Agenda(**state["agenda"])
             artifact: dict[str, Any] = state.get("artifact", {})
-            resource = GCResource(**state["resource"])
+            resource = ConversationResource(**state["resource"])
 
             if message:
                 conversation.add_user_message(message)
@@ -271,3 +270,22 @@ class GuidedConversationSkill(Skill):
     ##################################
 
     # None, yet.
+
+
+class GuidedConversationSkillDefinition(SkillDefinition):
+    def __init__(
+        self,
+        name: str,
+        language_model: LanguageModel,
+        drive: Drive,
+        definition: ConversationGuide | None = None,
+        chat_driver_config: ChatDriverConfig | None = None,
+        skill_class: Type[Skill] = GuidedConversationSkill,
+    ) -> None:
+        self.name = name
+        self.description = DESCRIPTION
+        self.language_model = language_model
+        self.drive = drive
+        self.definition = definition
+        self.chat_driver_config = chat_driver_config
+        self.skill_class = skill_class

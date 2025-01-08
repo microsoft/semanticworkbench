@@ -1,10 +1,6 @@
 import asyncio
-from os import PathLike
-from pathlib import Path
-from typing import Optional
 
-from openai_client.chat_driver import ChatDriverConfig
-from skill_library import Assistant, Skill
+from skill_library import Assistant
 
 from .logging import extra_data, logger
 from .skill_event_mapper import SkillEventMapperProtocol
@@ -22,32 +18,6 @@ class AssistantRegistry:
         self.assistants: dict[str, Assistant] = {}
         # self.tasks: set[asyncio.Task] = set()
 
-    async def get_or_register_assistant(
-        self,
-        assistant_id: str,
-        event_mapper: SkillEventMapperProtocol,
-        chat_driver_config: ChatDriverConfig,
-        assistant_name: str = "Assistant",
-        skills: Optional[dict[str, "Skill"]] = None,
-        drive_root: PathLike | None = None,
-        metadata_drive_root: PathLike | None = None,
-    ) -> Assistant:
-        """
-        Get or create an assistant for the given conversation context.
-        """
-        assistant = self.get_assistant(assistant_id)
-        if not assistant:
-            assistant = await self.register_assistant(
-                assistant_id,
-                event_mapper,
-                chat_driver_config,
-                assistant_name,
-                skills,
-                drive_root,
-                metadata_drive_root,
-            )
-        return assistant
-
     def get_assistant(
         self,
         assistant_id: str,
@@ -58,13 +28,8 @@ class AssistantRegistry:
 
     async def register_assistant(
         self,
-        assistant_id: str,
+        assistant: Assistant,
         event_mapper: SkillEventMapperProtocol,
-        chat_driver_config: ChatDriverConfig,
-        assistant_name: str = "Assistant",
-        skills: dict[str, Skill] | None = None,
-        drive_root: PathLike | None = None,
-        metadata_drive_root: PathLike | None = None,
     ) -> Assistant:
         """
         Define the skill assistant that you want to have backing this assistant
@@ -72,24 +37,14 @@ class AssistantRegistry:
         to include here.
         """
 
-        logger.debug("Registering assistant.", extra_data({"assistant_id": assistant_id}))
-
-        # Create the assistant.
-        assistant = Assistant(
-            name=assistant_name,
-            assistant_id=assistant_id,
-            drive_root=drive_root or Path(".data") / assistant_id / "assistant",
-            metadata_drive_root=metadata_drive_root or Path(".data") / assistant_id / ".assistant",
-            chat_driver_config=chat_driver_config,
-            skills=skills,
-        )
+        logger.debug("Registering assistant.", extra_data({"assistant_id": assistant.assistant_id}))
 
         # Assistant event consumer.
         async def subscribe() -> None:
             """Event consumer for the assistant."""
             logger.debug(
                 "Assistant event subscription started in the assistant registry.",
-                extra_data({"assistant_id": assistant_id}),
+                extra_data({"assistant_id": assistant.assistant_id}),
             )
             async for skill_event in assistant.events:
                 logger.debug(
@@ -104,11 +59,11 @@ class AssistantRegistry:
             await assistant.wait()
             logger.debug(
                 "Assistant event subscription stopped in the assistant registry.",
-                extra_data({"assistant_id": assistant_id}),
+                extra_data({"assistant_id": assistant.assistant_id}),
             )
 
         # Register the assistant.
-        self.assistants[assistant_id] = assistant
+        self.assistants[assistant.assistant_id] = assistant
 
         # Start an event consumer task and save a reference.
         # task = asyncio.create_task(subscribe())

@@ -105,7 +105,7 @@ class ChatDriver:
 
     def register_functions(self, functions: list[Callable]) -> None:
         for function in functions:
-            self.register_function
+            self.register_function(function)
 
     # Sometimes we want to register a function to be used by both the user and
     # the model.
