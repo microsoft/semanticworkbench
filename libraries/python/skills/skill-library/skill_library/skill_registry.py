@@ -27,7 +27,7 @@ class SkillRegistry:
 
         # Note: We give each skill a reference to the run context provider so
         # that it can optionally use it to create Chat Driver methods for a
-        # natural language interface.
+        # natural language interface. This supports Instruction routines.
         self.skills = {
             skill_definition.name: skill_definition.skill_class(skill_definition, run_context_provider)
             for skill_definition in skills.values()
