@@ -542,6 +542,7 @@ version = "0.1.0"
 source = { editable = "../../libraries/python/skills/skills/common-skill" }
 dependencies = [
     { name = "assistant-drive" },
+    { name = "bs4" },
     { name = "events" },
     { name = "jsonschema" },
     { name = "openai-client" },
@@ -551,6 +552,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
+    { name = "bs4", specifier = ">=0.0.2" },
     { name = "events", editable = "../../libraries/python/events" },
     { name = "jsonschema", specifier = ">=4.23.0" },
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
