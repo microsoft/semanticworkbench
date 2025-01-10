@@ -3,8 +3,9 @@ import os
 from typing import Any
 
 from skill_library.actions import Action
+from skill_library.routine_runners.action_list_routine_runner import ActionListRoutineRunner
 
-from .routine import InstructionRoutine, ProgramRoutine, RoutineTypes, StateMachineRoutine
+from .routine import ActionListRoutine, InstructionRoutine, ProgramRoutine, RoutineTypes, StateMachineRoutine
 from .routine_runners import InstructionRoutineRunner, ProgramRoutineRunner, StateMachineRoutineRunner
 from .routine_stack import RoutineStack
 from .run_context import RunContext, RunContextProvider
@@ -19,7 +20,7 @@ class SkillRegistry:
 
     def __init__(
         self,
-        skills: dict[str, SkillDefinition],
+        skills: list[SkillDefinition],
         run_context_provider: RunContextProvider,
         routine_stack: RoutineStack,
     ) -> None:
@@ -30,7 +31,7 @@ class SkillRegistry:
         # natural language interface. This supports Instruction routines.
         self.skills = {
             skill_definition.name: skill_definition.skill_class(skill_definition, run_context_provider)
-            for skill_definition in skills.values()
+            for skill_definition in skills
         }
         self.run_context_provider = run_context_provider
         self.routine_stack = routine_stack
@@ -66,7 +67,9 @@ class SkillRegistry:
             return None
         return skill.get_action(action_name)
 
-    async def run_action_by_designation(self, run_context: RunContext, designation: str, *args, **kwargs) -> Any:
+    async def run_action_by_designation(
+        self, run_context: RunContext, designation: str, *args: Any, **kwargs: Any
+    ) -> Any:
         """
         Run an action by designation (<skill_name>.<action_name>).
         """
@@ -113,7 +116,9 @@ class SkillRegistry:
             return None
         return skill.get_routine(routine_name)
 
-    async def run_routine_by_designation(self, run_context: RunContext, designation: str, *args, **kwargs) -> Any:
+    async def run_routine_by_designation(
+        self, run_context: RunContext, designation: str, *args: Any, **kwargs: Any
+    ) -> Any:
         """
         Run an assistant routine by designation (<skill_name>.<routine_name>).
         """
@@ -123,7 +128,7 @@ class SkillRegistry:
         response = await self.run_routine(run_context, routine, *args, **kwargs)
         return response
 
-    async def run_routine(self, run_context: RunContext, routine: RoutineTypes, *args, **kwargs) -> Any:
+    async def run_routine(self, run_context: RunContext, routine: RoutineTypes, *args: Any, **kwargs: Any) -> Any:
         """
         Run an assistant routine. This is going to be much of the magic of the
         assistant. Currently, is just runs through the steps of a routine, but
@@ -147,6 +152,9 @@ class SkillRegistry:
 
         await self.routine_stack.push(routine.fullname())
         match routine:
+            case ActionListRoutine():
+                runner = ActionListRoutineRunner()
+                done, output = await runner.run(run_context, routine, *args, **kwargs)
             case InstructionRoutine():
                 skill = self.get_skill(routine.skill_name)
                 if not skill:
@@ -179,6 +187,9 @@ class SkillRegistry:
             raise ValueError(f"Routine {routine_frame.name} not found.")
 
         match routine:
+            case ActionListRoutine():
+                runner = ActionListRoutineRunner()
+                done, output = await runner.next(run_context, routine, message)
             case InstructionRoutine():
                 # Instruction routines work by passing each line of the routine
                 # to to the routine's skill's response function. This means any

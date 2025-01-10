@@ -110,7 +110,7 @@ class GuidedConversationSkill(Skill):
 
     async def conversation_init_function(
         self,
-        context: RunContext,
+        run_context: RunContext,
         conversation_guide: ConversationGuide | str | None = None,
         conversation: Conversation | None = None,
         resource: ConversationResource | None = None,
@@ -143,7 +143,7 @@ class GuidedConversationSkill(Skill):
 
         logger.debug(
             "Initializing guided conversation skill.",
-            add_serializable_data({"session_id": context.session_id, "vars": vars}),
+            add_serializable_data({"session_id": run_context.session_id, "vars": vars}),
         )
 
         # The definition is required to run the conversation. It can be provided
@@ -171,7 +171,7 @@ class GuidedConversationSkill(Skill):
         # We can put all this data in the routine frame, or we could also put it
         # in the skill drive. All of this intermediate state can just go in the
         # frame. Only the final artifact needs to be saved to the drive.
-        async with context.stack_frame_state() as state:
+        async with run_context.stack_frame_state() as state:
             state["guide"] = guide
             state["conversation"] = conversation or Conversation()
             state["agenda"] = agenda or Agenda()
@@ -179,7 +179,7 @@ class GuidedConversationSkill(Skill):
             state["resource"] = resource or ConversationResource(resource_constraint=guide.resource_constraint)
 
         # For guided conversation, we want to go ahead and run the first step.
-        return await self.conversation_step_function(context)
+        return await self.conversation_step_function(run_context)
 
     async def conversation_step_function(
         self,

@@ -5,9 +5,9 @@ from events import BaseEvent, InformationEvent
 if TYPE_CHECKING:
     pass
 
-from ..routine import InstructionRoutine, find_template_vars
+from ..routine import InstructionRoutine
 from ..run_context import RunContext
-from ..utilities import make_arg_set
+from ..utilities import find_template_vars, make_arg_set
 
 RespondFunction = Callable[[str], Awaitable[BaseEvent]]
 
@@ -21,12 +21,20 @@ class InstructionRoutineRunner:
     ) -> tuple[bool, Any]:
         """
         Run an Instruction routine. This just runs through the steps of a
-        routine, sending each one to a skill's response endpoint. Note, this
-        means this can only be used with skills that have been configured with a
-        chat driver. This could be much more sophisticated, though. It might
-        handle more configuration, manage results of steps, handle errors and
-        retries, etc. Also, we might add meta-cognitive functions, tracking
-        progress and changing steps as necessary.
+        routine, sending each one to its skill's response endpoint.
+
+        Note, this means this can only be used with skills that have been
+        configured with a chat driver, and this currently doesn't work in a
+        "cross-skill" way. All actions must be accessible from the chat driver
+        of the skill that packages the routine. This is of limited use, but this
+        was the first routine runner we built as a demo and it may have some
+        utility in edge cases.
+
+        This could be much more sophisticated, though. In addition to making it
+        cross-skill, it might handle more configuration, manage results of
+        steps, handle errors and retries, add meta-cognitive functions, tracking
+        progress and changing steps as necessary. Probably better to invest all
+        of these ideas in other routine runners, though.
         """
 
         # Make kwargs out of args (aligning them to the order of the mustache

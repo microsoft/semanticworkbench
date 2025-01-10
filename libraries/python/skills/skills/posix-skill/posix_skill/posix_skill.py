@@ -1,6 +1,5 @@
 from pathlib import Path
 from textwrap import dedent
-from typing import Type
 
 from openai_client.chat_driver import ChatDriverConfig
 from skill_library import (
@@ -173,11 +172,10 @@ class PosixSkillDefinition(SkillDefinition):
         mount_dir: str = "/mnt/data",
         description: str | None = None,
         chat_driver_config: ChatDriverConfig | None = None,
-        skill_class: Type[Skill] = PosixSkill,
     ) -> None:
         self.name = name
         self.description = description or DESCRIPTION
         self.sandbox_dir = sandbox_dir
         self.mount_dir = mount_dir
         self.chat_driver_config = chat_driver_config
-        self.skill_class = skill_class
+        self.skill_class = PosixSkill

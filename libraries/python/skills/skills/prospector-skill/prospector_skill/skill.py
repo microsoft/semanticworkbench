@@ -114,7 +114,6 @@ class ProspectorSkillDefinition(SkillDefinition):
         name: str,
         description: str | None = None,
         chat_driver_config: ChatDriverConfig | None = None,
-        skill_class: type[Skill] = Skill,
     ) -> None:
         if chat_driver_config:
             chat_driver_config.instructions = INSTRUCTIONS
@@ -122,7 +121,7 @@ class ProspectorSkillDefinition(SkillDefinition):
         # Initialize the skill!
         super().__init__(
             name=name,
-            skill_class=skill_class,
+            skill_class=Skill,
             description=description or DESCRIPTION,
             chat_driver_config=chat_driver_config,
         )

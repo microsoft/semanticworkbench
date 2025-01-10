@@ -1,9 +1,9 @@
-import ast
 import inspect
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from .run_context import RunContext, RunContextProvider
+from .utilities import parse_command_string
 
 
 class ActionCallable(Protocol):
@@ -90,7 +90,7 @@ class Action:
         """
         return Usage(name=self.name, parameters=self.parameters(exclude=["run_context"]), description=self.description)
 
-    async def execute(self, run_context: RunContext, *args, **kwargs) -> Any:
+    async def execute(self, run_context: RunContext, *args: Any, **kwargs: Any) -> Any:
         """
         Run this action, and return its value. If the function is a coroutine,
         it will be awaited.
@@ -196,60 +196,10 @@ class Actions:
 
         # TODO: If used in routines, need to handle skill namespacing (designations).
 
-        # As a convenience, add parentheses if they are missing.
-        if " " not in action_string and "(" not in action_string:
-            action_string += "()"
-
-        # Parse the string into an AST (Abstract Syntax Tree)
-        try:
-            tree = ast.parse(action_string)
-        except SyntaxError:
-            raise ValueError("Invalid function call. Please check your syntax.")
-
-        # Ensure the tree contains exactly one expression (the function call)
-        if not (isinstance(tree, ast.Module) and len(tree.body) == 1 and isinstance(tree.body[0], ast.Expr)):
-            raise ValueError("Expected a single function call.")
-
-        # The function call is stored as a `Call` node within the expression
-        call_node = tree.body[0].value
-        if not isinstance(call_node, ast.Call):
-            raise ValueError("Invalid function call. Please check your syntax.")
-
-        # Extract the function name
-        if isinstance(call_node.func, ast.Name):
-            action_name = call_node.func.id
-        else:
-            raise ValueError("Unsupported function format. Please check your syntax.")
-
-        # Helper function to evaluate AST nodes to their Python equivalent
-        def eval_node(node):
-            if isinstance(node, ast.Constant):
-                return node.value
-            elif isinstance(node, ast.List):
-                return [eval_node(elem) for elem in node.elts]
-            elif isinstance(node, ast.Tuple):
-                return tuple(eval_node(elem) for elem in node.elts)
-            elif isinstance(node, ast.Dict):
-                return {eval_node(key): eval_node(value) for key, value in zip(node.keys, node.values)}
-            elif isinstance(node, ast.Name):
-                return node.id  # This can return variable names, but we assume they're constants
-            elif isinstance(node, ast.BinOp):  # Handling arithmetic expressions
-                return eval(compile(ast.Expression(node), filename="", mode="eval"))
-            elif isinstance(node, ast.Call):
-                raise ValueError("Nested function calls are not supported.")
-            else:
-                raise ValueError(f"Unsupported AST node type: {type(node).__name__}")
-
-        # Extract positional arguments
-        args = [eval_node(arg) for arg in call_node.args]
-
-        # Extract keyword arguments
-        kwargs = {}
-        for kw in call_node.keywords:
-            kwargs[kw.arg] = eval_node(kw.value)
+        action_name, args, kwargs = parse_command_string(action_string)
 
         action = self.get_action(action_name)
         if not action:
             return None, [], {}
 
-        return action, args, kwargs
+        return action, list(args), kwargs

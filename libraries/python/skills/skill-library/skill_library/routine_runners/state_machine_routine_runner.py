@@ -8,7 +8,9 @@ class StateMachineRoutineRunner:
     def __init__(self) -> None:
         pass
 
-    async def run(self, context: RunContext, routine: StateMachineRoutine, *args, **kwargs) -> tuple[bool, Any]:
+    async def run(
+        self, context: RunContext, routine: StateMachineRoutine, *args: Any, **kwargs: Any
+    ) -> tuple[bool, Any]:
         return await routine.init_function(context, *args, **kwargs)
 
     async def next(self, context: RunContext, routine: StateMachineRoutine, message: str) -> tuple[bool, Any]:

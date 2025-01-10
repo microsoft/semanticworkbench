@@ -5,7 +5,7 @@ does this through the concept of a "skill".
 
 Think of a skill as a package of assistant capabilities. A skill can contain
 "actions" that an assistant can perform and "routines" that are entire
-procedures that an assistant can run.
+procedures, made up of actions, that an assistant can run.
 
 A demonstration [Posix skill](../skills/posix-skill/README.md) is provided that
 makes these more clear. Various actions are provided in the skill that provide
@@ -18,34 +18,12 @@ cook you a meal. The chef would be skilled at actions in the kitchen (like
 chopping or mixing or frying) but would also be able to perform full routines
 (recipes), allowing them to make particular dishes according to your preferences.
 
-In a way, this whole library was set up to be able to experiment with _routines_
-more easily:
-
-- This library hides a lot of the complexity of developing multi-layered
-  assistants by providing clearer purposeful abstractions and better defining or
-  disambiguating commonly confused terms. For example, we separate out a lot of
-  the complexity of interacting with the OpenAI Chat Completion API with the
-  [chat driver](../../openai-client/openai_client/chat_driver/README.md)
-  abstraction and we now distinguish between chat commands, chat tool functions,
-  and routine actions in a clear way, even though they're really all just
-  functions.
-- Routines (formerly referred to as "Recipes") make it clear that what we are
-  developing agents that can automate productive work collaboratively with the
-  user. We have several ideas here, from simply following a set of steps, to
-  being able to run Pythonic programs skill actions, to much more fully managed
-  routine running with LLM-driven meta-cognitive execution (having the LLM
-  monitor progress and modify the routines as necessary).
-
-Currently we provide one functional routine runner implementation, the
-[InstructionRoutineRunner](./skill_library/routine_runners/instruction_routine_runner.py),
-but will be adding several more in the upcoming weeks.
-
 ## Combining skills in the assistant
 
 This library provides an [Assistant](./skill_library/assistant.py) class that
 allows you to configure the conversational assistant (relying on our [chat
-driver](../../chat-driver/README.md) library) and the skills that the
-assistant should have.
+driver](../../openai-client/openai_client/chat_driver/README.md) library) and
+the skills that the assistant should have.
 
 Oftentimes, a truly capable assistant will need to have many skills.
 Additionally, some skills are dependent upon other skills. When you register
@@ -67,29 +45,25 @@ assistant allowing it to be exposed as an assistant in the workbench. See our
 Assistant](../../../../assistants/skill-assistant/README.md)
 package that does exactly this.
 
-In the future, individual conversations might be handled in this library as
-well.
+## Routines
 
-## Context
+This whole library was set up to be able to experiment with _routines_
+more easily:
 
-This library uses the same [Context](../../context/README.md) library
-as the [chat driver](../../chat-driver/README.md) library. This allows
-you to instantiate a Context object for the assistant and have it automatically
-passed into all assistant's actions and routines. This is especially helpful in
-(1) setting the session id for all parts of the system (allowing them all to
-share state in external state stores) and (2) passing and `emit` function that
-all the parts can use to send events back up to the assistant for consistent
-handling.
-
-## More about Routines
-
-### Experimentation
-
-As mentioned above, one of the main purposes of this library is to make it
-possible for an assistant to run a routine.
-
-We are currently investigating different kinds of routine specifications and
-ways of executing them.
+- This library hides a lot of the complexity of developing multi-layered
+  assistants by providing clearer purposeful abstractions and better defining or
+  disambiguating commonly confused terms. For example, we separate out a lot of
+  the complexity of interacting with the OpenAI Chat Completion API with the
+  [chat driver](../../openai-client/openai_client/chat_driver/README.md)
+  abstraction and we now distinguish between chat commands, chat tool functions,
+  and routine actions in a clear way, even though they're really all just
+  functions.
+- Routines make it clear that what we are developing agents that can automate
+  productive work collaboratively with the user. We have several ideas here,
+  from simply following a set of steps, to being able to run Pythonic programs
+  of skill actions, to much more fully managed routine running with LLM-driven
+  meta-cognitive execution (having the LLM monitor progress and modify the
+  routines as necessary).
 
 Currently we provide one functional routine runner implementation, the
 [InstructionRoutineRunner](./skill_library/routine_runners/instruction_routine_runner.py),
@@ -103,3 +77,34 @@ is not possible to simply instantiate a skill and run a routine within it (like
 you can do with a skill's action). Routines can only be run from an
 [Assistant](./skill_library/assistant.py) that has all dependent skills
 registered to it.
+
+
+## Run Context
+
+This library uses the same [Context](../../context/README.md) library as the
+[chat driver](../../openai-client/openai_client/chat_driver/README.md) library.
+This allows you to instantiate a Context object for the assistant and have it
+automatically passed into all assistant's actions and routines. This is
+especially helpful in (1) setting the session id for all parts of the system
+(allowing them all to share state in external state stores) and (2) passing and
+`emit` function that all the parts can use to send events back up to the
+assistant for consistent handling.
+
+## State
+
+### Drives
+
+### Assistant drive
+
+### Routine Stack state
+
+```python
+async with context.stack_frame_state() as state:
+```
+
+
+
+- Natural language (user understandability, generatability)
+- Metacognitive runners
+- Skills/routines w/ subroutines (composability)
+- Facilities (run_context, storage, com)

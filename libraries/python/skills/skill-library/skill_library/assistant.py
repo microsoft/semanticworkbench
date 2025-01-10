@@ -34,7 +34,7 @@ class Assistant:
         chat_driver_config: ChatDriverConfig,
         drive_root: PathLike | None = None,
         metadata_drive_root: PathLike | None = None,
-        skills: dict[str, SkillDefinition] | None = None,
+        skills: list[SkillDefinition] | None = None,
         startup_action: str | None = None,
         startup_routine: str | None = None,
         startup_args: tuple = (),
@@ -245,7 +245,7 @@ class Assistant:
         """Lists all the routines the assistant is able to perform."""
         return self.skill_registry.list_routines() if self.skill_registry else []
 
-    async def run_routine(self, name: str, *args, **kwargs) -> Any:
+    async def run_routine(self, name: str, *args: Any, **kwargs: Any) -> Any:
         """
         Run an assistant routine by name (e.g. <skill_name>.<routine_name>).
         """
@@ -257,13 +257,15 @@ class Assistant:
         """Lists all the actions the assistant is able to perform."""
         return self.skill_registry.list_actions() if self.skill_registry else []
 
-    def run_action(self, designation: str, *args, **kwargs) -> Any:
+    async def run_action(self, designation: str, *args: Any, **kwargs: Any) -> Any:
         """
         Run an assistant action by name (e.g. <skill_name>.<action_name>).
         """
         if not self.skill_registry:
             raise ValueError("No skill registry registered for this assistant.")
-        return self.skill_registry.run_action_by_designation(self.create_run_context(), designation, *args, **kwargs)
+        return await self.skill_registry.run_action_by_designation(
+            self.create_run_context(), designation, *args, **kwargs
+        )
 
     async def step_active_routine(self, message: str) -> None:
         """Run another step in the current routine."""

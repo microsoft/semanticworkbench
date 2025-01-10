@@ -1,5 +1,3 @@
-from typing import Type
-
 from openai_client.chat_driver import ChatDriverConfig
 from skill_library import (
     ActionCallable,
@@ -95,10 +93,9 @@ class YourSkillDefinition(SkillDefinition):
         name: str,
         description: str | None = None,
         chat_driver_config: ChatDriverConfig | None = None,
-        skill_class: Type[Skill] = YourSkill,
         # Any other parameters you want to pass to the skill.
     ) -> None:
         self.name = name
         self.description = description or DESCRIPTION
         self.chat_driver_config = chat_driver_config
-        self.skill_class = skill_class
+        self.skill_class = YourSkill

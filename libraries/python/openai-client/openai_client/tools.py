@@ -286,12 +286,12 @@ class ToolFunctions:
         try:
             function, args, kwargs = self.parse_function_string(function_string)
         except ValueError as e:
-            raise ValueError(f"{e}. Type: `/help` for more information.")
+            raise ValueError(f"{e} Type: `/help` for more information.")
         if not function:
             raise ValueError("Function not found in registry. Type: `/help` for more information.")
-        response = await function.execute(*args, **kwargs)
+        result = await function.execute(*args, **kwargs)
         if string_response:
-            return to_string(response)
+            return to_string(result)
 
     def parse_function_string(self, function_string: str) -> tuple[ToolFunction | None, list[Any], dict[str, Any]]:
         """Parse a function call string into a function and its arguments."""

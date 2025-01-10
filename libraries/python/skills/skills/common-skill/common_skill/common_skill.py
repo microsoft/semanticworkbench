@@ -1,5 +1,3 @@
-from typing import Type
-
 from assistant_drive import Drive
 from openai_client.chat_driver import ChatDriverConfig
 from skill_library import ActionCallable, ChatDriverFunctions, RunContext, RunContextProvider, Skill, SkillDefinition
@@ -7,6 +5,7 @@ from skill_library.routine import RoutineTypes
 from skill_library.types import LanguageModel
 
 from .actions import gpt_complete, web_search
+from .routines.demo import get_demo_routine
 
 CLASS_NAME = "CommonSkill"
 DESCRIPTION = "Provides common actions and routines."
@@ -19,11 +18,17 @@ class CommonSkill(Skill):
         skill_definition: "CommonSkillDefinition",
         run_context_provider: RunContextProvider,
     ) -> None:
+        self.skill_name = skill_definition.name
         self.language_model = skill_definition.language_model
         self.drive = skill_definition.drive
 
-        routines: list[RoutineTypes] = []
-        action_functions: list[ActionCallable] = Actions(skill_definition.language_model).list_actions()
+        action_functions: list[ActionCallable] = ActionFunctions(
+            skill_definition.language_model
+        ).list_action_functions()
+
+        routines: list[RoutineTypes] = [
+            get_demo_routine(self.skill_name),
+        ]
 
         # Configure the skill's chat driver. This is just used for testing the
         # skill out directly, but won't be exposed in the assistant.
@@ -42,18 +47,7 @@ class CommonSkill(Skill):
         )
 
 
-"""
-1. RunContext gets passed in during execution.
-2. Other variables can be passed in during initialization.
-3. When a person runs /list_actions, they shouldn't see RunContext or the initialization variables.
-4. A person should be able to run an action with params excluding RunContext and inits.
-5. The chatdriver should be able to have registered actions without runcontext or init variables. The function that is given to the chatdriver should not have these things.
-  A. A chat driver should be able to specify it wants to run a tool call, but the function that executes it should inject a run context?? Or not... the functions themselves might be defined within a context that has a run context.
-
-"""
-
-
-class Actions:
+class ActionFunctions:
     """
     Using a class like this might be a good pattern for declaring actions. It
     allows the injection of things while allowing the method signature from
@@ -73,7 +67,7 @@ class Actions:
         content, metadata = await web_search(self.language_model, query)
         return content
 
-    def list_actions(self) -> list[ActionCallable]:
+    def list_action_functions(self) -> list[ActionCallable]:
         return [self.gpt_complete, self.web_search]
 
 
@@ -85,7 +79,6 @@ class CommonSkillDefinition(SkillDefinition):
         drive: Drive,
         description: str | None = None,
         chat_driver_config: ChatDriverConfig | None = None,
-        skill_class: Type[Skill] = CommonSkill,
     ) -> None:
         self.language_model = language_model
         self.drive = drive
@@ -96,7 +89,7 @@ class CommonSkillDefinition(SkillDefinition):
         # Initialize the skill!
         super().__init__(
             name=name,
-            skill_class=skill_class,
+            skill_class=CommonSkill,
             description=description or DESCRIPTION,
             chat_driver_config=chat_driver_config,
         )
