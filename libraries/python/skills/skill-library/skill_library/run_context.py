@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Callable, Coroutine, Optional, Protocol, Union
+from typing import Any, AsyncGenerator, Awaitable, Callable, Concatenate, ParamSpec, Protocol
 from uuid import uuid4
 
 from assistant_drive import Drive
@@ -27,6 +27,10 @@ async def unimplemented_action_runner(action_name: str, *args: Any, **kwargs: An
     logging.info("Action runner has not been implemented.")
 
 
+# A typing spec for *args, **kwargs, used in run_action and run_routine sigs.
+P = ParamSpec("P")
+
+
 class RunContext:
     """
     "Run context" is passed to parts of the system (skill routines and
@@ -40,8 +44,8 @@ class RunContext:
         assistant_drive: Drive,
         emit: Callable[[EventProtocol], None],
         routine_stack: RoutineStack,
-        run_action: Callable[[str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]],
-        run_routine: Union[Callable[[str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]], None],
+        run_action: Callable[Concatenate[str, P], Awaitable[Any]],
+        run_routine: Callable[Concatenate[str, P], Awaitable[Any]],
     ) -> None:
         # A session id is useful for maintaining consistent session state across all
         # consumers of this context. For example, a session id can be set in an

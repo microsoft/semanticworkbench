@@ -4,12 +4,12 @@ from openai_client.chat_driver import ChatDriverConfig
 from skill_library import (
     ChatDriverFunctions,
     RoutineTypes,
+    RunContext,
     RunContextProvider,
     Skill,
     SkillDefinition,
     StateMachineRoutine,
 )
-from skill_library.run_context import RunContext
 from skill_library.types import LanguageModel
 
 CLASS_NAME = "FormFillerSkill"
@@ -70,11 +70,11 @@ class FormFillerSkill(Skill):
 
     async def form_fill_step(
         self,
-        context: RunContext,
+        run_context: RunContext,
         message: Optional[str] = None,
     ) -> tuple[bool, str | None]:
         FormFiller = self
-        state = await context.get_state()
+        state = await run_context.get_state()
         while True:
             match state.get("mode"):
                 case None:
@@ -84,14 +84,15 @@ class FormFillerSkill(Skill):
                     # How do we want to pass in all the GC definitions? Should they just be a simpler config object TYPE?
                     if not state["artifact"]:
                         if not state["gce_id"]:
-                            guided_conversation_vars: dict[str, Any] = {
-                                "definition_type": "upload_files",
-                                "objective": "Upload a form to be filled out by the form filler recipe.",
-                            }
-                            gc_id = await context.run_routine(
-                                "guided_conversation.doc_upload", guided_conversation_vars
-                            )
-                            state["gc_id"] = gc_id
+                            pass
+                            # guided_conversation_vars: dict[str, Any] = {
+                            #     "definition_type": "upload_files",
+                            #     "objective": "Upload a form to be filled out by the form filler recipe.",
+                            # }
+                            # gc_id = await run_context.run_routine(
+                            #     "guided_conversation.doc_upload", **guided_conversation_vars
+                            # )
+                            # state["gc_id"] = gc_id
                         # TODO: What is the best way to subroutine?
                         # artifact = GuidedConversation.run(state["gce_id"], message)
                         # if artifact:
@@ -100,25 +101,25 @@ class FormFillerSkill(Skill):
                         #     await context.set_state(state)
                         #     return
 
-                    agenda, is_done = FormFiller.update_agenda(context)
+                    agenda, is_done = FormFiller.update_agenda(run_context)
                     state["agenda"] = agenda
                     if is_done:
                         state["mode"] = "done"
                     state["mode"] = "conversation"
-                    await context.set_state(state)
+                    await run_context.set_state(state)
                     return is_done, agenda
                 case "conversation":
-                    state["form"] = FormFiller.update_form(context)
-                    agenda, is_done = FormFiller.update_agenda(context)
+                    state["form"] = FormFiller.update_form(run_context)
+                    agenda, is_done = FormFiller.update_agenda(run_context)
                     state["agenda"] = agenda
                     if is_done:
                         state["mode"] = "finalize"
-                    await context.set_state(state)
+                    await run_context.set_state(state)
                     return is_done, agenda
                 case "finalize":
-                    message = FormFiller.generate_filled_form(context)
+                    message = FormFiller.generate_filled_form(run_context)
                     state["mode"] = "done"
-                    await context.set_state(state)
+                    await run_context.set_state(state)
                     return False, message
                 case "done":
                     return True, None
@@ -146,10 +147,9 @@ class FormFillerSkillDefinition(SkillDefinition):
         language_model: LanguageModel,
         description: str | None = None,
         chat_driver_config: ChatDriverConfig | None = None,
-        skill_class: type[Skill] = FormFillerSkill,
     ) -> None:
         self.name = name
         self.language_model = language_model
         self.description = description or DESCRIPTION
         self.chat_driver_config = chat_driver_config
-        self.skill_class = skill_class
+        self.skill_class = FormFillerSkill

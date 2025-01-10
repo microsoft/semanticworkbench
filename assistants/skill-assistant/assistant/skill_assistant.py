@@ -218,31 +218,31 @@ async def get_or_register_assistant(
             chat_driver_config=chat_driver_config,
             drive_root=assistant_drive_root,
             metadata_drive_root=assistant_metadata_drive_root,
-            skills={
-                "common": CommonSkillDefinition(
+            skills=[
+                CommonSkillDefinition(
                     name="common",
                     language_model=language_model,
                     drive=assistant_drive.subdrive("common"),
                     chat_driver_config=chat_driver_config,
                 ),
-                "posix": PosixSkillDefinition(
+                PosixSkillDefinition(
                     name="posix",
                     sandbox_dir=Path(".data") / conversation_context.id,
-                    chat_driver_config=chat_driver_config,
                     mount_dir="/mnt/data",
+                    chat_driver_config=chat_driver_config,
                 ),
-                # "form_filler": FormFillerSkill(
+                # FormFillerSkill(
                 #     name="form_filler",
                 #     chat_driver_config=chat_driver_config,
                 #     language_model=language_model,
                 # ),
-                "guided_conversation": GuidedConversationSkillDefinition(
+                GuidedConversationSkillDefinition(
                     name="guided_conversation",
                     language_model=language_model,
                     drive=assistant_drive.subdrive("guided_conversation"),
                     chat_driver_config=chat_driver_config,
                 ),
-            },
+            ],
         )
 
         await assistant_registry.register_assistant(assistant, SkillEventMapper(conversation_context))
