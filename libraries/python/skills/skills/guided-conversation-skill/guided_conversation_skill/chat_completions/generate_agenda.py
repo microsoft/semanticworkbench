@@ -18,7 +18,7 @@ How do agendas work? See:
 https://microsoft.sharepoint.com/:v:/t/NERDAIProgram2/EfRcEA2RSP9DuJhw8AHnAP4B12g__TFV21GOxlZvSR3mEA?e=91Wp9f&nav=eyJwbGF5YmFja09wdGlvbnMiOnt9LCJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTaGFyZVBvaW50IiwicmVmZXJyYWxNb2RlIjoibWlzIiwicmVmZXJyYWxWaWV3IjoidmlkZW9hY3Rpb25zLXNoYXJlIiwicmVmZXJyYWxQbGF5YmFja1Nlc3Npb25JZCI6ImMzYzUwNTEwLWQ1MzAtNGQyYS1iZGY3LTE2ZGViZTYwNjU4YiJ9fQ%3D%3D
 """
 
-from typing import cast
+from typing import Any, cast
 
 from guided_conversation_skill.agenda import Agenda, AgendaItem
 from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt
@@ -38,7 +38,6 @@ from openai_client import (
 )
 from pydantic import ValidationError
 from skill_library.types import LanguageModel
-from traitlets import Any
 
 from ..logging import extra_data, logger
 from .fix_agenda_error import fix_agenda_error
