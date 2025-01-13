@@ -20,9 +20,29 @@ def log_emitter(event: EventProtocol) -> None:
 
 @dataclass
 class SkillDefinition:
+    """
+    A skill definition is a blueprint for instantiating a skill. Because skills
+    may be dependent on one another, _ALL_ skills that an assistant uses should
+    be defined and passed to the skill registry for initialization at the same
+    time. The skill registry will use these definitions to instantiate instances
+    of the skills.
+
+    These four attributes are required for every skill definition, however,
+    additional attributes can be added by extending this class.
+    """
+
     name: str
+
+    # The class of the skill. This is used to instantiate the skill.
     skill_class: Type["Skill"]
+
+    # A description of the skill. In the future, this will be used to advertise
+    # available skills for usage.
     description: str
+
+    # Skills, optionally, may have a natural language interface (currently used
+    # by Instructuion routines). If you don't need your skill to be used that
+    # way, though, you don't need to have a chat driver attached.
     chat_driver_config: ChatDriverConfig | None
 
 
@@ -45,22 +65,15 @@ class Skill:
         self.description = skill_definition.description
         self.routines: dict[str, RoutineTypes] = {routine.name: routine for routine in routines}
 
-        # The routines in this skill might use actions from other skills. The dependency on
-        # other skills should be declared here. The skill registry will ensure that all
-        # dependencies are registered before this skill.
-        self.dependencies: list[Type[Skill]] = []
-
         # If a chat driver is provided, it will be used to respond to
         # conversational messages sent to the skill. Not all skills need to have
         # a chat driver. No functions will be automatically registered to the
-        # chat driver. If you want to register a function with the chat driver,
-        # do so when configuring the chat driver passed in (usually done in the
-        # skill subclass).
+        # chat driver.
         self.chat_driver = (
             ChatDriver(skill_definition.chat_driver_config) if skill_definition.chat_driver_config else None
         )
 
-        # Register all provided actions with the action registry so they can be executed by name.
+        # Register all provided actions with the action registry.
         self.action_registry = Actions(run_context_provider)
         self.action_registry.add_functions(actions)
 
