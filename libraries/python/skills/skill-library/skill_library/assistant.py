@@ -92,8 +92,8 @@ class Assistant:
         await self.routine_stack.clear()
         while not self._event_queue.empty():
             self._event_queue.get_nowait()
-        self.metadrive.delete()
-        self.drive.delete()
+        self.metadrive.delete_drive()
+        self.drive.delete_drive()
 
     ######################################
     # Lifecycle and event handling
@@ -203,9 +203,13 @@ class Assistant:
             "and arguments."
             "Available routines: {routines}. "
         )
-        if chat_driver_config.message_provider is None:
-            chat_driver_config.message_provider = LocalMessageHistoryProvider(
-                LocalMessageHistoryProviderConfig(session_id=self.assistant_id, formatter=format_with_liquid)
+        if config.message_provider is None:
+            config.message_provider = LocalMessageHistoryProvider(
+                LocalMessageHistoryProviderConfig(
+                    session_id=self.assistant_id,
+                    data_dir=self.metadrive.root_path / "chat_driver",
+                    formatter=format_with_liquid,
+                )
             )
         chat_functions = ChatFunctions(self)
         config.commands = chat_functions.list_functions()
