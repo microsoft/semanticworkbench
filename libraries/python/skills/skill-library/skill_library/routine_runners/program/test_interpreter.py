@@ -25,7 +25,7 @@ def test_interpreter():
 
     assert isinstance(next, FunctionCall)
     assert next.func_name == "skill.action"
-    assert next.args == [5, 10]
+    assert next.args == (5, 10)
 
     next = interpreter.run(13)
     assert interpreter.variables["z"] == 13
