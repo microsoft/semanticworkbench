@@ -39,7 +39,7 @@ class ActionListRoutineRunner:
         # set.
         parsed_routine = parse_template(routine.routine, arg_set)
 
-        # Get current step and locals from the stack frame state.
+        # Set current step and locals to the stack frame state.
         async with run_context.stack_frame_state() as state:
             state["routine"] = parsed_routine
             current_step = state.get("current_step", 0)

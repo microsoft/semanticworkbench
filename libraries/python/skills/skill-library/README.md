@@ -31,6 +31,10 @@ When a skill is registered to an assistant, a user will be able to see the
 skill's actions by running the message command `/list_actions` and routines with
 `/list_routines`.
 
+The skill library helps in maintaining and distributing functionality with
+skills as each skill is a separate Python package, however skills refer to other
+skills using a [skill registry](#skill-registry).
+
 See: [skill.py](./skill_library/skill.py)
 
 #### Actions
@@ -85,6 +89,13 @@ Currently we provide three functional routine/routine runner implementations:
   great. The [Guided Conversation skill
   routine](../skills/guided-conversation-skill/guided_conversation_skill/guided_conversation_skill.py)
   is a good example of this technique.
+
+- [Program routine](./skill_library/routine/program_routine.py) ([Program
+  routine
+  runner](./skill_library/routine_runners/program/program_routine_runner.py))
+
+  Write a routine in a subset of Python. Works now, but in development... will
+  add more local function support, error handling, more assistant actions, etc.
 
 - (Future) Recipes (natural language routines)
 

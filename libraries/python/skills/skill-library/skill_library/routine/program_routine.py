@@ -1,3 +1,5 @@
+from typing import Any
+
 from ..utilities import find_template_vars
 from .routine import Routine
 
@@ -16,6 +18,13 @@ class ProgramRoutine(Routine):
             description=description,
         )
         self.program = program
+
+    def validate(self, arg_set: dict[str, Any]) -> None:
+        """
+        Validate the routine with the given arguments.
+        """
+        # TODO: implement this.
+        pass
 
     def __str__(self) -> str:
         template_vars = find_template_vars(self.program)
