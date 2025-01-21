@@ -231,11 +231,6 @@ async def get_or_register_assistant(
                     mount_dir="/mnt/data",
                     chat_driver_config=chat_driver_config,
                 ),
-                # FormFillerSkill(
-                #     name="form_filler",
-                #     chat_driver_config=chat_driver_config,
-                #     language_model=language_model,
-                # ),
                 GuidedConversationSkillDefinition(
                     name="guided_conversation",
                     language_model=language_model,

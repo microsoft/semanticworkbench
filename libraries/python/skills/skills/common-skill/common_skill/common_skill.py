@@ -4,8 +4,10 @@ from skill_library import ActionCallable, ChatDriverFunctions, RunContext, RunCo
 from skill_library.routine import RoutineTypes
 from skill_library.types import LanguageModel
 
+from common_skill.routines.demo_program_routine import get_demo_program_routine
+
 from .actions import gpt_complete, web_search
-from .routines.demo import get_demo_routine
+from .routines.demo_action_list_routine import get_demo_action_list_routine
 
 CLASS_NAME = "CommonSkill"
 DESCRIPTION = "Provides common actions and routines."
@@ -27,7 +29,8 @@ class CommonSkill(Skill):
         ).list_action_functions()
 
         routines: list[RoutineTypes] = [
-            get_demo_routine(self.skill_name),
+            get_demo_action_list_routine(self.skill_name),
+            get_demo_program_routine(self.skill_name),
         ]
 
         # Configure the skill's chat driver. This is just used for testing the

@@ -3,9 +3,9 @@ from textwrap import dedent
 from skill_library import ActionListRoutine
 
 
-def get_demo_routine(skill_name: str) -> ActionListRoutine:
+def get_demo_action_list_routine(skill_name: str) -> ActionListRoutine:
     return ActionListRoutine(
-        name="demo",
+        name="demo_action_list_routine",
         skill_name=skill_name,
         description="A demo action list routine.",
         routine=dedent("""
