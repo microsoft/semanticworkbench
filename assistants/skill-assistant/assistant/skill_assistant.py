@@ -12,11 +12,11 @@ from typing import Any, Optional
 
 import openai_client
 from assistant_drive import Drive, DriveConfig
+from common_skill import CommonSkillDefinition
 from content_safety.evaluators import CombinedContentSafetyEvaluator
-from form_filler_skill import FormFillerSkill
-from guided_conversation_skill import GuidedConversationSkill
+from guided_conversation_skill import GuidedConversationSkillDefinition
 from openai_client.chat_driver import ChatDriverConfig
-from posix_skill import PosixSkill
+from posix_skill import PosixSkillDefinition
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
@@ -30,6 +30,7 @@ from semantic_workbench_assistant.assistant_app import (
     ContentSafetyEvaluator,
     ConversationContext,
 )
+from skill_library import Assistant
 from skill_library.types import Metadata
 
 from assistant.skill_event_mapper import SkillEventMapper
@@ -58,8 +59,8 @@ assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
 # Create the content safety interceptor.
-async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
-    config = await assistant_config.get(context.assistant)
+async def content_evaluator_factory(conversation_context: ConversationContext) -> ContentSafetyEvaluator:
+    config = await assistant_config.get(conversation_context.assistant)
     return CombinedContentSafetyEvaluator(config.content_safety_config)
 
 
@@ -178,7 +179,23 @@ async def respond_to_conversation(
     """
     Respond to a conversation message.
     """
+    assistant = await get_or_register_assistant(conversation_context, config)
+    try:
+        await assistant.put_message(message.content, metadata)
+    except Exception as e:
+        logger.exception("Exception in on_message_created.")
+        await conversation_context.send_messages(
+            NewConversationMessage(
+                message_type=MessageType.note,
+                content=f"Unhandled error: {e}",
+            )
+        )
 
+
+# Get or register an assistant for the conversation.
+async def get_or_register_assistant(
+    conversation_context: ConversationContext, config: AssistantConfigModel
+) -> Assistant:
     # Get an assistant from the registry.
     assistant_id = conversation_context.id
     assistant = assistant_registry.get_assistant(assistant_id)
@@ -194,41 +211,35 @@ async def respond_to_conversation(
             model=config.chat_driver_config.openai_model,
             instructions=config.chat_driver_config.instructions,
         )
-        assistant = await assistant_registry.register_assistant(
+
+        assistant = Assistant(
             assistant_id=conversation_context.id,
-            assistant_name="Assistant",
-            event_mapper=SkillEventMapper(conversation_context),
+            name="Assistant",
             chat_driver_config=chat_driver_config,
             drive_root=assistant_drive_root,
             metadata_drive_root=assistant_metadata_drive_root,
-            skills={
-                "posix": PosixSkill(
+            skills=[
+                CommonSkillDefinition(
+                    name="common",
+                    language_model=language_model,
+                    drive=assistant_drive.subdrive("common"),
+                    chat_driver_config=chat_driver_config,
+                ),
+                PosixSkillDefinition(
                     name="posix",
                     sandbox_dir=Path(".data") / conversation_context.id,
-                    chat_driver_config=chat_driver_config,
                     mount_dir="/mnt/data",
-                ),
-                "form_filler": FormFillerSkill(
-                    name="form_filler",
                     chat_driver_config=chat_driver_config,
-                    language_model=language_model,
                 ),
-                "guided_conversation": GuidedConversationSkill(
+                GuidedConversationSkillDefinition(
                     name="guided_conversation",
                     language_model=language_model,
                     drive=assistant_drive.subdrive("guided_conversation"),
                     chat_driver_config=chat_driver_config,
                 ),
-            },
+            ],
         )
 
-    try:
-        await assistant.put_message(message.content, metadata)
-    except Exception as e:
-        logger.exception("Exception in on_message_created.")
-        await conversation_context.send_messages(
-            NewConversationMessage(
-                message_type=MessageType.note,
-                content=f"Unhandled error: {e}",
-            )
-        )
+        await assistant_registry.register_assistant(assistant, SkillEventMapper(conversation_context))
+
+    return assistant

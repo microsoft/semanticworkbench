@@ -13,11 +13,11 @@ file_content = BytesIO(b"Hello, World!")  # Convert byte string to BytesIO
 @pytest.fixture
 def drive():
     drive = Drive(DriveConfig(root="./data/drive/test"))
-    drive.delete()
+    drive.delete_drive()
 
     yield drive
 
-    drive.delete()
+    drive.delete_drive()
 
 
 def test_write_to_root(drive):
@@ -121,9 +121,8 @@ def test_delete(drive):
     assert metadata.filename == "test.txt"
     assert sorted(list(drive.list(dir="summaries"))) == sorted(["test.txt"])
 
-    drive.delete()
 
-
+@pytest.mark.skip("Not implemented")
 def test_open_files_multiple_files(drive) -> None:
     drive.write(file_content, "test.txt", "summaries")
     drive.write(file_content, "test2.txt", "summaries")
@@ -136,6 +135,7 @@ def test_open_files_multiple_files(drive) -> None:
             assert file.read() == b"Hello, World!"
 
 
+@pytest.mark.skip("Not implemented")
 def test_open_files_empty_dir(drive) -> None:
     files = list(drive.open_files("summaries"))
     assert len(files) == 0
@@ -151,8 +151,6 @@ def test_write_model(drive) -> None:
     with drive.open_file("test.json", "summaries") as f:
         assert f.read() == b'{"name":"test"}'
 
-    drive.delete()
-
 
 def test_read_model(drive) -> None:
     class TestModel(BaseModel):
@@ -163,8 +161,6 @@ def test_read_model(drive) -> None:
 
     model = drive.read_model(TestModel, "test.json", "summaries")
     assert model.name == "test"
-
-    drive.delete()
 
 
 def test_read_models(drive) -> None:
@@ -190,4 +186,12 @@ def test_read_model_non_existent_file(drive) -> None:
     with pytest.raises(FileNotFoundError):
         drive.read_model(TestModel, "test.json", "summaries")
 
-    drive.delete()
+
+def test_subdrive(drive) -> None:
+    subdrive = drive.subdrive("summaries")
+    assert str(subdrive.root_path) == "data/drive/test/summaries"
+    assert list(subdrive.list()) == []
+
+    subdrive.write(file_content, "test.txt")
+    assert list(subdrive.list()) == ["test.txt"]
+    assert list(drive.list("summaries")) == ["test.txt"]

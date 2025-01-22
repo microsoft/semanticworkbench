@@ -1,6 +1,14 @@
-from context import ContextProtocol
 from openai_client.chat_driver import ChatDriverConfig
-from skill_library import InstructionRoutine, RoutineTypes, Skill
+from skill_library import (
+    ActionCallable,
+    ChatDriverFunctions,
+    InstructionRoutine,
+    RoutineTypes,
+    RunContext,
+    RunContextProvider,
+    Skill,
+    SkillDefinition,
+)
 
 NAME = "your"
 CLASS_NAME = "YourSkill"
@@ -12,10 +20,14 @@ INSTRUCTIONS = "You are an assistant that has access to the provided actions."
 class YourSkill(Skill):
     def __init__(
         self,
-        chat_driver_config: ChatDriverConfig,
+        skill_definition: "YourSkillDefinition",
+        run_context_provider: RunContextProvider,
     ) -> None:
-        # Add some actions.
-        actions = [
+        # Convenience variable to store the skill name.
+        self.skill_name = skill_definition.name
+
+        # Define some functions to be used as actions.
+        action_functions: list[ActionCallable] = [
             self.example_action,
             self.example_with_parameters_action,
         ]
@@ -27,15 +39,19 @@ class YourSkill(Skill):
 
         # Configure the chat driver (if using). Register all the supplied actions to it as either
         # commands, functions, or both.
-        chat_driver_config.instructions = INSTRUCTIONS
-        chat_driver_config.commands = actions
-        chat_driver_config.functions = actions
+        if skill_definition.chat_driver_config:
+            skill_definition.chat_driver_config.instructions = INSTRUCTIONS
+            skill_definition.chat_driver_config.commands = ChatDriverFunctions(
+                action_functions, run_context_provider
+            ).all()
+            skill_definition.chat_driver_config.functions = ChatDriverFunctions(
+                action_functions, run_context_provider
+            ).all()
 
         super().__init__(
-            name=NAME,
-            description=DESCRIPTION,
-            chat_driver_config=chat_driver_config,
-            actions=actions,
+            skill_definition=skill_definition,
+            run_context_provider=run_context_provider,
+            actions=action_functions,
             routines=routines,
         )
 
@@ -48,24 +64,38 @@ class YourSkill(Skill):
         Update this routine description.
         """
         return InstructionRoutine(
-            "template_example",  # name of routine
-            "Description of what the routine does.",
+            name="template_example",  # name of routine
+            skill_name=self.skill_name,
+            description="Description of what the routine does.",
             routine=("template_example_action\ntemplate_example_with_parameters_action bar\n"),
-            skill=self,
         )
 
     ##################################
     # Actions
     ##################################
 
-    def example_action(self, context: ContextProtocol) -> None:
+    def example_action(self, run_context: RunContext) -> None:
         """
         Update this action description.
         """
         pass
 
-    def example_with_parameters_action(self, context: ContextProtocol, foo: str) -> None:
+    def example_with_parameters_action(self, run_context: RunContext, foo: str) -> None:
         """
         Update this action description.
         """
         pass
+
+
+class YourSkillDefinition(SkillDefinition):
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+        chat_driver_config: ChatDriverConfig | None = None,
+        # Any other parameters you want to pass to the skill.
+    ) -> None:
+        self.name = name
+        self.description = description or DESCRIPTION
+        self.chat_driver_config = chat_driver_config
+        self.skill_class = YourSkill

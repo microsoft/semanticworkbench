@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Callable, Coroutine, Optional, Union
+from typing import Any, AsyncGenerator, Awaitable, Callable, Concatenate, ParamSpec, Protocol
 from uuid import uuid4
 
 from assistant_drive import Drive
@@ -17,9 +17,18 @@ class LogEmitter:
         logging.info(event.to_json())
 
 
-async def unimplemented_runner(routine_name: str, *args: Any, **kwargs: Any) -> None:
+async def unimplemented_routine_runner(routine_name: str, *args: Any, **kwargs: Any) -> None:
     """A runner that logs a message when a routine has not been implemented."""
-    logging.info(f"Routine {routine_name} has not been implemented.")
+    logging.info("Routine runner has not been implemented.")
+
+
+async def unimplemented_action_runner(action_name: str, *args: Any, **kwargs: Any) -> None:
+    """A runner that logs a message when a routine has not been implemented."""
+    logging.info("Action runner has not been implemented.")
+
+
+# A typing spec for *args, **kwargs, used in run_action and run_routine sigs.
+P = ParamSpec("P")
 
 
 class RunContext:
@@ -35,7 +44,8 @@ class RunContext:
         assistant_drive: Drive,
         emit: Callable[[EventProtocol], None],
         routine_stack: RoutineStack,
-        run_routine: Union[Callable[[str, Optional[dict[str, Any]]], Coroutine[Any, Any, Any]], None],
+        run_action: Callable[Concatenate[str, P], Awaitable[Any]],
+        run_routine: Callable[Concatenate[str, P], Awaitable[Any]],
     ) -> None:
         # A session id is useful for maintaining consistent session state across all
         # consumers of this context. For example, a session id can be set in an
@@ -58,7 +68,8 @@ class RunContext:
         # event bus and handling the events sent to it with this function.
         self.emit = emit or LogEmitter().emit
 
-        self.run_routine = run_routine or unimplemented_runner
+        self.run_routine = run_routine or unimplemented_routine_runner
+        self.run_action = run_action or unimplemented_action_runner
 
         # Helper functions for managing state of the current routine being run.
         self.get_state = routine_stack.get_current_state
@@ -83,3 +94,13 @@ class RunContext:
         state = await self.get_state()
         yield state
         await self.set_state(state)
+
+
+class RunContextProvider(Protocol):
+    """
+    A provider of a run context must have this method. When called, it will
+    return a run context. This is used by skill routines and actions to have
+    access to all the things they need for running.
+    """
+
+    def create_run_context(self) -> RunContext: ...

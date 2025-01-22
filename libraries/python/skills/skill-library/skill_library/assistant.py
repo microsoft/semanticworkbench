@@ -1,6 +1,6 @@
 import asyncio
 from os import PathLike
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Callable, Optional
 from uuid import uuid4
 
 from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
@@ -21,7 +21,7 @@ from skill_library.routine_stack import RoutineStack
 
 from .logging import extra_data, logger
 from .run_context import RunContext
-from .skill import Skill
+from .skill import SkillDefinition
 from .skill_registry import SkillRegistry
 from .types import Metadata
 
@@ -34,9 +34,11 @@ class Assistant:
         chat_driver_config: ChatDriverConfig,
         drive_root: PathLike | None = None,
         metadata_drive_root: PathLike | None = None,
-        skills: dict[str, Skill] | None = None,
+        skills: list[SkillDefinition] | None = None,
         startup_action: str | None = None,
         startup_routine: str | None = None,
+        startup_args: tuple = (),
+        startup_kwargs: dict[str, Any] = {},
     ) -> None:
         # Do we ever use this? No. We don't. It just seems like it would be a
         # good idea, though.
@@ -61,7 +63,7 @@ class Assistant:
         self.routine_stack = RoutineStack(self.metadrive)
 
         # Register all skills for the assistant.
-        self.skill_registry = SkillRegistry(skills, self.routine_stack) if skills else None
+        self.skill_registry = SkillRegistry(skills, self, self.routine_stack) if skills else None
 
         # Set up the assistant event queue.
         self._event_queue = asyncio.Queue()  # Async queue for events
@@ -78,22 +80,20 @@ class Assistant:
         )
 
         # Configure the assistant chat interface.
-        if chat_driver_config.message_provider is None:
-            chat_driver_config.message_provider = LocalMessageHistoryProvider(
-                LocalMessageHistoryProviderConfig(session_id=self.assistant_id, formatter=format_with_liquid)
-            )
         self.chat_driver = self._register_chat_driver(chat_driver_config)
 
         self.startup_action = startup_action
         self.startup_routine = startup_routine
+        self.startup_args = startup_args
+        self.startup_kwargs = startup_kwargs
 
     async def clear(self) -> None:
         """Clears the assistant's routine stack and event queue."""
         await self.routine_stack.clear()
         while not self._event_queue.empty():
             self._event_queue.get_nowait()
-        self.metadrive.delete()
-        self.drive.delete()
+        self.metadrive.delete_drive()
+        self.drive.delete_drive()
 
     ######################################
     # Lifecycle and event handling
@@ -105,11 +105,11 @@ class Assistant:
 
         # If a startup action is provided, run it.
         if self.startup_action:
-            await self.run_action(self.startup_action)
+            await self.run_action(self.startup_action, *self.startup_args, **self.startup_kwargs)
 
         # If a startup routine is provided, run it.
         if self.startup_routine:
-            await self.run_routine(self.startup_routine)
+            await self.run_routine(self.startup_routine, *self.startup_args, **self.startup_kwargs)
 
     async def wait(self) -> str:
         """
@@ -157,6 +157,7 @@ class Assistant:
             session_id=self.assistant_id,
             assistant_drive=self.drive,
             emit=self._emit,
+            run_action=self.run_action,
             run_routine=self.run_routine,
             routine_stack=self.routine_stack,
         )
@@ -199,19 +200,20 @@ class Assistant:
             f"{config.instructions}"
             "\n\nYou have the ability to run functions and routines.\n\n"
             "Run a routine with the run_routine function passing it the name of the routine "
-            "and a dictionary of vars to be replaced into the routines templates. "
-            "These vars are like the routines' input.\n\n"
-            "Available routines and their available vars: {routines}. "
+            "and arguments."
+            "Available routines: {routines}. "
         )
-
+        if config.message_provider is None:
+            config.message_provider = LocalMessageHistoryProvider(
+                LocalMessageHistoryProviderConfig(
+                    session_id=self.assistant_id,
+                    data_dir=self.metadrive.root_path / "chat_driver",
+                    formatter=format_with_liquid,
+                )
+            )
         chat_functions = ChatFunctions(self)
-        functions = [chat_functions.list_routines, chat_functions.run_routine]
-
-        # TODO: Allow optional adding of skill actions here.
-        # self.skill_registry is already available here.
-
-        config.commands = functions
-        config.functions = functions
+        config.commands = chat_functions.list_functions()
+        config.functions = [chat_functions.list_actions, chat_functions.list_routines]
         return ChatDriver(config)
 
     async def generate_response(
@@ -243,33 +245,31 @@ class Assistant:
     # Skill interface
     ######################################
 
-    # def list_actions(self, context: Context) -> list[str]:
-    #     """Lists all the actions the assistant is able to perform."""
-    #     return self.skill_registry.list_actions()
-
     def list_routines(self) -> list[str]:
         """Lists all the routines the assistant is able to perform."""
         return self.skill_registry.list_routines() if self.skill_registry else []
 
-    async def run_routine(self, name: str, vars: dict[str, Any] | None = None) -> Any:
+    async def run_routine(self, name: str, *args: Any, **kwargs: Any) -> Any:
         """
         Run an assistant routine by name (e.g. <skill_name>.<routine_name>).
         """
         if not self.skill_registry:
             raise ValueError("No skill registry registered for this assistant.")
-        await self.skill_registry.run_routine_by_designation(self.create_run_context(), name, vars)
+        await self.skill_registry.run_routine_by_designation(self.create_run_context(), name, *args, **kwargs)
 
     def list_actions(self) -> list[str]:
         """Lists all the actions the assistant is able to perform."""
         return self.skill_registry.list_actions() if self.skill_registry else []
 
-    def run_action(self, name: str, vars: dict[str, Any] | None = None) -> Any:
+    async def run_action(self, designation: str, *args: Any, **kwargs: Any) -> Any:
         """
         Run an assistant action by name (e.g. <skill_name>.<action_name>).
         """
         if not self.skill_registry:
             raise ValueError("No skill registry registered for this assistant.")
-        return self.skill_registry.run_action_by_designation(self.create_run_context(), name, vars)
+        return await self.skill_registry.run_action_by_designation(
+            self.create_run_context(), designation, *args, **kwargs
+        )
 
     async def step_active_routine(self, message: str) -> None:
         """Run another step in the current routine."""
@@ -279,20 +279,66 @@ class Assistant:
 
 
 class ChatFunctions:
-    """Chat driver functions need to be registered with a context as their first
-    argument. The function name is used as their name and the function block
-    comment is used as the function description.  This is a simple class to
-    provide these things."""
+    """
+    These functions provide usage context and output markdown. It's a layer
+    closer to the assistant.
+    """
 
     def __init__(self, assistant: Assistant) -> None:
         self.assistant = assistant
 
-    def list_routines(self) -> list[str]:
+    def list_routines(self) -> str:
         """Lists all the routines available in the assistant."""
-        return self.assistant.list_routines()
+        if not self.assistant.skill_registry:
+            return "No routines available."
 
-    async def run_routine(self, name: str, vars: dict[str, Any] | None) -> Any:
+        routines = []
+        for skill_name, skill in self.assistant.skill_registry.skills.items():
+            for routine in skill.get_routines():
+                routines.append(f"- __{skill_name}.{routine.name}__: _{routine.description}_")
+
+        if not routines:
+            return "No routines available."
+
+        routine_string = "```markdown\n### Routines\n\n" + "\n".join(routines) + "\n```"
+        # self.assistant._emit(InformationEvent(message=routine_string))
+        return routine_string
+
+    async def run_routine(self, name: str, *args, **kwargs) -> Any:
         """
         Run an assistant routine.
         """
-        await self.assistant.run_routine(name, vars)
+        await self.assistant.run_routine(name, *args, **kwargs)
+
+    def list_actions(self) -> str:
+        """Lists all the actions available in the assistant."""
+        if not self.assistant.skill_registry:
+            return "No actions available."
+
+        actions = []
+        for skill_name, skill in self.assistant.skill_registry.skills.items():
+            for action in skill.action_registry.get_actions():
+                usage = action.usage()
+                actions.append(
+                    f"- __{skill_name}.{usage.name}({', '.join([str(parameter) for parameter in usage.parameters])})__: _{usage.description}_"
+                )
+        if not actions:
+            return "No actions available."
+
+        action_string = "```markdown\n### Actions\n\n" + "\n".join(actions) + "\n```"
+        # self.assistant._emit(InformationEvent(message=action_string))
+        return action_string
+
+    def run_action(self, designation: str, *args, **kwargs) -> Any:
+        """
+        Run an assistant action by designation (<skill_name>.<action_name>).
+        """
+        return self.assistant.run_action(designation, *args, **kwargs)
+
+    def list_functions(self) -> list[Callable]:
+        return [
+            self.list_routines,
+            self.run_routine,
+            self.list_actions,
+            self.run_action,
+        ]

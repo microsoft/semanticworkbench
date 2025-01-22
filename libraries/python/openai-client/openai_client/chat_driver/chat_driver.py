@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable, Union
 
-from events import BaseEvent, ErrorEvent, MessageEvent
+from events import BaseEvent, ErrorEvent, InformationEvent, MessageEvent
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from openai.types.chat import (
     ChatCompletionMessageParam,
@@ -105,7 +105,7 @@ class ChatDriver:
 
     def register_functions(self, functions: list[Callable]) -> None:
         for function in functions:
-            self.register_function
+            self.register_function(function)
 
     # Sometimes we want to register a function to be used by both the user and
     # the model.
@@ -153,9 +153,9 @@ class ChatDriver:
             command_string = message[1:]
             try:
                 results = await self.command_list.execute_function_string(command_string, string_response=True)
-                return MessageEvent(message=results)
+                return InformationEvent(message=results)
             except Exception as e:
-                return ErrorEvent(message=f"Error! {e}", metadata={"error": str(e)})
+                return InformationEvent(message=f"Error! {e}", metadata={"error": str(e)})
 
         # If not a command, add the message to the history.
         if message is not None:

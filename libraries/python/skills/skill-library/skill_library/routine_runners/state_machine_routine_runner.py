@@ -9,9 +9,9 @@ class StateMachineRoutineRunner:
         pass
 
     async def run(
-        self, context: RunContext, routine: StateMachineRoutine, vars: dict[str, Any] | None = None
+        self, context: RunContext, routine: StateMachineRoutine, *args: Any, **kwargs: Any
     ) -> tuple[bool, Any]:
-        return await routine.init_function(context, vars)
+        return await routine.init_function(context, *args, **kwargs)
 
     async def next(self, context: RunContext, routine: StateMachineRoutine, message: str) -> tuple[bool, Any]:
         """

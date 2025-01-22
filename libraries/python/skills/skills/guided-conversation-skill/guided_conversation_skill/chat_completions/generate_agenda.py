@@ -18,14 +18,14 @@ How do agendas work? See:
 https://microsoft.sharepoint.com/:v:/t/NERDAIProgram2/EfRcEA2RSP9DuJhw8AHnAP4B12g__TFV21GOxlZvSR3mEA?e=91Wp9f&nav=eyJwbGF5YmFja09wdGlvbnMiOnt9LCJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTaGFyZVBvaW50IiwicmVmZXJyYWxNb2RlIjoibWlzIiwicmVmZXJyYWxWaWV3IjoidmlkZW9hY3Rpb25zLXNoYXJlIiwicmVmZXJyYWxQbGF5YmFja1Nlc3Npb25JZCI6ImMzYzUwNTEwLWQ1MzAtNGQyYS1iZGY3LTE2ZGViZTYwNjU4YiJ9fQ%3D%3D
 """
 
-from typing import cast
+from typing import Any, cast
 
 from guided_conversation_skill.agenda import Agenda, AgendaItem
 from guided_conversation_skill.artifact_helpers import get_artifact_for_prompt
 from guided_conversation_skill.guide import ConversationGuide
 from guided_conversation_skill.message import Conversation
 from guided_conversation_skill.resources import (
-    GCResource,
+    ConversationResource,
     ResourceConstraintMode,
     ResourceConstraintUnit,
 )
@@ -38,7 +38,6 @@ from openai_client import (
 )
 from pydantic import ValidationError
 from skill_library.types import LanguageModel
-from traitlets import Any
 
 from ..logging import extra_data, logger
 from .fix_agenda_error import fix_agenda_error
@@ -95,7 +94,7 @@ def resource_phrase(quantity: float, unit: ResourceConstraintUnit) -> str:
         return s
 
 
-def resource_instructions(resource: GCResource) -> str:
+def resource_instructions(resource: ConversationResource) -> str:
     """
     Get the resource instructions for the conversation.
 
@@ -228,7 +227,7 @@ async def generate_agenda(
     chat_history: Conversation,
     current_agenda: Agenda,
     artifact: dict[str, Any],
-    resource: GCResource,
+    resource: ConversationResource,
     max_retries: int = 2,
 ) -> tuple[Agenda, bool]:
     # STEP 1: Generate an updated agenda.

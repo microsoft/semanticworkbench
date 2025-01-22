@@ -1,5 +1,5 @@
 from guided_conversation_skill.resources import (
-    GCResource,
+    ConversationResource,
     ResourceConstraintMode,
     ResourceConstraintUnit,
 )
@@ -7,7 +7,7 @@ from guided_conversation_skill.resources import (
 
 def test_resource_init_no_constraint() -> None:
     data = {}
-    resource = GCResource.model_validate(data)
+    resource = ConversationResource.model_validate(data)
     assert resource.remaining_units == 0
     assert resource.elapsed_units == 0
 
@@ -18,7 +18,7 @@ def test_resource_init_with_constraint() -> None:
             "quantity": 10,
         },
     }
-    resource = GCResource.model_validate(data)
+    resource = ConversationResource.model_validate(data)
     assert resource.resource_constraint is not None
     assert resource.resource_constraint.mode == ResourceConstraintMode.MAXIMUM
     assert resource.resource_constraint.unit == ResourceConstraintUnit.TURNS
@@ -42,7 +42,7 @@ def test_resource_init() -> None:
         "remaining_units": 7,
         "initial_seconds_per_turn": 20,
     }
-    resource = GCResource.model_validate(data)
+    resource = ConversationResource.model_validate(data)
     assert resource.resource_constraint is not None
     assert resource.resource_constraint.mode == ResourceConstraintMode.MAXIMUM
     assert resource.resource_constraint.unit == ResourceConstraintUnit.TURNS

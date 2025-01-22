@@ -37,9 +37,10 @@ class CustomEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def extra_data(data: Any) -> dict[str, Any]:
+def add_serializable_data(data: Any) -> dict[str, Any]:
     """
-    Helper function to use when adding extra data to log messages.
+    Helper function to use when adding extra data to log messages. Data will
+    attempt to be put into a serializable format.
     """
     extra = {}
 
@@ -58,4 +59,4 @@ def extra_data(data: Any) -> dict[str, Any]:
     return extra
 
 
-extra_data = extra_data
+extra_data = add_serializable_data

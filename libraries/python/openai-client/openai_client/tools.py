@@ -197,23 +197,16 @@ class ToolFunction:
 
         return schema
 
-    async def execute(self, string_response: bool = False, *args, **kwargs) -> Any:
+    async def execute(self, *args, **kwargs) -> Any:
         """
         Run this function, and return its value. If the function is a coroutine,
         it will be awaited. If string_response is True, the response will be
         converted to a string.
         """
-        try:
-            result = self.fn(*args, **kwargs)
-            if inspect.iscoroutine(result):
-                result = await result
-            if string_response:
-                return to_string(result)
-            return result
-        except Exception as e:
-            if string_response:
-                return f"Error running function {self.name}: {e}"
-            raise e
+        result = self.fn(*args, **kwargs)
+        if inspect.iscoroutine(result):
+            result = await result
+        return result
 
 
 class FunctionHandler:
@@ -240,7 +233,7 @@ class ToolFunctions:
 
     def __init__(self, functions: list[ToolFunction] | None = None, with_help: bool = False) -> None:
         # Set up function map.
-        self.function_map = {}
+        self.function_map: dict[str, ToolFunction] = {}
         if functions:
             for function in functions:
                 self.function_map[function.name] = function
@@ -257,7 +250,7 @@ class ToolFunctions:
 
         usage = [f"{command.usage()}" for command in self.function_map.values()]
         usage.sort()
-        return "Commands:\n" + "\n".join(usage)
+        return "```text\nCommands:\n" + "\n".join(usage) + "\n```"
 
     def add_function(self, function: Callable, name: str | None = None, description: str | None = None) -> None:
         """Register a function with the tool functions."""
@@ -284,17 +277,21 @@ class ToolFunctions:
         function = self.get_function(name)
         if not function:
             raise ValueError(f"Function {name} not found in registry.")
-        return await function.execute(string_response, *args, **kwargs)
+        response = await function.execute(*args, **kwargs)
+        if string_response:
+            return to_string(response)
 
     async def execute_function_string(self, function_string: str, string_response: bool = False) -> Any:
         """Parse a function string and execute the function."""
         try:
             function, args, kwargs = self.parse_function_string(function_string)
         except ValueError as e:
-            raise ValueError(f"{e}. Type: `/help` for more information.")
+            raise ValueError(f"{e} Type: `/help` for more information.")
         if not function:
             raise ValueError("Function not found in registry. Type: `/help` for more information.")
-        return await function.execute(string_response, *args, **kwargs)
+        result = await function.execute(*args, **kwargs)
+        if string_response:
+            return to_string(result)
 
     def parse_function_string(self, function_string: str) -> tuple[ToolFunction | None, list[Any], dict[str, Any]]:
         """Parse a function call string into a function and its arguments."""

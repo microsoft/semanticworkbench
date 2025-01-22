@@ -1,11 +1,21 @@
-from .events import EventProtocol, TEvent, BaseEvent, InformationEvent, ErrorEvent, StatusUpdatedEvent, MessageEvent
+from .events import (
+    BaseEvent,
+    ErrorEvent,
+    EventProtocol,
+    InformationEvent,
+    MessageEvent,
+    NoticeEvent,
+    StatusUpdatedEvent,
+    TEvent,
+)
 
 __all__ = [
-    "EventProtocol",
-    "TEvent",
     "BaseEvent",
-    "InformationEvent",
     "ErrorEvent",
-    "StatusUpdatedEvent",
+    "EventProtocol",
+    "InformationEvent",
     "MessageEvent",
+    "NoticeEvent",
+    "StatusUpdatedEvent",
+    "TEvent",
 ]

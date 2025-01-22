@@ -3,7 +3,7 @@ from guided_conversation_skill.agenda import Agenda
 from guided_conversation_skill.chat_completions.generate_agenda import generate_agenda, resource_phrase
 from guided_conversation_skill.conversation_guides import acrostic_poem
 from guided_conversation_skill.message import Conversation
-from guided_conversation_skill.resources import GCResource, ResourceConstraintUnit
+from guided_conversation_skill.resources import ConversationResource, ResourceConstraintUnit
 from skill_library.types import LanguageModel
 
 
@@ -13,7 +13,7 @@ async def test_generate_agenda(client: LanguageModel) -> None:
     agenda = Agenda()
     artifact = {}
     definition = acrostic_poem.definition
-    resource = GCResource(resource_constraint=definition.resource_constraint)
+    resource = ConversationResource(resource_constraint=definition.resource_constraint)
     agenda, is_done = await generate_agenda(
         client,
         definition,
