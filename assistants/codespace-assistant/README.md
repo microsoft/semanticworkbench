@@ -1,6 +1,8 @@
-# Using Semantic Workbench with python assistants
+# An assistant for help in developing within the Semantic Workbench repo in Codespaces
 
-This project provides an assistant to help explore assistant ideas and capabilities, leveraging OpenAI or Azure OpenAI (or any OpenAI compatible service), allowing to use **Semantic Workbench** to test it.
+NOTE: DO NOT DEPLOY THIS ASSISTANT OUTSIDE OF CODESPACES (OR LOCAL, BUT THIS HAS NOT BEEN TESTED)
+
+This assistant is designed to help with development within the Semantic Workbench repo in Codespaces, and is not intended for deployment to production environments.
 
 ## Responsible AI
 
