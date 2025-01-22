@@ -9,7 +9,6 @@ import deepmerge
 import openai_client
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from assistant_extensions.ai_clients.model import CompletionMessage
-from assistant_extensions.artifacts import ArtifactsExtension
 from mcp import Tool
 from openai import AsyncOpenAI, NotGiven
 from openai.types.chat import (
@@ -21,7 +20,6 @@ from openai.types.chat import (
 from openai.types.shared_params import FunctionDefinition
 from pydantic import BaseModel
 from semantic_workbench_api_model.workbench_model import (
-    AssistantStateEvent,
     MessageType,
 )
 from semantic_workbench_assistant.assistant_app import (
@@ -69,12 +67,10 @@ class StructuredResponse(BaseModel):
 class OpenAIResponseProvider(ResponseProvider):
     def __init__(
         self,
-        artifacts_extension: ArtifactsExtension,
         conversation_context: ConversationContext,
         assistant_config: AssistantConfigModel,
         openai_client_config: OpenAIClientConfigModel | AzureOpenAIClientConfigModel,
     ) -> None:
-        self.artifacts_extension = artifacts_extension
         self.conversation_context = conversation_context
         self.assistant_config = assistant_config
         self.service_config = openai_client_config.service_config
@@ -154,77 +150,41 @@ class OpenAIResponseProvider(ResponseProvider):
         # generate a response from the AI model
         async with openai_client.create_client(self.service_config) as client:
             try:
-                if self.assistant_config.extensions_config.artifacts.enabled:
-                    # FIXME: consider if/how we want to use tools here
-                    response = await self.artifacts_extension.get_openai_completion_response(
-                        client,
-                        chat_message_params,
-                        self.request_config.model,
-                        self.request_config.response_tokens,
+                if self.request_config.model == "o1-preview":
+                    # o1-preview does not support tools calls, so we need to hack around that
+
+                    # make a normal completion
+                    first_completion = await self.get_completion(
+                        client, self.request_config, chat_message_params, tools
                     )
 
-                    completion = response.completion
-                    response_result.content = response.assistant_response
-                    artifacts_to_create_or_update = response.artifacts_to_create_or_update
+                    first_completion_content = first_completion.choices[0].message.content
 
-                    for artifact in artifacts_to_create_or_update:
-                        self.artifacts_extension.create_or_update_artifact(
-                            self.conversation_context,
-                            artifact,
-                        )
-                    # send an event to notify the artifact state was updated
-                    await self.conversation_context.send_conversation_state_event(
-                        AssistantStateEvent(
-                            state_id="artifacts",
-                            event="updated",
-                            state=None,
-                        )
-                    )
-                    # send a focus event to notify the assistant to focus on the artifacts
-                    await self.conversation_context.send_conversation_state_event(
-                        AssistantStateEvent(
-                            state_id="artifacts",
-                            event="focus",
-                            state=None,
-                        )
-                    )
+                    # if the message content has tools_calls content, pass to fallback model
+                    # to have it transform it to structured output
+                    if (
+                        tools is not None
+                        and first_completion_content is not None
+                        # FIXME: quick hack to test
+                        and "assistant_response" in first_completion_content
+                        and "tool_calls" in first_completion_content
+                    ):
+                        # FIXME: Disabled for now, will instead implement multi-model support
+                        # use the fallback model to transform the content to a tools call
+                        # completion = await self.use_fallback_model_to_transform_tool_calls(
+                        #     config,
+                        #     first_completion_content,
+                        #     tools,
+                        # )
 
-                else:
-                    if self.request_config.model == "o1-preview":
-                        # o1-preview does not support tools calls, so we need to hack around that
-
-                        # make a normal completion
-                        first_completion = await self.get_completion(
-                            client, self.request_config, chat_message_params, tools
-                        )
-
-                        first_completion_content = first_completion.choices[0].message.content
-
-                        # if the message content has tools_calls content, pass to fallback model
-                        # to have it transform it to structured output
-                        if (
-                            tools is not None
-                            and first_completion_content is not None
-                            # FIXME: quick hack to test
-                            and "assistant_response" in first_completion_content
-                            and "tool_calls" in first_completion_content
-                        ):
-                            # FIXME: Disabled for now, will instead implement multi-model support
-                            # use the fallback model to transform the content to a tools call
-                            # completion = await self.use_fallback_model_to_transform_tool_calls(
-                            #     config,
-                            #     first_completion_content,
-                            #     tools,
-                            # )
-
-                            raise NotImplementedError("o1-preview does not support tool calls")
-
-                        else:
-                            # no tool calls, so we can use the completion as is
-                            completion = first_completion
+                        raise NotImplementedError("o1-preview does not support tool calls")
 
                     else:
-                        completion = await self.get_completion(client, self.request_config, chat_message_params, tools)
+                        # no tool calls, so we can use the completion as is
+                        completion = first_completion
+
+                else:
+                    completion = await self.get_completion(client, self.request_config, chat_message_params, tools)
 
             except Exception as e:
                 logger.exception(f"exception occurred calling openai chat completion: {e}")

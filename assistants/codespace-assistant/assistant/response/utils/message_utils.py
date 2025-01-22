@@ -9,6 +9,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.config import AssistantConfigModel
 from assistant.response.utils.formatting_utils import format_message
 
 from ..providers import ResponseProvider
@@ -18,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 def build_system_message_content(
-    config,
-    context,
-    participants,
-    silence_token,
+    config: AssistantConfigModel,
+    context: ConversationContext,
+    participants: list[ConversationParticipant],
+    silence_token: str,
 ) -> str:
     """
     Construct the system message content with tool descriptions and instructions.
@@ -44,9 +45,6 @@ def build_system_message_content(
             "be directed at you or the general audience, go ahead and respond."
             f'\n\nSay "{silence_token}" to skip your turn.'
         )
-
-    if config.extensions_config.artifacts.enabled:
-        system_message_content += f"\n\n{config.extensions_config.artifacts.instruction_prompt}"
 
     system_message_content += f"\n\n{config.guardrails_prompt}"
 

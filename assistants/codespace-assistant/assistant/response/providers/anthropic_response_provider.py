@@ -132,38 +132,34 @@ class AnthropicResponseProvider(ResponseProvider):
         # generate a response from the AI model
         async with anthropic_client.create_client(self.service_config) as client:
             try:
-                if self.assistant_config.extensions_config.artifacts.enabled:
-                    raise NotImplementedError("Artifacts are not yet supported with our Anthropic support.")
+                # call the Anthropic API to generate a completion
+                response_message = await client.messages.create(
+                    model=self.request_config.model,
+                    max_tokens=self.request_config.response_tokens,
+                    system=system_prompt,
+                    messages=chat_message_params,
+                    tools=tools or NotGiven(),
+                )
+                content = response_message.content
 
-                else:
-                    # call the Anthropic API to generate a completion
-                    response_message = await client.messages.create(
-                        model=self.request_config.model,
-                        max_tokens=self.request_config.response_tokens,
-                        system=system_prompt,
-                        messages=chat_message_params,
-                        tools=tools or NotGiven(),
-                    )
-                    content = response_message.content
+                if not isinstance(content, list):
+                    raise ValueError("Anthropic API did not return a list of messages.")
 
-                    if not isinstance(content, list):
-                        raise ValueError("Anthropic API did not return a list of messages.")
+                for item in content:
+                    if isinstance(item, TextBlock):
+                        response_result.content = item.text
+                        continue
 
-                    for item in content:
-                        if isinstance(item, TextBlock):
-                            response_result.content = item.text
-                            continue
+                    if isinstance(item, ToolUseBlock):
+                        response_result.tool_actions = [
+                            ToolAction(
+                                id=str(uuid.UUID),
+                                name=item.name,
+                                arguments=item.input.__dict__,
+                            )
+                        ]
 
-                        if isinstance(item, ToolUseBlock):
-                            response_result.tool_actions = [
-                                ToolAction(
-                                    id=str(uuid.UUID),
-                                    name=item.name,
-                                    arguments=item.input.__dict__,
-                                )
-                            ]
-
-                        raise ValueError(f"Anthropic API returned an unexpected type: {type(item)}")
+                    raise ValueError(f"Anthropic API returned an unexpected type: {type(item)}")
 
             except Exception as e:
                 logger.exception(f"exception occurred calling openai chat completion: {e}")

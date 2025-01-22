@@ -9,10 +9,7 @@ import logging
 from typing import Any
 
 import deepmerge
-from assistant_extensions.artifacts import ArtifactsExtension
-from assistant_extensions.artifacts._model import ArtifactsConfigModel
 from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.workflows import WorkflowsConfigModel, WorkflowsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -70,21 +67,11 @@ assistant = AssistantApp(
 )
 
 
-async def artifacts_config_provider(context: AssistantContext) -> ArtifactsConfigModel:
-    return (await assistant_config.get(context)).extensions_config.artifacts
-
-
-async def workflows_config_provider(context: AssistantContext) -> WorkflowsConfigModel:
-    return (await assistant_config.get(context)).extensions_config.workflows
-
-
 async def tools_config_provider(context: AssistantContext) -> ToolsConfigModel:
     return (await assistant_config.get(context)).extensions_config.tools
 
 
-artifacts_extension = ArtifactsExtension(assistant, artifacts_config_provider)
 attachments_extension = AttachmentsExtension(assistant)
-workflows_extension = WorkflowsExtension(assistant, "content_safety", workflows_config_provider)
 
 #
 # create the FastAPI app instance
@@ -139,7 +126,6 @@ async def on_message_created(
 
         try:
             await respond_to_conversation(
-                artifacts_extension=artifacts_extension,
                 attachments_extension=attachments_extension,
                 context=context,
                 config=config,

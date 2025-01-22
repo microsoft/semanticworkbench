@@ -1,5 +1,5 @@
-from enum import StrEnum
 import json
+from enum import StrEnum
 from textwrap import dedent
 from typing import Annotated, Any, List, Optional
 
@@ -30,6 +30,7 @@ class ToolMessageType(StrEnum):
     notice = "notice"
     tool_result = "tool_result"
 
+
 @dataclass
 class ToolActionResult:
     id: str
@@ -45,7 +46,7 @@ class ToolsConfigModel(BaseModel):
             title="Enabled",
             description="Enable experimental use of tools.",
         ),
-    ] = False
+    ] = True
 
     max_steps: Annotated[
         int,
