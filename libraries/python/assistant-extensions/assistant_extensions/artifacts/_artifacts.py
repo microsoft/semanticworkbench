@@ -175,7 +175,7 @@ class ArtifactsExtension:
         """
         drive = _artifact_drive_for_context(context)
         with contextlib.suppress(FileNotFoundError):
-            drive.delete(dir=artifact_filename)
+            drive.delete(filename=artifact_filename)
 
     async def get_openai_completion_response(
         self,
