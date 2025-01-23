@@ -466,7 +466,7 @@ def extract_content_from_tool_actions(
         Tuple[str | None, List[ToolAction]]: A tuple containing the AI content and the updated list of ToolAction
         objects.
     """
-    ai_content = ""
+    ai_content: list[str] = []
     updated_tool_actions = []
 
     for tool_action in tool_actions:
@@ -475,12 +475,12 @@ def extract_content_from_tool_actions(
 
         if content is not None:
             # FIXME: let's try without showing the tool call, to prevent hallucinated calls in responses
-            ai_content = content
+            ai_content.append(content)
             # ai_content += f"{content}\n```tool_call\n{tool_action.name}\n{tool_action.arguments}\n```\n\n"
 
         updated_tool_actions.append(updated_tool_action)
 
-    return ai_content.strip(), updated_tool_actions
+    return "\n\n".join(ai_content).strip(), updated_tool_actions
 
 
 def split_ai_content_from_tool_action(
