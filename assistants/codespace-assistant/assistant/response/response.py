@@ -120,6 +120,9 @@ async def next_turn(
 ) -> TurnResult:
     turn_result = TurnResult(status="continue")
 
+    # Ensure that the metadata is a copy to prevent modification of the original
+    metadata = metadata.copy()
+
     # helper function for handling errors
     async def handle_error(error_message: str) -> TurnResult:
         await context.send_messages(
@@ -272,7 +275,7 @@ async def next_turn(
     deepmerge.always_merger.merge(
         metadata,
         {
-            "tool_actions": [tool_action.to_json() for tool_action in tool_actions],
+            "tool_actions": [tool_action.to_dict() for tool_action in tool_actions],
         },
     )
 
@@ -345,24 +348,19 @@ async def next_turn(
             logger.exception(f"Error handling tool action: {e}")
             return await handle_error("An error occurred while handling the tool action.")
 
-        # Wrap tool_action in ```tool_action<data>```
-        tool_action_formatted = f"```tool_action\n{tool_action_result.content}\n```"
-
         # Update content and metadata with tool action result metadata
         deepmerge.always_merger.merge(metadata, tool_action_result.metadata)
-
-        # FIXME: should use role "tool", but need to make sure that prior message has tool_calls prop for OpenAI
-        tool_action_result_message = CompletionMessage(
-            role="tool",
-            # tool_call_id=tool_action.id,
-            content=tool_action_formatted,
-        )
 
         # Get the token count for the tool action result
         tool_action_result_tokens = await num_tokens_from_messages(
             context=context,
             response_provider=generative_response_provider,
-            messages=[tool_action_result_message],
+            messages=[
+                CompletionMessage(
+                    role="tool",
+                    content=tool_action_result.content,
+                )
+            ],
             model=generative_request_config.model,
             metadata=metadata,
             metadata_key=f"{method_metadata_key}:tool_action_{tool_call_count}",
@@ -374,15 +372,14 @@ async def next_turn(
         else:
             return await handle_error("Could not calculate token count for tool action result.")
 
-        # Create the tool_result payload for metadata
-        tool_result = {
-            "content": tool_action_result.content,
-            "tool_call_id": tool_action.id,
-        }
+        # Add the tool_result payload to metadata
         deepmerge.always_merger.merge(
             metadata,
             {
-                "tool_result": tool_result,
+                "tool_result": {
+                    "content": tool_action_result.content,
+                    "tool_call_id": tool_action.id,
+                },
             },
         )
 

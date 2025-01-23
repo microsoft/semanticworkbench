@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 from typing import Awaitable, Callable, Sequence
@@ -65,14 +64,21 @@ async def conversation_message_to_completion_messages(
 
     # add the message to the completion messages, treating any message from a source other than the assistant
     # as a user message
-    if message.sender.participant_id == context.assistant.id:
-        metadata: dict[str, str] | None = None
-        if message.metadata.get("tool_actions"):
-            # add the tool actions to the completion messages
-            metadata = {"tool_actions": json.dumps(message.metadata["tool_actions"])}
-
+    if message.message_type == MessageType.tool_result:
         completion_messages.append(
-            CompletionMessage(role="assistant", content=format_message(message, participants), metadata=metadata)
+            CompletionMessage(
+                role="tool",
+                content=message.content,
+                tool_call_id=message.metadata.get("tool_call_id"),
+                metadata=message.metadata,
+            )
+        )
+
+    elif message.sender.participant_id == context.assistant.id:
+        completion_messages.append(
+            CompletionMessage(
+                role="assistant", content=format_message(message, participants), metadata=message.metadata
+            )
         )
 
     else:
@@ -82,15 +88,10 @@ async def conversation_message_to_completion_messages(
         if message.filenames and len(message.filenames) > 0:
             # add a system message to indicate the attachments
             completion_messages.append(
-                CompletionMessage(role="system", content=f"Attachment(s): {', '.join(message.filenames)}")
+                CompletionMessage(
+                    role="system", content=f"Attachment(s): {', '.join(message.filenames)}", metadata=message.metadata
+                )
             )
-
-    if isinstance(message.metadata.get("tool_result"), dict):
-        # add the tool results to the completion messages
-        tool_call_id = message.metadata["tool_result"].get("tool_call_id")
-        if tool_call_id is not None:
-            content = message.metadata["tool_result"].get("content", "")
-            completion_messages.append(CompletionMessage(role="tool", content=content, tool_call_id=tool_call_id))
 
     return completion_messages
 

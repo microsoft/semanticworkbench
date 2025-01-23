@@ -23,6 +23,13 @@ class ToolAction:
     name: str
     arguments: dict[str, Any]
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "arguments": self.arguments,
+        }
+
     def to_json(self, **kwargs) -> str:
         return json.dumps(self, default=lambda o: o.__dict__, **kwargs)
 
