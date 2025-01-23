@@ -18,7 +18,7 @@ class MCPServerConfig:
 
 
 @dataclass
-class ToolAction:
+class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
@@ -40,7 +40,7 @@ class ToolMessageType(StrEnum):
 
 
 @dataclass
-class ToolActionResult:
+class ToolCallResult:
     id: str
     content: str
     message_type: ToolMessageType

@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from attr import dataclass
 from pydantic import BaseModel, ConfigDict, Field
@@ -21,6 +21,7 @@ class CompletionMessageTextContent:
 class CompletionMessage:
     role: Literal["assistant", "user", "system", "tool"]
     content: str | list[CompletionMessageImageContent | CompletionMessageTextContent]
+    tool_calls: list[dict[str, Any]] | None = None
     tool_call_id: str | None = None
     metadata: dict[str, str] | None = None
 

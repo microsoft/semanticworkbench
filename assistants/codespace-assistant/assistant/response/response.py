@@ -19,7 +19,7 @@ from ..config import AssistantConfigModel
 from ..extensions.tools import (
     establish_mcp_sessions,
     get_mcp_server_prompts,
-    handle_tool_action,
+    handle_tool_call,
     retrieve_tools_from_sessions,
 )
 from .providers.openai_response_provider import OpenAIResponseProvider
@@ -264,18 +264,18 @@ async def next_turn(
 
     # Safely assign values to prevent unbound issues
     content = response_result.content if response_result.content else ""
-    tool_actions = response_result.tool_actions if response_result.tool_actions else []
+    tool_calls = response_result.tool_calls if response_result.tool_calls else []
     message_type = response_result.message_type if response_result.message_type else MessageType.chat
     completion_total_tokens = response_result.completion_total_tokens if response_result.completion_total_tokens else 0
 
     # Merge the metadata from the response with the existing metadata
     deepmerge.always_merger.merge(metadata, response_result.metadata)
 
-    # Add tool actions to the metadata
+    # Add tool calls to the metadata
     deepmerge.always_merger.merge(
         metadata,
         {
-            "tool_actions": [tool_action.to_dict() for tool_action in tool_actions],
+            "tool_calls": [tool_call.to_dict() for tool_call in tool_calls],
         },
     )
 
@@ -313,10 +313,6 @@ async def next_turn(
         # No response from the AI, nothing to send
         pass
 
-    # Override message type if content starts with '/'
-    elif content.startswith("/"):
-        message_type = MessageType.command_response
-
     # Send the AI's response to the conversation
     else:
         await context.send_messages(
@@ -327,68 +323,67 @@ async def next_turn(
             )
         )
 
-    # Check for tool actions
-    if len(tool_actions) == 0:
-        # No tool actions, exit the loop
+    # Check for tool calls
+    if len(tool_calls) == 0:
+        # No tool calls, exit the loop
         turn_result.status = "final"
-        return turn_result
-
-    # Handle tool actions
-    tool_call_count = 0
-    for tool_action in tool_actions:
-        tool_call_count += 1
-        try:
-            tool_action_result = await handle_tool_action(
-                mcp_sessions,
-                tool_action,
-                mcp_tools,
-                f"{method_metadata_key}:request:tool_action_{tool_call_count}",
-            )
-        except Exception as e:
-            logger.exception(f"Error handling tool action: {e}")
-            return await handle_error("An error occurred while handling the tool action.")
-
-        # Update content and metadata with tool action result metadata
-        deepmerge.always_merger.merge(metadata, tool_action_result.metadata)
-
-        # Get the token count for the tool action result
-        tool_action_result_tokens = await num_tokens_from_messages(
-            context=context,
-            response_provider=generative_response_provider,
-            messages=[
-                CompletionMessage(
-                    role="tool",
-                    content=tool_action_result.content,
+    else:
+        # Handle tool calls
+        tool_call_count = 0
+        for tool_call in tool_calls:
+            tool_call_count += 1
+            try:
+                tool_call_result = await handle_tool_call(
+                    mcp_sessions,
+                    tool_call,
+                    mcp_tools,
+                    f"{method_metadata_key}:request:tool_call_{tool_call_count}",
                 )
-            ],
-            model=generative_request_config.model,
-            metadata=metadata,
-            metadata_key=f"{method_metadata_key}:tool_action_{tool_call_count}",
-        )
+            except Exception as e:
+                logger.exception(f"Error handling tool call: {e}")
+                return await handle_error("An error occurred while handling the tool call.")
 
-        # Add the token count for the tool action result to the total token count
-        if tool_action_result_tokens is not None:
-            turn_result.conversation_tokens += tool_action_result_tokens.count
-        else:
-            return await handle_error("Could not calculate token count for tool action result.")
+            # Update content and metadata with tool call result metadata
+            deepmerge.always_merger.merge(metadata, tool_call_result.metadata)
 
-        # Add the tool_result payload to metadata
-        deepmerge.always_merger.merge(
-            metadata,
-            {
-                "tool_result": {
-                    "content": tool_action_result.content,
-                    "tool_call_id": tool_action.id,
-                },
-            },
-        )
-
-        await context.send_messages(
-            NewConversationMessage(
-                content=tool_action_result.content,
-                message_type=MessageType.tool_result,
+            # Get the token count for the tool call result
+            tool_call_result_tokens = await num_tokens_from_messages(
+                context=context,
+                response_provider=generative_response_provider,
+                messages=[
+                    CompletionMessage(
+                        role="tool",
+                        content=tool_call_result.content,
+                    )
+                ],
+                model=generative_request_config.model,
                 metadata=metadata,
+                metadata_key=f"{method_metadata_key}:tool_call_{tool_call_count}",
             )
-        )
+
+            # Add the token count for the tool call result to the total token count
+            if tool_call_result_tokens is not None:
+                turn_result.conversation_tokens += tool_call_result_tokens.count
+            else:
+                return await handle_error("Could not calculate token count for tool call result.")
+
+            # Add the tool_result payload to metadata
+            deepmerge.always_merger.merge(
+                metadata,
+                {
+                    "tool_result": {
+                        "content": tool_call_result.content,
+                        "tool_call_id": tool_call.id,
+                    },
+                },
+            )
+
+            await context.send_messages(
+                NewConversationMessage(
+                    content=tool_call_result.content,
+                    message_type=MessageType.tool_result,
+                    metadata=metadata,
+                )
+            )
 
     return turn_result

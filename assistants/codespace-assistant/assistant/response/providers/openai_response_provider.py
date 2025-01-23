@@ -28,7 +28,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from ...config import AssistantConfigModel
 from ...extensions.tools.__model import ToolsConfigModel
-from .base_provider import NumberTokensResult, ResponseProvider, ResponseResult, ToolAction
+from .base_provider import NumberTokensResult, ResponseProvider, ResponseResult, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class OpenAIResponseProvider(ResponseProvider):
     ) -> ResponseResult:
         response_result = ResponseResult(
             content=None,
-            tool_actions=None,
+            tool_calls=None,
             message_type=MessageType.chat,
             metadata={},
             completion_total_tokens=0,
@@ -162,8 +162,8 @@ class OpenAIResponseProvider(ResponseProvider):
 
             # check if the completion has tool calls
             if completion.choices[0].message.tool_calls:
-                ai_context, tool_actions = extract_content_from_tool_actions([
-                    ToolAction(
+                ai_context, tool_calls = extract_content_from_tool_calls([
+                    ToolCall(
                         id=tool_call.id,
                         name=tool_call.function.name,
                         arguments=json.loads(
@@ -172,7 +172,7 @@ class OpenAIResponseProvider(ResponseProvider):
                     )
                     for tool_call in completion.choices[0].message.tool_calls
                 ])
-                response_result.tool_actions = tool_actions
+                response_result.tool_calls = tool_calls
                 if ai_context is not None and ai_context.strip() != "":
                     response_content.append(ai_context)
 
@@ -220,7 +220,7 @@ class OpenAIResponseProvider(ResponseProvider):
 
         response_result = ResponseResult(
             content=None,
-            tool_actions=None,
+            tool_calls=None,
             message_type=MessageType.chat,
             metadata={},
             completion_total_tokens=0,
@@ -307,8 +307,8 @@ class OpenAIResponseProvider(ResponseProvider):
 
             # check if the completion has tool calls
             if completion.choices[0].message.tool_calls:
-                ai_context, tool_actions = extract_content_from_tool_actions([
-                    ToolAction(
+                ai_context, tool_calls = extract_content_from_tool_calls([
+                    ToolCall(
                         id=tool_call.id,
                         name=tool_call.function.name,
                         arguments=json.loads(
@@ -317,7 +317,7 @@ class OpenAIResponseProvider(ResponseProvider):
                     )
                     for tool_call in completion.choices[0].message.tool_calls
                 ])
-                response_result.tool_actions = tool_actions
+                response_result.tool_calls = tool_calls
                 if ai_context is not None and ai_context.strip() != "":
                     response_content.append(ai_context)
 
@@ -450,55 +450,53 @@ def customize_chat_message_params_for_reasoning(
     return chat_message_params
 
 
-def extract_content_from_tool_actions(
-    tool_actions: List[ToolAction],
-) -> Tuple[str | None, List[ToolAction]]:
+def extract_content_from_tool_calls(
+    tool_calls: List[ToolCall],
+) -> Tuple[str | None, List[ToolCall]]:
     """
-    Extracts the AI content from the tool actions.
+    Extracts the AI content from the tool calls.
 
-    This function takes a list of ToolAction objects and extracts the AI content from them. It returns a tuple
-    containing the AI content and the updated list of ToolAction objects.
+    This function takes a list of ToolCall objects and extracts the AI content from them. It returns a tuple
+    containing the AI content and the updated list of ToolCall objects.
 
     Args:
-        tool_actions (List[ToolAction]): The list of ToolAction objects.
+        tool_calls(List[ToolCall]): The list of ToolCall objects.
 
     Returns:
-        Tuple[str | None, List[ToolAction]]: A tuple containing the AI content and the updated list of ToolAction
+        Tuple[str | None, List[ToolCall]]: A tuple containing the AI content and the updated list of ToolCall
         objects.
     """
     ai_content: list[str] = []
-    updated_tool_actions = []
+    updated_tool_calls = []
 
-    for tool_action in tool_actions:
-        # Split the AI content from the tool action
-        content, updated_tool_action = split_ai_content_from_tool_action(tool_action)
+    for tool_call in tool_calls:
+        # Split the AI content from the tool call
+        content, updated_tool_call = split_ai_content_from_tool_call(tool_call)
 
         if content is not None:
-            # FIXME: let's try without showing the tool call, to prevent hallucinated calls in responses
             ai_content.append(content)
-            # ai_content += f"{content}\n```tool_call\n{tool_action.name}\n{tool_action.arguments}\n```\n\n"
 
-        updated_tool_actions.append(updated_tool_action)
+        updated_tool_calls.append(updated_tool_call)
 
-    return "\n\n".join(ai_content).strip(), updated_tool_actions
+    return "\n\n".join(ai_content).strip(), updated_tool_calls
 
 
-def split_ai_content_from_tool_action(
-    tool_action: ToolAction,
-) -> Tuple[str | None, ToolAction]:
+def split_ai_content_from_tool_call(
+    tool_call: ToolCall,
+) -> Tuple[str | None, ToolCall]:
     """
-    Splits the AI content from the tool action.
+    Splits the AI content from the tool call.
     """
 
-    # Check if the tool action has an "aiContext" argument
-    if "aiContext" in tool_action.arguments:
+    # Check if the tool call has an "aiContext" argument
+    if "aiContext" in tool_call.arguments:
         # Extract the AI content
-        ai_content = tool_action.arguments.pop("aiContext")
+        ai_content = tool_call.arguments.pop("aiContext")
 
-        # Return the AI content and the updated tool action
-        return ai_content, tool_action
+        # Return the AI content and the updated tool call
+        return ai_content, tool_call
 
-    return None, tool_action
+    return None, tool_call
 
 
 def convert_mcp_tools_to_openai_tools(mcp_tools: List[Tool] | None) -> List[ChatCompletionToolParam] | None:

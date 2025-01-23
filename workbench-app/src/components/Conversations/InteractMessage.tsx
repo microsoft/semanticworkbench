@@ -300,6 +300,18 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                     </SystemMessage>
                 </div>
             );
+        } else if (message.messageType === 'tool-result') {
+            renderedContent = (
+                <div className={classes.noteContent}>
+                    <SystemMessage
+                        className={classes.innerContent}
+                        icon={<TextBulletListSquareSparkleRegular />}
+                        message={content}
+                    >
+                        {content}
+                    </SystemMessage>
+                </div>
+            );
         } else if (isUser) {
             allowLink = false;
             renderedContent = <UserMessage>{content}</UserMessage>;

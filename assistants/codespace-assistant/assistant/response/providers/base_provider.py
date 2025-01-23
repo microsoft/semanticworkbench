@@ -9,7 +9,7 @@ from semantic_workbench_api_model.workbench_model import (
 
 from assistant.extensions.tools.__model import ToolsConfigModel
 
-from ...extensions.tools import ToolAction
+from ...extensions.tools import ToolCall
 
 
 @dataclass
@@ -22,7 +22,7 @@ class NumberTokensResult:
 @dataclass
 class ResponseResult:
     content: str | None
-    tool_actions: List[ToolAction] | None
+    tool_calls: List[ToolCall] | None
     message_type: MessageType
     metadata: dict[str, Any]
     completion_total_tokens: int

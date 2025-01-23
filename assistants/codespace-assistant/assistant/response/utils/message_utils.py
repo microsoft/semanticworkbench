@@ -1,6 +1,7 @@
+import json
 import logging
 import re
-from typing import Awaitable, Callable, Sequence
+from typing import Any, Awaitable, Callable, Sequence
 
 from assistant_extensions.ai_clients.model import CompletionMessage
 from semantic_workbench_api_model.workbench_model import (
@@ -65,25 +66,49 @@ async def conversation_message_to_completion_messages(
     # add the message to the completion messages, treating any message from a source other than the assistant
     # as a user message
     if message.message_type == MessageType.tool_result:
-        completion_messages.append(
-            CompletionMessage(
-                role="tool",
-                content=message.content,
-                tool_call_id=message.metadata.get("tool_call_id"),
-                metadata=message.metadata,
+        tool_result = message.metadata.get("tool_result")
+        if tool_result:
+            completion_messages.append(
+                CompletionMessage(
+                    role="tool",
+                    content=tool_result.get("content"),
+                    tool_call_id=tool_result.get("tool_call_id"),
+                    metadata=message.metadata,
+                )
             )
-        )
 
     elif message.sender.participant_id == context.assistant.id:
+        # get the tool calls from the message metadata
+        tool_calls: list[dict[str, Any]] | None = None
+        if message.metadata is not None and "tool_calls" in message.metadata:
+            # FIXME: this is forcing the OpenAI format, but it should be more generic
+            tool_calls = [
+                {
+                    "id": tool_call["id"],
+                    "type": "function",
+                    "function": {"name": tool_call["name"], "arguments": json.dumps(tool_call["arguments"])},
+                }
+                for tool_call in message.metadata["tool_calls"]
+            ]
+
         completion_messages.append(
             CompletionMessage(
-                role="assistant", content=format_message(message, participants), metadata=message.metadata
+                role="assistant",
+                content=format_message(message, participants),
+                tool_calls=tool_calls,
+                metadata=message.metadata,
             )
         )
 
     else:
         # add the user message to the completion messages
-        completion_messages.append(CompletionMessage(role="user", content=format_message(message, participants)))
+        completion_messages.append(
+            CompletionMessage(
+                role="user",
+                content=format_message(message, participants),
+                metadata=message.metadata,
+            )
+        )
 
         if message.filenames and len(message.filenames) > 0:
             # add a system message to indicate the attachments

@@ -185,6 +185,7 @@ def convert_from_completion_messages(
             messages.append(
                 create_assistant_message(
                     content=message.content,
+                    tool_calls=message.tool_calls if message.tool_calls and len(message.tool_calls) > 0 else None,
                 )
             )
             continue

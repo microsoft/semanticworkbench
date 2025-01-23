@@ -19,7 +19,7 @@ from semantic_workbench_api_model.workbench_model import (
 from assistant.extensions.tools.__model import ToolsConfigModel
 
 from ...config import AssistantConfigModel
-from .base_provider import NumberTokensResult, ResponseProvider, ResponseResult, ToolAction
+from .base_provider import NumberTokensResult, ResponseProvider, ResponseResult, ToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class AnthropicResponseProvider(ResponseProvider):
 
         response_result = ResponseResult(
             content=None,
-            tool_actions=None,
+            tool_calls=None,
             message_type=MessageType.chat,
             metadata={},
             completion_total_tokens=0,
@@ -153,8 +153,8 @@ class AnthropicResponseProvider(ResponseProvider):
                         continue
 
                     if isinstance(item, ToolUseBlock):
-                        response_result.tool_actions = [
-                            ToolAction(
+                        response_result.tool_calls = [
+                            ToolCall(
                                 id=str(uuid.UUID),
                                 name=item.name,
                                 arguments=item.input.__dict__,
