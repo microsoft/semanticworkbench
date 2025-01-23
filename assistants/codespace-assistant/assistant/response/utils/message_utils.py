@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from typing import Awaitable, Callable, Sequence
@@ -6,6 +7,7 @@ from assistant_extensions.ai_clients.model import CompletionMessage
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,
+    MessageType,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -64,7 +66,14 @@ async def conversation_message_to_completion_messages(
     # add the message to the completion messages, treating any message from a source other than the assistant
     # as a user message
     if message.sender.participant_id == context.assistant.id:
-        completion_messages.append(CompletionMessage(role="assistant", content=format_message(message, participants)))
+        metadata: dict[str, str] | None = None
+        if message.metadata.get("tool_actions"):
+            # add the tool actions to the completion messages
+            metadata = {"tool_actions": json.dumps(message.metadata["tool_actions"])}
+
+        completion_messages.append(
+            CompletionMessage(role="assistant", content=format_message(message, participants), metadata=metadata)
+        )
 
     else:
         # add the user message to the completion messages
@@ -75,6 +84,13 @@ async def conversation_message_to_completion_messages(
             completion_messages.append(
                 CompletionMessage(role="system", content=f"Attachment(s): {', '.join(message.filenames)}")
             )
+
+    if isinstance(message.metadata.get("tool_result"), dict):
+        # add the tool results to the completion messages
+        tool_call_id = message.metadata["tool_result"].get("tool_call_id")
+        if tool_call_id is not None:
+            content = message.metadata["tool_result"].get("content", "")
+            completion_messages.append(CompletionMessage(role="tool", content=content, tool_call_id=tool_call_id))
 
     return completion_messages
 
@@ -103,8 +119,10 @@ async def get_history_messages(
     before_message_id = None
 
     while True:
-        # get the next batch of messages
-        messages_response = await context.get_messages(limit=100, before=before_message_id)
+        # get the next batch of messages, including chat and tool result messages
+        messages_response = await context.get_messages(
+            limit=100, before=before_message_id, message_types=[MessageType.chat, MessageType.tool_result]
+        )
         messages_list = messages_response.messages
 
         # if there are no more messages, break the loop

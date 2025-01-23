@@ -146,6 +146,7 @@ class MessageType(StrEnum):
     log = "log"
     note = "note"
     notice = "notice"
+    tool_result = "tool-result"
 
 
 class ConversationMessage(BaseModel):

@@ -16,6 +16,8 @@ from semantic_workbench_api_model.workbench_model import (
     MessageType,
 )
 
+from assistant.extensions.tools.__model import ToolsConfigModel
+
 from ...config import AssistantConfigModel
 from .base_provider import NumberTokensResult, ResponseProvider, ResponseResult, ToolAction
 
@@ -78,9 +80,9 @@ class AnthropicResponseProvider(ResponseProvider):
 
     async def get_response(
         self,
-        config: AssistantConfigModel,
         messages: List[CompletionMessage],
         metadata_key: str,
+        tools_extension_config: ToolsConfigModel,
         mcp_tools: List[Tool] | None,
     ) -> ResponseResult:
         """

@@ -7,7 +7,8 @@ from semantic_workbench_api_model.workbench_model import (
     MessageType,
 )
 
-from ...config import AssistantConfigModel
+from assistant.extensions.tools.__model import ToolsConfigModel
+
 from ...extensions.tools import ToolAction
 
 
@@ -30,9 +31,9 @@ class ResponseResult:
 class ResponseProvider(Protocol):
     async def get_response(
         self,
-        config: AssistantConfigModel,
         messages: List[CompletionMessage],
         metadata_key: str,
+        tools_extension_config: ToolsConfigModel,
         mcp_tools: List[Tool] | None,
     ) -> ResponseResult: ...
 

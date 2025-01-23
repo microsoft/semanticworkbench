@@ -27,6 +27,7 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from ...config import AssistantConfigModel
+from ...extensions.tools.__model import ToolsConfigModel
 from .base_provider import NumberTokensResult, ResponseProvider, ResponseResult, ToolAction
 
 logger = logging.getLogger(__name__)
@@ -105,11 +106,104 @@ class OpenAIResponseProvider(ResponseProvider):
             metadata_key=metadata_key,
         )
 
-    async def get_response(
+    async def get_generative_response(
         self,
-        config: AssistantConfigModel,
         messages: List[CompletionMessage],
         metadata_key: str,
+        mcp_tools: List[Tool] | None,
+    ) -> ResponseResult:
+        response_result = ResponseResult(
+            content=None,
+            tool_actions=None,
+            message_type=MessageType.chat,
+            metadata={},
+            completion_total_tokens=0,
+        )
+
+        # define the metadata key for any metadata created within this method
+        method_metadata_key = f"{metadata_key}:openai"
+
+        # initialize variables for the response content
+        completion: ParsedChatCompletion | ChatCompletion | None = None
+
+        # convert the messages to chat completion message parameters
+        chat_message_params: List[ChatCompletionMessageParam] = openai_client.convert_from_completion_messages(messages)
+
+        # convert the tools to make them compatible with the OpenAI API
+        tools = convert_mcp_tools_to_openai_tools(mcp_tools)
+
+        # generate a response from the AI model
+        async with openai_client.create_client(self.service_config) as client:
+            try:
+                completion = await self.get_completion(client, self.request_config, chat_message_params, tools)
+
+            except Exception as e:
+                logger.exception(f"exception occurred calling openai chat completion: {e}")
+                response_result.content = (
+                    "An error occurred while calling the OpenAI API. Is it configured correctly?"
+                    " View the debug inspector for more information."
+                )
+                response_result.message_type = MessageType.notice
+                deepmerge.always_merger.merge(
+                    response_result.metadata,
+                    {"debug": {method_metadata_key: {"error": str(e)}}},
+                )
+
+        if completion is not None:
+            # get the total tokens used for the completion
+            response_result.completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
+
+            response_content: list[str] = []
+
+            if (completion.choices[0].message.content is not None) and (
+                completion.choices[0].message.content.strip() != ""
+            ):
+                response_content.append(completion.choices[0].message.content)
+
+            # check if the completion has tool calls
+            if completion.choices[0].message.tool_calls:
+                ai_context, tool_actions = extract_content_from_tool_actions([
+                    ToolAction(
+                        id=tool_call.id,
+                        name=tool_call.function.name,
+                        arguments=json.loads(
+                            tool_call.function.arguments,
+                        ),
+                    )
+                    for tool_call in completion.choices[0].message.tool_calls
+                ])
+                response_result.tool_actions = tool_actions
+                if ai_context is not None and ai_context.strip() != "":
+                    response_content.append(ai_context)
+
+            response_result.content = "\n\n".join(response_content)
+
+        # update the metadata with debug information
+        deepmerge.always_merger.merge(
+            response_result.metadata,
+            {
+                "debug": {
+                    method_metadata_key: {
+                        "request": {
+                            "model": self.request_config.model,
+                            "messages": chat_message_params,
+                            "max_tokens": self.request_config.response_tokens,
+                            "tools": tools,
+                        },
+                        "response": completion.model_dump() if completion else "[no response from openai]",
+                    },
+                },
+            },
+        )
+
+        # send the response to the conversation
+        return response_result
+
+    async def get_response(
+        self,
+        messages: List[CompletionMessage],
+        metadata_key: str,
+        tools_extension_config: ToolsConfigModel,
         mcp_tools: List[Tool] | None,
     ) -> ResponseResult:
         """
@@ -145,7 +239,9 @@ class OpenAIResponseProvider(ResponseProvider):
         tools = convert_mcp_tools_to_openai_tools(mcp_tools)
 
         if self.request_config.is_reasoning_model:
-            chat_message_params = customize_chat_message_params_for_reasoning(config, chat_message_params, tools)
+            chat_message_params = customize_chat_message_params_for_reasoning(
+                chat_message_params, tools_extension_config, tools
+            )
 
         # generate a response from the AI model
         async with openai_client.create_client(self.service_config) as client:
@@ -327,8 +423,8 @@ class OpenAIResponseProvider(ResponseProvider):
 
 
 def customize_chat_message_params_for_reasoning(
-    config: AssistantConfigModel,
     chat_message_params: List[ChatCompletionMessageParam],
+    tools_extension_config: ToolsConfigModel,
     tools: List[ChatCompletionToolParam] | None,
 ) -> List[ChatCompletionMessageParam]:
     """
@@ -337,7 +433,7 @@ def customize_chat_message_params_for_reasoning(
 
     # reasoning models do not support tool calls, so we will hack it via instruction
     if tools is not None:
-        chat_message_params = inject_tools_into_system_message(config, chat_message_params, tools)
+        chat_message_params = inject_tools_into_system_message(chat_message_params, tools_extension_config, tools)
 
     # convert all messages that use system role to user role as reasoning models do not
     # support system role - at all, not even the first message/instruction
@@ -378,7 +474,9 @@ def extract_content_from_tool_actions(
         content, updated_tool_action = split_ai_content_from_tool_action(tool_action)
 
         if content is not None:
-            ai_content += f"{content}\n```tool_call\n{tool_action.name}\n{tool_action.arguments}\n```\n\n"
+            # FIXME: let's try without showing the tool call, to prevent hallucinated calls in responses
+            ai_content = content
+            # ai_content += f"{content}\n```tool_call\n{tool_action.name}\n{tool_action.arguments}\n```\n\n"
 
         updated_tool_actions.append(updated_tool_action)
 
@@ -441,8 +539,8 @@ def convert_mcp_tools_to_openai_tools(mcp_tools: List[Tool] | None) -> List[Chat
 
 
 def inject_tools_into_system_message(
-    config: AssistantConfigModel,
     chat_message_params: List[ChatCompletionMessageParam],
+    tools_extension_config: ToolsConfigModel,
     tools: List[ChatCompletionToolParam],
 ) -> List[ChatCompletionMessageParam]:
     """
@@ -467,7 +565,7 @@ def inject_tools_into_system_message(
     first_system_message_content = chat_message_params[first_system_message_index].get("content", "")
 
     # append the tools list and descriptions to the system message
-    tools_prompt = create_tools_instructions(config, tools)
+    tools_prompt = create_tools_instructions(tools_extension_config, tools)
 
     # update the system message content to include the tools prompt
     chat_message_params[first_system_message_index]["content"] = f"{first_system_message_content}\n\n{tools_prompt}"
@@ -475,7 +573,7 @@ def inject_tools_into_system_message(
     return chat_message_params
 
 
-def create_tools_instructions(config: AssistantConfigModel, tools: List[ChatCompletionToolParam]) -> str:
+def create_tools_instructions(tools_extension_config: ToolsConfigModel, tools: List[ChatCompletionToolParam]) -> str:
     tool_definitions = ""
     for tool in tools:
         function: FunctionDefinition = tool.get("function")
@@ -486,7 +584,7 @@ def create_tools_instructions(config: AssistantConfigModel, tools: List[ChatComp
         )
 
     return openai_client.format_with_liquid(
-        config.extensions_config.tools.tools_instructions,
+        tools_extension_config.tools_instructions,
         {
             "tools": dedent(f"""
                 {tool_definitions}

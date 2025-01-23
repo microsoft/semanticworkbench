@@ -42,3 +42,8 @@ async def establish_mcp_sessions(stack: AsyncExitStack) -> List[ClientSession]:
         else:
             logger.warning(f"Could not establish session with {server_config.name}")
     return sessions
+
+
+def get_mcp_server_prompts() -> List[str]:
+    """Get the prompts for all MCP servers."""
+    return [server.prompt for server in mcp_server_configs if server.prompt]

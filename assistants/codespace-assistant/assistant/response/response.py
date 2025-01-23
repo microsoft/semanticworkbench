@@ -15,10 +15,14 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.response.providers.openai_response_provider import OpenAIResponseProvider
-
 from ..config import AssistantConfigModel
-from ..extensions.tools import establish_mcp_sessions, handle_tool_action, retrieve_tools_from_sessions
+from ..extensions.tools import (
+    establish_mcp_sessions,
+    get_mcp_server_prompts,
+    handle_tool_action,
+    retrieve_tools_from_sessions,
+)
+from .providers.openai_response_provider import OpenAIResponseProvider
 from .utils import (
     build_system_message_content,
     conversation_message_to_completion_messages,
@@ -48,9 +52,8 @@ async def respond_to_conversation(
     """
 
     async with AsyncExitStack() as stack:
+        # If tools are enabled, establish connections to the MCP servers
         mcp_sessions: List[ClientSession] = []
-        mcp_tools: List[Tool] = []
-
         if config.extensions_config.tools.enabled:
             mcp_sessions = await establish_mcp_sessions(stack)
             if not mcp_sessions:
@@ -62,6 +65,9 @@ async def respond_to_conversation(
                     )
                 )
                 return
+
+        # Retrieve prompts from the MCP servers
+        mcp_prompts = get_mcp_server_prompts()
 
         # Retrieve tools from the MCP sessions
         mcp_tools = await retrieve_tools_from_sessions(mcp_sessions)
@@ -78,6 +84,7 @@ async def respond_to_conversation(
             turn_result = await next_turn(
                 mcp_sessions=mcp_sessions,
                 mcp_tools=mcp_tools,
+                mcp_prompts=mcp_prompts,
                 attachments_extension=attachments_extension,
                 context=context,
                 config=config,
@@ -105,6 +112,7 @@ async def respond_to_conversation(
 async def next_turn(
     mcp_sessions: List[ClientSession],
     mcp_tools: List[Tool],
+    mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     config: AssistantConfigModel,
@@ -156,6 +164,10 @@ async def next_turn(
 
     # Build system message content
     system_message_content = build_system_message_content(config, context, participants, silence_token)
+
+    # Add MCP Server prompts to the system message content
+    if len(mcp_prompts) > 0:
+        system_message_content = "\n\n".join([system_message_content, *mcp_prompts])
 
     completion_messages: List[CompletionMessage] = [
         CompletionMessage(
@@ -238,8 +250,7 @@ async def next_turn(
 
     # Generate AI response
     try:
-        response_result = await generative_response_provider.get_response(
-            config=config,
+        response_result = await generative_response_provider.get_generative_response(
             messages=completion_messages,
             metadata_key=f"{method_metadata_key}:request",
             mcp_tools=mcp_tools,
@@ -254,7 +265,16 @@ async def next_turn(
     message_type = response_result.message_type if response_result.message_type else MessageType.chat
     completion_total_tokens = response_result.completion_total_tokens if response_result.completion_total_tokens else 0
 
+    # Merge the metadata from the response with the existing metadata
     deepmerge.always_merger.merge(metadata, response_result.metadata)
+
+    # Add tool actions to the metadata
+    deepmerge.always_merger.merge(
+        metadata,
+        {
+            "tool_actions": [tool_action.to_json() for tool_action in tool_actions],
+        },
+    )
 
     # Create the footer items for the response
     footer_items = []
@@ -328,12 +348,12 @@ async def next_turn(
         # Wrap tool_action in ```tool_action<data>```
         tool_action_formatted = f"```tool_action\n{tool_action_result.content}\n```"
 
-        # Update content and metadata with tool action result
+        # Update content and metadata with tool action result metadata
         deepmerge.always_merger.merge(metadata, tool_action_result.metadata)
 
         # FIXME: should use role "tool", but need to make sure that prior message has tool_calls prop for OpenAI
         tool_action_result_message = CompletionMessage(
-            role="user",
+            role="tool",
             # tool_call_id=tool_action.id,
             content=tool_action_formatted,
         )
@@ -354,10 +374,22 @@ async def next_turn(
         else:
             return await handle_error("Could not calculate token count for tool action result.")
 
+        # Create the tool_result payload for metadata
+        tool_result = {
+            "content": tool_action_result.content,
+            "tool_call_id": tool_action.id,
+        }
+        deepmerge.always_merger.merge(
+            metadata,
+            {
+                "tool_result": tool_result,
+            },
+        )
+
         await context.send_messages(
             NewConversationMessage(
-                content=tool_action_formatted,
-                message_type=MessageType.chat,
+                content=tool_action_result.content,
+                message_type=MessageType.tool_result,
                 metadata=metadata,
             )
         )

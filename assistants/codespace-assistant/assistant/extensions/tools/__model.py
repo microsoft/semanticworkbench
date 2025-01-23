@@ -14,6 +14,7 @@ class MCPServerConfig:
     command: str
     args: List[str]
     env: Optional[dict[str, str]] = None
+    prompt: Optional[str] = None
 
 
 @dataclass
