@@ -182,10 +182,21 @@ def convert_from_completion_messages(
             continue
 
         if message.role == "assistant" and isinstance(message.content, str):
+            # create tools calls, so long as the contents of the tool calls are valid
+            tool_calls: list[ChatCompletionMessageToolCallParam] | None = None
+            if message.tool_calls and len(message.tool_calls) > 0:
+                for tool_call in message.tool_calls:
+                    # verify that the tool call has the proper keys
+                    if not tool_call.get("id") or not tool_call.get("function") or not tool_call.get("type"):
+                        continue
+                    if not tool_calls:
+                        tool_calls = []
+                    tool_calls.append(ChatCompletionMessageToolCallParam(**tool_call))
+
             messages.append(
                 create_assistant_message(
                     content=message.content,
-                    tool_calls=message.tool_calls if message.tool_calls and len(message.tool_calls) > 0 else None,
+                    tool_calls=tool_calls,
                 )
             )
             continue
