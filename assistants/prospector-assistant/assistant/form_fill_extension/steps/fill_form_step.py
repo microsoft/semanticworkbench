@@ -13,7 +13,7 @@ from semantic_workbench_assistant.assistant_app.protocol import AssistantAppProt
 from semantic_workbench_assistant.config import UISchema
 
 from .. import state
-from ..inspector import FileStateInspector, StateProjection
+from ..inspector import FileStateInspector
 from . import _guided_conversation, _llm
 from .types import (
     Context,
@@ -299,11 +299,14 @@ def _get_step_state_file_path(context: ConversationContext) -> Path:
     return storage_directory_for_context(context, "fill_form_state.json")
 
 
+def project_populated_form(state: dict) -> str:
+    return state.get("populated_form_markdown") or ""
+
+
 _populated_form_state_inspector = FileStateInspector(
     display_name="Populated Form",
     file_path_source=_get_step_state_file_path,
-    projection=StateProjection.original_content,
-    select_field="populated_form_markdown",
+    projector=project_populated_form,
 )
 
 
@@ -352,6 +355,7 @@ def _generate_populated_form(
 
     def field_values(fields: list[state.FormField]) -> str:
         markdown_fields: list[str] = []
+
         for field in fields:
             value = field_value(field.id)
 

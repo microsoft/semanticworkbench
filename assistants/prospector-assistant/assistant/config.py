@@ -123,7 +123,7 @@ class AssistantConfigModel(BaseModel):
             title="Guided Workflow",
             description="The workflow extension to guide this conversation.",
         ),
-    ] = "Form Completion"
+    ] = "Document Creation"
 
     enable_debug_output: Annotated[
         bool,
