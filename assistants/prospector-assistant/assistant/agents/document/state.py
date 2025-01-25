@@ -1,18 +1,19 @@
-import json
 import logging
+from abc import abstractmethod
 from enum import StrEnum
 from os import path
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Protocol
 
 import deepmerge
 import openai_client
+from assistant.agents.document import gc_draft_content_feedback_config, gc_draft_outline_feedback_config
 from assistant_extensions.attachments import AttachmentsExtension
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,
@@ -22,9 +23,6 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import ConversationContext, storage_directory_for_context
 
 from ...config import AssistantConfigModel
-from .config import GuidedConversationConfigModel
-from .gc_draft_content_feedback_config import GCDraftContentFeedbackConfigModel
-from .gc_draft_outline_feedback_config import GCDraftOutlineFeedbackConfigModel
 from .guided_conversation import GC_ConversationStatus, GC_UserDecision, GuidedConversation
 
 logger = logging.getLogger(__name__)
@@ -35,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 
 class StepName(StrEnum):
-    UNDEFINED = "undefined"
     DRAFT_OUTLINE = "step_draft_outline"
     GC_GET_OUTLINE_FEEDBACK = "step_gc_get_outline_feedback"
     DRAFT_CONTENT = "step_draft_content"
@@ -44,128 +41,44 @@ class StepName(StrEnum):
 
 
 class StepStatus(StrEnum):
-    UNDEFINED = "undefined"
-    INITIATED = "initiated"
     NOT_COMPLETED = "not_completed"
     USER_COMPLETED = "user_completed"
     USER_EXIT_EARLY = "user_exit_early"
 
 
-class StepData(BaseModel):
-    step_name: StepName = StepName.UNDEFINED
-    run_count: int = 0
-
-
-class Step(BaseModel):
-    name: StepName = StepName.UNDEFINED
-    status: StepStatus = StepStatus.UNDEFINED
-    gc_conversation_status: GC_ConversationStatus = GC_ConversationStatus.UNDEFINED
-    gc_user_decision: GC_UserDecision = GC_UserDecision.UNDEFINED
-    execute: Callable | None = Field(default=None, exclude=True)
-
-    def __init__(self, **data: Any) -> None:
-        super().__init__(**data)
-        self._error_check()
-
-        name = data.get("name")
-        match name:
-            case StepName.DRAFT_OUTLINE:
-                self.execute = self._step_draft_outline
-            case StepName.GC_GET_OUTLINE_FEEDBACK:
-                self.execute = self._step_gc_get_outline_feedback
-            case StepName.DRAFT_CONTENT:
-                self.execute = self._step_draft_content
-            case StepName.GC_GET_CONTENT_FEEDBACK:
-                self.execute = self._step_gc_get_content_feedback
-            case StepName.FINISH:
-                self.execute = self._step_finish
-            case _:
-                print(f"{name} mode.")
-
-        logger.info(
-            "Document Agent State: Step loaded. StepName: %s, StepStatus: %s",
-            self.get_name(),
-            self.get_status(),
-        )
-
-    def _error_check(self) -> None:
-        # name and status should either both be UNDEFINED or both be defined. Always.
-        if (self.name is StepName.UNDEFINED and self.status is not StepStatus.UNDEFINED) or (
-            self.status is StepStatus.UNDEFINED and self.name is not StepName.UNDEFINED
-        ):
-            logger.error(
-                "Document Agent State: Either StepName or StepStatus is UNDEFINED, and the other is not. Both must be UNDEFINED at the same time. StepName: %s, StepStatus: %s",
-                self.name,
-                self.status,
-            )
-
-        # user decision should be set only if conversation status is completed. otherwise undefined.
-        if (
-            self.gc_conversation_status is GC_ConversationStatus.UNDEFINED
-            and self.gc_user_decision is not GC_UserDecision.UNDEFINED
-        ) or (
-            self.gc_user_decision is GC_UserDecision.UNDEFINED
-            and self.gc_conversation_status is GC_ConversationStatus.USER_COMPLETED
-        ):
-            logger.error(
-                "Document Agent State: Either GC conversation status is UNDEFINED, while GC user decision is not. Or GC user decision is UNDEFINED while GC conversation status is COMPLETED. GC conversation status: %s, GC user decision: %s",
-                self.gc_conversation_status,
-                self.gc_user_decision,
-            )
-
-    def reset(self) -> None:
-        # TODO: consider if this is the right way to reset a step, fix the # noqa: F841
-        self = Step()  # noqa: F841
-
-    def set_name(self, name: StepName) -> None:
-        if name is StepName.UNDEFINED:  # need to reset step
-            self.reset()
-        if name is not self.name:  # update if new StepName
-            self = Step(name=name, status=StepStatus.NOT_COMPLETED)
-        self._error_check()
-
-    def get_name(self) -> StepName:
-        self._error_check()
-        return self.name
-
-    def set_status(self, status: StepStatus) -> None:
-        if status is StepStatus.UNDEFINED:  # need to reset mode
-            self.reset()
-        self.status = status
-        self._error_check()
-
-    def get_status(self) -> StepStatus:
-        self._error_check()
-        return self.status
-
-    def get_gc_user_decision(self) -> GC_UserDecision:
-        self._error_check()
-        return self.gc_user_decision
-
-    def get_gc_conversation_status(self) -> GC_ConversationStatus:
-        self._error_check()
-        return self.gc_conversation_status
-
-    async def _step_draft_outline(
+class StepProtocol(Protocol):
+    @abstractmethod
+    async def execute(
         self,
-        step_data: StepData,
+        run_count: int,
         attachments_ext: AttachmentsExtension,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
-    ) -> StepStatus:
-        logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
+    ) -> tuple[StepStatus, GC_UserDecision]: ...
+
+
+class StepDraftOutline(StepProtocol):
+    async def execute(
+        self,
+        run_count: int,
+        attachments_ext: AttachmentsExtension,
+        config: AssistantConfigModel,
+        context: ConversationContext,
+        message: ConversationMessage | None,
+        metadata: dict[str, Any] = {},
+    ) -> tuple[StepStatus, GC_UserDecision]:
         method_metadata_key = "_step_draft_outline"
 
         # get conversation related info -- for now, if no message, assuming no prior conversation
-        conversation = None
-        participants_list = None
+        participants_list = await context.get_participants(include_inactive=True)
         if message is not None:
             conversation = await context.get_messages(before=message.id)
             if message.message_type == MessageType.chat:
                 conversation.messages.append(message)
-            participants_list = await context.get_participants(include_inactive=True)
+        else:
+            conversation = await context.get_messages()
 
         # get attachments related info
         attachment_messages = await attachments_ext.get_completion_messages_for_attachments(
@@ -173,10 +86,7 @@ class Step(BaseModel):
         )
 
         # get outline related info
-        outline: str | None = None
-        # path = _get_document_agent_conversation_storage_path(context)
-        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
-            outline = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+        outline = read_document_outline(context)
 
         # create chat completion messages
         chat_completion_messages: list[ChatCompletionMessageParam] = []
@@ -192,112 +102,104 @@ class Step(BaseModel):
         # make completion call to openai
         async with openai_client.create_client(config.service_config) as client:
             try:
-                completion_args = {
-                    "messages": chat_completion_messages,
-                    "model": config.request_config.openai_model,
-                    "response_format": {"type": "text"},
-                }
-                completion = await client.chat.completions.create(**completion_args)
-                message_content = completion.choices[0].message.content
+                completion = await client.chat.completions.create(
+                    messages=chat_completion_messages,
+                    model=config.request_config.openai_model,
+                    response_format={"type": "text"},
+                )
+                new_outline = completion.choices[0].message.content
                 _on_success_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, completion)
 
             except Exception as e:
-                logger.exception(f"Document Agent State: Exception occurred calling openai chat completion: {e}")
-                message_content = (
+                logger.exception("Document Agent State: Exception occurred calling openai chat completion")
+                new_outline = (
                     "An error occurred while calling the OpenAI API. Is it configured correctly?"
                     "View the debug inspector for more information."
                 )
                 _on_error_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, e)
 
         # store only latest version for now (will keep all versions later as need arises)
-        (storage_directory_for_context(context) / "document_agent/outline.txt").write_text(message_content)
+        if new_outline is not None:
+            write_document_outline(context, new_outline)
 
-        # send a command response to the conversation only if from a command. Otherwise return a normal chat message.
-        message_type = MessageType.chat
-        if message is not None and message.message_type == MessageType.command:
-            message_type = MessageType.command
+            # send a command response to the conversation only if from a command. Otherwise return a normal chat message.
+            message_type = MessageType.chat
+            if message is not None and message.message_type == MessageType.command:
+                message_type = MessageType.command
 
-        await context.send_messages(
-            NewConversationMessage(
-                content=message_content,
-                message_type=message_type,
-                metadata=metadata,
+            await context.send_messages(
+                NewConversationMessage(
+                    content=new_outline,
+                    message_type=message_type,
+                    metadata=metadata,
+                )
             )
-        )
 
-        logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
-        return StepStatus.USER_COMPLETED
+        return StepStatus.USER_COMPLETED, GC_UserDecision.UNDEFINED
 
-    async def _step_gc_get_outline_feedback(
+
+class StepGetOutlineFeedback(StepProtocol):
+    async def execute(
         self,
-        step_data: StepData,
+        run_count: int,
         attachments_ext: AttachmentsExtension,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
-    ) -> StepStatus:
-        logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
+    ) -> tuple[StepStatus, GC_UserDecision]:
         method_metadata_key = "_step_gc_get_outline_feedback"
 
-        # Initiate Guided Conversation
-        gc_outline_feedback_config: GuidedConversationConfigModel = GCDraftOutlineFeedbackConfigModel()
-        guided_conversation = GuidedConversation(
-            config=config,
-            openai_client=openai_client.create_client(config.service_config),
-            agent_config=gc_outline_feedback_config,
-            conversation_context=context,
-        )
-
         # Update artifact
-        conversation_status_str = GC_ConversationStatus.UNDEFINED
-        match step_data.run_count:  # could be bool instead. But maybe a run count use later?
-            case 0:
-                conversation_status_str = GC_ConversationStatus.USER_INITIATED
-            case _:
-                conversation_status_str = GC_ConversationStatus.USER_RETURNED
+        conversation_status_str = GC_ConversationStatus.USER_INITIATED
+        if run_count > 0:
+            conversation_status_str = GC_ConversationStatus.USER_RETURNED
 
         filenames = await attachments_ext.get_attachment_filenames(context)
         filenames_str = ", ".join(filenames)
 
-        outline_str: str = ""
-        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
-            outline_str = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+        outline_str = read_document_outline(context) or ""
+        artifact_updates = {
+            "conversation_status": conversation_status_str,
+            "filenames": filenames_str,
+            "current_outline": outline_str,
+        }
 
-        artifact_dict = guided_conversation.get_artifact_dict()
-        if artifact_dict is not None:
-            artifact_dict["conversation_status"] = conversation_status_str
-            artifact_dict["filenames"] = filenames_str
-            artifact_dict["current_outline"] = outline_str
-            guided_conversation.set_artifact_dict(artifact_dict)
-        else:
-            logger.error("Document Agent State: artifact_dict unavailable.")
+        # Initiate Guided Conversation
+        guided_conversation = GuidedConversation(
+            config=config,
+            openai_client=openai_client.create_client(config.service_config),
+            agent_config=gc_draft_outline_feedback_config.config,
+            artifact_model=gc_draft_outline_feedback_config.ArtifactModel,
+            conversation_context=context,
+            artifact_updates=artifact_updates,
+        )
+
+        step_status = StepStatus.NOT_COMPLETED
+        gc_conversation_status = GC_ConversationStatus.UNDEFINED
+        gc_user_decision = GC_UserDecision.UNDEFINED
 
         # Run conversation step
-        step_status = StepStatus.UNDEFINED
         try:
             user_message = None
-            if message is not None and self.get_status() is not StepStatus.INITIATED:
+            if message is not None:
                 user_message = message.content
                 if len(message.filenames) != 0:
                     user_message = user_message + " Newly attached files: " + filenames_str
 
             (
                 response,
-                self.gc_conversation_status,
-                self.gc_user_decision,
+                gc_conversation_status,
+                gc_user_decision,
             ) = await guided_conversation.step_conversation(
                 last_user_message=user_message,
             )
 
             # this could get cleaned up
-            if self.gc_conversation_status is GC_ConversationStatus.USER_COMPLETED:
-                if self.gc_user_decision is GC_UserDecision.EXIT_EARLY:
+            if gc_conversation_status is GC_ConversationStatus.USER_COMPLETED:
+                step_status = StepStatus.USER_COMPLETED
+                if gc_user_decision is GC_UserDecision.EXIT_EARLY:
                     step_status = StepStatus.USER_EXIT_EARLY
-                else:
-                    step_status = StepStatus.USER_COMPLETED
-            else:
-                step_status = StepStatus.NOT_COMPLETED
 
             # need to update gc state artifact?
 
@@ -305,7 +207,7 @@ class Step(BaseModel):
                 metadata,
                 {
                     "debug": {
-                        f"{method_metadata_key}": {"response": response},
+                        f"{method_metadata_key}": guided_conversation.guided_conversation_agent.to_json(),
                     }
                 },
             )
@@ -332,29 +234,29 @@ class Step(BaseModel):
             )
         )
 
-        logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
-        return step_status
+        return step_status, gc_user_decision
 
-    async def _step_draft_content(
+
+class StepDraftContent(StepProtocol):
+    async def execute(
         self,
-        step_data: StepData,
+        run_count: int,
         attachments_ext: AttachmentsExtension,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
-    ) -> StepStatus:
-        logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
+    ) -> tuple[StepStatus, GC_UserDecision]:
         method_metadata_key = "_step_draft_content"
 
         # get conversation related info -- for now, if no message, assuming no prior conversation
-        conversation = None
-        participants_list = None
+        participants_list = await context.get_participants(include_inactive=True)
         if message is not None:
             conversation = await context.get_messages(before=message.id)
             if message.message_type == MessageType.chat:
                 conversation.messages.append(message)
-            participants_list = await context.get_participants(include_inactive=True)
+        else:
+            conversation = await context.get_messages()
 
         # get attachments related info
         attachment_messages = await attachments_ext.get_completion_messages_for_attachments(
@@ -376,21 +278,19 @@ class Step(BaseModel):
             if document_outline is not None:
                 chat_completion_messages.append(_outline_system_message(document_outline))
 
-        if path.exists(storage_directory_for_context(context) / "document_agent/content.txt"):
-            document_content = (storage_directory_for_context(context) / "document_agent/content.txt").read_text()
-            if document_content is not None:  # only grabs previously written content, not all yet.
-                chat_completion_messages.append(_content_system_message(document_content))
+        document_content = read_document_content(context)
+        if document_content is not None:  # only grabs previously written content, not all yet.
+            chat_completion_messages.append(_content_system_message(document_content))
 
         # make completion call to openai
         content: str | None = None
         async with openai_client.create_client(config.service_config) as client:
             try:
-                completion_args = {
-                    "messages": chat_completion_messages,
-                    "model": config.request_config.openai_model,
-                    "response_format": {"type": "text"},
-                }
-                completion = await client.chat.completions.create(**completion_args)
+                completion = await client.chat.completions.create(
+                    messages=chat_completion_messages,
+                    model=config.request_config.openai_model,
+                    response_format={"type": "text"},
+                )
                 content = completion.choices[0].message.content
                 _on_success_metadata_update(metadata, method_metadata_key, config, chat_completion_messages, completion)
 
@@ -404,7 +304,7 @@ class Step(BaseModel):
 
         if content is not None:
             # store only latest version for now (will keep all versions later as need arises)
-            (storage_directory_for_context(context) / "document_agent/content.txt").write_text(content)
+            write_document_content(context, content)
 
             # send a command response to the conversation only if from a command. Otherwise return a normal chat message.
             message_type = MessageType.chat
@@ -419,84 +319,74 @@ class Step(BaseModel):
                 )
             )
 
-        logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
-        return StepStatus.USER_COMPLETED
+        return StepStatus.USER_COMPLETED, GC_UserDecision.UNDEFINED
 
-    async def _step_gc_get_content_feedback(
+
+class StepGetContentFeedback(StepProtocol):
+    async def execute(
         self,
-        step_data: StepData,
+        run_count: int,
         attachments_ext: AttachmentsExtension,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
-    ) -> StepStatus:
-        logger.info("Document Agent State: Step executing. StepName: %s", self.get_name())
+    ) -> tuple[StepStatus, GC_UserDecision]:
         method_metadata_key = "_step_gc_get_content_feedback"
 
-        # Initiate Guided Conversation
-        gc_outline_feedback_config: GuidedConversationConfigModel = GCDraftContentFeedbackConfigModel()
-        guided_conversation = GuidedConversation(
-            config=config,
-            openai_client=openai_client.create_client(config.service_config),
-            agent_config=gc_outline_feedback_config,
-            conversation_context=context,
-        )
-
         # Update artifact
-        conversation_status_str = GC_ConversationStatus.UNDEFINED
-        match step_data.run_count:  # could be bool instead. But maybe a run count use later?
-            case 0:
-                conversation_status_str = GC_ConversationStatus.USER_INITIATED
-            case _:
-                conversation_status_str = GC_ConversationStatus.USER_RETURNED
+        conversation_status_str = GC_ConversationStatus.USER_INITIATED
+        if run_count > 0:
+            conversation_status_str = GC_ConversationStatus.USER_RETURNED
 
         filenames = await attachments_ext.get_attachment_filenames(context)
         filenames_str = ", ".join(filenames)
 
-        outline_str: str = ""
-        if path.exists(storage_directory_for_context(context) / "document_agent/outline.txt"):
-            outline_str = (storage_directory_for_context(context) / "document_agent/outline.txt").read_text()
+        outline_str = read_document_outline(context) or ""
+        content_str = read_document_content(context) or ""
 
-        content_str: str = ""
-        if path.exists(storage_directory_for_context(context) / "document_agent/content.txt"):
-            content_str = (storage_directory_for_context(context) / "document_agent/content.txt").read_text()
+        artifact_updates = {
+            "conversation_status": conversation_status_str,
+            "filenames": filenames_str,
+            "approved_outline": outline_str,
+            "current_content": content_str,
+        }
 
-        artifact_dict = guided_conversation.get_artifact_dict()
-        if artifact_dict is not None:
-            artifact_dict["conversation_status"] = conversation_status_str
-            artifact_dict["filenames"] = filenames_str
-            artifact_dict["approved_outline"] = outline_str
-            artifact_dict["current_content"] = content_str
-            guided_conversation.set_artifact_dict(artifact_dict)
-        else:
-            logger.error("Document Agent State: artifact_dict unavailable.")
+        # Initiate Guided Conversation
+        guided_conversation = GuidedConversation(
+            config=config,
+            openai_client=openai_client.create_client(config.service_config),
+            agent_config=gc_draft_content_feedback_config.config,
+            artifact_model=gc_draft_content_feedback_config.ArtifactModel,
+            conversation_context=context,
+            artifact_updates=artifact_updates,
+        )
+
+        step_status = StepStatus.NOT_COMPLETED
+        gc_conversation_status = GC_ConversationStatus.UNDEFINED
+        gc_user_decision = GC_UserDecision.UNDEFINED
 
         # Run conversation step
-        step_status = StepStatus.UNDEFINED
         try:
             user_message = None
-            if message is not None and self.get_status() is not StepStatus.INITIATED:
+            if message is not None:
                 user_message = message.content
                 # if len(message.filenames) != 0:  # Not sure we want to support this right now for content/page
                 #    user_message = user_message + " Newly attached files: " + filenames_str
 
             (
                 response,
-                self.gc_conversation_status,
-                self.gc_user_decision,
+                gc_conversation_status,
+                gc_user_decision,
             ) = await guided_conversation.step_conversation(
                 last_user_message=user_message,
             )
 
             # this could get cleaned up
-            if self.gc_conversation_status is GC_ConversationStatus.USER_COMPLETED:
-                if self.gc_user_decision is GC_UserDecision.EXIT_EARLY:
+            if gc_conversation_status is GC_ConversationStatus.USER_COMPLETED:
+                step_status = StepStatus.USER_COMPLETED
+                if gc_user_decision is GC_UserDecision.EXIT_EARLY:
                     step_status = StepStatus.USER_EXIT_EARLY
-                else:
-                    step_status = StepStatus.USER_COMPLETED
-            else:
-                step_status = StepStatus.NOT_COMPLETED
 
             # need to update gc state artifact?
 
@@ -531,20 +421,21 @@ class Step(BaseModel):
             )
         )
 
-        logger.info("Document Agent State: Step executed. StepName: %s", self.get_name())
-        return step_status
+        return step_status, gc_user_decision
 
-    async def _step_finish(
+
+class StepFinish(StepProtocol):
+    async def execute(
         self,
-        step_data: StepData,
+        run_count: int,
         attachments_ext: AttachmentsExtension,
         config: AssistantConfigModel,
         context: ConversationContext,
         message: ConversationMessage | None,
         metadata: dict[str, Any] = {},
-    ) -> StepStatus:
+    ) -> tuple[StepStatus, GC_UserDecision]:
         # Can do other things here if necessary
-        return StepStatus.USER_COMPLETED
+        return StepStatus.USER_COMPLETED, GC_UserDecision.UNDEFINED
 
 
 # endregion
@@ -556,155 +447,15 @@ class Step(BaseModel):
 
 
 class ModeName(StrEnum):
-    UNDEFINED = "undefined"
     DRAFT_OUTLINE = "mode_draft_outline"
     DRAFT_PAPER = "mode_draft_paper"
 
 
 class ModeStatus(StrEnum):
-    UNDEFINED = "undefined"
     INITIATED = "initiated"
     NOT_COMPLETED = "not_completed"
     USER_COMPLETED = "user_completed"
     USER_EXIT_EARLY = "user_exit_early"
-
-
-class Mode(BaseModel):
-    name: ModeName = ModeName.UNDEFINED
-    status: ModeStatus = ModeStatus.UNDEFINED
-    current_step: Step = Step()
-    get_next_step: Callable | None = Field(default=None, exclude=True)
-
-    def __init__(self, **data: Any) -> None:
-        super().__init__(**data)
-        self._error_check()
-
-        name = data.get("name")
-        match name:
-            case ModeName.DRAFT_OUTLINE:
-                self.get_next_step = self._draft_outline_mode_get_next_step
-            case ModeName.DRAFT_PAPER:
-                self.get_next_step = self._draft_paper_mode_get_next_step
-        if self.get_next_step is not None:
-            if self.get_step().get_name() is StepName.UNDEFINED:
-                self.set_step(self.get_next_step())
-
-        logger.info(
-            "Document Agent State: Mode loaded. ModeName: %s, ModeStatus: %s, Current StepName: %s, Current StepStatus: %s",
-            self.get_name(),
-            self.get_status(),
-            self.get_step().get_name(),
-            self.get_step().get_status(),
-        )
-
-    def _draft_paper_mode_get_next_step(self) -> Step:
-        current_step_name = self.get_step().get_name()
-        logger.info("Document Agent State: Getting next step.")
-
-        match current_step_name:
-            case StepName.UNDEFINED:
-                current_step_name = StepName.DRAFT_OUTLINE
-            case StepName.DRAFT_OUTLINE:
-                current_step_name = StepName.GC_GET_OUTLINE_FEEDBACK
-            case StepName.GC_GET_OUTLINE_FEEDBACK:
-                user_decision = self.get_step().get_gc_user_decision()
-                if user_decision is not GC_UserDecision.UNDEFINED:
-                    match user_decision:
-                        case GC_UserDecision.UPDATE_OUTLINE:
-                            current_step_name = StepName.DRAFT_OUTLINE
-                        case GC_UserDecision.DRAFT_PAPER:
-                            current_step_name = StepName.DRAFT_CONTENT
-                        case GC_UserDecision.EXIT_EARLY:
-                            current_step_name = StepName.FINISH
-            case StepName.DRAFT_CONTENT:
-                current_step_name = StepName.GC_GET_CONTENT_FEEDBACK
-            case StepName.GC_GET_CONTENT_FEEDBACK:
-                user_decision = self.get_step().get_gc_user_decision()
-                if user_decision is not GC_UserDecision.UNDEFINED:
-                    match user_decision:
-                        case GC_UserDecision.UPDATE_CONTENT:
-                            current_step_name = StepName.DRAFT_CONTENT
-                        case GC_UserDecision.DRAFT_NEXT_CONTENT:  # not implemented yet
-                            current_step_name = StepName.FINISH
-                        case GC_UserDecision.EXIT_EARLY:
-                            current_step_name = StepName.FINISH
-            case StepName.FINISH:
-                return Step(name=StepName.UNDEFINED, status=StepStatus.UNDEFINED)
-
-        return Step(name=current_step_name, status=StepStatus.INITIATED)
-
-    def _draft_outline_mode_get_next_step(self) -> Step:
-        current_step_name = self.get_step().get_name()
-        logger.info("Document Agent State: Getting next step.")
-
-        match current_step_name:
-            case StepName.UNDEFINED:
-                current_step_name = StepName.DRAFT_OUTLINE
-            case StepName.DRAFT_OUTLINE:
-                current_step_name = StepName.GC_GET_OUTLINE_FEEDBACK
-            case StepName.GC_GET_OUTLINE_FEEDBACK:
-                user_decision = self.get_step().get_gc_user_decision()
-                if user_decision is not GC_UserDecision.UNDEFINED:
-                    match user_decision:
-                        case GC_UserDecision.UPDATE_OUTLINE:
-                            current_step_name = StepName.DRAFT_OUTLINE
-                        case GC_UserDecision.DRAFT_PAPER:
-                            current_step_name = StepName.FINISH
-                        case GC_UserDecision.EXIT_EARLY:
-                            current_step_name = StepName.FINISH
-            case StepName.FINISH:
-                return Step(name=StepName.UNDEFINED, status=StepStatus.UNDEFINED)
-
-        return Step(name=current_step_name, status=StepStatus.INITIATED)
-
-    def _error_check(self) -> None:
-        # name and status should either both be UNDEFINED or both be defined. Always.
-        if (self.name is ModeName.UNDEFINED and self.status is not ModeStatus.UNDEFINED) or (
-            self.status is ModeStatus.UNDEFINED and self.name is not ModeName.UNDEFINED
-        ):
-            logger.error(
-                "Document Agent State: Either ModeName or ModeStatus is UNDEFINED, and the other is not. Both must be UNDEFINED at the same time. ModeName: %s, ModeStatus: %s",
-                self.name,
-                self.status,
-            )
-
-    def reset(self) -> None:
-        # TODO: consider if this is the right way to reset a mode, fix the # noqa: F841
-        self = Mode()  # noqa: F841
-
-    def set_name(self, name: ModeName) -> None:
-        if name is ModeName.UNDEFINED:  # need to reset mode
-            self.reset()
-        if name is not self.name:  # update if new mode name
-            self = Mode(name=name, status=ModeStatus.NOT_COMPLETED)
-        self._error_check()
-
-    def get_name(self) -> ModeName:
-        self._error_check()
-        return self.name
-
-    def set_status(self, status: ModeStatus) -> None:
-        if status is ModeStatus.UNDEFINED:  # need to reset mode
-            self.reset()
-        self.status = status
-        self._error_check()
-
-    def get_status(self) -> ModeStatus:
-        self._error_check()
-        return self.status
-
-    def is_running(self) -> bool:
-        if self.status is ModeStatus.NOT_COMPLETED:
-            return True
-        if self.status is ModeStatus.INITIATED:
-            return True
-        return False  # UNDEFINED, USER_EXIT_EARLY, USER_COMPLETED
-
-    def set_step(self, step: Step) -> None:
-        self.current_step = step
-
-    def get_step(self) -> Step:
-        return self.current_step
 
 
 # endregion
@@ -716,32 +467,11 @@ class Mode(BaseModel):
 
 
 class State(BaseModel):
-    mode: Mode = Mode()
-    step_data_list: list[StepData] = []
-
-    def set_mode(self, mode: Mode) -> None:
-        self.mode = mode
-
-    def set_step_data(self, step_data: StepData) -> None:
-        step_name = step_data.step_name
-        for sd in self.step_data_list:
-            if sd.step_name == step_name:
-                sd = step_data
-                return
-        # did not exist yet, so adding
-        self.step_data_list.append(step_data)
-
-    def get_step_data_list(self) -> list[StepData]:
-        return self.step_data_list
-
-    def get_step_data(self, step_name: StepName) -> StepData:
-        for sd in self.step_data_list:
-            if sd.step_name == step_name:
-                return sd
-        # did not exist yet, so adding
-        new_step_data = StepData(step_name=step_name)
-        self.step_data_list.append(new_step_data)
-        return new_step_data
+    step_run_count: dict[str, int] = {}
+    mode_name: ModeName = ModeName.DRAFT_OUTLINE
+    mode_status: ModeStatus = ModeStatus.INITIATED
+    current_step_name: StepName = StepName.DRAFT_OUTLINE
+    current_step_status: StepStatus = StepStatus.NOT_COMPLETED
 
 
 # endregion
@@ -751,60 +481,77 @@ class State(BaseModel):
 #
 
 
-@staticmethod
-def mode_prerequisite_check(state: State, correct_mode_name: ModeName) -> bool:
-    mode_name = state.mode.get_name()
-    mode_status = state.mode.get_status()
-    if mode_name is not correct_mode_name or (
-        mode_status is not ModeStatus.NOT_COMPLETED and mode_status is not ModeStatus.INITIATED
-    ):
-        logger.error(
-            "Document Agent State: ModeName: %s, ModeStatus: %s, ModeName called: %s.",
-            mode_name,
-            mode_status,
-            correct_mode_name,
-        )
-        return False
-    return True
-
-
-@staticmethod
-def _get_document_agent_conversation_storage_path(context: ConversationContext, filename: str | None = None) -> Path:
+def _get_document_agent_conversation_storage_path(context: ConversationContext) -> Path:
     """
     Get the path to the directory for storing files.
     """
     path = storage_directory_for_context(context) / "document_agent"
-    if filename:
-        path /= filename
+    if not path.exists():
+        path.mkdir(parents=True)
+
     return path
 
 
-@staticmethod
-def write_document_agent_conversation_state(context: ConversationContext, state_dict: dict) -> None:
+def write_document_agent_conversation_state(context: ConversationContext, state: State) -> None:
     """
     Write the state to a file.
     """
-    json_data = json.dumps(state_dict)
     path = _get_document_agent_conversation_storage_path(context)
-    if not path.exists():
-        path.mkdir(parents=True)
     path = path / "state.json"
-    path.write_text(json_data)
+    path.write_text(state.model_dump_json())
 
 
-@staticmethod
-def read_document_agent_conversation_state(context: ConversationContext) -> dict | None:
+def read_document_agent_conversation_state(context: ConversationContext) -> State:
     """
     Read the state from a file.
     """
-    path = _get_document_agent_conversation_storage_path(context, "state.json")
+    path = _get_document_agent_conversation_storage_path(context) / "state.json"
     if path.exists():
         try:
             json_data = path.read_text()
-            return json.loads(json_data)
+            return State.model_validate_json(json_data)
         except Exception:
             pass
-    return None
+
+    return State()
+
+
+def read_document_outline(context: ConversationContext) -> str | None:
+    """
+    Read the outline from a file.
+    """
+    path = _get_document_agent_conversation_storage_path(context) / "outline.txt"
+    if not path.exists():
+        return None
+
+    return path.read_text()
+
+
+def write_document_outline(context: ConversationContext, outline: str) -> None:
+    """
+    Write the outline to a file.
+    """
+    path = _get_document_agent_conversation_storage_path(context) / "outline.txt"
+    path.write_text(outline)
+
+
+def read_document_content(context: ConversationContext) -> str | None:
+    """
+    Read the content from a file.
+    """
+    path = _get_document_agent_conversation_storage_path(context) / "content.txt"
+    if not path.exists():
+        return None
+
+    return path.read_text()
+
+
+def write_document_content(context: ConversationContext, content: str) -> None:
+    """
+    Write the content to a file.
+    """
+    path = _get_document_agent_conversation_storage_path(context) / "content.txt"
+    path.write_text(content)
 
 
 @staticmethod

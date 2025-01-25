@@ -63,7 +63,7 @@ class GuidedConversation:
     def __init__(
         self,
         kernel: Kernel,
-        artifact: BaseModel,
+        artifact: type[BaseModel],
         rules: list[str],
         conversation_flow: str | None,
         context: str | None,
@@ -383,7 +383,7 @@ class GuidedConversation:
         cls,
         json_data: dict,
         kernel: Kernel,
-        artifact: BaseModel,
+        artifact: type[BaseModel],
         rules: list[str],
         conversation_flow: str | None,
         context: str | None,

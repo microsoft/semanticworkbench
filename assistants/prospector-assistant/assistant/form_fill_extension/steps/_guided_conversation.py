@@ -54,7 +54,7 @@ async def engine(
                 kernel=kernel,
                 service_id=service_id,
                 # context
-                artifact=artifact_type.model_construct(),
+                artifact=artifact_type,
                 rules=definition.rules,
                 conversation_flow=definition.conversation_flow,
                 context=definition.context,
@@ -69,7 +69,7 @@ async def engine(
                 kernel=kernel,
                 service_id=service_id,
                 # context
-                artifact=artifact_type.model_construct(),
+                artifact=artifact_type,
                 rules=definition.rules,
                 conversation_flow=definition.conversation_flow,
                 context=definition.context,
