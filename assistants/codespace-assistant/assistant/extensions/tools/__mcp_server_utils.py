@@ -1,5 +1,5 @@
 import logging
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import AsyncIterator, List, Optional
 
 from mcp import ClientSession
@@ -29,7 +29,7 @@ async def connect_to_mcp_server(server_config: MCPServerConfig) -> AsyncIterator
         yield None  # Yield None if connection fails
 
 
-async def establish_mcp_sessions(config_file: str, stack) -> List[ClientSession]:
+async def establish_mcp_sessions(stack: AsyncExitStack) -> List[ClientSession]:
     """
     Establish connections to MCP servers using the provided AsyncExitStack.
     """
@@ -42,3 +42,8 @@ async def establish_mcp_sessions(config_file: str, stack) -> List[ClientSession]
         else:
             logger.warning(f"Could not establish session with {server_config.name}")
     return sessions
+
+
+def get_mcp_server_prompts() -> List[str]:
+    """Get the prompts for all MCP servers."""
+    return [server.prompt for server in mcp_server_configs if server.prompt]

@@ -76,10 +76,33 @@ export const DebugInspector: React.FC<DebugInspectorProps> = (props) => {
                             hideRoot
                             invertTheme
                             collectionLimit={10}
-                            shouldExpandNodeInitially={(keyPath /*, data, level*/) => {
+                            shouldExpandNodeInitially={(keyPath, _data, level) => {
+                                // Intended to be processed in order of appearance, written to
+                                // exit early if the criteria is met, fallthrough to the next
+                                // condition if it is not and eventually return true.
+
                                 // Leave any of the following keys collapsed
-                                const keepCollapsed = ['content_safety', 'image_url'];
-                                return !keepCollapsed.includes(String(keyPath[0]));
+                                const keepCollapsed = ['content_safety', 'content_filter_results', 'image_url'];
+                                if (keepCollapsed.includes(String(keyPath[0]))) {
+                                    return false;
+                                }
+
+                                // Expand the following keys by default
+                                const keepExpanded = ['choices'];
+                                if (keepExpanded.includes(String(keyPath[0]))) {
+                                    return true;
+                                }
+
+                                // Collapse at specified level by default.
+                                // By only returning false for the specified level, we can collapse
+                                // all nodes at that level but still expand the rest, including their
+                                // children so that they are easy to view after expanding the parent.
+                                if (level === 3) {
+                                    return false;
+                                }
+
+                                // Expand all other nodes by default.
+                                return true;
                             }}
                             theme={{
                                 base00: '#000000',

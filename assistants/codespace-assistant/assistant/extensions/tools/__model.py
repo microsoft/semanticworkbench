@@ -1,5 +1,5 @@
-from enum import StrEnum
 import json
+from enum import StrEnum
 from textwrap import dedent
 from typing import Annotated, Any, List, Optional
 
@@ -14,13 +14,21 @@ class MCPServerConfig:
     command: str
     args: List[str]
     env: Optional[dict[str, str]] = None
+    prompt: Optional[str] = None
 
 
 @dataclass
-class ToolAction:
+class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "arguments": self.arguments,
+        }
 
     def to_json(self, **kwargs) -> str:
         return json.dumps(self, default=lambda o: o.__dict__, **kwargs)
@@ -30,8 +38,9 @@ class ToolMessageType(StrEnum):
     notice = "notice"
     tool_result = "tool_result"
 
+
 @dataclass
-class ToolActionResult:
+class ToolCallResult:
     id: str
     content: str
     message_type: ToolMessageType
@@ -45,7 +54,7 @@ class ToolsConfigModel(BaseModel):
             title="Enabled",
             description="Enable experimental use of tools.",
         ),
-    ] = False
+    ] = True
 
     max_steps: Annotated[
         int,

@@ -6,7 +6,7 @@ import deepmerge
 from mcp import ClientSession, Tool
 from mcp.types import TextContent
 
-from .__model import ToolAction, ToolActionResult, ToolMessageType
+from .__model import ToolCall, ToolCallResult, ToolMessageType
 
 logger = logging.getLogger(__name__)
 
@@ -27,41 +27,41 @@ async def retrieve_tools_from_sessions(sessions: List[ClientSession]) -> List[To
     return all_tools
 
 
-async def handle_tool_action(
+async def handle_tool_call(
     sessions: List[ClientSession],
-    tool_action: ToolAction,
+    tool_call: ToolCall,
     all_mcp_tools: List[Tool],
     method_metadata_key: str,
-) -> ToolActionResult:
+) -> ToolCallResult:
     """
-    Handle the tool action by invoking the appropriate tool and returning a ToolActionsResult.
+    Handle the tool call by invoking the appropriate tool and returning a ToolCallResult.
     """
 
     metadata = {}
 
-    tool = next((t for t in all_mcp_tools if t.name == tool_action.name), None)
+    tool = next((t for t in all_mcp_tools if t.name == tool_call.name), None)
     if not tool:
-        return ToolActionResult(
-            id=tool_action.id,
-            content=f"Tool '{tool_action.name}' not found.",
+        return ToolCallResult(
+            id=tool_call.id,
+            content=f"Tool '{tool_call.name}' not found.",
             message_type=ToolMessageType.notice,
             metadata={},
         )
 
     target_session = next(
-        (session for session in sessions if tool_action.name in [tool.name for tool in all_mcp_tools]), None
+        (session for session in sessions if tool_call.name in [tool.name for tool in all_mcp_tools]), None
     )
 
     if not target_session:
-        raise ValueError(f"Tool '{tool_action.name}' not found in any of the sessions.")
+        raise ValueError(f"Tool '{tool_call.name}' not found in any of the sessions.")
 
-    # Update metadata with tool action details
+    # Update metadata with tool call details
     deepmerge.always_merger.merge(
         metadata,
         {
             "debug": {
                 method_metadata_key: {
-                    "tool_action": tool_action.to_json(),
+                    "tool_call": tool_call.to_json(),
                 },
             },
         },
@@ -72,12 +72,12 @@ async def handle_tool_action(
 
     # Invoke the tool
     try:
-        logger.debug(f"Invoking tool '{tool_action.name}' with arguments: {tool_action.arguments}")
-        tool_result = await target_session.call_tool(tool_action.name, tool_action.arguments)
+        logger.debug(f"Invoking tool '{tool_call.name}' with arguments: {tool_call.arguments}")
+        tool_result = await target_session.call_tool(tool_call.name, tool_call.arguments)
         tool_output = tool_result.content[0] if tool_result.content else ""
     except Exception as e:
-        logger.exception(f"Error executing tool '{tool_action.name}': {e}")
-        tool_output = f"An error occurred while executing the tool '{tool_action.to_json()}': {e}"
+        logger.exception(f"Error executing tool '{tool_call.name}': {e}")
+        tool_output = f"An error occurred while executing the tool '{tool_call.to_json()}': {e}"
 
     # Update metadata with tool result
     deepmerge.always_merger.merge(
@@ -91,7 +91,7 @@ async def handle_tool_action(
         },
     )
 
-    # Return the tool action result
+    # Return the tool call result
     content: str | None = None
     if isinstance(tool_output, str):
         content = tool_output
@@ -99,9 +99,9 @@ async def handle_tool_action(
     if isinstance(tool_output, TextContent):
         content = tool_output.text
 
-    # Return the tool action result
-    return ToolActionResult(
-        id=tool_action.id,
+    # Return the tool call result
+    return ToolCallResult(
+        id=tool_call.id,
         content=content or "Error executing tool, unsupported output type.",
         message_type=ToolMessageType.tool_result,
         metadata=metadata,
