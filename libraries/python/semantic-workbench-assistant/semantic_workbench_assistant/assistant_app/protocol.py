@@ -203,7 +203,6 @@ class MessageEvents(ObjectEventHandlers[ConversationMessageEventHandler]):
         self.notice = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
         self.command = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
         self.command_response = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
-        self.tool_result = ObjectEventHandlers[ConversationMessageEventHandler](on_updated=False)
         # ensure we have an event handler for each message type
         for event_type in workbench_model.MessageType:
             assert getattr(self, str(event_type).replace("-", "_"))
@@ -222,8 +221,6 @@ class MessageEvents(ObjectEventHandlers[ConversationMessageEventHandler]):
                 return self.command
             case workbench_model.MessageType.command_response:
                 return self.command_response
-            case workbench_model.MessageType.tool_result:
-                return self.tool_result
             case _:
                 raise KeyError(key)
 

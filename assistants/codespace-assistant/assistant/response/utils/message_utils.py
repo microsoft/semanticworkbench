@@ -61,7 +61,7 @@ def conversation_message_to_tool_message(
     message: ConversationMessage,
 ) -> ChatCompletionToolMessageParam | None:
     """
-    Convert a conversation message to a tool message.
+    Check to see if the message contains a tool result and return a tool message if it does.
     """
     tool_result = message.metadata.get("tool_result")
     if tool_result is not None:
@@ -147,7 +147,8 @@ async def conversation_message_to_chat_message_params(
     chat_message_params: list[ChatCompletionMessageParam] = []
 
     # add the message to list, treating messages from a source other than this assistant as a user message
-    if message.message_type == MessageType.tool_result:
+    if message.message_type == MessageType.note:
+        # we are stuffing tool messages into the note message type, so we need to check for that
         tool_message = conversation_message_to_tool_message(message)
         if tool_message is not None:
             chat_message_params.append(tool_message)
@@ -197,7 +198,7 @@ async def get_history_messages(
     while True:
         # get the next batch of messages, including chat and tool result messages
         messages_response = await context.get_messages(
-            limit=100, before=before_message_id, message_types=[MessageType.chat, MessageType.tool_result]
+            limit=100, before=before_message_id, message_types=[MessageType.chat, MessageType.note]
         )
         messages_list = messages_response.messages
 

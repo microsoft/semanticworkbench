@@ -198,7 +198,7 @@ async def handle_completion(
             await context.send_messages(
                 NewConversationMessage(
                     content=tool_call_result.content,
-                    message_type=MessageType.tool_result,
+                    message_type=MessageType.note,
                     metadata=step_result.metadata,
                 )
             )
