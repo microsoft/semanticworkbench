@@ -5,6 +5,7 @@ from pathlib import Path
 
 from guided_conversation.guided_conversation_agent import GuidedConversation as GuidedConversationAgent
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
 from semantic_workbench_assistant.assistant_app import (
@@ -47,7 +48,9 @@ class GuidedConversation:
         config: AssistantConfigModel,
         openai_client: AsyncOpenAI,
         agent_config: GuidedConversationConfigModel,
+        artifact_model: type[BaseModel],
         conversation_context: ConversationContext,
+        artifact_updates: dict = {},
     ) -> None:
         self.guided_conversation_agent: GuidedConversationAgent
         self.conversation_context: ConversationContext = conversation_context
@@ -62,73 +65,39 @@ class GuidedConversation:
         )
         self.kernel.add_service(chat_service)
 
-        self.artifact_model = agent_config.get_artifact_model()
+        self.artifact_model = artifact_model
         self.conversation_flow = agent_config.conversation_flow
         self.context = agent_config.context
         self.rules = agent_config.rules
         self.resource_constraint = agent_config.resource_constraint
 
         state = _read_guided_conversation_state(conversation_context)
-        if state:
-            self.guided_conversation_agent = GuidedConversationAgent.from_json(
-                json_data=state,
-                kernel=self.kernel,
-                artifact=self.artifact_model,  # type: ignore
-                conversation_flow=self.conversation_flow,
-                context=self.context,
-                rules=self.rules,
-                resource_constraint=self.resource_constraint,
-                service_id=self.service_id,
-            )
-        else:
+        if not state:
             self.guided_conversation_agent = GuidedConversationAgent(
                 kernel=self.kernel,
-                artifact=self.artifact_model,  # type: ignore
+                artifact=self.artifact_model,
                 conversation_flow=self.conversation_flow,
                 context=self.context,
                 rules=self.rules,
                 resource_constraint=self.resource_constraint,
                 service_id=self.service_id,
             )
-            _write_guided_conversation_state(conversation_context, self.guided_conversation_agent.to_json())
+            state = self.guided_conversation_agent.to_json()
 
-    @staticmethod
-    def get_state(
-        conversation_context: ConversationContext,
-    ) -> dict | None:
-        """
-        Get the state of the guided conversation agent.
-        """
-        return _read_guided_conversation_state(conversation_context)
+        if artifact_updates:
+            state["artifact"]["artifact"].update(artifact_updates)
 
-    def get_artifact_dict(self) -> dict | None:
-        artifact_dict = None
-        state_dict = self.get_state(self.conversation_context)
-        if state_dict is not None:
-            artifact_item = state_dict.get("artifact")
-            if artifact_item is not None:
-                artifact_dict = artifact_item.get("artifact")
-        return artifact_dict
-
-    def set_artifact_dict(self, artifact_dict: dict) -> None:
-        state_dict = self.get_state(self.conversation_context)
-        if state_dict is not None:
-            artifact_item = state_dict.get("artifact")
-            if artifact_item is not None:
-                artifact_item["artifact"] = artifact_dict
-                # Update storage with new state info
-                _write_guided_conversation_state(self.conversation_context, state_dict)
-                # Update GC with new state info
-                self.guided_conversation_agent = GuidedConversationAgent.from_json(
-                    json_data=state_dict,
-                    kernel=self.kernel,
-                    artifact=self.artifact_model,  # type: ignore
-                    conversation_flow=self.conversation_flow,
-                    context=self.context,
-                    rules=self.rules,
-                    resource_constraint=self.resource_constraint,
-                    service_id=self.service_id,
-                )
+        self.guided_conversation_agent = GuidedConversationAgent.from_json(
+            json_data=state,
+            kernel=self.kernel,
+            artifact=self.artifact_model,
+            conversation_flow=self.conversation_flow,
+            context=self.context,
+            rules=self.rules,
+            resource_constraint=self.resource_constraint,
+            service_id=self.service_id,
+        )
+        return
 
     async def step_conversation(
         self,
@@ -168,7 +137,7 @@ class GuidedConversation:
         if conversation_status_str is not None:
             match conversation_status_str:
                 case GC_ConversationStatus.USER_COMPLETED:
-                    response = final_response
+                    response = final_response or result.ai_message or ""
                     gc_conversation_status = GC_ConversationStatus.USER_COMPLETED
                     match user_decision_str:
                         case GC_UserDecision.UPDATE_OUTLINE:
@@ -206,13 +175,13 @@ class GuidedConversation:
 #
 
 
-def _get_guided_conversation_storage_path(context: ConversationContext, filename: str | None = None) -> Path:
+def _get_guided_conversation_storage_path(context: ConversationContext) -> Path:
     """
     Get the path to the directory for storing guided conversation files.
     """
     path = storage_directory_for_context(context) / "guided-conversation"
-    if filename:
-        path /= filename
+    if not path.exists():
+        path.mkdir(parents=True)
     return path
 
 
@@ -220,19 +189,15 @@ def _write_guided_conversation_state(context: ConversationContext, state: dict) 
     """
     Write the state of the guided conversation agent to a file.
     """
-    json_data = json.dumps(state)
-    path = _get_guided_conversation_storage_path(context)
-    if not path.exists():
-        path.mkdir(parents=True)
-    path = path / "state.json"
-    path.write_text(json_data)
+    path = _get_guided_conversation_storage_path(context) / "state.json"
+    path.write_text(json.dumps(state))
 
 
 def _read_guided_conversation_state(context: ConversationContext) -> dict | None:
     """
     Read the state of the guided conversation agent from a file.
     """
-    path = _get_guided_conversation_storage_path(context, "state.json")
+    path = _get_guided_conversation_storage_path(context) / "state.json"
     if path.exists():
         try:
             json_data = path.read_text()
@@ -246,7 +211,7 @@ def _delete_guided_conversation_state(context: ConversationContext) -> None:
     """
     Delete the file containing state of the guided conversation agent.
     """
-    path = _get_guided_conversation_storage_path(context, "state.json")
+    path = _get_guided_conversation_storage_path(context) / "state.json"
     if path.exists():
         path.unlink()
 

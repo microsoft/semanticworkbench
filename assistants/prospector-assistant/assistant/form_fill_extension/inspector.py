@@ -1,6 +1,5 @@
 import contextlib
 import json
-from enum import StrEnum
 from hashlib import md5
 from pathlib import Path
 from typing import Callable
@@ -13,15 +12,12 @@ from semantic_workbench_assistant.assistant_app.protocol import (
 )
 
 
-class StateProjection(StrEnum):
+def project_to_yaml(state: dict) -> str:
     """
-    The projection to use when displaying the state.
+    Project the state to a yaml code block.
     """
-
-    original_content = "original_content"
-    """Return the state as string content."""
-    json_to_yaml = "json_to_yaml"
-    """Return the state as a yaml code block."""
+    state_as_yaml = yaml.dump(state, sort_keys=False)
+    return f"```yaml\n{state_as_yaml}\n```"
 
 
 class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
@@ -34,8 +30,7 @@ class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
         display_name: str,
         file_path_source: Callable[[ConversationContext], Path],
         description: str = "",
-        projection: StateProjection = StateProjection.json_to_yaml,
-        select_field: str = "",
+        projector: Callable[[dict], str | dict] = project_to_yaml,
     ) -> None:
         self._state_id = md5(
             (type(self).__name__ + "_" + display_name).encode("utf-8"), usedforsecurity=False
@@ -43,8 +38,7 @@ class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
         self._display_name = display_name
         self._file_path_source = file_path_source
         self._description = description
-        self._projection = projection
-        self._select_field = select_field
+        self._projector = projector
 
     @property
     def state_id(self) -> str:
@@ -66,14 +60,6 @@ class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
 
         state = read_state(self._file_path_source(context))
 
-        selected = state.get(self._select_field) if self._select_field else state
+        projected = self._projector(state)
 
-        match self._projection:
-            case StateProjection.original_content:
-                return AssistantConversationInspectorStateDataModel(data={"content": selected})
-            case StateProjection.json_to_yaml:
-                state_as_yaml = yaml.dump(selected, sort_keys=False)
-                # return the state as a yaml code block, as it is easier to read than json
-                return AssistantConversationInspectorStateDataModel(
-                    data={"content": f"```yaml\n{state_as_yaml}\n```"},
-                )
+        return AssistantConversationInspectorStateDataModel(data={"content": projected})

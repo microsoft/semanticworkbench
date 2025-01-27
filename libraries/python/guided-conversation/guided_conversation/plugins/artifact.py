@@ -60,7 +60,7 @@ class Artifact:
     """
 
     def __init__(
-        self, kernel: Kernel, service_id: str, input_artifact: BaseModel, max_artifact_field_retries: int = 2
+        self, kernel: Kernel, service_id: str, input_artifact: type[BaseModel], max_artifact_field_retries: int = 2
     ) -> None:
         """
         Initialize the Artifact plugin with the given Pydantic base model.
@@ -267,7 +267,7 @@ Remember that when updating the artifact, the field will be the original field n
                 fields.append(field)
         return fields
 
-    def _initialize_artifact(self, artifact_model: BaseModel) -> BaseModelLLM:
+    def _initialize_artifact(self, artifact_model: type[BaseModel]) -> BaseModelLLM:
         """Create a new artifact model based on the one provided by the user
         with "Unanswered" set for all fields.
 
