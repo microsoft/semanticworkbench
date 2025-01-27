@@ -69,6 +69,7 @@ async def respond_to_conversation(
                 context=context,
                 config=config,
                 metadata=metadata,
+                metadata_key=f"respond_to_conversation:step_{step_count}",
             )
 
             if step_result.status == "final":
