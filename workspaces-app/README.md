@@ -34,7 +34,51 @@ This project creates an AI assistant chat experience using a React and TypeScrip
 
 ---
 
-## Folder Structure
+## Getting Started
+
+To run the application locally for development and testing purposes, follow these steps:
+
+### Installation
+
+Ensure you have `pnpm` installed. Then, run the following command:
+
+```bash
+pnpm install
+```
+
+This will install all necessary dependencies.
+
+### Running the Development Server
+
+To start the development server, use the following command:
+
+```bash
+pnpm dev
+```
+
+This will launch the application and watch for any changes.
+
+### Building the Application
+
+To build the application for production, use the following command:
+
+```bash
+pnpm build
+```
+
+This will create an optimized production build.
+
+### Previewing the Built Application
+
+After building the application, you can preview it using:
+
+```bash
+pnpm preview
+```
+
+This serves the built application locally for testing.
+
+
 
 The following is the proposed folder structure for the AI assistant chat application:
 
