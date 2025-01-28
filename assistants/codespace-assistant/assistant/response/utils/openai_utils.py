@@ -128,6 +128,7 @@ def convert_mcp_tools_to_openai_tools(mcp_tools: List[Tool] | None) -> List[Chat
                             "properties": {
                                 "aiContext": aiContext,
                             },
+                            "required": ["aiContext"],
                         },
                     ),
                 ),

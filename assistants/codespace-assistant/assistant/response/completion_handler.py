@@ -41,7 +41,7 @@ async def handle_completion(
     context: ConversationContext,
     config: AssistantConfigModel,
     silence_token: str,
-    method_metadata_key: str,
+    metadata_key: str,
     response_start_time: float,
 ) -> StepResult:
     # helper function for handling errors
@@ -90,7 +90,7 @@ async def handle_completion(
         step_result.metadata,
         {
             "debug": {
-                method_metadata_key: {
+                metadata_key: {
                     "response": completion.model_dump() if completion else "[no response from openai]",
                 },
             },
@@ -163,7 +163,7 @@ async def handle_completion(
                     mcp_sessions,
                     tool_call,
                     mcp_tools,
-                    f"{method_metadata_key}:request:tool_call_{tool_call_count}",
+                    f"{metadata_key}:request:tool_call_{tool_call_count}",
                 )
             except Exception as e:
                 logger.exception(f"Error handling tool call: {e}")

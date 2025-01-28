@@ -11,7 +11,7 @@ from .config import (
 )
 
 
-def create_client(service_config: ServiceConfig, *, api_version: str = "2024-08-01-preview") -> AsyncOpenAI:
+def create_client(service_config: ServiceConfig, *, api_version: str = "2024-12-01-preview") -> AsyncOpenAI:
     """
     Creates an AsyncOpenAI client based on the provided service configuration.
     """

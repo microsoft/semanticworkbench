@@ -126,7 +126,7 @@ class AssistantConfigModel(BaseModel):
         AzureOpenAIClientConfigModel | OpenAIClientConfigModel,
         Field(
             title="OpenAI Reasoning Model Configuration",
-            description="Configuration for the reasoning model, such as o1-preview, o1-mini, etc.",
+            description="Configuration for the reasoning model, such as o1, o1-preview, o1-mini, etc.",
             discriminator="ai_service_type",
             default=AzureOpenAIClientConfigModel.model_construct(),
         ),
