@@ -38,6 +38,7 @@ def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> 
         "gpt-4o-mini-2024-07-18",
         "gpt-4o-2024-08-06",
         # TODO: determine correct handling of reasoning models
+        "o1",
         "o1-preview",
         "o1-mini",
     }:

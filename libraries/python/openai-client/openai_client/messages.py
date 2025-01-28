@@ -8,6 +8,7 @@ from assistant_extensions.ai_clients.model import (
 from liquid import Template
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
+    ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
     ChatCompletionMessageToolCallParam,
     ChatCompletionSystemMessageParam,
@@ -17,9 +18,10 @@ from openai.types.chat import (
 
 def truncate_messages_for_logging(
     messages: list[ChatCompletionMessageParam],
-    truncate_messages_for_roles: set[Literal["user", "system", "assistant", "tool", "function"]] = {
+    truncate_messages_for_roles: set[Literal["user", "system", "developer", "assistant", "tool", "function"]] = {
         "user",
         "system",
+        "developer",
         "assistant",
     },
     maximum_content_length: int = 500,
@@ -121,6 +123,14 @@ def create_system_message(
     return {"role": "system", "content": content}
 
 
+def create_developer_message(
+    content: str, var: dict[str, Any] | None = None, formatter: MessageFormatter = format_with_liquid
+) -> ChatCompletionDeveloperMessageParam:
+    if var:
+        content = formatter(content, var)
+    return {"role": "developer", "content": content}
+
+
 def create_user_message(
     content: str | list[CompletionMessageImageContent | CompletionMessageTextContent],
     var: dict[str, Any] | None = None,
@@ -168,6 +178,14 @@ def convert_from_completion_messages(
         if message.role == "system" and isinstance(message.content, str):
             messages.append(
                 create_system_message(
+                    content=message.content,
+                )
+            )
+            continue
+
+        if message.role == "developer" and isinstance(message.content, str):
+            messages.append(
+                create_developer_message(
                     content=message.content,
                 )
             )

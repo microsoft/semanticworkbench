@@ -171,8 +171,8 @@ class OpenAIRequestConfig(RequestConfigBaseModel):
     is_reasoning_model: Annotated[
         bool,
         Field(
-            title="Is Reasoning Model (o1-preview, o1-mini, etc)",
-            description="Experimental: enable support for reasoning models such as o1-preview, o1-mini, etc.",
+            title="Is Reasoning Model (o1, o1-preview, o1-mini, etc)",
+            description="Experimental: enable support for reasoning models such as o1, o1-preview, o1-mini, etc.",
         ),
     ] = False
 

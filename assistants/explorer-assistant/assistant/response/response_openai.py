@@ -10,7 +10,9 @@ from assistant_extensions.ai_clients.model import CompletionMessage
 from assistant_extensions.artifacts import ArtifactsExtension
 from openai.types.chat import (
     ChatCompletion,
+    ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
+    ChatCompletionUserMessageParam,
     ParsedChatCompletion,
 )
 from semantic_workbench_api_model.workbench_model import (
@@ -109,16 +111,27 @@ class OpenAIResponseProvider(ResponseProvider):
         async with openai_client.create_client(self.service_config) as client:
             try:
                 if self.request_config.is_reasoning_model:
-                    # convert all messages that use system role to user role as reasoning models do not support system role
-                    chat_message_params = [
-                        {
-                            "role": "user",
-                            "content": message["content"],
-                        }
-                        if message["role"] == "system"
-                        else message
-                        for message in chat_message_params
-                    ]
+                    # reasoning models do not support system messages, so replace them with appropriate role
+                    if self.request_config.model != "o1-preview":
+                        chat_message_params = [
+                            ChatCompletionDeveloperMessageParam({
+                                "role": "developer",
+                                "content": message["content"],
+                            })
+                            if message["role"] == "system"
+                            else message
+                            for message in chat_message_params
+                        ]
+                    else:
+                        chat_message_params = [
+                            ChatCompletionUserMessageParam({
+                                "role": "user",
+                                "content": message["content"],
+                            })
+                            if message["role"] == "system"
+                            else message
+                            for message in chat_message_params
+                        ]
 
                     # for reasoning models, use max_completion_tokens instead of max_tokens
                     completion = await client.chat.completions.create(
