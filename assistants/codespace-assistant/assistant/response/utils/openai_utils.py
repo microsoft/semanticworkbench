@@ -48,7 +48,8 @@ async def get_completion(
         if tools is not None:
             completion_args["tool_choice"] = "auto"
 
-    return await client.chat.completions.create(**completion_args)
+    completion = await client.chat.completions.create(**completion_args)
+    return completion
 
 
 def extract_content_from_tool_calls(
