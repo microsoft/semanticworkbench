@@ -4,7 +4,7 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Run Vite App",
+      "name": "app: workspaces-app",
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal",
@@ -14,7 +14,7 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Run Vite App (no strict mode)",
+      "name": "app: workspaces-app (no strict mode)",
       "env": {
         "VITE_DISABLE_STRICT_MODE": "true"
       },
