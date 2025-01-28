@@ -223,7 +223,7 @@ requires-dist = [
     { name = "assistant-drive", editable = "../../assistant-drive" },
     { name = "assistant-drive", marker = "extra == 'attachments'", editable = "../../assistant-drive" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
-    { name = "openai", specifier = ">=1.51.2" },
+    { name = "openai", specifier = ">=1.60.2" },
     { name = "openai-client", editable = "../../openai-client" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
     { name = "requests-sse", specifier = ">=0.3.2" },
@@ -416,7 +416,7 @@ name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121 }
 wheels = [
@@ -956,7 +956,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.54.2"
+version = "1.60.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -968,9 +968,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/26/f1a79d8332ac5ed38fdc347701aa4a7ad8f8f66ec3f9880122c455d7ffb1/openai-1.54.2.tar.gz", hash = "sha256:0dbb8f2bb36f7ff1d200d103b9f95c35773ed3248e3a697b02f5a39015627e5e", size = 312551 }
+sdist = { url = "https://files.pythonhosted.org/packages/08/ae/8d9706b8ff2363287b4a8807de2dd29cdbdad5424e9d05d345df724320f5/openai-1.60.2.tar.gz", hash = "sha256:a8f843e10f2855713007f491d96afb2694b11b5e02cb97c7d01a0be60bc5bb51", size = 348185 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f6/0f/ea8717dedbef16fa61a0bdeb0b7ae96ff574933ed5932102d3f5a4ce01a1/openai-1.54.2-py3-none-any.whl", hash = "sha256:77010b439e69d37f67cc2f44eaa62b2b6d5a60add2d8636e4603c0e762982708", size = 389315 },
+    { url = "https://files.pythonhosted.org/packages/e5/5a/d5474ca67a547dde9b87b5bc8a8f90eadf29f523d410f2ba23d63c9b82ec/openai-1.60.2-py3-none-any.whl", hash = "sha256:993bd11b96900b9098179c728026f016b4982ded7ee30dfcf4555eab1171fff9", size = 456107 },
 ]
 
 [[package]]
@@ -997,11 +997,11 @@ requires-dist = [
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
     { name = "events", editable = "../../events" },
-    { name = "openai", specifier = ">=1.3.9" },
+    { name = "openai", specifier = ">=1.60.2" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "python-liquid", specifier = ">=1.12.1" },
     { name = "semantic-workbench-assistant", editable = "../../semantic-workbench-assistant" },
-    { name = "tiktoken", specifier = ">=0.7.0" },
+    { name = "tiktoken", specifier = ">=0.8.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1109,7 +1109,7 @@ name = "portalocker"
 version = "2.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "platform_system == 'Windows'" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/d3/c6c64067759e87af98cc668c1cc75171347d0f1577fab7ca3749134e3cd4/portalocker-2.10.1.tar.gz", hash = "sha256:ef1bf844e878ab08aee7e40184156e1151f228f103aa5c6bd0724cc330960f8f", size = 40891 }
 wheels = [
@@ -1660,7 +1660,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "python-liquid", specifier = ">=1.12.1" },
     { name = "requests", specifier = ">=2.32.0" },
-    { name = "tiktoken", specifier = ">=0.7.0" },
+    { name = "tiktoken", specifier = ">=0.8.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1727,7 +1727,7 @@ name = "tqdm"
 version = "4.67.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e8/4f/0153c21dc5779a49a0598c445b1978126b1344bab9ee71e53e44877e14e0/tqdm-4.67.0.tar.gz", hash = "sha256:fe5a6f95e6fe0b9755e9469b77b9c3cf850048224ecaa8293d7d2d31f97d869a", size = 169739 }
 wheels = [
