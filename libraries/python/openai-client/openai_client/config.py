@@ -176,6 +176,18 @@ class OpenAIRequestConfig(RequestConfigBaseModel):
         ),
     ] = False
 
+    reasoning_effort: Annotated[
+        Literal["low", "medium", "high"],
+        Field(
+            title="Reasoning Effort",
+            description=(
+                "Constrains effort on reasoning for reasoning models. Currently supported values are low, medium, and"
+                " high. Reducing reasoning effort can result in faster responses and fewer tokens used on reasoning in"
+                " a response.",
+            ),
+        ),
+    ] = "medium"
+
 
 """
 Open AI client service configuration, allowing AzureOpenAIServiceConfig or OpenAIServiceConfig.

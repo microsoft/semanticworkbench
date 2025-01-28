@@ -138,6 +138,7 @@ class OpenAIResponseProvider(ResponseProvider):
                         messages=chat_message_params,
                         model=self.request_config.model,
                         max_completion_tokens=self.request_config.response_tokens,
+                        reasoning_effort=self.request_config.reasoning_effort,
                     )
 
                     response_result.content = completion.choices[0].message.content
@@ -184,6 +185,7 @@ class OpenAIResponseProvider(ResponseProvider):
                             messages=chat_message_params,
                             model=self.request_config.model,
                             max_completion_tokens=self.request_config.response_tokens,
+                            reasoning_effort=self.request_config.reasoning_effort,
                         )
                     else:
                         completion = await client.chat.completions.create(
