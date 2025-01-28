@@ -120,12 +120,22 @@ async def next_step(
 
         except Exception as e:
             logger.exception(f"exception occurred calling openai chat completion: {e}")
+            deepmerge.always_merger.merge(
+                step_result.metadata,
+                {
+                    "debug": {
+                        metadata_key: {
+                            "error": str(e),
+                        },
+                    },
+                },
+            )
             await context.send_messages(
                 NewConversationMessage(
                     content="An error occurred while calling the OpenAI API. Is it configured correctly?"
                     " View the debug inspector for more information.",
                     message_type=MessageType.notice,
-                    metadata={metadata_key: {"error": str(e)}},
+                    metadata=step_result.metadata,
                 )
             )
             step_result.status = "error"

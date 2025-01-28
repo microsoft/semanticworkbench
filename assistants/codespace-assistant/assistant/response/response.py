@@ -54,6 +54,7 @@ async def respond_to_conversation(
 
         # Initialize a loop control variable
         max_steps = config.extensions_config.tools.max_steps
+        encountered_error = False
         completed_within_max_steps = False
         step_count = 0
 
@@ -72,12 +73,16 @@ async def respond_to_conversation(
                 metadata_key=f"respond_to_conversation:step_{step_count}",
             )
 
+            if step_result.status == "error":
+                encountered_error = True
+                break
+
             if step_result.status == "final":
                 completed_within_max_steps = True
                 break
 
         # If the conversation did not complete within the maximum number of steps, send a message to the user
-        if not completed_within_max_steps:
+        if not completed_within_max_steps and not encountered_error:
             await context.send_messages(
                 NewConversationMessage(
                     content=config.extensions_config.tools.max_steps_truncation_message,

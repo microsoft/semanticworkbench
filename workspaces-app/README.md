@@ -34,4 +34,61 @@ This project creates an AI assistant chat experience using a React and TypeScrip
 
 ---
 
+## Folder Structure
+
+The following is the proposed folder structure for the AI assistant chat application:
+
+```
+/workspaces-app
+|-- /public
+|   |-- index.html                # HTML entry point
+|   |-- favicon.ico               # Application icon
+|
+|-- /src
+|   |-- /assets                  # Static assets (images, fonts, etc.)
+|   |-- /components              # Reusable React components
+|   |   |-- ChatWindow.tsx       # Main chat interface component
+|   |   |-- MessageList.tsx      # Component to display chat messages
+|   |   `-- MessageInput.tsx     # Input component for sending messages
+|   |
+|   |-- /contexts                # Context providers for global state
+|   |   `-- ThemeContext.tsx     # Example for theming
+|   |
+|   |-- /features                # RTK slices and features
+|   |   |-- chatSlice.ts         # RTK slice for managing chat state
+|   |
+|   |-- /hooks                   # Custom React hooks
+|   |   `-- useChatEvents.ts     # Hook for handling SSE
+|   |
+|   |-- /services                # API services and configurations
+|   |   |-- api.ts               # RTK Query API setup
+|   |   `-- sseClient.ts         # SSE client handling
+|   |
+|   |-- /styles                  # Styling files
+|   |   `-- main.css             # Custom global styles
+|   |
+|   |-- /utils                   # Utility functions and helpers
+|   |   `-- helpers.ts           # General purpose helper functions
+|   |
+|   `-- App.tsx                  # Main application component
+|   `-- index.tsx                # Application entry point
+|
+|-- package.json                 # Package manifest
+|-- tsconfig.json                # TypeScript configuration
+|-- README.md                    # Project documentation
+```
+
+### Highlights of the Structure:
+
+- **`/public`**: Contains static files like `index.html` and others that do not need to be processed by the build tool.
+- **`/src/components`**: Dedicated to the individual UI components of your application.
+- **`/src/features`**: Contains Redux slices and features for organizing state management.
+- **`/src/hooks`**: A place for custom hooks like those handling SSE interactions.
+- **`/src/services`**: Service-related code such as API configuration and SSE client handling.
+- **`/src/styles`**: Centralized styling files, which could use CSS, SCSS, or CSS-in-JS solutions.
+- **`/src/utils`**: Utility functions and helpers shared across the application.
+
+This structure provides separation of concerns and a clear organization that should make future modifications and additions easier.
+
+
 This README outlines the high-level plan to guide the development of the AI assistant chat application.
