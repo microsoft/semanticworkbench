@@ -35,6 +35,13 @@ async def build_request(
     # Build system message content
     system_message_content = build_system_message_content(config, context, participants, silence_token)
 
+    # Add any additional tools instructions to the system message content
+    if config.extensions_config.tools.enabled:
+        system_message_content = "\n\n".join([
+            system_message_content,
+            config.extensions_config.tools.additional_instructions,
+        ])
+
     # Add MCP Server prompts to the system message content
     if len(mcp_prompts) > 0:
         system_message_content = "\n\n".join([system_message_content, *mcp_prompts])
