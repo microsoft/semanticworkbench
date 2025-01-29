@@ -10,12 +10,14 @@ if (root) {
   // Creating a root container for React 18
   const reactRoot = ReactDOM.createRoot(root);
 
-  // Rendering the App component
-  reactRoot.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
+  // Check if React.StrictMode should be disabled
+  const disableStrictMode = import.meta.env.VITE_DISABLE_STRICT_MODE === 'true';
+
+  // Log the environment and StrictMode status
+  console.log(`Starting app [strict mode: ${disableStrictMode ? 'disabled' : 'enabled'}]`);
+
+  // Rendering the App component with or without StrictMode
+  reactRoot.render(disableStrictMode ? <App /> : <React.StrictMode><App /></React.StrictMode>);
 } else {
   console.error("Failed to find the root element. Make sure there is an element with id 'root' in your HTML.");
 }

@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import logging
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 import deepmerge
 import openai_client
@@ -48,7 +48,8 @@ async def get_completion(
         if tools is not None:
             completion_args["tool_choice"] = "auto"
 
-    return await client.chat.completions.create(**completion_args)
+    completion = await client.chat.completions.create(**completion_args)
+    return completion
 
 
 def extract_content_from_tool_calls(
@@ -104,30 +105,31 @@ def convert_mcp_tools_to_openai_tools(mcp_tools: List[Tool] | None) -> List[Chat
     if not mcp_tools:
         return None
 
-    tools_list: List[ChatCompletionToolParam] = []
+    openai_tools: List[ChatCompletionToolParam] = []
     for mcp_tool in mcp_tools:
         # add parameter for explaining the step for the user observing the assistant
-        aiContext: dict[str, Any] = {
-            "type": "string",
-            "description": (
-                "Explanation of why the AI is using this tool and what it expects to accomplish."
-                "This message is displayed to the user, coming from the point of view of the assistant"
-                " and should fit within the flow of the ongoing conversation, responding to the"
-                " preceding user message."
-            ),
-        }
-
-        tools_list.append(
+        openai_tools.append(
             ChatCompletionToolParam(
                 function=FunctionDefinition(
                     name=mcp_tool.name,
                     description=mcp_tool.description if mcp_tool.description else "[no description provided]",
                     parameters=deepmerge.always_merger.merge(
-                        mcp_tool.inputSchema,
+                        # Make a copy of the input schema so that we don't modify the original schema
+                        mcp_tool.inputSchema.copy(),
                         {
                             "properties": {
-                                "aiContext": aiContext,
+                                # Add the "aiContext" parameter to the input schema
+                                "aiContext": {
+                                    "type": "string",
+                                    "description": (
+                                        "Explanation of why the AI is using this tool and what it expects to accomplish."
+                                        "This message is displayed to the user, coming from the point of view of the assistant"
+                                        " and should fit within the flow of the ongoing conversation, responding to the"
+                                        " preceding user message."
+                                    ),
+                                },
                             },
+                            # Ensure that the "aiContext" parameter is required
                             "required": ["aiContext"],
                         },
                     ),
@@ -135,4 +137,4 @@ def convert_mcp_tools_to_openai_tools(mcp_tools: List[Tool] | None) -> List[Chat
                 type="function",
             )
         )
-    return tools_list
+    return openai_tools

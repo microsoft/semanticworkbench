@@ -97,3 +97,11 @@ class ToolsConfigModel(BaseModel):
         - Ensure that all values are plain data types (e.g., strings, numbers).
         - **Do not** include any additional characters, functions, or expressions within the JSON.
     """).strip()
+
+    file_system_paths: Annotated[
+        list[str],
+        Field(
+            title="File System Paths",
+            description="Paths to the file system for tools to use, relative to `/workspaces/` in the container.",
+        ),
+    ] = ["semanticworkbench"]
