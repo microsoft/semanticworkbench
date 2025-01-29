@@ -28,7 +28,8 @@ async def respond_to_conversation(
     metadata: dict[str, Any] = {},
 ) -> None:
     """
-    Respond to a conversation message using dynamically loaded MCP servers with support for multiple tool invocations.
+    Perform a multi-step response to a conversation message using dynamically loaded MCP servers with
+    support for multiple tool invocations.
     """
 
     async with AsyncExitStack() as stack:
@@ -54,13 +55,25 @@ async def respond_to_conversation(
 
         # Initialize a loop control variable
         max_steps = config.extensions_config.tools.max_steps
+        interrupted = False
         encountered_error = False
         completed_within_max_steps = False
         step_count = 0
 
-        # Loop until the conversation is complete or the maximum number of steps is reached
+        # Loop until the response is complete or the maximum number of steps is reached
         while step_count < max_steps:
             step_count += 1
+
+            # Check to see if we should interrupt our flow
+            last_message = await context.get_messages(limit=1, message_types=[MessageType.chat])
+            if step_count > 1 and last_message.messages[0].sender.participant_id != context.assistant.id:
+                # The last message was from a sender other than the assistant, so we should
+                # interrupt our flow as this would have kicked off a new response from this
+                # assistant with the new message in mind and that process can decide if it
+                # should continue with the current flow or not.
+                interrupted = True
+                logger.info("Response interrupted.")
+                break
 
             step_result = await next_step(
                 mcp_sessions=mcp_sessions,
@@ -81,8 +94,8 @@ async def respond_to_conversation(
                 completed_within_max_steps = True
                 break
 
-        # If the conversation did not complete within the maximum number of steps, send a message to the user
-        if not completed_within_max_steps and not encountered_error:
+        # If the response did not complete within the maximum number of steps, send a message to the user
+        if not completed_within_max_steps and not encountered_error and not interrupted:
             await context.send_messages(
                 NewConversationMessage(
                     content=config.extensions_config.tools.max_steps_truncation_message,
@@ -90,6 +103,7 @@ async def respond_to_conversation(
                     metadata=metadata,
                 )
             )
+            logger.info("Response stopped early due to maximum steps.")
 
-    # Log the completion of the conversation
-    logger.info("Conversation completed.")
+    # Log the completion of the response
+    logger.info("Response completed.")

@@ -72,10 +72,29 @@ class ToolsConfigModel(BaseModel):
         ),
     ] = "[ Maximum steps reached for this turn, engage with assistant to continue ]"
 
-    tools_instructions: Annotated[
+    additional_instructions: Annotated[
         str,
         Field(
             title="Tools Instructions",
+            description=dedent("""
+                General instructions for using tools.  No need to include a list of tools or instruction
+                on how to use them in general, that will be handled automatically.  Instead, use this
+                space to provide any additional instructions for using specific tools, such folders to
+                exclude in file searches, or instruction to always re-read a file before using it.
+            """).strip(),
+        ),
+        UISchema(widget="textarea", enable_markdown_in_description=True),
+    ] = dedent("""
+        - When searching or browsing for files, consider the kinds of folders and files that should be avoided:
+            - For example, for coding projects exclude folders like `.git`, `.vscode`, `node_modules`, and `dist`.
+        - For each turn, always re-read a file before using it to ensure the most up-to-date information, especially
+            when writing or editing files.
+    """).strip()
+
+    instructions_for_non_tool_models: Annotated[
+        str,
+        Field(
+            title="Tools Instructions for Models Without Tools Support",
             description=dedent("""
                 Some models don't support tools (like OpenAI reasoning models), so these instructions
                 are only used to implement tool support through custom instruction and injection of
