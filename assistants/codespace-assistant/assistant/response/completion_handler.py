@@ -82,6 +82,10 @@ async def handle_completion(
         ])
         if ai_context is not None and ai_context.strip() != "":
             response_content.append(ai_context)
+        else:
+            response_content.append(
+                f"[Assistant is calling tools: {', '.join([tool_call.name for tool_call in tool_calls])}]"
+            )
 
     content = "\n\n".join(response_content)
 
