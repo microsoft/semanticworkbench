@@ -35,7 +35,7 @@ async def respond_to_conversation(
         # If tools are enabled, establish connections to the MCP servers
         mcp_sessions: List[ClientSession] = []
         if config.extensions_config.tools.enabled:
-            mcp_sessions = await establish_mcp_sessions(stack)
+            mcp_sessions = await establish_mcp_sessions(config.extensions_config.tools, stack)
             if not mcp_sessions:
                 await context.send_messages(
                     NewConversationMessage(
@@ -47,7 +47,7 @@ async def respond_to_conversation(
                 return
 
         # Retrieve prompts from the MCP servers
-        mcp_prompts = get_mcp_server_prompts()
+        mcp_prompts = get_mcp_server_prompts(config.extensions_config.tools)
 
         # Retrieve tools from the MCP sessions
         mcp_tools = await retrieve_tools_from_sessions(mcp_sessions)

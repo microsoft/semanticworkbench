@@ -34,9 +34,25 @@ This project creates an AI assistant chat experience using a React and TypeScrip
 
 ---
 
+---
+
+This README outlines the high-level plan and current status of the AI assistant chat application, incorporating new configurations and components established during recent development efforts.
+
 ## Getting Started
 
-To run the application locally for development and testing purposes, follow these steps:
+To run the application locally, make sure you're prepared with the following steps:
+
+### Important Information
+
+- **Environment Variable Configuration**: We've added support for an environment variable `VITE_DISABLE_STRICT_MODE`. This variable allows you to toggle `React.StrictMode` on or off during development.
+  - To disable strict mode, set `VITE_DISABLE_STRICT_MODE=true` in your environment.
+  - This is useful for debugging and testing without the extra checks `React.StrictMode` enforces.
+
+- **Launch Configuration**: Updated the launch configuration to use consistent project naming (`app: workspaces-app`). Use this setup in your development environment via VSCode.
+
+- **Initial Component Setup**: The `index.tsx` and `App.tsx` have been set up as entry point and main component, respectively.
+  - `index.tsx`: Handles rendering the app entry and activating strict mode based on configuration.
+  - `App.tsx`: Currently a placeholder component for the application.
 
 ### Installation
 

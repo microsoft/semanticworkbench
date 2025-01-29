@@ -5,8 +5,8 @@ from typing import AsyncIterator, List, Optional
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from .__mcp_server_configs import mcp_server_configs
-from .__model import MCPServerConfig
+from .__mcp_server_configs import get_mcp_server_configs
+from .__model import MCPServerConfig, ToolsConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +29,13 @@ async def connect_to_mcp_server(server_config: MCPServerConfig) -> AsyncIterator
         yield None  # Yield None if connection fails
 
 
-async def establish_mcp_sessions(stack: AsyncExitStack) -> List[ClientSession]:
+async def establish_mcp_sessions(tools_config: ToolsConfigModel, stack: AsyncExitStack) -> List[ClientSession]:
     """
     Establish connections to MCP servers using the provided AsyncExitStack.
     """
 
     sessions: List[ClientSession] = []
-    for server_config in mcp_server_configs:
+    for server_config in get_mcp_server_configs(tools_config):
         session: ClientSession | None = await stack.enter_async_context(connect_to_mcp_server(server_config))
         if session:
             sessions.append(session)
@@ -44,6 +44,6 @@ async def establish_mcp_sessions(stack: AsyncExitStack) -> List[ClientSession]:
     return sessions
 
 
-def get_mcp_server_prompts() -> List[str]:
+def get_mcp_server_prompts(tools_config: ToolsConfigModel) -> List[str]:
     """Get the prompts for all MCP servers."""
-    return [server.prompt for server in mcp_server_configs if server.prompt]
+    return [server.prompt for server in get_mcp_server_configs(tools_config) if server.prompt]
