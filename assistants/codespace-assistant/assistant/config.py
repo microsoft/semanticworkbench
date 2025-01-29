@@ -76,6 +76,7 @@ class AssistantConfigModel(BaseModel):
 
             - Create core files and folders for the project as needed, such as README.md, .gitignore, etc.
             - Create language specific files and folders as needed, such as package.json, pyproject.toml, etc.
+            - Files should include a newline at the end of the file.
             - Provide instruction for the user on installing dependencies via cli instead of writing these
                directly to the project files, this will ensure the user has the most up-to-date versions.
             - Offer to keep the README and other documentation up-to-date with the latest project information, if
@@ -86,6 +87,18 @@ class AssistantConfigModel(BaseModel):
                - Use 'pnpm' for managing dependencies (do not use 'npm' or 'yarn')
             - It is ok to update '.vscode' folder contents and 'package.json' scripts as needed for adding run
                and debug configurations, but do not add or remove any other files or folders.
+            - Consider the following strategy to improve approachability for both
+               developers and any AI assistants:
+                - Modularity and Conciseness: Each code file should not exceed one page in length, ensuring concise
+                    and focused code. When a file exceeds one page, consider breaking it into smaller, more focused
+                    files. Individual functions should be easily readable, wrapping larger blocks of code in functions
+                    with clear names and purposes.
+                - Semantic Names: Use meaningful names for functions and modules to enhance understanding and
+                    maintainability. These names will also be used for semantic searches by the AI assistant.
+                - Organized Structure: Maintain a well-organized structure, breaking down functionality into clear
+                    and manageable components.
+                - Update Documentation: Keep documentation, including code comments, up-to-date with the latest
+                    project information.
 
         Ultimately, however, the user is in control of the project and can override the above guidance as needed.
     """).strip()
