@@ -44,6 +44,11 @@ def get_mcp_server_configs(tools_config: ToolsConfigModel) -> List[MCPServerConf
                     b) Store facts about them as observations
         """),
         ),
+        MCPServerConfig(
+            name="GIPHY MCP Server",
+            command="http://127.0.0.1:6000/sse",
+            args=[],
+        ),
         # MCPServerConfig(
         #     name="Sequential Thinking MCP Server",
         #     command="npx",

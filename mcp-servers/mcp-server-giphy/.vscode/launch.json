@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "mcp-servers: mcp-server-giphy",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/server/main.py",
+      "args": ["--transport", "sse", "--port", "6000"],
+      "console": "integratedTerminal",
+      "consoleName": "mcp-server-giphy"
+      // "justMyCode": false // Set to false to debug external libraries
+    }
+  ]
+}

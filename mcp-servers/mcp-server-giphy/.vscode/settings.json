@@ -48,31 +48,5 @@
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": [
-    "Codespaces",
-    "contentsafety",
-    "debugpy",
-    "deepmerge",
-    "devcontainer",
-    "dotenv",
-    "endregion",
-    "Excalidraw",
-    "fastapi",
-    "GIPHY",
-    "jsonschema",
-    "Langchain",
-    "modelcontextprotocol",
-    "moderations",
-    "mzxrai",
-    "openai",
-    "pdfplumber",
-    "pydantic",
-    "pyproject",
-    "pyright",
-    "semanticworkbench",
-    "tiktoken",
-    "updown",
-    "virtualenvs",
-    "webresearch"
-  ]
+  "cSpell.words": ["debugpy", "dotenv", "fastmcp", "GIPHY", "pyright"]
 }
