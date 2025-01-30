@@ -1,11 +1,15 @@
 import json
+import logging
 from enum import StrEnum
 from textwrap import dedent
 from typing import Annotated, Any, List, Optional
 
 from attr import dataclass
+from mcp import ClientSession, Tool
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -15,6 +19,22 @@ class MCPServerConfig:
     args: List[str]
     env: Optional[dict[str, str]] = None
     prompt: Optional[str] = None
+
+
+class MCPSession:
+    name: str
+    client_session: ClientSession
+    tools: List[Tool] = []
+
+    def __init__(self, name: str, client_session: ClientSession) -> None:
+        self.name = name
+        self.client_session = client_session
+
+    async def initialize(self) -> None:
+        # Load all tools from the session, later we can do the same for resources, prompts, etc.
+        tools_result = await self.client_session.list_tools()
+        self.tools = tools_result.tools
+        logger.debug(f"Loaded {len(tools_result.tools)} tools from session '{self.name}'")
 
 
 @dataclass

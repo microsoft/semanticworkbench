@@ -3,18 +3,18 @@ from contextlib import AsyncExitStack
 from typing import Any, List
 
 from assistant_extensions.attachments import AttachmentsExtension
-from mcp import ClientSession
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.extensions.tools.__model import MCPSession
+
 from ..config import AssistantConfigModel
 from ..extensions.tools import (
     establish_mcp_sessions,
     get_mcp_server_prompts,
-    retrieve_tools_from_sessions,
 )
 from .step_handler import next_step
 
@@ -34,7 +34,7 @@ async def respond_to_conversation(
 
     async with AsyncExitStack() as stack:
         # If tools are enabled, establish connections to the MCP servers
-        mcp_sessions: List[ClientSession] = []
+        mcp_sessions: List[MCPSession] = []
         if config.extensions_config.tools.enabled:
             mcp_sessions = await establish_mcp_sessions(config.extensions_config.tools, stack)
             if not mcp_sessions:
@@ -49,9 +49,6 @@ async def respond_to_conversation(
 
         # Retrieve prompts from the MCP servers
         mcp_prompts = get_mcp_server_prompts(config.extensions_config.tools)
-
-        # Retrieve tools from the MCP sessions
-        mcp_tools = await retrieve_tools_from_sessions(mcp_sessions)
 
         # Initialize a loop control variable
         max_steps = config.extensions_config.tools.max_steps
@@ -77,7 +74,6 @@ async def respond_to_conversation(
 
             step_result = await next_step(
                 mcp_sessions=mcp_sessions,
-                mcp_tools=mcp_tools,
                 mcp_prompts=mcp_prompts,
                 attachments_extension=attachments_extension,
                 context=context,

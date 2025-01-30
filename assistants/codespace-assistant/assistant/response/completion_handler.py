@@ -6,7 +6,6 @@ from typing import List
 
 import deepmerge
 import openai_client
-from mcp import ClientSession, Tool
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionToolMessageParam,
@@ -17,6 +16,8 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant.extensions.tools.__model import MCPSession
 
 from ..config import AssistantConfigModel
 from ..extensions.tools import (
@@ -36,8 +37,7 @@ logger = logging.getLogger(__name__)
 async def handle_completion(
     step_result: StepResult,
     completion: ParsedChatCompletion | ChatCompletion,
-    mcp_sessions: List[ClientSession],
-    mcp_tools: List[Tool],
+    mcp_sessions: List[MCPSession],
     context: ConversationContext,
     config: AssistantConfigModel,
     silence_token: str,
@@ -166,7 +166,6 @@ async def handle_completion(
                 tool_call_result = await handle_tool_call(
                     mcp_sessions,
                     tool_call,
-                    mcp_tools,
                     f"{metadata_key}:request:tool_call_{tool_call_count}",
                 )
             except Exception as e:

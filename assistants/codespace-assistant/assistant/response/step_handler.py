@@ -5,7 +5,6 @@ from typing import Any, List
 import deepmerge
 import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
-from mcp import ClientSession, Tool
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -15,6 +14,9 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant.extensions.tools.__mcp_tool_utils import retrieve_tools_from_sessions
+from assistant.extensions.tools.__model import MCPSession
 
 from ..config import AssistantConfigModel
 from .completion_handler import handle_completion
@@ -29,8 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 async def next_step(
-    mcp_sessions: List[ClientSession],
-    mcp_tools: List[Tool],
+    mcp_sessions: List[MCPSession],
     mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
@@ -94,6 +95,7 @@ async def next_step(
     completion: ParsedChatCompletion | ChatCompletion | None = None
 
     # convert the tools to make them compatible with the OpenAI API
+    mcp_tools = retrieve_tools_from_sessions(mcp_sessions)
     tools = convert_mcp_tools_to_openai_tools(mcp_tools)
 
     # update the metadata with debug information
@@ -148,7 +150,6 @@ async def next_step(
         step_result,
         completion,
         mcp_sessions,
-        mcp_tools,
         context,
         config,
         silence_token,
