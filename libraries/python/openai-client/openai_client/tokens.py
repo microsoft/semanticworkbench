@@ -52,6 +52,10 @@ def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> 
     elif model.startswith("o1"):
         logger.debug("o1-* may update over time. Returning num tokens assuming o1-2024-12-17.")
         return num_tokens_from_message(message, model="o1-2024-12-17")
+    elif model.startswith("o3"):
+        # no support in tiktoken for o3 models yet, fallback to o1
+        logger.debug("o3-* may update over time. Returning num tokens assuming o1-2024-12-17.")
+        return num_tokens_from_message(message, model="o1-2024-12-17")
     else:
         raise NotImplementedError(f"num_tokens_from_messages() is not implemented for model {model}.")
 
