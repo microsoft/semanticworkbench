@@ -38,12 +38,18 @@ async def get_completion(
 
     if request_config.is_reasoning_model:
         # reasoning models
-        # note: tools are not supported by reasoning models currently
         completion_args["max_completion_tokens"] = request_config.response_tokens
+        completion_args["reasoning_effort"] = request_config.reasoning_effort
 
     else:
         # all other models
         completion_args["max_tokens"] = request_config.response_tokens
+
+    # list of models that do not support tools
+    no_tools_support = ["o1-preview", "o1-mini"]
+
+    # add tools to completion args if model supports tools
+    if request_config.model not in no_tools_support:
         completion_args["tools"] = tools or NotGiven()
         if tools is not None:
             completion_args["tool_choice"] = "auto"

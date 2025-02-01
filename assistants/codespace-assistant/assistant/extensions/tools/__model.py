@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MCPServerConfig:
-    name: str
+    key: str
     command: str
     args: List[str]
     env: Optional[dict[str, str]] = None
@@ -67,6 +67,42 @@ class ToolCallResult:
     metadata: dict[str, Any]
 
 
+class MCPServersEnabledConfigModel(BaseModel):
+    # NOTE: create a property for each of the mcp servers following the convention of: {server_key}_enabled
+
+    filesystem_enabled: Annotated[
+        bool,
+        Field(
+            title="File System Enabled",
+            description="Enable file system tools, granting access to defined file system paths for read/write.",
+        ),
+    ] = True
+
+    memory_enabled: Annotated[
+        bool,
+        Field(
+            title="Memory Enabled",
+            description="Enable memory tools, allowing for storing and retrieving data in memory.",
+        ),
+    ] = True
+
+    sequential_thinking_enabled: Annotated[
+        bool,
+        Field(
+            title="Sequential Thinking Enabled",
+            description="Enable sequential thinking tools, supporting sequential processing of information.",
+        ),
+    ] = False
+
+    giphy_enabled: Annotated[
+        bool,
+        Field(
+            title="Giphy Enabled",
+            description="Enable Giphy tools for searching and retrieving GIFs. Must start the Giphy server.",
+        ),
+    ] = False
+
+
 class ToolsConfigModel(BaseModel):
     enabled: Annotated[
         bool,
@@ -105,37 +141,44 @@ class ToolsConfigModel(BaseModel):
         ),
         UISchema(widget="textarea", enable_markdown_in_description=True),
     ] = dedent("""
+        - Use the available tools to assist with specific tasks.
+        - Before performing any file operations, use the `allowed_directories` tool to get a list of directories
+            that are allowed for file operations.
         - When searching or browsing for files, consider the kinds of folders and files that should be avoided:
             - For example, for coding projects exclude folders like `.git`, `.vscode`, `node_modules`, and `dist`.
         - For each turn, always re-read a file before using it to ensure the most up-to-date information, especially
             when writing or editing files.
+        - Either use search or specific list files in directories instead of using `directory_tree` to avoid
+            issues with large directory trees as that tool is not optimized for large trees nor does it allow
+            for filtering.
+        - The search tool does not appear to support wildcards, but does work with partial file names.
     """).strip()
 
-    instructions_for_non_tool_models: Annotated[
-        str,
-        Field(
-            title="Tools Instructions for Models Without Tools Support",
-            description=dedent("""
-                Some models don't support tools (like OpenAI reasoning models), so these instructions
-                are only used to implement tool support through custom instruction and injection of
-                the tool definitions.  Make sure to include {{tools}} in the instructions.
-            """),
-        ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = dedent("""
-        You can perform specific tasks using available tools. When you need to use a tool, respond
-        with a strict JSON object containing only the tool's `id` and function name and arguments.
-
-        Available Tools:
-        {{tools}}
-
-        ### Instructions:
-        - If you need to use a tool to answer the user's query, respond with **ONLY** a JSON object.
-        - If you can answer without using a tool, provide the answer directly.
-        - **No code, no text, no markdown** within the JSON.
-        - Ensure that all values are plain data types (e.g., strings, numbers).
-        - **Do not** include any additional characters, functions, or expressions within the JSON.
-    """).strip()
+    # instructions_for_non_tool_models: Annotated[
+    #     str,
+    #     Field(
+    #         title="Tools Instructions for Models Without Tools Support",
+    #         description=dedent("""
+    #             Some models don't support tools (like OpenAI reasoning models), so these instructions
+    #             are only used to implement tool support through custom instruction and injection of
+    #             the tool definitions.  Make sure to include {{tools}} in the instructions.
+    #         """),
+    #     ),
+    #     UISchema(widget="textarea", enable_markdown_in_description=True),
+    # ] = dedent("""
+    #     You can perform specific tasks using available tools. When you need to use a tool, respond
+    #     with a strict JSON object containing only the tool's `id` and function name and arguments.
+    #     \n\n
+    #     Available Tools:
+    #     {{tools}}
+    #     \n\n
+    #     ### How to Use Tools:
+    #     - If you need to use a tool to answer the user's query, respond with **ONLY** a JSON object.
+    #     - If you can answer without using a tool, provide the answer directly.
+    #     - **No code, no text, no markdown** within the JSON.
+    #     - Ensure that all values are plain data types (e.g., strings, numbers).
+    #     - **Do not** include any additional characters, functions, or expressions within the JSON.
+    # """).strip()
 
     file_system_paths: Annotated[
         list[str],
@@ -144,3 +187,7 @@ class ToolsConfigModel(BaseModel):
             description="Paths to the file system for tools to use, relative to `/workspaces/` in the container.",
         ),
     ] = ["semanticworkbench"]
+
+    tools_enabled: Annotated[MCPServersEnabledConfigModel, Field(title="Tools Enabled")] = (
+        MCPServersEnabledConfigModel()
+    )
