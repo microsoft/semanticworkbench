@@ -5,7 +5,6 @@ from typing import Any, List
 import deepmerge
 import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
-from mcp import ClientSession, Tool
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -15,6 +14,9 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant.extensions.tools.__mcp_tool_utils import retrieve_tools_from_sessions
+from assistant.extensions.tools.__model import MCPSession
 
 from ..config import AssistantConfigModel
 from .completion_handler import handle_completion
@@ -29,18 +31,29 @@ logger = logging.getLogger(__name__)
 
 
 async def next_step(
-    mcp_sessions: List[ClientSession],
-    mcp_tools: List[Tool],
+    mcp_sessions: List[MCPSession],
     mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     config: AssistantConfigModel,
     metadata: dict[str, Any],
+    metadata_key: str,
 ) -> StepResult:
     step_result = StepResult(status="continue", metadata=metadata.copy())
 
     # helper function for handling errors
-    async def handle_error(error_message: str) -> StepResult:
+    async def handle_error(error_message: str, error_debug: dict[str, Any] | None = None) -> StepResult:
+        if error_debug is not None:
+            deepmerge.always_merger.merge(
+                step_result.metadata,
+                {
+                    "debug": {
+                        metadata_key: {
+                            "error": error_debug,
+                        },
+                    },
+                },
+            )
         await context.send_messages(
             NewConversationMessage(
                 content=error_message,
@@ -63,9 +76,6 @@ async def next_step(
     # )
     # reasoning_request_config = config.reasoning_ai_client_config.request_config
 
-    # Define the metadata key for any metadata created within this method
-    method_metadata_key = "respond_to_conversation"
-
     # Track the start time of the response generation
     response_start_time = time.time()
 
@@ -85,6 +95,7 @@ async def next_step(
     completion: ParsedChatCompletion | ChatCompletion | None = None
 
     # convert the tools to make them compatible with the OpenAI API
+    mcp_tools = retrieve_tools_from_sessions(mcp_sessions)
     tools = convert_mcp_tools_to_openai_tools(mcp_tools)
 
     # update the metadata with debug information
@@ -92,7 +103,7 @@ async def next_step(
         step_result.metadata,
         {
             "debug": {
-                method_metadata_key: {
+                metadata_key: {
                     "request": {
                         "model": generative_request_config.model,
                         "messages": chat_message_params,
@@ -111,12 +122,22 @@ async def next_step(
 
         except Exception as e:
             logger.exception(f"exception occurred calling openai chat completion: {e}")
+            deepmerge.always_merger.merge(
+                step_result.metadata,
+                {
+                    "debug": {
+                        metadata_key: {
+                            "error": str(e),
+                        },
+                    },
+                },
+            )
             await context.send_messages(
                 NewConversationMessage(
                     content="An error occurred while calling the OpenAI API. Is it configured correctly?"
                     " View the debug inspector for more information.",
                     message_type=MessageType.notice,
-                    metadata={method_metadata_key: {"error": str(e)}},
+                    metadata=step_result.metadata,
                 )
             )
             step_result.status = "error"
@@ -129,11 +150,10 @@ async def next_step(
         step_result,
         completion,
         mcp_sessions,
-        mcp_tools,
         context,
         config,
         silence_token,
-        method_metadata_key,
+        metadata_key,
         response_start_time,
     )
 

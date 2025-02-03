@@ -201,6 +201,7 @@
         "reduxjs",
         "rehype",
         "retriable",
+        "reverseproxy",
         "rjsf",
         "rootpath",
         "selectin",

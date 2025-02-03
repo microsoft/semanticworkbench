@@ -6,7 +6,6 @@ from typing import List
 
 import deepmerge
 import openai_client
-from mcp import ClientSession, Tool
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionToolMessageParam,
@@ -17,6 +16,8 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
+
+from assistant.extensions.tools.__model import MCPSession
 
 from ..config import AssistantConfigModel
 from ..extensions.tools import (
@@ -36,12 +37,11 @@ logger = logging.getLogger(__name__)
 async def handle_completion(
     step_result: StepResult,
     completion: ParsedChatCompletion | ChatCompletion,
-    mcp_sessions: List[ClientSession],
-    mcp_tools: List[Tool],
+    mcp_sessions: List[MCPSession],
     context: ConversationContext,
     config: AssistantConfigModel,
     silence_token: str,
-    method_metadata_key: str,
+    metadata_key: str,
     response_start_time: float,
 ) -> StepResult:
     # helper function for handling errors
@@ -82,6 +82,10 @@ async def handle_completion(
         ])
         if ai_context is not None and ai_context.strip() != "":
             response_content.append(ai_context)
+        else:
+            response_content.append(
+                f"[Assistant is calling tools: {', '.join([tool_call.name for tool_call in tool_calls])}]"
+            )
 
     content = "\n\n".join(response_content)
 
@@ -90,7 +94,7 @@ async def handle_completion(
         step_result.metadata,
         {
             "debug": {
-                method_metadata_key: {
+                metadata_key: {
                     "response": completion.model_dump() if completion else "[no response from openai]",
                 },
             },
@@ -162,8 +166,7 @@ async def handle_completion(
                 tool_call_result = await handle_tool_call(
                     mcp_sessions,
                     tool_call,
-                    mcp_tools,
-                    f"{method_metadata_key}:request:tool_call_{tool_call_count}",
+                    f"{metadata_key}:request:tool_call_{tool_call_count}",
                 )
             except Exception as e:
                 logger.exception(f"Error handling tool call: {e}")

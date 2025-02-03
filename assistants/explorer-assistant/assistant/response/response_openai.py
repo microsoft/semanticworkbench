@@ -10,7 +10,9 @@ from assistant_extensions.ai_clients.model import CompletionMessage
 from assistant_extensions.artifacts import ArtifactsExtension
 from openai.types.chat import (
     ChatCompletion,
+    ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
+    ChatCompletionUserMessageParam,
     ParsedChatCompletion,
 )
 from semantic_workbench_api_model.workbench_model import (
@@ -109,23 +111,50 @@ class OpenAIResponseProvider(ResponseProvider):
         async with openai_client.create_client(self.service_config) as client:
             try:
                 if self.request_config.is_reasoning_model:
-                    # convert all messages that use system role to user role as reasoning models do not support system role
-                    chat_message_params = [
-                        {
-                            "role": "user",
-                            "content": message["content"],
-                        }
-                        if message["role"] == "system"
-                        else message
-                        for message in chat_message_params
-                    ]
+                    # due to variations in the API response for reasoning models, we need to adjust the messages
+                    # and completion request based on the model type
 
+                    # initialize the completion parameters
                     # for reasoning models, use max_completion_tokens instead of max_tokens
-                    completion = await client.chat.completions.create(
-                        messages=chat_message_params,
-                        model=self.request_config.model,
-                        max_completion_tokens=self.request_config.response_tokens,
-                    )
+                    completion_params = {
+                        "model": self.request_config.model,
+                        "max_completion_tokens": self.request_config.response_tokens,
+                    }
+
+                    legacy_models = ["o1-preview", "o1-mini"]
+
+                    # set the role of the messages based on the model type
+                    if self.request_config.model not in legacy_models:
+                        chat_message_params = [
+                            ChatCompletionDeveloperMessageParam({
+                                "role": "developer",
+                                "content": message["content"],
+                            })
+                            if message["role"] == "system"
+                            else message
+                            for message in chat_message_params
+                        ]
+                    else:
+                        # fallback for older reasoning models
+                        chat_message_params = [
+                            ChatCompletionUserMessageParam({
+                                "role": "user",
+                                "content": message["content"],
+                            })
+                            if message["role"] == "system"
+                            else message
+                            for message in chat_message_params
+                        ]
+
+                    # set the reasoning effort for the completion for newer reasoning models
+                    if self.request_config.model not in legacy_models:
+                        completion_params["reasoning_effort"] = self.request_config.reasoning_effort
+
+                    completion_params["messages"] = chat_message_params
+
+                    # cast the completion to a ChatCompletion for reasoning models
+                    reasoning_completion: ChatCompletion = await client.chat.completions.create(**completion_params)
+                    completion = reasoning_completion
 
                     response_result.content = completion.choices[0].message.content
 
@@ -171,6 +200,7 @@ class OpenAIResponseProvider(ResponseProvider):
                             messages=chat_message_params,
                             model=self.request_config.model,
                             max_completion_tokens=self.request_config.response_tokens,
+                            reasoning_effort=self.request_config.reasoning_effort,
                         )
                     else:
                         completion = await client.chat.completions.create(

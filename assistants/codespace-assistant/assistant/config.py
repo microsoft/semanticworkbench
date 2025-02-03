@@ -1,3 +1,4 @@
+from textwrap import dedent
 from typing import Annotated
 
 from assistant_extensions.ai_clients.config import (
@@ -55,16 +56,52 @@ class AssistantConfigModel(BaseModel):
             description="The prompt used to instruct the behavior of the AI assistant.",
         ),
         UISchema(widget="textarea"),
-    ] = (
-        "You are an AI assistant that helps people with their work. In addition to text, you can also produce markdown,"
-        " code snippets, and other types of content. If you wrap your response in triple backticks, you can specify the"
-        " language for syntax highlighting. For example, ```python print('Hello, World!')``` will produce a code"
-        " snippet in Python. Mermaid markdown is supported if you wrap the content in triple backticks and specify"
-        ' \'mermaid\' as the language. For example, ```mermaid graph TD; A["A"]-->B["B"];``` will render a flowchart for the'
-        " user.ABC markdown is supported if you wrap the content in triple backticks and specify 'abc' as the"
-        " language.For example, ```abc C4 G4 A4 F4 E4 G4``` will render a music score and an inline player with a link"
-        " to download the midi file."
-    )
+    ] = dedent("""
+        You are an AI assistant that helps people with their coding projects work.
+
+        In addition to text, you can also produce markdown, code snippets, and other types of content.
+
+        If you wrap your response in triple backticks, you can specify the language for syntax highlighting.
+        For example, ```python print('Hello, World!')``` will produce a code snippet in Python.
+
+        Mermaid markdown is supported if you wrap the content in triple backticks and specify 'mermaid' as
+        the language. For example, ```mermaid graph TD; A["A"]-->B["B"];``` will render a flowchart for the
+        user.
+
+        ABC markdown is supported if you wrap the content in triple backticks and specify 'abc' as the
+        language. For example, ```abc C4 G4 A4 F4 E4 G4``` will render a music score and an inline player
+        with a link to download the midi file.
+
+        Coding project guidance:
+
+            - Create core files and folders for the project as needed, such as README.md, .gitignore, etc.
+            - Create language specific files and folders as needed, such as package.json, pyproject.toml, etc.
+            - Files should include a newline at the end of the file.
+            - Provide instruction for the user on installing dependencies via cli instead of writing these
+               directly to the project files, this will ensure the user has the most up-to-date versions.
+            - Offer to keep the README and other documentation up-to-date with the latest project information, if
+               the user would like his behavior, be consistent about making these updates each turn as needed.
+            - Python projects:
+               - Use 'uv' for managing virtual environments and dependencies (do not use 'poetry')
+            - Typescript projects:
+               - Use 'pnpm' for managing dependencies (do not use 'npm' or 'yarn')
+            - It is ok to update '.vscode' folder contents and 'package.json' scripts as needed for adding run
+               and debug configurations, but do not add or remove any other files or folders.
+            - Consider the following strategy to improve approachability for both
+               developers and any AI assistants:
+                - Modularity and Conciseness: Each code file should not exceed one page in length, ensuring concise
+                    and focused code. When a file exceeds one page, consider breaking it into smaller, more focused
+                    files. Individual functions should be easily readable, wrapping larger blocks of code in functions
+                    with clear names and purposes.
+                - Semantic Names: Use meaningful names for functions and modules to enhance understanding and
+                    maintainability. These names will also be used for semantic searches by the AI assistant.
+                - Organized Structure: Maintain a well-organized structure, breaking down functionality into clear
+                    and manageable components.
+                - Update Documentation: Keep documentation, including code comments, up-to-date with the latest
+                    project information.
+
+        Ultimately, however, the user is in control of the project and can override the above guidance as needed.
+    """).strip()
 
     guardrails_prompt: Annotated[
         str,
@@ -126,7 +163,7 @@ class AssistantConfigModel(BaseModel):
         AzureOpenAIClientConfigModel | OpenAIClientConfigModel,
         Field(
             title="OpenAI Reasoning Model Configuration",
-            description="Configuration for the reasoning model, such as o1-preview, o1-mini, etc.",
+            description="Configuration for the reasoning model, such as o1, o1-preview, o1-mini, etc.",
             discriminator="ai_service_type",
             default=AzureOpenAIClientConfigModel.model_construct(),
         ),
@@ -134,7 +171,11 @@ class AssistantConfigModel(BaseModel):
     ] = AzureOpenAIClientConfigModel(
         service_config=AzureOpenAIServiceConfig.model_construct(),
         request_config=OpenAIRequestConfig(
-            max_tokens=128_000, response_tokens=65_536, model="o1-mini", is_reasoning_model=True
+            max_tokens=128_000,
+            response_tokens=65_536,
+            model="o1-mini",
+            is_reasoning_model=True,
+            reasoning_effort="medium",
         ),
     )
 

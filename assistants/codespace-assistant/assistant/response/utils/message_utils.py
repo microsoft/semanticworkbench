@@ -1,5 +1,6 @@
 import json
 import logging
+from textwrap import dedent
 from typing import Any
 
 import openai_client
@@ -29,30 +30,37 @@ def build_system_message_content(
     context: ConversationContext,
     participants: list[ConversationParticipant],
     silence_token: str,
+    additional_content: list[tuple[str, str]] | None = None,
 ) -> str:
     """
     Construct the system message content with tool descriptions and instructions.
     """
 
-    system_message_content = f'{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".\n'
+    system_message_content = f'{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
 
     if len(participants) > 2:
         participant_names = ", ".join([
             f'"{participant.name}"' for participant in participants if participant.id != context.assistant.id
         ])
-        system_message_content += (
-            "\n\n"
-            f"There are {len(participants)} participants in the conversation, "
-            f"including you as the assistant and the following users: {participant_names}."
-            "\n\nYou do not need to respond to every message. Do not respond if the last thing said was a closing "
-            f'statement such as "bye" or "goodbye", or just a general acknowledgement like "ok" or "thanks". Do not '
-            f'respond as another user in the conversation, only as "{context.assistant.name}". '
-            "Sometimes the other users need to talk amongst themselves and that is okay. If the conversation seems to "
-            "be directed at you or the general audience, go ahead and respond."
-            f'\n\nSay "{silence_token}" to skip your turn.'
-        )
+        system_message_content += dedent(f"""
+            \n\n
+            There are {len(participants)} participants in the conversation,
+            including you as the assistant and the following users: {participant_names}.
+            \n\n
+            You do not need to respond to every message. Do not respond if the last thing said was a closing
+            statement such as "bye" or "goodbye", or just a general acknowledgement like "ok" or "thanks". Do not
+            respond as another user in the conversation, only as "{context.assistant.name}".
+            Sometimes the other users need to talk amongst themselves and that is okay. If the conversation seems to
+            be directed at you or the general audience, go ahead and respond.
+            \n\n
+            Say "{silence_token}" to skip your turn.
+        """).strip()
 
-    system_message_content += f"\n\n{config.guardrails_prompt}"
+    system_message_content += f"\n\n# Safety Guardrails:\n{config.guardrails_prompt}"
+
+    if additional_content:
+        for section in additional_content:
+            system_message_content += f"\n\n# {section[0]}:\n{section[1]}"
 
     return system_message_content
 

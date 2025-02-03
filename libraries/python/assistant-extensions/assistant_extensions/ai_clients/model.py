@@ -19,7 +19,7 @@ class CompletionMessageTextContent:
 
 @dataclass
 class CompletionMessage:
-    role: Literal["assistant", "user", "system"]
+    role: Literal["assistant", "user", "system", "developer"]
     content: str | list[CompletionMessageImageContent | CompletionMessageTextContent]
 
 

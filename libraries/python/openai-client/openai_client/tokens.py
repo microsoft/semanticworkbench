@@ -23,12 +23,7 @@ def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> 
     Reference: https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken#6-counting-tokens-for-chat-completions-api-calls
     """
 
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        logger.warning("model %s not found. Using cl100k_base encoding.", model)
-        encoding = tiktoken.get_encoding("cl100k_base")
-
+    # First, set the default number of tokens per message and per name and convert generic model names to specific ones
     if model in {
         "gpt-3.5-turbo-0125",
         "gpt-4-0314",
@@ -38,8 +33,7 @@ def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> 
         "gpt-4o-mini-2024-07-18",
         "gpt-4o-2024-08-06",
         # TODO: determine correct handling of reasoning models
-        "o1-preview",
-        "o1-mini",
+        "o1-2024-12-17",
     }:
         tokens_per_message = 3
         tokens_per_name = 1
@@ -55,8 +49,22 @@ def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> 
     elif "gpt-4" in model:
         logger.debug("gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
         return num_tokens_from_message(message, model="gpt-4-0613")
+    elif model.startswith("o1"):
+        logger.debug("o1-* may update over time. Returning num tokens assuming o1-2024-12-17.")
+        return num_tokens_from_message(message, model="o1-2024-12-17")
+    elif model.startswith("o3"):
+        # no support in tiktoken for o3 models yet, fallback to o1
+        logger.debug("o3-* may update over time. Returning num tokens assuming o1-2024-12-17.")
+        return num_tokens_from_message(message, model="o1-2024-12-17")
     else:
         raise NotImplementedError(f"num_tokens_from_messages() is not implemented for model {model}.")
+
+    # Then, calculate the number of tokens for the message now that we have the correct specific model name
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        logger.warning("model %s not found. Using cl100k_base encoding.", model)
+        encoding = tiktoken.get_encoding("cl100k_base")
 
     num_tokens = tokens_per_message
     for key, value in message.items():
