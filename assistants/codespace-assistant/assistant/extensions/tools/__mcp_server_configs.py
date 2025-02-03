@@ -46,6 +46,11 @@ def get_mcp_server_configs(tools_config: ToolsConfigModel) -> List[MCPServerConf
         """),
         ),
         MCPServerConfig(
+            key="coder",
+            command="http://127.0.0.1:6010/sse",
+            args=[],
+        ),
+        MCPServerConfig(
             key="giphy",
             command="http://127.0.0.1:6000/sse",
             args=[],

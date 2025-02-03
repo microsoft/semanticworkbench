@@ -86,6 +86,14 @@ class MCPServersEnabledConfigModel(BaseModel):
         ),
     ] = True
 
+    coder_enabled: Annotated[
+        bool,
+        Field(
+            title="Coder Enabled",
+            description="Enable coder tools, supporting testing and evaluation of code in file system.",
+        ),
+    ] = False
+
     sequential_thinking_enabled: Annotated[
         bool,
         Field(

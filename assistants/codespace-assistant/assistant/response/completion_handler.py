@@ -175,12 +175,16 @@ async def handle_completion(
             # Update content and metadata with tool call result metadata
             deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)
 
+            content = (
+                tool_call_result.content if len(tool_call_result.content) > 0 else "[tool call returned no content]"
+            )
+
             # Add the token count for the tool call result to the total token count
             step_result.conversation_tokens += openai_client.num_tokens_from_messages(
                 messages=[
                     ChatCompletionToolMessageParam(
                         role="tool",
-                        content=tool_call_result.content,
+                        content=content,
                         tool_call_id=tool_call.id,
                     )
                 ],
@@ -192,7 +196,7 @@ async def handle_completion(
                 step_result.metadata,
                 {
                     "tool_result": {
-                        "content": tool_call_result.content,
+                        "content": content,
                         "tool_call_id": tool_call.id,
                     },
                 },
@@ -200,7 +204,7 @@ async def handle_completion(
 
             await context.send_messages(
                 NewConversationMessage(
-                    content=tool_call_result.content,
+                    content=content,
                     message_type=MessageType.note,
                     metadata=step_result.metadata,
                 )

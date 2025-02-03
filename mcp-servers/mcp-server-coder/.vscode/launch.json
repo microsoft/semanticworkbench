@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "mcp-servers: mcp-server-coder",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/server/main.py",
+      "args": ["--transport", "sse", "--port", "6010"],
+      "console": "integratedTerminal",
+      "consoleName": "mcp-server-coder"
+    }
+  ]
+}
