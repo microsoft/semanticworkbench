@@ -221,7 +221,7 @@ requires-dist = [
     { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
     { name = "assistant-drive", marker = "extra == 'attachments'", editable = "../../libraries/python/assistant-drive" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
-    { name = "openai", specifier = ">=1.60.2" },
+    { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },
     { name = "requests-sse", specifier = ">=0.3.2" },
@@ -441,7 +441,7 @@ requires-dist = [
     { name = "azure-ai-contentsafety", specifier = ">=1.0.0" },
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
-    { name = "openai", specifier = ">=1.60.2" },
+    { name = "openai", specifier = ">=1.61.0" },
     { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },
 ]
 
@@ -590,7 +590,7 @@ requires-dist = [
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "html2docx", specifier = ">=1.6.0" },
     { name = "markdown", specifier = ">=3.6" },
-    { name = "openai", specifier = ">=1.60.2" },
+    { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
 ]
 
@@ -1088,7 +1088,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.60.2"
+version = "1.61.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1100,9 +1100,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/08/ae/8d9706b8ff2363287b4a8807de2dd29cdbdad5424e9d05d345df724320f5/openai-1.60.2.tar.gz", hash = "sha256:a8f843e10f2855713007f491d96afb2694b11b5e02cb97c7d01a0be60bc5bb51", size = 348185 }
+sdist = { url = "https://files.pythonhosted.org/packages/32/2a/b3fa8790be17d632f59d4f50257b909a3f669036e5195c1ae55737274620/openai-1.61.0.tar.gz", hash = "sha256:216f325a24ed8578e929b0f1b3fb2052165f3b04b0461818adaa51aa29c71f8a", size = 350174 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/5a/d5474ca67a547dde9b87b5bc8a8f90eadf29f523d410f2ba23d63c9b82ec/openai-1.60.2-py3-none-any.whl", hash = "sha256:993bd11b96900b9098179c728026f016b4982ded7ee30dfcf4555eab1171fff9", size = 456107 },
+    { url = "https://files.pythonhosted.org/packages/93/76/70c5ad6612b3e4c89fa520266bbf2430a89cae8bd87c1e2284698af5927e/openai-1.61.0-py3-none-any.whl", hash = "sha256:e8c512c0743accbdbe77f3429a1490d862f8352045de8dc81969301eb4a4f666", size = 460623 },
 ]
 
 [[package]]
@@ -1129,7 +1129,7 @@ requires-dist = [
     { name = "azure-core", extras = ["aio"], specifier = ">=1.30.0" },
     { name = "azure-identity", specifier = ">=1.17.1" },
     { name = "events", editable = "../../libraries/python/events" },
-    { name = "openai", specifier = ">=1.60.2" },
+    { name = "openai", specifier = ">=1.61.0" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "python-liquid", specifier = ">=1.12.1" },
     { name = "semantic-workbench-assistant", editable = "../../libraries/python/semantic-workbench-assistant" },

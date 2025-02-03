@@ -7,18 +7,19 @@ from .__model import MCPServerConfig, ToolsConfigModel
 # Each configuration includes the server name, command, arguments, and environment variables.
 # Tested with 'npx' commands and _should_ work with 'uvx' as well.
 # Can also use 'node' (and probably 'python'), but requires the full path to the lib/script called.
+# The 'key' is used to identify the server in config, logs, etc.
 
 
 def get_mcp_server_configs(tools_config: ToolsConfigModel) -> List[MCPServerConfig]:
     file_system_paths = [f"/workspaces/{file_system_path}" for file_system_path in tools_config.file_system_paths]
     return [
         MCPServerConfig(
-            name="Filesystem MCP Server",
+            key="filesystem",
             command="npx",
             args=["-y", "@modelcontextprotocol/server-filesystem", *file_system_paths],
         ),
         MCPServerConfig(
-            name="Memory MCP Server",
+            key="memory",
             command="npx",
             args=["-y", "@modelcontextprotocol/server-memory"],
             prompt=dedent("""
@@ -45,15 +46,15 @@ def get_mcp_server_configs(tools_config: ToolsConfigModel) -> List[MCPServerConf
         """),
         ),
         MCPServerConfig(
-            name="GIPHY MCP Server",
+            key="giphy",
             command="http://127.0.0.1:6000/sse",
             args=[],
         ),
-        # MCPServerConfig(
-        #     name="Sequential Thinking MCP Server",
-        #     command="npx",
-        #     args=["-y", "@modelcontextprotocol/server-sequential-thinking"],
-        # ),
+        MCPServerConfig(
+            key="sequential_thinking",
+            command="npx",
+            args=["-y", "@modelcontextprotocol/server-sequential-thinking"],
+        ),
         # MCPServerConfig(
         #     name="Web Research MCP Server",
         #     command="npx",

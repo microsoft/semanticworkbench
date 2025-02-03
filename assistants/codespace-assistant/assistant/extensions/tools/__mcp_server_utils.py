@@ -30,14 +30,14 @@ async def connect_to_mcp_server_stdio(server_config: MCPServerConfig) -> AsyncIt
     server_params = StdioServerParameters(command=server_config.command, args=server_config.args, env=server_config.env)
     try:
         logger.debug(
-            f"Attempting to connect to {server_config.name} with command: {server_config.command} {' '.join(server_config.args)}"
+            f"Attempting to connect to {server_config.key} with command: {server_config.command} {' '.join(server_config.args)}"
         )
         async with stdio_client(server_params) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
     except Exception as e:
-        logger.exception(f"Error connecting to {server_config.name}: {e}")
+        logger.exception(f"Error connecting to {server_config.key}: {e}")
         yield None  # Yield None if connection fails
 
 
@@ -46,14 +46,19 @@ async def connect_to_mcp_server_sse(server_config: MCPServerConfig) -> AsyncIter
     """Connect to a single MCP server defined in the config using SSE transport."""
 
     try:
-        logger.debug(f"Attempting to connect to {server_config.name} with SSE transport: {server_config.command}")
+        logger.debug(f"Attempting to connect to {server_config.key} with SSE transport: {server_config.command}")
         async with sse_client(url=server_config.command, headers=server_config.env) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
     except Exception as e:
-        logger.exception(f"Error connecting to {server_config.name}: {e}")
+        logger.exception(f"Error connecting to {server_config.key}: {e}")
         yield None
+
+
+def is_mcp_server_enabled(server_config: MCPServerConfig, tools_config: ToolsConfigModel) -> bool:
+    """Check if an MCP server is enabled."""
+    return tools_config.tools_enabled.model_dump().get(f"{server_config.key}_enabled", False)
 
 
 async def establish_mcp_sessions(tools_config: ToolsConfigModel, stack: AsyncExitStack) -> List[MCPSession]:
@@ -63,16 +68,21 @@ async def establish_mcp_sessions(tools_config: ToolsConfigModel, stack: AsyncExi
 
     mcp_sessions: List[MCPSession] = []
     for server_config in get_mcp_server_configs(tools_config):
+        # Check to see if the server is enabled
+        if not is_mcp_server_enabled(server_config, tools_config):
+            logger.debug(f"Skipping disabled server: {server_config.key}")
+            continue
+
         client_session: ClientSession | None = await stack.enter_async_context(connect_to_mcp_server(server_config))
         if client_session:
             # Create an MCP session with the client session
-            mcp_session = MCPSession(name=server_config.name, client_session=client_session)
+            mcp_session = MCPSession(name=server_config.key, client_session=client_session)
             # Initialize the session to load tools, resources, etc.
             await mcp_session.initialize()
             # Add the session to the list of established sessions
             mcp_sessions.append(mcp_session)
         else:
-            logger.warning(f"Could not establish session with {server_config.name}")
+            logger.warning(f"Could not establish session with {server_config.key}")
     return mcp_sessions
 
 

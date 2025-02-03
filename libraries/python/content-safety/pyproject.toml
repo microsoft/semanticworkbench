@@ -9,7 +9,7 @@ dependencies = [
     "azure-ai-contentsafety>=1.0.0",
     "azure-core[aio]>=1.30.0",
     "azure-identity>=1.17.1",
-    "openai>=1.60.2",
+    "openai>=1.61.0",
     "semantic-workbench-assistant>=0.1.0",
 ]
 

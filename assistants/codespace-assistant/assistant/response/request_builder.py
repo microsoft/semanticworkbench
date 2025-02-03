@@ -32,19 +32,23 @@ async def build_request(
     participants_response = await context.get_participants(include_inactive=True)
     participants = participants_response.participants
 
-    # Build system message content
-    system_message_content = build_system_message_content(config, context, participants, silence_token)
+    additional_system_message_content: list[tuple[str, str]] = []
 
     # Add any additional tools instructions to the system message content
     if config.extensions_config.tools.enabled:
-        system_message_content = "\n\n".join([
-            system_message_content,
+        additional_system_message_content.append((
+            "Tool Instructions",
             config.extensions_config.tools.additional_instructions,
-        ])
+        ))
 
     # Add MCP Server prompts to the system message content
     if len(mcp_prompts) > 0:
-        system_message_content = "\n\n".join([system_message_content, *mcp_prompts])
+        additional_system_message_content.append(("Specific Tool Guidance", "\n\n".join(mcp_prompts)))
+
+    # Build system message content
+    system_message_content = build_system_message_content(
+        config, context, participants, silence_token, additional_system_message_content
+    )
 
     completion_messages: List[ChatCompletionMessageParam] = [
         ChatCompletionSystemMessageParam(
