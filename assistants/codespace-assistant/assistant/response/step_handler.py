@@ -95,7 +95,7 @@ async def next_step(
     completion: ParsedChatCompletion | ChatCompletion | None = None
 
     # convert the tools to make them compatible with the OpenAI API
-    mcp_tools = retrieve_tools_from_sessions(mcp_sessions)
+    mcp_tools = retrieve_tools_from_sessions(mcp_sessions, config.extensions_config.tools)
     tools = convert_mcp_tools_to_openai_tools(mcp_tools)
 
     # update the metadata with debug information

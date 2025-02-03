@@ -142,15 +142,12 @@ class ToolsConfigModel(BaseModel):
         UISchema(widget="textarea", enable_markdown_in_description=True),
     ] = dedent("""
         - Use the available tools to assist with specific tasks.
-        - Before performing any file operations, use the `allowed_directories` tool to get a list of directories
-            that are allowed for file operations.
+        - Before performing any file operations, use the `list_allowed_directories` tool to get a list of directories
+            that are allowed for file operations. Always use paths relative to an allowed directory.
         - When searching or browsing for files, consider the kinds of folders and files that should be avoided:
             - For example, for coding projects exclude folders like `.git`, `.vscode`, `node_modules`, and `dist`.
         - For each turn, always re-read a file before using it to ensure the most up-to-date information, especially
             when writing or editing files.
-        - Either use search or specific list files in directories instead of using `directory_tree` to avoid
-            issues with large directory trees as that tool is not optimized for large trees nor does it allow
-            for filtering.
         - The search tool does not appear to support wildcards, but does work with partial file names.
     """).strip()
 
@@ -188,6 +185,17 @@ class ToolsConfigModel(BaseModel):
         ),
     ] = ["semanticworkbench"]
 
-    tools_enabled: Annotated[MCPServersEnabledConfigModel, Field(title="Tools Enabled")] = (
+    tool_servers_enabled: Annotated[MCPServersEnabledConfigModel, Field(title="Tool Servers Enabled")] = (
         MCPServersEnabledConfigModel()
     )
+
+    tools_disabled: Annotated[
+        list[str],
+        Field(
+            title="Disabled Tools",
+            description=dedent("""
+                List of individual tools to disable. Use this if there is a problem tool that you do not want
+                made visible to your assistant.
+            """).strip(),
+        ),
+    ] = ["directory_tree"]
