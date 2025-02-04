@@ -1,23 +1,28 @@
 import asyncio
-import json
-from typing import Optional
+from typing import Tuple
 
-
-async def run_command(cmd: list) -> str:
-    """Run an external command asynchronously and return the stdout as a string."""
-    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+async def run_command(cmd: list) -> Tuple[str, str, int]:
+    """
+    Run an external command asynchronously and return a tuple:
+    (stdout, stderr, returncode)
+    """
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
     stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        raise Exception(f"Command {' '.join(cmd)} failed with error: {stderr.decode().strip()}")
-    return stdout.decode()
-
+    ret = process.returncode
+    if ret is None:
+        ret = -1
+    return stdout.decode(), stderr.decode(), int(ret)
 
 async def code_checker(context: str, file_path: str, mode: str = "all") -> dict:
     """
     Run linting (using ruff) and type-checking (using mypy) on the given file.
 
     Parameters:
-      - context: Provided context (not used here, but required by MCP tool signature).
+      - context: Provided context (not used here).
       - file_path: The path to the code file to check.
       - mode: "all" (default), "lint", or "type-check" to specify which checks to run.
 
@@ -26,31 +31,41 @@ async def code_checker(context: str, file_path: str, mode: str = "all") -> dict:
     """
     results = {"issues": []}
 
+    # Process linting using ruff
     if mode in ["all", "lint"]:
-        # Run ruff for linting
-        cmd_ruff = ["ruff", "--format", "json", file_path]
-        try:
-            stdout_ruff = await run_command(cmd_ruff)
-            lint_results = json.loads(stdout_ruff) if stdout_ruff.strip() else []
-        except Exception as e:
-            lint_results = [{"error": str(e)}]
-        for issue in lint_results:
-            issue["type"] = "lint"
-            issue["tool"] = "ruff"
-            results["issues"].append(issue)
+        cmd_ruff = ["ruff", "check", file_path]
+        stdout_ruff, stderr_ruff, code_ruff = await run_command(cmd_ruff)
+        print(f"Ruff stdout: {stdout_ruff}")
+        print(f"Ruff stderr: {stderr_ruff}")
+        if code_ruff != 0:
+            # Use stderr if available, else stdout
+            lint_output = stderr_ruff if stderr_ruff.strip() else stdout_ruff
+        else:
+            lint_output = stdout_ruff
+        lint_lines = lint_output.strip().splitlines() if lint_output.strip() else []
+        for line in lint_lines:
+            results["issues"].append({
+                "type": "lint",
+                "tool": "ruff",
+                "message": line
+            })
 
+    # Process type-checking using mypy
     if mode in ["all", "type-check"]:
-        # Run mypy for type-checking
-        cmd_mypy = ["mypy", "--show-json-errors", file_path]
-        try:
-            stdout_mypy = await run_command(cmd_mypy)
-            mypy_output = json.loads(stdout_mypy) if stdout_mypy.strip() else {}
-            type_results = mypy_output.get("errors", [])
-        except Exception as e:
-            type_results = [{"error": str(e)}]
-        for issue in type_results:
-            issue["type"] = "type-check"
-            issue["tool"] = "mypy"
-            results["issues"].append(issue)
+        cmd_mypy = ["mypy", file_path]
+        stdout_mypy, stderr_mypy, code_mypy = await run_command(cmd_mypy)
+        print(f"Mypy stdout: {stdout_mypy}")
+        print(f"Mypy stderr: {stderr_mypy}")
+        if code_mypy != 0:
+            type_output = stderr_mypy if stderr_mypy.strip() else stdout_mypy
+        else:
+            type_output = stdout_mypy
+        type_lines = type_output.strip().splitlines() if type_output.strip() else []
+        for line in type_lines:
+            results["issues"].append({
+                "type": "type-check",
+                "tool": "mypy",
+                "message": line
+            })
 
     return {"success": True, "results": results}
