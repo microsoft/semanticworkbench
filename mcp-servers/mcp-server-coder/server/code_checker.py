@@ -29,7 +29,7 @@ async def code_checker(context: str, file_path: str, mode: str = "all") -> dict:
     Returns:
       A dictionary with a success flag and aggregated issues.
     """
-    results = {"issues": []}
+    results: dict = {"issues": []}
 
     # Process linting using ruff
     if mode in ["all", "lint"]:
