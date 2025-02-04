@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import List
 
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
@@ -27,6 +28,13 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class BuildRequestResult:
+    chat_message_params: List[ChatCompletionMessageParam]
+    token_count: int
+    token_overage: int
+
+
 async def build_request(
     mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
@@ -37,7 +45,7 @@ async def build_request(
     tools_config: ToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
     silence_token: str,
-) -> list[ChatCompletionMessageParam]:
+) -> BuildRequestResult:
     # Get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
     participants = participants_response.participants
@@ -60,7 +68,7 @@ async def build_request(
         prompts_config, context, participants, silence_token, additional_system_message_content
     )
 
-    completion_messages: List[ChatCompletionMessageParam] = [
+    chat_message_params: List[ChatCompletionMessageParam] = [
         ChatCompletionSystemMessageParam(
             role="system",
             content=system_message_content,
@@ -80,7 +88,7 @@ async def build_request(
     # Calculate the token count for the messages so far
     token_count = num_tokens_from_messages(
         model=request_config.model,
-        messages=completion_messages,
+        messages=chat_message_params,
     )
 
     # Get the token count for the tools
@@ -98,7 +106,7 @@ async def build_request(
     )
 
     # Add attachment messages
-    completion_messages.extend(attachment_messages)
+    chat_message_params.extend(attachment_messages)
 
     token_count += num_tokens_from_messages(
         model=request_config.model,
@@ -114,7 +122,7 @@ async def build_request(
         available_tokens -= int(request_config.response_tokens * adjustment_percent / 100)
 
     # Get history messages
-    history_messages = await get_history_messages(
+    history_messages_result = await get_history_messages(
         context=context,
         participants=participants_response.participants,
         model=request_config.model,
@@ -122,11 +130,11 @@ async def build_request(
     )
 
     # Add history messages
-    completion_messages.extend(history_messages)
+    chat_message_params.extend(history_messages_result.messages)
 
     # Check token count
     total_token_count = num_tokens_from_tools_and_messages(
-        messages=completion_messages,
+        messages=chat_message_params,
         tools=tools or [],
         model=request_config.model,
     )
@@ -137,4 +145,8 @@ async def build_request(
             "Please start a new conversation and let us know you ran into this."
         )
 
-    return completion_messages
+    return BuildRequestResult(
+        chat_message_params=chat_message_params,
+        token_count=total_token_count,
+        token_overage=history_messages_result.token_overage,
+    )

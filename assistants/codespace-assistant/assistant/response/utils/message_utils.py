@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import dataclass
 from textwrap import dedent
 from typing import Any
 
@@ -16,7 +17,6 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,
     MessageType,
-    NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -24,6 +24,13 @@ from ...config import PromptsConfigModel
 from .formatting_utils import format_message
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class GetHistoryMessagesResult:
+    messages: list[ChatCompletionMessageParam]
+    token_count: int
+    token_overage: int
 
 
 def build_system_message_content(
@@ -191,7 +198,7 @@ async def get_history_messages(
     participants: list[ConversationParticipant],
     model: str,
     token_limit: int | None = None,
-) -> list[ChatCompletionMessageParam]:
+) -> GetHistoryMessagesResult:
     """
     Get all messages in the conversation, formatted for use in a completion.
     """
@@ -203,6 +210,7 @@ async def get_history_messages(
     history = []
     token_count = 0
     before_message_id = None
+    token_overage = 0
 
     while True:
         # get the next batch of messages, including chat and tool result messages
@@ -222,32 +230,32 @@ async def get_history_messages(
         for message in reversed(messages_list):
             # format the message
             formatted_message_list = await conversation_message_to_chat_message_params(context, message, participants)
-            token_count += openai_client.num_tokens_from_messages(formatted_message_list, model=model)
+            formatted_messages_token_count = openai_client.num_tokens_from_messages(formatted_message_list, model=model)
 
-            # if a token limit is provided and the token count exceeds the limit, break the loop
-            if token_limit and token_count > token_limit:
-                # go through top of the history list and remove any tool messages that occur
-                # before a non-tool message, as they need to be removed as well
-                for i, message in enumerate(history):
-                    if message.get("role") != "tool":
-                        history = history[i:]
-                        break
+            # if the token limit is not reached, or if the token limit is not provided
+            if token_overage == 0 and token_limit and token_count + formatted_messages_token_count < token_limit:
+                # increment the token count
+                token_count += formatted_messages_token_count
 
-                # send a notice message to the user to inform them of the situation
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=dedent("""
-                            The conversation history exceeds the token limit, not all history will be
-                            included. For best experience, consider removing some attachments, messages,
-                            or starting a new conversation.
-                        """),
-                        message_type=MessageType.notice,
-                    )
-                )
-                break
+                # insert the formatted messages onto the top of the history list
+                history = formatted_message_list + history
 
-            # insert the formatted messages into the beginning of the history list
-            history = formatted_message_list + history
+            else:
+                # on first time through, remove any tool messages that occur before a non-tool message
+                if token_overage == 0:
+                    for i, message in enumerate(history):
+                        if message.get("role") != "tool":
+                            history = history[i:]
+                            break
+
+                # the token limit was reached, but continue to count the token overage
+                token_overage += formatted_messages_token_count
+
+        # while loop will now check for next batch of messages
 
     # return the formatted messages
-    return history
+    return GetHistoryMessagesResult(
+        messages=history,
+        token_count=token_count,
+        token_overage=token_overage,
+    )

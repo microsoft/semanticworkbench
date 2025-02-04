@@ -1,5 +1,6 @@
 import logging
 import time
+from textwrap import dedent
 from typing import Any, List
 
 import deepmerge
@@ -18,6 +19,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.extensions.tools.__mcp_tool_utils import retrieve_tools_from_sessions
 from assistant.extensions.tools.__model import MCPSession
+from assistant.response.utils.formatting_utils import get_formatted_token_count
 from assistant.response.utils.openai_utils import get_ai_client_configs
 
 from ..config import AssistantConfigModel
@@ -86,7 +88,7 @@ async def next_step(
     mcp_tools = retrieve_tools_from_sessions(mcp_sessions, config.extensions_config.tools)
     tools = convert_mcp_tools_to_openai_tools(mcp_tools)
 
-    chat_message_params = await build_request(
+    build_request_result = await build_request(
         mcp_prompts=mcp_prompts,
         attachments_extension=attachments_extension,
         context=context,
@@ -97,6 +99,8 @@ async def next_step(
         attachments_config=config.extensions_config.attachments,
         silence_token=silence_token,
     )
+
+    chat_message_params = build_request_result.chat_message_params
 
     # Generate AI response
     # initialize variables for the response content
@@ -160,5 +164,20 @@ async def next_step(
         metadata_key,
         response_start_time,
     )
+
+    if build_request_result.token_overage > 0:
+        # send a notice message to the user to inform them of the situation
+        await context.send_messages(
+            NewConversationMessage(
+                content=dedent(f"""
+                    The conversation history exceeds the token limit by
+                    {get_formatted_token_count(build_request_result.token_overage)}
+                    tokens. Conversation history sent to the model was truncated. For best experience,
+                    consider removing some attachments and/or messages and try again, or starting a new
+                    conversation.
+                """),
+                message_type=MessageType.notice,
+            )
+        )
 
     return step_result
