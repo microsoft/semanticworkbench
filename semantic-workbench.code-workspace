@@ -170,6 +170,9 @@
     {
       "name": ".github",
       "path": ".github"
+    },
+    {
+      "path": "coder-mcp-server"
     }
   ],
   "settings": {
