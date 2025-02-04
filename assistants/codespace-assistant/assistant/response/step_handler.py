@@ -3,12 +3,12 @@ import time
 from typing import Any, List
 
 import deepmerge
-import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
 )
+from openai_client import create_client
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
@@ -18,6 +18,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.extensions.tools.__mcp_tool_utils import retrieve_tools_from_sessions
 from assistant.extensions.tools.__model import MCPSession
+from assistant.response.utils.openai_utils import get_ai_client_configs
 
 from ..config import AssistantConfigModel
 from .completion_handler import handle_completion
@@ -66,22 +67,14 @@ async def next_step(
         step_result.status = "error"
         return step_result
 
-    # Get service and request configuration for generative model
-    generative_service_config = config.generative_ai_client_config.service_config
-    generative_request_config = config.generative_ai_client_config.request_config
-
-    # Get service and request configuration for reasoning model
-    reasoning_service_config = config.reasoning_ai_client_config.service_config
-    reasoning_request_config = config.reasoning_ai_client_config.request_config
-
     # TODO: This is a temporary hack to allow directing the request to the reasoning model
-    use_reasoning_model = False
+    request_type = "generative"
     if message.content.startswith("reason:"):
-        use_reasoning_model = True
+        request_type = "reasoning"
         message.content = message.content.replace("reason:", "").strip()
 
-    service_config = reasoning_service_config if use_reasoning_model else generative_service_config
-    request_config = reasoning_request_config if use_reasoning_model else generative_request_config
+    # Get the AI client configuration based on the request type
+    request_config, service_config = get_ai_client_configs(config, request_type)
 
     # Track the start time of the response generation
     response_start_time = time.time()
@@ -89,21 +82,25 @@ async def next_step(
     # Establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
 
+    # convert the tools to make them compatible with the OpenAI API
+    mcp_tools = retrieve_tools_from_sessions(mcp_sessions, config.extensions_config.tools)
+    tools = convert_mcp_tools_to_openai_tools(mcp_tools)
+
     chat_message_params = await build_request(
         mcp_prompts=mcp_prompts,
         attachments_extension=attachments_extension,
         context=context,
-        config=config,
+        prompts_config=config.prompts,
+        request_config=request_config,
+        tools_config=config.extensions_config.tools,
+        tools=tools,
+        attachments_config=config.extensions_config.attachments,
         silence_token=silence_token,
     )
 
     # Generate AI response
     # initialize variables for the response content
     completion: ParsedChatCompletion | ChatCompletion | None = None
-
-    # convert the tools to make them compatible with the OpenAI API
-    mcp_tools = retrieve_tools_from_sessions(mcp_sessions, config.extensions_config.tools)
-    tools = convert_mcp_tools_to_openai_tools(mcp_tools)
 
     # update the metadata with debug information
     deepmerge.always_merger.merge(
@@ -123,7 +120,7 @@ async def next_step(
     )
 
     # generate a response from the AI model
-    async with openai_client.create_client(service_config) as client:
+    async with create_client(service_config) as client:
         try:
             completion = await get_completion(client, request_config, chat_message_params, tools)
 
@@ -158,7 +155,7 @@ async def next_step(
         completion,
         mcp_sessions,
         context,
-        config,
+        request_config,
         silence_token,
         metadata_key,
         response_start_time,

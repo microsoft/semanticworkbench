@@ -4,7 +4,7 @@ import math
 import re
 from fractions import Fraction
 from io import BytesIO
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 import tiktoken
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
@@ -13,17 +13,14 @@ from PIL import Image
 logger = logging.getLogger(__name__)
 
 
-def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> int:
+def resolve_model_name(model: str) -> str:
     """
-    Return the number of tokens used by a single message.
+    Given a possibly generic model name, return the specific model name
+    that should be used for token counting.
 
-    Note that the exact way that tokens are counted from messages may change from model to model.
-    Consider the counts from this function an estimate, not a timeless guarantee.
-
-    Reference: https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken#6-counting-tokens-for-chat-completions-api-calls
+    This function encapsulates the logic that was previously inline in num_tokens_from_message.
     """
 
-    # First, set the default number of tokens per message and per name and convert generic model names to specific ones
     if model in {
         "gpt-3.5-turbo-0125",
         "gpt-4-0314",
@@ -32,63 +29,43 @@ def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> 
         "gpt-4-32k-0613",
         "gpt-4o-mini-2024-07-18",
         "gpt-4o-2024-08-06",
-        # TODO: determine correct handling of reasoning models
         "o1-2024-12-17",
     }:
-        tokens_per_message = 3
-        tokens_per_name = 1
+        return model
     elif "gpt-3.5-turbo" in model:
         logger.debug("gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0125.")
-        return num_tokens_from_message(message, model="gpt-3.5-turbo-0125")
+        return "gpt-3.5-turbo-0125"
     elif "gpt-4o-mini" in model:
         logger.debug("gpt-4o-mini may update over time. Returning num tokens assuming gpt-4o-mini-2024-07-18.")
-        return num_tokens_from_message(message, model="gpt-4o-mini-2024-07-18")
+        return "gpt-4o-mini-2024-07-18"
     elif "gpt-4o" in model:
         logger.debug("gpt-4o may update over time. Returning num tokens assuming gpt-4o-2024-08-06.")
-        return num_tokens_from_message(message, model="gpt-4o-2024-08-06")
+        return "gpt-4o-2024-08-06"
     elif "gpt-4" in model:
         logger.debug("gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
-        return num_tokens_from_message(message, model="gpt-4-0613")
-    elif model.startswith("o1"):
-        logger.debug("o1-* may update over time. Returning num tokens assuming o1-2024-12-17.")
-        return num_tokens_from_message(message, model="o1-2024-12-17")
-    elif model.startswith("o3"):
-        # no support in tiktoken for o3 models yet, fallback to o1
-        logger.debug("o3-* may update over time. Returning num tokens assuming o1-2024-12-17.")
-        return num_tokens_from_message(message, model="o1-2024-12-17")
+        return "gpt-4-0613"
+    elif model.startswith("o"):
+        logger.debug("o series models may update over time. Returning num tokens assuming o1-2024-12-17.")
+        return "o1-2024-12-17"
     else:
         raise NotImplementedError(f"num_tokens_from_messages() is not implemented for model {model}.")
 
-    # Then, calculate the number of tokens for the message now that we have the correct specific model name
+
+def get_encoding_for_model(model: str) -> tiktoken.Encoding:
     try:
-        encoding = tiktoken.encoding_for_model(model)
+        return tiktoken.encoding_for_model(resolve_model_name(model))
     except KeyError:
-        logger.warning("model %s not found. Using cl100k_base encoding.", model)
-        encoding = tiktoken.get_encoding("cl100k_base")
+        logger.warning(f"model {model} not found. Using cl100k_base encoding.")
+        return tiktoken.get_encoding("cl100k_base")
 
-    num_tokens = tokens_per_message
-    for key, value in message.items():
-        if isinstance(value, list):
-            # For GPT-4-vision support, based on https://github.com/openai/openai-cookbook/pull/881/files
-            for item in value:
-                # Note: item[type] does not seem to be counted in the token count
-                if item["type"] == "text":
-                    num_tokens += len(encoding.encode(item["text"]))
-                elif item["type"] == "image_url":
-                    num_tokens += count_tokens_for_image(
-                        item["image_url"]["url"], model=model, detail=item["image_url"].get("detail", "auto")
-                    )
-        elif isinstance(value, str):
-            num_tokens += len(encoding.encode(value))
-        elif value is None:
-            # Null values do not consume tokens
-            pass
-        else:
-            raise ValueError(f"Could not encode unsupported message value type: {type(value)}")
-        if key == "name":
-            num_tokens += tokens_per_name
 
-    return num_tokens
+def num_tokens_from_message(message: ChatCompletionMessageParam, model: str) -> int:
+    """
+    Return the number of tokens used by a single message.
+
+    This function is simply a wrapper around num_tokens_from_messages.
+    """
+    return num_tokens_from_messages([message], model)
 
 
 def num_tokens_from_messages(messages: Iterable[ChatCompletionMessageParam], model: str) -> int:
@@ -104,93 +81,165 @@ def num_tokens_from_messages(messages: Iterable[ChatCompletionMessageParam], mod
     Reference: https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken#6-counting-tokens-for-chat-completions-api-calls
     """
 
-    num_tokens = sum((num_tokens_from_message(message, model) for message in messages))
-    num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+    total_tokens = 0
+    # Resolve the specific model name using the helper function.
+    specific_model = resolve_model_name(model)
 
-    return num_tokens
+    # Use extra token counts determined experimentally.
+    tokens_per_message = 3
+    tokens_per_name = 1
+
+    try:
+        encoding = tiktoken.encoding_for_model(specific_model)
+    except KeyError:
+        logger.warning("model %s not found. Using cl100k_base encoding.", specific_model)
+        encoding = tiktoken.get_encoding("cl100k_base")
+
+    # Calculate the total tokens for all messages
+    for message in messages:
+        # Start with the tokens added per message
+        num_tokens = tokens_per_message
+
+        # Add tokens for each key-value pair in the message
+        for key, value in message.items():
+            # Calculate the tokens for the value
+            if isinstance(value, list):
+                # For GPT-4-vision support, based on the OpenAI cookbook
+                for item in value:
+                    # Note: item["type"] does not seem to be counted in the token count
+                    if item["type"] == "text":
+                        num_tokens += len(encoding.encode(item["text"]))
+                    elif item["type"] == "image_url":
+                        num_tokens += count_tokens_for_image(
+                            item["image_url"]["url"],
+                            model=specific_model,
+                            detail=item["image_url"].get("detail", "auto"),
+                        )
+            elif isinstance(value, str):
+                num_tokens += len(encoding.encode(value))
+            elif value is None:
+                # Null values do not consume tokens
+                pass
+            else:
+                raise ValueError(f"Could not encode unsupported message value type: {type(value)}")
+
+            # Add tokens for the name key
+            if key == "name":
+                num_tokens += tokens_per_name
+
+        # Add the total tokens for this message to the running total
+        total_tokens += num_tokens
+
+    # Return the total token count for all messages
+    return total_tokens
 
 
-def num_tokens_from_tools_and_messages(
+def count_jsonschema_tokens(schema, encoding, prop_key, enum_item, enum_init) -> Any | int:
+    """
+    Recursively count tokens in any JSON-serializable object (i.e. a JSON Schema)
+    using the provided encoding. Applies a special cost for keys and enum lists.
+    """
+    tokens = 0
+    if isinstance(schema, dict):
+        for key, value in schema.items():
+            # Special handling for "enum" keys
+            if key == "enum" and isinstance(value, list):
+                tokens += enum_init  # one-time cost for the enum list
+                for item in value:
+                    tokens += enum_item
+                    if isinstance(item, str):
+                        tokens += len(encoding.encode(item))
+                    else:
+                        tokens += count_jsonschema_tokens(item, encoding, prop_key, enum_item, enum_init)
+            else:
+                # Count tokens for the key name
+                tokens += prop_key
+                tokens += len(encoding.encode(str(key)))
+                # Recursively count tokens for the value
+                tokens += count_jsonschema_tokens(value, encoding, prop_key, enum_item, enum_init)
+    elif isinstance(schema, list):
+        # For lists not specifically marked as enum, just count tokens for each element.
+        for item in schema:
+            tokens += count_jsonschema_tokens(item, encoding, prop_key, enum_item, enum_init)
+    elif isinstance(schema, str):
+        tokens += len(encoding.encode(schema))
+    elif isinstance(schema, (int, float, bool)) or schema is None:
+        tokens += len(encoding.encode(str(schema)))
+    return tokens
+
+
+def num_tokens_from_tools(
     tools: Sequence[ChatCompletionToolParam],
-    messages: Iterable[ChatCompletionMessageParam],
     model: str,
-):
+) -> int:
     """
     Return the number of tokens used by a list of functions and messages.
-
-    Reference: https://cookbook.openai.com/examples/how_to_count_tokens_with_tiktoken#6-counting-tokens-for-chat-completions-api-calls
+    This version has been updated to traverse any valid JSON Schema in the
+    function parameters.
     """
-    # Initialize function settings to 0
+    # Initialize function-specific token settings
     func_init = 0
-    prop_init = 0
     prop_key = 0
     enum_init = 0
     enum_item = 0
     func_end = 0
 
-    if model in ["gpt-4o", "gpt-4o-mini"]:
-        # Set function settings for the above models
+    specific_model = resolve_model_name(model)
+
+    if specific_model.startswith("gpt-4o") or specific_model.startswith("o"):
         func_init = 7
-        prop_init = 3
+        # prop_init could be used for object-start if desired (e.g. add once per object)
         prop_key = 3
         enum_init = -3
         enum_item = 3
         func_end = 12
-    elif model in ["gpt-3.5-turbo", "gpt-4"]:
-        # Set function settings for the above models
+    elif specific_model.startswith("gpt-3.5-turbo") or specific_model.startswith("gpt-4"):
         func_init = 10
-        prop_init = 3
         prop_key = 3
         enum_init = -3
         enum_item = 3
         func_end = 12
     else:
-        raise NotImplementedError(f"num_tokens_from_tools_and_messages() is not implemented for model {model}.")
+        raise NotImplementedError(
+            f"num_tokens_from_tools_and_messages() is not implemented for model {specific_model}."
+        )
 
     try:
-        encoding = tiktoken.encoding_for_model(model)
+        encoding = tiktoken.encoding_for_model(specific_model)
     except KeyError:
-        logger.warning("model %s not found. Using o200k_base encoding.", model)
+        logger.warning("model %s not found. Using o200k_base encoding.", specific_model)
         encoding = tiktoken.get_encoding("o200k_base")
 
-    func_token_count = 0
+    token_count = 0
     for f in tools:
-        func_token_count += func_init  # Add tokens for start of each function
+        token_count += func_init  # Add tokens for start of each function
         function = f["function"]
         f_name = function["name"]
         f_desc = function.get("description", "")
         if f_desc.endswith("."):
             f_desc = f_desc[:-1]
         line = f_name + ":" + f_desc
-        func_token_count += len(encoding.encode(line))  # Add tokens for set name and description
-        if (
-            "parameters" in function
-            and "properties" in function["parameters"]
-            and isinstance(function["parameters"]["properties"], dict)
-            and len(function["parameters"]["properties"]) > 0
-        ):
-            func_token_count += prop_init  # Add tokens for start of each property
-            for key in list(function["parameters"]["properties"].keys()):
-                func_token_count += prop_key  # Add tokens for each set property
-                p_name = key
-                p_type = function["parameters"]["properties"][key]["type"]
-                p_desc = function["parameters"]["properties"][key]["description"]
-                if "enum" in function["parameters"]["properties"][key].keys():
-                    func_token_count += enum_init  # Add tokens if property has enum list
-                    for item in function["parameters"]["properties"][key]["enum"]:
-                        func_token_count += enum_item
-                        func_token_count += len(encoding.encode(item))
-                if p_desc.endswith("."):
-                    p_desc = p_desc[:-1]
-                line = f"{p_name}:{p_type}:{p_desc}"
-                func_token_count += len(encoding.encode(line))
+        token_count += len(encoding.encode(line))  # Add tokens for set name and description
+        if "parameters" in function:  # Process any JSON Schema in parameters
+            token_count += count_jsonschema_tokens(function["parameters"], encoding, prop_key, enum_item, enum_init)
     if len(tools) > 0:
-        func_token_count += func_end
+        token_count += func_end
 
+    return token_count
+
+
+def num_tokens_from_tools_and_messages(
+    tools: Sequence[ChatCompletionToolParam],
+    messages: Iterable[ChatCompletionMessageParam],
+    model: str,
+) -> int:
+    """
+    Return the number of tokens used by a list of functions and messages.
+    """
+    # Calculate the total token count for the messages and tools
     messages_token_count = num_tokens_from_messages(messages, model)
-    total_tokens = messages_token_count + func_token_count
-
-    return total_tokens
+    tools_token_count = num_tokens_from_tools(tools, model)
+    return messages_token_count + tools_token_count
 
 
 def get_image_dims(image_uri: str) -> tuple[int, int]:

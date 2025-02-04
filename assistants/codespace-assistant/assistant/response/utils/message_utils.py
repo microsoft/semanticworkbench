@@ -16,17 +16,18 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,
     MessageType,
+    NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ...config import AssistantConfigModel
+from ...config import PromptsConfigModel
 from .formatting_utils import format_message
 
 logger = logging.getLogger(__name__)
 
 
 def build_system_message_content(
-    config: AssistantConfigModel,
+    prompts_config: PromptsConfigModel,
     context: ConversationContext,
     participants: list[ConversationParticipant],
     silence_token: str,
@@ -36,7 +37,7 @@ def build_system_message_content(
     Construct the system message content with tool descriptions and instructions.
     """
 
-    system_message_content = f'{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    system_message_content = f'{prompts_config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
 
     if len(participants) > 2:
         participant_names = ", ".join([
@@ -56,7 +57,7 @@ def build_system_message_content(
             Say "{silence_token}" to skip your turn.
         """).strip()
 
-    system_message_content += f"\n\n# Safety Guardrails:\n{config.guardrails_prompt}"
+    system_message_content += f"\n\n# Safety Guardrails:\n{prompts_config.guardrails_prompt}"
 
     if additional_content:
         for section in additional_content:
@@ -225,6 +226,24 @@ async def get_history_messages(
 
             # if a token limit is provided and the token count exceeds the limit, break the loop
             if token_limit and token_count > token_limit:
+                # go through top of the history list and remove any tool messages that occur
+                # before a non-tool message, as they need to be removed as well
+                for i, message in enumerate(history):
+                    if message.get("role") != "tool":
+                        history = history[i:]
+                        break
+
+                # send a notice message to the user to inform them of the situation
+                await context.send_messages(
+                    NewConversationMessage(
+                        content=dedent("""
+                            The conversation history exceeds the token limit, not all history will be
+                            included. For best experience, consider removing some attachments, messages,
+                            or starting a new conversation.
+                        """),
+                        message_type=MessageType.notice,
+                    )
+                )
                 break
 
             # insert the formatted messages into the beginning of the history list

@@ -1,15 +1,24 @@
 import logging
 from typing import List
 
-import openai_client
-from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
+    ChatCompletionToolParam,
+)
+from openai_client import (
+    OpenAIRequestConfig,
+    convert_from_completion_messages,
+    num_tokens_from_messages,
+    num_tokens_from_tools,
+    num_tokens_from_tools_and_messages,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import AssistantConfigModel
+from assistant.config import PromptsConfigModel
+from assistant.extensions.tools.__model import ToolsConfigModel
+
 from .utils import (
     build_system_message_content,
     get_history_messages,
@@ -22,12 +31,13 @@ async def build_request(
     mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
-    config: AssistantConfigModel,
+    prompts_config: PromptsConfigModel,
+    request_config: OpenAIRequestConfig,
+    tools: List[ChatCompletionToolParam] | None,
+    tools_config: ToolsConfigModel,
+    attachments_config: AttachmentsConfigModel,
     silence_token: str,
 ) -> list[ChatCompletionMessageParam]:
-    # Get request configuration for generative model
-    generative_request_config = config.generative_ai_client_config.request_config
-
     # Get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
     participants = participants_response.participants
@@ -35,10 +45,10 @@ async def build_request(
     additional_system_message_content: list[tuple[str, str]] = []
 
     # Add any additional tools instructions to the system message content
-    if config.extensions_config.tools.enabled:
+    if tools_config.enabled:
         additional_system_message_content.append((
             "Tool Instructions",
-            config.extensions_config.tools.additional_instructions,
+            tools_config.additional_instructions,
         ))
 
     # Add MCP Server prompts to the system message content
@@ -47,7 +57,7 @@ async def build_request(
 
     # Build system message content
     system_message_content = build_system_message_content(
-        config, context, participants, silence_token, additional_system_message_content
+        prompts_config, context, participants, silence_token, additional_system_message_content
     )
 
     completion_messages: List[ChatCompletionMessageParam] = [
@@ -58,52 +68,71 @@ async def build_request(
     ]
 
     # Initialize token count to track the number of tokens used
-    token_count = 0
+    # Add history messages last, as they are what will be truncated if the token limit is reached
+    #
+    # Here are the parameters that count towards the token limit:
+    # - messages
+    # - tools
+    # - tool_choice
+    # - response_format
+    # - seed (if set, minor impact)
 
     # Calculate the token count for the messages so far
-    token_count += openai_client.num_tokens_from_messages(
-        model=generative_request_config.model,
+    token_count = num_tokens_from_messages(
+        model=request_config.model,
         messages=completion_messages,
     )
 
+    # Get the token count for the tools
+    tool_token_count = num_tokens_from_tools(
+        model=request_config.model,
+        tools=tools or [],
+    )
+
     # Generate the attachment messages
-    attachment_messages: List[ChatCompletionMessageParam] = openai_client.convert_from_completion_messages(
+    attachment_messages: List[ChatCompletionMessageParam] = convert_from_completion_messages(
         await attachments_extension.get_completion_messages_for_attachments(
             context,
-            config=config.extensions_config.attachments,
+            config=attachments_config,
         )
     )
 
     # Add attachment messages
     completion_messages.extend(attachment_messages)
 
-    token_count += openai_client.num_tokens_from_messages(
-        model=generative_request_config.model,
+    token_count += num_tokens_from_messages(
+        model=request_config.model,
         messages=attachment_messages,
     )
 
     # Calculate available tokens
-    available_tokens = generative_request_config.max_tokens - generative_request_config.response_tokens
+    available_tokens = request_config.max_tokens - request_config.response_tokens
+
+    # Add room for reasoning tokens if using a reasoning model
+    if request_config.is_reasoning_model:
+        adjustment_percent = request_config.reasoning_token_overhead_percentage
+        available_tokens -= int(request_config.response_tokens * adjustment_percent / 100)
 
     # Get history messages
     history_messages = await get_history_messages(
         context=context,
         participants=participants_response.participants,
-        model=generative_request_config.model,
-        token_limit=available_tokens - token_count,
+        model=request_config.model,
+        token_limit=available_tokens - token_count - tool_token_count,
     )
 
     # Add history messages
     completion_messages.extend(history_messages)
 
     # Check token count
-    total_token_count = openai_client.num_tokens_from_messages(
+    total_token_count = num_tokens_from_tools_and_messages(
         messages=completion_messages,
-        model=generative_request_config.model,
+        tools=tools or [],
+        model=request_config.model,
     )
     if total_token_count > available_tokens:
         raise ValueError(
-            f"You've exceeded the token limit of {generative_request_config.max_tokens} in this conversation "
+            f"You've exceeded the token limit of {request_config.max_tokens} in this conversation "
             f"({total_token_count}). This assistant does not support recovery from this state. "
             "Please start a new conversation and let us know you ran into this."
         )

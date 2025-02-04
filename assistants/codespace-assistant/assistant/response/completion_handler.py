@@ -5,12 +5,12 @@ import time
 from typing import List
 
 import deepmerge
-import openai_client
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionToolMessageParam,
     ParsedChatCompletion,
 )
+from openai_client import OpenAIRequestConfig, num_tokens_from_messages
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
@@ -19,7 +19,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.extensions.tools.__model import MCPSession
 
-from ..config import AssistantConfigModel
 from ..extensions.tools import (
     ToolCall,
     handle_tool_call,
@@ -39,7 +38,7 @@ async def handle_completion(
     completion: ParsedChatCompletion | ChatCompletion,
     mcp_sessions: List[MCPSession],
     context: ConversationContext,
-    config: AssistantConfigModel,
+    request_config: OpenAIRequestConfig,
     silence_token: str,
     metadata_key: str,
     response_start_time: float,
@@ -57,7 +56,7 @@ async def handle_completion(
         return step_result
 
     # Get service and request configuration for generative model
-    generative_request_config = config.generative_ai_client_config.request_config
+    generative_request_config = request_config
 
     # get the total tokens used for the completion
     completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
@@ -180,7 +179,7 @@ async def handle_completion(
             )
 
             # Add the token count for the tool call result to the total token count
-            step_result.conversation_tokens += openai_client.num_tokens_from_messages(
+            step_result.conversation_tokens += num_tokens_from_messages(
                 messages=[
                     ChatCompletionToolMessageParam(
                         role="tool",

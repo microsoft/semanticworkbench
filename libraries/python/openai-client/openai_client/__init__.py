@@ -31,8 +31,10 @@ from .messages import (
     truncate_messages_for_logging,
 )
 from .tokens import (
+    get_encoding_for_model,
     num_tokens_from_message,
     num_tokens_from_messages,
+    num_tokens_from_tools,
     num_tokens_from_tools_and_messages,
 )
 
@@ -52,11 +54,13 @@ __all__ = [
     "extra_data",
     "format_with_dict",
     "format_with_liquid",
+    "get_encoding_for_model",
     "make_completion_args_serializable",
     "message_content_from_completion",
     "message_from_completion",
     "num_tokens_from_message",
     "num_tokens_from_messages",
+    "num_tokens_from_tools",
     "num_tokens_from_tools_and_messages",
     "OpenAIServiceConfig",
     "OpenAIRequestConfig",
