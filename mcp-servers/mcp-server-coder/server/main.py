@@ -1,8 +1,11 @@
 # Main entry point for the MCP Coder Server
 
 import argparse
+
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from typing import Optional
+from server.code_checker import code_checker
 
 # Load environment variables from .env
 load_dotenv()
@@ -21,6 +24,12 @@ parser.add_argument("--port", type=int, default=6010, help="Port to use for SSE 
 mcp = FastMCP(name="Coder MCP Server", log_level="DEBUG")
 
 # Define server tool or resource logic here
+
+
+@mcp.tool()
+async def code_checker_tool(context: str, file_path: str, mode: Optional[str] = "all") -> dict:
+    return await code_checker(context, file_path, mode or "all")
+
 
 if __name__ == "__main__":
     args = parser.parse_args()

@@ -6,6 +6,7 @@ from assistant_extensions.attachments import AttachmentsExtension
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
+    ConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 async def respond_to_conversation(
+    message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     config: AssistantConfigModel,
@@ -75,6 +77,7 @@ async def respond_to_conversation(
             step_result = await next_step(
                 mcp_sessions=mcp_sessions,
                 mcp_prompts=mcp_prompts,
+                message=message,
                 attachments_extension=attachments_extension,
                 context=context,
                 config=config,

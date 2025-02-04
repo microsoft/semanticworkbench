@@ -10,6 +10,7 @@ from openai.types.chat import (
     ParsedChatCompletion,
 )
 from semantic_workbench_api_model.workbench_model import (
+    ConversationMessage,
     MessageType,
     NewConversationMessage,
 )
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 async def next_step(
     mcp_sessions: List[MCPSession],
     mcp_prompts: List[str],
+    message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
     config: AssistantConfigModel,
@@ -68,13 +70,18 @@ async def next_step(
     generative_service_config = config.generative_ai_client_config.service_config
     generative_request_config = config.generative_ai_client_config.request_config
 
-    # # Get response provider and request configuration for reasoning model
-    # reasoning_response_provider = OpenAIResponseProvider(
-    #     conversation_context=context,
-    #     assistant_config=config,
-    #     openai_client_config=config.reasoning_ai_client_config,
-    # )
-    # reasoning_request_config = config.reasoning_ai_client_config.request_config
+    # Get service and request configuration for reasoning model
+    reasoning_service_config = config.reasoning_ai_client_config.service_config
+    reasoning_request_config = config.reasoning_ai_client_config.request_config
+
+    # TODO: This is a temporary hack to allow directing the request to the reasoning model
+    use_reasoning_model = False
+    if message.content.startswith("reason:"):
+        use_reasoning_model = True
+        message.content = message.content.replace("reason:", "").strip()
+
+    service_config = reasoning_service_config if use_reasoning_model else generative_service_config
+    request_config = reasoning_request_config if use_reasoning_model else generative_request_config
 
     # Track the start time of the response generation
     response_start_time = time.time()
@@ -105,9 +112,9 @@ async def next_step(
             "debug": {
                 metadata_key: {
                     "request": {
-                        "model": generative_request_config.model,
+                        "model": request_config.model,
                         "messages": chat_message_params,
-                        "max_tokens": generative_request_config.response_tokens,
+                        "max_tokens": request_config.response_tokens,
                         "tools": tools,
                     },
                 },
@@ -116,9 +123,9 @@ async def next_step(
     )
 
     # generate a response from the AI model
-    async with openai_client.create_client(generative_service_config) as client:
+    async with openai_client.create_client(service_config) as client:
         try:
-            completion = await get_completion(client, generative_request_config, chat_message_params, tools)
+            completion = await get_completion(client, request_config, chat_message_params, tools)
 
         except Exception as e:
             logger.exception(f"exception occurred calling openai chat completion: {e}")

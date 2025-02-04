@@ -11,12 +11,11 @@ from .__model import MCPServerConfig, ToolsConfigModel
 
 
 def get_mcp_server_configs(tools_config: ToolsConfigModel) -> List[MCPServerConfig]:
-    file_system_paths = [f"/workspaces/{file_system_path}" for file_system_path in tools_config.file_system_paths]
     return [
         MCPServerConfig(
             key="filesystem",
             command="npx",
-            args=["-y", "@modelcontextprotocol/server-filesystem", *file_system_paths],
+            args=["-y", "@modelcontextprotocol/server-filesystem", *tools_config.file_system_paths],
         ),
         MCPServerConfig(
             key="memory",
@@ -48,7 +47,9 @@ def get_mcp_server_configs(tools_config: ToolsConfigModel) -> List[MCPServerConf
         MCPServerConfig(
             key="coder",
             command="http://127.0.0.1:6010/sse",
-            args=[],
+            args=[
+                *tools_config.file_system_paths,
+            ],
         ),
         MCPServerConfig(
             key="giphy",

@@ -189,9 +189,9 @@ class ToolsConfigModel(BaseModel):
         list[str],
         Field(
             title="File System Paths",
-            description="Paths to the file system for tools to use, relative to `/workspaces/` in the container.",
+            description="Paths to the file system for tools to use in the container or local.",
         ),
-    ] = ["semanticworkbench"]
+    ] = ["/workspaces/semanticworkbench"]
 
     tool_servers_enabled: Annotated[MCPServersEnabledConfigModel, Field(title="Tool Servers Enabled")] = (
         MCPServersEnabledConfigModel()
