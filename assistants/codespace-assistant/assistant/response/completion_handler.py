@@ -59,7 +59,7 @@ async def handle_completion(
     generative_request_config = request_config
 
     # get the total tokens used for the completion
-    completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
+    total_tokens = completion.usage.total_tokens if completion.usage else 0
 
     response_content: list[str] = []
 
@@ -112,8 +112,17 @@ async def handle_completion(
     footer_items = []
 
     # Add the token usage message to the footer items
-    if completion_total_tokens > 0:
-        footer_items.append(get_token_usage_message(generative_request_config.max_tokens, completion_total_tokens))
+    if total_tokens > 0:
+        completion_tokens = completion.usage.completion_tokens if completion.usage else 0
+        request_tokens = total_tokens - completion_tokens
+        footer_items.append(
+            get_token_usage_message(
+                max_tokens=generative_request_config.max_tokens,
+                total_tokens=total_tokens,
+                request_tokens=request_tokens,
+                completion_tokens=completion_tokens,
+            )
+        )
 
     # Track the end time of the response generation and calculate duration
     response_end_time = time.time()
@@ -131,7 +140,7 @@ async def handle_completion(
     )
 
     # Set the conversation tokens for the turn result
-    step_result.conversation_tokens = completion_total_tokens
+    step_result.conversation_tokens = total_tokens
 
     # strip out the username from the response
     if content.startswith("["):

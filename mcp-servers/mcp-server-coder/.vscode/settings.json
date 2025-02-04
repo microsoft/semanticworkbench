@@ -50,5 +50,17 @@
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": ["debugpy", "dotenv", "fastmcp", "pyright", "Toolsets"]
+  "cSpell.words": [
+    "debugpy",
+    "dotenv",
+    "fastmcp",
+    "Giphy",
+    "llms",
+    "Mypy",
+    "pygls",
+    "pyproject",
+    "pyright",
+    "semanticworkbench",
+    "Toolsets"
+  ]
 }

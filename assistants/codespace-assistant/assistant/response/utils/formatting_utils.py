@@ -1,4 +1,5 @@
 import logging
+from textwrap import dedent
 
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
@@ -46,10 +47,16 @@ def get_formatted_token_count(tokens: int) -> str:
 
 def get_token_usage_message(
     max_tokens: int,
-    completion_total_tokens: int,
+    total_tokens: int,
+    request_tokens: int,
+    completion_tokens: int,
 ) -> str:
     """
     Generate a display friendly message for the token usage, to be added to the footer items.
     """
 
-    return f"Tokens used: {get_formatted_token_count(completion_total_tokens)} of {get_formatted_token_count(max_tokens)} ({int(completion_total_tokens / max_tokens * 100)}%)"
+    return dedent(f"""
+        Tokens used: {get_formatted_token_count(total_tokens)}
+        ({get_formatted_token_count(request_tokens)} in / {get_formatted_token_count(completion_tokens)} out)
+        of {get_formatted_token_count(max_tokens)} ({int(total_tokens / max_tokens * 100)}%)
+    """).strip()
