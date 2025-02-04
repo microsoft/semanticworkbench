@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import logging
+from textwrap import dedent
 from typing import List, Literal, Tuple
 
 import deepmerge
@@ -65,6 +66,13 @@ async def get_completion(
         if tools is not None:
             completion_args["tool_choice"] = "auto"
 
+    logger.debug(
+        dedent(f"""
+            Initiating OpenAI request:
+            {client.base_url} for '{request_config.model}'
+            with {len(chat_message_params)} messages
+        """).strip()
+    )
     completion = await client.chat.completions.create(**completion_args)
     return completion
 

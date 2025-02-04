@@ -2,131 +2,87 @@
 
 ## Overview
 
-This project implements a Model Context Protocol (MCP) server designed to provide coding-specific tools and functionalities. The server aims to assist in performing common development tasks directly from an assistant platform.
+This project implements a Model Context Protocol (MCP) server designed to provide coding-specific tools and functionalities. The server assists by automating code quality checks, type-checking, and eventually testing—mimicking the behavior of VSCode’s Problems panel for diagnosing Python code issues.
 
 ## Features
 
 - **Coding Tools**:
 
-  - `code_checker`: A tool that runs linting (using Ruff) and type-checking (using mypy) on provided files, reporting aggregated issues for review and iteration.
+  - `code_checker`: A tool that runs linting (using Ruff) and type-checking (using Mypy) on provided files, aggregating diagnostic messages for review and iteration.
 
 - **Code Analysis**:
-  - The tool currently works file-by-file but can be enhanced to recursively check directories upon receiving a directory path.
-  - It mimics the behavior of VSCode’s Problems panel by validating Python code quality and correctness based on the project’s linters and type-checkers.
+  - Currently, the tool operates file-by-file but is designed to be enhanced in the future to support recursive analysis of directories.
+  - It aggregates diagnostic messages in a structured format so that issues are clearly associated with the corresponding file paths.
 
 ## Plans and Objectives
 
 ### Immediate Enhancements
 
 1. **Code Checker Tool Enhancements**:
-
-   - Extend the `code_checker` tool to support recursive analysis of a directory.
-   - Aggregate diagnostics for each Python file, providing detailed outputs clearly associated with file paths.
-
+   - Extend the `code_checker` tool to support recursive directory analysis, scanning all `.py` files and aggregating their diagnostics.
 2. **Output Improvements**:
-   - Tune tool outputs to ensure greater alignment with behaviors and outputs commonly seen in VSCode’s Problems panel, for seamless integration into workflows.
+   - Refine the output format so that it aligns more closely with the standard diagnostic views in VSCode’s Problems panel.
 
 ### Long-Term Goals
 
 1. **Language Server Integration Option**:
-
-   - Investigate attaching or embedding a Python language server (e.g., Pyright/Pylance or one via pygls).
-   - This would enable real-time, incremental diagnostics during file edits and dynamic notifications similar to VSCode.
-
+   - Investigate integrating a Python language server (e.g., Pyright/Pylance or one via pygls) into the MCP server. This would enable real-time, incremental diagnostics and notifications, matching the native experience in tools like VSCode.
 2. **Usability Enhancements**:
-   - Consider feedback loops and iterative workflows where diagnostics lead to actionable suggestions for fixes.
+   - Develop feedback loops and iterative workflows where diagnostic outputs lead to actionable suggestions for code fixes.
 
 ## Development Principles
 
-- **Modularity and Conciseness:** Each code file should not exceed one page in length, ensuring concise and focused code.
-- **Semantic Names:** Use meaningful names for functions and modules to enhance understanding and maintainability.
-- **Organized Structure:** Maintain a well-organized structure, breaking down functionality into clear and manageable components.
+- **Modularity and Conciseness:** Each code file should remain focused and concise.
+- **Semantic Naming:** Use clear, meaningful names for functions and modules.
+- **Organized Structure:** Ensure the project is structured in a maintainable manner with clear separation of concerns.
 
 ## Project Structure
 
 ```
 /mcp-server-coder
 │
-├── README.md
-├── server
-│   ├── __init__.py
-│   ├── main.py
-│   └── [Other potential modules]
+├── README.md                # This file – Documentation for the project
+├── pyproject.toml           # Dependency and configuration management
+├── .vscode/                 # VSCode workspace settings and debugging configurations
+└── server/                  # Core server code
+    ├── __init__.py
+    ├── main.py            # The entry point; registers MCP tools
+    └── code_checker.py    # Implementation of the unified code_checker tool
 ```
 
-## High-Level Plan for MCP Coder Server
+## Setup and Installation
 
-**Objective**: Enhance the coding environment by providing tools for code analysis, testing, and more, complementing existing general-purpose servers like the filesystem server.
-
-### Priority 1: Code Analysis Tools
-
-1. **Linting and Type-Checking**
-
-   - **Purpose**: Identify syntax errors, stylistic standards, and type safety issues in code.
-   - **Implementation Options**:
-     - **Separate Tools**: Provide dedicated tools for linting and type-checking.
-     - **Unified Tool**: Develop a comprehensive "code-checker" tool that aggregates multiple checks.
-
-2. **Output Handling**
-   - Ensure the output from these checks is returned in a structured format.
-   - Allow the calling assistant to assess the results and decide subsequent actions.
-
-### Priority 2: Code Testing Tools
-
-1. **Test Execution**
-
-   - **Purpose**: Run unit tests or integration tests on the codebase.
-   - **Interaction with Filesystem Tools**: Leverage existing tools for file operations needed during test preparation and execution.
-
-2. **Output Management**
-   - Capture test results and return detailed reports.
-   - Enable the assistant to verify results, address test failures, and iterate if necessary.
-
-### Considerations for Both Toolsets
-
-- **Environment Awareness**: Tools must consider the coding environment (e.g., dependencies, configurations) to provide accurate assessments.
-- **Iterative Integration**: Facilitate a workflow where the assistant can continue tasks based on tool outputs (revision, re-running, etc.).
-- **User Engagement**: Implement features for user fallback if automated processes can't resolve issues.
-
-## Setup and Running
-
-### Prerequisites
-
-- Ensure Python 3.11 or higher is installed.
-
-### Setup and Installation
-
-To set up the project, simply run:
+To set up the project, navigate to the project root (or open it in your Codespace) and run:
 
 ```bash
 make
 ```
 
-This will handle the virtual environment creation and install necessary dependencies.
+This command will create the virtual environment using the `uv` tool and install all necessary dependencies as defined in `pyproject.toml`.
 
-### Running the Server
+## Running the Server
 
 You can run the MCP Coder Server in two modes: **Stdio** or **SSE**.
 
-#### Running with Stdio Transport
+### Running with Stdio Transport
 
-To run the server using stdio (default transport):
+To run the server using stdio (default mode):
 
 ```bash
 python server/main.py --transport stdio
 ```
 
-This mode operates over input/output streams and does not open a network port.
+_This mode uses standard input/output streams and does not expose a network port._
 
-#### Running with SSE Transport
+### Running with SSE Transport
 
-To run the server using SSE (Server-Sent Events) transport:
+To run the server using SSE (Server-Sent Events) transport, execute:
 
 ```bash
 python server/main.py --transport sse --port 6010
 ```
 
-When running in SSE mode, the server will be available at the following URL:
+In this mode, the server will be available at the following URL:
 
 ```
 http://127.0.0.1:6010/sse
@@ -134,7 +90,7 @@ http://127.0.0.1:6010/sse
 
 ## Client Configuration
 
-To use this MCP server in your setup, consider the following configuration:
+To integrate this MCP server within your environment, you can use one of the following configuration examples:
 
 ### UV - Local Files
 
@@ -167,4 +123,4 @@ To use this MCP server in your setup, consider the following configuration:
 }
 ```
 
-Ensure that required environment variables are set in your environment so that the server can function correctly.
+Ensure that the required environment variables (if any) are properly set for the server to operate correctly.

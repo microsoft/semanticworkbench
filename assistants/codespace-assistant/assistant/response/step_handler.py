@@ -4,25 +4,23 @@ from textwrap import dedent
 from typing import Any, List
 
 import deepmerge
-from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
 )
-from openai_client import create_client
+from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig, create_client
 from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage,
     MessageType,
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.config import PromptsConfigModel
 from assistant.extensions.tools.__mcp_tool_utils import retrieve_tools_from_sessions
-from assistant.extensions.tools.__model import MCPSession
+from assistant.extensions.tools.__model import MCPSession, ToolsConfigModel
 from assistant.response.utils.formatting_utils import get_formatted_token_count
-from assistant.response.utils.openai_utils import get_ai_client_configs
 
-from ..config import AssistantConfigModel
 from .completion_handler import handle_completion
 from .models import StepResult
 from .request_builder import build_request
@@ -37,10 +35,13 @@ logger = logging.getLogger(__name__)
 async def next_step(
     mcp_sessions: List[MCPSession],
     mcp_prompts: List[str],
-    message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
-    config: AssistantConfigModel,
+    request_config: OpenAIRequestConfig,
+    service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
+    prompts_config: PromptsConfigModel,
+    tools_config: ToolsConfigModel,
+    attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
 ) -> StepResult:
@@ -69,15 +70,6 @@ async def next_step(
         step_result.status = "error"
         return step_result
 
-    # TODO: This is a temporary hack to allow directing the request to the reasoning model
-    request_type = "generative"
-    if message.content.startswith("reason:"):
-        request_type = "reasoning"
-        message.content = message.content.replace("reason:", "").strip()
-
-    # Get the AI client configuration based on the request type
-    request_config, service_config = get_ai_client_configs(config, request_type)
-
     # Track the start time of the response generation
     response_start_time = time.time()
 
@@ -85,18 +77,18 @@ async def next_step(
     silence_token = "{{SILENCE}}"
 
     # convert the tools to make them compatible with the OpenAI API
-    mcp_tools = retrieve_tools_from_sessions(mcp_sessions, config.extensions_config.tools)
+    mcp_tools = retrieve_tools_from_sessions(mcp_sessions, tools_config)
     tools = convert_mcp_tools_to_openai_tools(mcp_tools)
 
     build_request_result = await build_request(
         mcp_prompts=mcp_prompts,
         attachments_extension=attachments_extension,
         context=context,
-        prompts_config=config.prompts,
+        prompts_config=prompts_config,
         request_config=request_config,
-        tools_config=config.extensions_config.tools,
+        tools_config=tools_config,
         tools=tools,
-        attachments_config=config.extensions_config.attachments,
+        attachments_config=attachments_config,
         silence_token=silence_token,
     )
 
