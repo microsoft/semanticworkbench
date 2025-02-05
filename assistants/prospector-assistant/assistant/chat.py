@@ -38,6 +38,7 @@ from semantic_workbench_assistant.assistant_app import (
 from . import legacy
 from .agents.artifact_agent import Artifact, ArtifactAgent, ArtifactConversationInspectorStateProvider
 from .agents.document_agent import DocumentAgent
+from .artifact_creation_extension.extension import ArtifactCreationExtension
 from .config import AssistantConfigModel
 from .form_fill_extension import FormFillExtension, LLMConfig
 
@@ -82,6 +83,7 @@ assistant = AssistantApp(
 
 attachments_extension = AttachmentsExtension(assistant)
 form_fill_extension = FormFillExtension(assistant)
+artifact_creation_extension = ArtifactCreationExtension(assistant, assistant_config)
 
 #
 # create the FastAPI app instance
@@ -132,12 +134,15 @@ async def on_chat_message_created(
       - @assistant.events.conversation.message.on_created
     """
 
+    config = await assistant_config.get(context.assistant)
+    if config.guided_workflow == "Long Document Creation":
+        return
+
     # update the participant status to indicate the assistant is responding
     async with send_error_message_on_exception(context), context.set_status("responding..."):
         #
         # NOTE: we're experimenting with agents, if they are enabled, use them to respond to the conversation
         #
-        config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
         match config.guided_workflow:
@@ -168,6 +173,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
     config = await assistant_config.get(context.assistant)
     metadata: dict[str, Any] = {"debug": {}}
 
+    task: asyncio.Task | None = None
     match config.guided_workflow:
         case "Form Completion":
             task = asyncio.create_task(welcome_message_form_fill(context))
@@ -175,12 +181,15 @@ async def on_conversation_created(context: ConversationContext) -> None:
             task = asyncio.create_task(
                 welcome_message_create_document(config, context, message=None, metadata=metadata)
             )
+        case "Long Document Creation":
+            pass
         case _:
             logger.error("Guided workflow unknown or not supported.")
             return
 
-    background_tasks.add(task)
-    task.add_done_callback(background_tasks.remove)
+    if task:
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.remove)
 
 
 async def welcome_message_form_fill(context: ConversationContext) -> None:

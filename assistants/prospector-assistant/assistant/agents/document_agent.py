@@ -158,6 +158,11 @@ class DocumentAgent:
                     )
                     break  # ok - get more user input
 
+                case StepStatus.USER_EXIT_EARLY:
+                    state.mode_status = ModeStatus.USER_EXIT_EARLY
+                    logger.info("Document Agent: User exited early. Completed.")
+                    break  # ok - done early :)
+
                 case StepStatus.USER_COMPLETED:
                     state.mode_status = ModeStatus.USER_COMPLETED
 
@@ -201,11 +206,6 @@ class DocumentAgent:
                         state.current_step_status,
                     )
                     continue  # ok - don't need user input yet
-
-                case StepStatus.USER_EXIT_EARLY:
-                    state.mode_status = ModeStatus.USER_EXIT_EARLY
-                    logger.info("Document Agent: User exited early. Completed.")
-                    break  # ok - done early :)
 
         return state.mode_status
 
