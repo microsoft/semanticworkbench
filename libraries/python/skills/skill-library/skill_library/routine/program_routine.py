@@ -1,4 +1,6 @@
-from typing import Any
+import inspect
+from textwrap import dedent
+from typing import Any, Callable
 
 from ..utilities import find_template_vars
 from .routine import Routine
@@ -63,3 +65,24 @@ class ProgramRoutine(Routine):
     def __str__(self) -> str:
         template_vars = find_template_vars(self.program)
         return f"{self.name}(vars: {template_vars}): {self.description}"
+
+
+def get_function_source(func: Callable) -> str:
+    """Get the source code of a function."""
+    return dedent(inspect.getsource(func))
+
+
+class ExternalFunctionMock:
+    """
+    Program Routines store the source code for a routine that you would like
+    executed. One way to provide that source code is to write a `main` function
+    and then use `get_function_source` to get the source code of that function.
+    This class is used to mock the functions that are called in the `main`
+    function so it passes linting. Simply define any function that doesn't lint
+    (which will be executed for real by the program_runner) and assign it a
+    mock. This is good enough for being able to generate the source code for the
+    routine.
+    """
+
+    def __getattr__(self, _: str) -> Any:
+        return lambda *args, **kwargs: None

@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, Union
 
-from skill_library.routine_runners.program.function_cache import FunctionCache
+from skill_library.routine_runners.program_routine_runner.function_cache import FunctionCache
 
 ProgramLoggerType = Callable[[str], None]
 

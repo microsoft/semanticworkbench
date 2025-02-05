@@ -2,8 +2,12 @@ from textwrap import dedent
 from typing import Generator
 
 import pytest
-from skill_library.routine_runners.program.function_cache import FunctionCache
-from skill_library.routine_runners.program.interpreter import Interpreter, PausedExecution, ReturnValue
+from skill_library.routine_runners.program_routine_runner import (
+    FunctionCache,
+    Interpreter,
+    PausedExecution,
+    ReturnValue,
+)
 
 
 class TestInterpreter:
