@@ -66,26 +66,39 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             await mcpServer.connect(sseTransport);
             outputChannel.appendLine("MCP Server connected via SSE.");
+            // Log the session ID of the transport to confirm its initialization
+            console.log("SSE Transport sessionId: ", sseTransport.sessionId);
+            outputChannel.appendLine(`SSE Transport sessionId: ${sseTransport.sessionId}`);
         } catch (err) {
             outputChannel.appendLine("Error connecting MCP Server via SSE: " + err);
         }
     });
 
-    // POST /messages endpoint: receives messages from the external assistant
     app.post('/messages', express.json(), async (req: Request, res: Response) => {
-        console.log("Received POST request:", req.body); // Log the incoming payload
-        outputChannel.appendLine(`POST /messages: Payload - ${JSON.stringify(req.body, null, 2)}`); // Log in output channel
-
+        // Log the incoming payload
+        console.log("Received POST request:", req.body);
+        // Log in output channel
+        outputChannel.appendLine(`POST /messages: Payload - ${JSON.stringify(req.body, null, 2)}`);
+    
         if (sseTransport) {
+            // Log the session ID of the transport to confirm its initialization
+            console.log("SSE Transport sessionId: ", sseTransport.sessionId);
+            outputChannel.appendLine(`SSE Transport sessionId: ${sseTransport.sessionId}`);
             try {
-                await sseTransport.handlePostMessage(req, res);
+                // Note: Passing req.body to handlePostMessage is critical because express.json()
+                // consumes the request stream. Without this, attempting to re-read the stream
+                // within handlePostMessage would result in a "stream is not readable" error.
+                await sseTransport.handlePostMessage(req, res, req.body);
                 outputChannel.appendLine("Handled POST /messages successfully.");
             } catch (err) {
                 outputChannel.appendLine("Error handling POST /messages: " + err);
-                console.error("Error during handlePostMessage:", err); // Log error details
+                // Log error details
+                console.error("Error during handlePostMessage:", err);
             }
         } else {
             res.status(500).send("SSE Transport not initialized.");
+            outputChannel.appendLine("POST /messages failed: SSE Transport not initialized.");
+            console.error("SSE Transport was not initialized when handling POST /messages.");
         }
     });
 
