@@ -23,7 +23,8 @@ def find_template_vars(text: str) -> list[str]:
     de-duplicated and returned in order of first appearance.
     """
     matches = re.compile(r"\{\{([a-zA-Z0-9_]+)\}\}")
-    return list(set(matches.findall(text)))
+    seen = set()
+    return [x for x in matches.findall(text) if not (x in seen or seen.add(x))]
 
 
 def to_string(value: Any) -> str:
