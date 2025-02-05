@@ -45,7 +45,7 @@ def get_mcp_server_configs(tools_config: ToolsConfigModel) -> List[MCPServerConf
         """),
         ),
         MCPServerConfig(
-            key="coder",
+            key="vscode",
             command="http://127.0.0.1:6010/sse",
             args=[
                 *tools_config.file_system_paths,

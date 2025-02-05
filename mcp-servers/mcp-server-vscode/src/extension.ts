@@ -6,24 +6,17 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 export function activate(context: vscode.ExtensionContext) {
-    // Create the MCP Server Logs output channel
-    const outputChannel = vscode.window.createOutputChannel("MCP Server Logs");
+    // Create the output channel for logging
+    const outputChannel = vscode.window.createOutputChannel("VSCode MCP Server Logs");
 
     // Write an initial message to ensure the channel appears in the Output dropdown
-    outputChannel.appendLine("Activating Codespace Assistant: Coder MCP Server...");
-    outputChannel.show();
-
-    // Register the "MCP: Aggregate Diagnostics" command (placeholder action)
-    const diagnosticsCommand = vscode.commands.registerCommand("mcp.aggregateDiagnostics", () => {
-        // Placeholder logic to avoid "command not found" errors.
-        outputChannel.appendLine("MCP: Aggregate Diagnostics command invoked.");
-        outputChannel.show();
-    });
-    context.subscriptions.push(diagnosticsCommand);
+    outputChannel.appendLine("Activating VSCode MCP Server...");
+    // Uncomment to automatically switch to the output tab and this extension channel on activation
+    // outputChannel.show();
 
     // Initialize the MCP server instance
     const mcpServer = new McpServer({
-        name: "VSCode Diagnostic MCP Server",
+        name: "VSCode MCP Server",
         version: "0.0.1",
     });
 
@@ -59,30 +52,26 @@ export function activate(context: vscode.ExtensionContext) {
     const port = 6010;
     let sseTransport: SSEServerTransport | undefined;
 
-    // GET /sse endpoint: the external assistant connects here (SSE)
-    app.get('/sse', async (req: Request, res: Response) => {
+    // GET /sse endpoint: the external MCP client connects here (SSE)
+    app.get('/sse', async (_req: Request, res: Response) => {
         outputChannel.appendLine("SSE connection initiated...");
         sseTransport = new SSEServerTransport("/messages", res);
         try {
             await mcpServer.connect(sseTransport);
             outputChannel.appendLine("MCP Server connected via SSE.");
-            // Log the session ID of the transport to confirm its initialization
-            console.log("SSE Transport sessionId: ", sseTransport.sessionId);
             outputChannel.appendLine(`SSE Transport sessionId: ${sseTransport.sessionId}`);
         } catch (err) {
             outputChannel.appendLine("Error connecting MCP Server via SSE: " + err);
         }
     });
 
+    // POST /messages endpoint: the external MCP client sends messages here
     app.post('/messages', express.json(), async (req: Request, res: Response) => {
-        // Log the incoming payload
-        console.log("Received POST request:", req.body);
         // Log in output channel
         outputChannel.appendLine(`POST /messages: Payload - ${JSON.stringify(req.body, null, 2)}`);
     
         if (sseTransport) {
             // Log the session ID of the transport to confirm its initialization
-            console.log("SSE Transport sessionId: ", sseTransport.sessionId);
             outputChannel.appendLine(`SSE Transport sessionId: ${sseTransport.sessionId}`);
             try {
                 // Note: Passing req.body to handlePostMessage is critical because express.json()
@@ -92,13 +81,10 @@ export function activate(context: vscode.ExtensionContext) {
                 outputChannel.appendLine("Handled POST /messages successfully.");
             } catch (err) {
                 outputChannel.appendLine("Error handling POST /messages: " + err);
-                // Log error details
-                console.error("Error during handlePostMessage:", err);
             }
         } else {
             res.status(500).send("SSE Transport not initialized.");
             outputChannel.appendLine("POST /messages failed: SSE Transport not initialized.");
-            console.error("SSE Transport was not initialized when handling POST /messages.");
         }
     });
 
@@ -116,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    outputChannel.appendLine("Codespace Assistant: Coder MCP Server activated.");
+    outputChannel.appendLine("VSCode MCP Server activated.");
 }
 
 export function deactivate() {

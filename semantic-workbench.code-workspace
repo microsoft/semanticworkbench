@@ -152,8 +152,8 @@
       "path": "mcp-servers/ai-assist-content"
     },
     {
-      "name": "mcp-servers:mcp-server-coder",
-      "path": "mcp-servers/mcp-server-coder"
+      "name": "mcp-servers:mcp-server-vscode",
+      "path": "mcp-servers/mcp-server-vscode"
     },
     {
       "name": "mcp-servers:mcp-server-giphy",
@@ -170,9 +170,6 @@
     {
       "name": ".github",
       "path": ".github"
-    },
-    {
-      "path": "coder-mcp-server"
     }
   ],
   "settings": {

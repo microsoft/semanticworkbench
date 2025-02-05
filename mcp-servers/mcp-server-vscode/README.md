@@ -1,8 +1,8 @@
-# Coder MCP Server
+# VSCode MCP Server
 
 ## Overview
 
-The **Coder MCP Server** is a VSCode extension that acts as a Model Context Protocol (MCP) server integrated directly within VSCode. Its primary purpose is to expose a coding diagnostic tool—namely, the `code_checker`—which aggregates diagnostic messages (similar to those displayed in VSCode’s Problems panel) and makes them accessible to an external AI assistant via Server-Sent Events (SSE). This allows your assistant to invoke MCP methods and retrieve timely diagnostic information from your workspace.
+The **VSCode MCP Server** is a VSCode extension that acts as a Model Context Protocol (MCP) server integrated directly within VSCode. Its primary purpose is to expose a coding diagnostic tool—namely, the `code_checker`—which aggregates diagnostic messages (similar to those displayed in VSCode’s Problems panel) and makes them accessible to an external AI assistant via Server-Sent Events (SSE). This allows your assistant to invoke MCP methods and retrieve timely diagnostic information from your workspace.
 
 ## Features
 
@@ -28,7 +28,7 @@ The **Coder MCP Server** is a VSCode extension that acts as a Model Context Prot
 ## Project Structure
 
 ```
-coder-mcp-server/
+vscode-mcp-server/
 ├── .vscode/                  # VSCode workspace and debugging configurations
 ├── node_modules/             # Installed dependencies
 ├── package.json              # Project metadata and scripts

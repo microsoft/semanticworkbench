@@ -89,8 +89,12 @@ class MCPServersEnabledConfigModel(BaseModel):
     coder_enabled: Annotated[
         bool,
         Field(
-            title="Coder Enabled",
-            description="Enable coder tools, supporting testing and evaluation of code in file system.",
+            title="VSCode Enabled",
+            description=dedent("""
+                Enable VSCode tools, supporting testing and evaluation of code via VSCode integration.
+                To use this tool, the project must be running in VSCode (tested in Codespaces, but may work
+                locally), and the `mcp-server-vscode` VSCode extension must be running.
+            """).strip(),
         ),
     ] = False
 
@@ -106,7 +110,10 @@ class MCPServersEnabledConfigModel(BaseModel):
         bool,
         Field(
             title="Giphy Enabled",
-            description="Enable Giphy tools for searching and retrieving GIFs. Must start the Giphy server.",
+            description=dedent("""
+                Enable Giphy tools for searching and retrieving GIFs. Must start the Giphy server via the
+                VSCode Run and Debug panel.
+            """).strip(),
         ),
     ] = False
 
