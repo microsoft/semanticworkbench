@@ -1,10 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Awaitable, Callable, Concatenate, ParamSpec, Protocol
+from typing import Any, AsyncGenerator, Awaitable, Callable, Concatenate, Optional, ParamSpec, Protocol
 from uuid import uuid4
 
 from assistant_drive import Drive
 from events.events import EventProtocol
+from semantic_workbench_api_model.workbench_model import ConversationMessageList
 
 from .routine_stack import RoutineStack
 
@@ -42,7 +43,8 @@ class RunContext:
         self,
         session_id: str,
         assistant_drive: Drive,
-        emit: Callable[[EventProtocol], None],
+        conversation_history: Callable[[], Awaitable[ConversationMessageList]],
+        emit: Optional[Callable[[EventProtocol], None]],
         routine_stack: RoutineStack,
         run_action: Callable[Concatenate[str, P], Awaitable[Any]],
         run_routine: Callable[Concatenate[str, P], Awaitable[Any]],
@@ -57,6 +59,12 @@ class RunContext:
         # write files to a particular location. The assistant drive should be
         # used for assistant-specific data and not for general data storage.
         self.assistant_drive: Drive = assistant_drive
+
+        # The conversation history function is a function that can be called to
+        # get the conversation history for the current session. This is useful
+        # for routines that need to know what has been said in the conversation
+        # so far. Usage: `await run_context.conversation_history()`
+        self.conversation_history = conversation_history
 
         # A "run" is a particular series of calls within a session. The initial call will
         # set the run id and all subsequent calls will use the same run id. This is useful
