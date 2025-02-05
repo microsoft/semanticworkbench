@@ -118,12 +118,12 @@ class RequestConfig(BaseModel):
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
     guided_workflow: Annotated[
-        Literal["Form Completion", "Document Creation"],
+        Literal["Form Completion", "Document Creation", "Long Document Creation"],
         Field(
             title="Guided Workflow",
             description="The workflow extension to guide this conversation.",
         ),
-    ] = "Document Creation"
+    ] = "Form Completion"
 
     enable_debug_output: Annotated[
         bool,
