@@ -9,7 +9,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": ["onCommand:mcp.aggregateDiagnostics"],
+  "activationEvents": [
+    "onCommand:mcp.aggregateDiagnostics"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -31,17 +33,22 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.96.0",
+    "@types/express": "^5.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "^1.96.0",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
-    "eslint": "^9.19.0",
-    "typescript": "^5.7.3",
-    "ts-loader": "^9.5.2",
-    "webpack": "^5.97.1",
-    "webpack-cli": "^6.0.1",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.19.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.7.3",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.4.1",
+    "express": "^4.21.2"
   }
 }
