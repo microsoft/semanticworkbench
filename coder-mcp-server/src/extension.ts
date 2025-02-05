@@ -6,9 +6,20 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 export function activate(context: vscode.ExtensionContext) {
-    // Create an output channel for logging activity
+    // Create the MCP Server Logs output channel
     const outputChannel = vscode.window.createOutputChannel("MCP Server Logs");
+
+    // Write an initial message to ensure the channel appears in the Output dropdown
     outputChannel.appendLine("Activating Codespace Assistant: Coder MCP Server...");
+    outputChannel.show();
+
+    // Register the "MCP: Aggregate Diagnostics" command (placeholder action)
+    const diagnosticsCommand = vscode.commands.registerCommand("mcp.aggregateDiagnostics", () => {
+        // Placeholder logic to avoid "command not found" errors.
+        outputChannel.appendLine("MCP: Aggregate Diagnostics command invoked.");
+        outputChannel.show();
+    });
+    context.subscriptions.push(diagnosticsCommand);
 
     // Initialize the MCP server instance
     const mcpServer = new McpServer({
@@ -62,12 +73,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     // POST /messages endpoint: receives messages from the external assistant
     app.post('/messages', express.json(), async (req: Request, res: Response) => {
+        console.log("Received POST request:", req.body); // Log the incoming payload
+        outputChannel.appendLine(`POST /messages: Payload - ${JSON.stringify(req.body, null, 2)}`); // Log in output channel
+
         if (sseTransport) {
             try {
                 await sseTransport.handlePostMessage(req, res);
-                outputChannel.appendLine("Handled POST /messages.");
+                outputChannel.appendLine("Handled POST /messages successfully.");
             } catch (err) {
                 outputChannel.appendLine("Error handling POST /messages: " + err);
+                console.error("Error during handlePostMessage:", err); // Log error details
             }
         } else {
             res.status(500).send("SSE Transport not initialized.");
