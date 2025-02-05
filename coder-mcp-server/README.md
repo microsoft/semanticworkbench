@@ -1,71 +1,128 @@
-# coder-mcp-server README
+# Coder MCP Server
 
-This is the README for your extension "coder-mcp-server". After writing up a brief description, we recommend including the following sections.
+## Overview
+
+The **Coder MCP Server** is a VSCode extension that acts as a Model Context Protocol (MCP) server integrated directly within VSCode. Its primary purpose is to expose a coding diagnostic tool—namely, the `code_checker`—which aggregates diagnostic messages (similar to those displayed in VSCode’s Problems panel) and makes them accessible to an external AI assistant via Server-Sent Events (SSE). This allows your assistant to invoke MCP methods and retrieve timely diagnostic information from your workspace.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **Automatic Startup:**  
+  The extension activates automatically on VSCode startup (using `"activationEvents": ["*"]` in `package.json`), ensuring the MCP server is always running without manual intervention.
 
-For example if there is an image subfolder under your extension project workspace:
+- **MCP Server Integration:**  
+  Built using the MCP TypeScript SDK (`@modelcontextprotocol/sdk`), the extension instantiates an MCP server that registers diagnostic tools and handles MCP protocol messages.
 
-\!\[feature X\]\(images/feature-x.png\)
+- **Diagnostic Tool (`code_checker`):**  
+  The registered `code_checker` tool collects diagnostics from VSCode’s built-in language services, filtering out files without errors. When invoked, it returns a formatted JSON object containing diagnostic information (only for files with issues).
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+- **SSE Communication:**  
+  An Express-based HTTP server runs on port 6010, exposing:
 
-## Requirements
+  - A **GET `/sse`** endpoint to establish a long-lived Server-Sent Events (SSE) connection.
+  - A **POST `/messages`** endpoint for receiving MCP messages from external clients (such as your AI assistant).  
+    Special care is taken to handle the request body properly—thanks to passing the already-parsed `req.body` to avoid stream-related errors.
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- **Verbose Logging:**  
+  All activity, including server startup, SSE connection status, and message handling events, is logged to an output channel named **"MCP Server Logs"** to aid debugging and transparency.
 
-## Extension Settings
+## Project Structure
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+```
+coder-mcp-server/
+├── .vscode/                  # VSCode workspace and debugging configurations
+├── node_modules/             # Installed dependencies
+├── package.json              # Project metadata and scripts
+├── pnpm-lock.yaml            # Dependency lock file
+├── src/
+│   └── extension.ts          # Main extension code setting up the MCP server, tools, and SSE endpoints
+├── tsconfig.json             # TypeScript configuration
+├── webpack.config.js         # Webpack configuration for bundling the extension
+└── README.md                 # This file
+```
 
-For example:
+## Setup and Installation
 
-This extension contributes the following settings:
+1. **Install Dependencies:**  
+   Ensure you have Node.js (v16 or higher) and pnpm installed. Then, from the project directory, run:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+   ```bash
+   pnpm install
+   ```
 
-## Known Issues
+2. **Compile the Extension:**  
+   To build the extension, execute:
+   ```bash
+   pnpm run compile
+   ```
+   You can also run:
+   ```bash
+   pnpm run watch
+   ```
+   to automatically recompile code changes during development.
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+## Running the Extension
 
-## Release Notes
+1. **Start Debugging:**  
+   Open the project in VSCode, then press **F5** to launch the Extension Development Host. This will automatically activate the extension based on the `"activationEvents": ["*"]` setting.
 
-Users appreciate release notes as you update your extension.
+2. **MCP Server Operation:**  
+   On activation, the extension:
+   - Starts the MCP server which registers the `code_checker` tool.
+   - Sets up an Express HTTP server on port **6010** with:
+     - **GET `/sse`:** To establish an SSE connection (external clients connect here).
+     - **POST `/messages`:** To process incoming MCP protocol messages.
+   - Outputs all activity to the **"MCP Server Logs"** channel (which will be auto-shown).
 
-### 1.0.0
+## Testing the MCP Server
 
-Initial release of ...
+You can use `curl` to test the service:
 
-### 1.0.1
+### Step 1: Establish the SSE Connection
 
-Fixed issue #.
+Open Terminal 1 and run:
 
-### 1.1.0
+```bash
+curl -N http://127.0.0.1:6010/sse
+```
 
-Added features X, Y, and Z.
+You should see output similar to:
 
----
+```
+event: endpoint
+data: /messages?sessionId=your-session-id
+```
+
+### Step 2: Send an Initialization Request
+
+In Terminal 2, using the session ID obtained from Terminal 1 (if needed), send a POST request (include any required fields such as workspace if necessary):
+
+```bash
+curl -X POST "http://127.0.0.1:6010/messages?sessionId=your-session-id" \
+-H "Content-Type: application/json" \
+-d '{
+  "jsonrpc": "2.0",
+  "method": "initialize",
+  "id": 0,
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {
+      "roots": { "listChanged": true }
+    },
+    "clientInfo": {
+      "name": "mcp",
+      "version": "0.1.0"
+    },
+    "workspace": {
+      "folders": []
+    }
+  }
+}'
+```
+
+If everything is configured correctly, the MCP server should process your initialization message without errors.
 
 ## Following extension guidelines
 
 Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+- [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)

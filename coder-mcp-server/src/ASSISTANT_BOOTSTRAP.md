@@ -1,8 +1,15 @@
-# ASSISTANT_BOOTSTRAP.md: Onboarding for Codespace Assistant: Coder MCP Server
+# ASSISTANT_BOOTSTRAP.md: AI Assistant Onboarding and Ramp-Up Guide
 
 ## 1. Introduction
 
 Welcome to the Codespace Assistant: Coder MCP Server project! This VSCode extension serves as an MCP (Model Context Protocol) server integrated directly within VSCode. Its primary function is to expose a coding diagnostic tool (the `code_checker`) that aggregates diagnostic messages (similar to those shown in VSCode’s Problems panel) and makes them accessible to an external AI assistant via Server-Sent Events (SSE).
+
+**Instructions:**
+
+- Read this document in its entirety.
+- Follow the step-by-step operations described in the “Onboarding Steps” section.
+- Use your integrated file system tools (or available commands like `list_directory` and `read_file`) to explore directories and load file content.
+- Once you have gathered all context, summarize your understanding and propose next steps based on the project’s current state and future plans.
 
 ## 2. Project Overview
 
@@ -14,99 +21,100 @@ The Codespace Assistant: Coder MCP Server is designed to:
 - **Communicate via SSE:** Run an Express-based HTTP server that listens on port 6010, providing a GET `/sse` endpoint (to establish a long-lived SSE connection) and a POST `/messages` endpoint for incoming MCP messages.
 - **Log Activity:** All activity, including server startup, SSE connection status, and message handling events, is logged to an output channel named **"MCP Server Logs"**—this aids in debugging and ensures transparency of operations.
 
-## 3. Project Structure
+---
 
-- **`src/extension.ts`**: Main extension code. Sets up the MCP server, registers tools (e.g., `code_checker`), and initializes SSE endpoints via an Express app.
-- **`package.json`**: Contains all project metadata, scripts, dependencies, and contributions (commands). Note that we use `"activationEvents": ["*"]` to force immediate activation of the extension.
-- **`webpack.config.js`, `tsconfig.json`, `.vscode/`**: Additional configuration files supporting the build process, TypeScript compilation, and VSCode debugging tasks.
+### 2.2 The MCP Ecosystem
 
-## 4. Setup and Installation
+- **MCP (Model Context Protocol):**
+  A protocol designed to connect language models with external tools and data sources. Familiarize yourself with the MCP context by reviewing our documentation files located in the `ai-assist-content` directory.
 
-1. **Install Dependencies:**
-   Use your preferred package manager (pnpm is recommended) to install all project dependencies:
+### 2.3 Related Projects for Reference
 
-   ```bash
-   pnpm install
-   ```
+- **MCP Context Documentation:**
+  Located at `/workspaces/semanticworkbench/mcp-servers/ai-assist-content` (files such as `README.md`, `mcp-llms-full.txt`, and `mcp-python-sdk-README.md`). These files explain the MCP protocol and provide guidelines for building MCP servers.
 
-2. **Build the Extension:**
-   Compile the extension using:
-
-   ```bash
-   pnpm run compile
-   ```
-
-   Alternatively, use:
-
-   ```bash
-   pnpm run watch
-   ```
-
-   for automatic recompilation during development.
-
-3. **Launch the Extension:**
-   Press `F5` in VSCode to start the Extension Development Host. The MCP server will automatically start, and its logs will appear in the **"MCP Server Logs"** output channel.
-
-## 5. Testing the MCP Server
-
-You can test the SSE endpoints using `curl`:
-
-### Step A: Establish the SSE Connection
-
-Open a terminal and run:
-
-```bash
-curl -N http://127.0.0.1:6010/sse
-```
-
-This will keep the connection open and simulate an external assistant connecting via SSE. You should see the endpoint URL (including a `sessionId`) in the output.
-
-### Step B: Send an Initialize Request
-
-Using the session ID received from the SSE connection, open a second terminal and send a POST request:
-
-```bash
-curl -X POST "http://127.0.0.1:6010/messages?sessionId=<your-session-id>" \
--H "Content-Type: application/json" \
--d '{
-  "jsonrpc": "2.0",
-  "method": "initialize",
-  "id": 0,
-  "params": {
-    "protocolVersion": "2024-11-05",
-    "capabilities": { "roots": { "listChanged": true } },
-    "clientInfo": { "name": "mcp", "version": "0.1.0" },
-    "workspace": { "folders": [] }
-  }
-}'
-```
-
-If working correctly, the MCP server will process the initialization without re-reading the request stream (thanks to passing `req.body`) and return a valid response.
-
-## 6. Important Implementation Notes
-
-- **Stream Handling and Middleware:**
-
-  - When using `express.json()`, the middleware consumes the request stream. Therefore, the pre-parsed `req.body` is passed to `handlePostMessage(req, res, req.body)` to avoid "stream is not readable" errors.
-  - This is a critical part of the implementation and needs to be preserved in future modifications.
-
-- **Activation Events:**
-  - Currently, the extension uses `"activationEvents": ["*"]` in package.json, which forces activation on startup. While this may impact performance slightly, it is necessary to ensure that the MCP server is running as soon as VSCode starts.
-  - Future enhancements may include more refined activation criteria based on workspace contents or file types.
-
-## 7. Future Enhancements
-
-- **Enhanced Diagnostic Tools:**
-  - Extend `code_checker` to support recursive checks and additional diagnostic tools.
-- **Multi-Language Support:**
-  - Integrate similar tools for various languages (e.g., Python, JavaScript) using respective language servers.
-- **Improved SSE Protocol Handling:**
-  - Enhance session management and error handling within the SSE transport layer.
-- **UI Enhancements:**
-  - Provide additional commands for in-UI management of diagnostic data and MCP server controls.
-- **Documentation Updates:**
-  - Ensure all changes and new features are documented both in code comments and within this bootstrap document.
+- **Reference Implementation – MCP Server Giphy:**
+  Located at `/workspaces/semanticworkbench/mcp-servers/mcp-server-giphy`. This project serves as a reference for our code patterns and configurations in the MCP server ecosystem.
 
 ---
 
-Thank you for using Codespace Assistant: Coder MCP Server. This document should serve as the definitive guide for onboarding, current project behavior, and future directions. Keep it updated as the project evolves.
+## 3. Onboarding Steps and File Exploration
+
+Your task is to methodically gather context from all relevant parts of the project. Follow these steps:
+
+### Step 1: Load MCP Context Documentation
+
+- **Action:**  
+  Use your directory listing tool to list all files in:
+
+  `/workspaces/semanticworkbench/mcp-servers/ai-assist-content`
+
+- **Then:**  
+  Read the following files:
+  - `README.md`
+  - `mcp-llms-full.txt`
+  - `mcp-python-sdk-README.md`
+
+These files provide the conceptual framework for MCP and contextual guidelines.
+
+---
+
+### Step 2: Examine the Reference Implementation
+
+- **Action:**  
+  List all files in the MCP Server Giphy project:
+
+  `/workspaces/semanticworkbench/mcp-servers/mcp-server-giphy`
+
+- **Then:**  
+  Specifically review the files in its `server` subdirectory (e.g., `main.py`, `giphy_search.py`) and high-level configuration files (like `pyproject.toml` and `.vscode` settings).
+
+This will help you understand best practices and reference design patterns used in our MCP projects.
+
+---
+
+### Step 3: Explore the Coder MCP Server VSCode Extension Project
+
+- **Action:**  
+  List all files in:
+
+  `/workspaces/semanticworkbench/coder-mcp-server`
+
+- **Then:**  
+  Recursively read the contents of key files and directories, including but not limited to:
+  - `README.md`
+  - `package.json`
+  - `.vscode` (and all its contents)
+  - `src/extension.ts`
+
+Ensure you understand the project structure and how the tool interfaces work.
+
+---
+
+## 4. Next Steps for Development and Enhancement
+
+Once you have assimilated the project context:
+
+1. **Immediate Tasks:**
+   - Ask user to have you test the tool and verify it works as expected.
+   - Assess the aggregated diagnostic outputs and propose improvements for output formatting.
+2. **Future Work:**
+
+   - Consider what other capabilities should be added to the `code_checker` tool or the MCP server itself.
+
+3. **Reporting:**
+   - Summarize your complete understanding of the project and generate a detailed plan for subsequent development tasks.
+
+---
+
+## 5. How to Proceed
+
+1. **Read this document completely and follow the instructions it contains.**
+2. **Execute the onboarding steps in the order provided:**
+   - Start by listing and reading the MCP context files in `/workspaces/semanticworkbench/mcp-servers/ai-assist-content`.
+   - Next, review the reference implementation in `/workspaces/semanticworkbench/mcp-servers/mcp-server-giphy`.
+   - Then, recursively read key files in the Coder MCP Server project.
+3. **Document your findings and propose next steps** for further development.
+4. **Finally, report back your complete understanding** and a detailed plan for subsequent enhancements.
+
+Good luck with your onboarding! Once you have processed all this information, you will be fully ramped up on the project and ready to pursue further development tasks autonomously.
