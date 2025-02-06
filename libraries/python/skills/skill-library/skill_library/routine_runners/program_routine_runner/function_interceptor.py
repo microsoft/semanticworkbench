@@ -9,20 +9,6 @@ class FunctionInterceptor(ast.NodeTransformer):
     def __init__(self) -> None:
         pass
 
-    # def _get_function_name(self, node: Union[ast.Name, ast.Attribute]) -> str:
-    #     """Build the complete function name."""
-    #     try:
-    #         if isinstance(node, ast.Name):
-    #             return node.id
-    #         elif isinstance(node, ast.Attribute):
-    #             if isinstance(node.value, (ast.Name, ast.Attribute)):
-    #                 base = self._get_function_name(node.value)
-    #                 return f"{base}.{node.attr}"
-    #             raise TypeError(f"Unsupported function name type: {type(node.value)}")
-    #         raise TypeError(f"Unsupported node type for function name: {type(node)}")
-    #     except Exception as e:
-    #         raise RuntimeError(f"Error evaluating function name: {str(e)}")
-
     def get_function_name(self, node: ast.Call) -> str | None:
         """Get fully qualified function name from a Call node. Returns None for builtins."""
         if isinstance(node.func, ast.Name):
