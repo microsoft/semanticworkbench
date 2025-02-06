@@ -1,3 +1,5 @@
+import base64
+import json
 import pickle
 from typing import Any, Dict
 
@@ -55,13 +57,21 @@ class FunctionCache:
 
         self.cache[func_name][cache_key] = result
 
-    def serialize(self) -> bytes:
+    def json(self) -> str:
+        """Return the cache as a JSON serializable dictionary."""
+        # convert cache keys to strings
+        data = {func_name: {str(key): value for key, value in cache.items()} for func_name, cache in self.cache.items()}
+        return json.dumps(data, indent=2)
+
+    def serialize(self) -> str:
         """Serialize the cache to bytes."""
-        return pickle.dumps(self.cache)
+        pickle_bytes = pickle.dumps(self.cache)
+        return base64.b64encode(pickle_bytes).decode("utf-8")
 
     @classmethod
-    def deserialize(cls, data: bytes) -> "FunctionCache":
+    def deserialize(cls, data: str) -> "FunctionCache":
         """Create a new FunctionCache from serialized data."""
+        pickle_bytes = base64.b64decode(data.encode("utf-8"))
         instance = cls()
-        instance.cache = pickle.loads(data)
+        instance.cache = pickle.loads(pickle_bytes)
         return instance

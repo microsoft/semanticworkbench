@@ -1,5 +1,4 @@
 import ast
-import builtins
 import logging
 import types
 from typing import Any, Callable, Generator, Union
@@ -31,7 +30,7 @@ class Interpreter:
 
     # Persistence methods
 
-    def get_state(self) -> bytes:
+    def get_state(self) -> str:
         """Get serializable state of the interpreter."""
         if self.transformed_code is None:
             raise RuntimeError("No code has been transformed yet")
@@ -42,7 +41,7 @@ class Interpreter:
     @classmethod
     def from_state(
         cls,
-        state_data: bytes,
+        state_data: str,
         program_logger: ProgramLoggerType | None = None,
     ) -> "Interpreter":
         """Create a new Interpreter instance from serialized state."""
@@ -55,15 +54,14 @@ class Interpreter:
     ## External function (actions) handling.
 
     def handle_function_call(self, func_name: str, *args: Any, **kwargs: Any) -> Any:
-        """Handles function calls, supporting built-ins and caching results."""
-        if func_name in builtins.__dict__:
-            return builtins.__dict__[func_name](*args, **kwargs)
-
+        """Handles function calls amd caches results."""
         try:
             return self.function_cache.get(func_name, args, kwargs)
         except KeyError:
+            # If this is a known function (passed in via globals), call it.
             if func_name in self.globals:
                 return self.globals[func_name](*args, **kwargs)
+
             raise PausedExecution(func_name, args, kwargs)
 
     def add_function_result(self, func_name: str, cache_key: tuple, result: Any) -> None:
@@ -77,9 +75,9 @@ class Interpreter:
         self.load_code(source)
         return self
 
-    def load_code(self, source_code: str) -> "Interpreter":
+    def load_code(self, code: str) -> "Interpreter":
         """Load and parse source code."""
-        tree: ast.Module = ast.parse(source_code)
+        tree: ast.Module = ast.parse(code)
         transformer: FunctionInterceptor = FunctionInterceptor()
         new_tree: ast.Module = transformer.visit(tree)
         ast.fix_missing_locations(new_tree)
@@ -100,29 +98,53 @@ class Interpreter:
             raise RuntimeError("No transformed code available")
         compile_me = ast.parse(self.transformed_code)
 
+        # Add the handle_function_call function to the globals. The compiler
+        # will replace non-builtin function calls with a call to this function.
+        # This is how we pause execution so we can handle external functions.
         exec_globals = {
             **self.globals,
             "handle_function_call": self.handle_function_call,
-            "ReturnValue": ReturnValue,
         }
 
-        # Compile and execute the transformed code
+        # Compile and execute the transformed code. This results in giving us a
+        # new main function that will call handle_function_call when it
+        # encounters an external function.
         exec(compile(compile_me, filename="<ast>", mode="exec"), exec_globals)
-
-        # Store the main function
         if "main" not in exec_globals or not isinstance(exec_globals["main"], types.FunctionType):
             raise RuntimeError("Error: A `main` function is required.")
 
+        # Here's the function to call to kick things off!
         self.main_func = exec_globals["main"]
 
         # Now enter the execution loop
         while True:
+            result = None
             try:
+                # Call the routine. If it hits an external function, it will
+                # call `handle_function_call`` which will raise
+                # `PausedExecution` and get us back here.
+                #
+                # handle_function_call takes care of caching results from
+                # external function calls. We use the function name and it's
+                # args as a cache key so only functions with the exact same name
+                # and args will be cached. Once they are run, they won't be
+                # paused again, their value is just used.
+                #
+                # We run the entire function over and over until it
+                # passes without pausing (that's why we're in a while loop).
                 result = self.main_func()
-                if isinstance(result, ReturnValue):
-                    yield result
-                else:
-                    yield None
-                break  # Exit after successful completion
-            except PausedExecution as e:
-                yield e  # Yield pause and continue with updated function cache
+            except PausedExecution as pause_info:
+                # Yield pause info back to the caller
+                # ('program_routine_runner'). We'll wait for a response from
+                # them. Note that this is running in memory. If the service
+                # restarts, we'll never resume here. Also, this limits us to
+                # running on a single process... which is probably not what we
+                # want for a production system.
+                yield pause_info
+                continue
+
+            # If we get here, main_func completed without pausing. We can yield a ReturnValue if we got one, or just None.
+            if isinstance(result, ReturnValue):
+                yield result
+
+            break

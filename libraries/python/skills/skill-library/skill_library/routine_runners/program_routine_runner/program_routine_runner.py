@@ -76,8 +76,7 @@ class ProgramRoutineRunner:
     async def resume(self, run_context: RunContext, message: str | None) -> tuple[bool, Any]:
         """Resume with external function result."""
         async with run_context.stack_frame_state() as state:
-            program_state: bytes = state["program_state"]
-
+            program_state: str = state["program_state"]
             log_func = ProgramRoutineLogger(run_context).log
             interpreter = Interpreter.from_state(program_state, log_func)
 
@@ -98,6 +97,9 @@ class ProgramRoutineRunner:
 
         while True:
             status = next(gen)
+            if status is None:
+                # No return at the end of the program.
+                return True, None
             if isinstance(status, PausedExecution):
                 match status.func_name:
                     case "run_routine":
@@ -108,6 +110,7 @@ class ProgramRoutineRunner:
                     case "print":
                         run_context.emit(InformationEvent(message=status.args[0]))
                         result = None
+                        interpreter.add_function_result("print", status.cache_key, result)
                     case "ask_user":
                         run_context.emit(MessageEvent(message=status.args[0]))
 

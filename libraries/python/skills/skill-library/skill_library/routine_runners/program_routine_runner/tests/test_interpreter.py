@@ -96,6 +96,39 @@ class TestInterpreter:
 
         assert value == 6
 
+    def test_external_method_pause(self):
+        """Test parsing of valid Python code."""
+        interpreter = Interpreter()
+
+        class ExternalClass:
+            def external_func(self, x, y):
+                return x + y
+
+        common = ExternalClass()
+
+        def main():
+            x = 1
+            y = 2
+            z = common.external_func(x, y)
+            result = x + y + z
+            return result
+
+        interpreter = Interpreter().load_function(main)
+        gen = interpreter.execute_with_pausing()
+
+        value = None
+        while True:
+            status = next(gen)
+            if isinstance(status, PausedExecution):
+                external_result = common.external_func(*status.args, **status.kwargs)
+                cache_key = FunctionCache.get_cache_key(status.args, status.kwargs)
+                interpreter.add_function_result(status.func_name, cache_key, external_result)
+            elif isinstance(status, ReturnValue):
+                value = status.value
+                break
+
+        assert value == 6
+
     def test_multiple_external_calls(self):
         """Test parsing of valid Python code."""
 
@@ -358,12 +391,16 @@ class TestInterpreter:
         external_result = external_func(*status.args, **status.kwargs)
         cache_key = FunctionCache.get_cache_key(status.args, status.kwargs)
         interpreter.add_function_result(status.func_name, cache_key, external_result)
+        print("Cache state after first call:")
+        print(interpreter.function_cache.json())
 
         # Save state after first call
         state_data = interpreter.get_state()
 
         # Second "process" - handle second call
         interpreter = Interpreter.from_state(state_data)
+        print("Cache state after loading state after first call:")
+        print(interpreter.function_cache.json())
         gen = interpreter.execute_with_pausing()
 
         # Second call (i=1)
@@ -374,12 +411,16 @@ class TestInterpreter:
         external_result = external_func(*status.args, **status.kwargs)
         cache_key = FunctionCache.get_cache_key(status.args, status.kwargs)
         interpreter.add_function_result(status.func_name, cache_key, external_result)
+        print("Cache state after second call:")
+        print(interpreter.function_cache.json())
 
         # Save state after second call
         state_data = interpreter.get_state()
 
         # Third "process" - handle final call
         interpreter = Interpreter.from_state(state_data)
+        print("Cache state after loading state after second call:")
+        print(interpreter.function_cache.json())
         gen = interpreter.execute_with_pausing()
 
         # Third call (i=2)
@@ -390,6 +431,8 @@ class TestInterpreter:
         external_result = external_func(*status.args, **status.kwargs)
         cache_key = FunctionCache.get_cache_key(status.args, status.kwargs)
         interpreter.add_function_result(status.func_name, cache_key, external_result)
+        print("Cache state after third call:")
+        print(interpreter.function_cache.json())
 
         # Get final result
         result = next(gen)
