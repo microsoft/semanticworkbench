@@ -148,6 +148,14 @@
       "path": "libraries/python/skills/skill-library"
     },
     {
+      "name": "mcp-servers:ai-assist-content",
+      "path": "mcp-servers/ai-assist-content"
+    },
+    {
+      "name": "mcp-servers:mcp-server-vscode",
+      "path": "mcp-servers/mcp-server-vscode"
+    },
+    {
       "name": "mcp-servers:mcp-server-giphy",
       "path": "mcp-servers/mcp-server-giphy"
     },

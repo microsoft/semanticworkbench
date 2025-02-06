@@ -1,0 +1,4 @@
+{
+  // disable spell checker for all files in this project
+  "cSpell.ignorePaths": ["*"]
+}

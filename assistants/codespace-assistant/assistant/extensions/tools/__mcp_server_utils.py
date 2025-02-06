@@ -58,7 +58,7 @@ async def connect_to_mcp_server_sse(server_config: MCPServerConfig) -> AsyncIter
 
 def is_mcp_server_enabled(server_config: MCPServerConfig, tools_config: ToolsConfigModel) -> bool:
     """Check if an MCP server is enabled."""
-    return tools_config.tools_enabled.model_dump().get(f"{server_config.key}_enabled", False)
+    return tools_config.tool_servers_enabled.model_dump().get(f"{server_config.key}_enabled", False)
 
 
 async def establish_mcp_sessions(tools_config: ToolsConfigModel, stack: AsyncExitStack) -> List[MCPSession]:

@@ -1,24 +1,26 @@
 import logging
 import time
+from textwrap import dedent
 from typing import Any, List
 
 import deepmerge
-import openai_client
-from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
 )
+from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig, create_client
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from assistant.config import PromptsConfigModel
 from assistant.extensions.tools.__mcp_tool_utils import retrieve_tools_from_sessions
-from assistant.extensions.tools.__model import MCPSession
+from assistant.extensions.tools.__model import MCPSession, ToolsConfigModel
+from assistant.response.utils.formatting_utils import get_formatted_token_count
 
-from ..config import AssistantConfigModel
 from .completion_handler import handle_completion
 from .models import StepResult
 from .request_builder import build_request
@@ -35,7 +37,11 @@ async def next_step(
     mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
-    config: AssistantConfigModel,
+    request_config: OpenAIRequestConfig,
+    service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
+    prompts_config: PromptsConfigModel,
+    tools_config: ToolsConfigModel,
+    attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
 ) -> StepResult:
@@ -64,39 +70,33 @@ async def next_step(
         step_result.status = "error"
         return step_result
 
-    # Get service and request configuration for generative model
-    generative_service_config = config.generative_ai_client_config.service_config
-    generative_request_config = config.generative_ai_client_config.request_config
-
-    # # Get response provider and request configuration for reasoning model
-    # reasoning_response_provider = OpenAIResponseProvider(
-    #     conversation_context=context,
-    #     assistant_config=config,
-    #     openai_client_config=config.reasoning_ai_client_config,
-    # )
-    # reasoning_request_config = config.reasoning_ai_client_config.request_config
-
     # Track the start time of the response generation
     response_start_time = time.time()
 
     # Establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
 
-    chat_message_params = await build_request(
+    # convert the tools to make them compatible with the OpenAI API
+    mcp_tools = retrieve_tools_from_sessions(mcp_sessions, tools_config)
+    tools = convert_mcp_tools_to_openai_tools(mcp_tools)
+
+    build_request_result = await build_request(
         mcp_prompts=mcp_prompts,
         attachments_extension=attachments_extension,
         context=context,
-        config=config,
+        prompts_config=prompts_config,
+        request_config=request_config,
+        tools_config=tools_config,
+        tools=tools,
+        attachments_config=attachments_config,
         silence_token=silence_token,
     )
+
+    chat_message_params = build_request_result.chat_message_params
 
     # Generate AI response
     # initialize variables for the response content
     completion: ParsedChatCompletion | ChatCompletion | None = None
-
-    # convert the tools to make them compatible with the OpenAI API
-    mcp_tools = retrieve_tools_from_sessions(mcp_sessions)
-    tools = convert_mcp_tools_to_openai_tools(mcp_tools)
 
     # update the metadata with debug information
     deepmerge.always_merger.merge(
@@ -105,9 +105,9 @@ async def next_step(
             "debug": {
                 metadata_key: {
                     "request": {
-                        "model": generative_request_config.model,
+                        "model": request_config.model,
                         "messages": chat_message_params,
-                        "max_tokens": generative_request_config.response_tokens,
+                        "max_tokens": request_config.response_tokens,
                         "tools": tools,
                     },
                 },
@@ -116,9 +116,9 @@ async def next_step(
     )
 
     # generate a response from the AI model
-    async with openai_client.create_client(generative_service_config) as client:
+    async with create_client(service_config) as client:
         try:
-            completion = await get_completion(client, generative_request_config, chat_message_params, tools)
+            completion = await get_completion(client, request_config, chat_message_params, tools)
 
         except Exception as e:
             logger.exception(f"exception occurred calling openai chat completion: {e}")
@@ -151,10 +151,25 @@ async def next_step(
         completion,
         mcp_sessions,
         context,
-        config,
+        request_config,
         silence_token,
         metadata_key,
         response_start_time,
     )
+
+    if build_request_result.token_overage > 0:
+        # send a notice message to the user to inform them of the situation
+        await context.send_messages(
+            NewConversationMessage(
+                content=dedent(f"""
+                    The conversation history exceeds the token limit by
+                    {get_formatted_token_count(build_request_result.token_overage)}
+                    tokens. Conversation history sent to the model was truncated. For best experience,
+                    consider removing some attachments and/or messages and try again, or starting a new
+                    conversation.
+                """),
+                message_type=MessageType.notice,
+            )
+        )
 
     return step_result
