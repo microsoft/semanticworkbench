@@ -5,18 +5,21 @@ import { Request, Response } from 'express';
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
+const extensionName = "vscode-mcp-server";
+const extensionDisplayName = "VSCode MCP Server";
+
 export function activate(context: vscode.ExtensionContext) {
     // Create the output channel for logging
-    const outputChannel = vscode.window.createOutputChannel("VSCode MCP Server Logs");
+    const outputChannel = vscode.window.createOutputChannel(extensionDisplayName);
 
     // Write an initial message to ensure the channel appears in the Output dropdown
-    outputChannel.appendLine("Activating VSCode MCP Server...");
+    outputChannel.appendLine(`Activating ${extensionDisplayName}...`);
     // Uncomment to automatically switch to the output tab and this extension channel on activation
     // outputChannel.show();
 
     // Initialize the MCP server instance
     const mcpServer = new McpServer({
-        name: "VSCode MCP Server",
+        name: extensionName,
         version: "0.0.1",
     });
 
@@ -102,7 +105,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    outputChannel.appendLine("VSCode MCP Server activated.");
+    outputChannel.appendLine(`${extensionDisplayName} activated.`);
 }
 
 export function deactivate() {

@@ -98,6 +98,7 @@ Once you have assimilated the project context:
 1. **Immediate Tasks:**
    - Ask user to have you test the tool and verify it works as expected.
    - Assess the aggregated diagnostic outputs and propose improvements for output formatting.
+   - Add support at both the server config args and the client side for filtering diagnostics by severity (e.g., only show errors, only show warnings, ignore "hint" diagnostics).
 2. **Future Work:**
 
    - Consider what other capabilities should be added to the `code_checker` tool or the MCP server itself.

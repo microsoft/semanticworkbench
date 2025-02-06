@@ -86,7 +86,7 @@ class MCPServersEnabledConfigModel(BaseModel):
         ),
     ] = True
 
-    coder_enabled: Annotated[
+    vscode_enabled: Annotated[
         bool,
         Field(
             title="VSCode Enabled",
