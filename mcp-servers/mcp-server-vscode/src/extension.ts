@@ -28,7 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
         const diagnosticsByFile = vscode.languages.getDiagnostics();
         // Filter to only include files that have diagnostics
         const aggregated = diagnosticsByFile
-            .filter(([uri, diags]) => diags.length > 0)
+            .filter(([_uri, diags]) => diags.length > 0)
             .map(([uri, diags]) => ({
                 file: uri.fsPath,
                 diagnostics: diags.map(diag => ({

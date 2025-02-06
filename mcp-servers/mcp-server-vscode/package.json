@@ -13,14 +13,6 @@
     "*"
   ],
   "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "mcp.aggregateDiagnostics",
-        "title": "MCP: Aggregate Diagnostics"
-      }
-    ]
-  },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
     "compile": "webpack",
