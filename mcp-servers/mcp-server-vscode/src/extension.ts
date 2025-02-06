@@ -31,10 +31,10 @@ export function activate(context: vscode.ExtensionContext) {
         const diagnosticsByFile = vscode.languages.getDiagnostics();
         // Filter to only include files that have diagnostics
         const aggregated = diagnosticsByFile
-            .filter(([_uri, diags]) => diags.length > 0)
+            .filter(([_uri, diags]) => diags.filter(diag => diag.severity !== vscode.DiagnosticSeverity.Hint).length > 0)
             .map(([uri, diags]) => ({
                 file: uri.fsPath,
-                diagnostics: diags.map(diag => ({
+                diagnostics: diags.filter(diag => diag.severity !== vscode.DiagnosticSeverity.Hint).map(diag => ({
                     severity: vscode.DiagnosticSeverity[diag.severity],
                     message: diag.message,
                     source: diag.source || ""
