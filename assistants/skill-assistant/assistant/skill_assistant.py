@@ -34,6 +34,7 @@ from skill_library import Assistant
 from skill_library.types import Metadata
 
 from assistant.skill_event_mapper import SkillEventMapper
+from assistant.workbench_helpers import WorkbenchMessageProvider
 
 from .assistant_registry import AssistantRegistry
 from .config import AssistantConfigModel
@@ -206,15 +207,18 @@ async def get_or_register_assistant(
         assistant_metadata_drive_root = Path(".data") / assistant_id / ".assistant"
         assistant_drive = Drive(DriveConfig(root=assistant_drive_root))
         language_model = openai_client.create_client(config.service_config)
+        message_provider = WorkbenchMessageProvider(assistant_id, conversation_context)
         chat_driver_config = ChatDriverConfig(
             openai_client=language_model,
             model=config.chat_driver_config.openai_model,
             instructions=config.chat_driver_config.instructions,
+            message_provider=message_provider,
         )
 
         assistant = Assistant(
             assistant_id=conversation_context.id,
             name="Assistant",
+            message_history_provider=message_provider.get_history,
             chat_driver_config=chat_driver_config,
             drive_root=assistant_drive_root,
             metadata_drive_root=assistant_metadata_drive_root,
