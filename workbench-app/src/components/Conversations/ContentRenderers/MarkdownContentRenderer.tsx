@@ -4,6 +4,7 @@ import { makeStyles } from '@fluentui/react-components';
 import React from 'react';
 import Markdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import { CodeContentRenderer } from './CodeContentRenderer';
 import { MermaidContentRenderer } from './MermaidContentRenderer';
@@ -40,7 +41,7 @@ export const MarkdownContentRenderer: React.FC<MarkdownContentRendererProps> = (
         <Markdown
             className={classes.root}
             remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
+            rehypePlugins={[rehypeRaw, rehypeSanitize]}
             components={{
                 code(props) {
                     // TODO: determine if we should fix these eslint-disable lines

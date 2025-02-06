@@ -126,6 +126,7 @@ async def on_message_created(
 
         try:
             await respond_to_conversation(
+                message=message,
                 attachments_extension=attachments_extension,
                 context=context,
                 config=config,

@@ -47,8 +47,7 @@ class ExtensionsConfigModel(BaseModel):
     ] = AttachmentsConfigModel()
 
 
-# the workbench app builds dynamic forms based on the configuration model and UI schema
-class AssistantConfigModel(BaseModel):
+class PromptsConfigModel(BaseModel):
     instruction_prompt: Annotated[
         str,
         Field(
@@ -116,6 +115,16 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="textarea", enable_markdown_in_description=True),
     ] = helpers.load_text_include("guardrails_prompt.txt")
+
+
+# the workbench app builds dynamic forms based on the configuration model and UI schema
+class AssistantConfigModel(BaseModel):
+    prompts: Annotated[
+        PromptsConfigModel,
+        Field(
+            title="Prompts Configuration",
+        ),
+    ] = PromptsConfigModel()
 
     welcome_message: Annotated[
         str,

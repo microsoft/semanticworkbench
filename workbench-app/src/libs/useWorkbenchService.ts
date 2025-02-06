@@ -194,7 +194,13 @@ export const useWorkbenchService = () => {
                     const parts = [];
                     parts.push(`### [${date} ${time}] ${sender}:`);
                     if (message.messageType !== 'chat') {
-                        parts.push(`${message.messageType}: ${message.content}`);
+                        // truncate long messages
+                        const trimToLength = 1000;
+                        const content =
+                            message.content.length > trimToLength
+                                ? `${message.content.slice(0, trimToLength)}... <truncated>`
+                                : message.content;
+                        parts.push(`${message.messageType}: ${content}`);
                     } else {
                         parts.push(message.content);
                     }

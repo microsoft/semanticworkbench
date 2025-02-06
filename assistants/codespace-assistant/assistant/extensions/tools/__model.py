@@ -86,6 +86,18 @@ class MCPServersEnabledConfigModel(BaseModel):
         ),
     ] = True
 
+    vscode_enabled: Annotated[
+        bool,
+        Field(
+            title="VSCode Enabled",
+            description=dedent("""
+                Enable VSCode tools, supporting testing and evaluation of code via VSCode integration.
+                To use this tool, the project must be running in VSCode (tested in Codespaces, but may work
+                locally), and the `mcp-server-vscode` VSCode extension must be running.
+            """).strip(),
+        ),
+    ] = False
+
     sequential_thinking_enabled: Annotated[
         bool,
         Field(
@@ -98,7 +110,10 @@ class MCPServersEnabledConfigModel(BaseModel):
         bool,
         Field(
             title="Giphy Enabled",
-            description="Enable Giphy tools for searching and retrieving GIFs. Must start the Giphy server.",
+            description=dedent("""
+                Enable Giphy tools for searching and retrieving GIFs. Must start the Giphy server via the
+                VSCode Run and Debug panel.
+            """).strip(),
         ),
     ] = False
 
@@ -142,15 +157,12 @@ class ToolsConfigModel(BaseModel):
         UISchema(widget="textarea", enable_markdown_in_description=True),
     ] = dedent("""
         - Use the available tools to assist with specific tasks.
-        - Before performing any file operations, use the `allowed_directories` tool to get a list of directories
-            that are allowed for file operations.
+        - Before performing any file operations, use the `list_allowed_directories` tool to get a list of directories
+            that are allowed for file operations. Always use paths relative to an allowed directory.
         - When searching or browsing for files, consider the kinds of folders and files that should be avoided:
             - For example, for coding projects exclude folders like `.git`, `.vscode`, `node_modules`, and `dist`.
         - For each turn, always re-read a file before using it to ensure the most up-to-date information, especially
             when writing or editing files.
-        - Either use search or specific list files in directories instead of using `directory_tree` to avoid
-            issues with large directory trees as that tool is not optimized for large trees nor does it allow
-            for filtering.
         - The search tool does not appear to support wildcards, but does work with partial file names.
     """).strip()
 
@@ -184,10 +196,21 @@ class ToolsConfigModel(BaseModel):
         list[str],
         Field(
             title="File System Paths",
-            description="Paths to the file system for tools to use, relative to `/workspaces/` in the container.",
+            description="Paths to the file system for tools to use in the container or local.",
         ),
-    ] = ["semanticworkbench"]
+    ] = ["/workspaces/semanticworkbench"]
 
-    tools_enabled: Annotated[MCPServersEnabledConfigModel, Field(title="Tools Enabled")] = (
+    tool_servers_enabled: Annotated[MCPServersEnabledConfigModel, Field(title="Tool Servers Enabled")] = (
         MCPServersEnabledConfigModel()
     )
+
+    tools_disabled: Annotated[
+        list[str],
+        Field(
+            title="Disabled Tools",
+            description=dedent("""
+                List of individual tools to disable. Use this if there is a problem tool that you do not want
+                made visible to your assistant.
+            """).strip(),
+        ),
+    ] = ["directory_tree"]

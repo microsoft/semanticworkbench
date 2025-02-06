@@ -5,12 +5,12 @@ import time
 from typing import List
 
 import deepmerge
-import openai_client
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionToolMessageParam,
     ParsedChatCompletion,
 )
+from openai_client import OpenAIRequestConfig, num_tokens_from_messages
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
@@ -19,7 +19,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from assistant.extensions.tools.__model import MCPSession
 
-from ..config import AssistantConfigModel
 from ..extensions.tools import (
     ToolCall,
     handle_tool_call,
@@ -39,7 +38,7 @@ async def handle_completion(
     completion: ParsedChatCompletion | ChatCompletion,
     mcp_sessions: List[MCPSession],
     context: ConversationContext,
-    config: AssistantConfigModel,
+    request_config: OpenAIRequestConfig,
     silence_token: str,
     metadata_key: str,
     response_start_time: float,
@@ -57,10 +56,10 @@ async def handle_completion(
         return step_result
 
     # Get service and request configuration for generative model
-    generative_request_config = config.generative_ai_client_config.request_config
+    generative_request_config = request_config
 
     # get the total tokens used for the completion
-    completion_total_tokens = completion.usage.total_tokens if completion.usage else 0
+    total_tokens = completion.usage.total_tokens if completion.usage else 0
 
     response_content: list[str] = []
 
@@ -113,8 +112,17 @@ async def handle_completion(
     footer_items = []
 
     # Add the token usage message to the footer items
-    if completion_total_tokens > 0:
-        footer_items.append(get_token_usage_message(generative_request_config.max_tokens, completion_total_tokens))
+    if total_tokens > 0:
+        completion_tokens = completion.usage.completion_tokens if completion.usage else 0
+        request_tokens = total_tokens - completion_tokens
+        footer_items.append(
+            get_token_usage_message(
+                max_tokens=generative_request_config.max_tokens,
+                total_tokens=total_tokens,
+                request_tokens=request_tokens,
+                completion_tokens=completion_tokens,
+            )
+        )
 
     # Track the end time of the response generation and calculate duration
     response_end_time = time.time()
@@ -132,7 +140,7 @@ async def handle_completion(
     )
 
     # Set the conversation tokens for the turn result
-    step_result.conversation_tokens = completion_total_tokens
+    step_result.conversation_tokens = total_tokens
 
     # strip out the username from the response
     if content.startswith("["):
@@ -175,12 +183,16 @@ async def handle_completion(
             # Update content and metadata with tool call result metadata
             deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)
 
+            content = (
+                tool_call_result.content if len(tool_call_result.content) > 0 else "[tool call returned no content]"
+            )
+
             # Add the token count for the tool call result to the total token count
-            step_result.conversation_tokens += openai_client.num_tokens_from_messages(
+            step_result.conversation_tokens += num_tokens_from_messages(
                 messages=[
                     ChatCompletionToolMessageParam(
                         role="tool",
-                        content=tool_call_result.content,
+                        content=content,
                         tool_call_id=tool_call.id,
                     )
                 ],
@@ -192,7 +204,7 @@ async def handle_completion(
                 step_result.metadata,
                 {
                     "tool_result": {
-                        "content": tool_call_result.content,
+                        "content": content,
                         "tool_call_id": tool_call.id,
                     },
                 },
@@ -200,7 +212,7 @@ async def handle_completion(
 
             await context.send_messages(
                 NewConversationMessage(
-                    content=tool_call_result.content,
+                    content=content,
                     message_type=MessageType.note,
                     metadata=step_result.metadata,
                 )

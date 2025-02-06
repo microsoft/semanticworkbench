@@ -1,4 +1,5 @@
 from enum import StrEnum
+from textwrap import dedent
 from typing import Annotated, Literal
 
 from assistant_extensions.ai_clients.model import RequestConfigBaseModel
@@ -70,8 +71,10 @@ class AzureOpenAIServiceConfig(BaseModel):
         Field(
             title="Azure OpenAI Endpoint",
             description=(
-                "The Azure OpenAI endpoint for your resource instance. If not provided, the service default will"
-                " be used."
+                dedent("""
+                The Azure OpenAI endpoint for your resource instance. If not provided, the service default will
+                be used.
+            """).strip()
             ),
             default=first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or "",
         ),
@@ -108,9 +111,11 @@ class OpenAIServiceConfig(BaseModel):
         Field(
             title="Organization ID [Optional]",
             description=(
-                "The ID of the organization to use for the OpenAI API.  NOTE, this is not the same as the organization"
-                " name. If you do not specify an organization ID, the default organization will be used. Example:"
-                " org-rocrupyvzgcl4yf25rqq6d1v"
+                dedent("""
+                The ID of the organization to use for the OpenAI API.  NOTE, this is not the same as the organization
+                name. If you do not specify an organization ID, the default organization will be used. Example:
+                org-rocrupyvzgcl4yf25rqq6d1v
+            """).strip()
             ),
             default="",
         ),
@@ -142,9 +147,11 @@ class OpenAIRequestConfig(RequestConfigBaseModel):
         Field(
             title="Max Tokens",
             description=(
-                "The maximum number of tokens to use for both the prompt and response. Current max supported by OpenAI"
-                " is 128,000 tokens, but varies by model [https://platform.openai.com/docs/models]"
-                "(https://platform.openai.com/docs/models)."
+                dedent("""
+                The maximum number of tokens to use for both the prompt and response. Current max supported by OpenAI
+                is 128,000 tokens, but varies by model [https://platform.openai.com/docs/models]
+                (https://platform.openai.com/docs/models).
+            """).strip()
             ),
         ),
         UISchema(enable_markdown_in_description=True),
@@ -155,9 +162,11 @@ class OpenAIRequestConfig(RequestConfigBaseModel):
         Field(
             title="Response Tokens",
             description=(
-                "The number of tokens to use for the response, will reduce the number of tokens available for the"
-                " prompt. Current max supported by OpenAI is 16,384 tokens [https://platform.openai.com/docs/models]"
-                "(https://platform.openai.com/docs/models)."
+                dedent("""
+                The number of tokens to use for the response, will reduce the number of tokens available for the
+                prompt. Current max supported by OpenAI is 16,384 tokens [https://platform.openai.com/docs/models]
+                (https://platform.openai.com/docs/models).
+            """).strip()
             ),
         ),
         UISchema(enable_markdown_in_description=True),
@@ -181,12 +190,29 @@ class OpenAIRequestConfig(RequestConfigBaseModel):
         Field(
             title="Reasoning Effort",
             description=(
-                "Constrains effort on reasoning for reasoning models. Currently supported values are low, medium, and"
-                " high. Reducing reasoning effort can result in faster responses and fewer tokens used on reasoning in"
-                " a response. (Does not apply to o1-preview or o1-mini models)"
+                dedent("""
+                Constrains effort on reasoning for reasoning models. Currently supported values are low, medium, and
+                high. Reducing reasoning effort can result in faster responses and fewer tokens used on reasoning in
+                a response. (Does not apply to o1-preview or o1-mini models)
+            """).strip()
             ),
         ),
     ] = "medium"
+
+    reasoning_token_overhead_percentage: Annotated[
+        int,
+        Field(
+            title="Reasoning Token Overhead Percentage",
+            description=(
+                dedent("""
+                The percentage of tokens to add to the response token count to account for reasoning overhead. This
+                overhead is used to ensure that the reasoning model has enough tokens to perform its reasoning.
+                Developers have observed a 5% to 20% range, so it is recommended to use the upper limited of 20%
+                to avoid surprises.
+            """).strip()
+            ),
+        ),
+    ] = 20
 
 
 """

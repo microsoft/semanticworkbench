@@ -6,16 +6,21 @@ import deepmerge
 from mcp import Tool
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 
-from .__model import MCPSession, ToolCall, ToolCallResult, ToolMessageType
+from .__model import MCPSession, ToolCall, ToolCallResult, ToolMessageType, ToolsConfigModel
 
 logger = logging.getLogger(__name__)
 
 
-def retrieve_tools_from_sessions(mcp_sessions: List[MCPSession]) -> List[Tool]:
+def retrieve_tools_from_sessions(mcp_sessions: List[MCPSession], tools_config: ToolsConfigModel) -> List[Tool]:
     """
-    Retrieve tools from all MCP sessions.
+    Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config.
     """
-    return [tool for mcp_session in mcp_sessions for tool in mcp_session.tools]
+    return [
+        tool
+        for mcp_session in mcp_sessions
+        for tool in mcp_session.tools
+        if tool.name not in tools_config.tools_disabled
+    ]
 
 
 async def handle_tool_call(
