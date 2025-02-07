@@ -78,7 +78,7 @@ This will help you understand best practices and reference design patterns used 
 - **Action:**  
   List all files in:
 
-  `/workspaces/semanticworkbench/mcp-servers/vscode-mcp-server`
+  `/workspaces/semanticworkbench/mcp-servers/mcp-server-vscode`
 
 - **Then:**  
   Recursively read the contents of key files and directories, including but not limited to:

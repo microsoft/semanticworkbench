@@ -199,20 +199,30 @@ class OpenAIRequestConfig(RequestConfigBaseModel):
         ),
     ] = "medium"
 
-    reasoning_token_overhead_percentage: Annotated[
+    enable_markdown_in_reasoning_response: Annotated[
+        bool,
+        Field(
+            title="Enable Markdown in Reasoning Response",
+            description=dedent("""
+                Enable markdown in reasoning responses. Starting with o1-2024-12-17, reasoning models in the API will
+                avoid generating responses with markdown formatting. This option allows you to override that behavior.
+            """).strip(),
+        ),
+    ] = True
+
+    reasoning_token_allocation: Annotated[
         int,
         Field(
-            title="Reasoning Token Overhead Percentage",
+            title="Reasoning Token Allocation",
             description=(
                 dedent("""
-                The percentage of tokens to add to the response token count to account for reasoning overhead. This
+                The number of tokens to add to the response token count to account for reasoning overhead. This
                 overhead is used to ensure that the reasoning model has enough tokens to perform its reasoning.
-                Developers have observed a 5% to 20% range, so it is recommended to use the upper limited of 20%
-                to avoid surprises.
+                OpenAI recommends a value of 25k tokens.
             """).strip()
             ),
         ),
-    ] = 20
+    ] = 25_000
 
 
 """
