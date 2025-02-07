@@ -1,6 +1,7 @@
 {
   "name": "mcp-server-vscode",
   "displayName": "VSCode MCP Server",
+  "publisher": "semantic-workbench-team",
   "description": "VSCode tools and resources as a Model Context Protocol (MCP) server in a VSCode extension.",
   "version": "0.0.1",
   "engines": {
@@ -49,6 +50,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.4.1",
+    "dedent": "^1.5.3",
     "express": "^4.21.2"
   }
 }

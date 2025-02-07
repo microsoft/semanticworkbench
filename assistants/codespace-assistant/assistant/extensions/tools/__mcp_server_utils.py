@@ -11,9 +11,12 @@ from .__model import MCPServerConfig, MCPSession, ToolsConfigModel
 logger = logging.getLogger(__name__)
 
 
-def get_env_dict(server_config: MCPServerConfig) -> dict[str, str]:
+def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
     """Get the environment variables as a dictionary."""
-    return {env.key: env.value for env in server_config.env}
+    env_dict = {env.key: env.value for env in server_config.env}
+    if len(env_dict) == 0:
+        return None
+    return env_dict
 
 
 @asynccontextmanager

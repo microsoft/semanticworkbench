@@ -49,29 +49,12 @@ vscode-mcp-server/
    pnpm install
    ```
 
-2. **Compile the Extension:**  
-   To build the extension, execute:
+2. **Package the Extension:**  
+   To package the extension, execute:
    ```bash
-   pnpm run compile
+   pnpm run package-extension
    ```
-   You can also run:
-   ```bash
-   pnpm run watch
-   ```
-   to automatically recompile code changes during development.
-
-## Running the Extension
-
-1. **Start Debugging:**  
-   Open the project in VSCode, then press **F5** to launch the Extension Development Host. This will automatically activate the extension based on the `"activationEvents": ["*"]` setting.
-
-2. **MCP Server Operation:**  
-   On activation, the extension:
-   - Starts the MCP server which registers the `code_checker` tool.
-   - Sets up an Express HTTP server on port **6010** with:
-     - **GET `/sse`:** To establish an SSE connection (external clients connect here).
-     - **POST `/messages`:** To process incoming MCP protocol messages.
-   - Outputs all activity to the **"MCP Server Logs"** channel (which will be auto-shown).
+   This will generate a `.vsix` file in the project root.
 
 ## Installing the Extension Locally
 
@@ -88,6 +71,60 @@ vscode-mcp-server/
 3. **Reload and Verify:**
 
    After installation, reload VSCode (via "Developer: Reload Window" from the Command Palette) and verify that the extension is active. Check the "MCP Server Logs" output channel to see logs confirming that the MCP server has started and is listening on port 6010.
+
+## Using the Extension from Claude Desktop (MCP Client)
+
+To use the VSCode MCP Server with Claude Desktop, you need to configure Claude Desktop to connect to the MCP server running in VSCode. Since the implementation of the MCP server uses SSE transport, and Claude Desktop only supports stdio transport, you need to use a [mcp-proxy](https://github.com/sparfenyuk/mcp-proxy) to bridge the communication between the two.
+
+1. **Install MCP Proxy:**
+
+   - Option 1: With uv (recommended)
+
+     ```
+     uv tool install mcp-proxy
+     ```
+
+   - Option 2: With pipx (alternative)
+
+     ```
+     pipx install mcp-proxy
+     ```
+
+2. **Configure Claude Desktop:**
+
+   - Open Claude Desktop and navigate to the **File** > **Settings** > **Developer** tab.
+   - Click **Edit Config** to open the config file, launch your desired editor to modify the config file contents.
+   - Add a new entry to **mcpServers** with the following details:
+
+     ```json
+     {
+       "mcpServers": {
+         "vscode": {
+           "command": "mcp-proxy",
+           "args": ["http://127.0.0.1:6010/sse"]
+         }
+       }
+     }
+     ```
+
+3. **Restart Claude Desktop:**
+
+   - You **must** restart Claude Desktop for the changes to take effect by using the **File** > **Exit** option.
+   - NOTE: This is different than just closing the window or using **File** > **Close**, which leaves the application running in the background.
+   - After existing and then starting again, Claude Desktop should now be able to connect to the MCP server running in VSCode.
+
+## Debugging the Extension
+
+1. **Start Debugging:**  
+   Open the project in VSCode, then press **F5** to launch the Extension Development Host. This will automatically activate the extension based on the `"activationEvents": ["*"]` setting.
+
+2. **MCP Server Operation:**  
+   On activation, the extension:
+   - Starts the MCP server which registers the `code_checker` tool.
+   - Sets up an Express HTTP server on port **6010** with:
+     - **GET `/sse`:** To establish an SSE connection (external clients connect here).
+     - **POST `/messages`:** To process incoming MCP protocol messages.
+   - Outputs all activity to the **"MCP Server Logs"** channel (which will be auto-shown).
 
 ## Testing the MCP Server
 

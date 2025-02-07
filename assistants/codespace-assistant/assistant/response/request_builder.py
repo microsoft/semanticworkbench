@@ -85,9 +85,11 @@ async def build_request(
             )
         )
     else:
-        ChatCompletionSystemMessageParam(
-            role="system",
-            content=system_message_content,
+        chat_message_params.append(
+            ChatCompletionSystemMessageParam(
+                role="system",
+                content=system_message_content,
+            )
         )
 
     # Initialize token count to track the number of tokens used

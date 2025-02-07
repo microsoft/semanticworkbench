@@ -64,6 +64,7 @@ def build_system_message_content(
             Say "{silence_token}" to skip your turn.
         """).strip()
 
+    system_message_content += f"\n\n# Workflow Guidance:\n{prompts_config.guidance_prompt}"
     system_message_content += f"\n\n# Safety Guardrails:\n{prompts_config.guardrails_prompt}"
 
     if additional_content:

@@ -68,9 +68,7 @@ class MCPServerConfig(BaseModel):
 
     key: Annotated[str, Field(title="Key", description="Unique key for the server configuration.")]
 
-    command: Annotated[
-        str, Field(title="Command", description="Command to run the server."), UISchema(widget="textarea")
-    ]
+    command: Annotated[str, Field(title="Command", description="Command to run the server.")]
 
     args: Annotated[List[str], Field(title="Arguments", description="Arguments to pass to the server.")]
 
