@@ -1,10 +1,9 @@
-import * as vscode from 'vscode';
-import dedent from 'dedent';
-import express from 'express';
-import * as http from 'http';
-import { Request, Response } from 'express';
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import dedent from 'dedent';
+import express, { Request, Response } from 'express';
+import * as http from 'http';
+import * as vscode from 'vscode';
 
 const extensionName = "vscode-mcp-server";
 const extensionDisplayName = "VSCode MCP Server";
@@ -82,7 +81,7 @@ export function activate(context: vscode.ExtensionContext) {
     app.post('/messages', express.json(), async (req: Request, res: Response) => {
         // Log in output channel
         outputChannel.appendLine(`POST /messages: Payload - ${JSON.stringify(req.body, null, 2)}`);
-    
+
         if (sseTransport) {
             // Log the session ID of the transport to confirm its initialization
             outputChannel.appendLine(`SSE Transport sessionId: ${sseTransport.sessionId}`);
