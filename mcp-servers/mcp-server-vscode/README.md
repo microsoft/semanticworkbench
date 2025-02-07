@@ -126,6 +126,22 @@ To use the VSCode MCP Server with Claude Desktop, you need to configure Claude D
      - **POST `/messages`:** To process incoming MCP protocol messages.
    - Outputs all activity to the **"MCP Server Logs"** channel (which will be auto-shown).
 
+## Installing the Extension Locally
+
+1. **Open Your Main VSCode Instance:**
+
+   Launch your main VSCode (outside the Extension Development Host).
+
+2. **Install the VSIX Package:**
+
+   - Press Ctrl+Shift+P (or Cmd+Shift+P on macOS) to open the Command Palette.
+   - Type and select "Extensions: Install from VSIX...".
+   - Navigate to and select the generated .vsix file.
+
+3. **Reload and Verify:**
+
+   After installation, reload VSCode (via "Developer: Reload Window" from the Command Palette) and verify that the extension is active. Check the "MCP Server Logs" output channel to see logs confirming that the MCP server has started and is listening on port 6010.
+
 ## Testing the MCP Server
 
 You can use `curl` to test the service:
