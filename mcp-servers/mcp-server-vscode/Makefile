@@ -10,20 +10,8 @@ clean:
 install:
 	pnpm install
 
-.PHONY: test type-check
-test type-check: install
-	pnpm run type-check
-
-.PHONY: format
-format: install
-	pnpm run format
-
-.PHONY: lint
-lint: install
-	pnpm run lint
-
-.PHONY: start
-start:
-	pnpm run start
+.PHONY: package
+package:
+	pnpm run package-extension
 
 include $(repo_root)/tools/makefiles/shell.mk

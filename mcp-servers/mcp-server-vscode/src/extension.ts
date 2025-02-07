@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import dedent from 'dedent';
 import express from 'express';
 import * as http from 'http';
 import { Request, Response } from 'express';
@@ -26,29 +27,38 @@ export function activate(context: vscode.ExtensionContext) {
     // Register the "code_checker" tool.
     // This tool retrieves diagnostics from VSCode's language services,
     // filtering out files without issues.
-    mcpServer.tool("code_checker", {}, async () => {
-        // Retrieve diagnostics from all files
-        const diagnosticsByFile = vscode.languages.getDiagnostics();
-        // Filter to only include files that have diagnostics
-        const aggregated = diagnosticsByFile
-            .filter(([_uri, diags]) => diags.filter(diag => diag.severity !== vscode.DiagnosticSeverity.Hint).length > 0)
-            .map(([uri, diags]) => ({
-                file: uri.fsPath,
-                diagnostics: diags.filter(diag => diag.severity !== vscode.DiagnosticSeverity.Hint).map(diag => ({
-                    severity: vscode.DiagnosticSeverity[diag.severity],
-                    message: diag.message,
-                    source: diag.source || ""
-                }))
-            }));
+    mcpServer.tool(
+        "code_checker",
+        dedent`
+            Retrieve diagnostics from VSCode's language services for the active workspace.
+            Use this tool after making changes to any code the filesystem to ensure no new
+            errors were introduced, or when requested by the user.
+        `.trim(),
+        {},
+        async () => {
+            // Retrieve diagnostics from all files
+            const diagnosticsByFile = vscode.languages.getDiagnostics();
+            // Filter to only include files that have diagnostics
+            const aggregated = diagnosticsByFile
+                .filter(([_uri, diags]) => diags.filter(diag => diag.severity !== vscode.DiagnosticSeverity.Hint).length > 0)
+                .map(([uri, diags]) => ({
+                    file: uri.fsPath,
+                    diagnostics: diags.filter(diag => diag.severity !== vscode.DiagnosticSeverity.Hint).map(diag => ({
+                        severity: vscode.DiagnosticSeverity[diag.severity],
+                        message: diag.message,
+                        source: diag.source || ""
+                    }))
+                }));
 
-        if (aggregated.length === 0) {
-            // If no diagnostics found, return an empty result
-            return { content: [{ type: "text", text: "No issues found." }] };
+            if (aggregated.length === 0) {
+                // If no diagnostics found, return an empty result
+                return { content: [{ type: "text", text: "No issues found." }] };
+            }
+
+            // Otherwise, return the aggregated diagnostics as formatted JSON
+            return { content: [{ type: "text", text: JSON.stringify(aggregated, null, 2) }] };
         }
-
-        // Otherwise, return the aggregated diagnostics as formatted JSON
-        return { content: [{ type: "text", text: JSON.stringify(aggregated, null, 2) }] };
-    });
+    );
 
     // Set up an Express app to handle SSE connections
     const app = express();
