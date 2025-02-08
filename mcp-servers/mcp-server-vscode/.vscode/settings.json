@@ -51,9 +51,16 @@
   "cSpell.ignorePaths": ["ASSISTANT_BOOTSTRAP.md"],
   "cSpell.words": [
     "amodio",
+    "charliermarsh",
     "dbaeumer",
+    "esbenp",
+    "fastmcp",
     "modelcontextprotocol",
     "nosources",
-    "vscodeignore"
+    "pipx",
+    "toplevel",
+    "venv",
+    "vscodeignore",
+    "yarnrc"
   ]
 }
