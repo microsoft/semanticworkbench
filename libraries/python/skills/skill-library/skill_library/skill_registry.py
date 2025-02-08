@@ -166,7 +166,7 @@ class SkillRegistry:
                 done, output = await runner.run(run_context, routine, *args, **kwargs)
             case ProgramRoutine():
                 runner = ProgramRoutineRunner()
-                done, output = await runner.run(run_context, routine, *args, **kwargs)
+                done, output = await runner.start(run_context, routine, *args, **kwargs)
             case StateMachineRoutine():
                 runner = StateMachineRoutineRunner()
                 done, output = await runner.run(run_context, routine, *args, **kwargs)
@@ -205,7 +205,7 @@ class SkillRegistry:
                 done, output = await runner.next(run_context, routine, message)
             case ProgramRoutine():
                 runner = ProgramRoutineRunner()
-                done, output = await runner.next(run_context, routine, message)
+                done, output = await runner.resume(run_context, message)
             case StateMachineRoutine():
                 runner = StateMachineRoutineRunner()
                 done, output = await runner.next(run_context, routine, message)

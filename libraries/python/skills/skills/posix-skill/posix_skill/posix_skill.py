@@ -30,7 +30,7 @@ class PosixSkill(Skill):
     ) -> None:
         self.shell = SandboxShell(skill_definition.sandbox_dir, skill_definition.mount_dir)
 
-        # Define action
+        # Define action functions (to be used to create Actions)
         action_functions: list[ActionCallable] = [
             self.cd,
             self.ls,
@@ -42,6 +42,7 @@ class PosixSkill(Skill):
             self.run_command,
             self.read_file,
             self.write_file,
+            self.append_file,
         ]
 
         # Add skill routines.
@@ -162,6 +163,13 @@ class PosixSkill(Skill):
         """
         self.shell.write_file(filename, content)
         return f"Wrote content to {filename}."
+
+    def append_file(self, run_context: RunContext, filename: str, content: str) -> str:
+        """
+        Append content to a file.
+        """
+        self.shell.append_file(filename, content)
+        return f"Appended content to {filename}."
 
 
 class PosixSkillDefinition(SkillDefinition):
