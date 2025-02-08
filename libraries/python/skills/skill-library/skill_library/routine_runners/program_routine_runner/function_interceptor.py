@@ -1,5 +1,6 @@
 import ast
 import builtins
+import sys
 from typing import cast
 
 
@@ -20,6 +21,16 @@ class FunctionInterceptor(ast.NodeTransformer):
                 return None
             return node.func.id
         elif isinstance(node.func, ast.Attribute):
+            # Skip transformation for module methods (e.g. json.dumps)
+            if isinstance(node.func.value, ast.Name):
+                try:
+                    # Check if this is a module import that's available
+                    module_name = node.func.value.id
+                    if module_name in sys.modules:
+                        return None
+                except:
+                    pass
+
             # For method calls, check if the method exists in builtin types
             method_name = node.func.attr
             if (

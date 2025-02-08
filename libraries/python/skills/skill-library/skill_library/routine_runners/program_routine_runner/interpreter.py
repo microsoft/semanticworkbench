@@ -104,6 +104,7 @@ class Interpreter:
         exec_globals = {
             **self.globals,
             "handle_function_call": self.handle_function_call,
+            "ReturnValue": ReturnValue,
         }
 
         # Compile and execute the transformed code. This results in giving us a
