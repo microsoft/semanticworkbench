@@ -4,6 +4,7 @@ from typing import List
 
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from openai.types.chat import (
+    ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionToolParam,
@@ -68,12 +69,28 @@ async def build_request(
         prompts_config, context, participants, silence_token, additional_system_message_content
     )
 
-    chat_message_params: List[ChatCompletionMessageParam] = [
-        ChatCompletionSystemMessageParam(
-            role="system",
-            content=system_message_content,
+    chat_message_params: List[ChatCompletionMessageParam] = []
+
+    if request_config.is_reasoning_model:
+        # Reasoning models use developer messages instead of system messages
+        developer_message_content = (
+            f"Formatting re-enabled\n{system_message_content}"
+            if request_config.enable_markdown_in_reasoning_response
+            else system_message_content
         )
-    ]
+        chat_message_params.append(
+            ChatCompletionDeveloperMessageParam(
+                role="developer",
+                content=developer_message_content,
+            )
+        )
+    else:
+        chat_message_params.append(
+            ChatCompletionSystemMessageParam(
+                role="system",
+                content=system_message_content,
+            )
+        )
 
     # Initialize token count to track the number of tokens used
     # Add history messages last, as they are what will be truncated if the token limit is reached
@@ -118,8 +135,7 @@ async def build_request(
 
     # Add room for reasoning tokens if using a reasoning model
     if request_config.is_reasoning_model:
-        adjustment_percent = request_config.reasoning_token_overhead_percentage
-        available_tokens -= int(request_config.response_tokens * adjustment_percent / 100)
+        available_tokens -= request_config.reasoning_token_allocation
 
     # Get history messages
     history_messages_result = await get_history_messages(

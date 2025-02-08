@@ -2,7 +2,7 @@ import json
 import logging
 from enum import StrEnum
 from textwrap import dedent
-from typing import Annotated, Any, List, Optional
+from typing import Annotated, Any, List
 
 from attr import dataclass
 from mcp import ClientSession, Tool
@@ -10,15 +10,6 @@ from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class MCPServerConfig:
-    key: str
-    command: str
-    args: List[str]
-    env: Optional[dict[str, str]] = None
-    prompt: Optional[str] = None
 
 
 class MCPSession:
@@ -67,55 +58,30 @@ class ToolCallResult:
     metadata: dict[str, Any]
 
 
-class MCPServersEnabledConfigModel(BaseModel):
-    # NOTE: create a property for each of the mcp servers following the convention of: {server_key}_enabled
+class MCPServerEnvConfig(BaseModel):
+    key: Annotated[str, Field(title="Key", description="Environment variable key.")]
+    value: Annotated[str, Field(title="Value", description="Environment variable value.")]
 
-    filesystem_enabled: Annotated[
-        bool,
-        Field(
-            title="File System Enabled",
-            description="Enable file system tools, granting access to defined file system paths for read/write.",
-        ),
-    ] = True
 
-    memory_enabled: Annotated[
-        bool,
-        Field(
-            title="Memory Enabled",
-            description="Enable memory tools, allowing for storing and retrieving data in memory.",
-        ),
-    ] = True
+class MCPServerConfig(BaseModel):
+    enabled: Annotated[bool, Field(title="Enabled", description="Enable the server.")] = True
 
-    vscode_enabled: Annotated[
-        bool,
-        Field(
-            title="VSCode Enabled",
-            description=dedent("""
-                Enable VSCode tools, supporting testing and evaluation of code via VSCode integration.
-                To use this tool, the project must be running in VSCode (tested in Codespaces, but may work
-                locally), and the `mcp-server-vscode` VSCode extension must be running.
-            """).strip(),
-        ),
-    ] = False
+    key: Annotated[str, Field(title="Key", description="Unique key for the server configuration.")]
 
-    sequential_thinking_enabled: Annotated[
-        bool,
-        Field(
-            title="Sequential Thinking Enabled",
-            description="Enable sequential thinking tools, supporting sequential processing of information.",
-        ),
-    ] = False
+    command: Annotated[str, Field(title="Command", description="Command to run the server.")]
 
-    giphy_enabled: Annotated[
-        bool,
-        Field(
-            title="Giphy Enabled",
-            description=dedent("""
-                Enable Giphy tools for searching and retrieving GIFs. Must start the Giphy server via the
-                VSCode Run and Debug panel.
-            """).strip(),
-        ),
-    ] = False
+    args: Annotated[List[str], Field(title="Arguments", description="Arguments to pass to the server.")]
+
+    env: Annotated[
+        List[MCPServerEnvConfig],
+        Field(title="Environment Variables", description="Environment variables to set."),
+    ] = []
+
+    prompt: Annotated[
+        str,
+        Field(title="Prompt", description="Instructions for using the server."),
+        UISchema(widget="textarea"),
+    ] = ""
 
 
 class ToolsConfigModel(BaseModel):
@@ -166,43 +132,65 @@ class ToolsConfigModel(BaseModel):
         - The search tool does not appear to support wildcards, but does work with partial file names.
     """).strip()
 
-    # instructions_for_non_tool_models: Annotated[
-    #     str,
-    #     Field(
-    #         title="Tools Instructions for Models Without Tools Support",
-    #         description=dedent("""
-    #             Some models don't support tools (like OpenAI reasoning models), so these instructions
-    #             are only used to implement tool support through custom instruction and injection of
-    #             the tool definitions.  Make sure to include {{tools}} in the instructions.
-    #         """),
-    #     ),
-    #     UISchema(widget="textarea", enable_markdown_in_description=True),
-    # ] = dedent("""
-    #     You can perform specific tasks using available tools. When you need to use a tool, respond
-    #     with a strict JSON object containing only the tool's `id` and function name and arguments.
-    #     \n\n
-    #     Available Tools:
-    #     {{tools}}
-    #     \n\n
-    #     ### How to Use Tools:
-    #     - If you need to use a tool to answer the user's query, respond with **ONLY** a JSON object.
-    #     - If you can answer without using a tool, provide the answer directly.
-    #     - **No code, no text, no markdown** within the JSON.
-    #     - Ensure that all values are plain data types (e.g., strings, numbers).
-    #     - **Do not** include any additional characters, functions, or expressions within the JSON.
-    # """).strip()
-
-    file_system_paths: Annotated[
-        list[str],
+    mcp_servers: Annotated[
+        List[MCPServerConfig],
         Field(
-            title="File System Paths",
-            description="Paths to the file system for tools to use in the container or local.",
+            title="MCP Servers",
+            description="Configuration for MCP servers that provide tools to the assistant.",
         ),
-    ] = ["/workspaces/semanticworkbench"]
+    ] = [
+        MCPServerConfig(
+            key="filesystem",
+            command="npx",
+            args=["-y", "@modelcontextprotocol/server-filesystem", "/workspaces/semanticworkbench"],
+        ),
+        MCPServerConfig(
+            key="memory",
+            command="npx",
+            args=["-y", "@modelcontextprotocol/server-memory"],
+            prompt=dedent("""
+                Follow these steps for each interaction:
 
-    tool_servers_enabled: Annotated[MCPServersEnabledConfigModel, Field(title="Tool Servers Enabled")] = (
-        MCPServersEnabledConfigModel()
-    )
+                1. Memory Retrieval:
+                - Always begin your chat by saying only "Remembering..." and retrieve all relevant information
+                  from your knowledge graph
+                - Always refer to your knowledge graph as your "memory"
+
+                2. Memory
+                - While conversing with the user, be attentive to any new information that falls into these categories:
+                    a) Basic Identity (age, gender, location, job title, education level, etc.)
+                    b) Behaviors (interests, habits, etc.)
+                    c) Preferences (communication style, preferred language, etc.)
+                    d) Goals (goals, targets, aspirations, etc.)
+                    e) Relationships (personal and professional relationships up to 3 degrees of separation)
+
+                3. Memory Update:
+                - If any new information was gathered during the interaction, update your memory as follows:
+                    a) Create entities for recurring organizations, people, and significant events
+                    b) Connect them to the current entities using relations
+                    b) Store facts about them as observations
+            """).strip(),
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="vscode",
+            command="http://127.0.0.1:6010/sse",
+            args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="giphy",
+            command="http://http://127.0.0.1:6000/sse",
+            args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="sequential_thinking",
+            command="npx",
+            args=["-y", "@modelcontextprotocol/server-sequential-thinking"],
+            enabled=False,
+        ),
+    ]
 
     tools_disabled: Annotated[
         list[str],
