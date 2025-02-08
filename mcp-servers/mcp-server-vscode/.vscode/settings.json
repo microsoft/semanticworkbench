@@ -1,15 +1,66 @@
 // Place your settings in this file to overwrite default and user settings.
 {
+  // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
+  "typescript.tsc.autoDetect": "off",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit",
+    "source.fixAll": "explicit"
+  },
+  "editor.guides.bracketPairs": "active",
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": true,
+  "editor.formatOnSave": true,
+  "files.eol": "\n",
   "files.exclude": {
     "out": false, // set this to true to hide the "out" folder with the compiled JS files
     "dist": false // set this to true to hide the "dist" folder with the compiled JS files
   },
+  "files.trimTrailingWhitespace": true,
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.fixAll": ["source.unusedImports"],
+  "python.analysis.inlayHints.functionReturnTypes": true,
+  "python.analysis.typeCheckingMode": "standard",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.unusedImports": "explicit",
+      "source.organizeImports": "explicit",
+      "source.formatDocument": "explicit"
+    }
+  },
+  "ruff.nativeServer": "on",
   "search.exclude": {
     "out": true, // set this to false to include "out" folder in search results
     "dist": true // set this to false to include "dist" folder in search results
   },
-  // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
-  "typescript.tsc.autoDetect": "off",
+  // For use with optional extension: "streetsidesoftware.code-spell-checker"
   "cSpell.ignorePaths": ["ASSISTANT_BOOTSTRAP.md"],
-  "cSpell.words": ["modelcontextprotocol", "nosources", "vscodeignore"]
+  "cSpell.words": [
+    "amodio",
+    "charliermarsh",
+    "dbaeumer",
+    "esbenp",
+    "fastmcp",
+    "modelcontextprotocol",
+    "nosources",
+    "pipx",
+    "toplevel",
+    "venv",
+    "vscodeignore",
+    "yarnrc"
+  ]
 }

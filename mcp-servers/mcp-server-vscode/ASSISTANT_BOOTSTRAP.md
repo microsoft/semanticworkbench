@@ -44,12 +44,12 @@ Your task is to methodically gather context from all relevant parts of the proje
 
 ### Step 1: Load MCP Context Documentation
 
-- **Action:**  
+- **Action:**
   Use your directory listing tool to list all files in:
 
   `/workspaces/semanticworkbench/mcp-servers/ai-assist-content`
 
-- **Then:**  
+- **Then:**
   Read the following files:
   - `README.md`
   - `mcp-llms-full.txt`
@@ -61,12 +61,12 @@ These files provide the conceptual framework for MCP and contextual guidelines.
 
 ### Step 2: Examine the Reference Implementation
 
-- **Action:**  
+- **Action:**
   List all files in the MCP Server Giphy project:
 
   `/workspaces/semanticworkbench/mcp-servers/mcp-server-giphy`
 
-- **Then:**  
+- **Then:**
   Specifically review the files in its `server` subdirectory (e.g., `main.py`, `giphy_search.py`) and high-level configuration files (like `pyproject.toml` and `.vscode` settings).
 
 This will help you understand best practices and reference design patterns used in our MCP projects.
@@ -75,12 +75,12 @@ This will help you understand best practices and reference design patterns used 
 
 ### Step 3: Explore the VSCode MCP Server VSCode Extension Project
 
-- **Action:**  
+- **Action:**
   List all files in:
 
   `/workspaces/semanticworkbench/mcp-servers/mcp-server-vscode`
 
-- **Then:**  
+- **Then:**
   Recursively read the contents of key files and directories, including but not limited to:
   - `README.md`
   - `package.json`

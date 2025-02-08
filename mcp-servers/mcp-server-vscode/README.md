@@ -6,23 +6,23 @@ The **VSCode MCP Server** is a VSCode extension that acts as a Model Context Pro
 
 ## Features
 
-- **Automatic Startup:**  
+- **Automatic Startup:**
   The extension activates automatically on VSCode startup (using `"activationEvents": ["*"]` in `package.json`), ensuring the MCP server is always running without manual intervention.
 
-- **MCP Server Integration:**  
+- **MCP Server Integration:**
   Built using the MCP TypeScript SDK (`@modelcontextprotocol/sdk`), the extension instantiates an MCP server that registers diagnostic tools and handles MCP protocol messages.
 
-- **Diagnostic Tool (`code_checker`):**  
+- **Diagnostic Tool (`code_checker`):**
   The registered `code_checker` tool collects diagnostics from VSCode’s built-in language services, filtering out files without errors. When invoked, it returns a formatted JSON object containing diagnostic information (only for files with issues).
 
-- **SSE Communication:**  
+- **SSE Communication:**
   An Express-based HTTP server runs on port 6010, exposing:
 
   - A **GET `/sse`** endpoint to establish a long-lived Server-Sent Events (SSE) connection.
-  - A **POST `/messages`** endpoint for receiving MCP messages from external clients (such as your AI assistant).  
+  - A **POST `/messages`** endpoint for receiving MCP messages from external clients (such as your AI assistant).
     Special care is taken to handle the request body properly—thanks to passing the already-parsed `req.body` to avoid stream-related errors.
 
-- **Verbose Logging:**  
+- **Verbose Logging:**
   All activity, including server startup, SSE connection status, and message handling events, is logged to an output channel named **"VSCode MCP Server"** to aid debugging and transparency.
 
 ## Project Structure
@@ -42,14 +42,14 @@ vscode-mcp-server/
 
 ## Setup and Installation
 
-1. **Install Dependencies:**  
+1. **Install Dependencies:**
    Ensure you have Node.js (v16 or higher) and pnpm installed. Then, from the project directory, run:
 
    ```bash
    pnpm install
    ```
 
-2. **Package the Extension:**  
+2. **Package the Extension:**
    To package the extension, execute:
    ```bash
    pnpm run package-extension
@@ -115,10 +115,10 @@ To use the VSCode MCP Server with Claude Desktop, you need to configure Claude D
 
 ## Debugging the Extension
 
-1. **Start Debugging:**  
+1. **Start Debugging:**
    Open the project in VSCode, then press **F5** to launch the Extension Development Host. This will automatically activate the extension based on the `"activationEvents": ["*"]` setting.
 
-2. **MCP Server Operation:**  
+2. **MCP Server Operation:**
    On activation, the extension:
    - Starts the MCP server which registers the `code_checker` tool.
    - Sets up an Express HTTP server on port **6010** with:
