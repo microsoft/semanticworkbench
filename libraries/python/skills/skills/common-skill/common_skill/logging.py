@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-logger = logging.getLogger("guided-conversation-skill")
+logger = logging.getLogger("common-skill")
 logger.addHandler(logging.NullHandler())
 logger.setLevel(logging.DEBUG)
 

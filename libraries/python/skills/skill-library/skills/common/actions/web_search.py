@@ -9,11 +9,10 @@ from openai_client import (
     message_content_from_completion,
     validate_completion,
 )
+from skill_library.logging import logger
 from skill_library.types import LanguageModel, Metadata
 
-from common_skill.actions import bing_search, get_content_from_url, summarize
-
-from ..logging import logger
+from . import bing_search, get_content_from_url, summarize
 
 
 async def generate_search_query(

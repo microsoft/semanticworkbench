@@ -75,45 +75,49 @@
       "name": "assistants:skill-assistant",
       "path": "assistants/skill-assistant"
     },
-    {
-      "name": "libraries:anthropic-client",
-      "path": "libraries/python/anthropic-client"
-    },
+    // {
+    //   "name": "libraries:anthropic-client",
+    //   "path": "libraries/python/anthropic-client"
+    // },
     {
       "name": "libraries:assistant-drive",
       "path": "libraries/python/assistant-drive"
     },
-    {
-      "name": "libraries:assistant-extensions",
-      "path": "libraries/python/assistant-extensions"
-    },
-    {
-      "name": "libraries:content-safety",
-      "path": "libraries/python/content-safety"
-    },
-    {
-      "name": "libraries:context",
-      "path": "libraries/python/context"
-    },
-    {
-      "name": "libraries:events",
-      "path": "libraries/python/events"
-    },
-    {
-      "name": "libraries:guided-conversation",
-      "path": "libraries/python/guided-conversation"
-    },
+    // {
+    //   "name": "libraries:assistant-extensions",
+    //   "path": "libraries/python/assistant-extensions"
+    // },
+    // {
+    //   "name": "libraries:content-safety",
+    //   "path": "libraries/python/content-safety"
+    // },
+    // {
+    //   "name": "libraries:context",
+    //   "path": "libraries/python/context"
+    // },
+    // {
+    //   "name": "libraries:events",
+    //   "path": "libraries/python/events"
+    // },
+    // {
+    //   "name": "libraries:guided-conversation",
+    //   "path": "libraries/python/guided-conversation"
+    // },
     {
       "name": "libraries:openai-client",
       "path": "libraries/python/openai-client"
     },
+    // {
+    //   "name": "libraries:semantic-workbench-api-model",
+    //   "path": "libraries/python/semantic-workbench-api-model"
+    // },
+    // {
+    //   "name": "libraries:semantic-workbench-assistant",
+    //   "path": "libraries/python/semantic-workbench-assistant"
+    // },
     {
-      "name": "libraries:semantic-workbench-api-model",
-      "path": "libraries/python/semantic-workbench-api-model"
-    },
-    {
-      "name": "libraries:semantic-workbench-assistant",
-      "path": "libraries/python/semantic-workbench-assistant"
+      "name": "libraries:skills:common-skill",
+      "path": "libraries/python/skills/skills/common-skill"
     },
     {
       "name": "libraries:skills:document-skill",
@@ -123,14 +127,14 @@
       "name": "libraries:skills:form-filler-skill",
       "path": "libraries/python/skills/skills/form-filler-skill"
     },
-    {
-      "name": "libraries:skills:guided-conversation-skill",
-      "path": "libraries/python/skills/skills/guided-conversation-skill"
-    },
-    {
-      "name": "libraries:skills:notebooks",
-      "path": "libraries/python/skills/notebooks"
-    },
+    // {
+    //   "name": "libraries:skills:guided-conversation-skill",
+    //   "path": "libraries/python/skills/skills/guided-conversation-skill"
+    // },
+    // {
+    //   "name": "libraries:skills:notebooks",
+    //   "path": "libraries/python/skills/notebooks"
+    // },
     {
       "name": "libraries:skills:posix-skill",
       "path": "libraries/python/skills/skills/posix-skill"
@@ -163,10 +167,10 @@
       "name": "tools",
       "path": "tools"
     },
-    {
-      "name": ".devcontainer",
-      "path": ".devcontainer"
-    },
+    // {
+    //   "name": ".devcontainer",
+    //   "path": ".devcontainer"
+    // },
     {
       "name": ".github",
       "path": ".github"
