@@ -1,6 +1,6 @@
 import asyncio
 from os import PathLike
-from typing import Any, AsyncIterator, Callable, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 from uuid import uuid4
 
 from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
@@ -16,6 +16,7 @@ from openai_client.chat_driver import (
 )
 from openai_client.completion import TEXT_RESPONSE_FORMAT
 from openai_client.messages import format_with_liquid
+from semantic_workbench_api_model.workbench_model import ConversationMessageList
 
 from skill_library.routine_stack import RoutineStack
 
@@ -32,6 +33,7 @@ class Assistant:
         name,
         assistant_id: str | None,
         chat_driver_config: ChatDriverConfig,
+        message_history_provider: Callable[[], Awaitable[ConversationMessageList]],
         drive_root: PathLike | None = None,
         metadata_drive_root: PathLike | None = None,
         skills: list[SkillDefinition] | None = None,
@@ -79,6 +81,8 @@ class Assistant:
             )
         )
 
+        self.message_history_provider = message_history_provider
+
         # Configure the assistant chat interface.
         self.chat_driver = self._register_chat_driver(chat_driver_config)
 
@@ -87,13 +91,14 @@ class Assistant:
         self.startup_args = startup_args
         self.startup_kwargs = startup_kwargs
 
-    async def clear(self) -> None:
+    async def clear(self, include_drives: bool = True) -> None:
         """Clears the assistant's routine stack and event queue."""
         await self.routine_stack.clear()
         while not self._event_queue.empty():
             self._event_queue.get_nowait()
-        self.metadrive.delete_drive()
-        self.drive.delete_drive()
+        if include_drives:
+            self.metadrive.delete_drive()
+            self.drive.delete_drive()
 
     ######################################
     # Lifecycle and event handling
@@ -156,6 +161,7 @@ class Assistant:
         return RunContext(
             session_id=self.assistant_id,
             assistant_drive=self.drive,
+            conversation_history=self.message_history_provider,
             emit=self._emit,
             run_action=self.run_action,
             run_routine=self.run_routine,
@@ -181,6 +187,12 @@ class Assistant:
         currently running, we send the message to the routine. Otherwise, we
         send the message to the chat driver.
         """
+        # If the message is a command, send it on to the chat driver.
+        if message.startswith("/"):
+            response = await self.chat_driver.respond(message, metadata=metadata)
+            self._emit(response)
+            return
+
         # If a routine is running, send the message to the routine.
         if await self.routine_stack.peek():
             await self.step_active_routine(message)
@@ -212,7 +224,12 @@ class Assistant:
                 )
             )
         chat_functions = ChatFunctions(self)
+
+        # Make all the chat functions available as commands.
         config.commands = chat_functions.list_functions()
+
+        # Make only certain functions available as chat tool functions (able to
+        # be run by the assistant).
         config.functions = [chat_functions.list_actions, chat_functions.list_routines]
         return ChatDriver(config)
 
@@ -287,6 +304,11 @@ class ChatFunctions:
     def __init__(self, assistant: Assistant) -> None:
         self.assistant = assistant
 
+    async def clear_stack(self) -> str:
+        """Clears the assistant's routine stack and event queue."""
+        await self.assistant.clear(include_drives=False)
+        return "Assistant stack cleared."
+
     def list_routines(self) -> str:
         """Lists all the routines available in the assistant."""
         if not self.assistant.skill_registry:
@@ -341,4 +363,5 @@ class ChatFunctions:
             self.run_routine,
             self.list_actions,
             self.run_action,
+            self.clear_stack,
         ]

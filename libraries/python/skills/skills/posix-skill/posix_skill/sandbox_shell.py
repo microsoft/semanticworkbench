@@ -89,3 +89,9 @@ class SandboxShell:
         filepath = self._resolve_path(filename)
         with open(filepath, "w") as f:
             f.write(content)
+
+    def append_file(self, filename, content) -> None:
+        """Append content to a file."""
+        filepath = self._resolve_path(filename)
+        with open(filepath, "a") as f:
+            f.write(content)

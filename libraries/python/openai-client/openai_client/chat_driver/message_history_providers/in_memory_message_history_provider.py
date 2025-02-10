@@ -1,7 +1,7 @@
-import asyncio
 from typing import Any, Iterable
 
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionMessageToolCallParam
+
 from openai_client.messages import (
     MessageFormatter,
     create_assistant_message,
@@ -39,17 +39,17 @@ class InMemoryMessageHistoryProvider:
     def delete_all(self) -> None:
         self.messages = []
 
-    def append_system_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        asyncio.run(self.append(create_system_message(content, var, self.formatter)))
+    async def append_system_message(self, content: str, var: dict[str, Any] | None = None) -> None:
+        await self.append(create_system_message(content, var, self.formatter))
 
-    def append_user_message(self, content: str, var: dict[str, Any] | None = None) -> None:
-        asyncio.run(self.append(create_user_message(content, var, self.formatter)))
+    async def append_user_message(self, content: str, var: dict[str, Any] | None = None) -> None:
+        await self.append(create_user_message(content, var, self.formatter))
 
-    def append_assistant_message(
+    async def append_assistant_message(
         self,
         content: str,
         refusal: str | None = None,
         tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
         var: dict[str, Any] | None = None,
     ) -> None:
-        asyncio.run(self.append(create_assistant_message(content, refusal, tool_calls, var, self.formatter)))
+        await self.append(create_assistant_message(content, refusal, tool_calls, var, self.formatter))
