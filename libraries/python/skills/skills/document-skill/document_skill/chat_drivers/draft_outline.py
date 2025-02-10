@@ -15,7 +15,7 @@ async def draft_outline(
 ):
     history = InMemoryMessageHistoryProvider(formatter=format_with_liquid)
 
-    history.append_system_message(
+    await history.append_system_message(
         (
             "Generate an outline for the document, including title. The outline should include the key points that will"
             " be covered in the document. Consider the attachments, the rationale for why they were uploaded, and the"
@@ -25,22 +25,22 @@ async def draft_outline(
         )
     )
 
-    history.append_system_message("<CHAT_HISTORY>{{chat_history}}</CHAT_HISTORY>", {"chat_history": chat_history})
+    await history.append_system_message("<CHAT_HISTORY>{{chat_history}}</CHAT_HISTORY>", {"chat_history": chat_history})
 
     for item in attachments:
-        history.append_system_message(
+        await history.append_system_message(
             "<ATTACHMENT><FILENAME>{{item.filename}}</FILENAME><CONTENT>{{item.content}}</CONTENT></ATTACHMENT>",
             {"item": item},
         )
 
     if len(outline_versions):
         last_outline = outline_versions[-1]
-        history.append_system_message(
+        await history.append_system_message(
             "<EXISTING_OUTLINE>{{last_outline}}</EXISTING_OUTLINE>", {"last_outline": last_outline}
         )
 
     if user_feedback is not None:
-        history.append_system_message(
+        await history.append_system_message(
             "<USER_FEEDBACK>{{user_feedback}}</USER_FEEDBACK>", {"user_feedback": user_feedback}
         )
 

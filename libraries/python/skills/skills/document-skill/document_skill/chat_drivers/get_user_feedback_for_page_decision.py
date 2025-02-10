@@ -17,7 +17,7 @@ async def get_user_feedback_for_page_decision(
     history = InMemoryMessageHistoryProvider(formatter=format_with_liquid)
 
     if outline:
-        history.append_system_message(
+        await history.append_system_message(
             (
                 "Use the user's most recent feedback to determine if the user wants to iterate further on the"
                 " provided outline [ITERATE], or if the user is ready to move on to drafting a paper from the"
@@ -26,7 +26,7 @@ async def get_user_feedback_for_page_decision(
             )
         )
     else:
-        history.append_system_message(
+        await history.append_system_message(
             (
                 "You are an AI assistant that helps draft outlines for a future flushed-out document."
                 " You use the user's most recent feedback to determine if the user wants to iterate further on the"
@@ -36,16 +36,16 @@ async def get_user_feedback_for_page_decision(
             )
         )
 
-    history.append_system_message("<CHAT_HISTORY>{{chat_history}}</CHAT_HISTORY>", {"chat_history": chat_history})
+    await history.append_system_message("<CHAT_HISTORY>{{chat_history}}</CHAT_HISTORY>", {"chat_history": chat_history})
 
     if len(outline_versions):
         last_outline_content = outline_versions[-1].content
         if outline:
-            history.append_system_message(
+            await history.append_system_message(
                 "<EXISTING_OUTLINE>{{outline}}</EXISTING_OUTLINE>", {"outline": last_outline_content}
             )
         else:
-            history.append_system_message(
+            await history.append_system_message(
                 "<APPROVED_OUTLINE>{{outline}}</APPROVED_OUTLINE>", {"outline": last_outline_content}
             )
 
@@ -54,12 +54,12 @@ async def get_user_feedback_for_page_decision(
             full_paper_content = ""
             for content in paper_versions[-1].contents:
                 full_paper_content += content.content
-            history.append_system_message(
+            await history.append_system_message(
                 "<EXISTING_CONTENT>{{content}}</EXISTING_CONTENT>", {"content": full_paper_content}
             )
 
     if user_feedback is not None:
-        history.append_system_message(
+        await history.append_system_message(
             "<USER_FEEDBACK>{{user_feedback}}</USER_FEEDBACK>", {"user_feedback": user_feedback}
         )
 

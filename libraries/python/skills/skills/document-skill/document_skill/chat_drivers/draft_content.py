@@ -1,5 +1,9 @@
 from openai import AsyncAzureOpenAI, AsyncOpenAI
-from openai_client.chat_driver import ChatDriver, ChatDriverConfig, InMemoryMessageHistoryProvider
+from openai_client.chat_driver import (
+    ChatDriver,
+    ChatDriverConfig,
+    InMemoryMessageHistoryProvider,
+)
 from openai_client.messages import format_with_liquid
 
 from ..document_skill import Outline, Paper
@@ -18,7 +22,7 @@ async def draft_content(
     history = InMemoryMessageHistoryProvider(formatter=format_with_liquid)
 
     if decision == "[ITERATE]":
-        history.append_system_message(
+        await history.append_system_message(
             (
                 "Following the structure of the outline, iterate on the currently drafted page of the"
                 " document. It's more important to maintain an appropriately useful level of detail. "
@@ -28,7 +32,7 @@ async def draft_content(
         )
 
     else:
-        history.append_system_message(
+        await history.append_system_message(
             (
                 "Following the structure of the outline, create the content for the next (or first) page of the"
                 " document - don't try to create the entire document in one pass nor wrap it up too quickly, it will be a"
@@ -39,32 +43,36 @@ async def draft_content(
             )
         )
 
-    history.append_system_message("<CHAT_HISTORY>{{chat_history}}</CHAT_HISTORY>", {"chat_history": chat_history})
+    await history.append_system_message("<CHAT_HISTORY>{{chat_history}}</CHAT_HISTORY>", {"chat_history": chat_history})
 
     for item in attachments:
-        history.append_system_message(
+        await history.append_system_message(
             "<ATTACHMENT><FILENAME>{{item.filename}}</FILENAME><CONTENT>{{item.content}}</CONTENT></ATTACHMENT>",
             {"item": item},
         )
 
     if outline_versions:
         last_outline = outline_versions[-1]
-        history.append_system_message(
+        await history.append_system_message(
             "<APPROVED_OUTLINE>{{last_outline}}</APPROVED_OUTLINE>", {"last_outline": last_outline}
         )
 
     if paper_versions:
         if decision == "[ITERATE]" and user_feedback:
             content = paper_versions[-1].contents[-1].content
-            history.append_system_message("<EXISTING_CONTENT>{{content}}</EXISTING_CONTENT>", {"content": content})
-            history.append_system_message(
+            await history.append_system_message(
+                "<EXISTING_CONTENT>{{content}}</EXISTING_CONTENT>", {"content": content}
+            )
+            await history.append_system_message(
                 "<USER_FEEDBACK>{{user_feedback}}</USER_FEEDBACK>", {"user_feedback": user_feedback}
             )
         else:
             full_content = ""
             for content in paper_versions[-1].contents:
                 full_content += content.content
-            history.append_system_message("<EXISTING_CONTENT>{{content}}</EXISTING_CONTENT>", {"content": full_content})
+            await history.append_system_message(
+                "<EXISTING_CONTENT>{{content}}</EXISTING_CONTENT>", {"content": full_content}
+            )
 
     config = ChatDriverConfig(
         openai_client=open_ai_client,
