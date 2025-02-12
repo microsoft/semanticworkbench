@@ -48,5 +48,12 @@
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": ["debugpy", "dotenv", "fastmcp", "GIPHY", "pyright"]
+  "cSpell.words": [
+    "debugpy",
+    "dotenv",
+    "fastmcp",
+    "GIPHY",
+    "pyright",
+    "toplevel"
+  ]
 }

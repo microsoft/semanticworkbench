@@ -7,8 +7,11 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = ["mcp>=1.2.1", "requests>=2.25"]
 
+[dependency-groups]
+dev = ["pyright>=1.1.389"]
+
 [tool.hatch.build.targets.wheel]
-packages = ["server"]
+packages = ["mcp_server"]
 
 [tool.uv]
 package = true
@@ -16,6 +19,3 @@ package = true
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[dependency-groups]
-dev = ["pyright>=1.1.389"]
