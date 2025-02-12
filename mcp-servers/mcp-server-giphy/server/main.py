@@ -8,21 +8,28 @@ from mcp.server.fastmcp import FastMCP
 
 from server.giphy_search import perform_search
 
+server_name = "GIPHY MCP Server"
+
 # Load environment variables from .env
 load_dotenv()
 
 # Command-line arguments for transport and port
-parser = argparse.ArgumentParser(description="Run the MCP GIPHY Server.")
+parser = argparse.ArgumentParser(description=f"Run the {server_name}.")
 parser.add_argument(
     "--transport",
     default="stdio",
     choices=["stdio", "sse"],
     help="Transport protocol to use ('stdio' or 'sse'). Default is 'stdio'.",
 )
-parser.add_argument("--port", type=int, default=8000, help="Port to use for SSE (default is 8000).")
+parser.add_argument(
+    "--port",
+    type=int,
+    default=8000,
+    help="Port to use for SSE (default is 8000)."
+)
 
 # Initialize FastMCP with debug logging.
-mcp = FastMCP(name="Giphy MCP Server", log_level="DEBUG")
+mcp = FastMCP(name=server_name, log_level="DEBUG")
 
 # Define each tool and its setup.
 

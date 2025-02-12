@@ -1,4 +1,5 @@
 # This is copied from Magentic-one's great repo: https://github.com/microsoft/autogen/blob/v0.4.4/python/packages/autogen-magentic-one/src/autogen_magentic_one/markdown_browser/mdconvert.py
+# Thanks to Microsoft researchers for open-sourcing this!
 # type: ignore
 import base64
 import copy
@@ -32,6 +33,8 @@ from bs4 import BeautifulSoup
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import SRTFormatter
 
+# FIXME: Pass the extract_dir into the MarkdownConverter instead of importing the settings
+from ... import settings
 
 class _CustomMarkdownify(markdownify.MarkdownConverter):
     """
@@ -794,7 +797,9 @@ class MarkdownConverter:
         self.register_page_converter(WavConverter())
         self.register_page_converter(Mp3Converter())
         self.register_page_converter(ImageConverter())
-        self.register_page_converter(ZipConverter())
+        # self.register_page_converter(ZipConverter())
+        # FIXME: Pass the extract_dir into the MarkdownConverter instead of importing the settings
+        self.register_page_converter(ZipConverter(extract_dir=f"{settings.data_folder}/extract_dir"))
         self.register_page_converter(PdfConverter())
 
     def convert(
