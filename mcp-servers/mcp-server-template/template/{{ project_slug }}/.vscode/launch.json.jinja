@@ -4,11 +4,11 @@
     {
       "type": "debugpy",
       "request": "launch",
-      "name": "mcp-servers: mcp-server-giphy",
+      "name": "mcp-servers: {{ project_slug }}",
       "cwd": "${workspaceFolder}",
       "module": "mcp_server.start",
-      "args": ["--transport", "sse", "--port", "6000"],
-      "consoleTitle": "mcp-server-giphy"
+      "args": ["--transport", "sse", "--port", "{{ default_port }}"],
+      "consoleTitle": "{{ project_slug }}"
       // "justMyCode": false // Set to false to debug external libraries
     }
   ]

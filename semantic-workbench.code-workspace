@@ -152,12 +152,20 @@
       "path": "mcp-servers/ai-assist-content"
     },
     {
+      "name": "mcp-servers:mcp-server-giphy",
+      "path": "mcp-servers/mcp-server-giphy"
+    },
+    {
+      "name": "mcp-servers:mcp-server-open-deep-research",
+      "path": "mcp-servers/mcp-server-open-deep-research"
+    },
+    {
       "name": "mcp-servers:mcp-server-vscode",
       "path": "mcp-servers/mcp-server-vscode"
     },
     {
-      "name": "mcp-servers:mcp-server-giphy",
-      "path": "mcp-servers/mcp-server-giphy"
+      "name": "mcp-servers:mcp-server-template",
+      "path": "mcp-servers/mcp-server-template"
     },
     {
       "name": "tools",

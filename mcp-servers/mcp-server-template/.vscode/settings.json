@@ -1,0 +1,6 @@
+{
+  "evenBetterToml.taplo.configFile.enabled": true,
+  "python.analysis.ignore": ["template"],
+  "cSpell.ignorePaths": ["template", ".vscode"],
+  "cSpell.words": ["pyproject"]
+}

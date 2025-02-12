@@ -68,7 +68,13 @@ class MCPServerConfig(BaseModel):
 
     key: Annotated[str, Field(title="Key", description="Unique key for the server configuration.")]
 
-    command: Annotated[str, Field(title="Command", description="Command to run the server.")]
+    command: Annotated[
+        str,
+        Field(
+            title="Command",
+            description="Command to run the server, use url if using SSE transport."
+        )
+    ]
 
     args: Annotated[List[str], Field(title="Arguments", description="Arguments to pass to the server.")]
 
@@ -170,6 +176,12 @@ class ToolsConfigModel(BaseModel):
                     b) Connect them to the current entities using relations
                     b) Store facts about them as observations
             """).strip(),
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="deep_research",
+            command="http://127.0.0.1:6020/sse",
+            args=[],
             enabled=False,
         ),
         MCPServerConfig(

@@ -22,6 +22,8 @@
   "python.analysis.autoImportCompletions": true,
   "python.analysis.diagnosticMode": "workspace",
   "python.analysis.fixAll": ["source.unusedImports"],
+  // Project specific paths
+  "python.analysis.ignore": ["libs"],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "standard",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
@@ -42,18 +44,15 @@
   },
   // For use with optional extension: "streetsidesoftware.code-spell-checker"
   "cSpell.ignorePaths": [
+    ".git",
+    ".gitignore",
+    ".vscode",
     ".venv",
     "node_modules",
     "package-lock.json",
+    "pyproject.toml",
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": [
-    "debugpy",
-    "dotenv",
-    "fastmcp",
-    "GIPHY",
-    "pyright",
-    "toplevel"
-  ]
+  "cSpell.words": ["dotenv", "fastmcp", "toplevel"]
 }
