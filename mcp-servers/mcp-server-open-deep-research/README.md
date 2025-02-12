@@ -62,7 +62,7 @@ To use this MCP server in your setup, consider the following configuration:
 ```json
 {
   "mcpServers": {
-    "{{ project_slug }}": {
+    "open-deep-research": {
       "command": "http://127.0.0.1:6020/sse",
       "args": []
     }
