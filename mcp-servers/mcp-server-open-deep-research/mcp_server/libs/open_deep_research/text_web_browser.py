@@ -287,30 +287,26 @@ class SimpleTextBrowser:
                     self._set_page_content(res.text_content)
                 # A download
                 else:
-                    # Try producing a safe filename
-                    fname = None
-                    download_path = None
-                    try:
-                        fname = pathvalidate.sanitize_filename(os.path.basename(urlparse(url).path)).strip()
-                        download_path = os.path.abspath(os.path.join(self.downloads_folder, fname))
+                    # Ensure downloads_folder is set
+                    if self.downloads_folder is None:
+                        self.downloads_folder = os.getcwd()
 
-                        suffix = 0
-                        while os.path.exists(download_path) and suffix < 1000:
-                            suffix += 1
-                            base, ext = os.path.splitext(fname)
-                            new_fname = f"{base}__{suffix}{ext}"
-                            download_path = os.path.abspath(os.path.join(self.downloads_folder, new_fname))
-
-                    except NameError:
-                        pass
-
-                    # No suitable name, so make one
-                    if fname is None:
+                    # Produce a safe filename
+                    fname = pathvalidate.sanitize_filename(os.path.basename(urlparse(url).path)).strip()
+                    # If no name could be derived, create one
+                    if not fname:
                         extension = mimetypes.guess_extension(content_type)
                         if extension is None:
                             extension = ".download"
-                        fname = str(uuid.uuid4()) + extension
-                        download_path = os.path.abspath(os.path.join(self.downloads_folder, fname))
+                        fname = f"{uuid.uuid4()}{extension}"
+                    download_path = os.path.abspath(os.path.join(self.downloads_folder, fname))
+
+                    suffix = 0
+                    while os.path.exists(download_path) and suffix < 1000:
+                        suffix += 1
+                        base, ext = os.path.splitext(fname)
+                        new_fname = f"{base}__{suffix}{ext}"
+                        download_path = os.path.abspath(os.path.join(self.downloads_folder, new_fname))
 
                     # Open a file for writing
                     with open(download_path, "wb") as fh:
@@ -323,32 +319,31 @@ class SimpleTextBrowser:
 
         except UnsupportedFormatException as e:
             print(e)
-            self.page_title = ("Download complete.",)
+            self.page_title = "Download complete."
             self._set_page_content(f"# Download complete\n\nSaved file to '{download_path}'")
         except FileConversionException as e:
             print(e)
-            self.page_title = ("Download complete.",)
+            self.page_title = "Download complete."
             self._set_page_content(f"# Download complete\n\nSaved file to '{download_path}'")
         except FileNotFoundError:
             self.page_title = "Error 404"
             self._set_page_content(f"## Error 404\n\nFile not found: {download_path}")
         except requests.exceptions.RequestException as request_exception:
-            try:
-                self.page_title = f"Error {response.status_code}"
-
-                # If the error was rendered in HTML we might as well render it
-                content_type = response.headers.get("content-type", "")
-                if content_type is not None and "text/html" in content_type.lower():
-                    res = self._mdconvert.convert(response)
-                    self.page_title = f"Error {response.status_code}"
-                    self._set_page_content(f"## Error {response.status_code}\n\n{res.text_content}")
+            response_obj = getattr(request_exception, 'response', None)
+            if response_obj:
+                self.page_title = f"Error {response_obj.status_code}"
+                content_type = response_obj.headers.get("content-type", "")
+                if content_type and "text/html" in content_type.lower():
+                    res = self._mdconvert.convert(response_obj)
+                    self.page_title = f"Error {response_obj.status_code}"
+                    self._set_page_content(f"## Error {response_obj.status_code}\n\n{res.text_content}")
                 else:
                     text = ""
-                    for chunk in response.iter_content(chunk_size=512, decode_unicode=True):
+                    for chunk in response_obj.iter_content(chunk_size=512, decode_unicode=True):
                         text += chunk
-                    self.page_title = f"Error {response.status_code}"
-                    self._set_page_content(f"## Error {response.status_code}\n\n{text}")
-            except NameError:
+                    self.page_title = f"Error {response_obj.status_code}"
+                    self._set_page_content(f"## Error {response_obj.status_code}\n\n{text}")
+            else:
                 self.page_title = "Error"
                 self._set_page_content(f"## Error\n\n{str(request_exception)}")
 
@@ -385,7 +380,7 @@ class SearchInformationTool(Tool):
         super().__init__()
         self.browser = browser
 
-    def forward(self, query: str, filter_year: Optional[int] = None) -> str:
+    def forward(self, query: str, filter_year: Optional[int] = None) -> Any:
         self.browser.visit_page(f"google: {query}", filter_year=filter_year)
         header, content = self.browser._state()
         return header.strip() + "\n=======================\n" + content
@@ -401,7 +396,7 @@ class VisitTool(Tool):
         super().__init__()
         self.browser = browser
 
-    def forward(self, url: str) -> str:
+    def forward(self, url: str) -> Any:
         self.browser.visit_page(url)
         header, content = self.browser._state()
         return header.strip() + "\n=======================\n" + content
@@ -420,13 +415,16 @@ DO NOT use this tool for .pdf or .txt or .htm files: for these types of files us
         super().__init__()
         self.browser = browser
 
-    def forward(self, url: str) -> str:
+    def forward(self, url: str) -> Any:
         if "arxiv" in url:
             url = url.replace("abs", "pdf")
         response = requests.get(url)
         content_type = response.headers.get("content-type", "")
         extension = mimetypes.guess_extension(content_type)
         if extension and isinstance(extension, str):
+            if "pdf" in extension or "txt" in extension or "htm" in extension:
+                raise Exception("Do not use this tool for pdf or txt or html files: use visit_page instead.")
+
             new_path = f"./downloads/file{extension}"
         else:
             new_path = "./downloads/file.object"
@@ -434,8 +432,6 @@ DO NOT use this tool for .pdf or .txt or .htm files: for these types of files us
         with open(new_path, "wb") as f:
             f.write(response.content)
 
-        if "pdf" in extension or "txt" in extension or "htm" in extension:
-            raise Exception("Do not use this tool for pdf or txt or html files: use visit_page instead.")
 
         return f"File was downloaded and saved under path {new_path}."
 
@@ -456,7 +452,7 @@ class ArchiveSearchTool(Tool):
         super().__init__()
         self.browser = browser
 
-    def forward(self, url, date) -> str:
+    def forward(self, url, date) -> Any:
         no_timestamp_url = f"https://archive.org/wayback/available?url={url}"
         archive_url = no_timestamp_url + f"&timestamp={date}"
         response = requests.get(archive_url).json()
@@ -491,7 +487,7 @@ class PageUpTool(Tool):
         super().__init__()
         self.browser = browser
 
-    def forward(self) -> str:
+    def forward(self) -> Any:
         self.browser.page_up()
         header, content = self.browser._state()
         return header.strip() + "\n=======================\n" + content
@@ -509,7 +505,7 @@ class PageDownTool(Tool):
         super().__init__()
         self.browser = browser
 
-    def forward(self) -> str:
+    def forward(self) -> Any:
         self.browser.page_down()
         header, content = self.browser._state()
         return header.strip() + "\n=======================\n" + content
@@ -530,7 +526,7 @@ class FinderTool(Tool):
         super().__init__()
         self.browser = browser
 
-    def forward(self, search_string: str) -> str:
+    def forward(self, search_string: str) -> Any:
         find_result = self.browser.find_on_page(search_string)
         header, content = self.browser._state()
 
@@ -553,7 +549,7 @@ class FindNextTool(Tool):
         super().__init__()
         self.browser = browser
 
-    def forward(self) -> str:
+    def forward(self) -> Any:
         find_result = self.browser.find_next()
         header, content = self.browser._state()
 
