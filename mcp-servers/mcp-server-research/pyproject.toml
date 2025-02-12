@@ -1,0 +1,26 @@
+[project]
+name = "mcp-server-research"
+version = "0.1.0"
+description = "An MCP server for performing research."
+authors = [{ name = "Semantic Workbench Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "google-search-results>=2.4.2",
+    "mcp>=1.2.1",
+    "pathvalidate>=3.2.3",
+    "pydantic-ai>=0.0.23",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["server"]
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pyright>=1.1.389"]

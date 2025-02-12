@@ -152,12 +152,16 @@
       "path": "mcp-servers/ai-assist-content"
     },
     {
-      "name": "mcp-servers:mcp-server-vscode",
-      "path": "mcp-servers/mcp-server-vscode"
-    },
-    {
       "name": "mcp-servers:mcp-server-giphy",
       "path": "mcp-servers/mcp-server-giphy"
+    },
+    {
+      "name": "mcp-servers:mcp-server-research",
+      "path": "mcp-servers/mcp-server-research"
+    },
+    {
+      "name": "mcp-servers:mcp-server-vscode",
+      "path": "mcp-servers/mcp-server-vscode"
     },
     {
       "name": "tools",

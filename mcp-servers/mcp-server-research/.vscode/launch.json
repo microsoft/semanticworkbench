@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "mcp-servers: mcp-server-research",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/server/main.py",
+      "args": ["--transport", "sse", "--port", "6010"],
+      "console": "integratedTerminal",
+      "consoleName": "mcp-server-research"
+      // "justMyCode": false // Set to false to debug external libraries
+    }
+  ]
+}
