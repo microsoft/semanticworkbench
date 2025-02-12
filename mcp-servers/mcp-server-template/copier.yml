@@ -1,0 +1,39 @@
+_subdirectory: template
+
+short_name:
+  type: str
+  help: >
+    The short name for your MCP server, will have "MCP Server" appended in
+    README.md and other mentions.
+  default: Hello World
+
+description:
+  type: str
+  help: A short description of your MCP server functionality.
+
+project_slug:
+  type: str
+  help: The code-friendly name for your project (dashes instead of spaces).
+  default: mcp-server-{{ short_name.lower().replace(' ', '-') }}
+
+author_name:
+  type: str
+  help: The person or entity to list as the author in the project package.
+  default: Semantic Workbench Team
+
+default_port:
+  type: int
+  help: What is the default port to configure your MCP server to run on?
+
+use_mcp_env_vars:
+  type: bool
+  help: >
+    Will your MCP server require env vars passed from MCP clients, such as
+    API keys or other client provided configuration values?
+  default: false
+
+mcp_env_vars:
+  type: yaml
+  when: "{{ use_mcp_env_vars }}"
+  help: List the required env vars.
+  default: []

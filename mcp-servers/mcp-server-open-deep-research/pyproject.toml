@@ -57,9 +57,6 @@ packages = ["mcp_server"]
 [tool.uv]
 package = true
 
-[project.scripts]
-start-service = "mcp_server:service:start"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

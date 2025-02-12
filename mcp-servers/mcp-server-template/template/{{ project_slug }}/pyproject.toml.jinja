@@ -1,0 +1,21 @@
+[project]
+name = "{{ project_slug }}"
+version = "0.1.0"
+description = "{{ description }}"
+authors = [{ name = "{{ author_name }}" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["mcp=*"]
+
+[dependency-groups]
+dev = ["pyright>=1.1.389"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["mcp_server"]
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
