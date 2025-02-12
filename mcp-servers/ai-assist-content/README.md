@@ -15,4 +15,14 @@ that uses the Model Context Protocol (MCP).
 - [mcp-python-sdk-README.md](./mcp-python-sdk-README.md): README from the Python SDK at https://github.com/modelcontextprotocol/python-sdk
 - [mcp-typescript-sdk-README.md](./mcp-typescript-sdk-README.md): README from the TypeScript SDK at https://github.com/modelcontextprotocol/typescript-sdk
 
-* last updated 2/3/25
+## MPC Server Template
+
+There is a `copier` template available to quickly generate a new MCP Server project. See the [MCP Server Template README](../mcp-server-template/README.md) for more information.
+
+Users can generate a new MCP Server project from this template with the following command:
+
+```bash
+copier copy path/to/mcp-server-template path/to/destination
+```
+
+- last updated 2/12/25
