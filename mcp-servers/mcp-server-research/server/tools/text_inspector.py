@@ -1,85 +1,101 @@
-from dataclasses import dataclass
 from typing import Optional
-from typing_extensions import TypedDict
-
-from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext, ModelRetry
-
+from pydantic_ai import RunContext
 from ..utils.mdconvert import MarkdownConverter
 
-class FileAnalysisResult(BaseModel):
-    """Result of analyzing a text file."""
-    content: str = Field(description="The file content or analysis")
-    is_raw_content: bool = Field(description="Whether this is raw file content (True) or analysis (False)")
+def create_text_inspector_tool(model, text_limit: int):
+    """
+    Factory function to create the inspect_file_as_text tool.
 
-@dataclass
-class TextInspectorDeps:
-    """Dependencies for text inspection."""
-    text_limit: int
-    md_converter: MarkdownConverter
+    This tool reads a file as markdown text and, if a question is provided,
+    uses an LLM to generate a caption or answer based on the file's content.
 
-class FileInfo(TypedDict, total=False):
-    """Structure for file analysis input"""
-    file_path: str
-    question: Optional[str]
-
-# Initialize text inspector agent
-text_inspector = Agent(
-    'openai:gpt-4o',
-    deps_type=TextInspectorDeps,
-    result_type=FileAnalysisResult,
-    system_prompt=(
-        "You are a text analysis assistant. Analyze text files and provide detailed "
-        "answers to questions about them. Format detailed answers with headings: "
-        "'1. Short answer', '2. Extremely detailed answer', '3. Additional Context'"
-    )
-)
-
-@text_inspector.tool
-async def inspect_file(
-    ctx: RunContext[TextInspectorDeps],
-    file_path: str,
-    question: Optional[str] = None
-) -> FileAnalysisResult:
-    """Analyze a text file and optionally answer questions about it.
+    It handles file extensions: [".html", ".htm", ".xlsx", ".pptx", ".wav", ".mp3",
+    ".flac", ".pdf", ".docx"] and all other types of text files.
+    IT DOES NOT HANDLE IMAGES (for images, use the visualizer tool instead).
 
     Args:
-        ctx: Runtime context with dependencies
-        file_path: Path to the file to analyze
-        question: Optional question about the file content
+        model: An LLM model instance with a `run()` method that accepts a list of messages.
+               The call should return an object with a `content` attribute.
+        text_limit: Maximum number of characters from the file content to include in prompts.
+
+    Returns:
+        An async function that implements the inspect_file_as_text tool.
     """
-    if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
-        raise ModelRetry("Cannot process image files - use a vision model instead")
+    md_converter = MarkdownConverter()
 
-    result = ctx.deps.md_converter.convert(file_path)
+    async def inspect_file_as_text(
+        ctx: RunContext,
+        file_path: str,
+        question: Optional[str] = None,
+        mode: Optional[str] = "forward"
+    ) -> str:
+        """
+        Read a file as markdown text and optionally answer a question about its content.
 
-    if file_path.endswith('.zip'):
-        return FileAnalysisResult(
-            content=result.text_content,
-            is_raw_content=True
-        )
+        Args:
+            file_path: The path to the file you want to inspect (e.g. '.pdf', '.docx', etc.).
+                       Must be a '.something' file. If the file is an image (e.g. '.png', '.jpg'),
+                       use the visualizer tool instead.
+            question: [Optional] A natural language question about the file. If omitted, returns the file’s text content.
+            mode: Processing mode:
+                  - "initial": If the file is short or you only want a brief caption.
+                  - "forward": To generate a caption with three sections:
+                      '1. Short answer', '2. Extremely detailed answer',
+                      '3. Additional Context on the document and question asked'.
 
-    if not question:
-        return FileAnalysisResult(
-            content=result.text_content,
-            is_raw_content=True
-        )
+        Returns:
+            A string with either the raw text content of the file or the LLM‑generated answer.
+        """
+        result = md_converter.convert(file_path)
 
-    truncated_content = result.text_content[:ctx.deps.text_limit]
-    prompt = (
-        f"### {result.title}\n\n{truncated_content}\n\n"
-        f"Question: {question}"
-    )
+        # Disallow image files.
+        if file_path.lower().endswith((".png", ".jpg")):
+            raise Exception("Cannot use inspect_file_as_text tool with images: use visualizer instead!")
 
-    return FileAnalysisResult(
-        content=prompt,
-        is_raw_content=False
-    )
+        # For zip files, simply return the extracted text.
+        if ".zip" in file_path:
+            return result.text_content
 
-def create_text_inspector(text_limit: int = 4000) -> tuple[Agent[TextInspectorDeps, FileAnalysisResult], TextInspectorDeps]:
-    """Create and configure a text inspector agent with dependencies."""
-    deps = TextInspectorDeps(
-        text_limit=text_limit,
-        md_converter=MarkdownConverter()
-    )
-    return text_inspector, deps
+        # If no question is provided, return the file content.
+        if not question:
+            return result.text_content
+
+        if mode == "initial":
+            if len(result.text_content) < 4000:
+                return "Document content: " + result.text_content
+            messages = [
+                {
+                    "role": "system",
+                    "content": "Here is a file:\n### " + str(result.title) + "\n\n" + result.text_content[:text_limit],
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Now please write a short, 5 sentence caption for this document that could help someone "
+                        "asking this question: " + question + "\n\nDon't answer the question yourself! Just provide useful notes on the document."
+                    ),
+                },
+            ]
+        else:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You will have to write a short caption for this file, then answer this question:" + question,
+                },
+                {
+                    "role": "user",
+                    "content": "Here is the complete file:\n### " + str(result.title) + "\n\n" + result.text_content[:text_limit],
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Now answer the question below. Use these three headings: '1. Short answer', '2. Extremely detailed answer', "
+                        "'3. Additional Context on the document and question asked'" + question
+                    ),
+                },
+            ]
+        # Call the model with the constructed messages.
+        response = await model.run(messages) if hasattr(model, "run") else model(messages)
+        return response.content
+
+    return inspect_file_as_text

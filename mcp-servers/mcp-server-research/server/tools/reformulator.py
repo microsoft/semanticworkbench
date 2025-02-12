@@ -1,95 +1,64 @@
 from typing import List
-from typing_extensions import TypedDict
-from dataclasses import dataclass
-
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-
-class FormattedResponse(BaseModel):
-    """Structured response from the reformulation agent."""
-    final_answer: str = Field(description="The final answer in the requested format")
-    confidence: float = Field(
-        description="Confidence level in the answer",
-        ge=0.0,
-        le=1.0
-    )
+from dataclasses import dataclass
 
 @dataclass
-class ReformulationDeps:
-    """Dependencies for response reformulation."""
+class ReformulationContext:
     original_task: str
-    conversation_history: List[dict]
+    inner_messages: List[dict]
 
-class ConversationContext(TypedDict, total=False):
-    """Structure for conversation context."""
-    messages: List[dict]
-    original_task: str
+class FinalAnswer(BaseModel):
+    answer: str = Field(description="The final answer in the specified format")
 
-# Initialize reformulation agent
 reformulation_agent = Agent(
-    'openai:gpt-4o',
-    deps_type=ReformulationDeps,
-    result_type=FormattedResponse,
-    system_prompt="""
-You analyze conversations and extract final answers in specific formats.
-For numbers: Use digits, no commas, no units unless specified
-For strings: No articles/abbreviations unless specified
-For lists: Apply number/string rules to elements
-If uncertain, estimate with confidence score
-"""
+    'anthropic:claude-3-5-sonnet-latest',
+    deps_type=ReformulationContext,
+    result_type=FinalAnswer,
+    system_prompt="""You are a message reformulation agent. Your task is to read conversations
+    and extract or reformulate final answers in a specific format. Follow the formatting rules strictly:
+    - Numbers should be expressed numerically without commas or units unless specified
+    - Strings should not use articles or abbreviations unless specified
+    - Lists should be comma-separated
+    - Keep answers as concise as possible"""
 )
 
 @reformulation_agent.tool
-async def format_response(
-    ctx: RunContext[ReformulationDeps]
-) -> FormattedResponse:
-    """Format the conversation into a structured response.
+def get_original_task(ctx: RunContext[ReformulationContext]) -> str:
+    """Get the original task that was asked."""
+    return ctx.deps.original_task
 
-    Args:
-        ctx: Runtime context with conversation history and original task
-    """
-    formatted_messages = [{
-        "role": "system",
-        "content": f"""Earlier task: {ctx.deps.original_task}
+@reformulation_agent.tool
+def get_conversation(ctx: RunContext[ReformulationContext]) -> str:
+    """Get the conversation transcript to analyze."""
+    messages_text = []
+    for message in ctx.deps.inner_messages:
+        if content := message.get("content"):
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get("text"):
+                        messages_text.append(item["text"])
+            else:
+                messages_text.append(str(content))
+    return "\n".join(messages_text)
 
-Conversation transcript follows:"""
-    }]
-
-    # Add conversation history
-    for msg in ctx.deps.conversation_history:
-        if content := msg.get("content"):
-            formatted_messages.append({
-                "role": "user",
-                "content": content
-            })
-
-    # Add final answer request
-    formatted_messages.append({
-        "role": "user",
-        "content": f"""
-Original task: {ctx.deps.original_task}
-
-Provide FINAL ANSWER following these rules:
-- Numbers: Use digits, no commas, no units unless specified
-- Strings: No articles/abbreviations unless specified
-- Lists: Apply above rules to elements
-- Format: FINAL ANSWER: [answer]
-- If uncertain, make educated guess and indicate lower confidence
-"""
-    })
-
-    return FormattedResponse(
-        final_answer=formatted_messages[-1]["content"],
-        confidence=1.0  # Confidence level can be adjusted based on uncertainty
+def prepare_response(original_task: str, inner_messages: List[dict]) -> str:
+    """Prepare a final response from a conversation."""
+    context = ReformulationContext(
+        original_task=original_task,
+        inner_messages=inner_messages
     )
 
-def create_reformulation_agent(
-    task: str,
-    conversation: List[dict]
-) -> tuple[Agent[ReformulationDeps, FormattedResponse], ReformulationDeps]:
-    """Create and configure a reformulation agent with dependencies."""
-    deps = ReformulationDeps(
-        original_task=task,
-        conversation_history=conversation
+    result = reformulation_agent.run_sync(
+        f"""Extract a final answer from the conversation that answers this question: {original_task}
+
+        Format your answer according to these rules:
+        - If numeric: use digits, no commas, no units unless specified
+        - If text: no articles or abbreviations unless specified
+        - If list: comma-separated
+        - Keep it as concise as possible
+        - If unable to determine, say 'Unable to determine'""",
+        deps=context
     )
-    return reformulation_agent, deps
+
+    return result.data.answer
