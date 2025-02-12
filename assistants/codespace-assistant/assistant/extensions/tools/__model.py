@@ -179,7 +179,7 @@ class ToolsConfigModel(BaseModel):
             enabled=False,
         ),
         MCPServerConfig(
-            key="deep_research",
+            key="open-deep-research",
             command="http://127.0.0.1:6020/sse",
             args=[],
             enabled=False,
@@ -197,7 +197,7 @@ class ToolsConfigModel(BaseModel):
             enabled=False,
         ),
         MCPServerConfig(
-            key="sequential_thinking",
+            key="sequential-thinking",
             command="npx",
             args=["-y", "@modelcontextprotocol/server-sequential-thinking"],
             enabled=False,
