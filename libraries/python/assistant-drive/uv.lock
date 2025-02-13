@@ -28,7 +28,6 @@ name = "assistant-drive"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "context" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
@@ -44,7 +43,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "context", editable = "../context" },
     { name = "pydantic", specifier = ">=2.6.1" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
 ]
@@ -137,25 +135,6 @@ wheels = [
 ]
 
 [[package]]
-name = "context"
-version = "0.1.0"
-source = { editable = "../context" }
-dependencies = [
-    { name = "events" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "events", editable = "../events" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.389" },
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
-
-[[package]]
 name = "debugpy"
 version = "1.8.6"
 source = { registry = "https://pypi.org/simple" }
@@ -180,20 +159,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/66/0c/8d907af351aa16b42
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d5/50/83c593b07763e1161326b3b8c6686f0f4b0f24d5526546bee538c89837d6/decorator-5.1.1-py3-none-any.whl", hash = "sha256:b8c3f85900b9dc423225913c5aace94729fe1fa9763b38939a95226f02d37186", size = 9073 },
 ]
-
-[[package]]
-name = "events"
-version = "0.1.0"
-source = { editable = "../events" }
-dependencies = [
-    { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.6.1" }]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pyright", specifier = ">=1.1.389" }]
 
 [[package]]
 name = "executing"

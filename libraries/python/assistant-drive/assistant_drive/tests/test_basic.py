@@ -3,8 +3,6 @@ from io import BytesIO
 import pytest
 from assistant_drive import Drive
 from assistant_drive.drive import DriveConfig, IfDriveFileExistsBehavior
-
-# from context import Context
 from pydantic import BaseModel
 
 file_content = BytesIO(b"Hello, World!")  # Convert byte string to BytesIO
