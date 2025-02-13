@@ -1,14 +1,13 @@
 from mcp.server.fastmcp import FastMCP
 
-
 from . import settings
 from .open_deep_research import perform_deep_research
 
 # Set the name of the MCP server
 server_name = "Open Deep Research MCP Server"
 
-def create_mcp_server() -> FastMCP:
 
+def create_mcp_server() -> FastMCP:
     # Initialize FastMCP with debug logging.
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
@@ -17,13 +16,16 @@ def create_mcp_server() -> FastMCP:
     @mcp.tool()
     async def deep_research(context: str, request: str) -> str:
         """
-        A team member that will deeply research across the internet to answer your question.
-        Ask them for all your questions that require browsing the web. Provide them as much
-        context as possible, in particular if you need to research on a specific timeframe!
-        And don't hesitate to provide them with a complex research task, like analyzing the
-        difference between two products, or finding a discrepancy between two sources.
-        Your request must be real sentences, not search terms! Like "Research current trends
-        for (...)" rather than a few keywords.
+        A specialized team member that thoroughly researches the internet to answer your questions.
+        Use them for anything requiring web browsing—provide as much context as possible, especially
+        if you need to research a specific timeframe. Don’t hesitate to give complex tasks, like
+        analyzing differences between products or spotting discrepancies between sources. Your
+        request must be full sentences, not just search terms (e.g., “Research current trends for…”
+        instead of a few keywords). For context, pass as much background as you can: if using this
+        tool in a conversation, include the conversation history; if in a broader context, include
+        any relevant documents or details. If there is no context, pass “None.” Finally, for the
+        request itself, provide the specific question you want answered, with as much detail as
+        possible about what you need and the desired output.
         """
 
         return perform_deep_research("o1", f"Context:\n{context}\n\nRequest:\n{request}")
