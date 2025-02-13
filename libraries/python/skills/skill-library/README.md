@@ -27,7 +27,7 @@ To create a skill, a developer writes the skills actions and routines and puts
 them in a [`Skill`](./skill_library/skill.py) class along with a
 `SkillDefinition` used to configure the skill.
 
-When a skill is registered to an assistant, a user will be able to see the
+When a skill engine is registered to an assistant, a user will be able to see the
 skill's actions by running the message command `/list_actions` and routines with
 `/list_routines`.
 
@@ -52,113 +52,21 @@ interactions. A routine and its routine runner is kindof like a recipe (routine)
 for a chef (routine runner). The routine contains the instructions and the
 runner is responsible for following those instructions.
 
-We are experimenting with different ways to write routines. In this way,
-routines are something like "Domain Specific Languages" (DSLs). Routine runners
-need to be able to understand the "language" a routine is written in which is
-why routine types and routine runners come in pairs.
+### Skill Engine
 
-Currently we provide three functional routine/routine runner implementations:
-
-- [Instruction routine](./skill_library/routine/instruction_routine.py)
-  ([Instruction routine runner](./skill_library/routine_runners/instruction_routine_runner.py)).
-
-  Instruction routines contain a list of messages (natural language) to be sent
-  to a skill's natural language endpoint (its chat driver). This was a
-  first-attempt at writing routines and has limited value because it (currently)
-  can only talk to the chat endpoint of the skill that contains this routine...
-  and it can only run actions that are registered to the skill's chat driver.
-  We're keeping this around only as an example, and in case it might be useful
-  for something in the future.
-
-- [Action List routine](./skill_library/routine/action_list_routine.py)
-  ([Action List routine runner](./skill_library/routine_runners/action_list_routine_runner.py))
-
-  Action List routines allow you to specify a list of actions (across all registered skills) for the assistant to take.  The results of previously-run actions can be used as arguments in actions allowing for the chaining of input/outputs.
-
-- [State Machine routine](./skill_library/routine/state_machine_routine.py)
-  ([State Machine routine runner](./skill_library/routine_runners/state_machine_routine_runner.py))
-
-  State machine routines are very simple and defined solely by two functions:
-  `init` and `step`. When a state machine routine is started, its `init` method
-  is run. Then every message sent to the assistant will be routed to the the
-  `step` method until the method indicates the routine is done. This is a
-  technique used many developers when hard-coding advanced agent
-  capabilities--changing some behind-the-scenes state in some way based on the
-  messages received and juggling that state until an objective is achieved. It's
-  not simple to reason through, and it can be difficult to code, but it works
-  great. The [Guided Conversation skill
-  routine](../skills/guided-conversation-skill/guided_conversation_skill/guided_conversation_skill.py)
-  is a good example of this technique.
-
-- [Program routine](./skill_library/routine/program_routine.py) ([Program
-  routine
-  runner](./skill_library/routine_runners/program/program_routine_runner.py))
-
-  Write a routine in a subset of Python. Works now, but in development... will
-  add more local function support, error handling, more assistant actions, etc.
-
-- (Future) Recipes (natural language routines)
-
-  We aim to create a type of routine that can be specified in more ordinary,
-  everyday language, like a recipe for a chef. The recipe routine runner, then,
-  will use LLMs to run these routines. We have a few ideas of how to implement
-  this, perhaps translating the routine into a more specific type, or executing
-  each step with a series of LLM calls (e.g., for intent, planning, and
-  adaptation). Stay tuned.
-
-### Skill Registry
-
-By design, routines can execute any action provided in any skill, not just their
-own. This allows for composing and nesting multiple skills. Because of this, it
-is not possible to simply instantiate a skill and run a routine within it.
-Routines can only be run from a [Skill
-Registry](./skill_library/skill_registry.py) that has all dependent skills
-registered to it.
-
-
-When you run a skill routine, the skill registry will manage the entire lifecycle of
-that run for you.
-
-See: [skill_registry.py](./skill_library/skill_registry.py)
-
-### Run Context
-
-Through a `RunContext`, action functions have access to the useful utilities and
-the current scope/context of the assistant and skill they are running within.
-This allows the action developer to have access to the assistant state and be
-able to run actions and routines from other skills, emit messages through the
-assistant, etc.
-
-See: [run_context.py](./skill_library/run_context.py)
-
-### Assistant
-
-The `Assistant` is the object that gets instantiated with all the running
-skills. The assistant contains an "assistant drive" that can be scoped to a
-specific persistence location to keep all the state of the assistant in one
-spot. The assistant also handles the event handling for all registered skills.
-Once an assistant is started you can call (or subscribe to) its `events`
+The `Engine` is the object that gets instantiated with all the running
+skills. The engine contains an "assistant drive" that can be scoped to a
+specific persistence location to keep all the state of the engine in one
+spot. The engine also handles the event handling for all registered skills.
+Once an engine is started you can call (or subscribe to) its `events`
 endpoint to get a list of generated events.
 
-See: [assistant.py](./skill_library/assistant.py), [Assistant Drive](../../assistant-drive/README.md)
-
-#### Chat Driver
-
-The Assistant's chat driver is the place to configure your assistant's natural
-language interface.
-
-You, as the assistant developer, can decide on the personality of your assistant
-(setting the chat driver instructions), which commands you want to be able to
-run as you are interacting with the assistant, and which tool functions you want
-your assistant to be able to call on your behalf. These commands and tool
-functions can include any of your assistant's skill's actions or routines.
-
-See: [Chat Driver](../../openai-client/openai_client/chat_driver/README.md)
+See: [engine.py](./skill_library/engine.py), [Assistant Drive](../../assistant-drive/README.md)
 
 ### Semantic Workbench integration
 
-This Assistant class can be easily wrapped inside our Semantic Workbench
-assistant allowing it to be exposed as an assistant in the workbench. See our
+This Engine class can be easily wrapped inside our Semantic Workbench
+assistant. See our
 [Semantic Workbench Skill
 Assistant](../../../../assistants/skill-assistant/README.md)
 package that does exactly this.
@@ -168,7 +76,6 @@ routing events to and from the Workbench.
 
 See: [Skill Assistant](../../../../assistants/skill-assistant/README.md)
 
-
 ## State
 
 The skill library provides multiple powerful ways to manage state in an assistant.
@@ -176,7 +83,7 @@ The skill library provides multiple powerful ways to manage state in an assistan
 ### Drives
 
 We use the [Assistant Drive](../../assistant-drive/README.md) package to provide
-simple disk storage to components in the skill library. Each assistant is given
+simple disk storage to components in the skill library. Each engine is given
 a drive (the "assistant drive") that should be "sub-drived" by all skills to use
 as storage. This keeps all of the data together in one spot, making it easier to
 copy/backup/clone/fork assistants.
@@ -215,3 +122,45 @@ The only thing to keep in mind is that when the resource block is exited,
 everything in the state object will be serialized to disk, so make sure the
 values you are assigning are serializable.
 
+## User scenario
+
+Let me walk through the expected flow:
+
+1. The initial `/run_routine` command hits `on_command_message_created` in skill_assistant.py
+   - It parses the command and calls ChatFunctions.run_routine
+   - This calls engine.run_routine with "common.web_research" and the parameters
+   - Engine creates a task to run the routine and returns a future
+   - ChatFunctions awaits this future
+
+2. The routine starts executing:
+   - Makes a research plan using common.generate_research_plan
+   - Writes it to a file
+   - Then hits the first `ask_user` call with "Does this plan look ok?"
+   - This creates a MessageEvent with that prompt
+   - The routine pauses, waiting for input via the input_future
+
+3. When the user sends their response (like "Yes, looks good"):
+   - That message hits `on_message_created` in skill_assistant.py
+   - It checks `is_routine_running()` which should return true because we have a current_routine
+   - It calls `resume_routine` with the user's message
+   - This sets the result on the input_future
+   - The routine continues executing from where it was paused at ask_user
+
+4. This cycle repeats for any other ask_user calls in the routine:
+   - Routine pauses at ask_user
+   - User responds
+   - Message gets routed to resume_routine
+   - Routine continues
+
+5. Finally when the routine completes:
+   - It sets its final result on the result_future
+   - Cleans up (current_routine = None)
+   - The original run_routine future completes
+
+The key points are:
+
+1. While a routine is running, ALL messages should be routed to resume_routine
+2. The routine's state (current_routine) needs to persist between messages
+3. The futures mechanism lets us pause/resume the routine while keeping it "alive"
+
+Looking at this flow, I suspect our issue might be that we're not properly maintaining the routine's state between messages. Let's verify the routine is still considered "running" when we get the user's response.

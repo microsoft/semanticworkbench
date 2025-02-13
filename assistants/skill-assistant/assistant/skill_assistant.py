@@ -7,16 +7,15 @@
 # using the AssistantApp class from the semantic-workbench-assistant package and leveraging
 # the skills library to create a skill-based assistant.
 
+import asyncio
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable
 
 import openai_client
 from assistant_drive import Drive, DriveConfig
-from common_skill import CommonSkillDefinition
 from content_safety.evaluators import CombinedContentSafetyEvaluator
-from guided_conversation_skill import GuidedConversationSkillDefinition
-from openai_client.chat_driver import ChatDriverConfig
-from posix_skill import PosixSkillDefinition
+from openai_client.chat_driver import ChatDriver, ChatDriverConfig
+from openai_client.tools import ToolFunctions
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     ConversationMessage,
@@ -30,15 +29,16 @@ from semantic_workbench_assistant.assistant_app import (
     ContentSafetyEvaluator,
     ConversationContext,
 )
-from skill_library import Assistant
-from skill_library.types import Metadata
+from skill_library import Engine, get_action_usage
+from skill_library.skills.common.common_skill import CommonSkill, CommonSkillConfig
+from skill_library.skills.posix.posix_skill import PosixSkill, PosixSkillConfig
 
 from assistant.skill_event_mapper import SkillEventMapper
 from assistant.workbench_helpers import WorkbenchMessageProvider
 
-from .assistant_registry import AssistantRegistry
 from .config import AssistantConfigModel
-from .logging import logger
+from .logging import extra_data, logger
+from .skill_engine_registry import SkillEngineRegistry
 
 logger.info("Starting skill assistant service.")
 
@@ -108,7 +108,7 @@ app = assistant_service.fastapi_app()
 # skill assistant library. We can improve this in the future by adding a
 # conversation ID to the skill assistant library and mapping it to a
 # conversation in the workbench.
-assistant_registry = AssistantRegistry()
+engine_registry = SkillEngineRegistry()
 
 
 # Handle the event triggered when the assistant is added to a conversation.
@@ -134,24 +134,36 @@ async def on_conversation_created(conversation_context: ConversationContext) -> 
 async def on_message_created(
     conversation_context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
-    """
-    Handle the event triggered when a new chat message is created in the conversation.
+    """Handle new chat messages"""
+    logger.debug("Message received", extra_data({"content": message.content}))
 
-    **Note**
-    - This event handler is specific to chat messages.
-    - To handle other message types, you can add additional event handlers for those message types.
-      - @assistant.events.conversation.message.log.on_created
-      - @assistant.events.conversation.message.command.on_created
-      - ...additional message types
-    - To handle all message types, you can use the root event handler for all message types:
-      - @assistant.events.conversation.message.on_created
-    """
+    config = await assistant_config.get(conversation_context.assistant)
+    engine = await get_or_register_skill_engine(conversation_context, config)
 
-    # Pass the message to the core response logic.
+    # Check if routine is running
+    is_running = engine.is_routine_running()
+    logger.debug("Routine status check", extra_data({"is_running": is_running}))
+
+    if is_running:
+        logger.debug("Resuming routine with message", extra_data({"message": message.content}))
+        asyncio.create_task(engine.resume_routine(message.content))
+        return
+
+    # Use a chat driver to respond.
     async with conversation_context.set_status("thinking..."):
-        config = await assistant_config.get(conversation_context.assistant)
+        chat_driver_config = ChatDriverConfig(
+            openai_client=openai_client.create_client(config.service_config),
+            model=config.chat_driver_config.openai_model,
+            instructions=config.chat_driver_config.instructions,
+            message_provider=WorkbenchMessageProvider(conversation_context.id, conversation_context),
+            functions=ChatFunctions(engine).list_functions(),
+        )
+        chat_driver = ChatDriver(chat_driver_config)
+        chat_functions = ChatFunctions(engine)
+        chat_driver_config.functions = [chat_functions.list_actions, chat_functions.list_routines]
+
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
-        await respond_to_conversation(conversation_context, config, message, metadata)
+        await chat_driver.respond(message.content, metadata=metadata or {})
 
 
 @assistant_service.events.conversation.message.command.on_created
@@ -162,88 +174,185 @@ async def on_command_message_created(
     Handle the event triggered when a new command message is created in the conversation.
     """
 
-    # Pass the message to the core response logic. The skill library handles
-    # commands, so we don't need to do anything here.
-    async with conversation_context.set_status("thinking..."):
-        config = await assistant_config.get(conversation_context.assistant)
-        metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
-        await respond_to_conversation(conversation_context, config, message, metadata)
+    config = await assistant_config.get(conversation_context.assistant)
+    engine = await get_or_register_skill_engine(conversation_context, config)
+    functions = ChatFunctions(engine)
 
+    command_string = event.data["message"]["content"]
 
-# Core response logic for handling messages (chat or command) in the conversation.
-async def respond_to_conversation(
-    conversation_context: ConversationContext,
-    config: AssistantConfigModel,
-    message: ConversationMessage,
-    metadata: Optional[Metadata] = None,
-) -> None:
-    """
-    Respond to a conversation message.
-    """
-    assistant = await get_or_register_assistant(conversation_context, config)
-    try:
-        await assistant.put_message(message.content, metadata)
-    except Exception as e:
-        logger.exception("Exception in on_message_created.")
-        await conversation_context.send_messages(
-            NewConversationMessage(
-                message_type=MessageType.note,
-                content=f"Unhandled error: {e}",
+    match command_string:
+        case "/help":
+            help_msg = """
+            ```markdown
+            **Commands:**
+            - **/help**: Display this help message.
+            - **/list_actions**: List all available actions.
+            - **/run_action <designation> <args>**: Run an action by designation.
+            - **/list_routines**: List all available routines.
+            - **/run_routine <name> <args>**: Run a routine by name.
+            - **/clear_stack**: Clear the assistant's routine stack and event queue.
+            ```
+            """
+            await conversation_context.send_messages(
+                NewConversationMessage(
+                    content=help_msg,
+                    message_type=MessageType.notice,
+                    metadata={},
+                ),
             )
-        )
+        case _:
+            try:
+                function_string, args, kwargs = ToolFunctions.parse_fn_string(command_string)
+                if not function_string:
+                    await conversation_context.send_messages(
+                        NewConversationMessage(
+                            content="Invalid command.",
+                            message_type=MessageType.notice,
+                            metadata={},
+                        ),
+                    )
+                    return
+            except ValueError as e:
+                await conversation_context.send_messages(
+                    NewConversationMessage(
+                        content=f"Invalid command. {e}",
+                        message_type=MessageType.notice,
+                        metadata={},
+                    ),
+                )
+                return
+
+            # Run the function.
+            result = await getattr(functions, function_string)(*args, **kwargs)
+
+            await conversation_context.send_messages(
+                NewConversationMessage(
+                    content=str(result),
+                    message_type=MessageType.notice,
+                    metadata={},
+                ),
+            )
 
 
 # Get or register an assistant for the conversation.
-async def get_or_register_assistant(
+async def get_or_register_skill_engine(
     conversation_context: ConversationContext, config: AssistantConfigModel
-) -> Assistant:
+) -> Engine:
     # Get an assistant from the registry.
-    assistant_id = conversation_context.id
-    assistant = assistant_registry.get_assistant(assistant_id)
+    engine_id = conversation_context.id
+    engine = engine_registry.get_engine(engine_id)
 
     # Register an assistant if it's not there.
-    if not assistant:
-        assistant_drive_root = Path(".data") / assistant_id / "assistant"
-        assistant_metadata_drive_root = Path(".data") / assistant_id / ".assistant"
+    if not engine:
+        assistant_drive_root = Path(".data") / engine_id / "assistant"
+        assistant_metadata_drive_root = Path(".data") / engine_id / ".assistant"
         assistant_drive = Drive(DriveConfig(root=assistant_drive_root))
         language_model = openai_client.create_client(config.service_config)
-        message_provider = WorkbenchMessageProvider(assistant_id, conversation_context)
-        chat_driver_config = ChatDriverConfig(
-            openai_client=language_model,
-            model=config.chat_driver_config.openai_model,
-            instructions=config.chat_driver_config.instructions,
-            message_provider=message_provider,
-        )
+        message_provider = WorkbenchMessageProvider(engine_id, conversation_context)
 
-        assistant = Assistant(
-            assistant_id=conversation_context.id,
-            name="Assistant",
+        engine = Engine(
+            engine_id=conversation_context.id,
             message_history_provider=message_provider.get_history,
-            chat_driver_config=chat_driver_config,
             drive_root=assistant_drive_root,
             metadata_drive_root=assistant_metadata_drive_root,
             skills=[
-                CommonSkillDefinition(
-                    name="common",
-                    language_model=language_model,
-                    drive=assistant_drive.subdrive("common"),
-                    chat_driver_config=chat_driver_config,
+                (
+                    CommonSkill,
+                    CommonSkillConfig(
+                        name="common",
+                        language_model=language_model,
+                        drive=assistant_drive.subdrive("common"),
+                    ),
                 ),
-                PosixSkillDefinition(
-                    name="posix",
-                    sandbox_dir=Path(".data") / conversation_context.id,
-                    mount_dir="/mnt/data",
-                    chat_driver_config=chat_driver_config,
+                (
+                    PosixSkill,
+                    PosixSkillConfig(
+                        name="posix",
+                        sandbox_dir=Path(".data") / conversation_context.id,
+                        mount_dir="/mnt/data",
+                    ),
                 ),
-                GuidedConversationSkillDefinition(
-                    name="guided_conversation",
-                    language_model=language_model,
-                    drive=assistant_drive.subdrive("guided_conversation"),
-                    chat_driver_config=chat_driver_config,
-                ),
+                # GuidedConversationSkillDefinition(
+                #     name="guided_conversation",
+                #     language_model=language_model,
+                #     drive=assistant_drive.subdrive("guided_conversation"),
+                #     chat_driver_config=chat_driver_config,
+                # ),
             ],
         )
 
-        await assistant_registry.register_assistant(assistant, SkillEventMapper(conversation_context))
+        await engine_registry.register_engine(engine, SkillEventMapper(conversation_context))
 
-    return assistant
+    return engine
+
+
+class ChatFunctions:
+    """
+    These functions provide usage context and output markdown. It's a layer
+    closer to the assistant.
+    """
+
+    def __init__(self, engine: Engine) -> None:
+        self.engine = engine
+
+    async def clear_stack(self) -> str:
+        """Clears the assistant's routine stack and event queue."""
+        await self.engine.clear(include_drives=False)
+        return "Assistant stack cleared."
+
+    async def list_routines(self) -> str:
+        """Lists all the routines available in the assistant."""
+
+        routines: list[str] = []
+        for skill_name, skill in self.engine._skills.items():
+            for routine_name in skill.list_routines():
+                routine = skill.get_routine(routine_name)
+                description = routine.__doc__ or ""
+                routines.append(f"- __{skill_name}.{routine_name}__: _{description}_")
+
+        if not routines:
+            return "No routines available."
+
+        routine_string = "```markdown\n### Routines\n\n" + "\n".join(routines) + "\n```"
+        return routine_string
+
+    async def run_routine(self, designation: str, *args, **kwargs) -> Any:
+        """
+        Run a routine.
+        """
+        asyncio.create_task(self.engine.run_routine(designation, *args, **kwargs))
+        return f"Running routine: {designation}"
+
+    async def list_actions(self) -> str:
+        """Lists all the actions available in the assistant."""
+
+        actions: list[str] = []
+        for skill_name, skill in self.engine._skills.items():
+            for action_name in skill.list_actions():
+                action = skill.get_action(action_name)
+                if not action:
+                    continue
+                usage = get_action_usage(action)
+                actions.append(
+                    f"- __{skill_name}.{usage.name}({', '.join([str(parameter) for parameter in usage.parameters])})__: _{usage.description}_"
+                )
+        if not actions:
+            return "No actions available."
+
+        action_string = "```markdown\n### Actions\n\n" + "\n".join(actions) + "\n```"
+        return action_string
+
+    async def run_action(self, designation: str, *args, **kwargs) -> Any:
+        """
+        Run an assistant action by designation (<skill_name>.<action_name>).
+        """
+        return await self.engine.run_action(designation, *args, **kwargs)
+
+    def list_functions(self) -> list[Callable]:
+        return [
+            self.list_routines,
+            # self.run_routine,
+            self.list_actions,
+            # self.run_action,
+            # self.clear_stack,
+        ]

@@ -2,8 +2,7 @@ import functools
 import inspect
 from typing import Callable
 
-from skill_library.actions import ActionCallable
-from skill_library.run_context import RunContextProvider
+from .types import ActionFn, RunContextProvider
 
 
 class ChatDriverFunctions:
@@ -21,7 +20,7 @@ class ChatDriverFunctions:
     This is helpful for maing chat driver setup in a skill simpler.
     """
 
-    def __init__(self, actions: list[ActionCallable], run_context_provider: RunContextProvider) -> None:
+    def __init__(self, actions: list[ActionFn], run_context_provider: RunContextProvider) -> None:
         self.actions = {action.__name__: action for action in actions}
         self.run_context_provider = run_context_provider
         self._generate_wrappers()
