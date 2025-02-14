@@ -5,7 +5,11 @@ description = "Search the web using Bing services"
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["mcp=*"]
+dependencies = [
+    "azure-cognitiveservices-search-websearch>=2.0.1",
+    "mcp>=1.2.1",
+    "msrest>=0.7.1",
+]
 
 [dependency-groups]
 dev = ["pyright>=1.1.389"]
