@@ -4,7 +4,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Any, Callable, cast
 
-from .types import RoutineFn
+from .skill import RoutineFn
 
 # Standard routine parameters we want to skip in documentation
 STANDARD_PARAMS = {"context", "ask_user", "run", "get_state", "set_state", "emit"}

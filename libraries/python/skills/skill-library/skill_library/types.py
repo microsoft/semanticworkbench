@@ -1,7 +1,7 @@
 # skill_library/types.py
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Protocol
 from uuid import uuid4
 
 from assistant_drive import Drive
@@ -74,29 +74,11 @@ class RunContextProvider(Protocol):
 
 AskUserFn = Callable[[str], Awaitable[str]]
 ActionFn = Callable[[RunContext], Awaitable[Any]]
-GetStateFn = Callable[[], Awaitable[dict[str, Any]]]
-SetStateFn = Callable[[dict[str, Any]], Awaitable[None]]
 EmitFn = Callable[[EventProtocol], None]
-# StackContext = _AsyncGeneratorContextManager[dict[str, Any], None]
 
 
 class RunRoutineFn(Protocol):
     async def __call__(self, designation: str, *args: Any, **kwargs: Any) -> Any: ...
-
-
-@runtime_checkable
-class RoutineFn(Protocol):
-    async def __call__(
-        self,
-        context: RunContext,
-        ask_user: AskUserFn,
-        run: RunRoutineFn,
-        get_state: GetStateFn,
-        set_state: SetStateFn,
-        emit: EmitFn,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Any: ...
 
 
 LanguageModel = AsyncOpenAI | AsyncAzureOpenAI

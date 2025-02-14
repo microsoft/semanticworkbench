@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, cast
 
 from openai_client import (
     CompletionError,
@@ -9,18 +9,21 @@ from openai_client import (
     validate_completion,
 )
 from pydantic import BaseModel
-from skill_library import RunContext
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
-from skill_library.types import LanguageModel, Metadata
+from skill_library.skills.common import CommonSkill
+from skill_library.types import Metadata
 
 
-async def update_research_plan(
-    run_context: RunContext, language_model: LanguageModel, topic: str
+async def main(
+    context: RunContext, routine_state: dict[str, Any], emit: EmitFn, run: RunRoutineFn, ask_user: AskUserFn, topic: str
 ) -> tuple[list[str], Metadata]:
     """
-    Update a research plan using information from a conversation. The plan will
-    consist of an updated set of research questions to be answered.
+    Generate a research plan on a given topic. The plan will consist of a set of
+    research questions to be answered.
     """
+    common_skill = cast(CommonSkill, context.skills["common"])
+    language_model = common_skill.config.language_model
 
     class Output(BaseModel):
         reasoning: str
@@ -30,15 +33,10 @@ async def update_research_plan(
         "model": "gpt-4o",
         "messages": [
             create_system_message(
-                (
-                    "You are an expert research assistant. You have previously considered a topic and carefully analyzed it to identify core, tangential, and nuanced areas requiring exploration. You approached the topic methodically, breaking it down into its fundamental aspects, associated themes, and interconnections. You thoroughly thought through the subject step by step and created a comprehensive set of research questions. These questions were presented to the user, who has now provided additional information. Use this information, found in the chat history to update the research plan.\n\n"
-                    "The topic is: {topic}\n\n"
-                    "The previous research questions are:\n\n"
-                    "{research_questions}\n\n"
-                )
+                "You are an expert research assistant. For any given topic, carefully analyze it to identify core, tangential, and nuanced areas requiring exploration. Approach the topic methodically, breaking it down into its fundamental aspects, associated themes, and interconnections. Thoroughly think through the subject step by step and aim to create a comprehensive set of research questions.",
             ),
             create_user_message(
-                f"Chat history: {(await run_context.conversation_history()).model_dump_json()}",
+                f"Topic: {topic}",
             ),
         ],
         "response_format": Output,
@@ -65,6 +63,3 @@ async def update_research_plan(
     else:
         research_questions = cast(Output, completion.choices[0].message.parsed).research_questions
         return research_questions, metadata
-
-
-__default__ = update_research_plan

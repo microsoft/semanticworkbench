@@ -1,4 +1,5 @@
-from typing import cast
+import json
+from typing import Any, cast
 
 from openai_client import (
     CompletionError,
@@ -9,32 +10,43 @@ from openai_client import (
     validate_completion,
 )
 from pydantic import BaseModel
-from skill_library import RunContext
+from skill_library import AskUserFn, EmitFn, Metadata, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
-from skill_library.types import Metadata
 
 
-async def generate_research_plan(context: RunContext, topic: str) -> tuple[list[str], Metadata]:
-    """
-    Generate a research plan on a given topic. The plan will consist of a set of
-    research questions to be answered.
-    """
+async def main(
+    context: RunContext,
+    routine_state: dict[str, Any],
+    emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
+    options: dict[str, str],
+) -> tuple[str, Metadata]:
+    """Select the user's intent from a set of options based on the conversation history."""
+
     common_skill = cast(CommonSkill, context.skills["common"])
     language_model = common_skill.config.language_model
 
     class Output(BaseModel):
         reasoning: str
-        research_questions: list[str]
+        intent: str
 
     completion_args = {
         "model": "gpt-4o",
         "messages": [
             create_system_message(
-                "You are an expert research assistant. For any given topic, carefully analyze it to identify core, tangential, and nuanced areas requiring exploration. Approach the topic methodically, breaking it down into its fundamental aspects, associated themes, and interconnections. Thoroughly think through the subject step by step and aim to create a comprehensive set of research questions.",
+                (
+                    "A conversation history is a valuable resource for understanding a user's intent. "
+                    "By analyzing the context of a conversation, you can identify the user's intent from a set of options. "
+                    "Consider the user's previous messages and the overall flow of the conversation to determine the most likely intent."
+                    "Select the user's intent from the following options:\n\n"
+                    f"{json.dumps(options)}\n\n"
+                    "Given a conversation history, reason through what the users intent is and return it the form of a JSON object with reasoning and intent fields."
+                )
             ),
             create_user_message(
-                f"Topic: {topic}",
+                f"The conversation: {(await context.conversation_history()).model_dump_json()}",
             ),
         ],
         "response_format": Output,
@@ -59,8 +71,5 @@ async def generate_research_plan(context: RunContext, topic: str) -> tuple[list[
         )
         raise completion_error from e
     else:
-        research_questions = cast(Output, completion.choices[0].message.parsed).research_questions
-        return research_questions, metadata
-
-
-__default__ = generate_research_plan
+        intent = cast(Output, completion.choices[0].message.parsed).intent
+        return intent, metadata

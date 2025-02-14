@@ -3,24 +3,17 @@ web research skill
 """
 
 import json
+from typing import Any
 
-from skill_library import RunContext
-from skill_library.types import (
-    AskUserFn,
-    EmitFn,
-    GetStateFn,
-    RunRoutineFn,
-    SetStateFn,
-)
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 
 
 async def main(
     context: RunContext,
-    ask_user: AskUserFn,
-    run: RunRoutineFn,
-    get_state: GetStateFn,
-    set_state: SetStateFn,
+    routine_state: dict[str, Any],
     emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
     search_description: str,
     previous_searches: list[tuple[str, str]] | None = None,
 ) -> str:

@@ -9,6 +9,7 @@
 
 import asyncio
 from pathlib import Path
+from textwrap import dedent
 from typing import Any, Callable
 
 import openai_client
@@ -183,21 +184,17 @@ async def on_command_message_created(
 
     match command_string:
         case "/help":
-            help_msg = """
+            help_msg = dedent("""
             ```markdown
-            - **/help**: Display this help message.
-            - **/list_actions**: List all available actions.
-            - **/run_action <designation> <args>**: Run an action by designation.
-            - **/list_routines**: List all available routines.
-            - **/run_routine <name> <args>**: Run a routine by name.
-            - **/clear_stack**: Clear the assistant's routine stack and event queue.
+            - __/help__: Display this help message.
+            - __/list_routines__: List all routines.
+            - __/run("&lt;name&gt;", ...args)__: Run a routine.
             ```
-            """
+            """).strip()
             await conversation_context.send_messages(
                 NewConversationMessage(
-                    content=help_msg,
+                    content=str(help_msg),
                     message_type=MessageType.notice,
-                    metadata={},
                 ),
             )
         case _:
@@ -208,7 +205,6 @@ async def on_command_message_created(
                         NewConversationMessage(
                             content="Invalid command.",
                             message_type=MessageType.notice,
-                            metadata={},
                         ),
                     )
                     return
@@ -225,13 +221,13 @@ async def on_command_message_created(
             # Run the function.
             result = await getattr(functions, function_string)(*args, **kwargs)
 
-            await conversation_context.send_messages(
-                NewConversationMessage(
-                    content=str(result),
-                    message_type=MessageType.notice,
-                    metadata={},
-                ),
-            )
+            if result:
+                await conversation_context.send_messages(
+                    NewConversationMessage(
+                        content=str(result),
+                        message_type=MessageType.notice,
+                    ),
+                )
 
 
 # Get or register an assistant for the conversation.
@@ -318,14 +314,15 @@ class ChatFunctions:
         routine_string = "```markdown\n" + "\n".join(routines) + "\n```"
         return routine_string
 
-    async def run_routine(self, designation: str, *args, **kwargs) -> Any:
+    async def run(self, designation: str, *args, **kwargs) -> str:
         try:
             task = asyncio.create_task(self.engine.run_routine(designation, *args, **kwargs))
             task.add_done_callback(self._handle_routine_completion)
-            return f"Running routine: {designation}"
         except Exception as e:
             logger.error(f"Failed to start routine {designation}: {e}")
             return f"Failed to start routine: {designation}"
+
+        return ""
 
     def _handle_routine_completion(self, task: asyncio.Task) -> None:
         try:
@@ -337,6 +334,4 @@ class ChatFunctions:
     def list_functions(self) -> list[Callable]:
         return [
             self.list_routines,
-            # self.run_routine,
-            # self.clear_stack,
         ]

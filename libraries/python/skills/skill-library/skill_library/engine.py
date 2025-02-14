@@ -206,16 +206,17 @@ class Engine:
                 return await self.run_routine_with_context(run_context, designation, *args, **kwargs)
 
             # Run the routine, but await
+            routine_stack_state = await self.routine_stack.get_current_state()
             result = await routine(
                 run_context,
-                ask_user,
-                run_routine_context_wrapper,
-                self.routine_stack.get_current_state,
-                self.routine_stack.set_current_state,
+                routine_stack_state,
                 self._emit,
+                run_routine_context_wrapper,
+                ask_user,
                 *args,
                 **kwargs,
             )
+            await self.routine_stack.set_current_state(routine_stack_state)
 
             # When the routine completes, set the result on the result future.
             logger.debug(f"Routine {designation} executed successfully. Result: {result}")

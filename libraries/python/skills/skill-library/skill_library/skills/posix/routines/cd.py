@@ -1,10 +1,17 @@
-from typing import cast
+from typing import Any, cast
 
-from skill_library.engine import RunContext
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.skills.posix import PosixSkill
 
 
-async def cd(context: RunContext, directory: str) -> str:
+async def main(
+    context: RunContext,
+    routine_state: dict[str, Any],
+    emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
+    directory: str,
+) -> str:
     """
     Change the current working directory.
     """
@@ -15,6 +22,3 @@ async def cd(context: RunContext, directory: str) -> str:
         return f"Changed directory to {directory}."
     except FileNotFoundError:
         return f"Directory {directory} not found."
-
-
-__default__ = cd

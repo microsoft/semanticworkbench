@@ -1,10 +1,5 @@
-from typing import Any, Awaitable, Callable
-
 from assistant_drive import Drive
-from skill_library import AskUserFn, LanguageModel, RunContext, Skill, SkillConfig
-
-ActionFn = Callable[[RunContext], Awaitable[Any]]
-RoutineFn = Callable[[RunContext, AskUserFn], Awaitable[Any]]
+from skill_library import LanguageModel, Skill, SkillConfig
 
 
 class CommonSkillConfig(SkillConfig):

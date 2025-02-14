@@ -1,10 +1,18 @@
-from typing import cast
+from typing import Any, cast
 
-from skill_library.engine import RunContext
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.skills.posix import PosixSkill
 
 
-async def append_file(context: RunContext, filename: str, content: str) -> str:
+async def main(
+    context: RunContext,
+    routine_state: dict[str, Any],
+    emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
+    filename: str,
+    content: str,
+) -> str:
     """
     Change the current working directory.
     """
@@ -15,6 +23,3 @@ async def append_file(context: RunContext, filename: str, content: str) -> str:
         return f"Appended content to {filename}."
     except FileNotFoundError:
         return f"Filename {filename} not found."
-
-
-__default__ = append_file

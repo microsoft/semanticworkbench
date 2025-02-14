@@ -1,19 +1,17 @@
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import requests
 from dotenv import load_dotenv
-from skill_library import RunContext
-from skill_library.types import AskUserFn, EmitFn, GetStateFn, RunRoutineFn, SetStateFn
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 
 
 async def main(
     context: RunContext,
-    ask_user: AskUserFn,
-    run: RunRoutineFn,
-    get_state: GetStateFn,
-    set_state: SetStateFn,
+    routine_state: dict[str, Any],
     emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
     q: str,
     num_results: Optional[int] = 7,
 ) -> list[str]:

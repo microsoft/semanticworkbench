@@ -1,4 +1,4 @@
-from typing import Optional, cast
+from typing import Any, Optional, cast
 
 from openai_client import (
     CompletionError,
@@ -9,20 +9,19 @@ from openai_client import (
     message_content_from_completion,
     validate_completion,
 )
-from skill_library import RunContext
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
-from skill_library.types import AskUserFn, EmitFn, GetStateFn, SetStateFn
 
 DEFAULT_MAX_SUMMARY_LENGTH = 5000
 
 
 async def main(
     context: RunContext,
-    ask_user: AskUserFn,
-    get_state: GetStateFn,
-    set_state: SetStateFn,
+    routine_state: dict[str, Any],
     emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
     content: str,
     aspect: Optional[str] = None,
     max_length: Optional[int] = DEFAULT_MAX_SUMMARY_LENGTH,

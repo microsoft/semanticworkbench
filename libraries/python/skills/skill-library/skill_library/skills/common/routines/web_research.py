@@ -3,24 +3,21 @@ web research skill
 """
 
 import json
+from typing import Any
 
-from skill_library import RunContext
-from skill_library.types import AskUserFn, EmitFn, GetStateFn, RunRoutineFn, SetStateFn
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 
 
-# Define your routine function. We could use a string here, but it's better to
-# use a function and then get the source code of that function so we can lint
-# it.
 async def main(
     context: RunContext,
-    ask_user: AskUserFn,
-    run: RunRoutineFn,
-    get_state: GetStateFn,
-    set_state: SetStateFn,
+    routine_state: dict[str, Any],
     emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
     plan_name: str,
     topic: str,
 ) -> str:
+    """Research a topic thoroughly and return a report."""
     plan, _ = await run("common.generate_research_plan", topic)
     await run("posix.write_file", f"{plan_name}.txt", json.dumps(plan, indent=2))
 

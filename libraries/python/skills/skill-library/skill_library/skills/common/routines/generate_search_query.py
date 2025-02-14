@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, cast
 
 from openai_client import (
     CompletionError,
@@ -9,19 +9,17 @@ from openai_client import (
     message_content_from_completion,
     validate_completion,
 )
-from skill_library import RunContext
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
-from skill_library.types import AskUserFn, EmitFn, GetStateFn, RunRoutineFn, SetStateFn
 
 
 async def main(
     context: RunContext,
-    ask_user: AskUserFn,
-    run: RunRoutineFn,
-    get_state: GetStateFn,
-    set_state: SetStateFn,
+    routine_state: dict[str, Any],
     emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
     search_description: str,
     previous_searches: list[tuple[str, str]] | None = None,
 ) -> str:

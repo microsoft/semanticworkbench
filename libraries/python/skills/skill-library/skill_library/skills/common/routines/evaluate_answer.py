@@ -1,5 +1,4 @@
-import json
-from typing import cast
+from typing import Any, cast
 
 from openai_client import (
     CompletionError,
@@ -10,38 +9,38 @@ from openai_client import (
     validate_completion,
 )
 from pydantic import BaseModel
-from skill_library import RunContext
+from skill_library import AskUserFn, EmitFn, Metadata, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
-from skill_library.types import Metadata
 
 
-async def select_user_intent(context: RunContext, options: dict[str, str]) -> tuple[str, Metadata]:
-    """Select the user's intent from a set of options based on the conversation history."""
+async def main(
+    context: RunContext,
+    routine_state: dict[str, Any],
+    emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
+    question: str,
+    answer: str,
+) -> tuple[bool, Metadata]:
+    """Decide whether an answer actually answers a question well, and return a reason why."""
 
     common_skill = cast(CommonSkill, context.skills["common"])
     language_model = common_skill.config.language_model
 
     class Output(BaseModel):
         reasoning: str
-        intent: str
+        is_good_answer: bool
 
     completion_args = {
         "model": "gpt-4o",
         "messages": [
             create_system_message(
                 (
-                    "A conversation history is a valuable resource for understanding a user's intent. "
-                    "By analyzing the context of a conversation, you can identify the user's intent from a set of options. "
-                    "Consider the user's previous messages and the overall flow of the conversation to determine the most likely intent."
-                    "Select the user's intent from the following options:\n\n"
-                    f"{json.dumps(options)}\n\n"
-                    "Given a conversation history, reason through what the users intent is and return it the form of a JSON object with reasoning and intent fields."
+                    "Given a question and and an answer, reason through whether or not the answer actually answers the question. Return your reasoning and whether or not the answer is a good answer as JSON."
                 )
             ),
-            create_user_message(
-                f"The conversation: {(await context.conversation_history()).model_dump_json()}",
-            ),
+            create_user_message((f"The question: {question}\n\bThe answer: {answer}\n\n")),
         ],
         "response_format": Output,
     }
@@ -65,8 +64,5 @@ async def select_user_intent(context: RunContext, options: dict[str, str]) -> tu
         )
         raise completion_error from e
     else:
-        intent = cast(Output, completion.choices[0].message.parsed).intent
-        return intent, metadata
-
-
-__default__ = select_user_intent
+        response: Output = cast(Output, completion.choices[0].message.parsed)
+        return response.is_good_answer, metadata

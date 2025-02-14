@@ -1,4 +1,4 @@
-from typing import Optional, cast
+from typing import Any, Optional, cast
 
 from openai_client import (
     CompletionError,
@@ -9,13 +9,20 @@ from openai_client import (
     validate_completion,
 )
 from pydantic import BaseModel
-from skill_library import RunContext
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
 
 
-async def answer_question_about_content(
-    context: RunContext, content: str, question: str, max_length: Optional[int] = None
+async def main(
+    context: RunContext,
+    routine_state: dict[str, Any],
+    emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
+    content: str,
+    question: str,
+    max_length: Optional[int] = None,
 ) -> str:
     """
     Generate an answer to a question from the provided content.
@@ -67,6 +74,3 @@ async def answer_question_about_content(
         research_questions = cast(Output, completion.choices[0].message.parsed).answer
         context.log({"research_questions": research_questions})
         return research_questions
-
-
-__default__ = answer_question_about_content

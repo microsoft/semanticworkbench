@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Any, cast
 
 from openai_client import (
     CompletionError,
@@ -9,31 +9,39 @@ from openai_client import (
     validate_completion,
 )
 from pydantic import BaseModel
-from skill_library import RunContext
+from skill_library import AskUserFn, EmitFn, Metadata, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
-from skill_library.types import Metadata
 
 
-async def evaluate_answer(context: RunContext, question: str, answer: str) -> tuple[bool, Metadata]:
-    """Decide whether an answer actually answers a question well, and return a reason why."""
-
+async def main(
+    context: RunContext, routine_state: dict[str, Any], emit: EmitFn, run: RunRoutineFn, ask_user: AskUserFn, topic: str
+) -> tuple[list[str], Metadata]:
+    """
+    Update a research plan using information from a conversation. The plan will
+    consist of an updated set of research questions to be answered.
+    """
     common_skill = cast(CommonSkill, context.skills["common"])
     language_model = common_skill.config.language_model
 
     class Output(BaseModel):
         reasoning: str
-        is_good_answer: bool
+        research_questions: list[str]
 
     completion_args = {
         "model": "gpt-4o",
         "messages": [
             create_system_message(
                 (
-                    "Given a question and and an answer, reason through whether or not the answer actually answers the question. Return your reasoning and whether or not the answer is a good answer as JSON."
+                    "You are an expert research assistant. You have previously considered a topic and carefully analyzed it to identify core, tangential, and nuanced areas requiring exploration. You approached the topic methodically, breaking it down into its fundamental aspects, associated themes, and interconnections. You thoroughly thought through the subject step by step and created a comprehensive set of research questions. These questions were presented to the user, who has now provided additional information. Use this information, found in the chat history to update the research plan.\n\n"
+                    "The topic is: {topic}\n\n"
+                    "The previous research questions are:\n\n"
+                    "{research_questions}\n\n"
                 )
             ),
-            create_user_message((f"The question: {question}\n\bThe answer: {answer}\n\n")),
+            create_user_message(
+                f"Chat history: {(await context.conversation_history()).model_dump_json()}",
+            ),
         ],
         "response_format": Output,
     }
@@ -57,8 +65,5 @@ async def evaluate_answer(context: RunContext, question: str, answer: str) -> tu
         )
         raise completion_error from e
     else:
-        response: Output = cast(Output, completion.choices[0].message.parsed)
-        return response.is_good_answer, metadata
-
-
-__default__ = evaluate_answer
+        research_questions = cast(Output, completion.choices[0].message.parsed).research_questions
+        return research_questions, metadata
