@@ -42,10 +42,6 @@ from .skill_engine_registry import SkillEngineRegistry
 
 logger.info("Starting skill assistant service.")
 
-#
-# define the service ID, name, and description
-#
-
 # The service id to be registered in the workbench to identify the assistant.
 service_id = "skill-assistant.made-exploration"
 
@@ -141,13 +137,17 @@ async def on_message_created(
     engine = await get_or_register_skill_engine(conversation_context, config)
 
     # Check if routine is running
-    is_running = engine.is_routine_running()
-    logger.debug("Routine status check", extra_data({"is_running": is_running}))
-
-    if is_running:
-        logger.debug("Resuming routine with message", extra_data({"message": message.content}))
-        asyncio.create_task(engine.resume_routine(message.content))
-        return
+    if engine.is_routine_running():
+        try:
+            logger.debug("Resuming routine with message", extra_data({"message": message.content}))
+            resume_task = asyncio.create_task(engine.resume_routine(message.content))
+            resume_task.add_done_callback(
+                lambda t: logger.debug("Routine resumed", extra_data({"success": not t.exception()}))
+            )
+        except Exception as e:
+            logger.error(f"Failed to resume routine: {e}")
+        finally:
+            return
 
     # Use a chat driver to respond.
     async with conversation_context.set_status("thinking..."):
@@ -184,7 +184,6 @@ async def on_command_message_created(
         case "/help":
             help_msg = """
             ```markdown
-            **Commands:**
             - **/help**: Display this help message.
             - **/list_actions**: List all available actions.
             - **/run_action <designation> <args>**: Run an action by designation.
@@ -317,11 +316,20 @@ class ChatFunctions:
         return routine_string
 
     async def run_routine(self, designation: str, *args, **kwargs) -> Any:
-        """
-        Run a routine.
-        """
-        asyncio.create_task(self.engine.run_routine(designation, *args, **kwargs))
-        return f"Running routine: {designation}"
+        try:
+            task = asyncio.create_task(self.engine.run_routine(designation, *args, **kwargs))
+            task.add_done_callback(self._handle_routine_completion)
+            return f"Running routine: {designation}"
+        except Exception as e:
+            logger.error(f"Failed to start routine {designation}: {e}")
+            return f"Failed to start routine: {designation}"
+
+    def _handle_routine_completion(self, task: asyncio.Task) -> None:
+        try:
+            result = task.result()
+            logger.debug(f"Routine completed with result: {result}")
+        except Exception as e:
+            logger.error(f"Routine failed with error: {e}")
 
     async def list_actions(self) -> str:
         """Lists all the actions available in the assistant."""

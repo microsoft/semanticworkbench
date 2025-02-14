@@ -12,12 +12,11 @@ from pydantic import BaseModel
 from skill_library import RunContext
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
-from skill_library.types import Metadata
 
 
 async def answer_question_about_content(
     context: RunContext, content: str, question: str, max_length: Optional[int] = None
-) -> tuple[str, Metadata]:
+) -> str:
     """
     Generate an answer to a question from the provided content.
     """
@@ -47,27 +46,27 @@ async def answer_question_about_content(
     if max_length:
         completion_args["max_tokens"] = max_length
 
-    metadata = {}
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
-    metadata["completion_args"] = make_completion_args_serializable(completion_args)
+    context.log({"completion_args": make_completion_args_serializable(completion_args)})
     try:
         completion = await language_model.beta.chat.completions.parse(
             **completion_args,
         )
         validate_completion(completion)
         logger.debug("Completion response.", extra=extra_data({"completion": completion.model_dump()}))
-        metadata["completion"] = completion.model_dump()
+        context.log({"completion": completion.model_dump()})
     except Exception as e:
         completion_error = CompletionError(e)
-        metadata["completion_error"] = completion_error.message
+        context.log({"completion_error": completion_error.message})
         logger.error(
             completion_error.message,
-            extra=extra_data({"completion_error": completion_error.body, "metadata": metadata}),
+            extra=extra_data({"completion_error": completion_error.body, "metadata": context.metadata_log}),
         )
         raise completion_error from e
     else:
         research_questions = cast(Output, completion.choices[0].message.parsed).answer
-        return research_questions, metadata
+        context.log({"research_questions": research_questions})
+        return research_questions
 
 
 __default__ = answer_question_about_content

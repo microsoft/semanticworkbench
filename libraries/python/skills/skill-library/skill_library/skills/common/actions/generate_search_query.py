@@ -45,26 +45,26 @@ async def generate_search_query(
         ],
     }
 
-    metadata = {}
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
-    metadata["completion_args"] = make_completion_args_serializable(completion_args)
+    context.log({"completion_args": make_completion_args_serializable(completion_args)})
     try:
         completion = await language_model.beta.chat.completions.parse(
             **completion_args,
         )
         validate_completion(completion)
         logger.debug("Completion response.", extra=extra_data({"completion": completion.model_dump()}))
-        metadata["completion"] = completion.model_dump()
+        context.log({"completion": completion.model_dump()})
     except Exception as e:
         completion_error = CompletionError(e)
-        metadata["completion_error"] = completion_error.message
+        context.log({"completion_error": completion_error.message})
         logger.error(
             completion_error.message,
-            extra=extra_data({"completion_error": completion_error.body, "metadata": metadata}),
+            extra=extra_data({"completion_error": completion_error.body, "metadata": context.metadata_log}),
         )
         raise completion_error from e
     else:
         search_query = message_content_from_completion(completion).strip().strip('"')
+        context.log({"search_query": search_query})
         return search_query
 
 

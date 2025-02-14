@@ -9,7 +9,6 @@ from skill_library.types import (
     AskUserFn,
     EmitFn,
     GetStateFn,
-    Metadata,
     PrintFn,
     RunActionFn,
     RunRoutineFn,
@@ -28,7 +27,6 @@ async def main(
     run_routine: RunRoutineFn,
     get_state: GetStateFn,
     set_state: SetStateFn,
-    # stack_state_context: StackContext,
     emit: EmitFn,
     search_description: str,
     previous_searches: list[tuple[str, str]] | None = None,
@@ -46,11 +44,8 @@ async def main(
     a better search query.
     """
 
-    full_metadata: Metadata = {}
-
     # Generate search query.
     search_query = await run_action("common.generate_search_query", search_description, previous_searches or [])
-    # full_metadata["generate_search_query"] = metadata
 
     # Search Bing.
     urls = await run_action("common.bing_search", search_query)
@@ -60,14 +55,14 @@ async def main(
     debug_i = 0
     for url in urls:
         content = await run_action("common.get_content_from_url", url, 10000)
-        summary, metadata = await run_action("common.summarize", search_description, content)
+        summary = await run_action("common.summarize", search_description, content)
         results[url] = summary
-        full_metadata[f"summarize_url_content_{debug_i}"] = metadata
+        context.log({f"summarize_url_content_{debug_i}": summary})
 
         debug_i += 1
 
     # Summarize all pages into a final result.
-    response, metadata = await run_action("common.summarize", search_description, json.dumps(results, indent=2))
-    full_metadata["summarize_all_results"] = metadata
+    response = await run_action("common.summarize", search_description, json.dumps(results, indent=2))
+    context.log({"summarize_all_results": response})
 
     return response

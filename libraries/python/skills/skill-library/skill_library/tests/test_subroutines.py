@@ -35,8 +35,8 @@ async def engine():
 
     # Cleanup
     await engine.clear(include_drives=True)
-    if engine._routine_stack:
-        engine._routine_stack.clear()
+    if engine._routine_output_futures:
+        engine._routine_output_futures.clear()
 
 
 @pytest.mark.asyncio

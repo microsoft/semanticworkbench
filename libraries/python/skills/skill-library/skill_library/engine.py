@@ -75,13 +75,16 @@ class Engine:
             )
         )
 
-        # The routine stack is used to keep track of the current routine being
-        # run by the assistant.
+        # The routine stack is used to keep state isolated between nested
+        # routines. Each routine gets a frame on the stack that contains its
+        # state. When a routine calls another routine, the new routine gets a
+        # new frame on the stack. When the new routine completes, its frame is
+        # popped off the stack and the original routine can continue.
         self.routine_stack = RoutineStack(self.metadrive)
 
-        # Set up the assistant event queue.
+        # Set up the engine event queue.
         self._event_queue = asyncio.Queue()  # Async queue for events
-        self._stopped = asyncio.Event()  # Event to signal when the assistant has stopped
+        self._stopped = asyncio.Event()  # Event to signal when the engine has stopped
 
         # The assistant drive is used as the storage bucket for all assistant
         # and skill data. Skills will generally create a subdrive off of this
@@ -101,7 +104,7 @@ class Engine:
             for skill_class, config in skills:
                 self._skills[config.name] = skill_class(config)
 
-        self._routine_stack: list[asyncio.Future] = []
+        self._routine_output_futures: list[asyncio.Future] = []
         self._current_input_future: asyncio.Future | None = None
 
         logger.debug("Skill engine initialized.", extra_data({"engine_id": self.engine_id}))
@@ -122,15 +125,15 @@ class Engine:
     ######################################
 
     async def start(self) -> None:
-        """Start the assistant."""
+        """Start the engine."""
         self._stopped.clear()
 
     async def wait(self) -> str:
         """
-        After initializing an assistant, call this method to wait for assistant
-        events. While running, any events produced by the assistant can be
-        accessed through the `events` property. When the assistant completes,
-        this method returns the assistant_id of the assistant.
+        After initializing an engine, call this method to wait for engine
+        events. While running, any events produced by the engine can be
+        accessed through the `events` property. When the engine completes,
+        this method returns the engine_id of the engine.
         """
         await self._stopped.wait()
         return self.engine_id
@@ -141,14 +144,13 @@ class Engine:
     @property
     async def events(self) -> AsyncIterator[EventProtocol]:
         """
-        This method is a generator that yields events produced by the assistant
+        This method is a generator that yields events produced by the engine
         as they are emitted. The generator will continue to yield events until
-        the assistant has completed AND all events have been emitted.
+        the engine has completed AND all events have been emitted.
         """
         logger.debug("Assistant started. Listening for events.")
         while not self._stopped.is_set():
             try:
-                # async with asyncio.timeout(1):
                 yield await self._event_queue.get()
             except asyncio.TimeoutError:
                 continue
@@ -161,18 +163,9 @@ class Engine:
             "Engine queud an event (_emit).", extra_data({"event": {"id": event.id, "message": event.message}})
         )
 
-    def create_run_context(self) -> RunContext:
-        # The run context is passed to parts of the system (skill routines and
-        # actions, and chat driver functions) that need to be able to run
-        # routines or actions, set assistant state, or emit messages from the
-        # assistant.
-
-        return RunContext(
-            session_id=self.engine_id,
-            assistant_drive=self.drive,
-            conversation_history=self.message_history_provider,
-            skills=self._skills,
-        )
+    ######################################
+    # Action running.
+    ######################################
 
     def list_actions(self) -> list[str]:
         """List all available actions in format skill_name.action_name"""
@@ -183,8 +176,22 @@ class Engine:
 
     async def run_action(self, designation: str, *args: Any, **kwargs: Any) -> Any:
         """
-        Run an assistant action by name (e.g. <skill_name>.<action_name>).
+        Run an assistant action by name (e.g. <skill_name>.<action_name>). This
+        is the entrypoint from outside the engine. All internal calls (from
+        routines) will be calling `run_action_with_context` so the same `run_id`
+        is used throughout the routine run.
         """
+        context = RunContext(
+            session_id=self.engine_id,
+            run_drive=self.drive,
+            conversation_history=self.message_history_provider,
+            skills=self._skills,
+        )
+        return await self.run_action_with_context(context, designation, *args, **kwargs)
+
+    async def run_action_with_context(
+        self, run_context: RunContext, designation: str, *args: Any, **kwargs: Any
+    ) -> Any:
         skill_name, action_name = designation.split(".")
         if skill_name not in self._skills:
             raise ValueError(f"Skill {skill_name} not found")
@@ -197,7 +204,7 @@ class Engine:
             return
 
         try:
-            result = await action(self.create_run_context(), *args, **kwargs)
+            result = await action(run_context, *args, **kwargs)
             result_hint = f"{str(result)[:200]}..." if len(str(result)) > 200 else str(result)
             self._emit(InformationEvent(message=f"Executed action {designation} with result: {result_hint}"))
             return result
@@ -205,7 +212,6 @@ class Engine:
             tb = traceback.format_exc()
             self._emit(InformationEvent(message=f"Error in action {designation}: {str(e)}\n{tb}"))
             return
-        # return await action(self.create_run_context(), *args, **kwargs)
 
     def list_routines(self) -> list[str]:
         """List all available routines in format skill_name.routine_name"""
@@ -223,6 +229,7 @@ class Engine:
 
     async def _run_routine_task(
         self,
+        run_context: RunContext,
         designation: str,
         routine,
         result_future: asyncio.Future,
@@ -232,10 +239,9 @@ class Engine:
         try:
             logger.debug(
                 "Starting routine task.",
-                extra_data({"designation": designation, "stack": [id(rf) for rf in self._routine_stack]}),
+                extra_data({"designation": designation, "stack": [id(rf) for rf in self._routine_output_futures]}),
             )
             self._emit(StatusUpdatedEvent(message=f"Executing routine: {designation}"))
-            context = self.create_run_context()
 
             async def ask_user(prompt: str) -> str:
                 self._emit(MessageEvent(message=prompt))
@@ -249,13 +255,19 @@ class Engine:
             async def print(message: str) -> None:
                 self._emit(InformationEvent(message=message))
 
+            async def run_action_context_wrapper(designation: str, *args: Any, **kwargs: Any) -> Any:
+                return await self.run_action_with_context(run_context, designation, *args, **kwargs)
+
+            async def run_routine_context_wrapper(designation: str, *args: Any, **kwargs: Any) -> Any:
+                return await self.run_routine_with_context(run_context, designation, *args, **kwargs)
+
             # Run the routine, but await
             result = await routine(
-                context,
+                run_context,
                 ask_user,
                 print,
-                self.run_action,
-                self.run_routine,
+                run_action_context_wrapper,
+                run_routine_context_wrapper,
                 self.routine_stack.get_current_state,
                 self.routine_stack.set_current_state,
                 self._emit,
@@ -266,20 +278,62 @@ class Engine:
             # When the routine completes, set the result on the result future.
             logger.debug(f"Routine {designation} executed successfully. Result: {result}")
             result_future.set_result(result)
-            self._emit(InformationEvent(message=str(result)))
+            metadata = {ts: data for ts, data in run_context.metadata_log}
+            self._emit(InformationEvent(message=str(result), metadata=metadata))
 
         except Exception as e:
             tb = traceback.format_exc()
             self._emit(InformationEvent(message=f"Error in routine {designation}: {str(e)}\n{tb}"))
             result_future.set_exception(e)
         finally:
-            if self._routine_stack:
-                popped = self._routine_stack.pop()
+            if self._routine_output_futures:
+                popped = self._routine_output_futures.pop()
                 logger.debug("Popped result future.", extra_data({"id": id(popped)}))
             self._emit(StatusUpdatedEvent())
             await self.routine_stack.pop()
 
     async def run_routine(self, designation: str, *args: Any, **kwargs: Any) -> Any:
+        """
+        Start a new run with an initial routine. This is the entrypoint from
+        outside the engine. All internal calls (a subroutine for a routine) will
+        be calling `run_routine_with_context` so the same `run_id` will be used
+        throughout the routine run.
+        """
+
+        context = RunContext(
+            session_id=self.engine_id,
+            run_drive=self.drive,
+            conversation_history=self.message_history_provider,
+            skills=self._skills,
+        )
+
+        skill_name, routine_name = designation.split(".")
+        skill = self._skills[skill_name]
+        routine = skill.get_routine(routine_name)
+        if not routine:
+            self._emit(InformationEvent(message=f"Routine {designation} not found"))
+            return
+
+        result_future = asyncio.Future()
+        logger.debug("Creating new routine.", extra_data({"designation": designation, "id": id(result_future)}))
+        self._routine_output_futures.append(result_future)
+
+        # Start the initial routine
+        asyncio.create_task(
+            self._run_routine_task(
+                context,
+                designation,
+                routine,
+                asyncio.Future(),
+                *args,
+                **kwargs,
+            )
+        )
+        return await result_future
+
+    async def run_routine_with_context(
+        self, run_context: RunContext, designation: str, *args: Any, **kwargs: Any
+    ) -> Any:
         """
         Run a routine and return its result. This blocks until the routine
         completes, but the Engine remains responsive to input via
@@ -295,10 +349,10 @@ class Engine:
 
         result_future = asyncio.Future()
         logger.debug("Creating new routine.", extra_data({"designation": designation, "id": id(result_future)}))
-        self._routine_stack.append(result_future)
+        self._routine_output_futures.append(result_future)
 
         # Create task but don't await it yet
-        asyncio.create_task(self._run_routine_task(designation, routine, result_future, *args, **kwargs))
+        asyncio.create_task(self._run_routine_task(run_context, designation, routine, result_future, *args, **kwargs))
 
         # Return the result future directly
         return await result_future

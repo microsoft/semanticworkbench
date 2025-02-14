@@ -1,6 +1,7 @@
 # skill_library/types.py
 
 from asyncio import Future
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Protocol, runtime_checkable
 from uuid import uuid4
 
@@ -11,6 +12,8 @@ from semantic_workbench_api_model.workbench_model import ConversationMessageList
 
 if TYPE_CHECKING:
     from .skill import Skill
+
+Metadata = dict[str, Any]
 
 
 class RunContext:
@@ -23,7 +26,7 @@ class RunContext:
     def __init__(
         self,
         session_id: str,
-        assistant_drive: Drive,
+        run_drive: Drive,
         conversation_history: Callable[[], Awaitable[ConversationMessageList]],
         skills: dict[str, "Skill"],
     ) -> None:
@@ -33,10 +36,15 @@ class RunContext:
         # this same context object to know which session is being used.
         self.session_id: str = session_id or str(uuid4())
 
+        # A "run" is a particular series of calls within a session. The initial call will
+        # set the run id and all subsequent calls will use the same run id. This is useful
+        # for logging, metrics, and debugging.
+        self.run_id: str | None = str(uuid4())
+
         # The assistant drive is a drive object that can be used to read and
         # write files to a particular location. The assistant drive should be
         # used for assistant-specific data and not for general data storage.
-        self.assistant_drive: Drive = assistant_drive
+        self.run_drive: Drive = run_drive
 
         # The conversation history function is a function that can be called to
         # get the conversation history for the current session. This is useful
@@ -44,12 +52,15 @@ class RunContext:
         # so far. Usage: `await run_context.conversation_history()`
         self.conversation_history = conversation_history
 
-        # A "run" is a particular series of calls within a session. The initial call will
-        # set the run id and all subsequent calls will use the same run id. This is useful
-        # for logging, metrics, and debugging.
-        self.run_id: str | None = str(uuid4())
-
         self.skills = skills
+
+        # This is a dictionary that can be used to store meta information about
+        # the current run.
+        self.metadata_log: list[tuple[str, Metadata]] = []
+
+    def log(self, metadata: Metadata) -> None:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        self.metadata_log.append((ts, metadata))
 
 
 class RunContextProvider(Protocol):
@@ -98,4 +109,3 @@ class RoutineFn(Protocol):
 
 
 LanguageModel = AsyncOpenAI | AsyncAzureOpenAI
-Metadata = dict[str, Any]
