@@ -1,30 +1,23 @@
 # tst_skill/routines/a_routine.py
+from typing import Any
+
 from skill_library.types import (
     AskUserFn,
     EmitFn,
-    GetStateFn,
-    PrintFn,
-    RunActionFn,
     RunContext,
     RunRoutineFn,
-    SetStateFn,
 )
 
 
 async def main(
     context: RunContext,
-    ask_user: AskUserFn,
-    print: PrintFn,
-    run_action: RunActionFn,
-    run_routine: RunRoutineFn,
-    get_state: GetStateFn,
-    set_state: SetStateFn,
+    routine_state: dict[str, Any],
     emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
 ) -> str:
     # Call an action from the same skill
-    await run_action("tst_skill.an_action")
+    await run("tst_skill.an_action")
     # Test asking user something
     response = await ask_user("test question")
-    # Test printing something
-    await print("test print")
     return response

@@ -27,11 +27,8 @@ def test_common_posix_skill_initialization():
     )
 
     try:
-        actions = engine.list_actions()
+        routines = engine.list_routines()
     except Exception as e:
-        assert False, f"Error listing actions: {e}"
+        assert False, f"Error listing routines: {e}"
 
-    assert "posix.ls" in actions
-
-    routines = engine.list_routines()
-    assert "posix.make_home_dir" in routines
+    assert "posix.ls" in routines
