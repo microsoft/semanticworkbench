@@ -4,9 +4,19 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 from skill_library import RunContext
+from skill_library.types import AskUserFn, EmitFn, GetStateFn, RunRoutineFn, SetStateFn
 
 
-async def bing_search(context: RunContext, q: str, num_results: Optional[int] = 7) -> list[str]:
+async def main(
+    context: RunContext,
+    ask_user: AskUserFn,
+    run: RunRoutineFn,
+    get_state: GetStateFn,
+    set_state: SetStateFn,
+    emit: EmitFn,
+    q: str,
+    num_results: Optional[int] = 7,
+) -> list[str]:
     """Search Bing with the given query, return the first num_results URLs."""
 
     load_dotenv()
@@ -26,6 +36,3 @@ async def bing_search(context: RunContext, q: str, num_results: Optional[int] = 
         urls = urls[:num_results]
 
     return urls
-
-
-__default__ = bing_search

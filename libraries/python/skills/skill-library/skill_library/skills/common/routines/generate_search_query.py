@@ -12,10 +12,18 @@ from openai_client import (
 from skill_library import RunContext
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
+from skill_library.types import AskUserFn, EmitFn, GetStateFn, RunRoutineFn, SetStateFn
 
 
-async def generate_search_query(
-    context: RunContext, search_description: str, previous_searches: list[tuple[str, str]] | None = None
+async def main(
+    context: RunContext,
+    ask_user: AskUserFn,
+    run: RunRoutineFn,
+    get_state: GetStateFn,
+    set_state: SetStateFn,
+    emit: EmitFn,
+    search_description: str,
+    previous_searches: list[tuple[str, str]] | None = None,
 ) -> str:
     """Generate a search query from the search_description."""
 
@@ -66,6 +74,3 @@ async def generate_search_query(
         search_query = message_content_from_completion(completion).strip().strip('"')
         context.log({"search_query": search_query})
         return search_query
-
-
-__default__ = generate_search_query

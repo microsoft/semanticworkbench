@@ -3,7 +3,7 @@ web research skill
 """
 
 from skill_library import RunContext
-from skill_library.types import AskUserFn, EmitFn, GetStateFn, PrintFn, RunActionFn, RunRoutineFn, SetStateFn
+from skill_library.types import AskUserFn, EmitFn, GetStateFn, RunRoutineFn, SetStateFn
 
 
 # Define your routine function. We could use a string here, but it's better to
@@ -12,9 +12,7 @@ from skill_library.types import AskUserFn, EmitFn, GetStateFn, PrintFn, RunActio
 async def main(
     context: RunContext,
     ask_user: AskUserFn,
-    print: PrintFn,
-    run_action: RunActionFn,
-    run_routine: RunRoutineFn,
+    run: RunRoutineFn,
     get_state: GetStateFn,
     set_state: SetStateFn,
     emit: EmitFn,

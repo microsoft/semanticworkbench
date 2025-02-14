@@ -29,9 +29,10 @@ from semantic_workbench_assistant.assistant_app import (
     ContentSafetyEvaluator,
     ConversationContext,
 )
-from skill_library import Engine, get_action_usage
+from skill_library import Engine
 from skill_library.skills.common.common_skill import CommonSkill, CommonSkillConfig
 from skill_library.skills.posix.posix_skill import PosixSkill, PosixSkillConfig
+from skill_library.usage import get_routine_usage
 
 from assistant.skill_event_mapper import SkillEventMapper
 from assistant.workbench_helpers import WorkbenchMessageProvider
@@ -160,7 +161,7 @@ async def on_message_created(
         )
         chat_driver = ChatDriver(chat_driver_config)
         chat_functions = ChatFunctions(engine)
-        chat_driver_config.functions = [chat_functions.list_actions, chat_functions.list_routines]
+        chat_driver_config.functions = [chat_functions.list_routines]
 
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
         await chat_driver.respond(message.content, metadata=metadata or {})
@@ -306,13 +307,15 @@ class ChatFunctions:
         for skill_name, skill in self.engine._skills.items():
             for routine_name in skill.list_routines():
                 routine = skill.get_routine(routine_name)
-                description = routine.__doc__ or ""
-                routines.append(f"- __{skill_name}.{routine_name}__: _{description}_")
+                if not routine:
+                    continue
+                usage = get_routine_usage(routine, f"{skill_name}.{routine_name}")
+                routines.append(f"- {usage.to_markdown()}")
 
         if not routines:
             return "No routines available."
 
-        routine_string = "```markdown\n### Routines\n\n" + "\n".join(routines) + "\n```"
+        routine_string = "```markdown\n" + "\n".join(routines) + "\n```"
         return routine_string
 
     async def run_routine(self, designation: str, *args, **kwargs) -> Any:
@@ -331,36 +334,9 @@ class ChatFunctions:
         except Exception as e:
             logger.error(f"Routine failed with error: {e}")
 
-    async def list_actions(self) -> str:
-        """Lists all the actions available in the assistant."""
-
-        actions: list[str] = []
-        for skill_name, skill in self.engine._skills.items():
-            for action_name in skill.list_actions():
-                action = skill.get_action(action_name)
-                if not action:
-                    continue
-                usage = get_action_usage(action)
-                actions.append(
-                    f"- __{skill_name}.{usage.name}({', '.join([str(parameter) for parameter in usage.parameters])})__: _{usage.description}_"
-                )
-        if not actions:
-            return "No actions available."
-
-        action_string = "```markdown\n### Actions\n\n" + "\n".join(actions) + "\n```"
-        return action_string
-
-    async def run_action(self, designation: str, *args, **kwargs) -> Any:
-        """
-        Run an assistant action by designation (<skill_name>.<action_name>).
-        """
-        return await self.engine.run_action(designation, *args, **kwargs)
-
     def list_functions(self) -> list[Callable]:
         return [
             self.list_routines,
             # self.run_routine,
-            self.list_actions,
-            # self.run_action,
             # self.clear_stack,
         ]

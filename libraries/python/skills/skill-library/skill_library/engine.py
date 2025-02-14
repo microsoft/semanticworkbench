@@ -164,54 +164,8 @@ class Engine:
         )
 
     ######################################
-    # Action running.
+    # Routine running and resumption.
     ######################################
-
-    def list_actions(self) -> list[str]:
-        """List all available actions in format skill_name.action_name"""
-        actions = []
-        for skill_name, skill in self._skills.items():
-            actions.extend(f"{skill_name}.{action}" for action in skill.list_actions())
-        return actions
-
-    async def run_action(self, designation: str, *args: Any, **kwargs: Any) -> Any:
-        """
-        Run an assistant action by name (e.g. <skill_name>.<action_name>). This
-        is the entrypoint from outside the engine. All internal calls (from
-        routines) will be calling `run_action_with_context` so the same `run_id`
-        is used throughout the routine run.
-        """
-        context = RunContext(
-            session_id=self.engine_id,
-            run_drive=self.drive,
-            conversation_history=self.message_history_provider,
-            skills=self._skills,
-        )
-        return await self.run_action_with_context(context, designation, *args, **kwargs)
-
-    async def run_action_with_context(
-        self, run_context: RunContext, designation: str, *args: Any, **kwargs: Any
-    ) -> Any:
-        skill_name, action_name = designation.split(".")
-        if skill_name not in self._skills:
-            raise ValueError(f"Skill {skill_name} not found")
-
-        skill = self._skills[skill_name]
-        action = skill.get_action(action_name)
-        if not action:
-            self._emit(InformationEvent(message=f"Action {action_name} not found in skill {skill_name}"))
-            # raise ValueError(f"Action {action_name} not found in skill {skill_name}")
-            return
-
-        try:
-            result = await action(run_context, *args, **kwargs)
-            result_hint = f"{str(result)[:200]}..." if len(str(result)) > 200 else str(result)
-            self._emit(InformationEvent(message=f"Executed action {designation} with result: {result_hint}"))
-            return result
-        except Exception as e:
-            tb = traceback.format_exc()
-            self._emit(InformationEvent(message=f"Error in action {designation}: {str(e)}\n{tb}"))
-            return
 
     def list_routines(self) -> list[str]:
         """List all available routines in format skill_name.routine_name"""
@@ -219,10 +173,6 @@ class Engine:
         for skill_name, skill in self._skills.items():
             routines.extend(f"{skill_name}.{routine}" for routine in skill.list_routines())
         return routines
-
-    ######################################
-    # Routine running and resumption.
-    ######################################
 
     def is_routine_running(self) -> bool:
         return self._current_input_future is not None
@@ -252,12 +202,6 @@ class Engine:
                 self._current_input_future = asyncio.Future()
                 return await self._current_input_future
 
-            async def print(message: str) -> None:
-                self._emit(InformationEvent(message=message))
-
-            async def run_action_context_wrapper(designation: str, *args: Any, **kwargs: Any) -> Any:
-                return await self.run_action_with_context(run_context, designation, *args, **kwargs)
-
             async def run_routine_context_wrapper(designation: str, *args: Any, **kwargs: Any) -> Any:
                 return await self.run_routine_with_context(run_context, designation, *args, **kwargs)
 
@@ -265,8 +209,6 @@ class Engine:
             result = await routine(
                 run_context,
                 ask_user,
-                print,
-                run_action_context_wrapper,
                 run_routine_context_wrapper,
                 self.routine_stack.get_current_state,
                 self.routine_stack.set_current_state,
@@ -278,12 +220,11 @@ class Engine:
             # When the routine completes, set the result on the result future.
             logger.debug(f"Routine {designation} executed successfully. Result: {result}")
             result_future.set_result(result)
-            metadata = {ts: data for ts, data in run_context.metadata_log}
-            self._emit(InformationEvent(message=str(result), metadata=metadata))
+            # self._emit(InformationEvent(message=f"Routine `{designation}` completed successfully. Result: {result}"))
 
         except Exception as e:
             tb = traceback.format_exc()
-            self._emit(InformationEvent(message=f"Error in routine {designation}: {str(e)}\n{tb}"))
+            self._emit(InformationEvent(message=f"Error in routine `{designation}`:\n\n```{str(e)}\n\n{tb}```"))
             result_future.set_exception(e)
         finally:
             if self._routine_output_futures:
@@ -300,7 +241,7 @@ class Engine:
         throughout the routine run.
         """
 
-        context = RunContext(
+        run_context = RunContext(
             session_id=self.engine_id,
             run_drive=self.drive,
             conversation_history=self.message_history_provider,
@@ -321,15 +262,22 @@ class Engine:
         # Start the initial routine
         asyncio.create_task(
             self._run_routine_task(
-                context,
+                run_context,
                 designation,
                 routine,
-                asyncio.Future(),
+                result_future,
                 *args,
                 **kwargs,
             )
         )
-        return await result_future
+
+        result = await result_future
+
+        # Return the result along with the metadata log for the full run.
+        metadata = {ts: data for ts, data in run_context.metadata_log}
+        self._emit(InformationEvent(message=str(result), metadata=metadata))
+
+        return result
 
     async def run_routine_with_context(
         self, run_context: RunContext, designation: str, *args: Any, **kwargs: Any

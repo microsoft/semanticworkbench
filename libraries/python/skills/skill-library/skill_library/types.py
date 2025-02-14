@@ -1,6 +1,5 @@
 # skill_library/types.py
 
-from asyncio import Future
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Protocol, runtime_checkable
 from uuid import uuid4
@@ -74,7 +73,6 @@ class RunContextProvider(Protocol):
 
 
 AskUserFn = Callable[[str], Awaitable[str]]
-PrintFn = Callable[[str], Awaitable[None]]
 ActionFn = Callable[[RunContext], Awaitable[Any]]
 GetStateFn = Callable[[], Awaitable[dict[str, Any]]]
 SetStateFn = Callable[[dict[str, Any]], Awaitable[None]]
@@ -82,12 +80,8 @@ EmitFn = Callable[[EventProtocol], None]
 # StackContext = _AsyncGeneratorContextManager[dict[str, Any], None]
 
 
-class RunActionFn(Protocol):
-    async def __call__(self, designation: str, *args: Any, **kwargs: Any) -> Any: ...
-
-
 class RunRoutineFn(Protocol):
-    async def __call__(self, designation: str, *args: Any, **kwargs: Any) -> Future: ...
+    async def __call__(self, designation: str, *args: Any, **kwargs: Any) -> Any: ...
 
 
 @runtime_checkable
@@ -96,12 +90,9 @@ class RoutineFn(Protocol):
         self,
         context: RunContext,
         ask_user: AskUserFn,
-        print: PrintFn,
-        run_action: RunActionFn,
-        run_routine: RunRoutineFn,
+        run: RunRoutineFn,
         get_state: GetStateFn,
         set_state: SetStateFn,
-        # StackContext,
         emit: EmitFn,
         *args: Any,
         **kwargs: Any,

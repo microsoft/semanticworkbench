@@ -9,22 +9,15 @@ from skill_library.types import (
     AskUserFn,
     EmitFn,
     GetStateFn,
-    PrintFn,
-    RunActionFn,
     RunRoutineFn,
     SetStateFn,
 )
 
 
-# Define your routine function. We could use a string here, but it's better to
-# use a function and then get the source code of that function so we can lint
-# it.
 async def main(
     context: RunContext,
     ask_user: AskUserFn,
-    print: PrintFn,
-    run_action: RunActionFn,
-    run_routine: RunRoutineFn,
+    run: RunRoutineFn,
     get_state: GetStateFn,
     set_state: SetStateFn,
     emit: EmitFn,
@@ -45,24 +38,24 @@ async def main(
     """
 
     # Generate search query.
-    search_query = await run_action("common.generate_search_query", search_description, previous_searches or [])
+    search_query = await run("common.generate_search_query", search_description, previous_searches or [])
 
     # Search Bing.
-    urls = await run_action("common.bing_search", search_query)
+    urls = await run("common.bing_search", search_query)
 
     # Summarize page content from each search result.
     results = {}
     debug_i = 0
     for url in urls:
-        content = await run_action("common.get_content_from_url", url, 10000)
-        summary = await run_action("common.summarize", search_description, content)
+        content = await run("common.get_content_from_url", url, 10000)
+        summary = await run("common.summarize", search_description, content)
         results[url] = summary
         context.log({f"summarize_url_content_{debug_i}": summary})
 
         debug_i += 1
 
     # Summarize all pages into a final result.
-    response = await run_action("common.summarize", search_description, json.dumps(results, indent=2))
+    response = await run("common.summarize", search_description, json.dumps(results, indent=2))
     context.log({"summarize_all_results": response})
 
     return response

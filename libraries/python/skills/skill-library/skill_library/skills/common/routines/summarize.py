@@ -12,12 +12,17 @@ from openai_client import (
 from skill_library import RunContext
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
+from skill_library.types import AskUserFn, EmitFn, GetStateFn, SetStateFn
 
 DEFAULT_MAX_SUMMARY_LENGTH = 5000
 
 
-async def summarize(
+async def main(
     context: RunContext,
+    ask_user: AskUserFn,
+    get_state: GetStateFn,
+    set_state: SetStateFn,
+    emit: EmitFn,
     content: str,
     aspect: Optional[str] = None,
     max_length: Optional[int] = DEFAULT_MAX_SUMMARY_LENGTH,
@@ -62,6 +67,3 @@ async def summarize(
         raise completion_error from e
     else:
         return message_content_from_completion(completion)
-
-
-__default__ = summarize
