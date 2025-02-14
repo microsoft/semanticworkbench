@@ -1,5 +1,3 @@
-# skill_library/skill.py
-
 import importlib
 import importlib.util
 import sys
@@ -47,53 +45,90 @@ class Skill:
     def __init__(self, config: SkillConfig):
         self.config = config
         self._routines: dict[str, RoutineFn] = {}
+        self._package_path: Path | None = None
+        self._package_name: str | None = None
 
-        # Auto-discover and register routines.
+        # Store package info during initialization
         module = sys.modules[self.__class__.__module__]
-        package_name = module.__package__ or module.__name__
-        logger.info(f"Discovering skills in package: {package_name}")
+        self._package_name = module.__package__ or module.__name__
+        logger.info(f"Discovering skills in package: {self._package_name}")
 
         # For library skills, we can use the module's __file__ attribute
         module_file = getattr(module, "__file__", None)
         if module_file is not None:
-            package_path = Path(module_file).parent
+            self._package_path = Path(module_file).parent
         else:
             # Fallback to find_spec for other cases
-            spec = importlib.util.find_spec(package_name)
+            spec = importlib.util.find_spec(self._package_name)
             if not spec or not spec.origin:
-                raise ValueError(f"Could not find package path for {package_name}")
-            package_path = Path(spec.origin).parent
+                raise ValueError(f"Could not find package path for {self._package_name}")
+            self._package_path = Path(spec.origin).parent
 
-        # Look for routines
-        routines_path = package_path / "routines"
+        # Initial load of routines
+        self._load_routines()
+
+    def _load_routines(self) -> None:
+        """Load all routines from the routines directory"""
+        if not self._package_path:
+            raise ValueError("Package path not initialized")
+
+        self._routines.clear()
+        routines_path = self._package_path / "routines"
+
         if routines_path.exists():
             for file in routines_path.glob("*.py"):
                 if file.name == "__init__.py":
                     continue
                 routine_name = file.stem
-                routine_module = importlib.import_module(f"{package_name}.routines.{routine_name}")
+                self._load_routine(routine_name)
 
-                if hasattr(routine_module, "main"):
-                    routine = routine_module.main
-                    if isinstance(routine, RoutineFn):
-                        self.register_routine(routine_name, routine)
-                        continue
-                    else:
-                        routine_function_attrs = [attr for attr in dir(RoutineFn) if not attr.startswith("_")]
-                        routine_attrs = [attr for attr in dir(routine) if not attr.startswith("_")]
-                        raise ValueError(
-                            f"Routine {routine_name} 'main' is not a RoutineFn. Expected attributes: {routine_function_attrs}, Found: {routine_attrs}"
-                        )
+    def _load_routine(self, routine_name: str) -> None:
+        """Load a specific routine module"""
+        if not self._package_name:
+            raise ValueError("Package name not initialized")
 
+        # Remove the old module if it exists
+        module_name = f"{self._package_name}.routines.{routine_name}"
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+
+        try:
+            # Import the module fresh
+            routine_module = importlib.import_module(module_name)
+
+            # Force reload to get latest changes
+            importlib.reload(routine_module)
+
+            if hasattr(routine_module, "main"):
+                routine = routine_module.main
+                if isinstance(routine, RoutineFn):
+                    self.register_routine(routine_name, routine)
+                else:
+                    routine_function_attrs = [attr for attr in dir(RoutineFn) if not attr.startswith("_")]
+                    routine_attrs = [attr for attr in dir(routine) if not attr.startswith("_")]
+                    raise ValueError(
+                        f"Routine {routine_name} 'main' is not a RoutineFn. "
+                        f"Expected attributes: {routine_function_attrs}, Found: {routine_attrs}"
+                    )
+            else:
                 logger.warning(
                     "Routine module skipped. Routine has no `main` function.",
                     extra_data({"routine_name": routine_name}),
                 )
+        except Exception as e:
+            logger.error(
+                f"Error loading routine {routine_name}: {str(e)}",
+                extra_data({"routine_name": routine_name, "error": str(e)}),
+            )
+            raise
 
-    def register_routine(self, name: str, fn: RoutineFn):
+    def register_routine(self, name: str, fn: RoutineFn) -> None:
         self._routines[name] = fn
 
     def get_routine(self, name: str) -> RoutineFn | None:
+        """Get a routine, reloading it first to ensure latest version"""
+        if name in self._routines:
+            self._load_routine(name)  # Reload the routine
         return self._routines.get(name)
 
     def list_routines(self) -> list[str]:
