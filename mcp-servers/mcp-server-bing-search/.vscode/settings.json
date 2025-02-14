@@ -54,5 +54,5 @@
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": ["dotenv", "fastmcp", "toplevel"]
+  "cSpell.words": ["Apim", "dotenv", "fastmcp", "toplevel"]
 }

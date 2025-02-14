@@ -17,9 +17,9 @@ def create_mcp_server() -> FastMCP:
     # Define the web search tool
     @mcp.tool(name="web_search_tool",
               description="Performs a web search using the Bing Search API, ideal for general queries, news, and articles.")
-    async def web_search(query: str, count: int = 10, offset: int = 0) -> list:
+    async def web_search(query: str, count: int = 10, offset: int = 0) -> str:
         """
-        Utilizes the web search tool for general content and recent events.
+        Utilizes the web search tool for general content and recent events, returning plain text summaries.
         """
         return search_bing(query, count, offset)
 
