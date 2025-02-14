@@ -14,21 +14,13 @@ def create_mcp_server() -> FastMCP:
 
     # Define each tool and its setup.
 
-    # Example tool
-    @mcp.tool()    
-    async def echo(value: str) -> str:
+    # Define the web search tool
+    @mcp.tool(name="web_search_tool",
+              description="Performs a web search using the Bing Search API, ideal for general queries, news, and articles.")
+    async def web_search(query: str, count: int = 10, offset: int = 0) -> list:
         """
-        Will return whatever is passed to it.
+        Utilizes the web search tool for general content and recent events.
         """
-
-        return value
-
-    # Bing Web Search tool
-    @mcp.tool()
-    async def bing_search(query: str) -> list[dict]:
-        """
-        Search the web using Bing API and return results.
-        """
-        return search_bing(query)
+        return search_bing(query, count, offset)
 
     return mcp

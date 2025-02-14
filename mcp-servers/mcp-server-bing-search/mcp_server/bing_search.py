@@ -1,8 +1,8 @@
 import requests
-from .config import Settings
+from . import settings
 
-def search_bing(query: str) -> list:
-    subscription_key = Settings.bing_search_api_key
+def search_bing(query: str, count: int = 10, offset: int = 0) -> list:
+    subscription_key = settings.bing_search_api_key
     endpoint = "https://api.bing.microsoft.com/v7.0/search"
     headers = {"Ocp-Apim-Subscription-Key": subscription_key}
     params = {"q": query}
