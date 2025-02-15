@@ -1,7 +1,7 @@
 import pytest
 from semantic_workbench_api_model.workbench_model import ConversationMessageList
 from skill_library.engine import Engine
-from tst_skill import TstSkill, TstSkillConfig
+from skill_library.tests.tst_skill import TstSkill, TstSkillConfig
 
 
 @pytest.fixture
