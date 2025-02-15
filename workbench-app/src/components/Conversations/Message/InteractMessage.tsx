@@ -1,53 +1,39 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    AiGeneratedDisclaimer,
-    Attachment,
-    AttachmentList,
-    CopilotMessage,
-    SystemMessage,
-    Timestamp,
-    UserMessage,
-} from '@fluentui-copilot/react-copilot';
+import { AiGeneratedDisclaimer, Timestamp } from '@fluentui-copilot/react-copilot';
 import {
     Divider,
-    Persona,
     Popover,
     PopoverSurface,
     PopoverTrigger,
     Text,
-    Tooltip,
     makeStyles,
     mergeClasses,
     shorthands,
     tokens,
 } from '@fluentui/react-components';
-import {
-    AlertUrgent24Regular,
-    Attach24Regular,
-    KeyCommandRegular,
-    Note24Regular,
-    TextBulletListSquareSparkleRegular,
-} from '@fluentui/react-icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useConversationUtility } from '../../libs/useConversationUtility';
-import { useParticipantUtility } from '../../libs/useParticipantUtility';
-import { Utility } from '../../libs/Utility';
-import { Conversation } from '../../models/Conversation';
-import { ConversationMessage } from '../../models/ConversationMessage';
-import { ConversationParticipant } from '../../models/ConversationParticipant';
+
+import { useConversationUtility } from '../../../libs/useConversationUtility';
+import { Utility } from '../../../libs/Utility';
+import { Conversation } from '../../../models/Conversation';
+import { ConversationMessage } from '../../../models/ConversationMessage';
+import { ConversationParticipant } from '../../../models/ConversationParticipant';
 import {
     useCreateConversationMessageMutation,
     useGetConversationMessageDebugDataQuery,
-} from '../../services/workbench';
-import { CopyButton } from '../App/CopyButton';
-import { ContentRenderer } from './ContentRenderers/ContentRenderer';
-import { ConversationFileIcon } from './ConversationFileIcon';
-import { DebugInspector } from './DebugInspector';
-import { MessageDelete } from './MessageDelete';
-import { MessageLink } from './MessageLink';
-import { RewindConversation } from './RewindConversation';
+} from '../../../services/workbench';
+import { CopyButton } from '../../App/CopyButton';
+import { ContentRenderer } from '../ContentRenderers/ContentRenderer';
+import { DebugInspector } from '../DebugInspector';
+
+import { MessageDelete } from '../MessageDelete';
+import { MessageLink } from '../MessageLink';
+import { RewindConversation } from '../RewindConversation';
+import { AttachmentSection } from './AttachmentSection';
+import { MessageHeader } from './MessageHeader';
+import { CopilotMessageRenderer, NoticeMessage, UserMessageRenderer } from './MessageRenderers';
 
 const useClasses = makeStyles({
     root: {
@@ -155,9 +141,8 @@ interface InteractMessageProps {
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead, onRewind } = props;
     const classes = useClasses();
-    const { getAvatarData } = useParticipantUtility();
     const [createConversationMessage] = useCreateConversationMessageMutation();
-    const { isMessageVisibleRef, isMessageVisible, isUnread } = useConversationUtility();
+    const { isMessageVisible, isUnread } = useConversationUtility();
     const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
     const {
         data: debugData,
@@ -181,13 +166,11 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     }, [message.metadata?.attribution]);
 
     let rootClassName = classes.root;
-    let contentClassName = classes.renderedContent;
     if (hideParticipant) {
         rootClassName = mergeClasses(classes.root, classes.hideParticipantRoot);
     }
     if (isUser) {
-        rootClassName = mergeClasses(rootClassName, classes.userRoot);
-        contentClassName = mergeClasses(contentClassName, classes.userContent);
+        rootClassName = mergeClasses(rootClassName, classes.userRoot, classes.userContent);
     }
 
     React.useEffect(() => {
@@ -236,7 +219,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         }`;
 
         return <div className={mergeClasses(classes.notice, classes.contentSafetyNotice)}>{messageNote}</div>;
-    }, [classes.contentSafetyNotice, classes.notice, message.metadata]);
+    }, [classes.contentSafetyNotice, classes.notice, message]);
 
     const actions = React.useMemo(
         () => (
@@ -261,132 +244,59 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         [conversation, debugData?.debugData, isLoadingDebugData, isUninitializedDebugData, message, onRewind, readOnly],
     );
 
-    const getRenderedMessage = React.useCallback(() => {
-        let allowLink = true;
-        let renderedContent: JSX.Element;
-        if (message.messageType === 'notice') {
-            renderedContent = (
-                <div className={classes.noticeContent}>
-                    <SystemMessage className={classes.innerContent} icon={<AlertUrgent24Regular />} message={content}>
-                        {content}
-                    </SystemMessage>
-                </div>
-            );
-        } else if (message.messageType === 'note') {
-            renderedContent = (
-                <div className={classes.noteContent}>
-                    <SystemMessage className={classes.innerContent} icon={<Note24Regular />} message={content}>
-                        {content}
-                    </SystemMessage>
-                </div>
-            );
-        } else if (message.messageType === 'command') {
-            renderedContent = (
-                <div className={classes.noteContent}>
-                    <SystemMessage className={classes.innerContent} icon={<KeyCommandRegular />} message={content}>
-                        {content}
-                    </SystemMessage>
-                </div>
-            );
-        } else if (message.messageType === 'command-response') {
-            renderedContent = (
-                <div className={classes.noteContent}>
-                    <SystemMessage
-                        className={classes.innerContent}
-                        icon={<TextBulletListSquareSparkleRegular />}
-                        message={content}
-                    >
-                        {content}
-                    </SystemMessage>
-                </div>
-            );
-        } else if (isUser) {
-            allowLink = false;
-            renderedContent = <UserMessage>{content}</UserMessage>;
-        } else {
-            allowLink = false;
-            renderedContent = <CopilotMessage>{content}</CopilotMessage>;
+    // Memoize renderedContent for stable dependency management.
+    const memoizedRenderedContent = React.useMemo(() => {
+        return message.messageType === 'notice' ||
+            message.messageType === 'note' ||
+            message.messageType === 'command' ||
+            message.messageType === 'command-response' ? (
+            <NoticeMessage content={content} innerContentClass={classes.innerContent} noteStyle={classes.noteContent} />
+        ) : isUser ? (
+            <UserMessageRenderer content={content} />
+        ) : (
+            <CopilotMessageRenderer content={content} />
+        );
+    }, [message.messageType, content, classes.innerContent, classes.noteContent, isUser]);
+
+    const finalContent = React.useMemo(() => {
+        if (message.metadata?.href) {
+            return <Link to={message.metadata.href}>{memoizedRenderedContent}</Link>;
         }
+        return memoizedRenderedContent;
+    }, [message.metadata, memoizedRenderedContent]);
 
-        if (message.metadata?.href && allowLink) {
-            renderedContent = <Link to={message.metadata?.href}>{renderedContent}</Link>;
-        }
-
-        const attachmentList =
-            message.filenames && message.filenames.length > 0 ? (
-                <AttachmentList className={classes.attachments}>
-                    {message.filenames?.map((filename) => (
-                        <Tooltip content={filename} key={filename} relationship="label">
-                            <Attachment
-                                media={<ConversationFileIcon file={filename} />}
-                                content={filename}
-                                dismissIcon={<Attach24Regular />}
-                            />
-                        </Tooltip>
-                    ))}
-                </AttachmentList>
-            ) : null;
-
-        const aiGeneratedDisclaimer =
-            isUser || message.metadata?.['generated_content'] === false ? null : (
-                <AiGeneratedDisclaimer className={classes.generated}>
-                    AI-generated content may be incorrect
-                </AiGeneratedDisclaimer>
+    const attachmentSection = React.useMemo(() => {
+        if (message.filenames && message.filenames.length > 0) {
+            return (
+                <AttachmentSection
+                    filenames={message.filenames}
+                    message={message}
+                    generatedClass={classes.generated}
+                    footerItems={message.metadata?.['footer_items']}
+                />
             );
+        }
+        return null;
+    }, [message, classes.generated]);
 
-        let footerItems: React.ReactNode | null = null;
+    // Calculate footer content from message metadata footer_items
+    const messageFooterContent = React.useMemo(() => {
         if (message.metadata?.['footer_items']) {
-            // may either be a string or an array of strings
             const footerItemsArray = Array.isArray(message.metadata['footer_items'])
                 ? message.metadata['footer_items']
                 : [message.metadata['footer_items']];
-
-            footerItems = (
-                <>
+            return (
+                <div className={classes.footer}>
                     {footerItemsArray.map((item) => (
                         <AiGeneratedDisclaimer key={item} className={classes.generated}>
                             {item}
                         </AiGeneratedDisclaimer>
                     ))}
-                </>
+                </div>
             );
         }
-        const footerContent = (
-            <div ref={isMessageVisibleRef} className={classes.footer}>
-                {aiGeneratedDisclaimer}
-                {footerItems}
-            </div>
-        );
-
-        return (
-            <>
-                <div className={classes.actions}>
-                    {(message.messageType !== 'notice' || (message.messageType === 'notice' && !isUser)) && actions}
-                </div>
-                <div className={contentClassName}>{renderedContent}</div>
-                {footerContent}
-                {attachmentList}
-            </>
-        );
-    }, [
-        actions,
-        classes.actions,
-        classes.attachments,
-        classes.footer,
-        classes.generated,
-        classes.innerContent,
-        classes.noteContent,
-        classes.noticeContent,
-        content,
-        contentClassName,
-        isUser,
-        isMessageVisibleRef,
-        message.filenames,
-        message.messageType,
-        message.metadata,
-    ]);
-
-    const renderedContent = getRenderedMessage();
+        return null;
+    }, [message.metadata, classes.footer, classes.generated]);
 
     return (
         <div className={rootClassName}>
@@ -398,7 +308,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             {hideParticipant || (message.messageType === 'notice' && isUser) ? (
                 <Popover openOnHover withArrow positioning="before">
                     <PopoverTrigger>
-                        <div>{renderedContent}</div>
+                        <div className={classes.renderedContent}>{finalContent}</div>
                     </PopoverTrigger>
                     <PopoverSurface>
                         <div className={classes.popoverContent}>{actions}</div>
@@ -406,15 +316,18 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                 </Popover>
             ) : (
                 <>
-                    <div className={classes.header}>
-                        <Persona size="extra-small" name={participant.name} avatar={getAvatarData(participant)} />
-                        {attribution}
-                        <div>
-                            <Timestamp>{time}</Timestamp>
-                        </div>
-                    </div>
-                    {renderedContent}
+                    <MessageHeader
+                        participant={participant}
+                        time={time}
+                        attribution={attribution}
+                        headerClassName={classes.header}
+                    />
+                    {/* Controls placed directly below the header */}
+                    <div className={classes.footer}>{actions}</div>
+                    {finalContent}
                     {contentSafetyNotice}
+                    {attachmentSection}
+                    {messageFooterContent}
                 </>
             )}
         </div>

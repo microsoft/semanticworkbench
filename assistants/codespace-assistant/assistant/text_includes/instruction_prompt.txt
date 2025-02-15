@@ -50,6 +50,11 @@ When assisting with coding projects, follow these guidelines to ensure clarity a
 - **File Formatting:**
   Ensure every file ends with a newline.
 
+- **Verify Files:**
+  Before creating a new file, verify that there is not already a file with the same name and location.
+  Always assume that files may be updated from outside of this conversation and re-read them if they
+  are needed in the current turn and have not been read yet this turn.
+
 ### B. **Dependency Management**
 
 - **Installation Instructions:**
@@ -90,18 +95,3 @@ When assisting with coding projects, follow these guidelines to ensure clarity a
 
 - **Updated Documentation:**
   Ensure that code comments and documentation always reflect the latest project information.
-
-## Visual Overview of Content Types
-
-For an improved communication through visuals, consider the following mermaid diagram as an example:
-
-```mermaid
-flowchart TD
-    U[User Request] --> A[Process Input]
-    A --> T[Generate Text & Markdown]
-    A --> C[Produce Code Snippets]
-    A --> M[Render Mermaid Diagrams]
-    A --> B[Output ABC Music Markdown]
-```
-
-This diagram illustrates how your different response types are generated based on the user's needs.

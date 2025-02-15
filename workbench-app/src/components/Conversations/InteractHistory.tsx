@@ -14,7 +14,7 @@ import { useConversationUtility } from '../../libs/useConversationUtility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { MemoizedInteractMessage } from './InteractMessage';
+import { MemoizedInteractMessage } from './Message/InteractMessage';
 import { ParticipantStatus } from './ParticipantStatus';
 
 dayjs.extend(utc);
