@@ -12,52 +12,6 @@ from semantic_workbench_assistant.config import UISchema
 logger = logging.getLogger(__name__)
 
 
-class MCPSession:
-    name: str
-    client_session: ClientSession
-    tools: List[Tool] = []
-
-    def __init__(self, name: str, client_session: ClientSession) -> None:
-        self.name = name
-        self.client_session = client_session
-
-    async def initialize(self) -> None:
-        # Load all tools from the session, later we can do the same for resources, prompts, etc.
-        tools_result = await self.client_session.list_tools()
-        self.tools = tools_result.tools
-        logger.debug(f"Loaded {len(tools_result.tools)} tools from session '{self.name}'")
-
-
-@dataclass
-class ToolCall:
-    id: str
-    name: str
-    arguments: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "arguments": self.arguments,
-        }
-
-    def to_json(self, **kwargs) -> str:
-        return json.dumps(self, default=lambda o: o.__dict__, **kwargs)
-
-
-class ToolMessageType(StrEnum):
-    notice = "notice"
-    tool_result = "tool_result"
-
-
-@dataclass
-class ToolCallResult:
-    id: str
-    content: str
-    message_type: ToolMessageType
-    metadata: dict[str, Any]
-
-
 class MCPServerEnvConfig(BaseModel):
     key: Annotated[str, Field(title="Key", description="Environment variable key.")]
     value: Annotated[str, Field(title="Value", description="Environment variable value.")]
@@ -69,11 +23,7 @@ class MCPServerConfig(BaseModel):
     key: Annotated[str, Field(title="Key", description="Unique key for the server configuration.")]
 
     command: Annotated[
-        str,
-        Field(
-            title="Command",
-            description="Command to run the server, use url if using SSE transport."
-        )
+        str, Field(title="Command", description="Command to run the server, use url if using SSE transport.")
     ]
 
     args: Annotated[List[str], Field(title="Arguments", description="Arguments to pass to the server.")]
@@ -88,6 +38,19 @@ class MCPServerConfig(BaseModel):
         Field(title="Prompt", description="Instructions for using the server."),
         UISchema(widget="textarea"),
     ] = ""
+
+    long_running: Annotated[
+        bool,
+        Field(title="Long Running", description="Does this server run long running tasks?"),
+    ] = False
+
+    task_completion_estimate: Annotated[
+        int,
+        Field(
+            title="Long Running Task Completion Time Estimate",
+            description="Estimated time to complete an average long running task (in seconds).",
+        ),
+    ] = 30
 
 
 class ToolsConfigModel(BaseModel):
@@ -151,6 +114,30 @@ class ToolsConfigModel(BaseModel):
             args=["-y", "@modelcontextprotocol/server-filesystem", "/workspaces/semanticworkbench"],
         ),
         MCPServerConfig(
+            key="vscode",
+            command="http://127.0.0.1:6010/sse",
+            args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="bing-search",
+            command="http://127.0.0.1:6030/sse",
+            args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="open-deep-research",
+            command="http://127.0.0.1:6020/sse",
+            args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="giphy",
+            command="http://http://127.0.0.1:6000/sse",
+            args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
             key="memory",
             command="npx",
             args=["-y", "@modelcontextprotocol/server-memory"],
@@ -179,24 +166,6 @@ class ToolsConfigModel(BaseModel):
             enabled=False,
         ),
         MCPServerConfig(
-            key="open-deep-research",
-            command="http://127.0.0.1:6020/sse",
-            args=[],
-            enabled=False,
-        ),
-        MCPServerConfig(
-            key="vscode",
-            command="http://127.0.0.1:6010/sse",
-            args=[],
-            enabled=False,
-        ),
-        MCPServerConfig(
-            key="giphy",
-            command="http://http://127.0.0.1:6000/sse",
-            args=[],
-            enabled=False,
-        ),
-        MCPServerConfig(
             key="sequential-thinking",
             command="npx",
             args=["-y", "@modelcontextprotocol/server-sequential-thinking"],
@@ -214,3 +183,49 @@ class ToolsConfigModel(BaseModel):
             """).strip(),
         ),
     ] = ["directory_tree"]
+
+
+class MCPSession:
+    config: MCPServerConfig
+    client_session: ClientSession
+    tools: List[Tool] = []
+
+    def __init__(self, config: MCPServerConfig, client_session: ClientSession) -> None:
+        self.config = config
+        self.client_session = client_session
+
+    async def initialize(self) -> None:
+        # Load all tools from the session, later we can do the same for resources, prompts, etc.
+        tools_result = await self.client_session.list_tools()
+        self.tools = tools_result.tools
+        logger.debug(f"Loaded {len(tools_result.tools)} tools from session '{self.config.key}'")
+
+
+@dataclass
+class ToolCall:
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "arguments": self.arguments,
+        }
+
+    def to_json(self, **kwargs) -> str:
+        return json.dumps(self, default=lambda o: o.__dict__, **kwargs)
+
+
+class ToolMessageType(StrEnum):
+    notice = "notice"
+    tool_result = "tool_result"
+
+
+@dataclass
+class ToolCallResult:
+    id: str
+    content: str
+    message_type: ToolMessageType
+    metadata: dict[str, Any]
