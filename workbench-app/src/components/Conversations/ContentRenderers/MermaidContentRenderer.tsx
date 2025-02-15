@@ -14,6 +14,7 @@ import {
 import { ErrorCircle20Regular, Info20Regular, ZoomFit24Regular } from '@fluentui/react-icons';
 import mermaid from 'mermaid';
 import React from 'react';
+import { TooltipWrapper } from '../../App/TooltipWrapper';
 import { DebugInspector } from '../DebugInspector';
 
 mermaid.initialize({
@@ -141,9 +142,9 @@ export const MermaidContentRenderer: React.FC<MermaidContentRenderProps> = (prop
                                 <pre>{content.trim()}</pre>
                             </PopoverSurface>
                         </Popover>
-                        <Tooltip content="Zoom diagram" relationship="label">
+                        <TooltipWrapper content="Zoom diagram">
                             <Button icon={<ZoomFit24Regular />} onClick={() => setIsPopupOpen(true)} />
-                        </Tooltip>
+                        </TooltipWrapper>
                     </div>
                     {mermaidDiagram}
                 </div>

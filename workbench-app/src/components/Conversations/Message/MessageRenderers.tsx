@@ -9,18 +9,15 @@ import React from 'react';
 
 interface MessageRendererProps {
     content: JSX.Element;
-    innerContentClass: string;
-    noteStyle?: string;
+    className?: string;
+    innerClassName?: string;
 }
 
-/**
- * Renders system notices with optional icons based on the `noteStyle` prop.
- *
- * @param noteStyle - Determines the icon used ("notice", "note", "command", "command-response").
- */
-export const NoticeMessage: React.FC<MessageRendererProps> = ({ content, innerContentClass, noteStyle = '' }) => {
+export const NoticeRenderer: React.FC<MessageRendererProps> = (props) => {
+    const { content, className, innerClassName } = props;
+
     let icon = null;
-    switch (noteStyle) {
+    switch (className) {
         case 'notice':
             icon = <AlertUrgent24Regular />;
             break;
@@ -36,25 +33,20 @@ export const NoticeMessage: React.FC<MessageRendererProps> = ({ content, innerCo
         default:
             break;
     }
+
     return (
-        <div className={noteStyle}>
-            <SystemMessage className={innerContentClass} icon={icon} message={content}>
+        <div className={className}>
+            <SystemMessage className={innerClassName} icon={icon} message={content}>
                 {content}
             </SystemMessage>
         </div>
     );
 };
 
-/**
- * Renders messages authored by the user.
- */
 export const UserMessageRenderer: React.FC<{ content: JSX.Element }> = ({ content }) => {
     return <UserMessage>{content}</UserMessage>;
 };
 
-/**
- * Renders messages authored by the copilot system.
- */
 export const CopilotMessageRenderer: React.FC<{ content: JSX.Element }> = ({ content }) => {
     return <CopilotMessage>{content}</CopilotMessage>;
 };

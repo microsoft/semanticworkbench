@@ -1,36 +1,32 @@
 // Copyright (c) Microsoft. All rights reserved.
 
+import { MessageBase } from './MessageBase';
+
 import { AiGeneratedDisclaimer, Timestamp } from '@fluentui-copilot/react-copilot';
 import {
     Divider,
     Popover,
     PopoverSurface,
     PopoverTrigger,
-    Text,
     makeStyles,
     mergeClasses,
     shorthands,
     tokens,
 } from '@fluentui/react-components';
 import React from 'react';
-import { Link } from 'react-router-dom';
 
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
-import {
-    useCreateConversationMessageMutation,
-    useGetConversationMessageDebugDataQuery,
-} from '../../../services/workbench';
-import { ContentRenderer } from '../ContentRenderers/ContentRenderer';
+import { useGetConversationMessageDebugDataQuery } from '../../../services/workbench';
 
 import { AttachmentSection } from './AttachmentSection';
-import { ActionsSection } from './InteractMessage/ActionsSection';
-import { ContentSafetyNotice } from './InteractMessage/ContentSafetyNotice';
+import { ContentSafetyNotice } from './ContentSafetyNotice';
+import { MessageActions } from './MessageActions';
+import { MessageBody } from './MessageBody';
 import { MessageHeader } from './MessageHeader';
-import { CopilotMessageRenderer, NoticeMessage, UserMessageRenderer } from './MessageRenderers';
 
 const useClasses = makeStyles({
     root: {
@@ -40,11 +36,12 @@ const useClasses = makeStyles({
         boxSizing: 'border-box',
         ...shorthands.padding(tokens.spacingVerticalL, 0, 0, 0),
     },
+    alignForUser: {
+        justifyContent: 'flex-end',
+        alignItems: 'flex-end',
+    },
     hideParticipantRoot: {
         paddingTop: 0,
-    },
-    userRoot: {
-        alignItems: 'end',
     },
     header: {
         display: 'flex',
@@ -89,10 +86,12 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         gap: tokens.spacingHorizontalS,
         alignItems: 'center',
-        ...shorthands.padding(tokens.spacingVerticalXS, 0, tokens.spacingVerticalXS, tokens.spacingHorizontalS),
+        ...shorthands.padding(0, tokens.spacingHorizontalS),
     },
     userContent: {
-        alignItems: 'end',
+        justifyContent: 'flex-end',
+        alignItems: 'flex-end', // Align user content to the right.
+        display: 'flex',
     },
     contentSafetyNotice: {
         color: tokens.colorPaletteRedForeground1,
@@ -109,12 +108,6 @@ const useClasses = makeStyles({
         gap: tokens.spacingHorizontalS,
         alignItems: 'center',
         ...shorthands.padding(tokens.spacingVerticalXS, tokens.spacingHorizontalS),
-    },
-    attachments: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: tokens.spacingVerticalS,
-        ...shorthands.padding(tokens.spacingVerticalS, 0, 0, 0),
     },
     popoverContent: {
         display: 'flex',
@@ -138,7 +131,6 @@ interface InteractMessageProps {
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead, onRewind } = props;
     const classes = useClasses();
-    const [createConversationMessage] = useCreateConversationMessageMutation();
     const { isMessageVisible, isUnread } = useConversationUtility();
     const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
     const {
@@ -155,121 +147,73 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
     const time = Utility.toFormattedDateString(message.timestamp, 'h:mm A');
 
-    const attribution = React.useMemo(() => {
-        if (message.metadata?.attribution) {
-            return <Text size={300}>[{message.metadata.attribution}]</Text>;
-        }
-        return null;
-    }, [message.metadata?.attribution]);
-
     let rootClassName = classes.root;
     if (hideParticipant) {
         rootClassName = mergeClasses(classes.root, classes.hideParticipantRoot);
     }
     if (isUser) {
-        rootClassName = mergeClasses(rootClassName, classes.userRoot, classes.userContent);
+        rootClassName = mergeClasses(rootClassName, classes.alignForUser, classes.userContent);
     }
 
     React.useEffect(() => {
+        // Check if the message is visible and unread. If so, trigger the onRead handler to mark it read.
         // If the message is visible, mark it as read by invoking the onRead handler.
         if (isMessageVisible && isUnread(conversation, message.timestamp)) {
             onRead?.(message);
         }
     }, [isMessageVisible, isUnread, message.timestamp, onRead, conversation, message]);
 
-    const content = React.useMemo(() => {
-        const onSubmit = async (data: string) => {
-            if (message.metadata?.command) {
-                await createConversationMessage({
-                    conversationId: conversation.id,
-                    content: JSON.stringify({
-                        command: message.metadata.command,
-                        parameters: data,
-                    }),
-                    messageType: 'command',
-                });
-            }
-        };
-
-        return (
-            <ContentRenderer
-                content={message.content}
-                contentType={message.contentType}
-                metadata={message.metadata}
-                onSubmit={onSubmit}
-            />
-        );
-    }, [conversation, createConversationMessage, message.content, message.contentType, message.metadata]);
-
-    const contentSafetyNotice = React.useMemo(() => {
-        return (
-            <ContentSafetyNotice
-                contentSafety={message.metadata?.['content_safety']}
-                noticeClass={classes.notice}
-                safetyClass={classes.contentSafetyNotice}
-            />
-        );
-    }, [classes.contentSafetyNotice, classes.notice, message]);
-
-    const actions = React.useMemo(
-        () => (
-            <ActionsSection
-                readOnly={readOnly}
-                message={message}
-                conversation={conversation}
-                debugData={debugData}
-                isLoadingDebugData={isLoadingDebugData}
-                isUninitializedDebugData={isUninitializedDebugData}
-                onRewind={onRewind}
-                setSkipDebugLoad={setSkipDebugLoad}
-            />
-        ),
-        [conversation, debugData, isLoadingDebugData, isUninitializedDebugData, message, onRewind, readOnly],
+    const header = (
+        <MessageHeader
+            participant={participant}
+            time={time}
+            attribution={message.metadata?.attribution}
+            className={mergeClasses(classes.header, isUser ? classes.alignForUser : undefined)}
+        />
     );
 
-    // Memoize renderedContent for stable dependency management.
-    const memoizedRenderedContent = React.useMemo(() => {
-        return message.messageType === 'notice' ||
-            message.messageType === 'note' ||
-            message.messageType === 'command' ||
-            message.messageType === 'command-response' ? (
-            <NoticeMessage content={content} innerContentClass={classes.innerContent} noteStyle={classes.noteContent} />
-        ) : isUser ? (
-            <UserMessageRenderer content={content} />
-        ) : (
-            <CopilotMessageRenderer content={content} />
-        );
-    }, [message.messageType, content, classes.innerContent, classes.noteContent, isUser]);
+    const actions = (
+        <MessageActions
+            className={isUser ? classes.alignForUser : undefined}
+            readOnly={readOnly}
+            message={message}
+            conversation={conversation}
+            debugData={debugData}
+            isLoadingDebugData={isLoadingDebugData}
+            isUninitializedDebugData={isUninitializedDebugData}
+            onRewind={onRewind}
+            setSkipDebugLoad={setSkipDebugLoad}
+        />
+    );
 
-    const finalContent = React.useMemo(() => {
-        if (message.metadata?.href) {
-            return <Link to={message.metadata.href}>{memoizedRenderedContent}</Link>;
-        }
-        return memoizedRenderedContent;
-    }, [message.metadata, memoizedRenderedContent]);
+    const body = (
+        <>
+            <ContentSafetyNotice
+                contentSafety={message.metadata?.['content_safety']}
+                className={mergeClasses(classes.notice, classes.contentSafetyNotice)}
+            />
+            <MessageBody message={message} conversation={conversation} participant={participant} />
+        </>
+    );
 
-    const attachmentSection = React.useMemo(() => {
+    const attachments = React.useMemo(() => {
         if (message.filenames && message.filenames.length > 0) {
-            return (
-                <AttachmentSection
-                    filenames={message.filenames}
-                    message={message}
-                    generatedClass={classes.generated}
-                    footerItems={message.metadata?.['footer_items']}
-                />
-            );
+            return <AttachmentSection filenames={message.filenames} className={classes.alignForUser} />;
         }
         return null;
-    }, [message, classes.generated]);
+    }, [message.filenames, classes.alignForUser]);
 
     // Calculate footer content from message metadata footer_items
-    const messageFooterContent = React.useMemo(() => {
+    const footerContent = React.useMemo(() => {
         if (message.metadata?.['footer_items']) {
             const footerItemsArray = Array.isArray(message.metadata['footer_items'])
                 ? message.metadata['footer_items']
                 : [message.metadata['footer_items']];
             return (
                 <div className={classes.footer}>
+                    <AiGeneratedDisclaimer className={classes.generated}>
+                        AI-generated content may be incorrect
+                    </AiGeneratedDisclaimer>
                     {footerItemsArray.map((item) => (
                         <AiGeneratedDisclaimer key={item} className={classes.generated}>
                             {item}
@@ -281,6 +225,17 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         return null;
     }, [message.metadata, classes.footer, classes.generated]);
 
+    // Compose footer from multiple pieces if necessary
+    const footer = (
+        <>
+            {attachments}
+            {footerContent}
+        </>
+    );
+
+    // Compose all parts using MessageBase
+    const composedMessage = <MessageBase header={header} body={body} actions={actions} footer={footer} />;
+
     return (
         <div className={rootClassName}>
             {displayDate && (
@@ -291,27 +246,14 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             {hideParticipant || (message.messageType === 'notice' && isUser) ? (
                 <Popover openOnHover withArrow positioning="before">
                     <PopoverTrigger>
-                        <div className={classes.renderedContent}>{finalContent}</div>
+                        <div className={classes.renderedContent}>{composedMessage}</div>
                     </PopoverTrigger>
                     <PopoverSurface>
                         <div className={classes.popoverContent}>{actions}</div>
                     </PopoverSurface>
                 </Popover>
             ) : (
-                <>
-                    <MessageHeader
-                        participant={participant}
-                        time={time}
-                        attribution={attribution}
-                        headerClassName={classes.header}
-                    />
-                    {/* Placeholder for controls such as actions (links, buttons, etc.) placed directly below the header. */}
-                    <div className={classes.footer}>{actions}</div>
-                    {finalContent}
-                    {contentSafetyNotice}
-                    {attachmentSection}
-                    {messageFooterContent}
-                </>
+                composedMessage
             )}
         </div>
     );

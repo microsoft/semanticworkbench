@@ -1,23 +1,24 @@
 import { Timestamp } from '@fluentui-copilot/react-copilot';
-import { Persona } from '@fluentui/react-components';
+import { Persona, Text } from '@fluentui/react-components';
 import React from 'react';
 import { useParticipantUtility } from '../../../libs/useParticipantUtility';
+import { ConversationParticipant } from '../../../models/ConversationParticipant';
 
 interface HeaderProps {
-    participant: any; // TODO: Replace 'any' with the correct type (e.g., ParticipantModel) once available.
+    participant: ConversationParticipant;
     time: string;
-    attribution: JSX.Element | null;
-    headerClassName: string;
+    attribution?: string;
+    className?: string;
 }
 
-export const MessageHeader: React.FC<HeaderProps> = ({ participant, time, attribution, headerClassName }) => {
-        // Retrieve avatar data for the participant using a utility hook.
+export const MessageHeader: React.FC<HeaderProps> = (props) => {
+    const { participant, time, attribution, className } = props;
     const { getAvatarData } = useParticipantUtility();
 
     return (
-        <div className={headerClassName}>
+        <div className={className}>
             <Persona size="extra-small" name={participant.name} avatar={getAvatarData(participant)} />
-            {attribution}
+            {attribution && <Text size={300}>[{attribution}]</Text>}
             <div>
                 <Timestamp>{time}</Timestamp>
             </div>

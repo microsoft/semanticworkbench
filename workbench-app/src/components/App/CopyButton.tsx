@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Slot, Tooltip, makeStyles, tokens } from '@fluentui/react-components';
+import { Button, Slot, makeStyles, tokens } from '@fluentui/react-components';
 import { Checkmark24Regular, CopyRegular } from '@fluentui/react-icons';
 import React from 'react';
+import { TooltipWrapper } from './TooltipWrapper';
 
 const useClasses = makeStyles({
     root: {
@@ -48,13 +49,7 @@ export const CopyButton: React.FC<CopyButtonProps> = (props) => {
         <Button as="a" appearance={appearance} size={size} disabled={copying} icon={copyIcon()} onClick={handleCopy} />
     );
 
-    const content = tooltip ? (
-        <Tooltip content={tooltip} relationship="label">
-            {button}
-        </Tooltip>
-    ) : (
-        button
-    );
+    const content = tooltip ? <TooltipWrapper content={tooltip}>{button}</TooltipWrapper> : button;
 
     return <div className={classes.root}>{content}</div>;
 };
