@@ -13,7 +13,7 @@ from openai.types.chat import (
     ChatCompletionToolParam,
     ParsedChatCompletion,
 )
-from openai.types.shared_params import FunctionDefinition
+from openai.types.shared_params import FunctionDefinition, FunctionParameters
 from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig
 from pydantic import BaseModel
 
@@ -133,33 +133,37 @@ def convert_mcp_tools_to_openai_tools(mcp_tools: List[Tool] | None) -> List[Chat
     openai_tools: List[ChatCompletionToolParam] = []
     for mcp_tool in mcp_tools:
         # add parameter for explaining the step for the user observing the assistant
+        parameters: FunctionParameters = deepmerge.always_merger.merge(
+            mcp_tool.inputSchema.copy(),
+            {
+                "properties": {
+                    # Add the "aiContext" parameter to the input schema
+                    "aiContext": {
+                        "type": "string",
+                        "description": dedent("""
+                            Explanation of why the AI is using this tool and what it expects to accomplish.
+                            This message is displayed to the user, coming from the point of view of the
+                            assistant and should fit within the flow of the ongoing conversation, responding
+                            to the preceding user message.
+                        """).strip(),
+                    },
+                },
+                # Ensure that the "aiContext" parameter is required
+                "required": ["aiContext"],
+            },
+        )
+
+        function = FunctionDefinition(
+            name=mcp_tool.name,
+            description=mcp_tool.description if mcp_tool.description else "[no description provided]",
+            parameters=parameters,
+        )
+
         openai_tools.append(
             ChatCompletionToolParam(
-                function=FunctionDefinition(
-                    name=mcp_tool.name,
-                    description=mcp_tool.description if mcp_tool.description else "[no description provided]",
-                    parameters=deepmerge.always_merger.merge(
-                        # Make a copy of the input schema so that we don't modify the original schema
-                        mcp_tool.inputSchema.copy(),
-                        {
-                            "properties": {
-                                # Add the "aiContext" parameter to the input schema
-                                "aiContext": {
-                                    "type": "string",
-                                    "description": (
-                                        "Explanation of why the AI is using this tool and what it expects to accomplish."
-                                        "This message is displayed to the user, coming from the point of view of the assistant"
-                                        " and should fit within the flow of the ongoing conversation, responding to the"
-                                        " preceding user message."
-                                    ),
-                                },
-                            },
-                            # Ensure that the "aiContext" parameter is required
-                            "required": ["aiContext"],
-                        },
-                    ),
-                ),
+                function=function,
                 type="function",
             )
         )
+
     return openai_tools
