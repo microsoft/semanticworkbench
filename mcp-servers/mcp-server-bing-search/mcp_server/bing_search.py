@@ -37,7 +37,7 @@ def search_bing(query: str, count: int = 10, offset: int = 0) -> str:
             header = f"Search Results: Page {page_num}"
 
         text_lines = [header]
-        if "webPages" in search_results:
+        if "webPages" in search_results and search_results["webPages"].get("value"):
             for i, item in enumerate(search_results["webPages"].get("value", [])):
                 # Build readable format
                 title = item.get("name", "No title")
@@ -54,5 +54,11 @@ def search_bing(query: str, count: int = 10, offset: int = 0) -> str:
         return final_output
 
     except Exception as e:
-        print("Error during Bing Search API request:", str(e))
-        return "Error during Bing Search API request: " + str(e)
+        error_details = (
+            f"Bing Search API request failed.\n"
+            f"Endpoint: {endpoint}\n"
+            f"Parameters: {params}\n"
+            f"Error: {str(e)}"
+        )
+        print(error_details)  # Replace with proper logging in production
+        return "An unexpected error occurred while processing your request."
