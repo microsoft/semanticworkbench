@@ -178,15 +178,11 @@ dependencies = [
     { name = "assistant-extensions", extra = ["attachments"] },
     { name = "content-safety" },
     { name = "deepmerge" },
-    { name = "document-skill" },
     { name = "guided-conversation" },
     { name = "html2docx" },
     { name = "markdown" },
     { name = "openai" },
     { name = "openai-client" },
-    { name = "posix-skill" },
-    { name = "prospector-skill" },
-    { name = "skill-library" },
 ]
 
 [package.dev-dependencies]
@@ -199,15 +195,11 @@ requires-dist = [
     { name = "assistant-extensions", extras = ["attachments"], editable = "../../libraries/python/assistant-extensions" },
     { name = "content-safety", editable = "../../libraries/python/content-safety" },
     { name = "deepmerge", specifier = ">=2.0" },
-    { name = "document-skill", editable = "../../libraries/python/skills/skills/document-skill" },
     { name = "guided-conversation", editable = "../../libraries/python/guided-conversation" },
     { name = "html2docx", specifier = ">=1.6.0" },
     { name = "markdown", specifier = ">=3.6" },
     { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../../libraries/python/openai-client" },
-    { name = "posix-skill", editable = "../../libraries/python/skills/skills/posix-skill" },
-    { name = "prospector-skill", editable = "../../libraries/python/skills/skills/prospector-skill" },
-    { name = "skill-library", editable = "../../libraries/python/skills/skill-library" },
 ]
 
 [package.metadata.requires-dev]
@@ -218,14 +210,12 @@ name = "assistant-drive"
 version = "0.1.0"
 source = { editable = "../../libraries/python/assistant-drive" }
 dependencies = [
-    { name = "context" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "context", editable = "../../libraries/python/context" },
     { name = "pydantic", specifier = ">=2.6.1" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
 ]
@@ -454,7 +444,7 @@ name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "platform_system == 'Windows'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121 }
 wheels = [
@@ -493,25 +483,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "pyright", specifier = ">=1.1.389" }]
-
-[[package]]
-name = "context"
-version = "0.1.0"
-source = { editable = "../../libraries/python/context" }
-dependencies = [
-    { name = "events" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "events", editable = "../../libraries/python/events" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.389" },
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
 
 [[package]]
 name = "cryptography"
@@ -589,28 +560,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/37/7d/c871f55054e403fdf
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/a1/8c5287991ddb8d3e4662f71356d9656d91ab3a36618c3dd11b280df0d255/dnspython-2.6.1-py3-none-any.whl", hash = "sha256:5ef3b9680161f6fa89daf8ad451b5f1a33b18ae8a1c6778cdf4b43f08c0a6e50", size = 307696 },
 ]
-
-[[package]]
-name = "document-skill"
-version = "0.1.0"
-source = { editable = "../../libraries/python/skills/skills/document-skill" }
-dependencies = [
-    { name = "context" },
-    { name = "events" },
-    { name = "openai-client" },
-    { name = "skill-library" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "context", editable = "../../libraries/python/context" },
-    { name = "events", editable = "../../libraries/python/events" },
-    { name = "openai-client", editable = "../../libraries/python/openai-client" },
-    { name = "skill-library", editable = "../../libraries/python/skills/skill-library" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pyright", specifier = ">=1.1.389" }]
 
 [[package]]
 name = "docx2txt"
@@ -1487,34 +1436,12 @@ name = "portalocker"
 version = "2.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "pywin32", marker = "platform_system == 'Windows'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/d3/c6c64067759e87af98cc668c1cc75171347d0f1577fab7ca3749134e3cd4/portalocker-2.10.1.tar.gz", hash = "sha256:ef1bf844e878ab08aee7e40184156e1151f228f103aa5c6bd0724cc330960f8f", size = 40891 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/fb/a70a4214956182e0d7a9099ab17d50bfcba1056188e9b14f35b9e2b62a0d/portalocker-2.10.1-py3-none-any.whl", hash = "sha256:53a5984ebc86a025552264b459b46a2086e269b21823cb572f8f28ee759e45bf", size = 18423 },
 ]
-
-[[package]]
-name = "posix-skill"
-version = "0.1.0"
-source = { editable = "../../libraries/python/skills/skills/posix-skill" }
-dependencies = [
-    { name = "context" },
-    { name = "events" },
-    { name = "openai-client" },
-    { name = "skill-library" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "context", editable = "../../libraries/python/context" },
-    { name = "events", editable = "../../libraries/python/events" },
-    { name = "openai-client", editable = "../../libraries/python/openai-client" },
-    { name = "skill-library", editable = "../../libraries/python/skills/skill-library" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pyright", specifier = ">=1.1.389" }]
 
 [[package]]
 name = "prance"
@@ -1588,28 +1515,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/88/e7/0eef39eff84fa3e001b44de0bd41c7c0e3432e7648ffd3d64955910f002d/propcache-0.2.0-cp313-cp313-win_amd64.whl", hash = "sha256:8f188cfcc64fb1266f4684206c9de0e80f54622c3f22a910cbd200478aeae61e", size = 43705 },
     { url = "https://files.pythonhosted.org/packages/3d/b6/e6d98278f2d49b22b4d033c9f792eda783b9ab2094b041f013fc69bcde87/propcache-0.2.0-py3-none-any.whl", hash = "sha256:2ccc28197af5313706511fab3a8b66dcd6da067a1331372c82ea1cb74285e036", size = 11603 },
 ]
-
-[[package]]
-name = "prospector-skill"
-version = "0.1.0"
-source = { editable = "../../libraries/python/skills/skills/prospector-skill" }
-dependencies = [
-    { name = "context" },
-    { name = "events" },
-    { name = "openai-client" },
-    { name = "skill-library" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "context", editable = "../../libraries/python/context" },
-    { name = "events", editable = "../../libraries/python/events" },
-    { name = "openai-client", editable = "../../libraries/python/openai-client" },
-    { name = "skill-library", editable = "../../libraries/python/skills/skill-library" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pyright", specifier = ">=1.1.389" }]
 
 [[package]]
 name = "pybars4"
@@ -2178,49 +2083,6 @@ wheels = [
 ]
 
 [[package]]
-name = "skill-library"
-version = "0.1.0"
-source = { editable = "../../libraries/python/skills/skill-library" }
-dependencies = [
-    { name = "assistant-drive" },
-    { name = "assistant-extensions", extra = ["attachments"] },
-    { name = "context" },
-    { name = "events" },
-    { name = "openai" },
-    { name = "openai-client" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
-    { name = "python-liquid" },
-    { name = "requests" },
-    { name = "tiktoken" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "assistant-drive", editable = "../../libraries/python/assistant-drive" },
-    { name = "assistant-extensions", extras = ["attachments"], editable = "../../libraries/python/assistant-extensions" },
-    { name = "context", editable = "../../libraries/python/context" },
-    { name = "events", editable = "../../libraries/python/events" },
-    { name = "openai", specifier = ">=1.16.1" },
-    { name = "openai-client", editable = "../../libraries/python/openai-client" },
-    { name = "pydantic", specifier = ">=2.6.1" },
-    { name = "pydantic-settings", specifier = ">=2.3.4" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "python-liquid", specifier = ">=1.12.1" },
-    { name = "requests", specifier = ">=2.32.0" },
-    { name = "tiktoken", specifier = ">=0.8.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.389" },
-    { name = "pytest", specifier = ">=8.3.1" },
-    { name = "pytest-asyncio", specifier = ">=0.23.8" },
-    { name = "pytest-repeat", specifier = ">=0.9.3" },
-]
-
-[[package]]
 name = "sniffio"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2288,7 +2150,7 @@ name = "tqdm"
 version = "4.66.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "platform_system == 'Windows'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/58/83/6ba9844a41128c62e810fddddd72473201f3eacde02046066142a2d96cc5/tqdm-4.66.5.tar.gz", hash = "sha256:e1020aef2e5096702d8a025ac7d16b1577279c9d63f8375b63083e9a5f0fcbad", size = 169504 }
 wheels = [

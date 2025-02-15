@@ -1,4 +1,7 @@
-from typing import Any, List
+# skill_library/routine_stack.py
+
+from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, List
 from uuid import uuid4
 
 from assistant_drive import Drive, IfDriveFileExistsBehavior
@@ -22,6 +25,29 @@ STACK_FILENAME = "routine_stack.json"
 
 
 class RoutineStack:
+    """
+    Manages state for nested routines.
+
+    The RoutineStack provides routines with isolated state storage as they run,
+    allowing nested routines to maintain their own state without interfering
+    with each other. Each routine execution gets a frame on the stack that
+    contains:
+
+    - The routine's name for tracking
+    - A state dictionary that the routine can use to store data between steps
+
+    The stack behaves like a traditional call stack:
+
+    - push() creates a new frame when a routine starts
+    - pop() removes the frame when the routine completes
+    - peek() allows checking the current frame
+    - get/set_current_state provide access to the current routine's state
+
+    State is persisted between messages/steps in the conversation, allowing
+    routines to maintain context even when paused waiting for user input. When
+    routines call other routines, each gets its own isolated state frame.
+    """
+
     def __init__(self, drive: Drive):
         self.drive = drive
 
@@ -99,3 +125,21 @@ class RoutineStack:
 
     async def string(self) -> str:
         return str([f"{frame.name}.{frame.id}" for frame in await self.get()])
+
+    @asynccontextmanager
+    async def stack_frame_state(self) -> AsyncGenerator[dict[str, Any], None]:
+        """
+        A context manager that allows you to get and set the state of the
+        current routine being run. This is useful for storing and retrieving
+        information that is needed across multiple steps of a routine.
+
+        Example:
+
+        ```
+        async with context.stack_frame_state() as state:
+            state["key"] = "value"
+        ```
+        """
+        state = await self.get_current_state()
+        yield state
+        await self.set_current_state(state)

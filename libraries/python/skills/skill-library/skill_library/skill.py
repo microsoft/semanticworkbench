@@ -1,142 +1,136 @@
-import logging
-from typing import Any, Callable, Type
+import importlib
+import importlib.util
+import sys
+from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 
-from attr import dataclass
-from events import BaseEvent, EventProtocol
-from openai.types.chat.completion_create_params import ResponseFormat
-from openai_client.chat_driver import ChatDriver, ChatDriverConfig
-from openai_client.completion import TEXT_RESPONSE_FORMAT
+from pydantic import BaseModel
 
-from .actions import Action, Actions
-from .routine import RoutineTypes
-from .run_context import RunContextProvider
+from skill_library.types import AskUserFn, EmitFn, RunContext, RunRoutineFn
 
-EmitterType = Callable[[EventProtocol], None]
+from .logging import extra_data, logger
 
 
-def log_emitter(event: EventProtocol) -> None:
-    logging.info(event)
+@runtime_checkable
+class RoutineFn(Protocol):
+    async def __call__(
+        self,
+        context: RunContext,
+        routine_state: dict[str, Any],
+        emit: EmitFn,
+        run: RunRoutineFn,
+        ask_user: AskUserFn,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any: ...
 
 
-@dataclass
-class SkillDefinition:
-    """
-    A skill definition is a blueprint for instantiating a skill. Because skills
-    may be dependent on one another, _ALL_ skills that an assistant uses should
-    be defined and passed to the skill registry for initialization at the same
-    time. The skill registry will use these definitions to instantiate instances
-    of the skills.
-
-    These four attributes are required for every skill definition, however,
-    additional attributes can be added by extending this class.
-    """
+class SkillConfig(BaseModel):
+    """Base configuration that all skill configs inherit from"""
 
     name: str
 
-    # The class of the skill. This is used to instantiate the skill.
-    skill_class: Type["Skill"]
+    class Config:
+        arbitrary_types_allowed = True
 
-    # A description of the skill. In the future, this will be used to advertise
-    # available skills for usage.
-    description: str
 
-    # Skills, optionally, may have a natural language interface (currently used
-    # by Instructuion routines). If you don't need your skill to be used that
-    # way, though, you don't need to have a chat driver attached.
-    chat_driver_config: ChatDriverConfig | None
+class SkillProtocol(Protocol):
+    """Base protocol that all skills must implement"""
+
+    config: SkillConfig
+    _routines: dict[str, RoutineFn]
 
 
 class Skill:
-    """
-    Skills come with actions, routines, and, optionally, a conversational
-    interface. Skills can be registered to assistants.
-    """
+    def __init__(self, config: SkillConfig):
+        self.config = config
+        self._routines: dict[str, RoutineFn] = {}
+        self._package_path: Path | None = None
+        self._package_name: str | None = None
 
-    def __init__(
-        self,
-        skill_definition: SkillDefinition,
-        run_context_provider: RunContextProvider,
-        actions: list[Callable] = [],  # Functions to be registered as skill actions.
-        routines: list[RoutineTypes] = [],
-    ) -> None:
-        # A skill should have a short name so that user commands can be routed
-        # to them efficiently.
-        self.name = skill_definition.name
-        self.description = skill_definition.description
-        self.routines: dict[str, RoutineTypes] = {routine.name: routine for routine in routines}
+        # Store package info during initialization
+        module = sys.modules[self.__class__.__module__]
+        self._package_name = module.__package__ or module.__name__
+        logger.info(f"Discovering skills in package: {self._package_name}")
 
-        # If a chat driver is provided, it will be used to respond to
-        # conversational messages sent to the skill. Not all skills need to have
-        # a chat driver. No functions will be automatically registered to the
-        # chat driver.
-        self.chat_driver = (
-            ChatDriver(skill_definition.chat_driver_config) if skill_definition.chat_driver_config else None
-        )
+        # For library skills, we can use the module's __file__ attribute
+        module_file = getattr(module, "__file__", None)
+        if module_file is not None:
+            self._package_path = Path(module_file).parent
+        else:
+            # Fallback to find_spec for other cases
+            spec = importlib.util.find_spec(self._package_name)
+            if not spec or not spec.origin:
+                raise ValueError(f"Could not find package path for {self._package_name}")
+            self._package_path = Path(spec.origin).parent
 
-        # Register all provided actions with the action registry.
-        self.action_registry = Actions(run_context_provider)
-        self.action_registry.add_functions(actions)
+        # Initial load of routines
+        self._load_routines()
 
-        # Make actions available to be called as attributes from the skill
-        # directly.
-        self.actions = self.action_registry.functions
+    def _load_routines(self) -> None:
+        """Load all routines from the routines directory"""
+        if not self._package_path:
+            raise ValueError("Package path not initialized")
 
-        # Actions and routines can get a RunContext whenever they want.
-        self.run_context_provider = run_context_provider
+        self._routines.clear()
+        routines_path = self._package_path / "routines"
 
-    async def respond(
-        self,
-        message: str,
-        response_format: ResponseFormat = TEXT_RESPONSE_FORMAT,
-        instruction_parameters: dict[str, Any] | None = None,
-    ) -> BaseEvent:
-        """
-        Respond to a user message if the skill has a chat driver.
-        """
-        if not self.chat_driver:
-            raise ValueError("No assistant found for this skill to use for responding.")
-        return await self.chat_driver.respond(
-            message,
-            response_format=response_format,
-            instruction_parameters=instruction_parameters,
-        )
+        if routines_path.exists():
+            for file in routines_path.glob("*.py"):
+                if file.name == "__init__.py":
+                    continue
+                routine_name = file.stem
+                self._load_routine(routine_name)
 
-    def get_actions(self) -> list[Callable]:
-        return [function.fn for function in self.action_registry.get_actions()]
+    def _load_routine(self, routine_name: str) -> None:
+        """Load a specific routine module"""
+        if not self._package_name:
+            raise ValueError("Package name not initialized")
 
-    def get_action(self, name: str) -> Action | None:
-        return self.action_registry.get_action(name)
+        # Remove the old module if it exists
+        module_name = f"{self._package_name}.routines.{routine_name}"
+        if module_name in sys.modules:
+            del sys.modules[module_name]
 
-    def list_actions(self) -> list[str]:
-        return [action.name for action in self.action_registry.get_actions()]
+        try:
+            # Import the module fresh
+            routine_module = importlib.import_module(module_name)
 
-    def add_routine(self, routine: RoutineTypes) -> None:
-        """
-        Add a routine to the skill.
-        """
-        self.routines[routine.name] = routine
+            # Force reload to get latest changes
+            importlib.reload(routine_module)
 
-    def get_routine(self, name: str) -> RoutineTypes | None:
-        """
-        Get a routine by name.
-        """
-        return self.routines.get(name)
+            if hasattr(routine_module, "main"):
+                routine = routine_module.main
+                if isinstance(routine, RoutineFn):
+                    self.register_routine(routine_name, routine)
+                else:
+                    routine_function_attrs = [attr for attr in dir(RoutineFn) if not attr.startswith("_")]
+                    routine_attrs = [attr for attr in dir(routine) if not attr.startswith("_")]
+                    raise ValueError(
+                        f"Routine {routine_name} 'main' is not a RoutineFn. "
+                        f"Expected attributes: {routine_function_attrs}, Found: {routine_attrs}"
+                    )
+            else:
+                logger.warning(
+                    "Routine module skipped. Routine has no `main` function.",
+                    extra_data({"routine_name": routine_name}),
+                )
+        except Exception as e:
+            logger.error(
+                f"Error loading routine {routine_name}: {str(e)}",
+                extra_data({"routine_name": routine_name, "error": str(e)}),
+            )
+            raise
 
-    def get_routines(self) -> list[RoutineTypes]:
-        """
-        Return a list of routines.
-        """
-        return [routine for routine in self.routines.values()]
+    def register_routine(self, name: str, fn: RoutineFn) -> None:
+        self._routines[name] = fn
+
+    def get_routine(self, name: str) -> RoutineFn | None:
+        """Get a routine, reloading it first to ensure latest version"""
+        if name in self._routines:
+            self._load_routine(name)  # Reload the routine
+        return self._routines.get(name)
 
     def list_routines(self) -> list[str]:
-        """Return a list of routine names."""
-        return [str(routine) for routine in self.routines.values()]
-
-    def has_routine(self, name: str) -> bool:
-        return name in self.routines
-
-    def __str__(self) -> str:
-        return f"{self.name} - {self.description}"
-
-    def __repr__(self) -> str:
-        return f"{self.name} - {self.description}"
+        """Return list of available routine names"""
+        return list(self._routines.keys())

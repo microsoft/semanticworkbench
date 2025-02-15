@@ -293,9 +293,8 @@ class ToolFunctions:
         if string_response:
             return to_string(result)
 
-    def parse_function_string(self, function_string: str) -> tuple[ToolFunction | None, list[Any], dict[str, Any]]:
-        """Parse a function call string into a function and its arguments."""
-
+    @staticmethod
+    def parse_fn_string(function_string: str) -> tuple[str | None, list[Any], dict[str, Any]]:
         # As a convenience, remove any leading slashes.
         function_string = function_string.lstrip("/")
 
@@ -350,6 +349,15 @@ class ToolFunctions:
         kwargs = {}
         for kw in call_node.keywords:
             kwargs[kw.arg] = eval_node(kw.value)
+
+        return function_name, args, kwargs
+
+    def parse_function_string(self, function_string: str) -> tuple[ToolFunction | None, list[Any], dict[str, Any]]:
+        """Parse a function call string into a function and its arguments."""
+
+        function_name, args, kwargs = ToolFunctions.parse_fn_string(function_string)
+        if not function_name:
+            return None, [], {}
 
         function = self.get_function(function_name)
         if not function:

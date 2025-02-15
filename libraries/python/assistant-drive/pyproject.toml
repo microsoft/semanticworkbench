@@ -6,7 +6,6 @@ authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "context>=0.1.0",
     "pydantic>=2.6.1",
     "pydantic-settings>=2.5.2",
     # "python-magic>=0.4.27",
@@ -23,7 +22,6 @@ dev = [
 ]
 
 [tool.uv.sources]
-context = { path = "../../python/context", editable = true }
 # python-magic = { git = "https://github.com/julian-r/python-magic.git#egg=python-magic" }
 
 [build-system]
