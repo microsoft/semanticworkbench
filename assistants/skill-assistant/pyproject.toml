@@ -32,7 +32,6 @@ package = true
 [tool.uv.sources]
 skill-library = { path = "../../libraries/python/skills/skill-library", editable = true }
 content-safety = { path = "../../libraries/python/content-safety", editable = true }
-# document-skill = { path = "../../libraries/python/skills/skills/document-skill", editable = true }
 openai-client = { path = "../../libraries/python/openai-client", editable = true }
 semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
 
