@@ -29,7 +29,10 @@ export const MessageActions: React.FC<ActionsProps> = ({
         <DebugInspector
             debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
             loading={isLoadingDebugData || isUninitializedDebugData}
-            onOpen={() => {} /* Hook logic for handling onOpen */}
+            onOpen={() => {
+                // Placeholder for onOpen logic.
+                // Ensure this triggers required behavior when the debug inspector is opened.
+            }}
         />
         <CopyButton data={message.content} tooltip="Copy message" size="small" appearance="transparent" />
         {!readOnly && (

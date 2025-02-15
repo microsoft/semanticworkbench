@@ -1,8 +1,7 @@
 import { AiGeneratedDisclaimer, Attachment, AttachmentList } from '@fluentui-copilot/react-copilot';
-import { Tooltip } from '@fluentui/react-components';
-import { Attach24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { ConversationFileIcon } from '../ConversationFileIcon';
+import { TooltipWrapper } from './AttachmentSection/TooltipWrapper';
 
 interface AttachmentSectionProps {
     filenames?: string[];
@@ -17,13 +16,13 @@ export const AttachmentSection: React.FC<AttachmentSectionProps> = (props) => {
         filenames && filenames.length > 0 ? (
             <AttachmentList>
                 {filenames.map((filename) => (
-                    <Tooltip content={filename} key={filename} relationship="label">
+                    <TooltipWrapper content={filename} key={filename}>
                         <Attachment
                             media={<ConversationFileIcon file={filename} />}
                             content={filename}
-                            dismissIcon={<Attach24Regular />}
+
                         />
-                    </Tooltip>
+                    </TooltipWrapper>
                 ))}
             </AttachmentList>
         ) : null;

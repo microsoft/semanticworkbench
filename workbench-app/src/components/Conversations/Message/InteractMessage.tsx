@@ -24,14 +24,11 @@ import {
     useCreateConversationMessageMutation,
     useGetConversationMessageDebugDataQuery,
 } from '../../../services/workbench';
-import { CopyButton } from '../../App/CopyButton';
 import { ContentRenderer } from '../ContentRenderers/ContentRenderer';
-import { DebugInspector } from '../DebugInspector';
 
-import { MessageDelete } from '../MessageDelete';
-import { MessageLink } from '../MessageLink';
-import { RewindConversation } from '../RewindConversation';
 import { AttachmentSection } from './AttachmentSection';
+import { ActionsSection } from './InteractMessage/ActionsSection';
+import { ContentSafetyNotice } from './InteractMessage/ContentSafetyNotice';
 import { MessageHeader } from './MessageHeader';
 import { CopilotMessageRenderer, NoticeMessage, UserMessageRenderer } from './MessageRenderers';
 
@@ -174,7 +171,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     }
 
     React.useEffect(() => {
-        // if the message is visible, mark it as read
+        // If the message is visible, mark it as read by invoking the onRead handler.
         if (isMessageVisible && isUnread(conversation, message.timestamp)) {
             onRead?.(message);
         }
@@ -205,43 +202,29 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     }, [conversation, createConversationMessage, message.content, message.contentType, message.metadata]);
 
     const contentSafetyNotice = React.useMemo(() => {
-        const metadata = message.metadata;
-        if (!metadata) return null;
-
-        const contentSafety = metadata['content_safety'];
-        if (!contentSafety) return null;
-
-        const { result, note } = contentSafety;
-        if (!result || result === 'pass') return null;
-
-        const messageNote = `[Content Safety: ${result}] ${
-            note || 'this message has been flagged as potentially unsafe'
-        }`;
-
-        return <div className={mergeClasses(classes.notice, classes.contentSafetyNotice)}>{messageNote}</div>;
+        return (
+            <ContentSafetyNotice
+                contentSafety={message.metadata?.['content_safety']}
+                noticeClass={classes.notice}
+                safetyClass={classes.contentSafetyNotice}
+            />
+        );
     }, [classes.contentSafetyNotice, classes.notice, message]);
 
     const actions = React.useMemo(
         () => (
-            <>
-                {!readOnly && <MessageLink conversation={conversation} messageId={message.id} />}
-                <DebugInspector
-                    debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
-                    loading={isLoadingDebugData || isUninitializedDebugData}
-                    onOpen={() => {
-                        setSkipDebugLoad(false);
-                    }}
-                />
-                <CopyButton data={message.content} tooltip="Copy message" size="small" appearance="transparent" />
-                {!readOnly && (
-                    <>
-                        <MessageDelete conversationId={conversation.id} message={message} />
-                        <RewindConversation onRewind={(redo) => onRewind?.(message, redo)} />
-                    </>
-                )}
-            </>
+            <ActionsSection
+                readOnly={readOnly}
+                message={message}
+                conversation={conversation}
+                debugData={debugData}
+                isLoadingDebugData={isLoadingDebugData}
+                isUninitializedDebugData={isUninitializedDebugData}
+                onRewind={onRewind}
+                setSkipDebugLoad={setSkipDebugLoad}
+            />
         ),
-        [conversation, debugData?.debugData, isLoadingDebugData, isUninitializedDebugData, message, onRewind, readOnly],
+        [conversation, debugData, isLoadingDebugData, isUninitializedDebugData, message, onRewind, readOnly],
     );
 
     // Memoize renderedContent for stable dependency management.
@@ -322,7 +305,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
                         attribution={attribution}
                         headerClassName={classes.header}
                     />
-                    {/* Controls placed directly below the header */}
+                    {/* Placeholder for controls such as actions (links, buttons, etc.) placed directly below the header. */}
                     <div className={classes.footer}>{actions}</div>
                     {finalContent}
                     {contentSafetyNotice}

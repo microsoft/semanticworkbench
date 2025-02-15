@@ -13,6 +13,11 @@ interface MessageRendererProps {
     noteStyle?: string;
 }
 
+/**
+ * Renders system notices with optional icons based on the `noteStyle` prop.
+ *
+ * @param noteStyle - Determines the icon used ("notice", "note", "command", "command-response").
+ */
 export const NoticeMessage: React.FC<MessageRendererProps> = ({ content, innerContentClass, noteStyle = '' }) => {
     let icon = null;
     switch (noteStyle) {
@@ -40,10 +45,16 @@ export const NoticeMessage: React.FC<MessageRendererProps> = ({ content, innerCo
     );
 };
 
+/**
+ * Renders messages authored by the user.
+ */
 export const UserMessageRenderer: React.FC<{ content: JSX.Element }> = ({ content }) => {
     return <UserMessage>{content}</UserMessage>;
 };
 
+/**
+ * Renders messages authored by the copilot system.
+ */
 export const CopilotMessageRenderer: React.FC<{ content: JSX.Element }> = ({ content }) => {
     return <CopilotMessage>{content}</CopilotMessage>;
 };
