@@ -1,5 +1,12 @@
-import { SystemMessage } from '@fluentui-copilot/react-copilot';
-import { makeStyles, shorthands, Text, tokens } from '@fluentui/react-components';
+import {
+    Accordion,
+    AccordionHeader,
+    AccordionItem,
+    AccordionPanel,
+    makeStyles,
+    shorthands,
+    tokens,
+} from '@fluentui/react-components';
 import { Toolbox24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { Conversation } from '../../models/Conversation';
@@ -39,10 +46,12 @@ export const ToolResultMessage: React.FC<ToolResultMessageProps> = (props) => {
 
     return (
         <div className={classes.noteContent}>
-            <SystemMessage className={classes.innerContent} icon={<Toolbox24Regular />} message={messageContent}>
-                <Text>Tools call result for `{toolName}`:</Text>
-                <pre>{messageContent}</pre>
-            </SystemMessage>
+            <Accordion collapsible>
+                <AccordionItem value="1">
+                    <AccordionHeader icon={<Toolbox24Regular />}>Tools call result for `{toolName}`</AccordionHeader>
+                    <AccordionPanel>{messageContent}</AccordionPanel>
+                </AccordionItem>
+            </Accordion>
         </div>
     );
 };
