@@ -129,11 +129,9 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     // this can happen temporarily if the provided conversation was just
                     // re-retrieved, but the participants have not been re-retrieved yet
                     return (
-                        <>
-                            <div>
-                                Participant not found: {message.sender.participantId} in conversation {conversation.id}
-                            </div>
-                        </>
+                        <div key={message.id} className={classes.item}>
+                            Participant not found: {message.sender.participantId} in conversation {conversation.id}
+                        </div>
                     );
                 }
                 const date = Utility.toFormattedDateString(message.timestamp, 'M/D/YY');
