@@ -116,7 +116,12 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     );
 
     const actions = (
-        <MessageActions readOnly={readOnly} message={message} conversation={conversation} onRewind={onRewind} />
+        <MessageActions
+            readOnly={readOnly}
+            message={message}
+            conversation={conversation}
+            onRewind={isUser ? onRewind : undefined}
+        />
     );
 
     const body = <MessageBody message={message} conversation={conversation} />;

@@ -53,7 +53,7 @@ export const MessageActions: React.FC<MessageActionsProps> = (props) => {
             {!readOnly && (
                 <>
                     <MessageDelete conversationId={conversation.id} message={message} />
-                    <RewindConversation onRewind={(redo) => onRewind?.(message, redo)} />
+                    {onRewind && <RewindConversation onRewind={(redo) => onRewind?.(message, redo)} />}
                 </>
             )}
         </div>

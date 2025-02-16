@@ -61,7 +61,7 @@ async def handle_completion(
     # get the total tokens used for the completion
     total_tokens = completion.usage.total_tokens if completion.usage else 0
 
-    content: str = ""
+    content: str | None = None
 
     if (completion.choices[0].message.content is not None) and (completion.choices[0].message.content.strip() != ""):
         content = completion.choices[0].message.content
@@ -84,6 +84,9 @@ async def handle_completion(
                 content = ai_context
             # else:
             #     content = f"[Assistant is calling tools: {', '.join([tool_call.name for tool_call in tool_calls])}]"
+
+    if content is None:
+        content = "[no response from openai]"
 
     # update the metadata with debug information
     deepmerge.always_merger.merge(

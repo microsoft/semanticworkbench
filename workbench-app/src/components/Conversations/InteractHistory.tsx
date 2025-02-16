@@ -43,7 +43,8 @@ const useClasses = makeStyles({
         ...shorthands.padding(0, tokens.spacingHorizontalL),
     },
     status: {
-        ...shorthands.padding(0, tokens.spacingHorizontalM),
+        ...shorthands.margin(0, tokens.spacingHorizontalXXL),
+        ...shorthands.padding(0, tokens.spacingHorizontalL),
     },
 });
 
