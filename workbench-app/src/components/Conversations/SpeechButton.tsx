@@ -1,12 +1,13 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Tooltip } from '@fluentui/react-components';
+import { Button } from '@fluentui/react-components';
 import { Mic20Regular } from '@fluentui/react-icons';
 import debug from 'debug';
 import * as speechSdk from 'microsoft-cognitiveservices-speech-sdk';
 import React from 'react';
 import { Constants } from '../../Constants';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
+import { TooltipWrapper } from '../App/TooltipWrapper';
 
 const log = debug(Constants.debug.root).extend('SpeechButton');
 
@@ -169,7 +170,7 @@ export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
     if (!recognizer) return null;
 
     return (
-        <Tooltip content={isListening ? 'Click to stop listening.' : 'Click to start listening.'} relationship="label">
+        <TooltipWrapper content={isListening ? 'Click to stop listening.' : 'Click to start listening.'}>
             <Button
                 appearance="transparent"
                 // should ignore the disabled prop when isListening is true so that
@@ -179,6 +180,6 @@ export const SpeechButton: React.FC<SpeechButtonProps> = (props) => {
                 icon={<Mic20Regular color={isListening ? 'green' : undefined} />}
                 onClick={isListening ? stopListening : recognizeContinuously}
             />
-        </Tooltip>
+        </TooltipWrapper>
     );
 };

@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, makeStyles, tokens, Tooltip } from '@fluentui/react-components';
+import { Button, makeStyles, tokens } from '@fluentui/react-components';
 import { BookInformation24Regular, ChatSettingsRegular, Dismiss24Regular } from '@fluentui/react-icons';
 import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
@@ -8,6 +8,7 @@ import { useChatCanvasController } from '../../../libs/useChatCanvasController';
 import { useEnvironment } from '../../../libs/useEnvironment';
 import { useAppSelector } from '../../../redux/app/hooks';
 import { workbenchConversationEvents } from '../../../routes/FrontDoor';
+import { TooltipWrapper } from '../../App/TooltipWrapper';
 
 const useClasses = makeStyles({
     root: {
@@ -63,24 +64,24 @@ export const ChatControls: React.FC<ChatControlsProps> = (props) => {
 
     return (
         <div className={classes.root}>
-            <Tooltip content="Open conversation canvas" relationship="label">
+            <TooltipWrapper content="Open conversation canvas">
                 <Button
                     disabled={conversationActive || chatCanvasController.isTransitioning}
                     icon={<ChatSettingsRegular />}
                     onClick={handleActivateConversation}
                 />
-            </Tooltip>
-            <Tooltip content="Open assistant canvas" relationship="label">
+            </TooltipWrapper>
+            <TooltipWrapper content="Open assistant canvas">
                 <Button
                     disabled={assistantActive || chatCanvasController.isTransitioning}
                     icon={<BookInformation24Regular />}
                     onClick={handleActivateAssistant}
                 />
-            </Tooltip>
+            </TooltipWrapper>
             {conversationActive || assistantActive ? (
-                <Tooltip content="Close canvas" relationship="label">
+                <TooltipWrapper content="Close canvas">
                     <Button icon={<Dismiss24Regular />} onClick={handleDismiss} />
-                </Tooltip>
+                </TooltipWrapper>
             ) : null}
         </div>
     );

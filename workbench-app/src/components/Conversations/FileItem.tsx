@@ -1,15 +1,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    Button,
-    Caption1,
-    Card,
-    CardHeader,
-    DialogTrigger,
-    makeStyles,
-    Text,
-    Tooltip,
-} from '@fluentui/react-components';
+import { Button, Caption1, Card, CardHeader, DialogTrigger, makeStyles, Text } from '@fluentui/react-components';
 import { ArrowDownloadRegular, Delete16Regular } from '@fluentui/react-icons';
 import React from 'react';
 import * as StreamSaver from 'streamsaver';
@@ -19,6 +10,7 @@ import { Conversation } from '../../models/Conversation';
 import { ConversationFile } from '../../models/ConversationFile';
 import { useDeleteConversationFileMutation } from '../../services/workbench';
 import { CommandButton } from '../App/CommandButton';
+import { TooltipWrapper } from '../App/TooltipWrapper';
 import { ConversationFileIcon } from './ConversationFileIcon';
 
 const useClasses = makeStyles({
@@ -127,11 +119,11 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
                 className={classes.cardHeader}
                 image={<ConversationFileIcon file={conversationFile} size={24} />}
                 header={
-                    <Tooltip content={conversationFile.name} relationship="label">
+                    <TooltipWrapper content={conversationFile.name}>
                         <Text truncate wrap={false} weight="semibold">
                             {conversationFile.name}
                         </Text>
-                    </Tooltip>
+                    </TooltipWrapper>
                 }
                 description={
                     <Caption1>

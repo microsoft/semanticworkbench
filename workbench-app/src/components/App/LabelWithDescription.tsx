@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Text, Tooltip } from '@fluentui/react-components';
+import { Text } from '@fluentui/react-components';
 import { QuestionCircle16Regular } from '@fluentui/react-icons';
 import React from 'react';
+import { TooltipWrapper } from './TooltipWrapper';
 
 interface LabelWithDescriptionProps {
     label: string;
@@ -16,9 +17,9 @@ export const LabelWithDescription: React.FC<LabelWithDescriptionProps> = (props)
         <div>
             <Text weight="semibold">{label}</Text>
             {description && (
-                <Tooltip content={description} relationship="description">
+                <TooltipWrapper content={description}>
                     <QuestionCircle16Regular fontWeight={100} />
-                </Tooltip>
+                </TooltipWrapper>
             )}
         </div>
     );

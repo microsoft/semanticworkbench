@@ -81,7 +81,7 @@ async def establish_mcp_sessions(tools_config: ToolsConfigModel, stack: AsyncExi
         client_session: ClientSession | None = await stack.enter_async_context(connect_to_mcp_server(server_config))
         if client_session:
             # Create an MCP session with the client session
-            mcp_session = MCPSession(name=server_config.key, client_session=client_session)
+            mcp_session = MCPSession(config=server_config, client_session=client_session)
             # Initialize the session to load tools, resources, etc.
             await mcp_session.initialize()
             # Add the session to the list of established sessions

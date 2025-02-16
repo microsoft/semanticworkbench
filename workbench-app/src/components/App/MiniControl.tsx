@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Card, Label, Tooltip, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { Card, Label, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { TooltipWrapper } from './TooltipWrapper';
 
 const useClasses = makeStyles({
     header: {
@@ -54,13 +55,7 @@ export const MiniControl: React.FC<MiniControlProps> = (props) => {
     return (
         <Card>
             <div className={classes.body}>
-                {tooltip ? (
-                    <Tooltip content={tooltip} relationship="label">
-                        {link}
-                    </Tooltip>
-                ) : (
-                    link
-                )}
+                {tooltip ? <TooltipWrapper content={tooltip}>{link}</TooltipWrapper> : link}
                 <div className={classes.actions}>{actions}</div>
             </div>
         </Card>

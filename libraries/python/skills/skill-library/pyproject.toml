@@ -17,6 +17,8 @@ dependencies = [
     "python-liquid>=1.12.1",
     "requests>=2.32.0",
     "tiktoken>=0.8.0",
+    "jsonschema>=4.23.0",
+    "bs4>=0.0.2",
 ]
 
 [dependency-groups]

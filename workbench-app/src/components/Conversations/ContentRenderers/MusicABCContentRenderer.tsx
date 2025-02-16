@@ -1,13 +1,14 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { generateUuid } from '@azure/ms-rest-js';
-import { Tooltip, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import { Info16Regular } from '@fluentui/react-icons';
 import abcjs from 'abcjs';
 import 'abcjs/abcjs-audio.css';
 import debug from 'debug';
 import React from 'react';
 import { Constants } from '../../../Constants';
+import { TooltipWrapper } from '../../App/TooltipWrapper';
 import './MusicABCContentRenderer.css';
 
 const log = debug(Constants.debug.root).extend('music-abc-content-renderer');
@@ -79,9 +80,9 @@ export const MusicABCContentRenderer: React.FC<MusicABCContentRendererProps> = (
             <div id={`abc-paper-${id}`} />
             <div id={`abc-midi-${id}`} className="abc-midi-link" />
             <div id={`abc-audio-${id}`} ref={abcAudioRef} className={classes.controller} />
-            <Tooltip content={content} relationship="description">
+            <TooltipWrapper content={content}>
                 <Info16Regular className={classes.infoButton} />
-            </Tooltip>
+            </TooltipWrapper>
         </div>
     );
 };

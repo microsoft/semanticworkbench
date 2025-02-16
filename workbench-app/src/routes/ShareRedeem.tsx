@@ -233,11 +233,7 @@ export const ShareRedeem: React.FC = () => {
             <ul>
                 {existingDuplicateConversations.map((conversation) => (
                     <li key={conversation.id}>
-                        <a
-                            href={`${window.location.origin}/${conversation.id}`}
-                        >
-                            {conversation.title}
-                        </a>
+                        <a href={`${window.location.origin}/${conversation.id}`}>{conversation.title}</a>
                     </li>
                 ))}
             </ul>

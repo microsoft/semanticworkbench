@@ -10,5 +10,18 @@
       "consoleTitle": "${workspaceFolderBasename}"
       //"justMyCode": false, // Set to false to debug external libraries
     }
+  ],
+  "compounds": [
+    {
+      "name": "assistants: codespace-assistant (for dev)",
+      "configurations": [
+        "assistants: codespace-assistant",
+        "app: semantic-workbench-app",
+        "service: semantic-workbench-service",
+        "mcp-servers: mcp-server-bing-search",
+        "mcp-servers: mcp-server-giphy",
+        "mcp-servers: mcp-server-open-deep-research"
+      ]
+    }
   ]
 }

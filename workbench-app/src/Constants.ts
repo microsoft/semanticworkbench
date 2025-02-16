@@ -1,8 +1,9 @@
 // Allow static build of React code to access env vars
 // SEE https://create-react-app.dev/docs/title-and-meta-tags/#injecting-data-from-the-server-into-the-page
-const serviceUrl = (window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL && window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL.startsWith('https://'))
-    ? window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL
-    : (import.meta.env.VITE_SEMANTIC_WORKBENCH_SERVICE_URL)
+const serviceUrl =
+    window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL && window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL.startsWith('https://')
+        ? window.VITE_SEMANTIC_WORKBENCH_SERVICE_URL
+        : import.meta.env.VITE_SEMANTIC_WORKBENCH_SERVICE_URL
         ? import.meta.env.VITE_SEMANTIC_WORKBENCH_SERVICE_URL
         : 'http://127.0.0.1:3000';
 

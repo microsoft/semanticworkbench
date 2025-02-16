@@ -18,7 +18,6 @@ import {
     Text,
     tokens,
     Toolbar,
-    Tooltip,
 } from '@fluentui/react-components';
 import {
     CheckboxCheckedFilled,
@@ -38,6 +37,7 @@ import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 import { useAppSelector } from '../../../redux/app/hooks';
+import { TooltipWrapper } from '../../App/TooltipWrapper';
 import { ConversationRemoveDialog } from '../../Conversations/ConversationRemove';
 
 const useClasses = makeStyles({
@@ -440,7 +440,7 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         () => (
             <Overflow padding={90}>
                 <Toolbar size="small">
-                    <Tooltip content="Mark selected conversations as read" relationship="label">
+                    <TooltipWrapper content="Mark selected conversations as read">
                         <Button
                             className={classes.toolbarTextButton}
                             appearance="transparent"
@@ -448,16 +448,16 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                             disabled={!enableBulkActions.read}
                             onClick={handleMarkAllAsReadForSelected}
                         />
-                    </Tooltip>
-                    <Tooltip content="Mark selected conversations as unread" relationship="label">
+                    </TooltipWrapper>
+                    <TooltipWrapper content="Mark selected conversations as unread">
                         <Button
                             appearance="transparent"
                             icon={<GlassesOffRegular />}
                             disabled={!enableBulkActions.unread}
                             onClick={handleMarkAsUnreadForSelected}
                         />
-                    </Tooltip>
-                    <Tooltip content="Remove selected conversations" relationship="label">
+                    </TooltipWrapper>
+                    <TooltipWrapper content="Remove selected conversations">
                         <Button
                             // hide this until implemented
                             style={{ display: 'none' }}
@@ -466,31 +466,31 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                             disabled={!enableBulkActions.remove}
                             onClick={handleRemoveForSelected}
                         />
-                    </Tooltip>
-                    <Tooltip content="Pin selected conversations" relationship="label">
+                    </TooltipWrapper>
+                    <TooltipWrapper content="Pin selected conversations">
                         <Button
                             appearance="subtle"
                             icon={<PinRegular />}
                             disabled={!enableBulkActions.pin}
                             onClick={handlePinForSelected}
                         />
-                    </Tooltip>
-                    <Tooltip content="Unpin selected conversations" relationship="label">
+                    </TooltipWrapper>
+                    <TooltipWrapper content="Unpin selected conversations">
                         <Button
                             appearance="subtle"
                             icon={<PinOffRegular />}
                             disabled={!enableBulkActions.unpin}
                             onClick={handleUnpinForSelected}
                         />
-                    </Tooltip>
-                    <Tooltip content="Remove selected conversations" relationship="label">
+                    </TooltipWrapper>
+                    <TooltipWrapper content="Remove selected conversations">
                         <Button
                             appearance="subtle"
                             icon={<PlugDisconnectedRegular />}
                             disabled={!enableBulkActions.remove}
                             onClick={handleRemoveForSelected}
                         />
-                    </Tooltip>
+                    </TooltipWrapper>
                 </Toolbar>
             </Overflow>
         ),

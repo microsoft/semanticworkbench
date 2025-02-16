@@ -1,16 +1,9 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import {
-    Button,
-    ButtonProps,
-    makeStyles,
-    mergeClasses,
-    tokens,
-    ToolbarButton,
-    Tooltip,
-} from '@fluentui/react-components';
+import { Button, ButtonProps, makeStyles, mergeClasses, tokens, ToolbarButton } from '@fluentui/react-components';
 import React from 'react';
 import { DialogControl, DialogControlContent } from './DialogControl';
+import { TooltipWrapper } from './TooltipWrapper';
 
 const useClasses = makeStyles({
     menuItem: {
@@ -56,11 +49,7 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
 
     if (dialogContent?.trigger) {
         if (description) {
-            commandButton = (
-                <Tooltip content={description} relationship="label">
-                    {dialogContent.trigger}
-                </Tooltip>
-            );
+            commandButton = <TooltipWrapper content={description}>{dialogContent.trigger}</TooltipWrapper>;
         } else {
             commandButton = dialogContent.trigger;
         }
@@ -81,7 +70,7 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
     } else if (iconOnly) {
         if (description) {
             commandButton = (
-                <Tooltip content={description} relationship="label">
+                <TooltipWrapper content={description}>
                     <Button
                         as={as}
                         className={className}
@@ -91,7 +80,7 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
                         icon={icon}
                         onClick={onClick}
                     />
-                </Tooltip>
+                </TooltipWrapper>
             );
         } else {
             commandButton = (
@@ -127,11 +116,7 @@ export const CommandButton: React.FC<CommandButtonProps> = (props) => {
             </Button>
         );
         if (description) {
-            commandButton = (
-                <Tooltip content={description} relationship="label">
-                    {commandButton}
-                </Tooltip>
-            );
+            commandButton = <TooltipWrapper content={description}>{commandButton}</TooltipWrapper>;
         }
     }
 

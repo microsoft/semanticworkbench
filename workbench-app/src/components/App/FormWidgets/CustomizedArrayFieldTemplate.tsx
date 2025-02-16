@@ -8,7 +8,6 @@ import {
     AccordionPanel,
     Button,
     Text,
-    Tooltip,
     makeStyles,
     shorthands,
     tokens,
@@ -16,6 +15,7 @@ import {
 import { Add16Regular, ArrowDown16Regular, ArrowUp16Regular, Delete16Regular } from '@fluentui/react-icons';
 import { ArrayFieldTemplateItemType, ArrayFieldTemplateProps, RJSFSchema } from '@rjsf/utils';
 import React from 'react';
+import { TooltipWrapper } from '../TooltipWrapper';
 
 const useClasses = makeStyles({
     heading: {
@@ -82,7 +82,7 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
                 {(hasRemove || hasMoveUp || hasMoveDown) && (
                     <div className={classes.itemActions}>
                         {hasRemove && (
-                            <Tooltip content="Delete item" relationship="description">
+                            <TooltipWrapper content="Delete item">
                                 <Button
                                     icon={<Delete16Regular />}
                                     appearance="outline"
@@ -92,10 +92,10 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
                                 >
                                     {iconsOnly ? null : 'Delete'}
                                 </Button>
-                            </Tooltip>
+                            </TooltipWrapper>
                         )}
                         {hasMoveUp && (
-                            <Tooltip content="Move item up" relationship="description">
+                            <TooltipWrapper content="Move item up">
                                 <Button
                                     icon={<ArrowUp16Regular />}
                                     appearance="outline"
@@ -105,10 +105,10 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
                                 >
                                     {iconsOnly ? null : 'Move Up'}
                                 </Button>
-                            </Tooltip>
+                            </TooltipWrapper>
                         )}
                         {hasMoveDown && (
-                            <Tooltip content="Move item down" relationship="description">
+                            <TooltipWrapper content="Move item down">
                                 <Button
                                     icon={<ArrowDown16Regular />}
                                     appearance="outline"
@@ -118,7 +118,7 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
                                 >
                                     {iconsOnly ? null : 'Move Down'}
                                 </Button>
-                            </Tooltip>
+                            </TooltipWrapper>
                         )}
                     </div>
                 )}
