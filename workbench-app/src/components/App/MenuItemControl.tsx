@@ -1,7 +1,8 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { ButtonProps, MenuItem, Tooltip } from '@fluentui/react-components';
+import { ButtonProps, MenuItem } from '@fluentui/react-components';
 import React from 'react';
+import { TooltipWrapper } from './TooltipWrapper';
 
 type MenuItemControlProps = ButtonProps & {
     label?: string;
@@ -18,9 +19,9 @@ export const MenuItemControl: React.FC<MenuItemControlProps> = (props) => {
     if (iconOnly) {
         if (description) {
             menuItem = (
-                <Tooltip content={description} relationship="label">
+                <TooltipWrapper content={description}>
                     <MenuItem disabled={disabled} icon={icon} onClick={onClick} />
-                </Tooltip>
+                </TooltipWrapper>
             );
         } else {
             menuItem = <MenuItem disabled={disabled} icon={icon} onClick={onClick} />;
@@ -32,11 +33,7 @@ export const MenuItemControl: React.FC<MenuItemControlProps> = (props) => {
             </MenuItem>
         );
         if (description) {
-            menuItem = (
-                <Tooltip content={description} relationship="label">
-                    {menuItem}
-                </Tooltip>
-            );
+            menuItem = <TooltipWrapper content={description}>{menuItem}</TooltipWrapper>;
         }
     }
     return menuItem;

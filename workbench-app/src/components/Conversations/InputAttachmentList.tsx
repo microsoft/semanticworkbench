@@ -1,10 +1,11 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { Attachment, AttachmentList, AttachmentProps } from '@fluentui-copilot/react-attachments';
-import { makeStyles, Tooltip } from '@fluentui/react-components';
+import { makeStyles } from '@fluentui/react-components';
 import debug from 'debug';
 import React from 'react';
 import { Constants } from '../../Constants';
+import { TooltipWrapper } from '../App/TooltipWrapper';
 import { ConversationFileIcon } from './ConversationFileIcon';
 
 const useClasses = makeStyles({
@@ -33,9 +34,9 @@ export const InputAttachmentList: React.FC<InputAttachmentProps> = (props) => {
         id: file.name,
         media: <ConversationFileIcon file={file} className={classes.media} />,
         children: (
-            <Tooltip content={file.name} relationship="label">
+            <TooltipWrapper content={file.name}>
                 <span>{file.name}</span>
-            </Tooltip>
+            </TooltipWrapper>
         ),
     }));
 

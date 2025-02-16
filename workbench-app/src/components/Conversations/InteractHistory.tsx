@@ -14,8 +14,9 @@ import { useConversationUtility } from '../../libs/useConversationUtility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
-import { MemoizedInteractMessage } from './InteractMessage';
+import { MemoizedInteractMessage } from './Message/InteractMessage';
 import { ParticipantStatus } from './ParticipantStatus';
+import { MemoizedToolResultMessage } from './ToolResult';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -38,10 +39,10 @@ const useClasses = makeStyles({
         ...shorthands.padding(0, tokens.spacingHorizontalM),
     },
     counter: {
-        ...shorthands.padding(0, tokens.spacingHorizontalXL),
+        ...shorthands.padding(tokens.spacingVerticalL, tokens.spacingHorizontalXXXL, 0),
     },
     status: {
-        ...shorthands.padding(0, tokens.spacingHorizontalM),
+        ...shorthands.padding(tokens.spacingVerticalL, tokens.spacingHorizontalXXXL, 0),
     },
 });
 
@@ -121,10 +122,6 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     (participant) => participant.id === message.sender.participantId,
                 );
                 if (!senderParticipant) {
-                    // throw new Error(
-                    //     `Participant not found: ${message.sender.participantId} in conversation ${conversation.id}`,
-                    // );
-
                     // if the sender participant is not found, do not render the message.
                     // this can happen temporarily if the provided conversation was just
                     // re-retrieved, but the participants have not been re-retrieved yet
@@ -134,49 +131,57 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         </div>
                     );
                 }
+
                 const date = Utility.toFormattedDateString(message.timestamp, 'M/D/YY');
                 let displayDate = false;
                 if (date !== lastDate) {
                     displayDate = true;
                     lastDate = date;
                 }
+
                 if (message.messageType === 'chat' && message.sender.participantRole !== 'user') {
                     generatedResponseCount += 1;
                 }
-                let hideParticipant = senderParticipant.role === 'service';
-                const messageTime = dayjs.utc(message.timestamp);
+
                 // avoid duplicate header for messages from the same participant, if the
                 // attribution is the same and the message is within a minute of the last
+                let hideParticipant = message.messageType !== 'chat';
+                const messageTime = dayjs.utc(message.timestamp);
                 if (
                     lastMessageInfo.participantId === senderParticipant.id &&
                     lastMessageInfo.attribution === message.metadata?.attribution &&
                     messageTime.diff(lastMessageInfo.time, 'minute') < 1
                 ) {
-                    // TODO: not the best user experience as we want to be able to
-                    // delete and edit messages and need to show that ux
-                    // hideParticipant = true;
+                    hideParticipant = true;
                 }
                 lastMessageInfo = {
                     participantId: senderParticipant.id,
                     attribution: message.metadata?.attribution,
                     time: messageTime,
                 };
+
+                // FIXME: add new message type in workbench service/app for tool results
+                const isToolResult = message.messageType === 'note' && message.metadata?.['tool_result'];
+
+                // Use memoized message components to prevent re-rendering all messages when one changes
+                const messageContent = isToolResult ? (
+                    <MemoizedToolResultMessage conversation={conversation} message={message} />
+                ) : (
+                    <MemoizedInteractMessage
+                        readOnly={readOnly}
+                        conversation={conversation}
+                        message={message}
+                        participant={senderParticipant}
+                        hideParticipant={hideParticipant}
+                        displayDate={displayDate}
+                        onRead={handleOnRead}
+                        onRewind={onRewindToBefore}
+                    />
+                );
+
                 return (
                     <div className={classes.item} key={message.id}>
-                        {/*
-                            Use the memoized interact message component to prevent re-rendering
-                            all messages when one message changes
-                        */}
-                        <MemoizedInteractMessage
-                            readOnly={readOnly}
-                            conversation={conversation}
-                            message={message}
-                            participant={senderParticipant}
-                            hideParticipant={hideParticipant}
-                            displayDate={displayDate}
-                            onRead={handleOnRead}
-                            onRewind={onRewindToBefore}
-                        />
+                        {messageContent}
                     </div>
                 );
             });
