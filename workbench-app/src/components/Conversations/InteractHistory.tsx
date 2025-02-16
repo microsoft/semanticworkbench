@@ -165,6 +165,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     time: messageTime,
                 };
 
+                // FIXME: add new message type for tool results
                 const isToolResult = message.messageType === 'note' && message.metadata?.['tool_result'];
 
                 // Use memoized message components to prevent re-rendering all messages when one changes
