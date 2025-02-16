@@ -2,7 +2,7 @@
 
 import { MessageBase } from './MessageBase';
 
-import { AiGeneratedDisclaimer, Timestamp } from '@fluentui-copilot/react-copilot';
+import { Timestamp } from '@fluentui-copilot/react-copilot';
 import {
     Divider,
     Popover,
@@ -20,12 +20,10 @@ import { Utility } from '../../../libs/Utility';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
-import { useGetConversationMessageDebugDataQuery } from '../../../services/workbench';
 
-import { AttachmentSection } from './AttachmentSection';
-import { ContentSafetyNotice } from './ContentSafetyNotice';
 import { MessageActions } from './MessageActions';
 import { MessageBody } from './MessageBody';
+import { MessageFooter } from './MessageFooter';
 import { MessageHeader } from './MessageHeader';
 
 const useClasses = makeStyles({
@@ -90,24 +88,12 @@ const useClasses = makeStyles({
     },
     userContent: {
         justifyContent: 'flex-end',
-        alignItems: 'flex-end', // Align user content to the right.
+        alignItems: 'flex-end',
         display: 'flex',
-    },
-    contentSafetyNotice: {
-        color: tokens.colorPaletteRedForeground1,
     },
     generated: {
         width: 'fit-content',
         marginTop: tokens.spacingVerticalS,
-    },
-    notice: {
-        width: 'fit-content',
-        fontSize: tokens.fontSizeBase200,
-        flexDirection: 'row',
-        color: tokens.colorNeutralForeground2,
-        gap: tokens.spacingHorizontalS,
-        alignItems: 'center',
-        ...shorthands.padding(tokens.spacingVerticalXS, tokens.spacingHorizontalS),
     },
     popoverContent: {
         display: 'flex',
@@ -132,20 +118,9 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead, onRewind } = props;
     const classes = useClasses();
     const { isMessageVisible, isUnread } = useConversationUtility();
-    const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
-    const {
-        data: debugData,
-        isLoading: isLoadingDebugData,
-        isUninitialized: isUninitializedDebugData,
-    } = useGetConversationMessageDebugDataQuery(
-        { conversationId: conversation.id, messageId: message.id },
-        { skip: skipDebugLoad },
-    );
 
     const isUser = participant.role === 'user';
-
     const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
-    const time = Utility.toFormattedDateString(message.timestamp, 'h:mm A');
 
     let rootClassName = classes.root;
     if (hideParticipant) {
@@ -165,9 +140,8 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
 
     const header = (
         <MessageHeader
+            message={message}
             participant={participant}
-            time={time}
-            attribution={message.metadata?.attribution}
             className={mergeClasses(classes.header, isUser ? classes.alignForUser : undefined)}
         />
     );
@@ -178,62 +152,14 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
             readOnly={readOnly}
             message={message}
             conversation={conversation}
-            debugData={debugData}
-            isLoadingDebugData={isLoadingDebugData}
-            isUninitializedDebugData={isUninitializedDebugData}
             onRewind={onRewind}
-            setSkipDebugLoad={setSkipDebugLoad}
         />
     );
 
-    const body = (
-        <>
-            <ContentSafetyNotice
-                contentSafety={message.metadata?.['content_safety']}
-                className={mergeClasses(classes.notice, classes.contentSafetyNotice)}
-            />
-            <MessageBody message={message} conversation={conversation} participant={participant} />
-        </>
-    );
+    const body = <MessageBody message={message} conversation={conversation} participant={participant} />;
 
-    const attachments = React.useMemo(() => {
-        if (message.filenames && message.filenames.length > 0) {
-            return <AttachmentSection filenames={message.filenames} className={classes.alignForUser} />;
-        }
-        return null;
-    }, [message.filenames, classes.alignForUser]);
+    const footer = <MessageFooter message={message} />;
 
-    // Calculate footer content from message metadata footer_items
-    const footerContent = React.useMemo(() => {
-        if (message.metadata?.['footer_items']) {
-            const footerItemsArray = Array.isArray(message.metadata['footer_items'])
-                ? message.metadata['footer_items']
-                : [message.metadata['footer_items']];
-            return (
-                <div className={classes.footer}>
-                    <AiGeneratedDisclaimer className={classes.generated}>
-                        AI-generated content may be incorrect
-                    </AiGeneratedDisclaimer>
-                    {footerItemsArray.map((item) => (
-                        <AiGeneratedDisclaimer key={item} className={classes.generated}>
-                            {item}
-                        </AiGeneratedDisclaimer>
-                    ))}
-                </div>
-            );
-        }
-        return null;
-    }, [message.metadata, classes.footer, classes.generated]);
-
-    // Compose footer from multiple pieces if necessary
-    const footer = (
-        <>
-            {attachments}
-            {footerContent}
-        </>
-    );
-
-    // Compose all parts using MessageBase
     const composedMessage = <MessageBase header={header} body={body} actions={actions} footer={footer} />;
 
     return (

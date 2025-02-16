@@ -1,5 +1,8 @@
 import { makeStyles, mergeClasses } from '@fluentui/react-components';
 import React from 'react';
+import { Conversation } from '../../../models/Conversation';
+import { ConversationMessage } from '../../../models/ConversationMessage';
+import { useGetConversationMessageDebugDataQuery } from '../../../services/workbench';
 import { CopyButton } from '../../App/CopyButton';
 import { DebugInspector } from '../DebugInspector';
 import { MessageDelete } from '../MessageDelete';
@@ -17,27 +20,23 @@ const useClasses = makeStyles({
 interface MessageActionsProps {
     className?: string;
     readOnly: boolean;
-    message: any;
-    conversation: any;
-    debugData: any;
-    isLoadingDebugData: boolean;
-    isUninitializedDebugData: boolean;
-    onRewind?: (message: any, redo: boolean) => void;
-    setSkipDebugLoad: React.Dispatch<React.SetStateAction<boolean>>;
+    message: ConversationMessage;
+    conversation: Conversation;
+    onRewind?: (message: ConversationMessage, redo: boolean) => void;
 }
 
 export const MessageActions: React.FC<MessageActionsProps> = (props) => {
+    const { className, readOnly, message, conversation, onRewind } = props;
+
+    const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
     const {
-        className,
-        readOnly,
-        message,
-        conversation,
-        debugData,
-        isLoadingDebugData,
-        isUninitializedDebugData,
-        onRewind,
-        setSkipDebugLoad,
-    } = props;
+        data: debugData,
+        isLoading: isLoadingDebugData,
+        isUninitialized: isUninitializedDebugData,
+    } = useGetConversationMessageDebugDataQuery(
+        { conversationId: conversation.id, messageId: message.id },
+        { skip: skipDebugLoad },
+    );
 
     const classes = useClasses();
 

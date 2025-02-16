@@ -2,18 +2,22 @@ import { Timestamp } from '@fluentui-copilot/react-copilot';
 import { Persona, Text } from '@fluentui/react-components';
 import React from 'react';
 import { useParticipantUtility } from '../../../libs/useParticipantUtility';
+import { Utility } from '../../../libs/Utility';
+import { ConversationMessage } from '../../../models/ConversationMessage';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
 
 interface HeaderProps {
+    message: ConversationMessage;
     participant: ConversationParticipant;
-    time: string;
-    attribution?: string;
     className?: string;
 }
 
 export const MessageHeader: React.FC<HeaderProps> = (props) => {
-    const { participant, time, attribution, className } = props;
+    const { message, participant, className } = props;
     const { getAvatarData } = useParticipantUtility();
+
+    const time = Utility.toFormattedDateString(message.timestamp, 'h:mm A');
+    const attribution = message.metadata?.['attribution'];
 
     return (
         <div className={className}>
