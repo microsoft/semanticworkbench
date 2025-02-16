@@ -61,10 +61,10 @@ async def handle_completion(
     # get the total tokens used for the completion
     total_tokens = completion.usage.total_tokens if completion.usage else 0
 
-    response_content: list[str] = []
+    content: str = ""
 
     if (completion.choices[0].message.content is not None) and (completion.choices[0].message.content.strip() != ""):
-        response_content.append(completion.choices[0].message.content)
+        content = completion.choices[0].message.content
 
     # check if the completion has tool calls
     tool_calls: list[ToolCall] = []
@@ -79,14 +79,11 @@ async def handle_completion(
             )
             for tool_call in completion.choices[0].message.tool_calls
         ])
-        if ai_context is not None and ai_context.strip() != "":
-            response_content.append(ai_context)
-        else:
-            response_content.append(
-                f"[Assistant is calling tools: {', '.join([tool_call.name for tool_call in tool_calls])}]"
-            )
-
-    content = "\n\n".join(response_content)
+        if content is None:
+            if ai_context is not None and ai_context.strip() != "":
+                content = ai_context
+            # else:
+            #     content = f"[Assistant is calling tools: {', '.join([tool_call.name for tool_call in tool_calls])}]"
 
     # update the metadata with debug information
     deepmerge.always_merger.merge(

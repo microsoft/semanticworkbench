@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 
 import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
-import { ConversationParticipant } from '../../../models/ConversationParticipant';
 
 import { ContentRenderer } from './ContentRenderer';
 import { ContentSafetyNotice } from './ContentSafetyNotice';
@@ -13,16 +12,15 @@ import { ContentSafetyNotice } from './ContentSafetyNotice';
 interface InteractMessageProps {
     conversation: Conversation;
     message: ConversationMessage;
-    participant: ConversationParticipant;
 }
 
 export const MessageBody: React.FC<InteractMessageProps> = (props) => {
-    const { conversation, message, participant } = props;
+    const { conversation, message } = props;
 
     const body = (
         <>
             <ContentSafetyNotice contentSafety={message.metadata?.['content_safety']} />
-            <ContentRenderer conversation={conversation} message={message} participant={participant} />
+            <ContentRenderer conversation={conversation} message={message} />
         </>
     );
 

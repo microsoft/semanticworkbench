@@ -16,7 +16,7 @@ import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { MemoizedInteractMessage } from './Message/InteractMessage';
 import { ParticipantStatus } from './ParticipantStatus';
-import { MemoizedToolResultMessage } from './ToolResultMessage';
+import { MemoizedToolResultMessage } from './ToolResult';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -36,10 +36,11 @@ const useClasses = makeStyles({
     },
     item: {
         lineHeight: tokens.lineHeightBase400,
-        ...shorthands.padding(0, tokens.spacingHorizontalM),
+        ...shorthands.padding(0, 0, 0, tokens.spacingHorizontalM),
     },
     counter: {
-        ...shorthands.padding(0, tokens.spacingHorizontalXL),
+        ...shorthands.margin(tokens.spacingVerticalL, tokens.spacingHorizontalXXXL, 0),
+        ...shorthands.padding(0, tokens.spacingHorizontalL),
     },
     status: {
         ...shorthands.padding(0, tokens.spacingHorizontalM),
@@ -146,7 +147,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                 if (message.messageType === 'chat' && message.sender.participantRole !== 'user') {
                     generatedResponseCount += 1;
                 }
-                let hideParticipant = senderParticipant.role === 'service';
+                let hideParticipant = message.messageType !== 'chat';
                 const messageTime = dayjs.utc(message.timestamp);
                 // avoid duplicate header for messages from the same participant, if the
                 // attribution is the same and the message is within a minute of the last
@@ -157,7 +158,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                 ) {
                     // TODO: not the best user experience as we want to be able to
                     // delete and edit messages and need to show that ux
-                    // hideParticipant = true;
+                    hideParticipant = true;
                 }
                 lastMessageInfo = {
                     participantId: senderParticipant.id,

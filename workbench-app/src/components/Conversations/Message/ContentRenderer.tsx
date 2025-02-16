@@ -1,5 +1,4 @@
-import { CopilotMessage, SystemMessage, UserMessage } from '@fluentui-copilot/react-copilot';
-import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { SystemMessage } from '@fluentui-copilot/react-copilot';
 import {
     AlertUrgent24Regular,
     KeyCommandRegular,
@@ -9,33 +8,15 @@ import {
 import React from 'react';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
-import { ConversationParticipant } from '../../../models/ConversationParticipant';
 import { MessageContent } from './MessageContent';
-
-const useClasses = makeStyles({
-    noteContent: {
-        backgroundColor: tokens.colorNeutralBackground3,
-        borderRadius: tokens.borderRadiusMedium,
-        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalS),
-        ...shorthands.border('none'),
-        ...shorthands.margin(0),
-    },
-    innerContent: {
-        maxWidth: '100%',
-    },
-});
 
 interface ContentRendererProps {
     conversation: Conversation;
     message: ConversationMessage;
-    participant: ConversationParticipant;
 }
 
 export const ContentRenderer: React.FC<ContentRendererProps> = (props) => {
-    const { conversation, message, participant } = props;
-    const classes = useClasses();
-
-    const isUser = participant.role === 'user';
+    const { conversation, message } = props;
 
     const messageContent = <MessageContent message={message} conversation={conversation} />;
 
@@ -44,15 +25,9 @@ export const ContentRenderer: React.FC<ContentRendererProps> = (props) => {
         message.messageType === 'note' ||
         message.messageType === 'command' ||
         message.messageType === 'command-response' ? (
-            <NoticeRenderer
-                content={messageContent}
-                innerClassName={classes.innerContent}
-                className={classes.noteContent}
-            />
-        ) : isUser ? (
-            <UserMessage>{messageContent}</UserMessage>
+            <NoticeRenderer content={messageContent} messageType={message.messageType} />
         ) : (
-            <CopilotMessage>{messageContent}</CopilotMessage>
+            messageContent
         );
 
     return renderedContent;
@@ -60,15 +35,14 @@ export const ContentRenderer: React.FC<ContentRendererProps> = (props) => {
 
 interface MessageRendererProps {
     content: JSX.Element;
-    className?: string;
-    innerClassName?: string;
+    messageType: string;
 }
 
 const NoticeRenderer: React.FC<MessageRendererProps> = (props) => {
-    const { content, className, innerClassName } = props;
+    const { content, messageType } = props;
 
     let icon = null;
-    switch (className) {
+    switch (messageType) {
         case 'notice':
             icon = <AlertUrgent24Regular />;
             break;
@@ -86,10 +60,8 @@ const NoticeRenderer: React.FC<MessageRendererProps> = (props) => {
     }
 
     return (
-        <div className={className}>
-            <SystemMessage className={innerClassName} icon={icon} message={content}>
-                {content}
-            </SystemMessage>
-        </div>
+        <SystemMessage icon={icon} message={content}>
+            {content}
+        </SystemMessage>
     );
 };

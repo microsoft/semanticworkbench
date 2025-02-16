@@ -9,7 +9,6 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'column',
         gap: tokens.spacingVerticalS,
-        marginTop: tokens.spacingVerticalS,
     },
 });
 

@@ -1,4 +1,4 @@
-import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 
 const useClasses = makeStyles({
@@ -19,6 +19,7 @@ const useClasses = makeStyles({
 });
 
 interface MessageBaseProps {
+    className?: string;
     header: React.ReactNode;
     body: React.ReactNode;
     actions?: React.ReactNode;
@@ -26,14 +27,14 @@ interface MessageBaseProps {
 }
 
 export const MessageBase: React.FC<MessageBaseProps> = (props) => {
-    const { header, body, actions, footer } = props;
+    const { className, header, body, actions, footer } = props;
     const classes = useClasses();
 
     return (
-        <div className={classes.root}>
+        <div className={mergeClasses(classes.root, className)}>
             {header}
-            {actions && <div className={classes.actions}>{actions}</div>}
             <div className={classes.body}>{body}</div>
+            {actions && <div className={classes.actions}>{actions}</div>}
             {footer}
         </div>
     );

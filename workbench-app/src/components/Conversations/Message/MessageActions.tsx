@@ -1,4 +1,4 @@
-import { makeStyles, mergeClasses } from '@fluentui/react-components';
+import { makeStyles } from '@fluentui/react-components';
 import React from 'react';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
@@ -13,12 +13,11 @@ const useClasses = makeStyles({
     root: {
         display: 'flex',
         flexDirection: 'row',
-        width: '100%',
+        flexShrink: 1,
     },
 });
 
 interface MessageActionsProps {
-    className?: string;
     readOnly: boolean;
     message: ConversationMessage;
     conversation: Conversation;
@@ -26,7 +25,7 @@ interface MessageActionsProps {
 }
 
 export const MessageActions: React.FC<MessageActionsProps> = (props) => {
-    const { className, readOnly, message, conversation, onRewind } = props;
+    const { readOnly, message, conversation, onRewind } = props;
 
     const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
     const {
@@ -41,7 +40,7 @@ export const MessageActions: React.FC<MessageActionsProps> = (props) => {
     const classes = useClasses();
 
     return (
-        <div className={mergeClasses(classes.root, className)}>
+        <div className={classes.root}>
             {!readOnly && <MessageLink conversation={conversation} messageId={message.id} />}
             <DebugInspector
                 debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}

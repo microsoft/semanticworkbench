@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { AiGeneratedDisclaimer } from '@fluentui-copilot/react-copilot';
-import { makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
 
 import { ConversationMessage } from '../../../models/ConversationMessage';
@@ -19,7 +19,6 @@ const useClasses = makeStyles({
         flexDirection: 'row',
         gap: tokens.spacingHorizontalS,
         alignItems: 'center',
-        ...shorthands.padding(0, tokens.spacingHorizontalS),
     },
     generated: {
         width: 'fit-content',
@@ -49,9 +48,6 @@ export const MessageFooter: React.FC<MessageFooterProps> = (props) => {
                 : [message.metadata['footer_items']];
             return (
                 <div className={classes.footer}>
-                    <AiGeneratedDisclaimer className={classes.generated}>
-                        AI-generated content may be incorrect
-                    </AiGeneratedDisclaimer>
                     {footerItemsArray.map((item) => (
                         <AiGeneratedDisclaimer key={item} className={classes.generated}>
                             {item}

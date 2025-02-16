@@ -2,17 +2,8 @@
 
 import { MessageBase } from './MessageBase';
 
-import { Timestamp } from '@fluentui-copilot/react-copilot';
-import {
-    Divider,
-    Popover,
-    PopoverSurface,
-    PopoverTrigger,
-    makeStyles,
-    mergeClasses,
-    shorthands,
-    tokens,
-} from '@fluentui/react-components';
+import { CopilotMessageV2, Timestamp, UserMessageV2 } from '@fluentui-copilot/react-copilot';
+import { Divider, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
 import React from 'react';
 
 import { useConversationUtility } from '../../../libs/useConversationUtility';
@@ -21,6 +12,8 @@ import { Conversation } from '../../../models/Conversation';
 import { ConversationMessage } from '../../../models/ConversationMessage';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
 
+import { ParticipantAvatar } from '../ParticipantAvatar';
+import { ToolCalls } from '../ToolCalls';
 import { MessageActions } from './MessageActions';
 import { MessageBody } from './MessageBody';
 import { MessageFooter } from './MessageFooter';
@@ -30,16 +23,37 @@ const useClasses = makeStyles({
     root: {
         display: 'flex',
         flexDirection: 'column',
+        gap: tokens.spacingVerticalM,
         width: '100%',
         boxSizing: 'border-box',
-        ...shorthands.padding(tokens.spacingVerticalL, 0, 0, 0),
+        marginTop: tokens.spacingVerticalL,
+
+        '.userMessage + .userMessage': {
+            marginTop: 0,
+        },
+
+        '.assistantMessage + .assistantMessage': {
+            marginTop: 0,
+        },
     },
     alignForUser: {
         justifyContent: 'flex-end',
         alignItems: 'flex-end',
     },
-    hideParticipantRoot: {
-        paddingTop: 0,
+    hideParticipant: {
+        paddingLeft: tokens.spacingHorizontalXXL,
+
+        '> .fai-CopilotMessage__avatar': {
+            display: 'none',
+        },
+
+        '> .fai-CopilotMessage__name': {
+            display: 'none',
+        },
+
+        '> .fai-CopilotMessage__disclaimer': {
+            display: 'none',
+        },
     },
     header: {
         display: 'flex',
@@ -49,57 +63,29 @@ const useClasses = makeStyles({
         ...shorthands.padding(0, 0, 0, tokens.spacingHorizontalS),
         gap: tokens.spacingHorizontalS,
     },
-    noteContent: {
-        backgroundColor: tokens.colorNeutralBackground3,
-        borderRadius: tokens.borderRadiusMedium,
-        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalS),
-        ...shorthands.border('none'),
-        ...shorthands.margin(0),
+    note: {
+        marginLeft: tokens.spacingHorizontalXXXL,
     },
-    noticeContent: {
-        borderRadius: tokens.borderRadiusMedium,
-        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalS),
-        ...shorthands.border('none'),
-        ...shorthands.margin(0),
-    },
-    innerContent: {
-        maxWidth: '100%',
-    },
-    renderedContent: {
+    user: {
         display: 'flex',
         flexDirection: 'column',
-        width: 'fit-content',
-        gap: tokens.spacingVerticalM,
-    },
-    actions: {
-        display: 'flex',
-        flexDirection: 'row',
-        gap: tokens.spacingHorizontalS,
-        alignItems: 'center',
-        ...shorthands.padding(tokens.spacingVerticalXXS, 0, tokens.spacingVerticalXXS, tokens.spacingHorizontalS),
-    },
-    footer: {
-        display: 'flex',
-        color: tokens.colorNeutralForeground3,
-        flexDirection: 'row',
-        gap: tokens.spacingHorizontalS,
-        alignItems: 'center',
-        ...shorthands.padding(0, tokens.spacingHorizontalS),
-    },
-    userContent: {
-        justifyContent: 'flex-end',
+        gap: tokens.spacingVerticalS,
         alignItems: 'flex-end',
-        display: 'flex',
     },
-    generated: {
-        width: 'fit-content',
-        marginTop: tokens.spacingVerticalS,
+    userMessage: {},
+    userContent: {
+        ...shorthands.padding(0, 0, 0, tokens.spacingHorizontalL),
     },
-    popoverContent: {
-        display: 'flex',
-        flexDirection: 'row',
-        gap: tokens.spacingHorizontalS,
-        alignItems: 'center',
+    assistantMessage: {},
+    assistantContent: {
+        gridTemplateColumns: 'max-content max-content 1fr',
+        rowGap: 0,
+        maxWidth: 'unset',
+
+        '> .fai-CopilotMessage__content': {
+            width: '100%',
+            ...shorthands.margin(tokens.spacingVerticalM, 0),
+        },
     },
 });
 
@@ -122,14 +108,6 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const isUser = participant.role === 'user';
     const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
 
-    let rootClassName = classes.root;
-    if (hideParticipant) {
-        rootClassName = mergeClasses(classes.root, classes.hideParticipantRoot);
-    }
-    if (isUser) {
-        rootClassName = mergeClasses(rootClassName, classes.alignForUser, classes.userContent);
-    }
-
     React.useEffect(() => {
         // Check if the message is visible and unread. If so, trigger the onRead handler to mark it read.
         // If the message is visible, mark it as read by invoking the onRead handler.
@@ -138,7 +116,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         }
     }, [isMessageVisible, isUnread, message.timestamp, onRead, conversation, message]);
 
-    const header = (
+    const header = hideParticipant ? null : (
         <MessageHeader
             message={message}
             participant={participant}
@@ -147,40 +125,47 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     );
 
     const actions = (
-        <MessageActions
-            className={isUser ? classes.alignForUser : undefined}
-            readOnly={readOnly}
-            message={message}
-            conversation={conversation}
-            onRewind={onRewind}
-        />
+        <MessageActions readOnly={readOnly} message={message} conversation={conversation} onRewind={onRewind} />
     );
 
-    const body = <MessageBody message={message} conversation={conversation} participant={participant} />;
+    const body = <MessageBody message={message} conversation={conversation} />;
 
     const footer = <MessageFooter message={message} />;
 
-    const composedMessage = <MessageBase header={header} body={body} actions={actions} footer={footer} />;
+    const composedMessage =
+        participant.role === 'assistant' ? (
+            <CopilotMessageV2
+                className={mergeClasses(
+                    classes.assistantContent,
+                    hideParticipant ? classes.hideParticipant : undefined,
+                )}
+                avatar={<ParticipantAvatar hideName participant={participant} />}
+                name={participant.name}
+                actions={actions}
+                footnote={footer}
+            >
+                {body}
+                <ToolCalls message={message} />
+            </CopilotMessageV2>
+        ) : !hideParticipant ? (
+            <div className={classes.user}>
+                {header}
+                <UserMessageV2 className={classes.userContent}>{body}</UserMessageV2>
+                {actions}
+                {footer}
+            </div>
+        ) : (
+            <MessageBase className={classes.note} header={header} body={body} footer={footer} />
+        );
 
     return (
-        <div className={rootClassName}>
+        <div className={mergeClasses(classes.root, isUser ? classes.userMessage : classes.assistantMessage)}>
             {displayDate && (
                 <Divider>
                     <Timestamp>{date}</Timestamp>
                 </Divider>
             )}
-            {hideParticipant || (message.messageType === 'notice' && isUser) ? (
-                <Popover openOnHover withArrow positioning="before">
-                    <PopoverTrigger>
-                        <div className={classes.renderedContent}>{composedMessage}</div>
-                    </PopoverTrigger>
-                    <PopoverSurface>
-                        <div className={classes.popoverContent}>{actions}</div>
-                    </PopoverSurface>
-                </Popover>
-            ) : (
-                composedMessage
-            )}
+            {composedMessage}
         </div>
     );
 };

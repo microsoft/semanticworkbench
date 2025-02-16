@@ -1,3 +1,4 @@
+import { ReferenceV2 } from '@fluentui-copilot/react-copilot';
 import {
     Accordion,
     AccordionHeader,
@@ -5,6 +6,7 @@ import {
     AccordionPanel,
     makeStyles,
     shorthands,
+    Text,
     tokens,
 } from '@fluentui/react-components';
 import { Toolbox24Regular } from '@fluentui/react-icons';
@@ -14,41 +16,45 @@ import { ConversationMessage } from '../../models/ConversationMessage';
 import { MessageContent } from './Message/MessageContent';
 
 const useClasses = makeStyles({
-    noteContent: {
+    root: {
         backgroundColor: tokens.colorNeutralBackground3,
         borderRadius: tokens.borderRadiusMedium,
-        ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalS),
         ...shorthands.border('none'),
-        ...shorthands.margin(0),
+        ...shorthands.margin(tokens.spacingVerticalM, 0, tokens.spacingVerticalM, tokens.spacingHorizontalXXXL),
     },
-    innerContent: {
-        maxWidth: '100%',
+    header: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: tokens.spacingHorizontalS,
     },
 });
 
-interface ToolResultMessageProps {
+interface ToolResultProps {
     conversation: Conversation;
     message: ConversationMessage;
 }
 
-export const ToolResultMessage: React.FC<ToolResultMessageProps> = (props) => {
+export const ToolResult: React.FC<ToolResultProps> = (props) => {
     const { conversation, message } = props;
     const classes = useClasses();
 
     const toolCallId = message.metadata?.['tool_result']?.['tool_call_id'] as string;
-    const toolCalls: { id: string; name: string }[] = message.metadata?.['tool_calls'] as {
-        id: string;
-        name: string;
-    }[];
+    const toolCalls: { id: string; name: string }[] = message.metadata?.['tool_calls'];
     const toolName = toolCalls?.find((toolCall) => toolCall.id === toolCallId)?.name;
 
     const messageContent = <MessageContent message={message} conversation={conversation} />;
 
     return (
-        <div className={classes.noteContent}>
+        <div className={classes.root}>
             <Accordion collapsible>
                 <AccordionItem value="1">
-                    <AccordionHeader icon={<Toolbox24Regular />}>Tools call result for `{toolName}`</AccordionHeader>
+                    <AccordionHeader icon={<Toolbox24Regular />}>
+                        <div className={classes.header}>
+                            <Text>Tools call result</Text>
+                            <ReferenceV2>{toolName}</ReferenceV2>
+                        </div>
+                    </AccordionHeader>
                     <AccordionPanel>{messageContent}</AccordionPanel>
                 </AccordionItem>
             </Accordion>
@@ -56,4 +62,4 @@ export const ToolResultMessage: React.FC<ToolResultMessageProps> = (props) => {
     );
 };
 
-export const MemoizedToolResultMessage = React.memo(ToolResultMessage);
+export const MemoizedToolResultMessage = React.memo(ToolResult);
