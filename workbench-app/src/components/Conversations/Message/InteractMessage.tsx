@@ -26,7 +26,11 @@ const useClasses = makeStyles({
         gap: tokens.spacingVerticalM,
         width: '100%',
         boxSizing: 'border-box',
-        marginTop: tokens.spacingVerticalL,
+        paddingTop: tokens.spacingVerticalXXXL,
+
+        '&.no-header': {
+            paddingTop: 0,
+        },
     },
     alignForUser: {
         justifyContent: 'flex-end',
@@ -155,7 +159,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         );
 
     return (
-        <div className={classes.root}>
+        <div className={mergeClasses(classes.root, hideParticipant ? 'no-header' : undefined)}>
             {displayDate && (
                 <Divider>
                     <Timestamp>{date}</Timestamp>

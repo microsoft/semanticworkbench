@@ -39,12 +39,10 @@ const useClasses = makeStyles({
         ...shorthands.padding(0, tokens.spacingHorizontalM),
     },
     counter: {
-        ...shorthands.margin(tokens.spacingVerticalL, tokens.spacingHorizontalXXXL, 0),
-        ...shorthands.padding(0, tokens.spacingHorizontalL),
+        ...shorthands.padding(tokens.spacingVerticalL, tokens.spacingHorizontalXXXL, 0),
     },
     status: {
-        ...shorthands.margin(0, tokens.spacingHorizontalXXL),
-        ...shorthands.padding(0, tokens.spacingHorizontalL),
+        ...shorthands.padding(tokens.spacingVerticalL, tokens.spacingHorizontalXXXL, 0),
     },
 });
 
@@ -124,10 +122,6 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     (participant) => participant.id === message.sender.participantId,
                 );
                 if (!senderParticipant) {
-                    // throw new Error(
-                    //     `Participant not found: ${message.sender.participantId} in conversation ${conversation.id}`,
-                    // );
-
                     // if the sender participant is not found, do not render the message.
                     // this can happen temporarily if the provided conversation was just
                     // re-retrieved, but the participants have not been re-retrieved yet
@@ -139,26 +133,27 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         </>
                     );
                 }
+
                 const date = Utility.toFormattedDateString(message.timestamp, 'M/D/YY');
                 let displayDate = false;
                 if (date !== lastDate) {
                     displayDate = true;
                     lastDate = date;
                 }
+
                 if (message.messageType === 'chat' && message.sender.participantRole !== 'user') {
                     generatedResponseCount += 1;
                 }
-                let hideParticipant = message.messageType !== 'chat';
-                const messageTime = dayjs.utc(message.timestamp);
+
                 // avoid duplicate header for messages from the same participant, if the
                 // attribution is the same and the message is within a minute of the last
+                let hideParticipant = message.messageType !== 'chat';
+                const messageTime = dayjs.utc(message.timestamp);
                 if (
                     lastMessageInfo.participantId === senderParticipant.id &&
                     lastMessageInfo.attribution === message.metadata?.attribution &&
                     messageTime.diff(lastMessageInfo.time, 'minute') < 1
                 ) {
-                    // TODO: not the best user experience as we want to be able to
-                    // delete and edit messages and need to show that ux
                     hideParticipant = true;
                 }
                 lastMessageInfo = {
@@ -167,7 +162,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     time: messageTime,
                 };
 
-                // FIXME: add new message type for tool results
+                // FIXME: add new message type in workbench service/app for tool results
                 const isToolResult = message.messageType === 'note' && message.metadata?.['tool_result'];
 
                 // Use memoized message components to prevent re-rendering all messages when one changes
