@@ -16,6 +16,7 @@ import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { MemoizedInteractMessage } from './Message/InteractMessage';
 import { ParticipantStatus } from './ParticipantStatus';
+import { MemoizedToolResultMessage } from './ToolResultMessage';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -163,22 +164,28 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                     attribution: message.metadata?.attribution,
                     time: messageTime,
                 };
+
+                const isToolResult = message.messageType === 'note' && message.metadata?.['tool_result'];
+
+                // Use memoized message components to prevent re-rendering all messages when one changes
+                const messageContent = isToolResult ? (
+                    <MemoizedToolResultMessage conversation={conversation} message={message} />
+                ) : (
+                    <MemoizedInteractMessage
+                        readOnly={readOnly}
+                        conversation={conversation}
+                        message={message}
+                        participant={senderParticipant}
+                        hideParticipant={hideParticipant}
+                        displayDate={displayDate}
+                        onRead={handleOnRead}
+                        onRewind={onRewindToBefore}
+                    />
+                );
+
                 return (
                     <div className={classes.item} key={message.id}>
-                        {/*
-                            Use the memoized interact message component to prevent re-rendering
-                            all messages when one message changes
-                        */}
-                        <MemoizedInteractMessage
-                            readOnly={readOnly}
-                            conversation={conversation}
-                            message={message}
-                            participant={senderParticipant}
-                            hideParticipant={hideParticipant}
-                            displayDate={displayDate}
-                            onRead={handleOnRead}
-                            onRewind={onRewindToBefore}
-                        />
+                        {messageContent}
                     </div>
                 );
             });
