@@ -66,7 +66,7 @@ const useClasses = makeStyles({
         alignItems: 'flex-end',
     },
     userContent: {
-        ...shorthands.padding(0, 0, 0, tokens.spacingHorizontalL),
+        ...shorthands.padding(0, 0, 0, tokens.spacingHorizontalXXXL),
     },
     assistantContent: {
         gridTemplateColumns: 'max-content max-content 1fr',
