@@ -1,4 +1,3 @@
-import { ReferenceV2 } from '@fluentui-copilot/react-copilot';
 import {
     Accordion,
     AccordionHeader,
@@ -12,6 +11,7 @@ import {
 import { Toolbox24Regular } from '@fluentui/react-icons';
 import React from 'react';
 import { ConversationMessage } from '../../models/ConversationMessage';
+import { CodeLabel } from '../App/CodeLabel';
 
 const useClasses = makeStyles({
     root: {
@@ -58,7 +58,8 @@ export const ToolCalls: React.FC<ToolCallsProps> = (props) => {
                         <AccordionItem value="1">
                             <AccordionHeader icon={<Toolbox24Regular />}>
                                 <div className={classes.header}>
-                                    <Text>Calling tool</Text> <ReferenceV2>{toolName}</ReferenceV2>
+                                    <Text>Calling tool</Text>
+                                    <CodeLabel>{toolName}</CodeLabel>
                                 </div>
                             </AccordionHeader>
                             <AccordionPanel>{content}</AccordionPanel>

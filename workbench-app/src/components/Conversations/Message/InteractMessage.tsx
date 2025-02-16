@@ -27,14 +27,6 @@ const useClasses = makeStyles({
         width: '100%',
         boxSizing: 'border-box',
         marginTop: tokens.spacingVerticalL,
-
-        '.userMessage + .userMessage': {
-            marginTop: 0,
-        },
-
-        '.assistantMessage + .assistantMessage': {
-            marginTop: 0,
-        },
     },
     alignForUser: {
         justifyContent: 'flex-end',
@@ -64,7 +56,8 @@ const useClasses = makeStyles({
         gap: tokens.spacingHorizontalS,
     },
     note: {
-        marginLeft: tokens.spacingHorizontalXXXL,
+        boxSizing: 'border-box',
+        paddingLeft: tokens.spacingHorizontalXXXL,
     },
     user: {
         display: 'flex',
@@ -72,11 +65,9 @@ const useClasses = makeStyles({
         gap: tokens.spacingVerticalS,
         alignItems: 'flex-end',
     },
-    userMessage: {},
     userContent: {
         ...shorthands.padding(0, 0, 0, tokens.spacingHorizontalL),
     },
-    assistantMessage: {},
     assistantContent: {
         gridTemplateColumns: 'max-content max-content 1fr',
         rowGap: 0,
@@ -159,7 +150,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
         );
 
     return (
-        <div className={mergeClasses(classes.root, isUser ? classes.userMessage : classes.assistantMessage)}>
+        <div className={classes.root}>
             {displayDate && (
                 <Divider>
                     <Timestamp>{date}</Timestamp>
