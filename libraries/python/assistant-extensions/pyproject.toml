@@ -1,11 +1,8 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [project]
 name = "assistant-extensions"
 version = "0.1.0"
-description = "Add your description here"
+description = "Extensions for the Semantic Workbench OpenAI assistant."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,14 +17,24 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-attachments = ["docx2txt>=0.8", "pdfplumber>=0.11.2", "assistant-drive>=0.1.0"]
+# For any of the above dependencies that are specific to a single extension, it'd be good
+# to consider moving them to the optional-dependencies section. This way, the dependencies
+# are only installed when the specific extension is installed, to reduce the overall size
+# of the package installation, especially when bundling larger dependencies.
+attachments = ["docx2txt>=0.8", "pdfplumber>=0.11.2"]
+mcp = ["mcp>=1.2.1", "mcp-extensions[openai]>=0.1.0"]
 
 [dependency-groups]
 dev = ["pyright>=1.1.389", "pytest>=8.3.1", "pytest-asyncio>=0.23.8"]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [tool.uv.sources]
 anthropic-client = { path = "../anthropic-client", editable = true }
 assistant-drive = { path = "../assistant-drive", editable = true }
+mcp-extensions = { path = "../mcp-extensions", editable = true }
 openai-client = { path = "../openai-client", editable = true }
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
 

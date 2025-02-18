@@ -6,15 +6,11 @@ authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=0.40.0",
-    "anthropic-client>=0.1.0",
     "assistant-drive>=0.1.0",
-    "assistant-extensions[attachments]>=0.1.0",
+    "assistant-extensions[attachments, mcp]>=0.1.0",
+    "mcp-extensions[openai]>=0.1.0",
     "content-safety>=0.1.0",
     "deepmerge>=2.0",
-    "html2docx>=1.6.0",
-    "markdown>=3.6",
-    "mcp>=1.2.0",
     "openai>=1.61.0",
     "openai-client>=0.1.0",
     "tiktoken>=0.8.0",
@@ -30,6 +26,7 @@ package = true
 anthropic-client = { path = "../../libraries/python/anthropic-client", editable = true }
 assistant-drive = { path = "../../libraries/python/assistant-drive", editable = true }
 assistant-extensions = { path = "../../libraries/python/assistant-extensions", editable = true }
+mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
 content-safety = { path = "../../libraries/python/content-safety/", editable = true }
 openai-client = { path = "../../libraries/python/openai-client", editable = true }
 

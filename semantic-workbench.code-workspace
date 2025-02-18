@@ -75,10 +75,6 @@
       "name": "assistants:skill-assistant",
       "path": "assistants/skill-assistant"
     },
-    // {
-    //   "name": "libraries:anthropic-client",
-    //   "path": "libraries/python/anthropic-client"
-    // },
     {
       "name": "libraries:assistant-drive",
       "path": "libraries/python/assistant-drive"
@@ -98,6 +94,10 @@
     {
       "name": "libraries:guided-conversation",
       "path": "libraries/python/guided-conversation"
+    },
+    {
+      "name": "libraries:mcp-extensions",
+      "path": "libraries/python/mcp-extensions"
     },
     {
       "name": "libraries:openai-client",

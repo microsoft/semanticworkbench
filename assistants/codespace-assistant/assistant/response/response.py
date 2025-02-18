@@ -3,6 +3,7 @@ from contextlib import AsyncExitStack
 from typing import Any, List
 
 from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.mcp import MCPSession, establish_mcp_sessions, get_mcp_server_prompts
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
@@ -10,15 +11,9 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.extensions.tools.__model import MCPSession
-from assistant.response.utils.openai_utils import get_ai_client_configs
-
 from ..config import AssistantConfigModel
-from ..extensions.tools import (
-    establish_mcp_sessions,
-    get_mcp_server_prompts,
-)
 from .step_handler import next_step
+from .utils import get_ai_client_configs
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,26 @@
+[project]
+name = "mcp-extensions"
+version = "0.1.0"
+description = "Extensions for Model Context Protocol (MCP) clients / servers."
+authors = [{ name = "Semantic Workbench Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["deepmerge>=2.0", "mcp>=1.2.1"]
+
+[project.optional-dependencies]
+# For any of the above dependencies that are specific to a single extension, it'd be good
+# to consider moving them to the optional-dependencies section. This way, the dependencies
+# are only installed when the specific extension is installed, to reduce the overall size
+# of the package installation, especially when bundling larger dependencies.
+openai = ["openai>=1.63.2"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pyright>=1.1.389", "pytest>=8.3.1"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "fixture"
+asyncio_mode = "auto"

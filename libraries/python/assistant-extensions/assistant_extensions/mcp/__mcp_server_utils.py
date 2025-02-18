@@ -6,7 +6,7 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from .__model import MCPServerConfig, MCPSession, ToolsConfigModel
+from ._model import MCPServerConfig, MCPSession, MCPToolsConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -37,17 +37,18 @@ async def connect_to_mcp_server_stdio(server_config: MCPServerConfig) -> AsyncIt
     server_params = StdioServerParameters(
         command=server_config.command, args=server_config.args, env=get_env_dict(server_config)
     )
+    logger.debug(
+        f"Attempting to connect to {server_config.key} with command: {server_config.command} {' '.join(server_config.args)}"
+    )
     try:
-        logger.debug(
-            f"Attempting to connect to {server_config.key} with command: {server_config.command} {' '.join(server_config.args)}"
-        )
         async with stdio_client(server_params) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
+
     except Exception as e:
         logger.exception(f"Error connecting to {server_config.key}: {e}")
-        yield None  # Yield None if connection fails
+        raise
 
 
 @asynccontextmanager
@@ -66,12 +67,16 @@ async def connect_to_mcp_server_sse(server_config: MCPServerConfig) -> AsyncIter
             async with ClientSession(read_stream, write_stream) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
+
+    except RuntimeError as e:
+        logger.exception(f"Runtime error in SSE client for {server_config.key}: {e}")
+        raise
     except Exception as e:
         logger.exception(f"Error connecting to {server_config.key}: {e}")
-        yield None
+        raise
 
 
-async def establish_mcp_sessions(tools_config: ToolsConfigModel, stack: AsyncExitStack) -> List[MCPSession]:
+async def establish_mcp_sessions(tools_config: MCPToolsConfigModel, stack: AsyncExitStack) -> List[MCPSession]:
     """
     Establish connections to MCP servers using the provided AsyncExitStack.
     """
@@ -96,6 +101,6 @@ async def establish_mcp_sessions(tools_config: ToolsConfigModel, stack: AsyncExi
     return mcp_sessions
 
 
-def get_mcp_server_prompts(tools_config: ToolsConfigModel) -> List[str]:
+def get_mcp_server_prompts(tools_config: MCPToolsConfigModel) -> List[str]:
     """Get the prompts for all MCP servers."""
     return [mcp_server.prompt for mcp_server in tools_config.mcp_servers if mcp_server.prompt]

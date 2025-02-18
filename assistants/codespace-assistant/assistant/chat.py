@@ -10,6 +10,7 @@ from typing import Any
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.mcp import MCPToolsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -27,7 +28,6 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from .config import AssistantConfigModel
-from .extensions.tools import ToolsConfigModel
 from .response import respond_to_conversation
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ assistant = AssistantApp(
 )
 
 
-async def tools_config_provider(context: AssistantContext) -> ToolsConfigModel:
+async def tools_config_provider(context: AssistantContext) -> MCPToolsConfigModel:
     return (await assistant_config.get(context)).extensions_config.tools
 
 

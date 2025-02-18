@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List
 
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
+from assistant_extensions.mcp import MCPToolsConfigModel
 from openai.types.chat import (
     ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
@@ -18,9 +19,7 @@ from openai_client import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.config import PromptsConfigModel
-from assistant.extensions.tools.__model import ToolsConfigModel
-
+from ..config import PromptsConfigModel
 from .utils import (
     build_system_message_content,
     get_history_messages,
@@ -43,7 +42,7 @@ async def build_request(
     prompts_config: PromptsConfigModel,
     request_config: OpenAIRequestConfig,
     tools: List[ChatCompletionToolParam] | None,
-    tools_config: ToolsConfigModel,
+    tools_config: MCPToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
     silence_token: str,
 ) -> BuildRequestResult:

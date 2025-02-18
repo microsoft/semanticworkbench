@@ -1,6 +1,6 @@
-import asyncio
 import os
 import threading
+from typing import Awaitable, Callable
 
 from dotenv import load_dotenv
 from huggingface_hub import login
@@ -73,8 +73,12 @@ BROWSER_CONFIG = {
 os.makedirs(f"./{BROWSER_CONFIG['downloads_folder']}", exist_ok=True)
 
 
-def perform_deep_research(model_id, question) -> str:
+async def perform_deep_research(
+    model_id: str, question: str, on_status_update: Callable[[str], Awaitable[None]]
+) -> str:
     text_limit = 100000
+
+    await on_status_update("starting research...")
 
     model = LiteLLMModel(
         model_id,
@@ -129,6 +133,3 @@ def perform_deep_research(model_id, question) -> str:
     answer = manager_agent.run(question)
 
     return f"Deep research results:\n\n{answer}"
-
-async def perform_deep_research_async(model_id, question) -> str:
-    return await asyncio.to_thread(perform_deep_research, model_id, question)

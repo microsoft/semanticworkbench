@@ -6,13 +6,13 @@ from assistant_extensions.ai_clients.config import (
     OpenAIClientConfigModel,
 )
 from assistant_extensions.attachments import AttachmentsConfigModel
+from assistant_extensions.mcp import MCPToolsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 from . import helpers
-from .extensions.tools import ToolsConfigModel
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -31,12 +31,12 @@ from .extensions.tools import ToolsConfigModel
 
 class ExtensionsConfigModel(BaseModel):
     tools: Annotated[
-        ToolsConfigModel,
+        MCPToolsConfigModel,
         Field(
             title="Tools Configuration",
             description="Configuration for the tools.",
         ),
-    ] = ToolsConfigModel()
+    ] = MCPToolsConfigModel()
 
     attachments: Annotated[
         AttachmentsConfigModel,

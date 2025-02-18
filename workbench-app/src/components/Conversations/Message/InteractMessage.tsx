@@ -132,7 +132,7 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
 
     const footer = (
         <div ref={isMessageVisibleRef}>
-            <MessageFooter message={message} />;
+            <MessageFooter message={message} />
         </div>
     );
 

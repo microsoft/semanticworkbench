@@ -1,7 +1,8 @@
 from mcp.server.fastmcp import Context, FastMCP
+from mcp_extensions import send_tool_call_progress
 
 from . import settings
-from .open_deep_research import perform_deep_research_async
+from .open_deep_research import perform_deep_research
 
 # Set the name of the MCP server
 server_name = "Open Deep Research MCP Server"
@@ -28,13 +29,15 @@ def create_mcp_server() -> FastMCP:
         possible about what you need and the desired output.
         """
 
-        await ctx.session.send_log_message(
-            level="info",
-            data="researching...",
-        )
+        await send_tool_call_progress(ctx, "Researching...", data={"context": context, "request": request})
+
+        async def on_status_update(status: str) -> None:
+            await send_tool_call_progress(ctx, status)
 
         # Make sure to run the async version of the function to avoid blocking the event loop.
-        deep_research_result = await perform_deep_research_async("o1", f"Context:\n{context}\n\nRequest:\n{request}")
+        deep_research_result = await perform_deep_research(
+            model_id="o1", question=f"Context:\n{context}\n\nRequest:\n{request}", on_status_update=on_status_update
+        )
         return deep_research_result
 
     return mcp

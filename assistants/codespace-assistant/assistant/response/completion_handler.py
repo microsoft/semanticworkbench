@@ -5,6 +5,7 @@ import time
 from typing import List
 
 import deepmerge
+from assistant_extensions.mcp import ExtendedCallToolRequestParams, MCPSession, handle_mcp_tool_call
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionToolMessageParam,
@@ -18,15 +19,9 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.extensions.tools.__model import MCPSession
-
-from ..extensions.tools import (
-    ToolCall,
-    handle_tool_call,
-)
 from .models import StepResult
 from .utils import (
-    extract_content_from_tool_calls,
+    extract_content_from_mcp_tool_calls,
     get_response_duration_message,
     get_token_usage_message,
 )
@@ -56,7 +51,7 @@ async def handle_completion(
         step_result.status = "error"
         return step_result
 
-    # Get service and request configuration for generative model
+    # get service and request configuration for generative model
     generative_request_config = request_config
 
     # get the total tokens used for the completion
@@ -68,10 +63,10 @@ async def handle_completion(
         content = completion.choices[0].message.content
 
     # check if the completion has tool calls
-    tool_calls: list[ToolCall] = []
+    tool_calls: list[ExtendedCallToolRequestParams] = []
     if completion.choices[0].message.tool_calls:
-        ai_context, tool_calls = extract_content_from_tool_calls([
-            ToolCall(
+        ai_context, tool_calls = extract_content_from_mcp_tool_calls([
+            ExtendedCallToolRequestParams(
                 id=tool_call.id,
                 name=tool_call.function.name,
                 arguments=json.loads(
@@ -105,7 +100,7 @@ async def handle_completion(
     deepmerge.always_merger.merge(
         step_result.metadata,
         {
-            "tool_calls": [tool_call.to_dict() for tool_call in tool_calls],
+            "tool_calls": [tool_call.model_dump_json() for tool_call in tool_calls],
         },
     )
 
@@ -179,7 +174,7 @@ async def handle_completion(
                     await context.update_participant_me(UpdateParticipant(status=f"{tool_call_status}: {msg}"))
 
                 try:
-                    tool_call_result = await handle_tool_call(
+                    tool_call_result = await handle_mcp_tool_call(
                         mcp_sessions,
                         tool_call,
                         f"{metadata_key}:request:tool_call_{tool_call_count}",
@@ -192,8 +187,10 @@ async def handle_completion(
             # Update content and metadata with tool call result metadata
             deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)
 
-            content = (
-                tool_call_result.content if len(tool_call_result.content) > 0 else "[tool call returned no content]"
+            # Get the content from the tool call result
+            content = next(
+                (content_item.text for content_item in tool_call_result.content if content_item.type == "text"),
+                "[tool call returned no content]",
             )
 
             # Add the token count for the tool call result to the total token count
