@@ -1,15 +1,14 @@
 # utils/tool_utils.py
 import asyncio
-import deepmerge
 import logging
-
-from anyio.streams.memory import MemoryObjectReceiveStream
 from collections.abc import Awaitable
+from textwrap import dedent
+from typing import AsyncGenerator, Callable, List, TypeVar
+
+import deepmerge
+from anyio.streams.memory import MemoryObjectReceiveStream
 from mcp import ClientSession, ServerNotification, Tool
 from mcp.types import CallToolResult, EmbeddedResource, ImageContent, TextContent
-from textwrap import dedent
-from typing import AsyncGenerator, Callable, List
-from typing import Callable, TypeVar
 
 from .__model import MCPSession, OnLoggingMessageHandler, ToolCall, ToolCallResult, ToolMessageType, ToolsConfigModel
 
@@ -144,17 +143,19 @@ async def execute_tool_with_notifications(
     """
 
     # Create a task for listening to incoming messages
-    async def message_listener():
+    async def message_listener() -> None:
         async for message in session.incoming_messages:
             if isinstance(message, Exception):
                 raise message
             if isinstance(message, ServerNotification):
                 await notification_handler(message)
+            else:
+                logger.warning(f"Received unknown message: {message}")
 
     # Create a task group to run both the tool call and message listener
-    async with asyncio.TaskGroup() as tg:
+    async with asyncio.TaskGroup() as task_group:
         # Start the message listener
-        listener_task = tg.create_task(message_listener())
+        listener_task = task_group.create_task(message_listener())
 
         try:
             # Execute the tool call
@@ -184,7 +185,9 @@ async def execute_tool(
 
     async def notification_handler(message: ServerNotification) -> None:
         if message.root.method == "notifications/message":
-            on_logging_message(message.root.params.data)
+            await on_logging_message(message.root.params.data)
+        else:
+            logger.warning(f"Received unknown notification: {message}")
 
     logger.debug(f"Invoking '{mcp_session.config.key}.{tool_call.name}' with arguments: {tool_call.arguments}")
     tool_result = await execute_tool_with_notifications(

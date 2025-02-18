@@ -2,7 +2,7 @@ import json
 import logging
 from enum import StrEnum
 from textwrap import dedent
-from typing import Annotated, Any, Callable, List
+from typing import Annotated, Any, Awaitable, Callable, List
 
 from attr import dataclass
 from mcp import ClientSession, Tool
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 # define type for on_logging_message callback
-OnLoggingMessageHandler = Callable[[str], None]
+OnLoggingMessageHandler = Callable[[str], Awaitable[None]]
 
 
 class MCPServerEnvConfig(BaseModel):

@@ -14,6 +14,7 @@ from openai_client import OpenAIRequestConfig, num_tokens_from_messages
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
+    UpdateParticipant,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -174,8 +175,8 @@ async def handle_completion(
             tool_call_status = f"using tool `{tool_call.name}`"
             async with context.set_status(f"{tool_call_status}..."):
 
-                def on_logging_message(msg: str) -> None:
-                    context.set_status(f"{tool_call_status}: {msg}")
+                async def on_logging_message(msg: str) -> None:
+                    await context.update_participant_me(UpdateParticipant(status=f"{tool_call_status}: {msg}"))
 
                 try:
                     tool_call_result = await handle_tool_call(
