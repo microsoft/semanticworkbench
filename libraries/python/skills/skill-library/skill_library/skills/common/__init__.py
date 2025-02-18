@@ -1,3 +1,3 @@
-from .common_skill import CommonSkill
+from .common_skill import CommonSkill, CommonSkillConfig
 
-__all__ = ["CommonSkill"]
+__all__ = ["CommonSkill", "CommonSkillConfig"]

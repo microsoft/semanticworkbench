@@ -1,4 +1,4 @@
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from openai_client import (
     CompletionError,
@@ -20,57 +20,53 @@ async def main(
     emit: EmitFn,
     run: RunRoutineFn,
     ask_user: AskUserFn,
-    content: str,
     question: str,
-    max_length: Optional[int] = None,
-) -> str:
-    """
-    Generate an answer to a question from the provided content.
-    """
+    answer: str,
+) -> tuple[bool, str]:
+    """Decide whether an answer actually answers a question well, and return a reason why."""
+
     common_skill = cast(CommonSkill, context.skills["common"])
     language_model = common_skill.config.language_model
 
     class Output(BaseModel):
         reasoning: str
-        answer: str
+        is_good_answer: bool
 
     completion_args = {
         "model": "gpt-4o",
         "messages": [
             create_system_message(
                 (
-                    "You are an expert in the field and hold a piece of content you are answering questions on. When the user asks a question, provide a detailed answer based solely on your content. Reason through the content to identify relevant information and structure your answer in a clear and concise manner. If the content does not contain the answer, provide a response indicating that the information is not available."
-                    "\n\nTHE CONTENT:\n\n"
-                    f"{content}"
-                ),
+                    "Given a question and and an answer, reason through whether or not the answer actually answers the question. Return your reasoning and whether or not the answer is a good answer as JSON."
+                )
             ),
-            create_user_message(
-                f"Question: {question}",
-            ),
+            create_user_message((f"The question: {question}\n\bThe answer: {answer}\n\n")),
         ],
         "response_format": Output,
     }
-    if max_length:
-        completion_args["max_tokens"] = max_length
 
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
-    context.log({"completion_args": make_completion_args_serializable(completion_args)})
+    metadata = {}
+    metadata["completion_args"] = make_completion_args_serializable(completion_args)
     try:
         completion = await language_model.beta.chat.completions.parse(
             **completion_args,
         )
         validate_completion(completion)
         logger.debug("Completion response.", extra=extra_data({"completion": completion.model_dump()}))
-        context.log({"completion": completion.model_dump()})
+        metadata["completion"] = completion.model_dump()
     except Exception as e:
         completion_error = CompletionError(e)
-        context.log({"completion_error": completion_error.message})
+        metadata["completion_error"] = completion_error.message
         logger.error(
             completion_error.message,
-            extra=extra_data({"completion_error": completion_error.body, "metadata": context.metadata_log}),
+            extra=extra_data({"completion_error": completion_error.body}),
         )
         raise completion_error from e
     else:
-        research_questions = cast(Output, completion.choices[0].message.parsed).answer
-        context.log({"research_questions": research_questions})
-        return research_questions
+        response: Output = cast(Output, completion.choices[0].message.parsed)
+        metadata["is_good_answer"] = response.is_good_answer
+        metadata["reasoning"] = response.reasoning
+        return response.is_good_answer, response.reasoning
+    finally:
+        context.log("evaluate_answer", metadata)

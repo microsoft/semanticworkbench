@@ -6,9 +6,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-from skill_library.types import AskUserFn, EmitFn, RunContext, RunRoutineFn
-
 from .logging import extra_data, logger
+from .types import AskUserFn, EmitFn, RunContext, RunRoutineFn
 
 
 @runtime_checkable
@@ -134,3 +133,18 @@ class Skill:
     def list_routines(self) -> list[str]:
         """Return list of available routine names"""
         return list(self._routines.keys())
+
+    # def list_attributes(self) -> list[str]:
+    #     """List all available custom attributes in the skill"""
+
+    #     attributes = [attr for attr in dir(self) if not attr.startswith("_") and callable(getattr(self, attr))]
+
+    #     attrs = []
+
+    #     # Get type annotations for each attribute
+    #     for attr in attributes:
+    #         attr_type = getattr(self, attr).__annotations__.get(attr)
+    #         if attr_type:
+    #             attrs.append(f"{attr}({format_type(attr_type)})")
+
+    #     return attrs

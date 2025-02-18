@@ -10,7 +10,7 @@ from openai_client import (
     validate_completion,
 )
 from pydantic import BaseModel
-from skill_library import AskUserFn, EmitFn, Metadata, RunContext, RunRoutineFn
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
 
@@ -22,7 +22,7 @@ async def main(
     run: RunRoutineFn,
     ask_user: AskUserFn,
     options: dict[str, str],
-) -> tuple[str, Metadata]:
+) -> str:
     """Select the user's intent from a set of options based on the conversation history."""
 
     common_skill = cast(CommonSkill, context.skills["common"])
@@ -52,8 +52,8 @@ async def main(
         "response_format": Output,
     }
 
-    metadata = {}
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
+    metadata = {}
     metadata["completion_args"] = make_completion_args_serializable(completion_args)
     try:
         completion = await language_model.beta.chat.completions.parse(
@@ -67,9 +67,12 @@ async def main(
         metadata["completion_error"] = completion_error.message
         logger.error(
             completion_error.message,
-            extra=extra_data({"completion_error": completion_error.body, "metadata": metadata}),
+            extra=extra_data({"completion_error": completion_error.body}),
         )
         raise completion_error from e
     else:
         intent = cast(Output, completion.choices[0].message.parsed).intent
-        return intent, metadata
+        metadata["intent"] = intent
+        return intent
+    finally:
+        context.log("select_user_intent", metadata)

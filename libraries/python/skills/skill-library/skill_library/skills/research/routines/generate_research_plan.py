@@ -12,12 +12,11 @@ from pydantic import BaseModel
 from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
-from skill_library.types import Metadata
 
 
 async def main(
     context: RunContext, routine_state: dict[str, Any], emit: EmitFn, run: RunRoutineFn, ask_user: AskUserFn, topic: str
-) -> tuple[list[str], Metadata]:
+) -> list[str]:
     """
     Generate a research plan on a given topic. The plan will consist of a set of
     research questions to be answered.
@@ -42,8 +41,8 @@ async def main(
         "response_format": Output,
     }
 
-    metadata = {}
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
+    metadata = {}
     metadata["completion_args"] = make_completion_args_serializable(completion_args)
     try:
         completion = await language_model.beta.chat.completions.parse(
@@ -57,9 +56,12 @@ async def main(
         metadata["completion_error"] = completion_error.message
         logger.error(
             completion_error.message,
-            extra=extra_data({"completion_error": completion_error.body, "metadata": metadata}),
+            extra=extra_data({"completion_error": completion_error.body}),
         )
         raise completion_error from e
     else:
         research_questions = cast(Output, completion.choices[0].message.parsed).research_questions
-        return research_questions, metadata
+        metadata["research_questions"] = research_questions
+        return research_questions
+    finally:
+        context.log("generate_research_plan", metadata)

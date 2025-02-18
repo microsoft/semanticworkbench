@@ -18,7 +18,7 @@ async def main(
     topic: str,
 ) -> str:
     """Research a topic thoroughly and return a report."""
-    plan, _ = await run("common.generate_research_plan", topic)
+    plan = await run("research.generate_research_plan", topic)
     await run("posix.write_file", f"{plan_name}.txt", json.dumps(plan, indent=2))
 
     user_intent = "update"
@@ -34,7 +34,8 @@ async def main(
             },
         )
         if user_intent == "update":
-            plan, _ = await run("common.update_research_plan", plan)
+            plan = json.loads(await run("posix.read_file", f"{plan_name}.txt"))
+            plan = await run("research.update_research_plan", topic, plan)
             await run("posix.write_file", f"{plan_name}.txt", json.dumps(plan, indent=2))
 
     if user_intent == "exit":
@@ -42,25 +43,26 @@ async def main(
         await run("posix.delete_file", f"{plan_name}.txt")
         return ""
 
+    plan = json.loads(await run("posix.read_file", f"{plan_name}.txt"))
     research_answers_filename = f"{plan_name}_research_answers.md"
-    await run("posix.touch", research_answers_filename)
+    await run("posix.write_file", research_answers_filename, f"# Research on {topic}\n\n")
     for question in plan:
         is_good_answer = False
         query = question
         previous_searches = []
         while not is_good_answer:
             related_web_content = await run(
-                "common.web_search", search_description=query, previous_searches=previous_searches
+                "research.web_search", search_description=query, previous_searches=previous_searches
             )
-            answer, _ = await run("common.answer_question_about_content", related_web_content, question)
-            is_good_answer, reasoning = await run("common.evaluate_answer", question, answer)
+            answer = await run("research.answer_question_about_content", related_web_content, question)
+            is_good_answer, reasoning = await run("research.evaluate_answer", question, answer)
             if is_good_answer:
-                await run("posix.append_file", research_answers_filename, f"##{question}\\n\\n{answer}\\n\\n")
+                await run("posix.append_file", research_answers_filename, f"## {question}\n\n{answer}\n\n")
             else:
                 previous_searches.append((query, reasoning))
 
     answers = await run("posix.read_file", research_answers_filename)
-    report = await run("common.summarize", answers, topic)
-    await run("posix.write_file", f"{plan_name}_research_report.txt", report)
-    print("Research complete.")
-    return report
+    conclusion = await run("common.summarize", answers, topic)
+    await run("posix.append_file", research_answers_filename, f"## Conclusion\n\n{conclusion}\n\n")
+
+    return conclusion

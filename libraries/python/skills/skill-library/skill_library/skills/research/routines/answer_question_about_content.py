@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 from openai_client import (
     CompletionError,
@@ -9,7 +9,7 @@ from openai_client import (
     validate_completion,
 )
 from pydantic import BaseModel
-from skill_library import AskUserFn, EmitFn, Metadata, RunContext, RunRoutineFn
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
 
@@ -20,33 +20,41 @@ async def main(
     emit: EmitFn,
     run: RunRoutineFn,
     ask_user: AskUserFn,
+    content: str,
     question: str,
-    answer: str,
-) -> tuple[bool, Metadata]:
-    """Decide whether an answer actually answers a question well, and return a reason why."""
-
+    max_length: Optional[int] = None,
+) -> str:
+    """
+    Generate an answer to a question from the provided content.
+    """
     common_skill = cast(CommonSkill, context.skills["common"])
     language_model = common_skill.config.language_model
 
     class Output(BaseModel):
         reasoning: str
-        is_good_answer: bool
+        answer: str
 
     completion_args = {
         "model": "gpt-4o",
         "messages": [
             create_system_message(
                 (
-                    "Given a question and and an answer, reason through whether or not the answer actually answers the question. Return your reasoning and whether or not the answer is a good answer as JSON."
-                )
+                    "You are an expert in the field and hold a piece of content you are answering questions with. When the user asks a question, provide a detailed answer based solely on your content. Reason through the content to identify relevant information and structure your answer in a clear and thorough manner. If the content does not contain the answer, provide a response indicating that the information is not available. Prefer thorough over and complete answers.\n"
+                    "\n\nTHE CONTENT:\n\n"
+                    f"{content}"
+                ),
             ),
-            create_user_message((f"The question: {question}\n\bThe answer: {answer}\n\n")),
+            create_user_message(
+                f"Question: {question}",
+            ),
         ],
         "response_format": Output,
     }
+    if max_length:
+        completion_args["max_tokens"] = max_length
 
-    metadata = {}
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
+    metadata = {}
     metadata["completion_args"] = make_completion_args_serializable(completion_args)
     try:
         completion = await language_model.beta.chat.completions.parse(
@@ -60,9 +68,12 @@ async def main(
         metadata["completion_error"] = completion_error.message
         logger.error(
             completion_error.message,
-            extra=extra_data({"completion_error": completion_error.body, "metadata": metadata}),
+            extra=extra_data({"completion_error": completion_error.body, "metadata": context.metadata_log}),
         )
         raise completion_error from e
     else:
-        response: Output = cast(Output, completion.choices[0].message.parsed)
-        return response.is_good_answer, metadata
+        research_questions = cast(Output, completion.choices[0].message.parsed).answer
+        metadata["research_questions"] = research_questions
+        return research_questions
+    finally:
+        context.log("answer_question_about_content", metadata)
