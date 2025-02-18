@@ -31,24 +31,23 @@ async def main(
     """
 
     # Generate search query.
-    search_query = await run("common.generate_search_query", search_description, previous_searches or [])
+    search_query = await run("research.generate_search_query", search_description, previous_searches or [])
 
     # Search Bing.
     urls = await run("common.bing_search", search_query)
 
     # Summarize page content from each search result.
+    metadata = {}
     results = {}
-    debug_i = 0
     for url in urls:
         content = await run("common.get_content_from_url", url, 10000)
-        summary = await run("common.summarize", search_description, content)
+        summary = await run("common.summarize", content=content, aspect=search_description)
         results[url] = summary
-        context.log({f"summarize_url_content_{debug_i}": summary})
-
-        debug_i += 1
+        metadata[url] = {"summary": summary}
 
     # Summarize all pages into a final result.
-    response = await run("common.summarize", search_description, json.dumps(results, indent=2))
-    context.log({"summarize_all_results": response})
+    response = await run("common.consolidate", json.dumps(results, indent=2))
+    metadata["consolidated"] = response
+    context.log("web_search", metadata)
 
     return response

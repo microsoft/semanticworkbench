@@ -9,6 +9,8 @@ from events import EventProtocol
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from semantic_workbench_api_model.workbench_model import ConversationMessageList
 
+from .usage import routines_usage as usage_routines_usage
+
 if TYPE_CHECKING:
     from .skill import Skill
 
@@ -17,9 +19,9 @@ Metadata = dict[str, Any]
 
 class RunContext:
     """
-    "Run context" is passed to parts of the system (skill routines and
-    actions, and chat driver functions) that need to be able to run routines or
-    actions, set assistant state, or emit messages from the assistant.
+    Every skill routine is executed with a "Run context". This is how we give
+    routines everything they need to interact one another and the "outside
+    world".
     """
 
     def __init__(
@@ -57,16 +59,30 @@ class RunContext:
         # the current run.
         self.metadata_log: list[tuple[str, Metadata]] = []
 
-    def log(self, metadata: Metadata) -> None:
+    def log(self, message: str, metadata: Metadata) -> None:
+        """
+        Log a message with metadata. The metadata will be stored in the
+        `metadata_log` list and can be inspected to see all the things that
+        happened for a given run.
+        """
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        self.metadata_log.append((ts, metadata))
+        if "ts" not in metadata:
+            metadata["ts"] = ts
+        if "session_id" not in metadata:
+            metadata["session_id"] = self.session_id
+        if "run_id" not in metadata:
+            metadata["run_id"] = self.run_id
+        self.metadata_log.append((message, metadata))
+
+    def routine_usage(self) -> str:
+        return usage_routines_usage(self.skills)
 
 
 class RunContextProvider(Protocol):
     """
     A provider of a run context must have this method. When called, it will
-    return a run context. This is used by skill routines and actions to have
-    access to all the things they need for running.
+    return a run context. This is used by skill routines to have access to all
+    the things they need for running.
     """
 
     def create_run_context(self) -> RunContext: ...

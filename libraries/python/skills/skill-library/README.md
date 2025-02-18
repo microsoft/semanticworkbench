@@ -7,59 +7,50 @@ a.k.a. agents. It does this through the concept of a "skill".
 
 ### Skills
 
-Think of a skill as a package of assistant capabilities. A skill can contain
-"[actions](#actions)" that an assistant can perform and
-"[routines](#routines-and-routine-runners)" that are entire procedures (which use
-actions) which an assistant can run.
+Think of a skill as a package of assistant capabilities. A skill contains
+"[routines](#routines)" that are entire procedures an assistant can run.
 
 Using an everyday example in our own lives, you can imagine hiring a chef to
-cook you a meal. The chef would be skilled at actions in the kitchen (like
-chopping or mixing or frying) but would also be able to perform full routines
-(recipes), allowing them to make particular dishes according to your preferences.
+cook you a meal. The chef would be skilled at doing things in the kitchen (like
+chopping or mixing or frying) and would also be able to execute full recipes,
+allowing them to make particular dishes according to your preferences. All of
+these actions can be encoded in a skill with routines.
 
-A demonstration [Posix skill](../skills/posix-skill/README.md) (file system
-interaction) is provided. Various actions are provided in the skill that provide
-posix-like ability to manage a file system (creating directories and files,
-listing files, reading files, etc.). In addition, though, a routine is provided
-that can create a user directory with all of its associated sub directories.
+A [Posix skill](./skill_library/skills/posix/) (file system
+interaction) is provided. Various routines are provided in the skill that
+provide posix-like ability to manage a file system (creating directories and
+files, listing files, reading files, etc.). In addition, though, a "compound"
+routine (one that runs other routines) is provided that can create a user
+directory with all of its associated sub directories.
 
-To create a skill, a developer writes the skills actions and routines and puts
-them in a [`Skill`](./skill_library/skill.py) class along with a
-`SkillDefinition` used to configure the skill.
+We ship this and some other skill packages with the library
+[here](./skill_library/skills/), but you can import skill packages from
+anywhere.
 
 When a skill engine is registered to an assistant, a user will be able to see the
-skill's actions by running the message command `/list_actions` and routines with
-`/list_routines`.
-
-The skill library helps in maintaining and distributing functionality with
-skills as each skill is a separate Python package, however skills refer to other
-skills using a [skill registry](#skill-registry).
+skill's routines by running the message command `/list_routines`.
 
 See: [skill.py](./skill_library/skill.py)
 
-#### Actions
+#### Routines
 
-Actions can be any Python function. Their only requirement is that they take a
-[`RunContext`](#run-context) as their first argument.
-
-See: [actions.py](./skill_library/actions.py)
-
-#### Routines and Routine Runners
-
-Routines are instructions that guide an agent to perform a set of actions in a
+Routines are instructions that guide an agent to perform a program in a
 prescribed manner, oftentimes in collaboration with users over many
-interactions. A routine and its routine runner is kindof like a recipe (routine)
-for a chef (routine runner). The routine contains the instructions and the
-runner is responsible for following those instructions.
+interactions.
+
+Implementation-wise, a routine is simply a Python module with a `main` function
+that follows a particular signature. You put all the routines inside a `routine`
+directory inside a skill package.
 
 ### Skill Engine
 
-The `Engine` is the object that gets instantiated with all the running
-skills. The engine contains an "assistant drive" that can be scoped to a
-specific persistence location to keep all the state of the engine in one
-spot. The engine also handles the event handling for all registered skills.
-Once an engine is started you can call (or subscribe to) its `events`
-endpoint to get a list of generated events.
+The `Engine` is the object that gets instantiated with all the running skills.
+The engine can be asked to list or run any routine it has been configured with
+and will do so in a managed "run context". The engine contains an "assistant
+drive" that can be scoped to a specific persistence location to keep all the
+state of the engine in one spot. The engine also handles the event handling for
+all registered skills. Once an engine is started you can call (or subscribe to)
+its `events` endpoint to get a list of generated events.
 
 See: [engine.py](./skill_library/engine.py), [Assistant Drive](../../assistant-drive/README.md)
 
@@ -78,7 +69,7 @@ See: [Skill Assistant](../../../../assistants/skill-assistant/README.md)
 
 ## State
 
-The skill library provides multiple powerful ways to manage state in an assistant.
+The skill library provides multiple ways to manage state in an assistant.
 
 ### Drives
 
@@ -108,59 +99,3 @@ another location, but putting it on the stack is a simple way to avoid more
 complex configuration.
 
 See: [routine_stack.py](./skill_library/routine_stack.py)
-
-#### Using the routine stack
-
-The routine stack is provided in the [run context](#run-context). Create a resource block using the stack inside of a routine or action like this:
-
-```python
-async with run_context.stack_frame_state() as state:
-    state["some_variable_name"] = "some value"
-```
-
-The only thing to keep in mind is that when the resource block is exited,
-everything in the state object will be serialized to disk, so make sure the
-values you are assigning are serializable.
-
-## User scenario
-
-Let me walk through the expected flow:
-
-1. The initial `/run_routine` command hits `on_command_message_created` in skill_assistant.py
-   - It parses the command and calls ChatFunctions.run_routine
-   - This calls engine.run_routine with "common.web_research" and the parameters
-   - Engine creates a task to run the routine and returns a future
-   - ChatFunctions awaits this future
-
-2. The routine starts executing:
-   - Makes a research plan using common.generate_research_plan
-   - Writes it to a file
-   - Then hits the first `ask_user` call with "Does this plan look ok?"
-   - This creates a MessageEvent with that prompt
-   - The routine pauses, waiting for input via the input_future
-
-3. When the user sends their response (like "Yes, looks good"):
-   - That message hits `on_message_created` in skill_assistant.py
-   - It checks `is_routine_running()` which should return true because we have a current_routine
-   - It calls `resume_routine` with the user's message
-   - This sets the result on the input_future
-   - The routine continues executing from where it was paused at ask_user
-
-4. This cycle repeats for any other ask_user calls in the routine:
-   - Routine pauses at ask_user
-   - User responds
-   - Message gets routed to resume_routine
-   - Routine continues
-
-5. Finally when the routine completes:
-   - It sets its final result on the result_future
-   - Cleans up (current_routine = None)
-   - The original run_routine future completes
-
-The key points are:
-
-1. While a routine is running, ALL messages should be routed to resume_routine
-2. The routine's state (current_routine) needs to persist between messages
-3. The futures mechanism lets us pause/resume the routine while keeping it "alive"
-
-Looking at this flow, I suspect our issue might be that we're not properly maintaining the routine's state between messages. Let's verify the routine is still considered "running" when we get the user's response.

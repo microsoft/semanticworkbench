@@ -20,15 +20,16 @@ from .logging import extra_data, logger
 from .routine_stack import RoutineStack
 from .skill import Skill, SkillConfig
 from .types import RunContext
+from .usage import routines_usage as usage_routines_usage
 
 
 class Engine:
     """
     Main coordination point for skills, routines and user interaction.
 
-    The Engine manages the execution of routines and actions from skills that
-    are available to the system. Skills are registered with configurations on
-    initialization. When a routine is run, the Engine:
+    The Engine manages the execution of routines from skills that are registered
+    to it. Skills are registered with configurations on initialization. When a
+    routine is run, the Engine:
 
     1. Creates a task to execute the routine asynchronously
     2. Manages user interaction by:
@@ -117,6 +118,7 @@ class Engine:
         if include_drives:
             self.metadrive.delete_drive()
             self.drive.delete_drive()
+        self._emit(StatusUpdatedEvent())
 
         logger.debug("Skill engine state cleared.", extra_data({"engine_id": self.engine_id}))
 
@@ -173,6 +175,10 @@ class Engine:
         for skill_name, skill in self._skills.items():
             routines.extend(f"{skill_name}.{routine}" for routine in skill.list_routines())
         return routines
+
+    def routines_usage(self) -> str:
+        """Get a list of all routines and their usage."""
+        return usage_routines_usage(self._skills)
 
     def is_routine_running(self) -> bool:
         return self._current_input_future is not None

@@ -13,7 +13,7 @@ from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
 
-DEFAULT_MAX_SUMMARY_LENGTH = 5000
+DEFAULT_MAX_LENGTH = 10000
 
 
 async def main(
@@ -23,20 +23,15 @@ async def main(
     run: RunRoutineFn,
     ask_user: AskUserFn,
     content: str,
-    aspect: Optional[str] = None,
-    max_length: Optional[int] = DEFAULT_MAX_SUMMARY_LENGTH,
+    max_length: Optional[int] = DEFAULT_MAX_LENGTH,
 ) -> str:
     """
-    Summarize the content from the given aspect. The content may be relevant or
-    not to a given aspect. If no aspect is provided, summarize the content as
-    is.
+    Consolidate various pieces of content into a cohesive whole.
     """
     common_skill = cast(CommonSkill, context.skills["common"])
     language_model = common_skill.config.language_model
 
-    system_message = "You are a summarizer. Your job is to summarize the content provided by the user. Don't lose important information."
-    if aspect:
-        system_message += f" Summarize the content only from this aspect: {aspect}"
+    system_message = "Consolide the content provided by the user into a cohesive whole. Try not to lose any information, but reorder and deduplicate as necessary and give it all a singular tone. Just respond with your consolidated content."
 
     completion_args = {
         "model": "gpt-4o",
@@ -66,8 +61,8 @@ async def main(
         )
         raise completion_error from e
     else:
-        summary = message_content_from_completion(completion)
-        metadata["summary"] = summary
-        return summary
+        consolidation = message_content_from_completion(completion)
+        metadata["consolidation"] = consolidation
+        return consolidation
     finally:
-        context.log("summarize", metadata)
+        context.log("consolidated", metadata)

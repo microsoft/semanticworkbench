@@ -31,9 +31,11 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 from skill_library import Engine
-from skill_library.skills.common.common_skill import CommonSkill, CommonSkillConfig
-from skill_library.skills.posix.posix_skill import PosixSkill, PosixSkillConfig
-from skill_library.usage import get_routine_usage
+from skill_library.skills.common import CommonSkill, CommonSkillConfig
+from skill_library.skills.eval import EvalSkill, EvalSkillConfig
+from skill_library.skills.meta import MetaSkill, MetaSkillConfig
+from skill_library.skills.posix import PosixSkill, PosixSkillConfig
+from skill_library.skills.research import ResearchSkill, ResearchSkillConfig
 
 from assistant.skill_event_mapper import SkillEventMapper
 from assistant.workbench_helpers import WorkbenchMessageProvider
@@ -81,31 +83,15 @@ assistant_service = AssistantApp(
 app = assistant_service.fastapi_app()
 
 
-# The AssistantApp class provides a set of decorators for adding event handlers
-# to respond to conversation events. In VS Code, typing "@assistant." (or the
-# name of your AssistantApp instance) will show available events and methods.
-#
-# See the semantic-workbench-assistant AssistantApp class for more information
-# on available events and methods. Examples:
-# - @assistant.events.conversation.on_created (event triggered when the
-#   assistant is added to a conversation)
-# - @assistant.events.conversation.participant.on_created (event triggered when
-#   a participant is added)
-# - @assistant.events.conversation.message.on_created (event triggered when a
-#   new message of any type is created)
-# - @assistant.events.conversation.message.chat.on_created (event triggered when
-#   a new chat message is created)
-
-# This assistant registry is used to manage the assistants for this service and
+# This engine registry is used to manage the skill engines for this service and
 # to register their event subscribers so we can map events to the workbench.
 #
-# NOTE: Currently, the skill assistant library doesn't have the notion of
-# "conversations" so we map a skill library assistant to a particular
-# conversation in the workbench. This means if you have a different conversation
-# with the same "skill assistant" it will appear as a different assistant in the
-# skill assistant library. We can improve this in the future by adding a
-# conversation ID to the skill assistant library and mapping it to a
-# conversation in the workbench.
+# NOTE: Currently, the skill library doesn't have the notion of "conversations"
+# so we map a skill library engine to a particular conversation in the
+# workbench. This means if you have a different conversation with the same
+# "skill assistant" it will appear as a different engine in the skill assistant
+# library. We can improve this in the future by adding a conversation ID to the
+# skill library and mapping it to a conversation in the workbench.
 engine_registry = SkillEngineRegistry()
 
 
@@ -116,7 +102,7 @@ async def on_conversation_created(conversation_context: ConversationContext) -> 
     Handle the event triggered when the assistant is added to a conversation.
     """
 
-    # send a welcome message to the conversation
+    # Send a welcome message to the conversation.
     config = await assistant_config.get(conversation_context.assistant)
     welcome_message = config.welcome_message
     await conversation_context.send_messages(
@@ -126,6 +112,77 @@ async def on_conversation_created(conversation_context: ConversationContext) -> 
             metadata={"generated_content": False},
         )
     )
+
+
+@assistant_service.events.conversation.message.command.on_created
+async def on_command_message_created(
+    conversation_context: ConversationContext, event: ConversationEvent, message: ConversationMessage
+) -> None:
+    """
+    Handle the event triggered when a new command message is created in the
+    conversation. Commands in the skill assistant currently are oriented around
+    running skills manually. We will update this in the future to add a few more
+    commands that we'll register to the chat driver so we can call them
+    conversationally.
+    """
+
+    config = await assistant_config.get(conversation_context.assistant)
+    engine = await get_or_register_skill_engine(conversation_context, config)
+    functions = ChatFunctions(engine)
+
+    command_string = event.data["message"]["content"]
+
+    match command_string:
+        case "/help":
+            help_msg = dedent("""
+            ```markdown
+            - __/help__: Display this help message.
+            - __/list_routines__: List all routines.
+            - __/run__("&lt;name&gt;", ...args): Run a routine.
+            - __/reset__: Reset the assistant.
+            ```
+            """).strip()
+            await conversation_context.send_messages(
+                NewConversationMessage(
+                    content=str(help_msg),
+                    message_type=MessageType.notice,
+                ),
+            )
+        case _:
+            """
+            For every other command we receive, we're going to try to map it to
+            one of the registered ChatFunctions below and execute the command.
+            """
+            try:
+                function_string, args, kwargs = ToolFunctions.parse_fn_string(command_string)
+                if not function_string:
+                    await conversation_context.send_messages(
+                        NewConversationMessage(
+                            content="Invalid command.",
+                            message_type=MessageType.notice,
+                        ),
+                    )
+                    return
+            except ValueError as e:
+                await conversation_context.send_messages(
+                    NewConversationMessage(
+                        content=f"Invalid command. {e}",
+                        message_type=MessageType.notice,
+                        metadata={},
+                    ),
+                )
+                return
+
+            # Run the function.
+            result = await getattr(functions, function_string)(*args, **kwargs)
+
+            if result:
+                await conversation_context.send_messages(
+                    NewConversationMessage(
+                        content=str(result),
+                        message_type=MessageType.note,
+                    ),
+                )
 
 
 @assistant_service.events.conversation.message.chat.on_created
@@ -138,7 +195,7 @@ async def on_message_created(
     config = await assistant_config.get(conversation_context.assistant)
     engine = await get_or_register_skill_engine(conversation_context, config)
 
-    # Check if routine is running
+    # Check if routine is running.
     if engine.is_routine_running():
         try:
             logger.debug("Resuming routine with message", extra_data({"message": message.content}))
@@ -168,73 +225,16 @@ async def on_message_created(
         await chat_driver.respond(message.content, metadata=metadata or {})
 
 
-@assistant_service.events.conversation.message.command.on_created
-async def on_command_message_created(
-    conversation_context: ConversationContext, event: ConversationEvent, message: ConversationMessage
-) -> None:
-    """
-    Handle the event triggered when a new command message is created in the conversation.
-    """
-
-    config = await assistant_config.get(conversation_context.assistant)
-    engine = await get_or_register_skill_engine(conversation_context, config)
-    functions = ChatFunctions(engine)
-
-    command_string = event.data["message"]["content"]
-
-    match command_string:
-        case "/help":
-            help_msg = dedent("""
-            ```markdown
-            - __/help__: Display this help message.
-            - __/list_routines__: List all routines.
-            - __/run("&lt;name&gt;", ...args)__: Run a routine.
-            ```
-            """).strip()
-            await conversation_context.send_messages(
-                NewConversationMessage(
-                    content=str(help_msg),
-                    message_type=MessageType.notice,
-                ),
-            )
-        case _:
-            try:
-                function_string, args, kwargs = ToolFunctions.parse_fn_string(command_string)
-                if not function_string:
-                    await conversation_context.send_messages(
-                        NewConversationMessage(
-                            content="Invalid command.",
-                            message_type=MessageType.notice,
-                        ),
-                    )
-                    return
-            except ValueError as e:
-                await conversation_context.send_messages(
-                    NewConversationMessage(
-                        content=f"Invalid command. {e}",
-                        message_type=MessageType.notice,
-                        metadata={},
-                    ),
-                )
-                return
-
-            # Run the function.
-            result = await getattr(functions, function_string)(*args, **kwargs)
-
-            if result:
-                await conversation_context.send_messages(
-                    NewConversationMessage(
-                        content=str(result),
-                        message_type=MessageType.notice,
-                    ),
-                )
-
-
-# Get or register an assistant for the conversation.
 async def get_or_register_skill_engine(
     conversation_context: ConversationContext, config: AssistantConfigModel
 ) -> Engine:
-    # Get an assistant from the registry.
+    """
+    Get or register a skill engine for the conversation. This is used to manage
+    the skill engines for this service and to register their event subscribers
+    so we can map events to the workbench.
+    """
+
+    # Get an engine from the registry.
     engine_id = conversation_context.id
     engine = engine_registry.get_engine(engine_id)
 
@@ -246,6 +246,8 @@ async def get_or_register_skill_engine(
         language_model = openai_client.create_client(config.service_config)
         message_provider = WorkbenchMessageProvider(engine_id, conversation_context)
 
+        # Create the engine and register it. This is where we configure which
+        # skills the engine can use and their configuration.
         engine = Engine(
             engine_id=conversation_context.id,
             message_history_provider=message_provider.get_history,
@@ -253,11 +255,23 @@ async def get_or_register_skill_engine(
             metadata_drive_root=assistant_metadata_drive_root,
             skills=[
                 (
+                    MetaSkill,
+                    MetaSkillConfig(name="meta", language_model=language_model, drive=assistant_drive.subdrive("meta")),
+                ),
+                (
                     CommonSkill,
                     CommonSkillConfig(
                         name="common",
                         language_model=language_model,
                         drive=assistant_drive.subdrive("common"),
+                    ),
+                ),
+                (
+                    EvalSkill,
+                    EvalSkillConfig(
+                        name="eval",
+                        language_model=language_model,
+                        drive=assistant_drive.subdrive("eval"),
                     ),
                 ),
                 (
@@ -268,12 +282,14 @@ async def get_or_register_skill_engine(
                         mount_dir="/mnt/data",
                     ),
                 ),
-                # GuidedConversationSkillDefinition(
-                #     name="guided_conversation",
-                #     language_model=language_model,
-                #     drive=assistant_drive.subdrive("guided_conversation"),
-                #     chat_driver_config=chat_driver_config,
-                # ),
+                (
+                    ResearchSkill,
+                    ResearchSkillConfig(
+                        name="research",
+                        language_model=language_model,
+                        drive=assistant_drive.subdrive("research"),
+                    ),
+                ),
             ],
         )
 
@@ -284,35 +300,25 @@ async def get_or_register_skill_engine(
 
 class ChatFunctions:
     """
-    These functions provide usage context and output markdown. It's a layer
-    closer to the assistant.
+    These are functions that can be run from the chat.
     """
 
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
 
-    async def clear_stack(self) -> str:
-        """Clears the assistant's routine stack and event queue."""
+    async def reset(self) -> str:
+        """Resets the skill engine run state. Useful for troubleshooting."""
         await self.engine.clear(include_drives=False)
         return "Assistant stack cleared."
 
     async def list_routines(self) -> str:
         """Lists all the routines available in the assistant."""
 
-        routines: list[str] = []
-        for skill_name, skill in self.engine._skills.items():
-            for routine_name in skill.list_routines():
-                routine = skill.get_routine(routine_name)
-                if not routine:
-                    continue
-                usage = get_routine_usage(routine, f"{skill_name}.{routine_name}")
-                routines.append(f"- {usage.to_markdown()}")
-
+        routines = self.engine.routines_usage()
         if not routines:
             return "No routines available."
 
-        routine_string = "```markdown\n" + "\n".join(routines) + "\n```"
-        return routine_string
+        return "```markdown\n" + routines + "\n```"
 
     async def run(self, designation: str, *args, **kwargs) -> str:
         try:
