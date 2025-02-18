@@ -98,7 +98,7 @@ interface InteractMessageProps {
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead, onRewind } = props;
     const classes = useClasses();
-    const { isMessageVisible, isUnread } = useConversationUtility();
+    const { isMessageVisible, isMessageVisibleRef, isUnread } = useConversationUtility();
 
     const isUser = participant.role === 'user';
     const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
@@ -130,7 +130,11 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
 
     const body = <MessageBody message={message} conversation={conversation} />;
 
-    const footer = <MessageFooter message={message} />;
+    const footer = (
+        <div ref={isMessageVisibleRef}>
+            <MessageFooter message={message} />;
+        </div>
+    );
 
     const composedMessage =
         participant.role === 'assistant' ? (
