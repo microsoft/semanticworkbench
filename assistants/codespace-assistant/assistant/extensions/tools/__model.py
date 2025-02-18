@@ -2,7 +2,7 @@ import json
 import logging
 from enum import StrEnum
 from textwrap import dedent
-from typing import Annotated, Any, List
+from typing import Annotated, Any, Callable, List
 
 from attr import dataclass
 from mcp import ClientSession, Tool
@@ -10,6 +10,10 @@ from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 logger = logging.getLogger(__name__)
+
+
+# define type for on_logging_message callback
+OnLoggingMessageHandler = Callable[[str], None]
 
 
 class MCPServerEnvConfig(BaseModel):

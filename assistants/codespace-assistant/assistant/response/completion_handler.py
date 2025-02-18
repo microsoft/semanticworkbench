@@ -170,15 +170,23 @@ async def handle_completion(
         tool_call_count = 0
         for tool_call in tool_calls:
             tool_call_count += 1
-            try:
-                tool_call_result = await handle_tool_call(
-                    mcp_sessions,
-                    tool_call,
-                    f"{metadata_key}:request:tool_call_{tool_call_count}",
-                )
-            except Exception as e:
-                logger.exception(f"Error handling tool call: {e}")
-                return await handle_error("An error occurred while handling the tool call.")
+
+            tool_call_status = f"using tool `{tool_call.name}`"
+            async with context.set_status(f"{tool_call_status}..."):
+
+                def on_logging_message(msg: str) -> None:
+                    context.set_status(f"{tool_call_status}: {msg}")
+
+                try:
+                    tool_call_result = await handle_tool_call(
+                        mcp_sessions,
+                        tool_call,
+                        f"{metadata_key}:request:tool_call_{tool_call_count}",
+                        on_logging_message,
+                    )
+                except Exception as e:
+                    logger.exception(f"Error handling tool call: {e}")
+                    return await handle_error("An error occurred while handling the tool call.")
 
             # Update content and metadata with tool call result metadata
             deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)

@@ -1,4 +1,4 @@
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
 from . import settings
 from .open_deep_research import perform_deep_research
@@ -14,7 +14,7 @@ def create_mcp_server() -> FastMCP:
     # Define each tool and its setup.
 
     @mcp.tool()
-    async def deep_research(context: str, request: str) -> str:
+    async def deep_research(context: str, request: str, ctx: Context) -> str:
         """
         A specialized team member that thoroughly researches the internet to answer your questions.
         Use them for anything requiring web browsing—provide as much context as possible, especially
@@ -27,6 +27,11 @@ def create_mcp_server() -> FastMCP:
         request itself, provide the specific question you want answered, with as much detail as
         possible about what you need and the desired output.
         """
+
+        await ctx.session.send_log_message(
+            level="info",
+            data="researching...",
+        )
 
         return perform_deep_research("o1", f"Context:\n{context}\n\nRequest:\n{request}")
 

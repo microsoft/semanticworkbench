@@ -1,3 +1,4 @@
+exclude = [".venv", "env", "node_modules", "build", "dist", "__pycache__"]
 line-length = 120
 
 [format]

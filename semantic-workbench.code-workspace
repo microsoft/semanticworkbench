@@ -153,6 +153,82 @@
     }
   ],
   "settings": {
-    "markdown.validate.enabled": true
+    "markdown.validate.enabled": true,
+    "ruff.configuration": "${workspaceFolder}/ruff.toml",
+    "ruff.importStrategy": "useBundled",
+    "ruff.nativeServer": "on",
+    "better-comments.highlightPlainText": true,
+    "better-comments.multilineComments": true,
+    "better-comments.tags": [
+      {
+        "tag": "!",
+        "color": "#FF2D00",
+        "strikethrough": false,
+        "underline": false,
+        "backgroundColor": "transparent",
+        "bold": false,
+        "italic": false
+      },
+      {
+        "tag": "?",
+        "color": "#3498DB",
+        "strikethrough": false,
+        "underline": false,
+        "backgroundColor": "transparent",
+        "bold": false,
+        "italic": false
+      },
+      {
+        "tag": "//",
+        "color": "#474747",
+        "strikethrough": true,
+        "underline": false,
+        "backgroundColor": "transparent",
+        "bold": false,
+        "italic": false
+      },
+      {
+        "tag": "todo",
+        "color": "#FF8C00",
+        "strikethrough": false,
+        "underline": false,
+        "backgroundColor": "transparent",
+        "bold": false,
+        "italic": false
+      },
+      {
+        "tag": "fixme",
+        "color": "#FF2D00",
+        "strikethrough": false,
+        "underline": false,
+        "backgroundColor": "transparent",
+        "bold": false,
+        "italic": false
+      },
+      {
+        "tag": "*",
+        "color": "#98C379",
+        "strikethrough": false,
+        "underline": false,
+        "backgroundColor": "transparent",
+        "bold": false,
+        "italic": false
+      }
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "aaron-bond.better-comments",
+      "charliermarsh.ruff",
+      "dbaeumer.vscode-eslint",
+      "epivision.vscode-file-header",
+      "esbenp.prettier-vscode",
+      "ms-python.debugpy",
+      "ms-python.python",
+      "ms-vscode.makefile-tools",
+      "ms-vscode.vscode-node-azure-pack",
+      "tamasfe.even-better-toml",
+      "streetsidesoftware.code-spell-checker"
+    ]
   }
 }

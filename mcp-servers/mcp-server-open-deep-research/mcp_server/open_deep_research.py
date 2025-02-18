@@ -3,6 +3,14 @@ import threading
 
 from dotenv import load_dotenv
 from huggingface_hub import login
+from smolagents import (
+    CodeAgent,
+    # HfApiModel,
+    LiteLLMModel,
+    ToolCallingAgent,
+)
+
+from . import settings
 from .libs.open_deep_research.text_inspector_tool import TextInspectorTool
 from .libs.open_deep_research.text_web_browser import (
     ArchiveSearchTool,
@@ -15,16 +23,6 @@ from .libs.open_deep_research.text_web_browser import (
     VisitTool,
 )
 from .libs.open_deep_research.visual_qa import visualizer
-
-from smolagents import (
-    CodeAgent,
-    # HfApiModel,
-    LiteLLMModel,
-    ToolCallingAgent,
-)
-
-from . import settings
-
 
 AUTHORIZED_IMPORTS = [
     "requests",
@@ -80,7 +78,7 @@ def perform_deep_research(model_id, question) -> str:
     model = LiteLLMModel(
         model_id,
         custom_role_conversions=custom_role_conversions,
-        max_completion_tokens=50000,
+        max_completion_tokens=10000,
         reasoning_effort="high",
     )
     document_inspection_tool = TextInspectorTool(model, text_limit)

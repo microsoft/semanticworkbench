@@ -57,7 +57,12 @@ async def connect_to_mcp_server_sse(server_config: MCPServerConfig) -> AsyncIter
     try:
         logger.debug(f"Attempting to connect to {server_config.key} with SSE transport: {server_config.command}")
         headers = get_env_dict(server_config)
-        async with sse_client(url=server_config.command, headers=headers) as (read_stream, write_stream):
+
+        # FIXME: Bumping timeout to 15 minutes, but this should be configurable
+        async with sse_client(url=server_config.command, headers=headers, sse_read_timeout=60 * 15) as (
+            read_stream,
+            write_stream,
+        ):
             async with ClientSession(read_stream, write_stream) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use

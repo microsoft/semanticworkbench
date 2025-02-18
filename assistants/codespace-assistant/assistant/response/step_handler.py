@@ -117,31 +117,33 @@ async def next_step(
 
     # generate a response from the AI model
     async with create_client(service_config) as client:
-        try:
-            completion = await get_completion(client, request_config, chat_message_params, tools)
+        completion_status = "reasoning..." if request_config.is_reasoning_model else "thinking..."
+        async with context.set_status(completion_status):
+            try:
+                completion = await get_completion(client, request_config, chat_message_params, tools)
 
-        except Exception as e:
-            logger.exception(f"exception occurred calling openai chat completion: {e}")
-            deepmerge.always_merger.merge(
-                step_result.metadata,
-                {
-                    "debug": {
-                        metadata_key: {
-                            "error": str(e),
+            except Exception as e:
+                logger.exception(f"exception occurred calling openai chat completion: {e}")
+                deepmerge.always_merger.merge(
+                    step_result.metadata,
+                    {
+                        "debug": {
+                            metadata_key: {
+                                "error": str(e),
+                            },
                         },
                     },
-                },
-            )
-            await context.send_messages(
-                NewConversationMessage(
-                    content="An error occurred while calling the OpenAI API. Is it configured correctly?"
-                    " View the debug inspector for more information.",
-                    message_type=MessageType.notice,
-                    metadata=step_result.metadata,
                 )
-            )
-            step_result.status = "error"
-            return step_result
+                await context.send_messages(
+                    NewConversationMessage(
+                        content="An error occurred while calling the OpenAI API. Is it configured correctly?"
+                        " View the debug inspector for more information.",
+                        message_type=MessageType.notice,
+                        metadata=step_result.metadata,
+                    )
+                )
+                step_result.status = "error"
+                return step_result
 
     if completion is None:
         return await handle_error("No response from OpenAI.")
