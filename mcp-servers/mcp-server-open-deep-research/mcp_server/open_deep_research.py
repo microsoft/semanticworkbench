@@ -1,3 +1,4 @@
+import asyncio
 import os
 import threading
 
@@ -128,3 +129,6 @@ def perform_deep_research(model_id, question) -> str:
     answer = manager_agent.run(question)
 
     return f"Deep research results:\n\n{answer}"
+
+async def perform_deep_research_async(model_id, question) -> str:
+    return await asyncio.to_thread(perform_deep_research, model_id, question)

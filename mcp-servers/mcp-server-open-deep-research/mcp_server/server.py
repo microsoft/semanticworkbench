@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import Context, FastMCP
 
 from . import settings
-from .open_deep_research import perform_deep_research
+from .open_deep_research import perform_deep_research_async
 
 # Set the name of the MCP server
 server_name = "Open Deep Research MCP Server"
@@ -33,6 +33,8 @@ def create_mcp_server() -> FastMCP:
             data="researching...",
         )
 
-        return perform_deep_research("o1", f"Context:\n{context}\n\nRequest:\n{request}")
+        # Make sure to run the async version of the function to avoid blocking the event loop.
+        deep_research_result = await perform_deep_research_async("o1", f"Context:\n{context}\n\nRequest:\n{request}")
+        return deep_research_result
 
     return mcp
