@@ -46,6 +46,8 @@
     "asyncio",
     "deepmerge",
     "fastmcp",
+    "interoperating",
+    "Lifecycles",
     "pydantic",
     "pyright",
     "pytest"
