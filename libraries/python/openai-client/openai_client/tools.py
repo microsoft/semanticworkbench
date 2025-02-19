@@ -6,7 +6,6 @@ from typing import Any, Callable, Iterable
 
 from openai import (
     NOT_GIVEN,
-    AsyncAzureOpenAI,
     AsyncOpenAI,
     NotGiven,
 )
@@ -421,7 +420,7 @@ class ToolFunctions:
 
 
 async def complete_with_tool_calls(
-    async_client: AsyncOpenAI | AsyncAzureOpenAI,
+    async_client: AsyncOpenAI,
     completion_args: dict[str, Any],
     tool_functions: ToolFunctions,
     metadata: dict[str, Any] = {},

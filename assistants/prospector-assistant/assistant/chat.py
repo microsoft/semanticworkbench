@@ -14,10 +14,10 @@ from typing import Any, Awaitable, Callable
 
 import deepmerge
 import openai_client
-from assistant_extensions.ai_clients.model import CompletionMessageImageContent
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
+from llm_client.model import CompletionMessageImageContent
 from pydantic import BaseModel, ConfigDict
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,

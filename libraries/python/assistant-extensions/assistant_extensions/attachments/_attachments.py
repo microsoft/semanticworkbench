@@ -5,6 +5,7 @@ import logging
 from typing import Any, Awaitable, Callable, Sequence
 
 from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
+from llm_client.model import CompletionMessage, CompletionMessageImageContent, CompletionMessageTextContent
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
     File,
@@ -18,7 +19,6 @@ from semantic_workbench_assistant.assistant_app import (
     storage_directory_for_context,
 )
 
-from ..ai_clients.model import CompletionMessage, CompletionMessageImageContent, CompletionMessageTextContent
 from . import _convert as convert
 from ._model import Attachment, AttachmentsConfigModel
 
