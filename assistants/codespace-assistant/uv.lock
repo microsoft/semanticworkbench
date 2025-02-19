@@ -138,10 +138,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.389" },
-    { name = "pytest", specifier = ">=8.3.3" },
-]
+dev = [{ name = "pyright", specifier = ">=1.1.389" }]
 
 [[package]]
 name = "anyio"
@@ -868,10 +865,7 @@ dependencies = [
 requires-dist = [{ name = "pydantic", specifier = ">=2.10.6" }]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.389" },
-    { name = "pytest", specifier = ">=8.3.3" },
-]
+dev = [{ name = "pyright", specifier = ">=1.1.389" }]
 
 [[package]]
 name = "markdown-it-py"
