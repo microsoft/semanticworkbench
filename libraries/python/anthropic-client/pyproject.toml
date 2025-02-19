@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pyright>=1.1.389", "pytest>=8.3.3"]
+dev = ["pyright>=1.1.389"]
 
 [tool.uv.sources]
 llm-client = { path = "../llm-client", editable = true }
@@ -31,4 +31,3 @@ addopts = ["-vv"]
 log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-testpaths = ["tests"]
