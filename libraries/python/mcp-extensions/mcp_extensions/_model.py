@@ -9,5 +9,14 @@ ServerNotificationHandler = Callable[[ServerNotification], Awaitable[None]]
 
 
 class ToolCallProgressMessage(BaseModel):
+    """
+    Represents a progress message for an active tool call.
+
+    Attributes:
+        message (str): A brief textual update describing the current tool execution state.
+        data (dict[str, Any] | None): Optional dictionary containing structured data relevant
+            to the progress update.
+    """
+
     message: str
     data: dict[str, Any] | None

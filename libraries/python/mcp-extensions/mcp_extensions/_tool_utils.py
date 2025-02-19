@@ -21,7 +21,8 @@ async def send_tool_call_progress(
     fastmcp_server_context: Context, message: str, data: dict[str, Any] | None = None
 ) -> None:
     """
-    Send a progress update message for a tool call to the FastMCP server.
+    Sends a progress update message for a tool call to the FastMCP server. This is useful for providing
+    real-time feedback to clients regarding task status.
     """
 
     await fastmcp_server_context.session.send_log_message(
@@ -48,15 +49,16 @@ async def execute_tool_with_notifications(
     notification_handler: ServerNotificationHandler,
 ) -> CallToolResult:
     """
-    Execute a tool call while handling notifications that may arrive during execution.
+    Executes a tool call while concurrently processing incoming notifications from the MCP server. This ensures
+    smooth handling of asynchronous updates during execution.
 
     Args:
-        session: The MCP client session
-        tool_call: Async function that performs the actual tool call
-        notification_handler: Async function to handle notifications during execution
+        session: The MCP client session facilitating communication with the server.
+        tool_call_function: The asynchronous tool call function to execute.
+        notification_handler: Asynchronous callback to process server notifications during execution.
 
     Returns:
-        The result of the tool call
+        The result of the tool call, typically wrapped as a protocol-compliant response.
     """
 
     # Create a task for listening to incoming messages
@@ -87,8 +89,9 @@ def convert_tools_to_openai_tools(
     mcp_tools: List[Tool] | None, extra_properties: dict[str, Any] | None = None
 ) -> List[ChatCompletionToolParam] | None:
     """
-    Convert MCP tools to OpenAI tools. Use the extra properties to add additional parameters,
-    such as a custom property to allow the model to explain the reason for the tool call.
+    Converts MCP tools into OpenAI-compatible tool schemas to facilitate interoperability.
+    Extra properties can be appended to the generated schema, enabling richer descriptions
+    or added functionality (e.g., custom fields for user context or explanations).
     """
 
     if not mcp_tools:
