@@ -7,13 +7,13 @@ import deepmerge
 from mcp import ClientSession, ServerNotification, Tool
 from mcp.server.fastmcp import Context
 from mcp.shared.session import BaseSession
-from mcp.types import CallToolResult, JSONRPCMessage, JSONRPCNotification
+from mcp.types import CallToolResult
 from openai.types.chat import (
     ChatCompletionToolParam,
 )
 from openai.types.shared_params import FunctionDefinition
 
-from ._model import ServerNotificationHandler, ToolCallFunction, ToolCallProgressMessage
+from ._model import ServerNotificationHandler, ToolCallFunction
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +26,21 @@ async def send_tool_call_progress(
     """
 
     session: BaseSession = fastmcp_server_context.session
-    jsonrpc_notification = JSONRPCNotification(
-        method="tool_call_progress",
-        jsonrpc="2.0",
-        params=ToolCallProgressMessage(
-            message=message,
-            data=data,
-        ).model_dump(mode="json"),
+    await session.send_log_message(
+        level="info",
+        data=message,
     )
-    await session._write_stream.send(JSONRPCMessage(jsonrpc_notification))
+
+    # FIXME: Would prefer to use this to send data via a custom notification, but it's not working
+    # jsonrpc_notification = JSONRPCNotification(
+    #     method="tool_call_progress",
+    #     jsonrpc="2.0",
+    #     params=ToolCallProgressMessage(
+    #         message=message,
+    #         data=data,
+    #     ).model_dump(mode="json"),
+    # )
+    # await session._write_stream.send(JSONRPCMessage(jsonrpc_notification))
 
 
 async def execute_tool_with_notifications(

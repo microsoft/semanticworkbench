@@ -1,3 +1,4 @@
+import asyncio
 import os
 import threading
 from typing import Awaitable, Callable
@@ -76,9 +77,20 @@ os.makedirs(f"./{BROWSER_CONFIG['downloads_folder']}", exist_ok=True)
 async def perform_deep_research(
     model_id: str, question: str, on_status_update: Callable[[str], Awaitable[None]]
 ) -> str:
-    text_limit = 100000
-
     await on_status_update("starting research...")
+
+    return await asyncio.to_thread(
+        deep_research,
+        model_id,
+        question,
+    )
+
+
+def deep_research(
+    model_id: str,
+    question: str,
+) -> str:
+    text_limit = 100000
 
     model = LiteLLMModel(
         model_id,
