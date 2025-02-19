@@ -5,7 +5,11 @@ description = "Extensions for Model Context Protocol (MCP) clients / servers."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["deepmerge>=2.0", "mcp>=1.2.1"]
+dependencies = [
+    "deepmerge>=2.0",
+ "mcp>=1.2.1",
+ "pytest-asyncio>=0.25.3",
+]
 
 [project.optional-dependencies]
 # For any of the above dependencies that are specific to a single extension, it'd be good
@@ -21,6 +25,3 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = ["pyright>=1.1.389", "pytest>=8.3.1"]
 
-[tool.pytest.ini_options]
-asyncio_default_fixture_loop_scope = "fixture"
-asyncio_mode = "auto"
