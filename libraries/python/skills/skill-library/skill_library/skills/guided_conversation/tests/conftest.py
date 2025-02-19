@@ -1,8 +1,8 @@
 import os
 
+from pydantic import HttpUrl
 import pytest
 from openai_client import AzureOpenAIAzureIdentityAuthConfig, AzureOpenAIServiceConfig, create_client
-from pydantic_core import Url
 from skill_library.types import LanguageModel
 
 
@@ -16,7 +16,7 @@ def client() -> LanguageModel:
 
     service_config = AzureOpenAIServiceConfig(
         auth_config=AzureOpenAIAzureIdentityAuthConfig(),
-        azure_openai_endpoint=Url(azure_openai_endpoint),
+        azure_openai_endpoint=HttpUrl(azure_openai_endpoint),
         azure_openai_deployment=azure_openai_deployment,
     )
     return create_client(service_config)

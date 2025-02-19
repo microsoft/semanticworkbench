@@ -1,7 +1,7 @@
 from typing import Any, Protocol, Sequence
 
-from assistant_extensions.ai_clients.model import CompletionMessage
 from attr import dataclass
+from llm_client.model import CompletionMessage
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
 )

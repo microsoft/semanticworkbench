@@ -11,9 +11,9 @@ import time
 from typing import Any, Awaitable, Callable, Sequence
 
 import deepmerge
-from assistant_extensions.ai_clients.model import CompletionMessage
 from assistant_extensions.artifacts import ArtifactsExtension
 from assistant_extensions.attachments import AttachmentsExtension
+from llm_client.model import CompletionMessage
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     ConversationParticipant,

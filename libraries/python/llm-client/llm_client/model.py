@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from attr import dataclass
+from dataclasses import dataclass
 from pydantic import BaseModel, ConfigDict, Field
 
 

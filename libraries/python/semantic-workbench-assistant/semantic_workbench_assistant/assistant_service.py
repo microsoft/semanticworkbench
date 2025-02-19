@@ -31,8 +31,7 @@ from fastapi import (
 from fastapi.encoders import jsonable_encoder
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel, ValidationError
-from pydantic_core import Url
+from pydantic import BaseModel, HttpUrl, ValidationError
 from semantic_workbench_api_model import (
     assistant_model,
     workbench_model,
@@ -129,7 +128,7 @@ class FastAPIAssistantService(ABC):
                 update=workbench_model.UpdateAssistantServiceRegistrationUrl(
                     name=self.service_name,
                     description=self.service_description,
-                    url=Url(settings.callback_url),
+                    url=HttpUrl(settings.callback_url),
                     online_expires_in_seconds=settings.workbench_service_ping_interval_seconds * 2.5,
                 ),
             )
@@ -288,7 +287,9 @@ def _assistant_service_api(
 
     if enable_auth_middleware:
         app.add_middleware(
-            auth.AuthMiddleware, exclude_methods={"OPTIONS"}, exclude_paths=set(settings.anonymous_paths)
+            middleware_class=auth.AuthMiddleware,
+            exclude_methods={"OPTIONS"},
+            exclude_paths=set(settings.anonymous_paths),
         )
     app.add_middleware(asgi_correlation_id.CorrelationIdMiddleware)
 

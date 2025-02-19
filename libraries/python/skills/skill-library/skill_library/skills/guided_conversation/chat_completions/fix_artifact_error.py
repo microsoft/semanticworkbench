@@ -93,15 +93,18 @@ async def generate_artifact_field_update_error_fix(
         raise completion_error from e
     else:
         message = message_from_completion(completion)
-        if message not in ["UPDATE_ARTIFACT", "RESUME_CONVERSATION"]:
+        if message is None:
+            raise ValueError("Failed to fix the artifact error due to an invalid response from the LLM.")
+
+        if message.content not in ["UPDATE_ARTIFACT", "RESUME_CONVERSATION"]:
             raise ValueError(f"Failed to fix the artifact error due to an invalid response from the LLM: {message}")
 
         # TODO: This doesn't seem like the right thing to return.
-        if message == "RESUME_CONVERSATION":
+        if message.content == "RESUME_CONVERSATION":
             return None
 
-        if message.startswith("UPDATE_ARTIFACT("):
-            field_value = message.split("(")[1].split(")")[0]
+        if message.content.startswith("UPDATE_ARTIFACT("):
+            field_value = message.content.split("(")[1].split(")")[0]
             return field_value
 
         raise ValueError(f"Failed to fix the artifact error due to an invalid response from the LLM: {message}")
