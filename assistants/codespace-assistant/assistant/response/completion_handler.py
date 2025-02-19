@@ -100,7 +100,7 @@ async def handle_completion(
     deepmerge.always_merger.merge(
         step_result.metadata,
         {
-            "tool_calls": [tool_call.model_dump_json() for tool_call in tool_calls],
+            "tool_calls": [tool_call.model_dump(mode="json") for tool_call in tool_calls],
         },
     )
 
@@ -187,6 +187,7 @@ async def handle_completion(
             # Update content and metadata with tool call result metadata
             deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)
 
+            # FIXME only supporting 1 content item and it's text for now, should support other content types/quantity
             # Get the content from the tool call result
             content = next(
                 (content_item.text for content_item in tool_call_result.content if content_item.type == "text"),

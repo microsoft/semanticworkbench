@@ -19,7 +19,9 @@ from ._model import (
 logger = logging.getLogger(__name__)
 
 
-def retrieve_mcp_tools_from_sessions(mcp_sessions: List[MCPSession], tools_config: MCPToolsConfigModel) -> List[Tool]:
+def retrieve_mcp_tools_from_sessions(
+    mcp_sessions: List[MCPSession], tools_config: MCPToolsConfigModel
+) -> List[Tool]:
     """
     Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config.
     """
@@ -39,7 +41,12 @@ def get_mcp_session_and_tool_by_tool_name(
     Retrieve the MCP session and tool by tool name.
     """
     return next(
-        ((mcp_session, tool) for mcp_session in mcp_sessions for tool in mcp_session.tools if tool.name == tool_name),
+        (
+            (mcp_session, tool)
+            for mcp_session in mcp_sessions
+            for tool in mcp_session.tools
+            if tool.name == tool_name
+        ),
         (None, None),
     )
 
@@ -55,17 +62,26 @@ async def handle_mcp_tool_call(
     """
 
     # Find the tool and session from the full collection of sessions
-    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(mcp_sessions, tool_call.name)
+    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(
+        mcp_sessions, tool_call.name
+    )
 
     if not mcp_session or not tool:
         return ExtendedCallToolResult(
             id=tool_call.id,
-            content=[TextContent(type="text", text=f"Tool '{tool_call.name}' not found in any of the sessions.")],
+            content=[
+                TextContent(
+                    type="text",
+                    text=f"Tool '{tool_call.name}' not found in any of the sessions.",
+                )
+            ],
             isError=True,
             metadata={},
         )
 
-    return await execute_tool(mcp_session, tool_call, method_metadata_key, on_logging_message)
+    return await execute_tool(
+        mcp_session, tool_call, method_metadata_key, on_logging_message
+    )
 
 
 async def handle_long_running_tool_call(
@@ -79,12 +95,19 @@ async def handle_long_running_tool_call(
     """
 
     # Find the tool and session from the full collection of sessions
-    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(mcp_sessions, tool_call.name)
+    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(
+        mcp_sessions, tool_call.name
+    )
 
     if not mcp_session or not tool:
         yield ExtendedCallToolResult(
             id=tool_call.id,
-            content=[TextContent(type="text", text=f"Tool '{tool_call.name}' not found in any of the sessions.")],
+            content=[
+                TextContent(
+                    type="text",
+                    text=f"Tool '{tool_call.name}' not found in any of the sessions.",
+                )
+            ],
             isError=True,
             metadata={},
         )
@@ -107,7 +130,9 @@ async def handle_long_running_tool_call(
     )
 
     # Perform the tool call
-    tool_call_result = await execute_tool(mcp_session, tool_call, method_metadata_key, on_logging_message)
+    tool_call_result = await execute_tool(
+        mcp_session, tool_call, method_metadata_key, on_logging_message
+    )
     yield tool_call_result
 
 
@@ -126,7 +151,9 @@ async def execute_tool(
     content_items: List[str] = []
 
     async def tool_call_function() -> CallToolResult:
-        return await mcp_session.client_session.call_tool(tool_call.name, tool_call.arguments)
+        return await mcp_session.client_session.call_tool(
+            tool_call.name, tool_call.arguments
+        )
 
     async def notification_handler(message: ServerNotification) -> None:
         if message.root.method == "notifications/message":
@@ -134,7 +161,9 @@ async def execute_tool(
         else:
             logger.warning(f"Received unknown notification: {message}")
 
-    logger.debug(f"Invoking '{mcp_session.config.key}.{tool_call.name}' with arguments: {tool_call.arguments}")
+    logger.debug(
+        f"Invoking '{mcp_session.config.key}.{tool_call.name}' with arguments: {tool_call.arguments}"
+    )
     tool_result = await execute_tool_with_notifications(
         mcp_session.client_session, tool_call_function, notification_handler
     )
@@ -152,9 +181,11 @@ async def execute_tool(
         },
     )
 
+    # FIXME: for now, we'll just dump the tool output as text but we should support other content types
     for tool_output_item in tool_output:
         if isinstance(tool_output_item, TextContent):
-            content_items.append(tool_output_item.text)
+            if tool_output_item.text.strip() != "":
+                content_items.append(tool_output_item.text)
         if isinstance(tool_output_item, ImageContent):
             content_items.append(tool_output_item.model_dump_json())
         if isinstance(tool_output_item, EmbeddedResource):
@@ -166,9 +197,9 @@ async def execute_tool(
         content=[
             TextContent(
                 type="text",
-                text=dedent(f"""
-                Tool '{tool_call.name}' executed successfully.
-            """).strip(),
+                text="\n\n".join(content_items)
+                if len(content_items) > 0
+                else "[tool call successful, but no output, this may indicate empty file, directory, etc.]",
             ),
         ],
         metadata=metadata,

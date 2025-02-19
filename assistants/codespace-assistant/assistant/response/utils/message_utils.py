@@ -105,6 +105,13 @@ def tool_calls_from_metadata(metadata: dict[str, Any]) -> list[ChatCompletionMes
 
     tool_call_params: list[ChatCompletionMessageToolCallParam] = []
     for tool_call in tool_calls:
+        if not isinstance(tool_call, dict):
+            try:
+                tool_call = json.loads(tool_call)
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse tool call from metadata: {tool_call}")
+                continue
+
         id = tool_call["id"]
         name = tool_call["name"]
         arguments = json.dumps(tool_call["arguments"])

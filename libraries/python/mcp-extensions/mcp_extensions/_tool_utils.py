@@ -6,7 +6,6 @@ from typing import Any, List
 import deepmerge
 from mcp import ClientSession, ServerNotification, Tool
 from mcp.server.fastmcp import Context
-from mcp.shared.session import BaseSession
 from mcp.types import CallToolResult
 from openai.types.chat import (
     ChatCompletionToolParam,
@@ -25,13 +24,13 @@ async def send_tool_call_progress(
     Send a progress update message for a tool call to the FastMCP server.
     """
 
-    session: BaseSession = fastmcp_server_context.session
-    await session.send_log_message(
+    await fastmcp_server_context.session.send_log_message(
         level="info",
         data=message,
     )
 
     # FIXME: Would prefer to use this to send data via a custom notification, but it's not working
+    # session: BaseSession = fastmcp_server_context.session
     # jsonrpc_notification = JSONRPCNotification(
     #     method="tool_call_progress",
     #     jsonrpc="2.0",
