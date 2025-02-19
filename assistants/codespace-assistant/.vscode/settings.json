@@ -9,6 +9,14 @@
   "editor.formatOnType": true,
   "editor.formatOnSave": true,
   "files.eol": "\n",
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true
+  },
   "files.trimTrailingWhitespace": true,
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -25,6 +33,9 @@
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "standard",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  "python.testing.pytestEnabled": true,
+  "python.testing.cwd": "${workspaceFolder}",
+  "python.testing.pytestArgs": [],
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
@@ -38,8 +49,10 @@
   "ruff.nativeServer": "on",
   "search.exclude": {
     "**/.venv": true,
-    "**/.data": true
+    "**/.data": true,
+    "**/__pycache__": true
   },
+
   // For use with optional extension: "streetsidesoftware.code-spell-checker"
   "cSpell.ignorePaths": [
     ".venv",
@@ -69,6 +82,7 @@
     "pydantic",
     "pyproject",
     "pyright",
+    "pytest",
     "semanticworkbench",
     "tiktoken",
     "updown",

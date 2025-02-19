@@ -65,7 +65,6 @@
         "ms-python.debugpy",
         "ms-vscode.extension-test-runner",
         "ms-python.python",
-        "ms-toolsai.datawrangler",
         "ms-vscode.makefile-tools",
         "ms-vscode.vscode-node-azure-pack",
         "tamasfe.even-better-toml",

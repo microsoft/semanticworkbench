@@ -5,6 +5,7 @@ from typing import Any, List
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
+from assistant_extensions.mcp import MCPSession, MCPToolsConfigModel
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -16,17 +17,14 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.config import PromptsConfigModel
-from assistant.extensions.tools.__mcp_tool_utils import retrieve_tools_from_sessions
-from assistant.extensions.tools.__model import MCPSession, ToolsConfigModel
-from assistant.response.utils.formatting_utils import get_formatted_token_count
-
+from ..config import PromptsConfigModel
 from .completion_handler import handle_completion
 from .models import StepResult
 from .request_builder import build_request
 from .utils import (
-    convert_mcp_tools_to_openai_tools,
     get_completion,
+    get_formatted_token_count,
+    get_openai_tools_from_mcp_sessions,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,7 +38,7 @@ async def next_step(
     request_config: OpenAIRequestConfig,
     service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
     prompts_config: PromptsConfigModel,
-    tools_config: ToolsConfigModel,
+    tools_config: MCPToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
@@ -77,8 +75,7 @@ async def next_step(
     silence_token = "{{SILENCE}}"
 
     # convert the tools to make them compatible with the OpenAI API
-    mcp_tools = retrieve_tools_from_sessions(mcp_sessions, tools_config)
-    tools = convert_mcp_tools_to_openai_tools(mcp_tools)
+    tools = get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config)
 
     build_request_result = await build_request(
         mcp_prompts=mcp_prompts,
@@ -117,31 +114,33 @@ async def next_step(
 
     # generate a response from the AI model
     async with create_client(service_config) as client:
-        try:
-            completion = await get_completion(client, request_config, chat_message_params, tools)
+        completion_status = "reasoning..." if request_config.is_reasoning_model else "thinking..."
+        async with context.set_status(completion_status):
+            try:
+                completion = await get_completion(client, request_config, chat_message_params, tools)
 
-        except Exception as e:
-            logger.exception(f"exception occurred calling openai chat completion: {e}")
-            deepmerge.always_merger.merge(
-                step_result.metadata,
-                {
-                    "debug": {
-                        metadata_key: {
-                            "error": str(e),
+            except Exception as e:
+                logger.exception(f"exception occurred calling openai chat completion: {e}")
+                deepmerge.always_merger.merge(
+                    step_result.metadata,
+                    {
+                        "debug": {
+                            metadata_key: {
+                                "error": str(e),
+                            },
                         },
                     },
-                },
-            )
-            await context.send_messages(
-                NewConversationMessage(
-                    content="An error occurred while calling the OpenAI API. Is it configured correctly?"
-                    " View the debug inspector for more information.",
-                    message_type=MessageType.notice,
-                    metadata=step_result.metadata,
                 )
-            )
-            step_result.status = "error"
-            return step_result
+                await context.send_messages(
+                    NewConversationMessage(
+                        content="An error occurred while calling the OpenAI API. Is it configured correctly?"
+                        " View the debug inspector for more information.",
+                        message_type=MessageType.notice,
+                        metadata=step_result.metadata,
+                    )
+                )
+                step_result.status = "error"
+                return step_result
 
     if completion is None:
         return await handle_error("No response from OpenAI.")

@@ -4,21 +4,17 @@ import argparse
 
 from .server import create_mcp_server
 
+
 def main() -> None:
     # Command-line arguments for transport and port
-    parse_args = argparse.ArgumentParser(description=f"Start the MCP server.")
+    parse_args = argparse.ArgumentParser(description="Start the MCP server.")
     parse_args.add_argument(
         "--transport",
         default="stdio",
         choices=["stdio", "sse"],
         help="Transport protocol to use ('stdio' or 'sse'). Default is 'stdio'.",
     )
-    parse_args.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="Port to use for SSE (default is 8000)."
-    )
+    parse_args.add_argument("--port", type=int, default=8000, help="Port to use for SSE (default is 8000).")
     args = parse_args.parse_args()
 
     mcp = create_mcp_server()
@@ -26,6 +22,7 @@ def main() -> None:
         mcp.settings.port = args.port
 
     mcp.run(transport=args.transport)
+
 
 if __name__ == "__main__":
     main()

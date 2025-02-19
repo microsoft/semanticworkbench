@@ -4,8 +4,13 @@ import logging
 from textwrap import dedent
 from typing import List, Literal, Tuple
 
-import deepmerge
-from mcp import Tool
+from assistant_extensions.mcp import (
+    ExtendedCallToolRequestParams,
+    MCPSession,
+    MCPToolsConfigModel,
+    retrieve_mcp_tools_from_sessions,
+)
+from mcp_extensions import convert_tools_to_openai_tools
 from openai import AsyncOpenAI, NotGiven
 from openai.types.chat import (
     ChatCompletion,
@@ -13,13 +18,10 @@ from openai.types.chat import (
     ChatCompletionToolParam,
     ParsedChatCompletion,
 )
-from openai.types.shared_params import FunctionDefinition, FunctionParameters
 from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig
 from pydantic import BaseModel
 
-from assistant.config import AssistantConfigModel
-
-from ...extensions.tools import ToolCall
+from ...config import AssistantConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -77,20 +79,20 @@ async def get_completion(
     return completion
 
 
-def extract_content_from_tool_calls(
-    tool_calls: List[ToolCall],
-) -> Tuple[str | None, List[ToolCall]]:
+def extract_content_from_mcp_tool_calls(
+    tool_calls: List[ExtendedCallToolRequestParams],
+) -> Tuple[str | None, List[ExtendedCallToolRequestParams]]:
     """
     Extracts the AI content from the tool calls.
 
-    This function takes a list of ToolCall objects and extracts the AI content from them. It returns a tuple
-    containing the AI content and the updated list of ToolCall objects.
+    This function takes a list of MCPToolCall objects and extracts the AI content from them. It returns a tuple
+    containing the AI content and the updated list of MCPToolCall objects.
 
     Args:
-        tool_calls(List[ToolCall]): The list of ToolCall objects.
+        tool_calls(List[MCPToolCall]): The list of MCPToolCall objects.
 
     Returns:
-        Tuple[str | None, List[ToolCall]]: A tuple containing the AI content and the updated list of ToolCall
+        Tuple[str | None, List[MCPToolCall]]: A tuple containing the AI content and the updated list of MCPToolCall
         objects.
     """
     ai_content: list[str] = []
@@ -98,7 +100,7 @@ def extract_content_from_tool_calls(
 
     for tool_call in tool_calls:
         # Split the AI content from the tool call
-        content, updated_tool_call = split_ai_content_from_tool_call(tool_call)
+        content, updated_tool_call = split_ai_content_from_mcp_tool_call(tool_call)
 
         if content is not None:
             ai_content.append(content)
@@ -108,12 +110,15 @@ def extract_content_from_tool_calls(
     return "\n\n".join(ai_content).strip(), updated_tool_calls
 
 
-def split_ai_content_from_tool_call(
-    tool_call: ToolCall,
-) -> Tuple[str | None, ToolCall]:
+def split_ai_content_from_mcp_tool_call(
+    tool_call: ExtendedCallToolRequestParams,
+) -> Tuple[str | None, ExtendedCallToolRequestParams]:
     """
     Splits the AI content from the tool call.
     """
+
+    if not tool_call.arguments:
+        return None, tool_call
 
     # Check if the tool call has an "aiContext" argument
     if "aiContext" in tool_call.arguments:
@@ -126,44 +131,24 @@ def split_ai_content_from_tool_call(
     return None, tool_call
 
 
-def convert_mcp_tools_to_openai_tools(mcp_tools: List[Tool] | None) -> List[ChatCompletionToolParam] | None:
-    if not mcp_tools:
-        return None
+def get_openai_tools_from_mcp_sessions(
+    mcp_sessions: List[MCPSession], tools_config: MCPToolsConfigModel
+) -> List[ChatCompletionToolParam] | None:
+    """
+    Retrieve the tools from the MCP sessions.
+    """
 
-    openai_tools: List[ChatCompletionToolParam] = []
-    for mcp_tool in mcp_tools:
-        # add parameter for explaining the step for the user observing the assistant
-        parameters: FunctionParameters = deepmerge.always_merger.merge(
-            mcp_tool.inputSchema.copy(),
-            {
-                "properties": {
-                    # Add the "aiContext" parameter to the input schema
-                    "aiContext": {
-                        "type": "string",
-                        "description": dedent("""
-                            Explanation of why the AI is using this tool and what it expects to accomplish.
-                            This message is displayed to the user, coming from the point of view of the
-                            assistant and should fit within the flow of the ongoing conversation, responding
-                            to the preceding user message.
-                        """).strip(),
-                    },
-                },
-                # Ensure that the "aiContext" parameter is required
-                "required": ["aiContext"],
-            },
-        )
-
-        function = FunctionDefinition(
-            name=mcp_tool.name,
-            description=mcp_tool.description if mcp_tool.description else "[no description provided]",
-            parameters=parameters,
-        )
-
-        openai_tools.append(
-            ChatCompletionToolParam(
-                function=function,
-                type="function",
-            )
-        )
-
+    mcp_tools = retrieve_mcp_tools_from_sessions(mcp_sessions, tools_config)
+    extra_parameters = {
+        "aiContext": {
+            "type": "string",
+            "description": dedent("""
+                Explanation of why the AI is using this tool and what it expects to accomplish.
+                This message is displayed to the user, coming from the point of view of the
+                assistant and should fit within the flow of the ongoing conversation, responding
+                to the preceding user message.
+            """).strip(),
+        },
+    }
+    openai_tools = convert_tools_to_openai_tools(mcp_tools, extra_parameters)
     return openai_tools

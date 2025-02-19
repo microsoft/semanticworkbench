@@ -6,6 +6,7 @@ authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "mcp-extensions[openai]>=0.1.0",
     "mcp>=1.2.1",
     "anthropic>=0.37.1",
     "beautifulsoup4>=4.12.3",
@@ -56,6 +57,9 @@ packages = ["mcp_server"]
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
 
 [build-system]
 requires = ["hatchling"]

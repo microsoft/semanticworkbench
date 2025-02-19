@@ -1,15 +1,17 @@
-import json
 import logging
-from enum import StrEnum
 from textwrap import dedent
-from typing import Annotated, Any, List
+from typing import Annotated, Any, Awaitable, Callable, List
 
-from attr import dataclass
 from mcp import ClientSession, Tool
+from mcp.types import CallToolRequestParams, CallToolResult
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 logger = logging.getLogger(__name__)
+
+
+# define type for on_logging_message callback
+OnMCPLoggingMessageHandler = Callable[[str], Awaitable[None]]
 
 
 class MCPServerEnvConfig(BaseModel):
@@ -53,7 +55,7 @@ class MCPServerConfig(BaseModel):
     ] = 30
 
 
-class ToolsConfigModel(BaseModel):
+class MCPToolsConfigModel(BaseModel):
     enabled: Annotated[
         bool,
         Field(
@@ -201,31 +203,10 @@ class MCPSession:
         logger.debug(f"Loaded {len(tools_result.tools)} tools from session '{self.config.key}'")
 
 
-@dataclass
-class ToolCall:
+class ExtendedCallToolRequestParams(CallToolRequestParams):
     id: str
-    name: str
-    arguments: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "arguments": self.arguments,
-        }
-
-    def to_json(self, **kwargs) -> str:
-        return json.dumps(self, default=lambda o: o.__dict__, **kwargs)
 
 
-class ToolMessageType(StrEnum):
-    notice = "notice"
-    tool_result = "tool_result"
-
-
-@dataclass
-class ToolCallResult:
+class ExtendedCallToolResult(CallToolResult):
     id: str
-    content: str
-    message_type: ToolMessageType
     metadata: dict[str, Any]

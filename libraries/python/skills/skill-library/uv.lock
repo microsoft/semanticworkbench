@@ -209,7 +209,6 @@ dependencies = [
 
 [package.optional-dependencies]
 attachments = [
-    { name = "assistant-drive" },
     { name = "docx2txt" },
     { name = "pdfplumber" },
 ]
@@ -219,8 +218,9 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.40.0" },
     { name = "anthropic-client", editable = "../../anthropic-client" },
     { name = "assistant-drive", editable = "../../assistant-drive" },
-    { name = "assistant-drive", marker = "extra == 'attachments'", editable = "../../assistant-drive" },
     { name = "docx2txt", marker = "extra == 'attachments'", specifier = ">=0.8" },
+    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.2.1" },
+    { name = "mcp-extensions", extras = ["openai"], marker = "extra == 'mcp'", editable = "../../mcp-extensions" },
     { name = "openai", specifier = ">=1.61.0" },
     { name = "openai-client", editable = "../../openai-client" },
     { name = "pdfplumber", marker = "extra == 'attachments'", specifier = ">=0.11.2" },

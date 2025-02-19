@@ -1,8 +1,18 @@
+import asyncio
 import os
 import threading
+from typing import Awaitable, Callable
 
 from dotenv import load_dotenv
 from huggingface_hub import login
+from smolagents import (
+    CodeAgent,
+    # HfApiModel,
+    LiteLLMModel,
+    ToolCallingAgent,
+)
+
+from . import settings
 from .libs.open_deep_research.text_inspector_tool import TextInspectorTool
 from .libs.open_deep_research.text_web_browser import (
     ArchiveSearchTool,
@@ -15,16 +25,6 @@ from .libs.open_deep_research.text_web_browser import (
     VisitTool,
 )
 from .libs.open_deep_research.visual_qa import visualizer
-
-from smolagents import (
-    CodeAgent,
-    # HfApiModel,
-    LiteLLMModel,
-    ToolCallingAgent,
-)
-
-from . import settings
-
 
 AUTHORIZED_IMPORTS = [
     "requests",
@@ -74,13 +74,28 @@ BROWSER_CONFIG = {
 os.makedirs(f"./{BROWSER_CONFIG['downloads_folder']}", exist_ok=True)
 
 
-def perform_deep_research(model_id, question) -> str:
+async def perform_deep_research(
+    model_id: str, question: str, on_status_update: Callable[[str], Awaitable[None]]
+) -> str:
+    await on_status_update("starting research...")
+
+    return await asyncio.to_thread(
+        deep_research,
+        model_id,
+        question,
+    )
+
+
+def deep_research(
+    model_id: str,
+    question: str,
+) -> str:
     text_limit = 100000
 
     model = LiteLLMModel(
         model_id,
         custom_role_conversions=custom_role_conversions,
-        max_completion_tokens=50000,
+        max_completion_tokens=10000,
         reasoning_effort="high",
     )
     document_inspection_tool = TextInspectorTool(model, text_limit)

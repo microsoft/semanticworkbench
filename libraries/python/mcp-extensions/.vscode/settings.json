@@ -45,16 +45,11 @@
   "cSpell.words": [
     "asyncio",
     "deepmerge",
-    "DMAIC",
-    "endregion",
-    "Excalidraw",
-    "giphy",
-    "modelcontextprotocol",
-    "openai",
-    "pdfplumber",
+    "fastmcp",
+    "interoperating",
+    "Lifecycles",
     "pydantic",
     "pyright",
-    "pytest",
-    "semanticworkbench"
+    "pytest"
   ]
 }
