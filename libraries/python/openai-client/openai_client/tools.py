@@ -295,6 +295,11 @@ class ToolFunctions:
 
     @staticmethod
     def parse_fn_string(function_string: str) -> tuple[str | None, list[Any], dict[str, Any]]:
+        """
+        Parse a string representing a function call into its name, positional
+        arguments, and keyword arguments.
+        """
+
         # As a convenience, remove any leading slashes.
         function_string = function_string.lstrip("/")
 

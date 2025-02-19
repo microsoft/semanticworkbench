@@ -9,20 +9,26 @@ from openai_client import (
     validate_completion,
 )
 from pydantic import BaseModel
-from skill_library import AskUserFn, EmitFn, Metadata, RunContext, RunRoutineFn
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
-from skill_library.skills.common import CommonSkill
+from skill_library.skills.research import ResearchSkill
 
 
 async def main(
-    context: RunContext, routine_state: dict[str, Any], emit: EmitFn, run: RunRoutineFn, ask_user: AskUserFn, topic: str
-) -> tuple[list[str], Metadata]:
+    context: RunContext,
+    routine_state: dict[str, Any],
+    emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
+    topic: str,
+    plan: str,
+) -> list[str]:
     """
     Update a research plan using information from a conversation. The plan will
     consist of an updated set of research questions to be answered.
     """
-    common_skill = cast(CommonSkill, context.skills["common"])
-    language_model = common_skill.config.language_model
+    research_skill = cast(ResearchSkill, context.skills["research"])
+    language_model = research_skill.config.language_model
 
     class Output(BaseModel):
         reasoning: str
@@ -33,10 +39,12 @@ async def main(
         "messages": [
             create_system_message(
                 (
-                    "You are an expert research assistant. You have previously considered a topic and carefully analyzed it to identify core, tangential, and nuanced areas requiring exploration. You approached the topic methodically, breaking it down into its fundamental aspects, associated themes, and interconnections. You thoroughly thought through the subject step by step and created a comprehensive set of research questions. These questions were presented to the user, who has now provided additional information. Use this information, found in the chat history to update the research plan.\n\n"
-                    "The topic is: {topic}\n\n"
-                    "The previous research questions are:\n\n"
-                    "{research_questions}\n\n"
+                    "You are an expert research assistant. You have previously considered a topic and carefully analyzed it to identify core, tangential, and nuanced areas requiring exploration. You approached the topic methodically, breaking it down into its fundamental aspects, associated themes, and interconnections. You thoroughly thought through the subject step by step and created a comprehensive set of research questions. These questions were presented to the user, who has now provided additional information. Use this information, found in the chat history to update the research plan. Don't entirely rewrite the plan unless the user asks you to, just tweak it.\n"
+                    "\n---\n\n"
+                    "The topic is: {topic}\n"
+                    "\n---\n\n"
+                    "The research questions we are updating:\n\n"
+                    "{plan}\n\n"
                 )
             ),
             create_user_message(
@@ -46,8 +54,8 @@ async def main(
         "response_format": Output,
     }
 
-    metadata = {}
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
+    metadata = {}
     metadata["completion_args"] = make_completion_args_serializable(completion_args)
     try:
         completion = await language_model.beta.chat.completions.parse(
@@ -61,9 +69,12 @@ async def main(
         metadata["completion_error"] = completion_error.message
         logger.error(
             completion_error.message,
-            extra=extra_data({"completion_error": completion_error.body, "metadata": metadata}),
+            extra=extra_data({"completion_error": completion_error.body}),
         )
         raise completion_error from e
     else:
         research_questions = cast(Output, completion.choices[0].message.parsed).research_questions
-        return research_questions, metadata
+        metadata["research_questions"] = research_questions
+        return research_questions
+    finally:
+        context.log("update_research_plan", metadata)
