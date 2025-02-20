@@ -125,6 +125,7 @@
         "modelcontextprotocol",
         "nosources",
         "pipx",
+        "semanticworkbench",
         "toplevel",
         "venv",
         "vscodeignore",
