@@ -6,6 +6,7 @@ import * as http from 'http';
 import * as vscode from 'vscode';
 import { DiagnosticSeverity } from 'vscode';
 import { z } from 'zod';
+import * as packageJson from '../package.json';
 import { codeCheckerTool } from './tools/code_checker';
 import {
     listDebugSessions,
@@ -17,12 +18,12 @@ import {
 } from './tools/debug_tools';
 import { focusEditorTool } from './tools/focus_editor';
 import { searchSymbolTool } from './tools/search_symbol';
+import { resolvePort } from './utils/port.js';
 
 const extensionName = 'vscode-mcp-server';
 const extensionDisplayName = 'VSCode MCP Server';
-import * as packageJson from '../package.json';
 
-export const activate = (context: vscode.ExtensionContext) => {
+export const activate = async (context: vscode.ExtensionContext) => {
     // Create the output channel for logging
     const outputChannel = vscode.window.createOutputChannel(extensionDisplayName);
 
@@ -72,26 +73,16 @@ export const activate = (context: vscode.ExtensionContext) => {
 
     // Register 'focus_editor' tool
     mcpServer.tool(
-        "focus_editor",
+        'focus_editor',
         dedent`
         Open the specified file in the VSCode editor and navigate to a specific line and column.
         Use this tool to bring a file into focus and position the editor's cursor where desired.
         Note: This tool operates on the editor visual environment so that the user can see the file. It does not return the file contents in the tool call result.
         `.trim(),
         {
-            filePath: z.string().describe("The absolute path to the file to focus in the editor."),
-            line: z
-                .number()
-                .int()
-                .min(0)
-                .default(0)
-                .describe("The line number to navigate to (default: 0)."),
-            column: z
-                .number()
-                .int()
-                .min(0)
-                .default(0)
-                .describe("The column position to navigate to (default: 0)."),
+            filePath: z.string().describe('The absolute path to the file to focus in the editor.'),
+            line: z.number().int().min(0).default(0).describe('The line number to navigate to (default: 0).'),
+            column: z.number().int().min(0).default(0).describe('The column position to navigate to (default: 0).'),
         },
         async (params: { filePath: string; line?: number; column?: number }) => {
             const result = await focusEditorTool(params);
@@ -101,26 +92,17 @@ export const activate = (context: vscode.ExtensionContext) => {
 
     // Register 'search_symbol' tool
     mcpServer.tool(
-        "search_symbol",
+        'search_symbol',
         dedent`
         Search for a symbol within the workspace.
         - Tries to resolve the definition via VSCode’s "Go to Definition".
         - If not found, searches the entire workspace for the text, similar to Ctrl+Shift+F.
         `.trim(),
         {
-            query: z.string().describe("The symbol or text to search for."),
-            useDefinition: z
-                .boolean()
-                .default(true)
-                .describe("Whether to use 'Go to Definition' as the first method."),
-            maxResults: z
-                .number()
-                .default(50)
-                .describe("Maximum number of global search results to return."),
-            openFile: z
-                .boolean()
-                .default(false)
-                .describe("Whether to open the found file in the editor."),
+            query: z.string().describe('The symbol or text to search for.'),
+            useDefinition: z.boolean().default(true).describe("Whether to use 'Go to Definition' as the first method."),
+            maxResults: z.number().default(50).describe('Maximum number of global search results to return.'),
+            openFile: z.boolean().default(false).describe('Whether to open the found file in the editor.'),
         },
         async (params: { query: string; useDefinition?: boolean; maxResults?: number; openFile?: boolean }) => {
             const result = await searchSymbolTool(params);
@@ -199,7 +181,9 @@ export const activate = (context: vscode.ExtensionContext) => {
 
     // Set up an Express app to handle SSE connections
     const app = express();
-    const port = 6010;
+    const mcpConfig = vscode.workspace.getConfiguration('mcpServer');
+    const port = await resolvePort(mcpConfig.get<number>('port', 6010));
+
     let sseTransport: SSEServerTransport | undefined;
 
     // GET /sse endpoint: the external MCP client connects here (SSE)
@@ -240,17 +224,76 @@ export const activate = (context: vscode.ExtensionContext) => {
 
     // Create and start the HTTP server
     const server = http.createServer(app);
-    server.listen(port, () => {
-        outputChannel.appendLine(`MCP SSE Server running at http://127.0.0.1:${port}/sse`);
-    });
+    function startServer(port: number): void {
+        server.listen(port, () => {
+            outputChannel.appendLine(`MCP SSE Server running at http://127.0.0.1:${port}/sse`);
+        });
 
-    // Add disposal to shut down the HTTP server and output channel on extension deactivation
-    context.subscriptions.push({
-        dispose: () => {
+        // Add disposal to shut down the HTTP server and output channel on extension deactivation
+        context.subscriptions.push({
+            dispose: () => {
+                server.close();
+                outputChannel.dispose();
+            },
+        });
+    }
+    const startOnActivate = mcpConfig.get<boolean>('startOnActivate', true);
+    if (startOnActivate) {
+        startServer(port);
+    } else {
+        outputChannel.appendLine('MCP Server startup disabled by configuration.');
+    }
+
+    // COMMAND PALETTE COMMAND: Stop the MCP Server
+    context.subscriptions.push(vscode.commands.registerCommand('mcpServer.stopServer', () => {
+        if (!server.listening) {
+            vscode.window.showWarningMessage('MCP Server is not running.');
+            outputChannel.appendLine('Attempted to stop the MCP Server, but it is not running.');
+            return;
+        }
+        server.close(() => {
+            outputChannel.appendLine('MCP Server stopped.');
+            vscode.window.showInformationMessage('MCP Server stopped.');
+        });
+    }));
+
+    // COMMAND PALETTE COMMAND: Start the MCP Server
+    context.subscriptions.push(vscode.commands.registerCommand('mcpServer.startServer', async () => {
+        if (server.listening) {
+            vscode.window.showWarningMessage('MCP Server is already running.');
+            outputChannel.appendLine('Attempted to start the MCP Server, but it is already running.');
+            return;
+        }
+        const newPort = await resolvePort(mcpConfig.get<number>('port', 6010));
+        startServer(newPort);
+        outputChannel.appendLine(`MCP Server started on port ${newPort}.`);
+        vscode.window.showInformationMessage(`MCP Server started on port ${newPort}.`);
+    }));
+
+    // COMMAND PALETTE COMMAND: Set the MCP server port and restart the server
+    context.subscriptions.push(vscode.commands.registerCommand('mcpServer.setPort', async () => {
+        const newPortInput = await vscode.window.showInputBox({
+            prompt: "Enter new port number for the MCP Server:",
+            value: String(port),
+            validateInput: (input) => {
+                const num = Number(input);
+                if (isNaN(num) || num < 1 || num > 65535) {
+                    return "Please enter a valid port number (1-65535).";
+                }
+                return null;
+            }
+        });
+        if (newPortInput && newPortInput.trim().length > 0) {
+            const newPort = Number(newPortInput);
+            // Update the configuration so that subsequent startups use the new port
+            await vscode.workspace.getConfiguration('mcpServer').update('port', newPort, vscode.ConfigurationTarget.Global);
+            // Restart the server: close existing server and start a new one
             server.close();
-            outputChannel.dispose();
-        },
-    });
+            startServer(newPort);
+            outputChannel.appendLine(`MCP Server restarted on port ${newPort}`);
+            vscode.window.showInformationMessage(`MCP Server restarted on port ${newPort}`);
+        }
+    }));
 
     outputChannel.appendLine(`${extensionDisplayName} activated.`);
 };

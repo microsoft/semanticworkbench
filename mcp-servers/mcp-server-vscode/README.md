@@ -27,9 +27,9 @@ The **VSCode MCP Server** is a VSCode extension that acts as a Model Context Pro
     -   `restart_debug_session`: Restart a debug session by stopping it and then starting it with the provided configuration (new!).
 
 -   **SSE Communication:**
-    An Express-based HTTP server runs on port 6010, exposing:
+    An Express-based HTTP server runs on a configurable port (default: 6010) and dynamically handles port conflicts. It exposes:
 
-    -   A **GET `/sse`** endpoint to establish a long-lived Server-Sent Events (SSE) connection.
+    -   A **GET `/sse`** endpoint to establish a long-lived Server-Sent Events (SSE) connection. If the default port (6010) is unavailable, users can configure a new one via their VSCode settings (see Dynamic Port Configuration below).
     -   A **POST `/messages`** endpoint for receiving MCP messages from external clients (such as your AI assistant).
         Special care is taken to handle the request body properly—thanks to passing the already-parsed `req.body` to avoid stream-related errors.
 
@@ -135,7 +135,45 @@ Steps for developing and debugging the extension, source code available at [GitH
 
 3. **Reload and Verify:**
 
-    After installation, reload VSCode (via "Developer: Reload Window" from the Command Palette) and verify that the extension is active. Check the "MCP Server Logs" output channel to see logs confirming that the MCP server has started and is listening on port 6010.
+    After installation, reload VSCode (via "Developer: Reload Window" from the Command Palette) and verify that the extension is active. Check the "MCP Server Logs" output channel to see logs confirming that the MCP server has started and is listening on the configured port (default: 6010, or the next available one).
+
+### MCP Server Management
+
+The MCP Server status can now be managed directly from the Command Palette:
+1. **Stop MCP Server** (`mcpServer.stopServer`): Stops the currently running MCP Server.
+2. **Start MCP Server** (`mcpServer.startServer`): Starts the server on the configured or next available port.
+
+These commands help manage server lifecycle dynamically, without requiring a VSCode restart.
+
+### Dynamic Port Configuration
+
+Users can configure or change the MCP Server's port at runtime using the Command Palette: 
+1. Open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P` on macOS).
+2. Search for `Set MCP Server Port`.
+3. Enter the desired port number in the input box and confirm.
+
+The server will dynamically restart on the newly selected port, and the configuration will be updated for future sessions.
+
+
+### MCP Server Automatic Startup
+
+The MCP Server starts automatically on VSCode activation by default. To disable this feature:
+
+1. Open VSCode settings (`File > Preferences > Settings` or `Ctrl+,`).
+2. Search for `mcpServer.startOnActivate`.
+3. Toggle the setting to `false`.
+
+This can be useful if you prefer to start the server manually using the `Start MCP Server` command.
+
+### Dynamic Port Configuration
+
+Starting with version 0.0.4, the HTTP server port can be configured dynamically to avoid conflicts when running multiple instances of VSCode:
+
+1. Open VSCode settings (`File > Preferences > Settings` or `Ctrl+,`).
+2. Search for `mcpServer.port`.
+3. Set your desired port number.
+
+If the port is already in use, the extension will suggest the next available port and apply it dynamically. Logs reflecting the selected port can be found in the **MCP Server Logs** output channel.
 
 ### Debugging the Extension
 

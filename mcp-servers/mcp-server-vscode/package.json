@@ -18,6 +18,23 @@
     "activationEvents": [
         "*"
     ],
+    "contributes": {
+        "configuration": {
+            "type": "object",
+            "properties": {
+                "mcpServer.startOnActivate": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Determines if the MCP Server should start automatically on VSCode activation."
+                },
+                "mcpServer.port": {
+                    "type": "number",
+                    "default": 6010,
+                    "description": "The port that the MCP Server listens on. Set in case of conflicts or custom configurations."
+                }
+            }
+        }
+    },
     "main": "./dist/extension.js",
     "scripts": {
         "vscode:prepublish": "pnpm run package",
