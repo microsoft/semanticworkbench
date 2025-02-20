@@ -36,6 +36,7 @@ from youtube_transcript_api.formatters import SRTFormatter
 # FIXME: Pass the extract_dir into the MarkdownConverter instead of importing the settings
 from ... import settings
 
+
 class _CustomMarkdownify(markdownify.MarkdownConverter):
     """
     A custom version of markdownify's MarkdownConverter. Changes include:

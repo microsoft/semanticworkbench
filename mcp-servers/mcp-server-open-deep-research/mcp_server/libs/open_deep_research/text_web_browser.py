@@ -12,7 +12,6 @@ from urllib.parse import unquote, urljoin, urlparse
 import pathvalidate
 import requests
 from serpapi import GoogleSearch
-
 from smolagents import Tool
 
 from .cookies import COOKIES
@@ -253,9 +252,8 @@ class SimpleTextBrowser:
                 redacted_version = redacted_version.replace("Your browser can't play this video.", "")
                 web_snippets.append(redacted_version)
 
-        content = (
-            f"A Google search for '{query}' found {len(web_snippets)} results:\n\n## Web Results\n"
-            + "\n\n".join(web_snippets)
+        content = f"A Google search for '{query}' found {len(web_snippets)} results:\n\n## Web Results\n" + "\n\n".join(
+            web_snippets
         )
 
         self._set_page_content(content)
@@ -329,7 +327,7 @@ class SimpleTextBrowser:
             self.page_title = "Error 404"
             self._set_page_content(f"## Error 404\n\nFile not found: {download_path}")
         except requests.exceptions.RequestException as request_exception:
-            response_obj = getattr(request_exception, 'response', None)
+            response_obj = getattr(request_exception, "response", None)
             if response_obj:
                 self.page_title = f"Error {response_obj.status_code}"
                 content_type = response_obj.headers.get("content-type", "")
@@ -432,7 +430,6 @@ DO NOT use this tool for .pdf or .txt or .htm files: for these types of files us
         with open(new_path, "wb") as f:
             f.write(response.content)
 
-
         return f"File was downloaded and saved under path {new_path}."
 
 
@@ -495,9 +492,7 @@ class PageUpTool(Tool):
 
 class PageDownTool(Tool):
     name = "page_down"
-    description = (
-        "Scroll the viewport DOWN one page-length in the current webpage and return the new viewport content."
-    )
+    description = "Scroll the viewport DOWN one page-length in the current webpage and return the new viewport content."
     inputs = {}
     output_type = "string"
 
