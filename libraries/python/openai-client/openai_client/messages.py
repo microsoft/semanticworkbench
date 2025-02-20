@@ -1,18 +1,17 @@
 from typing import Any, Callable, Iterable, Literal, Optional
 
-from liquid import Template
-from llm_client.model import (
+from assistant_extensions.ai_clients.model import (
     CompletionMessage,
     CompletionMessageImageContent,
     CompletionMessageTextContent,
 )
+from liquid import Template
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
     ChatCompletionMessageToolCallParam,
     ChatCompletionSystemMessageParam,
-    ChatCompletionToolMessageParam,
     ChatCompletionUserMessageParam,
 )
 
@@ -153,26 +152,18 @@ def create_user_message(
 
 
 def create_assistant_message(
-    content: str | None,
+    content: str,
     refusal: Optional[str] = None,
     tool_calls: Iterable[ChatCompletionMessageToolCallParam] | None = None,
     var: dict[str, Any] | None = None,
     formatter: MessageFormatter = format_with_liquid,
 ) -> ChatCompletionAssistantMessageParam:
-    if var and content:
+    if var:
         content = formatter(content, var)
     message = ChatCompletionAssistantMessageParam(role="assistant", content=content, refusal=refusal)
-    if tool_calls:
+    if tool_calls is not None:
         message["tool_calls"] = tool_calls
     return message
-
-
-def create_tool_message(content: str, tool_call_id: str) -> ChatCompletionToolMessageParam:
-    return ChatCompletionToolMessageParam(
-        role="tool",
-        content=content,
-        tool_call_id=tool_call_id,
-    )
 
 
 def convert_from_completion_messages(

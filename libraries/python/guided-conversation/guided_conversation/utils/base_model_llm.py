@@ -7,7 +7,7 @@ import ast
 from types import NoneType
 from typing import get_args
 
-from pydantic import BaseModel, ConfigDict, ValidationInfo, field_validator
+from pydantic import BaseModel, ValidationInfo, field_validator
 
 
 class BaseModelLLM(BaseModel):
@@ -38,9 +38,8 @@ class BaseModelLLM(BaseModel):
         except Exception:
             return value
 
-    model_config = ConfigDict(
+    class Config:
         # Ensure that validation happens every time a field is updated, not just when the artifact is created
-        validate_assignment=True,
+        validate_assignment = True
         # Do not allow extra fields to be added to the artifact
-        extra="forbid",
-    )
+        extra = "forbid"

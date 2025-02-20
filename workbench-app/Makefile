@@ -10,10 +10,6 @@ clean:
 install:
 	pnpm install
 
-.PHONY: lock
-lock:
-	pnpm update
-
 .PHONY: test type-check
 test type-check: install
 	pnpm run type-check

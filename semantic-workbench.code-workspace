@@ -100,16 +100,8 @@
       "path": "libraries/python/mcp-extensions"
     },
     {
-      "name": "libraries:llm-client",
-      "path": "libraries/python/llm-client"
-    },
-    {
       "name": "libraries:openai-client",
       "path": "libraries/python/openai-client"
-    },
-    {
-      "name": "libraries:anthropic-client",
-      "path": "libraries/python/anthropic-client"
     },
     {
       "name": "libraries:semantic-workbench-api-model",

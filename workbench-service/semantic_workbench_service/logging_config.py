@@ -3,7 +3,7 @@ import re
 
 import asgi_correlation_id
 from pydantic_settings import BaseSettings
-from pythonjsonlogger import json as jsonlogger
+from pythonjsonlogger import jsonlogger
 from rich.logging import RichHandler
 
 

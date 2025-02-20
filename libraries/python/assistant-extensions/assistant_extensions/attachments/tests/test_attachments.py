@@ -6,12 +6,12 @@ from typing import Any, AsyncGenerator, AsyncIterator, Callable
 from unittest import mock
 
 import pytest
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
-from llm_client.model import (
+from assistant_extensions.ai_clients.model import (
     CompletionMessage,
     CompletionMessageImageContent,
     CompletionMessageTextContent,
 )
+from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_api_model.workbench_model import File, FileList, ParticipantRole
 from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, AssistantContext, ConversationContext

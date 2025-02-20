@@ -1,4 +1,5 @@
 from pydantic import Field, HttpUrl
+from pydantic_core import Url
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from semantic_workbench_assistant.logging_config import LoggingSettings
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
     storage: FileStorageSettings = FileStorageSettings(root=".data/assistants")
     logging: LoggingSettings = LoggingSettings()
 
-    workbench_service_url: HttpUrl = HttpUrl("http://127.0.0.1:3000")
+    workbench_service_url: HttpUrl = Url("http://127.0.0.1:3000")
     workbench_service_api_key: str = ""
     workbench_service_ping_interval_seconds: float = 20.0
 

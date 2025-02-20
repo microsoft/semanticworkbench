@@ -8,7 +8,7 @@ import math
 import time
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
 class ResourceConstraintUnit(StrEnum):
@@ -42,7 +42,8 @@ class ResourceConstraint(BaseModel):
     unit: ResourceConstraintUnit
     mode: ResourceConstraintMode
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    class Config:
+        arbitrary_types_allowed = True
 
 
 def format_resource(quantity: float, unit: ResourceConstraintUnit) -> str:
