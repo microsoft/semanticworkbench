@@ -15,6 +15,14 @@ The **VSCode MCP Server** is a VSCode extension that acts as a Model Context Pro
 -   **Diagnostic Tool (`code_checker`):**
     The registered `code_checker` tool collects diagnostics from VSCode’s built-in language services, filtering out files without errors. When invoked, it returns a formatted JSON object containing diagnostic information (only for files with issues).
 
+-   **Debug Session Management Tools:**
+    The extension provides tools to manage VSCode debug sessions directly using MCP:
+
+    -   `list_debug_sessions`: Retrieve all active debug sessions in the workspace.
+    -   `start_debug_session`: Start a new debug session with the provided configuration.
+    -   `stop_debug_session`: Stop debug sessions matching a specific session name.
+    -   `restart_debug_session`: Restart a debug session by stopping it and then starting it with the provided configuration (new!).
+
 -   **SSE Communication:**
     An Express-based HTTP server runs on port 6010, exposing:
 
@@ -24,53 +32,6 @@ The **VSCode MCP Server** is a VSCode extension that acts as a Model Context Pro
 
 -   **Verbose Logging:**
     All activity, including server startup, SSE connection status, and message handling events, is logged to an output channel named **"VSCode MCP Server"** to aid debugging and transparency.
-
-## Project Structure
-
-```
-vscode-mcp-server/
-├── .vscode/                  # VSCode workspace and debugging configurations
-├── node_modules/             # Installed dependencies
-├── package.json              # Project metadata and scripts
-├── pnpm-lock.yaml            # Dependency lock file
-├── src/
-│   └── extension.ts          # Main extension code setting up the MCP server, tools, and SSE endpoints
-├── tsconfig.json             # TypeScript configuration
-├── webpack.config.js         # Webpack configuration for bundling the extension
-└── README.md                 # This file
-```
-
-## Setup and Installation
-
-1. **Install Dependencies:**
-   Ensure you have Node.js (v16 or higher) and pnpm installed. Then, from the project directory, run:
-
-    ```bash
-    pnpm install
-    ```
-
-2. **Package the Extension:**
-   To package the extension, execute:
-    ```bash
-    pnpm run package-extension
-    ```
-    This will generate a `.vsix` file in the project root.
-
-## Installing the Extension Locally
-
-1. **Open Your Main VSCode Instance:**
-
-    Launch your main VSCode (outside the Extension Development Host).
-
-2. **Install the VSIX Package:**
-
-    - Press Ctrl+Shift+P (or Cmd+Shift+P on macOS) to open the Command Palette.
-    - Type and select "Extensions: Install from VSIX...".
-    - Navigate to and select the generated .vsix file.
-
-3. **Reload and Verify:**
-
-    After installation, reload VSCode (via "Developer: Reload Window" from the Command Palette) and verify that the extension is active. Check the "MCP Server Logs" output channel to see logs confirming that the MCP server has started and is listening on port 6010.
 
 ## Using the Extension from Claude Desktop (MCP Client)
 
@@ -113,7 +74,62 @@ To use the VSCode MCP Server with Claude Desktop, you need to configure Claude D
     - NOTE: This is different than just closing the window or using **File** > **Close**, which leaves the application running in the background.
     - After existing and then starting again, Claude Desktop should now be able to connect to the MCP server running in VSCode.
 
-## Debugging the Extension
+## What's New
+
+### Version 0.0.2:
+
+-   Added `restart_debug_session` to simplify restarting debug sessions in one step.
+
+## Extension Development
+
+Steps for developing and debugging the extension, source code available at [GitHub](https://github.com/microsoft/semanticworkbench/tree/main/mcp-servers/mcp-server-vscode).
+
+### Prerequisites
+
+1. **Clone the Repository:**
+   Clone the Semantic Workbench repository to your local machine:
+
+    ```bash
+    git clone https://github.com/microsoft/semanticworkbench.git
+    ```
+
+2. **Navigate to the Project Directory:**
+
+    ```bash
+    cd semanticworkbench/mcp-servers/mcp-server-vscode
+    ```
+
+3. **Install Dependencies:**
+   Ensure you have Node.js (v16 or higher) and pnpm installed. Then, from the project directory, run:
+
+    ```bash
+    pnpm install
+    ```
+
+4. **Package the Extension:**
+   To package the extension, execute:
+    ```bash
+    pnpm run package-extension
+    ```
+    This will generate a `.vsix` file in the project root.
+
+### Installing the Extension Locally
+
+1. **Open Your Main VSCode Instance:**
+
+    Launch your main VSCode (outside the Extension Development Host).
+
+2. **Install the VSIX Package:**
+
+    - Press Ctrl+Shift+P (or Cmd+Shift+P on macOS) to open the Command Palette.
+    - Type and select "Extensions: Install from VSIX...".
+    - Navigate to and select the generated .vsix file.
+
+3. **Reload and Verify:**
+
+    After installation, reload VSCode (via "Developer: Reload Window" from the Command Palette) and verify that the extension is active. Check the "MCP Server Logs" output channel to see logs confirming that the MCP server has started and is listening on port 6010.
+
+### Debugging the Extension
 
 1. **Start Debugging:**
    Open the project in VSCode, then press **F5** to launch the Extension Development Host. This will automatically activate the extension based on the `"activationEvents": ["*"]` setting.
@@ -126,7 +142,7 @@ To use the VSCode MCP Server with Claude Desktop, you need to configure Claude D
         - **POST `/messages`:** To process incoming MCP protocol messages.
     - Outputs all activity to the **"MCP Server Logs"** channel (which will be auto-shown).
 
-## Installing the Extension Locally
+### Installing the Extension Locally
 
 1. **Open Your Main VSCode Instance:**
 

@@ -99,6 +99,27 @@ export const activate = (context: vscode.ExtensionContext) => {
     );
 
     // Register 'stop_debug_session' tool
+
+    // Register 'restart_debug_session' tool
+    mcpServer.tool(
+        'restart_debug_session',
+        'Restart a debug session by stopping it and then starting it with the provided configuration.',
+        startDebugSessionSchema.shape, // using the same schema as 'start_debug_session'
+        async (params) => {
+            // Stop current session using the provided session name
+            await stopDebugSession({ sessionName: params.configuration.name });
+
+            // Then start a new debug session with the given configuration
+            const result = await startDebugSession(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
     mcpServer.tool(
         'stop_debug_session',
         'Stop all debug sessions that match the provided session name.',

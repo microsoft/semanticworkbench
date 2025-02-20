@@ -84,6 +84,7 @@
     "pyright",
     "pytest",
     "semanticworkbench",
+    "semanticworkbenchteam",
     "tiktoken",
     "updown",
     "virtualenvs",
