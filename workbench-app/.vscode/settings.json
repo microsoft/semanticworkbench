@@ -179,6 +179,7 @@
         "jsonlogger",
         "jungaretti",
         "jwks",
+        "katex",
         "keyvault",
         "Langchain",
         "levelname",

@@ -74,7 +74,7 @@ This tool handles the following file extensions: [".html", ".htm", ".xlsx", ".pp
         ]
         return self.model(messages).content
 
-    def forward(self, file_path, question: Optional[str] = None) -> str: # type: ignore
+    def forward(self, file_path, question: Optional[str] = None) -> str:  # type: ignore
         result = self.md_converter.convert(file_path)
 
         if file_path[-4:] in [".png", ".jpg"]:

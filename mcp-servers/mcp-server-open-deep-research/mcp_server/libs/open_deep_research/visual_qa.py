@@ -10,9 +10,8 @@ import requests
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
 from PIL import Image
-from transformers import AutoProcessor
-
 from smolagents import Tool, tool
+from transformers import AutoProcessor
 
 # FIXME: Find a way to pass the settings object in, instead of importing it directly
 from ... import settings
@@ -125,7 +124,7 @@ class VisualQATool(Tool):
 
     client = InferenceClient("HuggingFaceM4/idefics2-8b-chatty")
 
-    def forward(self, image_path: str, question: Optional[str] = None) -> str: # type: ignore
+    def forward(self, image_path: str, question: Optional[str] = None) -> str:  # type: ignore
         output = ""
         add_note = False
         if not question:
@@ -140,9 +139,7 @@ class VisualQATool(Tool):
                 output = process_images_and_text(new_image_path, question, self.client)
 
         if add_note:
-            output = (
-                f"You did not provide a particular question, so here is a detailed caption for the image: {output}"
-            )
+            output = f"You did not provide a particular question, so here is a detailed caption for the image: {output}"
 
         return output
 

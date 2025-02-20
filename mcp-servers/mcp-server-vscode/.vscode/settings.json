@@ -1,48 +1,134 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-  // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
-  "typescript.tsc.autoDetect": "off",
-  "editor.bracketPairColorization.enabled": true,
-  "editor.codeActionsOnSave": {
-    "source.organizeImports": "explicit",
-    "source.fixAll": "explicit"
-  },
-  "editor.guides.bracketPairs": "active",
-  "editor.formatOnPaste": true,
-  "editor.formatOnType": true,
-  "editor.formatOnSave": true,
-  "files.eol": "\n",
-  "files.exclude": {
-    "out": false, // set this to true to hide the "out" folder with the compiled JS files
-    "dist": false // set this to true to hide the "dist" folder with the compiled JS files
-  },
-  "files.trimTrailingWhitespace": true,
-  "[json]": {
+    // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
+    "typescript.tsc.autoDetect": "off",
+    "editor.bracketPairColorization.enabled": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll": "explicit"
+    },
+    "editor.guides.bracketPairs": "active",
     "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
-  },
-  "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
-  },
-  "search.exclude": {
-    "out": true, // set this to false to include "out" folder in search results
-    "dist": true // set this to false to include "dist" folder in search results
-  },
-  // For use with optional extension: "streetsidesoftware.code-spell-checker"
-  "cSpell.ignorePaths": ["ASSISTANT_BOOTSTRAP.md"],
-  "cSpell.words": [
-    "amodio",
-    "charliermarsh",
-    "dbaeumer",
-    "esbenp",
-    "fastmcp",
-    "modelcontextprotocol",
-    "nosources",
-    "pipx",
-    "toplevel",
-    "venv",
-    "vscodeignore",
-    "yarnrc"
-  ]
+    "editor.formatOnPaste": true,
+    "editor.formatOnType": true,
+    "editor.formatOnSave": true,
+    "eslint.enable": true,
+    "eslint.options": {
+        "overrideConfigFile": ".eslintrc.cjs"
+    },
+    "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+    "eslint.workingDirectories": [
+        {
+            "mode": "auto"
+        }
+    ],
+    "files.eol": "\n",
+    "files.exclude": {
+        "out": false, // set this to true to hide the "out" folder with the compiled JS files
+        "dist": false // set this to true to hide the "dist" folder with the compiled JS files
+    },
+    "files.trimTrailingWhitespace": true,
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        }
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        }
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "out": true, // set this to false to include "out" folder in search results
+        "dist": true // set this to false to include "dist" folder in search results
+    },
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "better-comments.highlightPlainText": true,
+    "better-comments.multilineComments": true,
+    "better-comments.tags": [
+        {
+            "tag": "!",
+            "color": "#FF2D00",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "?",
+            "color": "#3498DB",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "//",
+            "color": "#474747",
+            "strikethrough": true,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "todo",
+            "color": "#FF8C00",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "fixme",
+            "color": "#FF2D00",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "*",
+            "color": "#98C379",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        }
+    ],
+    // For use with optional extension: "streetsidesoftware.code-spell-checker"
+    "cSpell.ignorePaths": ["ASSISTANT_BOOTSTRAP.md"],
+    "cSpell.words": [
+        "amodio",
+        "charliermarsh",
+        "dbaeumer",
+        "esbenp",
+        "fastmcp",
+        "modelcontextprotocol",
+        "nosources",
+        "pipx",
+        "semanticworkbench",
+        "toplevel",
+        "venv",
+        "vscodeignore",
+        "yarnrc"
+    ]
 }
