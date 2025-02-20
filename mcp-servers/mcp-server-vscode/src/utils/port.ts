@@ -1,8 +1,7 @@
+import getPort from 'get-port';
 import * as vscode from 'vscode';
 
 export async function resolvePort(desiredPort: number): Promise<number> {
-    // Dynamically import the get-port module
-    const { default: getPort } = await import('get-port');
     // Try to get the desired port or the next available port
     const availablePort = await getPort({ port: desiredPort });
 
@@ -14,10 +13,10 @@ export async function resolvePort(desiredPort: number): Promise<number> {
             validateInput: (input) => {
                 const num = Number(input);
                 if (isNaN(num) || num < 1 || num > 65535) {
-                    return "Please enter a valid port number (1-65535).";
+                    return 'Please enter a valid port number (1-65535).';
                 }
                 return null;
-            }
+            },
         });
         if (userInput && userInput.trim().length > 0) {
             const newPort = Number(userInput);

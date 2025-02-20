@@ -18,7 +18,7 @@ import {
 } from './tools/debug_tools';
 import { focusEditorTool } from './tools/focus_editor';
 import { searchSymbolTool } from './tools/search_symbol';
-import { resolvePort } from './utils/port.js';
+import { resolvePort } from './utils/port';
 
 const extensionName = 'vscode-mcp-server';
 const extensionDisplayName = 'VSCode MCP Server';
@@ -245,55 +245,63 @@ export const activate = async (context: vscode.ExtensionContext) => {
     }
 
     // COMMAND PALETTE COMMAND: Stop the MCP Server
-    context.subscriptions.push(vscode.commands.registerCommand('mcpServer.stopServer', () => {
-        if (!server.listening) {
-            vscode.window.showWarningMessage('MCP Server is not running.');
-            outputChannel.appendLine('Attempted to stop the MCP Server, but it is not running.');
-            return;
-        }
-        server.close(() => {
-            outputChannel.appendLine('MCP Server stopped.');
-            vscode.window.showInformationMessage('MCP Server stopped.');
-        });
-    }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mcpServer.stopServer', () => {
+            if (!server.listening) {
+                vscode.window.showWarningMessage('MCP Server is not running.');
+                outputChannel.appendLine('Attempted to stop the MCP Server, but it is not running.');
+                return;
+            }
+            server.close(() => {
+                outputChannel.appendLine('MCP Server stopped.');
+                vscode.window.showInformationMessage('MCP Server stopped.');
+            });
+        }),
+    );
 
     // COMMAND PALETTE COMMAND: Start the MCP Server
-    context.subscriptions.push(vscode.commands.registerCommand('mcpServer.startServer', async () => {
-        if (server.listening) {
-            vscode.window.showWarningMessage('MCP Server is already running.');
-            outputChannel.appendLine('Attempted to start the MCP Server, but it is already running.');
-            return;
-        }
-        const newPort = await resolvePort(mcpConfig.get<number>('port', 6010));
-        startServer(newPort);
-        outputChannel.appendLine(`MCP Server started on port ${newPort}.`);
-        vscode.window.showInformationMessage(`MCP Server started on port ${newPort}.`);
-    }));
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mcpServer.startServer', async () => {
+            if (server.listening) {
+                vscode.window.showWarningMessage('MCP Server is already running.');
+                outputChannel.appendLine('Attempted to start the MCP Server, but it is already running.');
+                return;
+            }
+            const newPort = await resolvePort(mcpConfig.get<number>('port', 6010));
+            startServer(newPort);
+            outputChannel.appendLine(`MCP Server started on port ${newPort}.`);
+            vscode.window.showInformationMessage(`MCP Server started on port ${newPort}.`);
+        }),
+    );
 
     // COMMAND PALETTE COMMAND: Set the MCP server port and restart the server
-    context.subscriptions.push(vscode.commands.registerCommand('mcpServer.setPort', async () => {
-        const newPortInput = await vscode.window.showInputBox({
-            prompt: "Enter new port number for the MCP Server:",
-            value: String(port),
-            validateInput: (input) => {
-                const num = Number(input);
-                if (isNaN(num) || num < 1 || num > 65535) {
-                    return "Please enter a valid port number (1-65535).";
-                }
-                return null;
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mcpServer.setPort', async () => {
+            const newPortInput = await vscode.window.showInputBox({
+                prompt: 'Enter new port number for the MCP Server:',
+                value: String(port),
+                validateInput: (input) => {
+                    const num = Number(input);
+                    if (isNaN(num) || num < 1 || num > 65535) {
+                        return 'Please enter a valid port number (1-65535).';
+                    }
+                    return null;
+                },
+            });
+            if (newPortInput && newPortInput.trim().length > 0) {
+                const newPort = Number(newPortInput);
+                // Update the configuration so that subsequent startups use the new port
+                await vscode.workspace
+                    .getConfiguration('mcpServer')
+                    .update('port', newPort, vscode.ConfigurationTarget.Global);
+                // Restart the server: close existing server and start a new one
+                server.close();
+                startServer(newPort);
+                outputChannel.appendLine(`MCP Server restarted on port ${newPort}`);
+                vscode.window.showInformationMessage(`MCP Server restarted on port ${newPort}`);
             }
-        });
-        if (newPortInput && newPortInput.trim().length > 0) {
-            const newPort = Number(newPortInput);
-            // Update the configuration so that subsequent startups use the new port
-            await vscode.workspace.getConfiguration('mcpServer').update('port', newPort, vscode.ConfigurationTarget.Global);
-            // Restart the server: close existing server and start a new one
-            server.close();
-            startServer(newPort);
-            outputChannel.appendLine(`MCP Server restarted on port ${newPort}`);
-            vscode.window.showInformationMessage(`MCP Server restarted on port ${newPort}`);
-        }
-    }));
+        }),
+    );
 
     outputChannel.appendLine(`${extensionDisplayName} activated.`);
 };

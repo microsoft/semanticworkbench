@@ -2,7 +2,11 @@
 
 'use strict';
 
-const path = require('path');
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -52,4 +56,4 @@ extensionConfig.ignoreWarnings = [
     },
 ];
 
-module.exports = [extensionConfig];
+export default [extensionConfig];
