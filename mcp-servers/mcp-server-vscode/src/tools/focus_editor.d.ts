@@ -1,8 +1,12 @@
-export declare function focusEditorTool({ filePath, line, column, }: {
+export declare const focusEditorTool: ({ filePath, line, column, startLine, startColumn, endLine, endColumn, }: {
     filePath: string;
     line?: number;
     column?: number;
-}): Promise<{
+    startLine?: number;
+    startColumn?: number;
+    endLine?: number;
+    endColumn?: number;
+}) => Promise<{
     success: boolean;
     content: {
         type: "text";

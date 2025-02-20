@@ -2,14 +2,9 @@
 
 'use strict';
 
-import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-//@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
+
+const path = require('path');
 
 /** @type WebpackConfig */
 const extensionConfig = {
@@ -49,6 +44,7 @@ const extensionConfig = {
         level: 'log', // enables logging required for problem matchers
     },
 };
+
 extensionConfig.ignoreWarnings = [
     {
         module: /express\//,
@@ -56,4 +52,4 @@ extensionConfig.ignoreWarnings = [
     },
 ];
 
-export default [extensionConfig];
+module.exports = [extensionConfig];

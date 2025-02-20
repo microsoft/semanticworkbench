@@ -6,7 +6,7 @@ import * as http from 'http';
 import * as vscode from 'vscode';
 import { DiagnosticSeverity } from 'vscode';
 import { z } from 'zod';
-import * as packageJson from '../package.json';
+import packageJson from '../package.json';
 import { codeCheckerTool } from './tools/code_checker';
 import {
     listDebugSessions,
@@ -17,7 +17,6 @@ import {
     stopDebugSessionSchema,
 } from './tools/debug_tools';
 import { focusEditorTool } from './tools/focus_editor';
-import { searchSymbolTool } from './tools/search_symbol';
 import { resolvePort } from './utils/port';
 
 const extensionName = 'vscode-mcp-server';
@@ -83,6 +82,10 @@ export const activate = async (context: vscode.ExtensionContext) => {
             filePath: z.string().describe('The absolute path to the file to focus in the editor.'),
             line: z.number().int().min(0).default(0).describe('The line number to navigate to (default: 0).'),
             column: z.number().int().min(0).default(0).describe('The column position to navigate to (default: 0).'),
+            startLine: z.number().int().min(0).optional().describe('The starting line number for highlighting.'),
+            startColumn: z.number().int().min(0).optional().describe('The starting column number for highlighting.'),
+            endLine: z.number().int().min(0).optional().describe('The ending line number for highlighting.'),
+            endColumn: z.number().int().min(0).optional().describe('The ending column number for highlighting.'),
         },
         async (params: { filePath: string; line?: number; column?: number }) => {
             const result = await focusEditorTool(params);
@@ -90,25 +93,34 @@ export const activate = async (context: vscode.ExtensionContext) => {
         },
     );
 
-    // Register 'search_symbol' tool
-    mcpServer.tool(
-        'search_symbol',
-        dedent`
-        Search for a symbol within the workspace.
-        - Tries to resolve the definition via VSCode’s "Go to Definition".
-        - If not found, searches the entire workspace for the text, similar to Ctrl+Shift+F.
-        `.trim(),
-        {
-            query: z.string().describe('The symbol or text to search for.'),
-            useDefinition: z.boolean().default(true).describe("Whether to use 'Go to Definition' as the first method."),
-            maxResults: z.number().default(50).describe('Maximum number of global search results to return.'),
-            openFile: z.boolean().default(false).describe('Whether to open the found file in the editor.'),
-        },
-        async (params: { query: string; useDefinition?: boolean; maxResults?: number; openFile?: boolean }) => {
-            const result = await searchSymbolTool(params);
-            return result;
-        },
-    );
+    // FIXME: This doesn't return results yet
+    // // Register 'search_symbol' tool
+    // mcpServer.tool(
+    //     'search_symbol',
+    //     dedent`
+    //     Search for a symbol within the workspace.
+    //     - Tries to resolve the definition via VSCode’s "Go to Definition".
+    //     - If not found, searches the entire workspace for the text, similar to Ctrl+Shift+F.
+    //     `.trim(),
+    //     {
+    //         query: z.string().describe('The symbol or text to search for.'),
+    //         useDefinition: z.boolean().default(true).describe("Whether to use 'Go to Definition' as the first method."),
+    //         maxResults: z.number().default(50).describe('Maximum number of global search results to return.'),
+    //         openFile: z.boolean().default(false).describe('Whether to open the found file in the editor.'),
+    //     },
+    //     async (params: { query: string; useDefinition?: boolean; maxResults?: number; openFile?: boolean }) => {
+    //         const result = await searchSymbolTool(params);
+    //         return {
+    //             ...result,
+    //             content: [
+    //                 {
+    //                     text: JSON.stringify(result),
+    //                     type: 'text',
+    //                 },
+    //             ],
+    //         };
+    //     },
+    // );
 
     // Register 'list_debug_sessions' tool
     mcpServer.tool(

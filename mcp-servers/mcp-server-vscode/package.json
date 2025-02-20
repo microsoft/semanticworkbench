@@ -3,8 +3,8 @@
     "displayName": "VSCode MCP Server",
     "publisher": "SemanticWorkbenchTeam",
     "description": "VSCode tools and resources as a Model Context Protocol (MCP) server in a VSCode extension.",
-    "version": "0.0.3",
-    "type": "module",
+    "version": "0.0.9",
+    "type": "commonjs",
     "icon": "images/icon.png",
     "engines": {
         "vscode": "^1.96.0"
@@ -17,9 +17,23 @@
         "Other"
     ],
     "activationEvents": [
-        "*"
+        "onStartupFinished"
     ],
     "contributes": {
+        "commands": [
+            {
+                "command": "mcpServer.stopServer",
+                "title": "MCP Server: Stop Server"
+            },
+            {
+                "command": "mcpServer.startServer",
+                "title": "MCP Server: Start Server"
+            },
+            {
+                "command": "mcpServer.setPort",
+                "title": "MCP Server: Set Port"
+            }
+        ],
         "configuration": {
             "type": "object",
             "properties": {
