@@ -2,12 +2,12 @@ from typing import Any, Callable, Iterable, Literal, Union
 
 from anthropic.types import ImageBlockParam, MessageParam, TextBlockParam
 from anthropic.types.beta import BetaImageBlockParam, BetaMessageParam, BetaTextBlockParam
-from liquid import Template
-from llm_client.model import (
+from assistant_extensions.ai_clients.model import (
     CompletionMessage,
     CompletionMessageImageContent,
     CompletionMessageTextContent,
 )
+from liquid import Template
 
 
 def truncate_messages_for_logging(

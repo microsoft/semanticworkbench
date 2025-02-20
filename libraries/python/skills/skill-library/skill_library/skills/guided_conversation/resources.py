@@ -58,7 +58,7 @@ class ConversationResource(BaseModel):
     resource_constraint: Optional[ResourceConstraint] = Field(default=None)
     turn_number: int = Field(default=0)
     elapsed_units: float = Field(default=0.0)
-    remaining_units: float = Field(default=0, validate_default=True)
+    remaining_units: float = Field(default=None, validate_default=True)
     initial_seconds_per_turn: int = Field(default=120)
 
     @field_validator("remaining_units", mode="before")

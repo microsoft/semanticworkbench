@@ -1,15 +1,14 @@
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 
 class UserMessage(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
+    class Config:
+        json_schema_extra = {
             "required": ["status_label", "message"],
         }
-    )
 
     status_label: Annotated[
         str,
@@ -28,11 +27,10 @@ class UserMessage(BaseModel):
 
 
 class UserProxyWorkflowDefinition(BaseModel):
-    model_config = ConfigDict(
-        json_schema_extra={
+    class Config:
+        json_schema_extra = {
             "required": ["command", "name", "description", "user_messages"],
         }
-    )
 
     workflow_type: Annotated[
         Literal["user_proxy"],

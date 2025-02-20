@@ -1,12 +1,8 @@
 import json
-import logging
-from time import perf_counter
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any
 
-from openai import AsyncOpenAI, NotGiven
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
-    ChatCompletionMessageParam,
     ParsedChatCompletion,
     ParsedChatCompletionMessage,
 )
@@ -14,8 +10,6 @@ from openai.types.chat.completion_create_params import (
     ResponseFormat,
 )
 from pydantic import BaseModel
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_RETRIES = 3
 
@@ -63,65 +57,3 @@ def message_content_dict_from_completion(completion: ParsedChatCompletion) -> di
             return json.loads(message.content or "")
         except json.JSONDecodeError:
             return None
-
-
-class NoResponseChoicesError(Exception):
-    pass
-
-
-class NoParsedMessageError(Exception):
-    pass
-
-
-ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
-
-
-class StructuredResponse(BaseModel, Generic[ResponseModelT]):
-    response: ResponseModelT
-    metadata: dict[str, Any]
-
-
-async def completion_structured(
-    async_client: AsyncOpenAI,
-    messages: list[ChatCompletionMessageParam],
-    openai_model: str,
-    response_model: type[ResponseModelT],
-    max_completion_tokens: int,
-    reasoning_effort: Literal["low", "medium", "high"] | None,
-) -> StructuredResponse[ResponseModelT]:
-    start = perf_counter()
-
-    response_raw = await async_client.beta.chat.completions.with_raw_response.parse(
-        messages=messages,
-        model=openai_model,
-        response_format=response_model,
-        reasoning_effort=reasoning_effort or NotGiven(),
-        max_completion_tokens=max_completion_tokens,
-    )
-
-    headers = {key: value for key, value in response_raw.headers.items()}
-    response = response_raw.parse()
-
-    if not response.choices:
-        raise NoResponseChoicesError()
-
-    if not response.choices[0].message.parsed:
-        raise NoParsedMessageError()
-
-    if response.choices[0].finish_reason != "stop":
-        logger.warning("Unexpected finish reason, expected stop; reason: %s", response.choices[0].finish_reason)
-
-    metadata = {
-        "request": {
-            "model": openai_model,
-            "messages": messages,
-            "max_completion_tokens": max_completion_tokens,
-            "response_format": response_model.model_json_schema(),
-            "reasoning_effort": reasoning_effort,
-        },
-        "response": response.model_dump(),
-        "response_headers": headers,
-        "duration": perf_counter() - start,
-    }
-
-    return StructuredResponse(response=response.choices[0].message.parsed, metadata=metadata)

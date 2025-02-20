@@ -6,7 +6,7 @@ from typing import Any, Iterable, List, TypeAlias, TypedDict, Union
 
 import anthropic
 import deepmerge
-from google.genai.types import Content
+import google.generativeai as genai
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -16,7 +16,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 from openai.types.chat.chat_completion import Choice
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from .config import (
     AnthropicServiceConfig,
@@ -42,7 +42,8 @@ class GenerateResponseResult(BaseModel):
 
 
 class ModelAdapter(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    class Config:
+        arbitrary_types_allowed = True
 
     @abstractmethod
     def _format_messages(self, messages: List[Message]) -> Any:
@@ -229,7 +230,7 @@ class AnthropicAdapter(ModelAdapter):
 #
 
 
-GeminiFormattedMessages: TypeAlias = Iterable[Content]
+GeminiFormattedMessages: TypeAlias = Iterable[genai.types.StrictContentType]
 
 
 class GeminiAdapter(ModelAdapter):
@@ -264,12 +265,10 @@ class GeminiAdapter(ModelAdapter):
         }
 
         try:
-            client = service_config.new_client()
-            chat = client.aio.chats.create(model=service_config.gemini_model, history=list(formatted_messages)[:-1])
-            latest_message = list(formatted_messages)[-1]
-            message = (latest_message.parts or [""])[0]
-            response = await chat.send_message(message)
-            deepmerge.always_merger.merge(metadata, {"debug": {"response": response.model_dump(mode="json")}})
+            model = service_config.new_client()
+            chat = model.start_chat(history=list(formatted_messages)[:-1])
+            response = await chat.send_message_async(list(formatted_messages)[-1])
+            deepmerge.always_merger.merge(metadata, {"debug": {"response": response.to_dict()}})
             return GenerateResponseResult(
                 response=response.text,
                 metadata=metadata,

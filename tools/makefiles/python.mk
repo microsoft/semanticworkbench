@@ -11,6 +11,7 @@ venv_dir = .venv
 endif
 
 UV_SYNC_INSTALL_ARGS ?= --all-extras --frozen
+UV_SYNC_LOCK_ARGS ?= --all-extras
 UV_RUN_ARGS ?= --all-extras --frozen
 
 PYTEST_ARGS ?= --color=yes
@@ -21,10 +22,9 @@ PYTEST_ARGS ?= --color=yes
 install:
 	uv sync $(uv_project_args) $(UV_SYNC_INSTALL_ARGS)
 
-.PHONY: lock-upgrade lock
-lock-upgrade:
-	uv lock --upgrade $(uv_project_args)
-lock: lock-upgrade install
+.PHONY: lock
+lock:
+	uv sync $(uv_project_args) $(UV_SYNC_LOCK_ARGS)
 
 .PHONY: clean
 clean:
@@ -53,8 +53,7 @@ type-check:
 endif
 
 ifeq ($(PYTEST_EXISTS),true)
-.PHONY: test pytest
-test: pytest
-pytest:
+.PHONY: test
+test:
 	uv run $(uv_project_args) $(UV_RUN_ARGS) pytest $(PYTEST_ARGS)
 endif

@@ -6,8 +6,8 @@ from typing import Iterable, Sequence
 import deepmerge
 import openai_client
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
+from assistant_extensions.ai_clients.model import CompletionMessage
 from assistant_extensions.artifacts import ArtifactsExtension
-from llm_client.model import CompletionMessage
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionDeveloperMessageParam,

@@ -2,7 +2,7 @@ from enum import StrEnum
 from textwrap import dedent
 from typing import Annotated, Literal
 
-from llm_client.model import RequestConfigBaseModel
+from assistant_extensions.ai_clients.model import RequestConfigBaseModel
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema, first_env_var
 
