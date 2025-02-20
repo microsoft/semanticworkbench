@@ -3,7 +3,8 @@
     "displayName": "VSCode MCP Server",
     "publisher": "SemanticWorkbenchTeam",
     "description": "VSCode tools and resources as a Model Context Protocol (MCP) server in a VSCode extension.",
-    "version": "0.0.1",
+    "version": "0.0.2",
+    "icon": "images/icon.png",
     "engines": {
         "vscode": "^1.96.0"
     },

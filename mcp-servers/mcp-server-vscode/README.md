@@ -189,9 +189,3 @@ curl -X POST "http://127.0.0.1:6010/messages?sessionId=your-session-id" \
 ```
 
 If everything is configured correctly, the MCP server should process your initialization message without errors.
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
--   [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
