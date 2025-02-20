@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.assistant_app import (
     AssistantConversationInspectorStateDataModel,
     BaseModelAssistantConfig,
@@ -67,65 +67,70 @@ class ArtifactAgentConfigModel(BaseModel):
 
 
 class ArtifactMarkdownContent(BaseModel):
-    class Config:
-        extra = "forbid"
-        json_schema_extra = {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "description": (
                 "The content of the artifact in markdown format. Use this type for any general text that"
                 " does not match another, more specific type."
             ),
             "required": ["content_type"],
-        }
+        },
+    )
 
     content_type: Literal["markdown"] = "markdown"
 
 
 class ArtifactCodeContent(BaseModel):
-    class Config:
-        extra = "forbid"
-        json_schema_extra = {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "description": (
                 "The content of the artifact in code format with a specified language for syntax highlighting."
             ),
             "required": ["content_type", "language"],
-        }
+        },
+    )
 
     content_type: Literal["code"] = "code"
     language: str
 
 
 class ArtifactMermaidContent(BaseModel):
-    class Config:
-        extra = "forbid"
-        json_schema_extra = {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "description": "The content of the artifact in mermaid format, which will be rendered as a diagram.",
             "required": ["content_type"],
-        }
+        },
+    )
 
     content_type: Literal["mermaid"] = "mermaid"
 
 
 class ArtifactAbcContent(BaseModel):
-    class Config:
-        extra = "forbid"
-        json_schema_extra = {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "description": (
                 "The content of the artifact in abc format, which will be rendered as sheet music, an interactive player,"
                 " and available for download."
             ),
             "required": ["content_type"],
-        }
+        },
+    )
 
     content_type: Literal["abc"] = "abc"
 
 
 class ArtifactExcalidrawContent(BaseModel):
-    class Config:
-        extra = "forbid"
-        json_schema_extra = {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "description": ("The content of the artifact in Excalidraw format, which will be rendered as a diagram."),
             "required": ["content_type", "excalidraw"],
-        }
+        },
+    )
 
     content_type: Literal["excalidraw"] = "excalidraw"
 
@@ -140,9 +145,9 @@ ArtifactContentType = Union[
 
 
 class Artifact(BaseModel):
-    class Config:
-        extra = "forbid"
-        json_schema_extra = {
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
             "description": (
                 "Data for the artifact, which includes a label, content, filename, type, and version. The filename"
                 " should be unique for each artifact, and the version should start at 1 and increment for each new"
@@ -150,7 +155,8 @@ class Artifact(BaseModel):
                 " additional fields required for that type."
             ),
             "required": ["label", "content", "filename", "type", "version"],
-        }
+        },
+    )
 
     label: str
     content: str
