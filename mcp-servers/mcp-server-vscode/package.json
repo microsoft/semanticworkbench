@@ -1,56 +1,65 @@
 {
-  "name": "mcp-server-vscode",
-  "displayName": "VSCode MCP Server",
-  "publisher": "semantic-workbench-team",
-  "description": "VSCode tools and resources as a Model Context Protocol (MCP) server in a VSCode extension.",
-  "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.96.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/microsoft/semanticworkbench"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "*"
-  ],
-  "main": "./dist/extension.js",
-  "scripts": {
-    "vscode:prepublish": "pnpm run package",
-    "compile": "webpack",
-    "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map",
-    "compile-tests": "tsc -p . --outDir out",
-    "package-extension": "cross-env npm_config_user_agent=pnpm vsce package",
-    "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
-  },
-  "devDependencies": {
-    "@types/express": "^5.0.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "~22.13.1",
-    "@types/vscode": "^1.96.0",
-    "@typescript-eslint/eslint-plugin": "^8.22.0",
-    "@typescript-eslint/parser": "^8.22.0",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1",
-    "@vscode/vsce": "^3.2.2",
-    "cross-env": "^7.0.3",
-    "eslint": "^9.19.0",
-    "eslint-plugin-import": "^2.31.0",
-    "ts-loader": "^9.5.2",
-    "typescript": "^5.7.3",
-    "webpack": "^5.97.1",
-    "webpack-cli": "^6.0.1"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.4.1",
-    "dedent": "^1.5.3",
-    "express": "^4.21.2"
-  }
+    "name": "mcp-server-vscode",
+    "displayName": "VSCode MCP Server",
+    "publisher": "semantic-workbench-team",
+    "description": "VSCode tools and resources as a Model Context Protocol (MCP) server in a VSCode extension.",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.96.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/microsoft/semanticworkbench"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "*"
+    ],
+    "main": "./dist/extension.js",
+    "scripts": {
+        "vscode:prepublish": "pnpm run package",
+        "compile": "webpack",
+        "watch": "webpack --watch",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "compile-tests": "tsc -p . --outDir out",
+        "package-extension": "cross-env npm_config_user_agent=pnpm vsce package",
+        "watch-tests": "tsc -p . -w --outDir out",
+        "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+        "lint": "eslint src",
+        "test": "vscode-test"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.0",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "~22.13.1",
+        "@types/vscode": "^1.96.0",
+        "@typescript-eslint/eslint-plugin": "^8.22.0",
+        "@typescript-eslint/parser": "^8.22.0",
+        "@vscode/test-cli": "^0.0.10",
+        "@vscode/test-electron": "^2.4.1",
+        "@vscode/vsce": "^3.2.2",
+        "cross-env": "^7.0.3",
+        "eslint": "^9.19.0",
+        "eslint-plugin-import": "^2.31.0",
+        "prettier": "^2.8.8",
+        "ts-loader": "^9.5.2",
+        "typescript": "^5.7.3",
+        "webpack": "^5.97.1",
+        "webpack-cli": "^6.0.1"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.4.1",
+        "dedent": "^1.5.3",
+        "express": "^4.21.2"
+    },
+    "eslintConfig": {
+        "plugins": [
+            "prettier"
+        ],
+        "rules": {
+            "prettier/prettier": "error"
+        }
+    }
 }

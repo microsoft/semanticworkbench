@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import { DiagnosticSeverity } from "vscode";
 import { z } from "zod";
 import { codeCheckerTool } from "./tools/code_checker";
+import { listDebugSessions, listDebugSessionsSchema } from "./tools/debug_tools";
 
 const extensionName = "vscode-mcp-server";
 const extensionDisplayName = "VSCode MCP Server";
@@ -59,6 +60,20 @@ export const activate = (context: vscode.ExtensionContext) => {
           text: typeof c.text === "string" ? c.text : String(c.text),
           type: "text",
         })),
+      };
+    }
+  );
+
+  // Register 'list_debug_sessions' tool
+  mcpServer.tool(
+    "list_debug_sessions",
+    "List all active debug sessions in the workspace.",
+    listDebugSessionsSchema.shape, // No parameters required
+    async () => {
+      const result = await listDebugSessions();
+      return {
+        ...result,
+        content: result.content.map(item => ({ type: "text", text: JSON.stringify(item.json) }))
       };
     }
   );
