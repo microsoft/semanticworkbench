@@ -15,6 +15,9 @@ The **VSCode MCP Server** is a VSCode extension that acts as a Model Context Pro
 -   **Diagnostic Tool (`code_checker`):**
     The registered `code_checker` tool collects diagnostics from VSCode’s built-in language services, filtering out files without errors. When invoked, it returns a formatted JSON object containing diagnostic information (only for files with issues).
 
+-   **Focus Editor Tool (`focus_editor`)**: Opens a specific file in the VSCode editor and navigates to a designated line and column. Useful for bringing files into visual focus for the user but does not include file content in the tool call result.
+-   **Search Symbol Tool (`search_symbol`)**: Searches for symbols in the workspace, using "Go to Definition" primarily, with a fallback to text search (similar to Ctrl+Shift+F). Can optionally open the results in the editor using the `focus_editor` tool.
+
 -   **Debug Session Management Tools:**
     The extension provides tools to manage VSCode debug sessions directly using MCP:
 
@@ -75,6 +78,11 @@ To use the VSCode MCP Server with Claude Desktop, you need to configure Claude D
     - After existing and then starting again, Claude Desktop should now be able to connect to the MCP server running in VSCode.
 
 ## What's New
+
+### Version 0.0.3:
+
+-   Added `focus_editor` tool: Allows MCP clients to open files in the VSCode editor for user visibility.
+-   Added `search_symbol` tool: Features symbol-based and text-based search functionality within the workspace; integrates with `focus_editor`.
 
 ### Version 0.0.2:
 

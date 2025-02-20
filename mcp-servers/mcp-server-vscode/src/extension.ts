@@ -20,6 +20,7 @@ import { searchSymbolTool } from './tools/search_symbol';
 
 const extensionName = 'vscode-mcp-server';
 const extensionDisplayName = 'VSCode MCP Server';
+import * as packageJson from '../package.json';
 
 export const activate = (context: vscode.ExtensionContext) => {
     // Create the output channel for logging
@@ -33,7 +34,7 @@ export const activate = (context: vscode.ExtensionContext) => {
     // Initialize the MCP server instance
     const mcpServer = new McpServer({
         name: extensionName,
-        version: '0.0.1',
+        version: packageJson.version,
     });
 
     // Register the "code_checker" tool.
