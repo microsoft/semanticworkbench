@@ -15,6 +15,8 @@ import {
     stopDebugSession,
     stopDebugSessionSchema,
 } from './tools/debug_tools';
+import { focusEditorTool } from './tools/focus_editor';
+import { searchSymbolTool } from './tools/search_symbol';
 
 const extensionName = 'vscode-mcp-server';
 const extensionDisplayName = 'VSCode MCP Server';
@@ -40,10 +42,10 @@ export const activate = (context: vscode.ExtensionContext) => {
     mcpServer.tool(
         'code_checker',
         dedent`
-    Retrieve diagnostics from VSCode's language services for the active workspace.
-    Use this tool after making changes to any code in the filesystem to ensure no new
-    errors were introduced, or when requested by the user.
-  `.trim(),
+            Retrieve diagnostics from VSCode's language services for the active workspace.
+            Use this tool after making changes to any code in the filesystem to ensure no new
+            errors were introduced, or when requested by the user.
+        `.trim(),
         // Passing the raw shape object directly
         {
             severityLevel: z
@@ -64,6 +66,64 @@ export const activate = (context: vscode.ExtensionContext) => {
                     type: 'text',
                 })),
             };
+        },
+    );
+
+    // Register 'focus_editor' tool
+    mcpServer.tool(
+        "focus_editor",
+        dedent`
+        Open the specified file in the VSCode editor and navigate to a specific line and column.
+        Use this tool to bring a file into focus and position the editor's cursor where desired.
+        Note: This tool operates on the editor visual environment so that the user can see the file. It does not return the file contents in the tool call result.
+        `.trim(),
+        {
+            filePath: z.string().describe("The absolute path to the file to focus in the editor."),
+            line: z
+                .number()
+                .int()
+                .min(0)
+                .default(0)
+                .describe("The line number to navigate to (default: 0)."),
+            column: z
+                .number()
+                .int()
+                .min(0)
+                .default(0)
+                .describe("The column position to navigate to (default: 0)."),
+        },
+        async (params: { filePath: string; line?: number; column?: number }) => {
+            const result = await focusEditorTool(params);
+            return result;
+        },
+    );
+
+    // Register 'search_symbol' tool
+    mcpServer.tool(
+        "search_symbol",
+        dedent`
+        Search for a symbol within the workspace.
+        - Tries to resolve the definition via VSCode’s "Go to Definition".
+        - If not found, searches the entire workspace for the text, similar to Ctrl+Shift+F.
+        `.trim(),
+        {
+            query: z.string().describe("The symbol or text to search for."),
+            useDefinition: z
+                .boolean()
+                .default(true)
+                .describe("Whether to use 'Go to Definition' as the first method."),
+            maxResults: z
+                .number()
+                .default(50)
+                .describe("Maximum number of global search results to return."),
+            openFile: z
+                .boolean()
+                .default(false)
+                .describe("Whether to open the found file in the editor."),
+        },
+        async (params: { query: string; useDefinition?: boolean; maxResults?: number; openFile?: boolean }) => {
+            const result = await searchSymbolTool(params);
+            return result;
         },
     );
 
