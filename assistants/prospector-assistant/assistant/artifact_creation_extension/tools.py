@@ -1,15 +1,25 @@
 from collections import defaultdict
-from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Optional
 
 from pydantic import BaseModel, Field
+from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
+from ._llm import ToolArgsModel
 from .document import Document, DocumentHeader, DocumentMetadata, Section, SectionMetadata
-from .store import DocumentStore
+from .store import DocumentStore, for_context
 
 
-class CreateDocumentArgs(BaseModel):
+class ArgsWithDocumentStore(ToolArgsModel):
+    def set_context(self, context: ConversationContext) -> None:
+        self._context = context
+
+    @property
+    def store(self) -> DocumentStore:
+        return for_context(self._context)
+
+
+class CreateDocumentArgs(ArgsWithDocumentStore):
     title: str = Field(description="Document title")
     purpose: Optional[str] = Field(description="Describes the intent of the document.")
     audience: Optional[str] = Field(description="Describes the intended audience for the document.")
@@ -18,7 +28,7 @@ class CreateDocumentArgs(BaseModel):
     )
 
 
-async def create_document(args: CreateDocumentArgs) -> str:
+async def create_document(args: CreateDocumentArgs) -> DocumentMetadata:
     """
     Create a new document with the specified metadata.
     """
@@ -31,12 +41,12 @@ async def create_document(args: CreateDocumentArgs) -> str:
         metadata.other_guidelines = args.other_guidelines
     document = Document(title=args.title, metadata=metadata)
 
-    current_document_store.get().write(document)
+    args.store.write(document)
 
-    return f"Document with id {document.metadata.document_id} created successfully"
+    return document.metadata
 
 
-class UpdateDocumentArgs(BaseModel):
+class UpdateDocumentArgs(ArgsWithDocumentStore):
     document_id: str = Field(description="The id of the document to update.")
     title: Optional[str] = Field(description="The updated title of the document. Pass None to leave unchanged.")
     purpose: Optional[str] = Field(
@@ -50,11 +60,11 @@ class UpdateDocumentArgs(BaseModel):
     )
 
 
-async def update_document(args: UpdateDocumentArgs) -> str:
+async def update_document(args: UpdateDocumentArgs) -> DocumentMetadata:
     """
     Update the metadata of an existing document.
     """
-    with current_document_store.get().checkout(args.document_id) as document:
+    with args.store.checkout(args.document_id) as document:
         if args.title is not None:
             document.title = args.title
         if args.purpose is not None:
@@ -66,10 +76,10 @@ async def update_document(args: UpdateDocumentArgs) -> str:
 
         document.metadata.last_modified_at = datetime.now(timezone.utc)
 
-    return f"Document with id {args.document_id} updated successfully"
+    return document.metadata
 
 
-class GetDocumentArgs(BaseModel):
+class GetDocumentArgs(ArgsWithDocumentStore):
     document_id: str = Field(description="The id of the document to retrieve.")
 
 
@@ -77,23 +87,23 @@ async def get_document(args: GetDocumentArgs) -> Document:
     """
     Retrieve a document by its id.
     """
-    return current_document_store.get().read(id=args.document_id)
+    return args.store.read(id=args.document_id)
 
 
-class RemoveDocumentArgs(BaseModel):
+class RemoveDocumentArgs(ArgsWithDocumentStore):
     document_id: str = Field(description="The id of the document to remove.")
 
 
-async def remove_document(args: RemoveDocumentArgs) -> str:
+async def remove_document(args: RemoveDocumentArgs) -> Document:
     """
     Remove a document from the workspace.
     """
-    document = current_document_store.get().read(id=args.document_id)
-    current_document_store.get().delete(id=args.document_id)
-    return f"Document with id {document.metadata.document_id} removed successfully"
+    document = args.store.read(id=args.document_id)
+    args.store.delete(id=args.document_id)
+    return document
 
 
-class CreateDocumentSectionArgs(BaseModel):
+class CreateDocumentSectionArgs(ArgsWithDocumentStore):
     document_id: str = Field(description="The id of the document to add the section to.")
     insert_before_section_number: Optional[str] = Field(
         description="The section number of the section to insert the new section ***before***."
@@ -107,12 +117,12 @@ class CreateDocumentSectionArgs(BaseModel):
     section_content: str = Field(description="The content of the new section. Can be left blank.")
 
 
-async def create_document_section(args: CreateDocumentSectionArgs) -> str:
+async def create_document_section(args: CreateDocumentSectionArgs) -> Section:
     """
     Create a new section in an existing document.
     """
 
-    with current_document_store.get().checkout(args.document_id) as document:
+    with args.store.checkout(args.document_id) as document:
         document.metadata.last_modified_at = datetime.now(timezone.utc)
 
         metadata = SectionMetadata()
@@ -128,8 +138,6 @@ async def create_document_section(args: CreateDocumentSectionArgs) -> str:
                     f"Section {args.insert_before_section_number} not found in document {args.document_id}"
                 )
 
-        _validate_content(args.section_content)
-
         section = Section(
             title=args.section_title,
             content=args.section_content,
@@ -142,10 +150,10 @@ async def create_document_section(args: CreateDocumentSectionArgs) -> str:
 
         _renumber_sections(document.sections)
 
-        return f"Section with number {section.section_number} added to document {args.document_id} successfully"
+        return section
 
 
-class UpdateDocumentSectionArgs(BaseModel):
+class UpdateDocumentSectionArgs(ArgsWithDocumentStore):
     document_id: str = Field(description="The id of the document containing the section to update.")
     section_number: str = Field(description="The number of the section to update.")
     section_heading_level: Optional[int] = Field(
@@ -160,11 +168,11 @@ class UpdateDocumentSectionArgs(BaseModel):
     )
 
 
-async def update_document_section(args: UpdateDocumentSectionArgs) -> str:
+async def update_document_section(args: UpdateDocumentSectionArgs) -> Section:
     """
     Update the content of a section in an existing document.
     """
-    with current_document_store.get().checkout(args.document_id) as document:
+    with args.store.checkout(args.document_id) as document:
         section, _ = _find_section(args.section_number, document)
         if section is None:
             raise ValueError(f"Section {args.section_number} not found in document {args.document_id}")
@@ -176,25 +184,24 @@ async def update_document_section(args: UpdateDocumentSectionArgs) -> str:
         if args.section_purpose is not None:
             section.metadata.purpose = args.section_purpose
         if args.section_content is not None:
-            _validate_content(args.section_content)
             section.content = args.section_content
 
         document.metadata.last_modified_at = datetime.now(timezone.utc)
         _renumber_sections(document.sections)
 
-    return f"Section with number {args.section_number} updated successfully"
+    return section
 
 
-class RemoveDocumentSectionArgs(BaseModel):
+class RemoveDocumentSectionArgs(ArgsWithDocumentStore):
     document_id: str = Field(description="The id of the document containing the section to remove.")
     section_number: str = Field(description="The section number of the section to remove.")
 
 
-async def remove_document_section(args: RemoveDocumentSectionArgs) -> str:
+async def remove_document_section(args: RemoveDocumentSectionArgs) -> Section:
     """
     Remove a section from an existing document. Note that removing a section will also remove all nested sections.
     """
-    with current_document_store.get().checkout(args.document_id) as document:
+    with args.store.checkout(args.document_id) as document:
         section, _ = _find_section(args.section_number, document)
         if section is None:
             raise ValueError(f"Section with number {args.section_number} not found in document {args.document_id}")
@@ -205,7 +212,7 @@ async def remove_document_section(args: RemoveDocumentSectionArgs) -> str:
 
         document.metadata.last_modified_at = datetime.now(timezone.utc)
 
-    return f"Section with number {args.section_number} removed successfully"
+    return section
 
 
 class DocumentList(BaseModel):
@@ -213,7 +220,7 @@ class DocumentList(BaseModel):
     count: int = Field(description="The number of documents in the workspace.")
 
 
-class ListDocumentsArgs(BaseModel):
+class ListDocumentsArgs(ArgsWithDocumentStore):
     pass
 
 
@@ -221,7 +228,7 @@ async def list_documents(args: ListDocumentsArgs) -> DocumentList:
     """
     List the titles of all documents in the workspace.
     """
-    headers = current_document_store.get().list_documents()
+    headers = args.store.list_documents()
     return DocumentList(documents=headers, count=len(headers))
 
 
@@ -263,14 +270,3 @@ def _renumber_sections(sections: list[Section]) -> None:
 
         current_section_number_parts.append(str(sections_at_level[current_heading_level]))
         section.section_number = ".".join(current_section_number_parts)
-
-
-def _validate_content(content: str) -> None:
-    """
-    Validate the content of a section.
-    """
-    if "<content>" in content.lower():
-        raise ValueError("Content placeholder was not replaced according to instructions")
-
-
-current_document_store: ContextVar[DocumentStore] = ContextVar("current_document_store")

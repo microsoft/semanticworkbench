@@ -121,7 +121,7 @@ async def completion_structured(
         },
         "response": response.model_dump(),
         "response_headers": headers,
-        "response_duration": perf_counter() - start,
+        "duration": perf_counter() - start,
     }
 
     return StructuredResponse(response=response.choices[0].message.parsed, metadata=metadata)
