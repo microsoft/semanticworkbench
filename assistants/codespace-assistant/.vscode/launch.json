@@ -22,9 +22,7 @@
         "mcp-servers: mcp-server-giphy",
         "mcp-servers: mcp-server-open-deep-research"
       ]
-    }
-  ],
-  "compounds": [
+    },
     {
       "name": "assistants: codespace-assistant (demo)",
       "configurations": [
