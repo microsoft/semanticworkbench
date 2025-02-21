@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 class SectionMetadata(BaseModel):
     purpose: str = ""
     """Describes the intent of the section."""
+
+    # These are for humans
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     """Timestamp for when the section was created."""
     last_modified_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -47,13 +49,19 @@ class DocumentMetadata(BaseModel):
     """Describes the intent of the document"""
     audience: str = ""
     """Describes the intended audience for the document"""
+
+    # Value of this is still to be determined
     other_guidelines: str = ""
     """
-    Describes any other guidelines or standards, stylistic, structure, reading level, etc.,
-    that the document should follow
+    Describes any other guidelines or standards, stylistic, structure, etc.,
+    that the document should follow (tone, style, length)
     """
+
+    # Value of this is still to be determined
     supporting_documents: list[str] = Field(default_factory=list)
     """List of document titles for supporting documents."""
+
+    # These are for humans
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     """Timestamp for when the document was created."""
     last_modified_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -67,11 +75,12 @@ class Document(BaseModel):
 
     title: str = ""
     """Title of the document. Doubles as a unique identifier for the document."""
-    sections: list[Section] = Field(default_factory=list)
-    """Structured content of the document."""
 
     metadata: DocumentMetadata = DocumentMetadata()
     """Metadata describing the document."""
+
+    sections: list[Section] = Field(default_factory=list)
+    """Structured content of the document."""
 
 
 class DocumentHeader(BaseModel):
