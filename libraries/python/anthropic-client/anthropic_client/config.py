@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from assistant_extensions.ai_clients.model import RequestConfigBaseModel
+from llm_client.model import RequestConfigBaseModel
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 

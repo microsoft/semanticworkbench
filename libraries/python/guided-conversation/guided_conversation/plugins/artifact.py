@@ -179,7 +179,7 @@ class Artifact:
                 self.logger.warning(f"Agent failed to fix field {field_name}. Retrying...")
                 # Otherwise, the agent has failed and we will go through the loop again
 
-    def get_artifact_for_prompt(self) -> str:
+    def get_artifact_for_prompt(self) -> dict:
         """Returns a formatted JSON-like representation of the current state of the fields artifact.
         Any fields that were failed are completely omitted.
 
@@ -308,7 +308,7 @@ Remember that when updating the artifact, the field will be the original field n
                 return result
         return None
 
-    def _modify_classes(self, artifact_class: BaseModel) -> dict[str, type[BaseModelLLM]]:
+    def _modify_classes(self, artifact_class: type[BaseModel]) -> dict[str, type[BaseModelLLM]]:
         """Find all classes used as type hints in the artifact, and modify them to set 'Unanswered' as a default and valid value for all fields."""
         modified_classes = {}
         # Find any instances of BaseModel in the artifact class in the first "level" of type hints
@@ -339,7 +339,7 @@ Remember that when updating the artifact, the field will be the original field n
             return origin[new_args]
 
     def _modify_base_artifact(
-        self, artifact_model: type[BaseModelLLM], modified_classes: dict[str, type[BaseModelLLM]] | None = None
+        self, artifact_model: type[BaseModel], modified_classes: dict[str, type[BaseModelLLM]] | None = None
     ) -> type[BaseModelLLM]:
         """Create a new artifact model with 'Unanswered' as a default and valid value for all fields."""
         for _, field_info in artifact_model.model_fields.items():
@@ -474,7 +474,7 @@ Remember that when updating the artifact, the field will be the original field n
         json_data: dict,
         kernel: Kernel,
         service_id: str,
-        input_artifact: BaseModel,
+        input_artifact: type[BaseModel],
         max_artifact_field_retries: int = 2,
     ) -> "Artifact":
         artifact = cls(kernel, service_id, input_artifact, max_artifact_field_retries)

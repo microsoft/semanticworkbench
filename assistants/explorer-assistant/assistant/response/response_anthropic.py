@@ -8,7 +8,7 @@ import deepmerge
 from anthropic import NotGiven
 from anthropic.types import Message, MessageParam, TextBlock, ToolUseBlock
 from assistant_extensions.ai_clients.config import AnthropicClientConfigModel
-from assistant_extensions.ai_clients.model import CompletionMessage
+from llm_client.model import CompletionMessage
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
 )

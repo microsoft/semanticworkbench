@@ -3,11 +3,11 @@ from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-import google.generativeai as genai
 import openai
 import openai_client
 from anthropic import AsyncAnthropic
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
+from google import genai
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import ConfigSecretStr, UISchema
 
@@ -180,9 +180,8 @@ class GeminiServiceConfig(ServiceConfig):
         Field(title="Gemini Model", description="The Gemini model to use for generating responses."),
     ] = "gemini-1.5-pro"
 
-    def new_client(self, **kwargs) -> genai.GenerativeModel:
-        genai.configure(api_key=self.gemini_api_key)
-        return genai.GenerativeModel(self.gemini_model)
+    def new_client(self, **kwargs) -> genai.Client:
+        return genai.Client(api_key=self.gemini_api_key)
 
 
 # endregion

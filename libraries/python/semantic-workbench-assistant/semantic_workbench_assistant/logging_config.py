@@ -4,7 +4,7 @@ import re
 
 import asgi_correlation_id
 from pydantic_settings import BaseSettings
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger import json as jsonlogger
 
 
 class LoggingSettings(BaseSettings):
@@ -115,6 +115,9 @@ def config(settings: LoggingSettings):
         },
         "loggers": {
             "azure.core.pipeline.policies.http_logging_policy": {
+                "level": "WARNING",
+            },
+            "azure.identity": {
                 "level": "WARNING",
             },
         },
