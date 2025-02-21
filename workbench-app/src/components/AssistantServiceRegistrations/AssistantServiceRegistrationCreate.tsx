@@ -125,7 +125,7 @@ export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegist
                 onOpenChange={handleOpenChange}
                 title="Create Assistant Service Registration"
                 content={
-                    <>
+                    <form>
                         <Field label="Assistant Service ID" required>
                             <Input
                                 value={id}
@@ -169,7 +169,7 @@ export const AssistantServiceRegistrationCreate: React.FC<AssistantServiceRegist
                                 placeholder="Description of your assistant; eg: A helpful assistant that can answer questions and provide guidance."
                             />
                         </Field>
-                    </>
+                    </form>
                 }
                 additionalActions={[
                     <DialogTrigger key="save" disableButtonEnhancement>
