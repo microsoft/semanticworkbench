@@ -6,11 +6,11 @@ authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "assistant-extensions[attachments]>=0.1.0",
     "azure-ai-contentsafety>=1.0.0",
     "azure-core[aio]>=1.30.0",
     "azure-identity>=1.17.1",
     "events>=0.1.0",
+    "llm-client>=0.1.0",
     "openai>=1.61.0",
     "pillow>=11.0.0",
     "python-liquid>=1.12.1",
@@ -21,8 +21,11 @@ dependencies = [
 [dependency-groups]
 dev = ["pyright>=1.1.389", "pytest>=8.3.3"]
 
+[tool.uv]
+package = true
+
 [tool.uv.sources]
-assistant-extensions = { path = "../assistant-extensions", editable = true }
+llm-client = { path = "../llm-client", editable = true }
 semantic-workbench-assistant = { path = "../semantic-workbench-assistant", editable = true }
 events = { path = "../events", editable = true }
 

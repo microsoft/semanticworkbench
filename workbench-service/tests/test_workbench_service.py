@@ -12,7 +12,7 @@ import semantic_workbench_api_model.assistant_model as api_model
 import semantic_workbench_service
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from pydantic_core import Url
+from pydantic import HttpUrl
 from pytest_httpx import HTTPXMock
 from semantic_workbench_api_model import workbench_model, workbench_service_client
 
@@ -41,7 +41,7 @@ def register_assistant_service(client: TestClient) -> workbench_model.AssistantS
     update_with_url = workbench_model.UpdateAssistantServiceRegistrationUrl(
         name=new_registration.name,
         description=new_registration.description,
-        url=Url("http://testassistantservice"),
+        url=HttpUrl("http://testassistantservice"),
         online_expires_in_seconds=60,
     )
     http_response = client.put(
@@ -1626,7 +1626,7 @@ async def test_create_update_assistant_service_registration_url(
         update_assistant_service = workbench_model.UpdateAssistantServiceRegistrationUrl(
             name="updated-assistant-service",
             description="updated description",
-            url=Url("https://example.com"),
+            url=HttpUrl("https://example.com"),
             online_expires_in_seconds=0,
         )
         http_response = client.put(

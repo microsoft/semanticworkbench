@@ -7,7 +7,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.34.2",
-    "google-generativeai>=0.8.1",
+    "google-genai>=1.2.0",
     "openai>=1.61.0",
     "tiktoken>=0.8.0",
     "semantic-workbench-assistant>=0.1.0",
