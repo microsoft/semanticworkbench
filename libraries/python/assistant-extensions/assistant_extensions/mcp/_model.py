@@ -16,23 +16,38 @@ OnMCPLoggingMessageHandler = Callable[[str], Awaitable[None]]
 
 class MCPServerEnvConfig(BaseModel):
     key: Annotated[str, Field(title="Key", description="Environment variable key.")]
-    value: Annotated[str, Field(title="Value", description="Environment variable value.")]
+    value: Annotated[
+        str, Field(title="Value", description="Environment variable value.")
+    ]
 
 
 class MCPServerConfig(BaseModel):
-    enabled: Annotated[bool, Field(title="Enabled", description="Enable the server.")] = True
+    enabled: Annotated[
+        bool, Field(title="Enabled", description="Enable the server.")
+    ] = True
 
-    key: Annotated[str, Field(title="Key", description="Unique key for the server configuration.")]
-
-    command: Annotated[
-        str, Field(title="Command", description="Command to run the server, use url if using SSE transport.")
+    key: Annotated[
+        str, Field(title="Key", description="Unique key for the server configuration.")
     ]
 
-    args: Annotated[List[str], Field(title="Arguments", description="Arguments to pass to the server.")]
+    command: Annotated[
+        str,
+        Field(
+            title="Command",
+            description="Command to run the server, use url if using SSE transport.",
+        ),
+    ]
+
+    args: Annotated[
+        List[str],
+        Field(title="Arguments", description="Arguments to pass to the server."),
+    ]
 
     env: Annotated[
         List[MCPServerEnvConfig],
-        Field(title="Environment Variables", description="Environment variables to set."),
+        Field(
+            title="Environment Variables", description="Environment variables to set."
+        ),
     ] = []
 
     prompt: Annotated[
@@ -43,7 +58,9 @@ class MCPServerConfig(BaseModel):
 
     long_running: Annotated[
         bool,
-        Field(title="Long Running", description="Does this server run long running tasks?"),
+        Field(
+            title="Long Running", description="Does this server run long running tasks?"
+        ),
     ] = False
 
     task_completion_estimate: Annotated[
@@ -70,7 +87,7 @@ class MCPToolsConfigModel(BaseModel):
             title="Maximum Steps",
             description="The maximum number of steps to take when using tools, to avoid infinite loops.",
         ),
-    ] = 5
+    ] = 50
 
     max_steps_truncation_message: Annotated[
         str,
@@ -113,13 +130,16 @@ class MCPToolsConfigModel(BaseModel):
         MCPServerConfig(
             key="filesystem",
             command="npx",
-            args=["-y", "@modelcontextprotocol/server-filesystem", "/workspaces/semanticworkbench"],
+            args=[
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/workspaces/semanticworkbench",
+            ],
         ),
         MCPServerConfig(
             key="vscode",
             command="http://127.0.0.1:6010/sse",
             args=[],
-            enabled=False,
         ),
         MCPServerConfig(
             key="bing-search",
@@ -200,7 +220,9 @@ class MCPSession:
         # Load all tools from the session, later we can do the same for resources, prompts, etc.
         tools_result = await self.client_session.list_tools()
         self.tools = tools_result.tools
-        logger.debug(f"Loaded {len(tools_result.tools)} tools from session '{self.config.key}'")
+        logger.debug(
+            f"Loaded {len(tools_result.tools)} tools from session '{self.config.key}'"
+        )
 
 
 class ExtendedCallToolRequestParams(CallToolRequestParams):

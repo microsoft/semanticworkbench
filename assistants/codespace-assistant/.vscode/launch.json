@@ -22,6 +22,14 @@
         "mcp-servers: mcp-server-giphy",
         "mcp-servers: mcp-server-open-deep-research"
       ]
+    },
+    {
+      "name": "assistants: codespace-assistant (demo)",
+      "configurations": [
+        "assistants: codespace-assistant",
+        "app: semantic-workbench-app",
+        "service: semantic-workbench-service"
+      ]
     }
   ]
 }
