@@ -82,33 +82,35 @@ class DocumentWorkspaceInspector(ReadOnlyAssistantConversationInspectorStateProv
         return AssistantConversationInspectorStateDataModel(data={"content": projected})
 
 
-active_document_id: str | None = None
-
-
-class ActiveDocumentInspector(ReadOnlyAssistantConversationInspectorStateProvider):
+class AllDocumentsInspector(ReadOnlyAssistantConversationInspectorStateProvider):
     @property
     def display_name(self) -> str:
-        return "Active Document"
+        return "Documents"
 
     @property
     def description(self) -> str:
-        return "The active document."
+        return "All documents."
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
-        global active_document_id
         store = for_context(context)
         headers = store.list_documents()
         if not headers:
             return AssistantConversationInspectorStateDataModel(data={"content": "No active document."})
 
-        if active_document_id is None:
-            active_document_id = headers[0].document_id
+        toc: list[str] = []
+        content: list[str] = []
 
-        doc = store.read(active_document_id)
+        headers = store.list_documents()
+        for header in headers:
+            doc = store.read(header.document_id)
+            toc.append(f"- [{doc.title}](#{doc.title.lower().replace(' ', '-')})")
+            content.append(project_document_to_markdown(doc))
 
-        projected = project_document_to_markdown(doc)
+        tocs = "\n".join(toc)
+        contents = "\n".join(content)
+        projection = f"```markdown\nDocuments:\n\n{tocs}\n\n{contents}\n```"
 
-        return AssistantConversationInspectorStateDataModel(data={"content": projected})
+        return AssistantConversationInspectorStateDataModel(data={"content": projection})
 
 
 def project_document_to_markdown(doc: Document) -> str:
@@ -117,7 +119,7 @@ def project_document_to_markdown(doc: Document) -> str:
     """
     markdown = f"# {doc.title}\n\n***{doc.metadata.purpose}***\n\n"
     for section in doc.sections:
-        markdown += f"{'#' * section.heading_level} {section.section_number} {section.title}\n\n{section.content}\n\n"
+        markdown += f"{'#' * section.heading_level} {section.section_number} {section.title}\n\n***{section.metadata.purpose}***\n\n{section.content}\n\n"
         markdown += "-" * 3 + "\n\n"
 
-    return f"```markdown\n{markdown}\n```"
+    return markdown

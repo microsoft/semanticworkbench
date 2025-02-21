@@ -15,6 +15,7 @@ async def provide_guidance_if_necessary(context: ConversationContext) -> None:
     if marker_path.exists():
         return
 
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
     marker_path.touch()
 
     conversation_response = await context.get_conversation()
