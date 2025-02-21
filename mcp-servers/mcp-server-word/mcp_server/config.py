@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import os
 
 from pydantic_settings import BaseSettings

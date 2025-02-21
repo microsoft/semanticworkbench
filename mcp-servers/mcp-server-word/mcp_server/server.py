@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 from mcp.server.fastmcp import FastMCP
 
 from mcp_server.app_interaction.excel_editor import get_active_workbook, get_excel_app, get_workbook_content

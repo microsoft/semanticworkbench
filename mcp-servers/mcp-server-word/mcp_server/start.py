@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 # Main entry point for the MCP Server
 
 import argparse
