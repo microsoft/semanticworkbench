@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import pythoncom
 import win32com.client as win32
 
