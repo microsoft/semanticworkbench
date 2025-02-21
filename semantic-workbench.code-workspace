@@ -148,6 +148,10 @@
       "path": "mcp-servers/mcp-server-template"
     },
     {
+      "name": "mcp-servers:mcp-server-word",
+      "path": "mcp-servers/mcp-server-word"
+    },
+    {
       "name": "tools",
       "path": "tools"
     },
