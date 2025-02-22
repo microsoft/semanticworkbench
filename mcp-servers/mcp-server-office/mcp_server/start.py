@@ -4,7 +4,7 @@
 
 import argparse
 from pyngrok import ngrok
-from .server import create_mcp_server
+from mcp_server.server import create_mcp_server
 
 
 def main() -> None:
@@ -35,9 +35,14 @@ def main() -> None:
 
     if args.tunnel and args.transport == "sse":
         print(f"Starting ngrok tunnel on port {args.port}...")
-        tunnel = ngrok.connect(args.port, "http")
-        print(f"ngrok tunnel is open: {tunnel.public_url}")
-        print("Share this URL with your assistant configuration for remote testing.")
+        try:
+            tunnel = ngrok.connect(args.port, "http")
+            print(f"ngrok tunnel is open: {tunnel.public_url}")
+            print("Share this URL with your assistant configuration for remote testing.")
+        except Exception as e:
+            print("[ERROR] Failed to start ngrok tunnel.")
+            print("Details:", str(e))
+            print("Continuing without public tunnel.")
 
     mcp.run(transport=args.transport)
 
