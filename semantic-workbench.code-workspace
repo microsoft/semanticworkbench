@@ -128,8 +128,12 @@
       "path": "mcp-servers/ai-assist-content"
     },
     {
-      "name": "mcp-server-bing-search",
+      "name": "mcp-servers:mcp-server-bing-search",
       "path": "mcp-servers/mcp-server-bing-search"
+    },
+    {
+      "name": "mcp-servers:mcp-server-fusion",
+      "path": "mcp-servers/mcp-server-fusion"
     },
     {
       "name": "mcp-servers:mcp-server-giphy",
