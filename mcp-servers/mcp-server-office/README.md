@@ -14,6 +14,36 @@ make
 
 To create the virtual environment and install dependencies.
 
+### Building the Standalone Executable (Windows Only)
+
+To build the standalone executable for this project, you must:
+
+1. Ensure you are on a **Windows system**.
+2. Install the development dependencies (including PyInstaller):
+   ```bash
+   make
+   ```
+3. Run the build command to generate the executable:
+   ```bash
+   pyinstaller --onefile --name=mcp-server-office --distpath=./dist mcp_server/start.py
+   ```
+
+This will create a `mcp-server-office.exe` file inside the `dist/` folder.
+
+### Running the Standalone Executable
+
+Once built, the executable can be run by simply double-clicking it, or from the command prompt:
+
+```bash
+./dist/mcp-server-office.exe
+```
+
+The server will start in SSE mode, run on port `25566`, and automatically create an Ngrok tunnel to provide a public URL.
+
+The tunnel URL will be output in the console for remote configuration.
+
+---
+
 ### Running the Server
 
 Use the VSCode launch configuration, or run manually:
