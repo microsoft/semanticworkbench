@@ -38,9 +38,7 @@ Once built, the executable can be run by simply double-clicking it, or from the 
 ./dist/mcp-server-office.exe
 ```
 
-The server will start in SSE mode, run on port `25566`, and automatically create an Ngrok tunnel to provide a public URL.
-
-The tunnel URL will be output in the console for remote configuration.
+The server will start in SSE mode and run on port `25566`. To expose the server publicly, use the provided batch file (`run_with_devtunnel.bat`) to set up a Dev Tunnel and start the server.
 
 ---
 
@@ -59,6 +57,8 @@ For SSE transport:
 ```bash
 uv run -m mcp_server.start --transport sse --port 25566
 ```
+
+If you need a public-facing server, use the `run_with_devtunnel.bat` batch file provided with the standalone executable, which creates a Dev Tunnel for public access.
 
 The SSE URL is:
 

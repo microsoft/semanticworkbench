@@ -54,14 +54,18 @@
     "uv.lock"
   ],
   "cSpell.words": [
+    "AUTHTOKEN",
+    "devtunnel",
     "distpath",
     "dotenv",
+    "ERRORLEVEL",
     "fastmcp",
     "hiddenimports",
     "ngrok",
     "onefile",
     "pyinstaller",
     "pyngrok",
+    "taskkill",
     "toplevel"
   ]
 }
