@@ -53,5 +53,15 @@
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": ["dotenv", "fastmcp", "toplevel"]
+  "cSpell.words": [
+    "distpath",
+    "dotenv",
+    "fastmcp",
+    "hiddenimports",
+    "ngrok",
+    "onefile",
+    "pyinstaller",
+    "pyngrok",
+    "toplevel"
+  ]
 }
