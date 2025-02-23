@@ -1,6 +1,6 @@
-from mcp.server.fastmcp import FastMCP
 import adsk.core
 
+from mcp.server.fastmcp import FastMCP
 
 from . import settings
 
@@ -28,14 +28,21 @@ def create_mcp_server() -> FastMCP:
         ui = app.userInterface
         try:
             design = app.activeProduct
+            if not design or not isinstance(design, adsk.fusion.Design):
+                return "No active Fusion design found."
+
             rootComp = design.rootComponent
             sketches = rootComp.sketches
             xyPlane = rootComp.xYConstructionPlane
+
+            # Create the rectangle sketch.
             sketch = sketches.add(xyPlane)
             lines = sketch.sketchCurves.sketchLines
-            lines.addTwoPointRectangle(adsk.core.Point3D.create(x1, y1, 0),
-                                       adsk.core.Point3D.create(x2, y2, 0))
-            return "Rectangle created successfully."
+            lines.addTwoPointRectangle(
+                adsk.core.Point3D.create(x1, y1, 0),
+                adsk.core.Point3D.create(x2, y2, 0)
+            )
+            return "Rectangle created successfully in the active design."
         except Exception as e:
             return f"Error creating rectangle: {e}"
     return mcp

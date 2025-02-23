@@ -54,5 +54,12 @@
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": ["dotenv", "fastmcp", "toplevel"]
+  "cSpell.words": [
+    "anyio",
+    "dotenv",
+    "fastmcp",
+    "httpx",
+    "pydantic",
+    "toplevel"
+  ]
 }

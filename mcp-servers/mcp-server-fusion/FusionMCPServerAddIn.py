@@ -1,9 +1,6 @@
 import adsk.core, adsk.fusion, adsk.cam
-import threading, time
+import threading
 import traceback
-import sys, os
-
-
 
 # Global flag to signal the MCP server thread to stop.
 mcp_running = True
