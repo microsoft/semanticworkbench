@@ -1,65 +1,10 @@
 {
-  "editor.bracketPairColorization.enabled": true,
-  "editor.codeActionsOnSave": {
-    "source.organizeImports": "explicit",
-    "source.fixAll": "explicit"
-  },
-  "editor.guides.bracketPairs": "active",
-  "editor.formatOnPaste": true,
-  "editor.formatOnType": true,
-  "editor.formatOnSave": true,
-  "files.eol": "\n",
-  "files.trimTrailingWhitespace": true,
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
-  },
-  "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
-  },
-  "python.analysis.autoFormatStrings": true,
-  "python.analysis.autoImportCompletions": true,
-  "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.fixAll": ["source.unusedImports"],
-  // Project specific paths
-  "python.analysis.ignore": ["libs"],
-  "python.analysis.inlayHints.functionReturnTypes": true,
-  "python.analysis.typeCheckingMode": "standard",
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.fixAll": "explicit",
-      "source.unusedImports": "explicit",
-      "source.organizeImports": "explicit",
-      "source.formatDocument": "explicit"
-    }
-  },
-  "ruff.nativeServer": "on",
-  "search.exclude": {
-    "**/.venv": true,
-    "**/.data": true
-  },
-  // For use with optional extension: "streetsidesoftware.code-spell-checker"
-  "cSpell.ignorePaths": [
-    ".git",
-    ".gitignore",
-    ".vscode",
-    ".venv",
-    "node_modules",
-    "package-lock.json",
-    "pyproject.toml",
-    "settings.json",
-    "uv.lock"
+  "python.autoComplete.extraPaths": [
+    "C:/Users/brkrabac/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"
   ],
-  "cSpell.words": [
-    "anyio",
-    "dotenv",
-    "fastmcp",
-    "httpx",
-    "pydantic",
-    "toplevel"
-  ]
+  "python.analysis.extraPaths": [
+    "C:/Users/brkrabac/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"
+  ],
+  "python.defaultInterpreterPath": "C:/Users/brkrabac/AppData/Local/Autodesk/webdeploy/production/ec15d50cfe0119bd0166ce9a1aa68bd8f670e085/Python/python.exe",
+  "cSpell.words": ["addin", "fastmcp", "levelname"]
 }

@@ -1,5 +1,5 @@
 import os
-from pydantic_settings import BaseSettings
+from ..vendor.pydantic_settings import BaseSettings
 
 log_level = os.environ.get("LOG_LEVEL", "INFO")
 

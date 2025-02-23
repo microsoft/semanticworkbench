@@ -1,38 +1,62 @@
-import adsk.core, adsk.fusion, adsk.cam
+import adsk.core
+import adsk.fusion
+import adsk.cam
 import threading
-import traceback
+import logging
+import os
+import tempfile
 
 # Global flag to signal the MCP server thread to stop.
 mcp_running = True
 mcp_thread = None
 
-def start_mcp_server():
-    from .mcp_server.server import create_mcp_server  # our existing function in mcp-server-fusion
-    try:
-        # Create the MCP server instance.
-        mcp = create_mcp_server()
-        # Set the server to use SSE transport and a chosen port.
-        # Here, we explicitly set the port in the server settings.
-        mcp.settings.port = 6050
-        # Run the MCP server; this call will block until the server stops.
-        mcp.run(transport='sse')
-    except Exception as e:
-        app = adsk.core.Application.get()
-        ui = app.userInterface
-        ui.messageBox(f'Error in MCP server thread: {traceback.format_exc()}')
-
 def run(context):
     global mcp_running, mcp_thread
     app = adsk.core.Application.get()
-    ui  = app.userInterface
+    ui = app.userInterface
     try:
-        # Start the background thread to run the MCP server.
+        # Set up logging with both file and stream handlers
+        log_path = os.path.join(tempfile.gettempdir(), 'fusion_addin.log')
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(log_path, mode='w'),
+                logging.StreamHandler()  # This will print to system console
+            ],
+            force=True
+        )
+        
+        ui.messageBox(f'Log file location: {log_path}')
+        logging.info('Starting MCP Server add-in')
+        
+        # Start the background thread
         mcp_running = True
         mcp_thread = threading.Thread(target=start_mcp_server, daemon=True)
         mcp_thread.start()
-        ui.messageBox('Fusion MCP Server launched in background.')
+        logging.info('Background thread started')
+        
     except Exception as e:
-        ui.messageBox(f'Failed to start background MCP server: {e}')
+        logging.error(f'Failed to start: {str(e)}', exc_info=True)
+        ui.messageBox(f'Failed to start: {str(e)}')
+
+def start_mcp_server():
+    try:
+        logging.info('MCP server thread initializing')
+        from .mcp_server.server import create_mcp_server
+        
+        logging.info('Creating MCP server')
+        mcp = create_mcp_server()
+        
+        logging.info('Configuring MCP server')
+        mcp.settings.port = 6050
+        
+        logging.info(f'Starting MCP server on port {mcp.settings.port}')
+        mcp.run(transport='sse')
+        
+    except Exception:
+        logging.error('Error in MCP server thread', exc_info=True)
+        # Don't use UI messages in the thread
 
 def stop(context):
     global mcp_running, mcp_thread
