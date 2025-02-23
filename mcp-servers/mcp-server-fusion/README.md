@@ -9,7 +9,7 @@ This is a [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP
 Simply run:
 
 ```bash
-pip install -r requirements.txt --target ./vendor
+pip install -r requirements.txt --target ./mcp_server_fusion/vendor
 ```
 
 To create the virtual environment and install dependencies.
@@ -21,13 +21,13 @@ Use the VSCode launch configuration, or run manually:
 Defaults to stdio transport:
 
 ```bash
-python -m mcp_server.start
+python -m mcp_server_fusion.mcp_server.start
 ```
 
 For SSE transport:
 
 ```bash
-python -m mcp_server.start --transport sse --port 6050
+python -m mcp_server_fusion.mcp_server.start --transport sse --port 6050
 ```
 
 The SSE URL is:
@@ -47,7 +47,7 @@ To use this MCP server in your setup, consider the following configuration:
   "mcpServers": {
     "mcp-server-fusion": {
       "command": "python",
-      "args": ["run", "-m", "mcp_server.start"]
+      "args": ["run", "-m", "mcp_server_fusion.mcp_server.start"]
     }
   }
 }

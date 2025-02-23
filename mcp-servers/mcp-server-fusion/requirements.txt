@@ -4,3 +4,4 @@ pydantic==2.10.6
 pydantic-settings==2.8.0
 anyio==4.8.0
 httpx==0.28.1
+debugpy>=1.8.12

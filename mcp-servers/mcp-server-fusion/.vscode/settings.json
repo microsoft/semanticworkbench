@@ -1,10 +1,3 @@
 {
-  "python.autoComplete.extraPaths": [
-    "C:/Users/brkrabac/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"
-  ],
-  "python.analysis.extraPaths": [
-    "C:/Users/brkrabac/AppData/Roaming/Autodesk/Autodesk Fusion 360/API/Python/defs"
-  ],
-  "python.defaultInterpreterPath": "C:/Users/brkrabac/AppData/Local/Autodesk/webdeploy/production/ec15d50cfe0119bd0166ce9a1aa68bd8f670e085/Python/python.exe",
-  "cSpell.words": ["addin", "fastmcp", "levelname"]
+  "cSpell.words": ["addin", "fastmcp", "futil", "levelname"]
 }

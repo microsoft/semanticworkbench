@@ -2,7 +2,7 @@
 
 import argparse
 
-from .server import create_mcp_server
+from mcp_server_fusion.mcp_server.server import create_mcp_server
 
 
 def main() -> None:

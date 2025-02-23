@@ -1,76 +1,74 @@
-import adsk.core
-import adsk.fusion
-import adsk.cam
+import atexit
 import threading
-import logging
-import os
-import tempfile
+import signal
 
-# Global flag to signal the MCP server thread to stop.
+from .mcp_server_fusion.mcp_server.server import create_mcp_server
+from .mcp_server_fusion import fusion_utils
+
+
+# Global variables
 mcp_running = True
 mcp_thread = None
+show_errors_in_ui = True
+
 
 def run(context):
     global mcp_running, mcp_thread
-    app = adsk.core.Application.get()
-    ui = app.userInterface
+
     try:
-        # Set up logging with both file and stream handlers
-        log_path = os.path.join(tempfile.gettempdir(), 'fusion_addin.log')
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(log_path, mode='w'),
-                logging.StreamHandler()  # This will print to system console
-            ],
-            force=True
-        )
-        
-        ui.messageBox(f'Log file location: {log_path}')
-        logging.info('Starting MCP Server add-in')
+        fusion_utils.log('Starting MCP Server add-in', force_console=True)
         
         # Start the background thread
         mcp_running = True
         mcp_thread = threading.Thread(target=start_mcp_server, daemon=True)
         mcp_thread.start()
-        logging.info('Background thread started')
+        fusion_utils.log('Background thread started')
+
+        atexit.register(stop, None)
+        signal.signal(signal.SIGTERM, lambda sig, frame: stop(None))
+
         
     except Exception as e:
-        logging.error(f'Failed to start: {str(e)}', exc_info=True)
-        ui.messageBox(f'Failed to start: {str(e)}')
+        fusion_utils.handle_error('run', show_errors_in_ui)
+        fusion_utils.log(f'Failed to start: {str(e)}')
+
 
 def start_mcp_server():
     try:
-        logging.info('MCP server thread initializing')
-        from .mcp_server.server import create_mcp_server
+        fusion_utils.log('MCP server thread initializing')
         
-        logging.info('Creating MCP server')
+        fusion_utils.log('Creating MCP server')
         mcp = create_mcp_server()
         
-        logging.info('Configuring MCP server')
+        fusion_utils.log('Configuring MCP server')
         mcp.settings.port = 6050
         
-        logging.info(f'Starting MCP server on port {mcp.settings.port}')
+        fusion_utils.log(f'Starting MCP server on port {mcp.settings.port}')
         mcp.run(transport='sse')
         
-    except Exception:
-        logging.error('Error in MCP server thread', exc_info=True)
-        # Don't use UI messages in the thread
+    except Exception as e:
+        fusion_utils.handle_error('start_mcp_server', show_errors_in_ui)
+        fusion_utils.log(f'Error in MCP server thread: {str(e)}')
+
 
 def stop(context):
-    global mcp_running, mcp_thread
-    app = adsk.core.Application.get()
-    ui = app.userInterface
+    global mcp_running, mcp_thread, queue_listener
+    # app = adsk.core.Application.get()
+    # ui = app.userInterface
     try:
-        # Signal the background thread to stop.
+        # Remove all of the event handlers your app has created
+        fusion_utils.clear_handlers()
+
+        # Signal the background thread to stop
         mcp_running = False
-        # In our simple setup, assuming the MCP server checks for cancellation.
-        # If needed, you might adjust the FastMCP server to poll the mcp_running flag.
-        ui.messageBox('Fusion MCP Server add-in stopping. Please wait.')
-        # Optionally, join the thread briefly.
+        fusion_utils.log('Stopping MCP Server add-in')
+        
+        # Stop the thread
         if mcp_thread is not None:
             mcp_thread.join(5)
-        ui.messageBox('Fusion MCP Server add-in stopped.')
+            
+        fusion_utils.log('MCP Server add-in stopped')
+        
     except Exception as e:
-        ui.messageBox(f'Error stopping add-in: {e}')
+        fusion_utils.handle_error('stop', show_errors_in_ui)
+        fusion_utils.log(f'Error stopping add-in: {str(e)}')

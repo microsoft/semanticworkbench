@@ -1,0 +1,14 @@
+{
+	"autodeskProduct":	"Fusion",
+	"type":	"addin",
+	"id":	"872f127f-65bc-4603-aa29-db6bd9823e6f",
+	"author":	"Semantic Workbench Team",
+	"description":	{
+		"":	"Fusion MCP Server add-in for creating 3D models"
+	},
+	"version":	"0.1.0",
+	"runOnStartup":	false,
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true,
+	"iconFilename":	"AddInIcon.svg"
+}
