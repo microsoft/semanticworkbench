@@ -4,11 +4,11 @@
     {
       "type": "debugpy",
       "request": "launch",
-      "name": "mcp-servers: mcp-server-word",
+      "name": "mcp-servers: mcp-server-office",
       "cwd": "${workspaceFolder}",
       "module": "mcp_server.start",
       "args": ["--transport", "sse", "--port", "25566"],
-      "consoleTitle": "mcp-server-word"
+      "consoleTitle": "mcp-server-office"
       // "justMyCode": false // Set to false to debug external libraries
     },
     {

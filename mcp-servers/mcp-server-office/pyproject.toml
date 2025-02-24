@@ -1,18 +1,19 @@
 [project]
-name = "mcp-server-word"
+name = "mcp-server-office"
 version = "0.1.0"
-description = "Interaction for WXP Apps"
+description = "Microsoft Office tools and utilities as a Model Context Protocol (MCP) server."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11, <3.13"
 
 dependencies = [
     "mcp==1.2.1",
+    "ngrok>=1.4.0",
     "pywin32==308",
 ]
 
 [dependency-groups]
-dev = ["pyright>=1.1.389"]
+dev = ["pyright>=1.1.389", "pyinstaller"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]
