@@ -155,8 +155,25 @@ class MCPToolsConfigModel(BaseModel):
         ),
         MCPServerConfig(
             key="giphy",
-            command="http://http://127.0.0.1:6000/sse",
+            command="http://127.0.0.1:6000/sse",
             args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="fusion",
+            command="http://127.0.0.1:6050/sse",
+            args=[],
+            prompt=dedent("""
+                When creating models, remember the following:
+                - Z is vertical, X is horizontal, and Y is depth
+                - The top plane for an entity is an XY plane, at the Z coordinate of the top of the entity
+                - The bottom plane for an entity is an XY plane, at the Z coordinate of the bottom of the entity
+                - The front plane for an entity is an XZ plane, at the Y coordinate of the front of the entity
+                - The back plane for an entity is an XZ plane, at the Y coordinate of the back of the entity
+                - The left plane for an entity is a YZ plane, at the X coordinate of the left of the entity
+                - The right plane for an entity is a YZ plane, at the X coordinate of the right of the entity
+                - Remember to always use the correct plane and consider the amount of adjustment on the 3rd plane necessary
+            """).strip(),
             enabled=False,
         ),
         MCPServerConfig(
@@ -211,6 +228,7 @@ class MCPSession:
     config: MCPServerConfig
     client_session: ClientSession
     tools: List[Tool] = []
+    is_connected: bool = True
 
     def __init__(self, config: MCPServerConfig, client_session: ClientSession) -> None:
         self.config = config
@@ -220,6 +238,7 @@ class MCPSession:
         # Load all tools from the session, later we can do the same for resources, prompts, etc.
         tools_result = await self.client_session.list_tools()
         self.tools = tools_result.tools
+        self.is_connected = True
         logger.debug(
             f"Loaded {len(tools_result.tools)} tools from session '{self.config.key}'"
         )

@@ -67,6 +67,7 @@ async def get_completion(
         completion_args["tools"] = tools or NotGiven()
         if tools is not None:
             completion_args["tool_choice"] = "auto"
+            completion_args["parallel_tool_calls"] = False
 
     logger.debug(
         dedent(f"""
