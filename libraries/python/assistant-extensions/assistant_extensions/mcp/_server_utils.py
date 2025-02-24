@@ -72,7 +72,7 @@ async def connect_to_mcp_server_sse(
 
         # FIXME: Bumping timeout to 15 minutes, but this should be configurable
         async with sse_client(
-            url=server_config.command, headers=headers, sse_read_timeout=60 * 15
+            url=server_config.command, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
         ) as (
             read_stream,
             write_stream,
