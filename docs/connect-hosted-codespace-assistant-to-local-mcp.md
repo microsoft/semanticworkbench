@@ -1,6 +1,8 @@
 ## How to connect the Codespace Assistant (hosted at semantic-workbench.azurewebsites.net) to local MCP servers
 
-To connect assistants running in the workbench to a local MCP server, the MCP server needs to be available as an SSE service connectable from the public internet.
+NOTE: If you are running the workbench and the assistant locally, this guide will NOT help you.
+
+To connect assistants running in the hosted workbench to a local MCP server, the MCP server needs to be available as an SSE service connectable from the public internet.
 To make it accessible, you need to set up a tunnel to the localhost server.
 We recommend using the Azure devtunnel service, as it provides a simple and reliable way to create a tunnel.
 For MCP servers that only support stdio transport, you additionally need to run `mcp-proxy`, to expose the app as an HTTP/SSE service.
