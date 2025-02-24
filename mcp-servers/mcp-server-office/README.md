@@ -25,7 +25,7 @@ To build the standalone executable for this project, you must:
    ```
 3. Run the build command to generate the executable:
    ```bash
-   pyinstaller --onefile --name=mcp-server-office --distpath=./dist mcp_server/start.py
+   make package
    ```
 
 This will create a `mcp-server-office.exe` file inside the `dist/` folder.
