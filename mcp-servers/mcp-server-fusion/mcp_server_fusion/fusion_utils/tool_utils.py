@@ -24,8 +24,8 @@ class FusionContext:
         return self.design.rootComponent
     
     @property
-    def unitsManager(self) -> adsk.core.UnitsManager:
-        return self.app.activeDocument.unitsManager
+    def fusionUnitsManager(self) -> adsk.fusion.FusionUnitsManager:
+        return self.design.fusionUnitsManager
     
 
 def get_sketch_by_name(name: str | None) -> adsk.fusion.Sketch | None:
@@ -59,7 +59,7 @@ def convert_direction(direction: list[float]) -> str:
         str: A string formatted as "x unit, y unit, z unit"
     """
     GeometryValidator.validateVector(direction)
-    unit = FusionContext().unitsManager.defaultLengthUnits
+    unit = FusionContext().fusionUnitsManager.defaultLengthUnits
     return f"{direction[0]} {unit}, {direction[1]} {unit}, {direction[2]} {unit}"
 
 class UnitsConverter:
