@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "mcp-servers: mcp-server-fusion",
+      "cwd": "${workspaceFolder}",
+      "module": "mcp_server.start",
+      "args": ["--transport", "sse", "--port", "6050"],
+      "consoleTitle": "mcp-server-fusion"
+      // "justMyCode": false // Set to false to debug external libraries
+    },
+    {
+      "name": "mcp-servers: mcp-server-fusion (attach)",
+      "type": "python",
+      "request": "attach",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceRoot}",
+          "remoteRoot": "${workspaceRoot}"
+        }
+      ],
+      "osx": {
+        "filePath": "${file}"
+      },
+      "windows": {
+        "filePath": "${file}"
+      },
+      "port": 9000,
+      "host": "localhost"
+    }
+  ]
+}

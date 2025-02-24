@@ -1,8 +1,7 @@
 import logging
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, List, Optional
-
+from typing import AsyncIterator, Callable, List, Optional
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -70,9 +69,9 @@ async def connect_to_mcp_server_sse(
         )
         headers = get_env_dict(server_config)
 
-        # FIXME: Bumping timeout to 15 minutes, but this should be configurable
+        # FIXME: Bumping sse_read_timeout to 15 minutes and timeout to 5 minutes, but this should be configurable
         async with sse_client(
-            url=server_config.command, headers=headers, sse_read_timeout=60 * 15
+            url=server_config.command, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
         ) as (
             read_stream,
             write_stream,
@@ -83,9 +82,13 @@ async def connect_to_mcp_server_sse(
 
     except ExceptionGroup as e:
         logger.exception(f"TaskGroup failed in SSE client for {server_config.key}: {e}")
-        for sub_extension in e.exceptions:
-            logger.error(f"Sub-exception: {server_config.key}: {sub_extension}")
-        raise
+        for sub in e.exceptions:
+            logger.error(f"Sub-exception: {server_config.key}: {sub}")
+        # If there's exactly one underlying exception, re-raise it
+        if len(e.exceptions) == 1:
+            raise e.exceptions[0]
+        else:
+            raise
     except CancelledError as e:
         logger.exception(
             f"Task was cancelled in SSE client for {server_config.key}: {e}"
@@ -98,32 +101,74 @@ async def connect_to_mcp_server_sse(
         logger.exception(f"Error connecting to {server_config.key}: {e}")
         raise
 
+async def refresh_mcp_sessions(mcp_sessions: list[MCPSession]) -> list[MCPSession]:
+    """
+    Check each MCP session for connectivity. If a session is marked as disconnected,
+    attempt to reconnect it using reconnect_mcp_session.
+    """
+    active_sessions = []
+    for session in mcp_sessions:
+        if not session.is_connected:
+            logger.info(f"Session {session.config.key} is disconnected. Attempting to reconnect...")
+            new_session = await reconnect_mcp_session(session.config)
+            if new_session:
+                active_sessions.append(new_session)
+            else:
+                logger.error(f"Failed to reconnect MCP server {session.config.key}.")
+        else:
+            active_sessions.append(session)
+    return active_sessions
+
+
+async def reconnect_mcp_session(server_config: MCPServerConfig) -> MCPSession | None:
+    """
+    Attempt to reconnect to the MCP server using the provided configuration.
+    Returns a new MCPSession if successful, or None otherwise.
+    This version relies directly on the existing connection context manager
+    to avoid interfering with cancel scopes.
+    """
+    try:
+        async with connect_to_mcp_server(server_config) as client_session:
+            if client_session is None:
+                logger.error(f"Reconnection returned no client session for {server_config.key}")
+                return None
+
+            new_session = MCPSession(config=server_config, client_session=client_session)
+            await new_session.initialize()
+            new_session.is_connected = True
+            logger.info(f"Successfully reconnected to MCP server {server_config.key}")
+            return new_session
+    except Exception as e:
+        logger.exception(f"Error reconnecting MCP server {server_config.key}: {e}")
+        return None
+
 
 async def establish_mcp_sessions(
-    tools_config: MCPToolsConfigModel, stack: AsyncExitStack
+    tools_config: MCPToolsConfigModel, stack: AsyncExitStack, error_handler: Optional[Callable] = None
 ) -> List[MCPSession]:
-    """
-    Establish connections to MCP servers using the provided AsyncExitStack.
-    """
-
     mcp_sessions: List[MCPSession] = []
     for server_config in tools_config.mcp_servers:
-        # Check to see if the server is enabled
         if not server_config.enabled:
             logger.debug(f"Skipping disabled server: {server_config.key}")
             continue
-
-        client_session: ClientSession | None = await stack.enter_async_context(
-            connect_to_mcp_server(server_config)
-        )
-        if client_session:
-            # Create an MCP session with the client session
-            mcp_session = MCPSession(
-                config=server_config, client_session=client_session
+        try:
+            client_session: ClientSession | None = await stack.enter_async_context(
+                connect_to_mcp_server(server_config)
             )
-            # Initialize the session to load tools, resources, etc.
+        except Exception as e:
+            # Log a cleaner error message for this specific server
+            logger.error(f"Failed to connect to MCP server {server_config.key}: {e}")
+            # Also notify the user about this server failure here.
+            if error_handler:
+                await error_handler(server_config, e)
+            # Abort the connection attempt for the servers to avoid only partial server connections
+            # This could lead to assistant creatively trying to use the other tools to compensate
+            # for the missing tools, which can sometimes be very problematic.
+            return []
+
+        if client_session:
+            mcp_session = MCPSession(config=server_config, client_session=client_session)
             await mcp_session.initialize()
-            # Add the session to the list of established sessions
             mcp_sessions.append(mcp_session)
         else:
             logger.warning(f"Could not establish session with {server_config.key}")

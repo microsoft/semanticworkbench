@@ -1,4 +1,5 @@
 # utils/tool_utils.py
+import asyncio
 import logging
 from textwrap import dedent
 from typing import AsyncGenerator, List
@@ -6,7 +7,7 @@ from typing import AsyncGenerator, List
 import deepmerge
 from mcp import ServerNotification, Tool
 from mcp.types import CallToolResult, EmbeddedResource, ImageContent, TextContent
-from mcp_extensions import execute_tool_with_notifications
+from mcp_extensions import execute_tool_with_retries
 
 from ._model import (
     ExtendedCallToolRequestParams,
@@ -57,14 +58,8 @@ async def handle_mcp_tool_call(
     method_metadata_key: str,
     on_logging_message: OnMCPLoggingMessageHandler,
 ) -> ExtendedCallToolResult:
-    """
-    Handle the tool call by invoking the appropriate tool and returning a ToolCallResult.
-    """
-
-    # Find the tool and session from the full collection of sessions
-    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(
-        mcp_sessions, tool_call.name
-    )
+    # Find the tool and session by tool name.
+    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(mcp_sessions, tool_call.name)
 
     if not mcp_session or not tool:
         return ExtendedCallToolResult(
@@ -72,16 +67,15 @@ async def handle_mcp_tool_call(
             content=[
                 TextContent(
                     type="text",
-                    text=f"Tool '{tool_call.name}' not found in any of the sessions.",
+                    text=f"Tool '{tool_call.name}' not found in any session.",
                 )
             ],
             isError=True,
             metadata={},
         )
 
-    return await execute_tool(
-        mcp_session, tool_call, method_metadata_key, on_logging_message
-    )
+    # Execute the tool call using our robust error-handling function.
+    return await execute_tool(mcp_session, tool_call, method_metadata_key, on_logging_message)
 
 
 async def handle_long_running_tool_call(
@@ -145,7 +139,7 @@ async def execute_tool(
     # Initialize metadata
     metadata = {}
 
-    # Initialize tool_result
+    # Prepare to capture tool output
     tool_result = None
     tool_output: list[TextContent | ImageContent | EmbeddedResource] = []
     content_items: List[str] = []
@@ -164,12 +158,33 @@ async def execute_tool(
     logger.debug(
         f"Invoking '{mcp_session.config.key}.{tool_call.name}' with arguments: {tool_call.arguments}"
     )
-    tool_result = await execute_tool_with_notifications(
-        mcp_session.client_session, tool_call_function, notification_handler
-    )
+
+    try:
+        tool_result = await execute_tool_with_retries(
+            mcp_session, tool_call_function, notification_handler, tool_call.name
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        if isinstance(e, ExceptionGroup) and len(e.exceptions) == 1:
+            e = e.exceptions[0]
+        error_message = str(e).strip() or "Peer disconnected; no error message received."
+        # Check if the error indicates a disconnection.
+        if "peer closed connection" in error_message.lower():
+            mcp_session.is_connected = False
+        logger.exception(f"Error executing tool '{tool_call.name}': {error_message}")
+        error_text = f"Tool '{tool_call.name}' failed with error: {error_message}"
+        return ExtendedCallToolResult(
+            id=tool_call.id,
+            content=[TextContent(type="text", text=error_text)],
+            isError=True,
+            metadata={"debug": {method_metadata_key: {"error": error_message}}},
+        )
+
+
     tool_output = tool_result.content
 
-    # Update metadata with tool result
+    # Merge debug metadata for the successful result
     deepmerge.always_merger.merge(
         metadata,
         {
@@ -182,24 +197,25 @@ async def execute_tool(
     )
 
     # FIXME: for now, we'll just dump the tool output as text but we should support other content types
+    # Process tool output and convert to text content.
     for tool_output_item in tool_output:
         if isinstance(tool_output_item, TextContent):
             if tool_output_item.text.strip() != "":
                 content_items.append(tool_output_item.text)
-        if isinstance(tool_output_item, ImageContent):
+        elif isinstance(tool_output_item, ImageContent):
             content_items.append(tool_output_item.model_dump_json())
-        if isinstance(tool_output_item, EmbeddedResource):
+        elif isinstance(tool_output_item, EmbeddedResource):
             content_items.append(tool_output_item.model_dump_json())
 
-    # Return the tool call result
+    # Return the successful tool call result
     return ExtendedCallToolResult(
         id=tool_call.id,
         content=[
             TextContent(
                 type="text",
                 text="\n\n".join(content_items)
-                if len(content_items) > 0
-                else "[tool call successful, but no output, this may indicate empty file, directory, etc.]",
+                if content_items
+                else "[tool call successful, but no output]",
             ),
         ],
         metadata=metadata,

@@ -39,18 +39,6 @@ async def handle_completion(
     metadata_key: str,
     response_start_time: float,
 ) -> StepResult:
-    # helper function for handling errors
-    async def handle_error(error_message: str) -> StepResult:
-        await context.send_messages(
-            NewConversationMessage(
-                content=error_message,
-                message_type=MessageType.notice,
-                metadata=step_result.metadata,
-            )
-        )
-        step_result.status = "error"
-        return step_result
-
     # get service and request configuration for generative model
     generative_request_config = request_config
 
@@ -166,7 +154,6 @@ async def handle_completion(
         tool_call_count = 0
         for tool_call in tool_calls:
             tool_call_count += 1
-
             tool_call_status = f"using tool `{tool_call.name}`"
             async with context.set_status(f"{tool_call_status}..."):
 
@@ -181,8 +168,26 @@ async def handle_completion(
                         on_logging_message,
                     )
                 except Exception as e:
-                    logger.exception(f"Error handling tool call: {e}")
-                    return await handle_error("An error occurred while handling the tool call.")
+                    logger.exception(f"Error handling tool call '{tool_call.name}': {e}")
+                    deepmerge.always_merger.merge(
+                        step_result.metadata,
+                        {
+                            "debug": {
+                                f"{metadata_key}:request:tool_call_{tool_call_count}": {
+                                    "error": str(e),
+                                },
+                            },
+                        },
+                    )
+                    await context.send_messages(
+                        NewConversationMessage(
+                            content=f"Error executing tool '{tool_call.name}': {e}",
+                            message_type=MessageType.notice,
+                            metadata=step_result.metadata,
+                        )
+                    )
+                    step_result.status = "error"
+                    return step_result
 
             # Update content and metadata with tool call result metadata
             deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)

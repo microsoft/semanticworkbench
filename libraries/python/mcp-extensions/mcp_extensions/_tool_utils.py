@@ -1,9 +1,9 @@
 # utils/tool_utils.py
 import asyncio
-import logging
-from typing import Any, List
-
 import deepmerge
+import logging
+
+from typing import Any, List
 from mcp import ClientSession, ServerNotification, Tool
 from mcp.server.fastmcp import Context
 from mcp.types import CallToolResult
@@ -16,6 +16,7 @@ from ._model import ServerNotificationHandler, ToolCallFunction
 
 logger = logging.getLogger(__name__)
 
+MAX_RETRIES = 2
 
 async def send_tool_call_progress(
     fastmcp_server_context: Context, message: str, data: dict[str, Any] | None = None
@@ -41,6 +42,22 @@ async def send_tool_call_progress(
     #     ).model_dump(mode="json"),
     # )
     # await session._write_stream.send(JSONRPCMessage(jsonrpc_notification))
+
+
+async def execute_tool_with_retries(mcp_session, tool_call_function, notification_handler, tool_name) -> CallToolResult:
+    retries = 0
+    while True:
+        try:
+            return await execute_tool_with_notifications(
+                mcp_session.client_session, tool_call_function, notification_handler
+            )
+        except (TimeoutError, ConnectionError) as e:
+            if retries < MAX_RETRIES:
+                logger.warning(f"Transient error in tool '{tool_name}', retrying... ({retries+1}/{MAX_RETRIES})")
+                retries += 1
+                await asyncio.sleep(1)  # brief delay before retrying
+            else:
+                raise
 
 
 async def execute_tool_with_notifications(
