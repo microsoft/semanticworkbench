@@ -437,7 +437,6 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "pyright" },
-    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -453,10 +452,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.389" },
-    { name = "pytest", specifier = ">=7.4.3" },
-]
+dev = [{ name = "pyright", specifier = ">=1.1.389" }]
 
 [[package]]
 name = "colorama"
