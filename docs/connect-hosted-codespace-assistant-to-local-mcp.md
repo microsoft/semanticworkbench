@@ -29,10 +29,10 @@ uvx mcp-proxy --sse-port={port} {command}
 pipx run mcp-proxy --sse-port={port} {command}
 ```
 
-Example for port 50001 and command `uvx mcp-server-fetch`:
+Example for port 50001 and command `mcp-server-fetch`:
 
 ```bash
-uvx mcp-proxy --sse-port=50001 uvx mcp-server-fetch
+uvx mcp-proxy --sse-port=50001 mcp-server-fetch
 ```
 
 ## HTTP Server-Sent Events (SSE) transport
