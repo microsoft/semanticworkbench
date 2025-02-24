@@ -58,7 +58,17 @@ For SSE transport:
 uv run -m mcp_server.start --transport sse --port 25566
 ```
 
-If you need a public-facing server, use the `run_with_devtunnel.bat` batch file provided with the standalone executable, which creates a Dev Tunnel for public access.
+If you need a public-facing server, use the `--use-ngrok-tunnel` option:
+
+```bash
+uv run -m mcp_server.start --use-ngrok-tunnel
+```
+
+or for .exe:
+
+```bash
+mcp-server-office.exe --use-ngrok-tunnel
+```
 
 The SSE URL is:
 
