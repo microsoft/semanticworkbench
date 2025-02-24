@@ -3,7 +3,7 @@ from contextlib import AsyncExitStack
 from typing import Any, List
 
 from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.mcp import MCPSession, establish_mcp_sessions, get_mcp_server_prompts
+from assistant_extensions.mcp import MCPSession, establish_mcp_sessions, get_mcp_server_prompts, refresh_mcp_sessions
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
@@ -33,16 +33,28 @@ async def respond_to_conversation(
     async with AsyncExitStack() as stack:
         # If tools are enabled, establish connections to the MCP servers
         mcp_sessions: List[MCPSession] = []
-        if config.extensions_config.tools.enabled:
-            mcp_sessions = await establish_mcp_sessions(config.extensions_config.tools, stack)
-            if not mcp_sessions:
-                await context.send_messages(
-                    NewConversationMessage(
-                        content="Unable to connect to any MCP servers. Please ensure the servers are running.",
-                        message_type=MessageType.notice,
-                        metadata=metadata,
-                    )
+
+        async def error_handler(server_config, error) -> None:
+            logger.error(f"Failed to connect to MCP server {server_config.key}: {error}")
+            # Also notify the user about this server failure here.
+            await context.send_messages(
+                NewConversationMessage(
+                    content=f"Failed to connect to MCP server {server_config.key}: {error}",
+                    message_type=MessageType.notice,
+                    metadata=metadata,
                 )
+            )
+
+        if config.extensions_config.tools.enabled:
+            mcp_sessions = await establish_mcp_sessions(
+                tools_config=config.extensions_config.tools,
+                stack=stack,
+                error_handler=error_handler
+            )
+
+            if len(config.extensions_config.tools.mcp_servers) > 0 and len(mcp_sessions) == 0:
+                # No MCP servers are available, so we should not continue
+                logger.error("No MCP servers are available.")
                 return
 
         # Retrieve prompts from the MCP servers
@@ -76,6 +88,9 @@ async def respond_to_conversation(
                 interrupted = True
                 logger.info("Response interrupted.")
                 break
+
+            # Reconnect to the MCP servers if they were disconnected
+            mcp_sessions = await refresh_mcp_sessions(mcp_sessions)
 
             step_result = await next_step(
                 mcp_sessions=mcp_sessions,

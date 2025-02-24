@@ -22,6 +22,11 @@ class FusionContext:
     @property
     def rootComp(self) -> adsk.fusion.Component:
         return self.design.rootComponent
+    
+    @property
+    def unitsManager(self) -> adsk.core.UnitsManager:
+        return self.app.activeDocument.unitsManager
+    
 
 def get_sketch_by_name(name: str | None) -> adsk.fusion.Sketch | None:
     """Get a sketch by its name"""
@@ -41,6 +46,21 @@ def errorHandler(func: callable) -> callable:
             return f"Tool {func.__name__} error: {str(e)}"
     return wrapper
 
+
+def convert_direction(direction: list[float]) -> str:
+    """
+    Converts a 3-element direction vector into a valid Fusion 360 expression string
+    using the active design's default length unit.
+    
+    Args:
+        direction (list[float]): A 3-element list representing the vector.
+        
+    Returns:
+        str: A string formatted as "x unit, y unit, z unit"
+    """
+    GeometryValidator.validateVector(direction)
+    unit = FusionContext().unitsManager.defaultLengthUnits
+    return f"{direction[0]} {unit}, {direction[1]} {unit}, {direction[2]} {unit}"
 
 class UnitsConverter:
     """Handles unit conversion between different measurement systems using static calls."""

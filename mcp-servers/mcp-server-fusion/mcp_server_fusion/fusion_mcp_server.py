@@ -1,8 +1,13 @@
 import asyncio
+import logging
+from contextlib import suppress
+from typing import Optional
+import threading
+import socket
+import time
 
-from .vendor import anyio
 from .vendor.mcp.server.fastmcp import FastMCP
-
+from .vendor.anyio import BrokenResourceError
 from .mcp_tools import (
     Fusion3DOperationTools,
     FusionGeometryTools,
@@ -10,142 +15,182 @@ from .mcp_tools import (
     FusionSketchTools,
 )
 
-def custom_exception_handler(loop, context):
-    """
-    Custom exception handler for the event loop.
-    Ignores certain exceptions that occur during normal client disconnects.
-    """
-    exception = context.get("exception")
-    if isinstance(exception, (anyio.BrokenResourceError, anyio.WouldBlock, asyncio.CancelledError)):
-        # These exceptions are expected during disconnections or cancellation.
-        # You can log a warning if desired, or simply ignore.
-        print("Warning (ignored):", exception)
-    else:
-        # For all other exceptions, use the default handler.
-        loop.default_exception_handler(context)
-
 class FusionMCPServer:
     def __init__(self, port: int):
+        self.port = port
         self.running = False
+        self.loop: Optional[asyncio.AbstractEventLoop] = None
+        self.shutdown_event = threading.Event()
+        self.server_task: Optional[asyncio.Task] = None
+        self.logger = logging.getLogger(__name__)
+        
+        # Initialize MCP server
         self.mcp = FastMCP(name="Fusion MCP Server", log_level="DEBUG")
         self.mcp.settings.port = port
-
+        
         # Register tools
-        Fusion3DOperationTools().register_tools(self.mcp)
-        FusionGeometryTools().register_tools(self.mcp)
-        FusionPatternTools().register_tools(self.mcp)
-        FusionSketchTools().register_tools(self.mcp)
+        self._register_tools()
+
+    def wait_for_port_available(self, timeout=30):
+        """Wait for the port to become available"""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                # Try to bind to the port
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(('0.0.0.0', self.port))
+                    return True
+            except OSError:
+                time.sleep(0.5)
+        return False
+
+    async def _keep_loop_running(self):
+        """Keep the event loop running"""
+        while not self.shutdown_event.is_set():
+            await asyncio.sleep(0.1)
+
+    def _register_tools(self):
+        """Register all tool handlers"""
+        try:
+            Fusion3DOperationTools().register_tools(self.mcp)
+            FusionGeometryTools().register_tools(self.mcp)
+            FusionPatternTools().register_tools(self.mcp)
+            FusionSketchTools().register_tools(self.mcp)
+        except Exception as e:
+            self.logger.error(f"Error registering tools: {e}")
+            raise
 
     async def _run_server(self):
+        """Run the server"""
         try:
-            await self.mcp.run_sse_async()
-        except (asyncio.CancelledError, anyio.BrokenResourceError) as e:
-            # This block might still be hit on shutdown, so we can ignore these exceptions.
-            print("Server run cancelled or broken:", e)
+            self.running = True
+            
+            # Create task for server
+            server_task = asyncio.create_task(self.mcp.run_sse_async())
+            keep_alive_task = asyncio.create_task(self._keep_loop_running())
+            
+            # Wait for either task to complete
+            done, pending = await asyncio.wait(
+                [server_task, keep_alive_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # Cancel remaining tasks
+            for task in pending:
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+            
+        except asyncio.CancelledError:
+            self.logger.info("Server cancelled, shutting down...")
         except Exception as e:
-            # Re-raise unexpected exceptions.
-            raise e
-
-    def start(self):
-        self.running = True
-        self.loop = asyncio.new_event_loop()
-        # Set the custom exception handler on this loop.
-        self.loop.set_exception_handler(custom_exception_handler)
-        asyncio.set_event_loop(self.loop)
-        self.task = self.loop.create_task(self._run_server())
-        try:
-            self.loop.run_forever()
-        except Exception as e:
-            print("Exception in run_forever:", e)
+            self.logger.error(f"Server error: {e}")
+            raise
         finally:
-            self.loop.close()
-
-    def shutdown(self):
-        if self.loop and self.loop.is_running():
-            self.task.cancel()
-            try:
-                self.loop.run_until_complete(self.task)
-            except (asyncio.CancelledError, anyio.BrokenResourceError):
-                pass
-            self.loop.call_soon_threadsafe(self.loop.stop)
             self.running = False
 
+    def start(self):
+        """Start the server in the current thread"""
+        if self.running:
+            return
 
-# import asyncio
-# import time
-# import subprocess
-# import re
+        try:
+            # Wait for port to become available
+            if not self.wait_for_port_available():
+                raise RuntimeError(f"Port {self.port} did not become available")
 
-# from .vendor.mcp.server.fastmcp import FastMCP
-# from .mcp_tools import (
-#     Fusion3DOperationTools,
-#     FusionGeometryTools,
-#     FusionPatternTools,
-#     FusionSketchTools,
-# )
+            # Create new event loop
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
+            
+            # Set up exception handler
+            def handle_exception(loop, context):
+                exception = context.get('exception')
+                if isinstance(exception, (asyncio.CancelledError, GeneratorExit)):
+                    return
+                self.logger.error(f"Caught unhandled exception: {context}")
+                if not self.shutdown_event.is_set():
+                    self.shutdown()
+            
+            self.loop.set_exception_handler(handle_exception)
+            
+            # Run the server
+            try:
+                self.running = True
+                self.server_task = asyncio.ensure_future(self._run_server(), loop=self.loop)
+                self.loop.run_forever()
+            except BrokenResourceError:
+                self.logger.warning("Client disconnected during SSE, ignoring BrokenResourceError")
+            except KeyboardInterrupt:
+                pass
+            except Exception as e:
+                if not self.shutdown_event.is_set():  # Don't log during normal shutdown
+                    self.logger.error(f"Error in server loop: {e}")
+            finally:
+                self._cleanup()
+                
+        except Exception as e:
+            self.logger.error(f"Error starting server: {e}")
+            raise
 
+    def _cleanup(self):
+        """Clean up resources"""
+        try:
+            if self.loop and self.loop.is_running():
+                # Cancel all tasks
+                tasks = [t for t in asyncio.all_tasks(self.loop) if not t.done()]
+                
+                if tasks:
+                    # Cancel tasks
+                    for task in tasks:
+                        task.cancel()
+                    
+                    # Wait for tasks to finish with timeout
+                    try:
+                        self.loop.run_until_complete(
+                            asyncio.wait(tasks, timeout=5)
+                        )
+                    except Exception:
+                        pass
+            
+            # Close the loop
+            if self.loop and not self.loop.is_closed():
+                self.loop.close()
+            
+            # Ensure socket is closed properly
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(1)
+                    s.connect(('127.0.0.1', self.port))
+                    s.close()
+            except Exception:
+                pass
+            
+            self.running = False
+            
+        except Exception as e:
+            self.logger.error(f"Error during cleanup: {e}")
 
-# def kill_process_on_port(port):
-#     # FIXME: End processes on port
-#     return
-#     try:
-#         # Run netstat to get the list of active connections and listening ports
-#         output = subprocess.check_output("netstat -ano", shell=True, text=True)
-#         # Iterate over each line of the netstat output
-#         for line in output.splitlines():
-#             # Look for lines that contain the specified port and are in the LISTENING state
-#             if re.search(rf":{port}\s+", line) and "LISTENING" in line:
-#                 parts = line.split()
-#                 pid = parts[-1]  # PID is the last element on the line
-#                 # Forcefully kill the process using taskkill
-#                 subprocess.run(f"taskkill /PID {pid} /F", shell=True)
-#                 print(f"Killed process {pid} on port {port}")
-#     except Exception as e:
-#         print(f"Error killing process on port {port}: {e}")
+    def shutdown(self):
+        """Shutdown the server safely"""
+        if not self.running:
+            return
 
-
-
-# class FusionMCPServer:
-#     def __init__(self, port: int):
-#         self.running = False
-
-#         # Initialize MCP server
-#         self.mcp = FastMCP(name="Fusion MCP Server", log_level="DEBUG")
-#         self.mcp.settings.port = port
-
-#         # Register tools
-#         Fusion3DOperationTools().register_tools(self.mcp)
-#         FusionGeometryTools().register_tools(self.mcp)
-#         FusionPatternTools().register_tools(self.mcp)
-#         FusionSketchTools().register_tools(self.mcp)
-
-#     async def cleanup(self):
-#         # Perform any necessary cleanup here
-#         pass
-
-#     def start(self):
-#         self.running = True
-#         self.loop = asyncio.new_event_loop()
-#         asyncio.set_event_loop(self.loop)
-#         # Create a task for the uvicorn-based server
-#         self.task = self.loop.create_task(self.mcp.run_sse_async())
-#         try:
-#             self.loop.run_forever()
-#         except Exception as e:
-#             print(f"Exception in server loop: {e}")
-#         finally:
-#             self.loop.close()
-
-#     # Example shutdown method in your FusionMCPServer class:
-#     def shutdown(self):
-#         if self.loop and self.loop.is_running():
-#             # Cancel the running uvicorn server task
-#             self.task.cancel()
-#             # Stop the event loop
-#             self.loop.call_soon_threadsafe(self.loop.stop)
-#             self.running = False
-#             # Give a moment for shutdown to process
-#             time.sleep(1)
-#             # Kill any lingering process on the port
-#             kill_process_on_port(self.mcp.settings.port)
-
+        try:
+            self.logger.info("Shutting down server...")
+            self.shutdown_event.set()
+            self.running = False
+            
+            if self.loop and self.loop.is_running():
+                def stop_loop():
+                    # Stop the loop
+                    self.loop.stop()
+                    # Cancel any pending tasks
+                    for task in asyncio.all_tasks(self.loop):
+                        task.cancel()
+                
+                self.loop.call_soon_threadsafe(stop_loop)
+            
+        except Exception as e:
+            self.logger.error(f"Error during shutdown: {e}")
+            raise

@@ -4,6 +4,7 @@ from .event_utils import (
     add_handler,
 )
 from .tool_utils import (
+    convert_direction,
     errorHandler,
     FusionContext,
     GeometryValidator,
@@ -14,6 +15,7 @@ from .tool_utils import (
 __all__ = [
     'add_handler',
     'clear_handlers',
+    'convert_direction',
     'errorHandler',
     'FusionContext',
     'GeometryValidator',

@@ -4,6 +4,7 @@ import adsk.fusion
 from textwrap import dedent
 
 from ..fusion_utils import (
+    convert_direction,
     errorHandler,
     FusionContext,
     GeometryValidator,
@@ -40,28 +41,31 @@ class Fusion3DOperationTools:
             distance: float,
             direction: list[float] = None
         ) -> str:
-            # Get the sketch by name
+            # Get the sketch by name.
             sketch = self.ctx.rootComp.sketches.itemByName(sketch_name)
             if not sketch:
                 raise ValueError(f"Sketch '{sketch_name}' not found.")
             
-            # Get the profile from sketch
+            # Get the profile from the sketch.
             profile = sketch.profiles.item(0)
             
-            # Create extrusion input
+            # Create extrusion input.
             extrudes = self.ctx.rootComp.features.extrudeFeatures
-            distance = adsk.core.ValueInput.createByReal(distance)
+            distance_input = adsk.core.ValueInput.createByReal(distance)
             
-            # Set up the extrusion
+            # Set up the extrusion.
             extInput = extrudes.createInput(profile, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
             if direction:
-                self.validator.validateVector(direction)
-                direction = adsk.core.Vector3D.create(*direction)
-                extInput.setDirectionAndDistance(direction, distance)
+                # Use the helper to build a valid expression string with the design’s default unit.
+                direction_expr = convert_direction(direction)
+                direction_input = adsk.core.ValueInput.createByString(direction_expr)
+                # Create a distance extent definition.
+                extent = adsk.fusion.DistanceExtentDefinition.create(distance_input)
+                extInput.setOneSideExtent(extent, adsk.fusion.ExtentDirections.PositiveExtentDirection, direction_input)
             else:
-                extInput.setDistanceExtent(False, distance)
+                extInput.setDistanceExtent(False, distance_input)
                 
-            # Create the extrusion
+            # Create the extrusion and return the name of the created body.
             ext = extrudes.add(extInput)
             return ext.bodies.item(0).name
             
@@ -87,33 +91,38 @@ class Fusion3DOperationTools:
             target_body_name: str,
             direction: list[float] = None
         ) -> str:
-            # Get the sketch by name
+            # Get the sketch by name.
             sketch = self.ctx.rootComp.sketches.itemByName(sketch_name)
             if not sketch:
                 raise ValueError(f"Sketch '{sketch_name}' not found.")
             
-            # Get the target body by name
+            # Get the target body by name.
             target_body = self.ctx.rootComp.bRepBodies.itemByName(target_body_name)
             if not target_body:
                 raise ValueError(f"Target body '{target_body_name}' not found.")
             
-            # Get the profile from sketch
+            # Get the profile from the sketch.
             profile = sketch.profiles.item(0)
-
-            # Create extrusion input
-            extrudes = self.ctx.rootComp.features.extrudeFeatures
-            distance = adsk.core.ValueInput.createByReal(distance)
             
-            # Set up the extrusion
+            # Create extrusion input.
+            extrudes = self.ctx.rootComp.features.extrudeFeatures
+            distance_input = adsk.core.ValueInput.createByReal(distance)
+            
+            # Set up the cut extrusion.
             extInput = extrudes.createInput(profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
             if direction:
-                self.validator.validateVector(direction)
-                direction = adsk.core.Vector3D.create(*direction)
-                extInput.setDirectionAndDistance(direction, distance)
+                # Convert the direction vector using the helper.
+                direction_expr = convert_direction(direction)
+                direction_input = adsk.core.ValueInput.createByString(direction_expr)
+                # Create a distance extent definition.
+                extent = adsk.fusion.DistanceExtentDefinition.create(distance_input)
+                extInput.setOneSideExtent(extent, adsk.fusion.ExtentDirections.PositiveExtentDirection, direction_input)
             else:
-                extInput.setDistanceExtent(False, distance)
+                extInput.setDistanceExtent(False, distance_input)
+                
+            # Set the target body for the cut.
             extInput.setTargetBody(target_body)
             
-            # Create the extrusion
+            # Create the cut extrusion and return the name of the resulting body.
             ext = extrudes.add(extInput)
             return ext.bodies.item(0).name

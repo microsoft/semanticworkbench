@@ -211,6 +211,7 @@ class MCPSession:
     config: MCPServerConfig
     client_session: ClientSession
     tools: List[Tool] = []
+    is_connected: bool = True
 
     def __init__(self, config: MCPServerConfig, client_session: ClientSession) -> None:
         self.config = config
@@ -220,6 +221,7 @@ class MCPSession:
         # Load all tools from the session, later we can do the same for resources, prompts, etc.
         tools_result = await self.client_session.list_tools()
         self.tools = tools_result.tools
+        self.is_connected = True
         logger.debug(
             f"Loaded {len(tools_result.tools)} tools from session '{self.config.key}'"
         )
