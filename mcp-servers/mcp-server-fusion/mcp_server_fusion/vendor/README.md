@@ -5,5 +5,6 @@ Dependencies are included here to make the add-in portable and self-contained, s
 Install from project root:
 
 ```bash
-pip install -r requirements.txt --target ./vendor
+# from project root directory, where requirements.txt is located
+pip install -r requirements.txt --target ./mcp_server_fusion/vendor
 ```
