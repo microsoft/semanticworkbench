@@ -182,7 +182,26 @@ async def handle_completion(
                     )
                 except Exception as e:
                     logger.exception(f"Error handling tool call: {e}")
-                    return await handle_error("An error occurred while handling the tool call.")
+                    # Don't end without sending an assistant message, otherwise the conversation will be stuck
+                    deepmerge.always_merger.merge(
+                        step_result.metadata,
+                        {
+                            "debug": {
+                                f"{metadata_key}:request:tool_call_{tool_call_count}": {
+                                    "error": str(e),
+                                },
+                            },
+                        },
+                    )
+                    await context.send_messages(
+                        NewConversationMessage(
+                            content="An error occurred while handling the tool call.",
+                            message_type=MessageType.chat,
+                            metadata=step_result.metadata,
+                        )
+                    )
+                    step_result.status = "error"
+                    return step_result
 
             # Update content and metadata with tool call result metadata
             deepmerge.always_merger.merge(step_result.metadata, tool_call_result.metadata)
