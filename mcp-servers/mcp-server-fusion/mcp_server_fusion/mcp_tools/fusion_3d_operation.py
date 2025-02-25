@@ -4,7 +4,6 @@ import adsk.fusion
 from textwrap import dedent
 
 from ..fusion_utils import (
-    convert_direction,
     errorHandler,
     FusionContext,
     GeometryValidator,
@@ -25,14 +24,17 @@ class Fusion3DOperationTools:
         @mcp.tool(
             name="extrude",
             description=dedent("""
-                Creates an extrusion from a sketch profile.
-                               
+                Creates a new body by extruding a sketch profile.
+        
+                Ensure the sketch exists and contains a valid, closed profile. The extrusion is
+                performed in the specified direction (defaulting to positive Z if omitted).
+                
                 Args:
-                    sketch_name (str): The name of the sketch containing the profile.
-                    distance (float): The extrusion distance.
-                    direction (list[float], optional): The extrusion direction (x,y,z). Defaults to None.
+                    sketch_name (str): Name of the sketch containing the profile. Must reference a valid, closed profile.
+                    distance (float): Extrusion distance (positive value representing the length).
+                    direction (list[float], optional): Extrusion direction as [x, y, z]. Defaults to positive Z.
                 Returns:
-                    str: The created body name.
+                    str: The name of the newly created body.
             """).strip(),
         )
         @errorHandler
@@ -72,15 +74,19 @@ class Fusion3DOperationTools:
         @mcp.tool(
             name="cut_extrude",
             description=dedent("""
-                Creates a cut extrusion from a sketch profile.
-                               
+                Creates a cut by extruding a sketch profile from an existing face.
+                
+                IMPORTANT: Ensure that the sketch is located on the face where the cut is intended.
+                For features on the top face, create the sketch on an offset plane at the block's top (using create_sketch_on_offset_plane)
+                and set the extrusion direction to [0, 0, -1] to cut downward.
+                
                 Args:
-                    sketch_name (str): The name of the sketch containing the profile.
-                    distance (float): The extrusion distance.
-                    target_body_name (str): The target body name.
-                    direction (list[float], optional): The extrusion direction (x,y,z). Defaults to None.
+                    sketch_name (str): Name of the sketch containing the cut profile.
+                    distance (float): The extrusion distance (set to at least the full thickness of the feature).
+                    target_body_name (str): Name of the body to cut; must be an existing body.
+                    direction (list[float], optional): The extrusion direction as [x, y, z]. Defaults to positive Z unless specified.
                 Returns:
-                    str: The created body name.
+                    str: The name of the resulting body after the cut.
             """).strip(),
         )
         @errorHandler
