@@ -15,8 +15,8 @@ import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { MemoizedInteractMessage } from './Message/InteractMessage';
+import { MemoizedToolResultMessage } from './Message/ToolResultMessage';
 import { ParticipantStatus } from './ParticipantStatus';
-import { MemoizedToolResultMessage } from './ToolResult';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -165,7 +165,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
 
                 // Use memoized message components to prevent re-rendering all messages when one changes
                 const messageContent = isToolResult ? (
-                    <MemoizedToolResultMessage conversation={conversation} message={message} />
+                    <MemoizedToolResultMessage conversation={conversation} message={message} readOnly={readOnly} />
                 ) : (
                     <MemoizedInteractMessage
                         readOnly={readOnly}
