@@ -7,7 +7,7 @@
       "name": "mcp-servers: mcp-server-filesystem",
       "cwd": "${workspaceFolder}",
       "module": "mcp_server.start",
-      "args": ["--transport", "sse", "--port", "6666"],
+      "args": ["--transport", "sse", "--port", "6060"],
       "consoleTitle": "mcp-server-filesystem"
       // "justMyCode": false // Set to false to debug external libraries
     }
