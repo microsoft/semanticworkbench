@@ -1,6 +1,10 @@
 import os
+import dotenv
 
 from pydantic_settings import BaseSettings
+
+# Load environment variables from .env file
+dotenv.load_dotenv()
 
 data_folder = os.environ.get("DATA_FOLDER", ".data")
 log_level = os.environ.get("LOG_LEVEL", "INFO")
