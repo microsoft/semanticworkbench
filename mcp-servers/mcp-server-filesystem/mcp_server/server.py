@@ -1,10 +1,22 @@
 from mcp.server.fastmcp import FastMCP
 from . import settings
+import sys
 from pathlib import Path
 import os
 
 # Set the name of the MCP server
 server_name = "filesystem MCP Server"
+
+# Define allowed directories from command-line args
+allowed_directories = [Path(arg).resolve() for arg in sys.argv[1:]]
+
+# Helper function to validate paths against allowed directories
+def validate_path(requested_path: str) -> Path:
+    absolute_path = Path(requested_path).resolve()
+    for allowed_dir in allowed_directories:
+        if str(absolute_path).startswith(str(allowed_dir)):
+            return absolute_path
+    raise PermissionError(f"Access denied: {requested_path} is outside allowed directories: {allowed_directories}")
 
 # Define MCP tools as module-level functions
 def read_file(path: str) -> str:
@@ -17,7 +29,7 @@ def read_file(path: str) -> str:
     Returns:
         The content of the file as a string.
     """
-    file = Path(path).resolve()
+    file = validate_path(path)
 
     if not file.exists() or not file.is_file():
         raise FileNotFoundError(f"File does not exist at path: {path}")
@@ -38,7 +50,7 @@ def write_file(path: str, content: str) -> str:
     Returns:
         A confirmation message.
     """
-    file = Path(path).resolve()
+    file = validate_path(path)
     try:
         file.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
         file.write_text(content, encoding="utf-8")
@@ -56,7 +68,7 @@ def list_directory(path: str) -> list[str]:
     Returns:
         A list of filenames and subdirectory names.
     """
-    dir_path = Path(path).resolve()
+    dir_path = validate_path(path)
     if not dir_path.exists() or not dir_path.is_dir():
         raise FileNotFoundError(f"Directory does not exist at {path}")
 
@@ -75,7 +87,7 @@ def create_directory(path: str) -> str:
     Returns:
         A confirmation message.
     """
-    dir_path = Path(path).resolve()
+    dir_path = validate_path(path)
 
     try:
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -95,7 +107,7 @@ def edit_file(path: str, edits: list[dict], dry_run: bool = False) -> str:
     Returns:
         A string representation of the changes (e.g., diff).
     """
-    file = Path(path).resolve()
+    file = validate_path(path)
     if not file.exists() or not file.is_file():
         raise FileNotFoundError(f"File does not exist at {path}")
 
@@ -131,7 +143,7 @@ def search_files(root_path: str, pattern: str) -> list[str]:
     Returns:
         A list of matching file paths.
     """
-    root = Path(root_path).resolve()
+    root = validate_path(root_path)
 
     if not root.exists() or not root.is_dir():
         raise FileNotFoundError(f"Root path does not exist at {root_path}")
@@ -151,7 +163,7 @@ def get_file_info(path: str) -> dict:
     Returns:
         A dictionary with file information (size, permissions, timestamps, etc.).
     """
-    file = Path(path).resolve()
+    file = validate_path(path)
 
     if not file.exists():
         raise FileNotFoundError(f"Path does not exist at {path}")
@@ -182,5 +194,15 @@ def create_mcp_server() -> FastMCP:
     mcp.tool()(edit_file)
     mcp.tool()(search_files)
     mcp.tool()(get_file_info)
+
+    @mcp.tool()
+    def list_allowed_directories() -> str:
+        """
+        Returns a string of allowed directories.
+
+        Returns:
+            A newline-separated string of allowed directories.
+        """
+        return '\n'.join(map(str, allowed_directories))
 
     return mcp
