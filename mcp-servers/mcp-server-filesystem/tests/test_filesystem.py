@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from mcp_server.server import read_file, write_file, list_directory, create_directory, edit_file, search_files, get_file_info, allowed_directories
+from mcp_server.server import read_file, write_file, list_directory, create_directory, edit_file, search_files, get_file_info, read_multiple_files, move_file, allowed_directories
 import tempfile
 
 @pytest.fixture(scope="function")
@@ -77,6 +77,31 @@ async def test_search_files(test_dir):
     assert any("match1.txt" in r for r in result)
     assert any("match2.txt" in r for r in result)
 
+def test_read_multiple_files(test_dir):
+    test_file1 = test_dir / "file1.txt"
+    test_file2 = test_dir / "file2.txt"
+    content1 = "Hello, File 1!"
+    content2 = "Hello, File 2!"
+
+    test_file1.write_text(content1)
+    test_file2.write_text(content2)
+
+    result = read_multiple_files(paths=[str(test_file1), str(test_file2)])
+
+    assert result[str(test_file1)] == content1
+    assert result[str(test_file2)] == content2
+
+def test_move_file(test_dir):
+    test_file = test_dir / "test.txt"
+    test_file.write_text("Test content")
+
+    target_file = test_dir / "moved_test.txt"
+    move_file(source=str(test_file), destination=str(target_file))
+
+    assert not test_file.exists()
+    assert target_file.exists()
+    assert target_file.read_text() == "Test content"
+
 def test_operations_fail_for_unauthorized_path():
     """
     Validate all file operations fail when attempting to access unauthorized paths.
@@ -103,6 +128,12 @@ def test_operations_fail_for_unauthorized_path():
 
     with pytest.raises(PermissionError):
         get_file_info(unauthorized_path)
+
+    with pytest.raises(PermissionError):
+        read_multiple_files(paths=[unauthorized_path + "/file.txt"])
+
+    with pytest.raises(PermissionError):
+        move_file(source=unauthorized_path, destination="/unauthorized/destination")
 
 
 @pytest.mark.asyncio

@@ -182,6 +182,50 @@ def get_file_info(path: str) -> dict:
     except Exception as e:
         raise RuntimeError(f"Failed to retrieve file info for {path}: {str(e)}")
 
+def read_multiple_files(paths: list[str]) -> dict:
+    """
+    Reads the contents of multiple files. Returns a dictionary mapping file paths to their contents or error
+    messages for files that cannot be accessed.
+
+    Args:
+        paths: A list of file paths to read.
+
+    Returns:
+        A dictionary where keys are file paths and values are their contents or error messages.
+    """
+    results = {}
+    for path in paths:
+        file = validate_path(path)
+        if not file.is_file():
+            raise PermissionError(f"Path is not a file: {path}")
+        try:
+            file = validate_path(path)
+            results[path] = file.read_text(encoding="utf-8")
+        except Exception as e:
+            results[path] = f"Error: {str(e)}"
+    return results
+
+def move_file(source: str, destination: str) -> str:
+    """
+    Moves or renames a file or directory. Both source and destination paths must be valid and within allowed
+    directories.
+
+    Args:
+        source: The path to the source file or directory.
+        destination: The target path for the file or directory.
+
+    Returns:
+        A confirmation message confirming the move or rename operation.
+    """
+    src = validate_path(source)
+    dest = validate_path(destination)
+    try:
+        src.rename(dest)
+        return f"Successfully moved {source} to {destination}"
+    except Exception as e:
+        raise RuntimeError(f"Failed to move {source} to {destination}: {str(e)}")
+
+
 def create_mcp_server() -> FastMCP:
     # Initialize FastMCP with debug logging.
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
@@ -194,6 +238,8 @@ def create_mcp_server() -> FastMCP:
     mcp.tool()(edit_file)
     mcp.tool()(search_files)
     mcp.tool()(get_file_info)
+    mcp.tool()(read_multiple_files)
+    mcp.tool()(move_file)
 
     @mcp.tool()
     def list_allowed_directories() -> str:
