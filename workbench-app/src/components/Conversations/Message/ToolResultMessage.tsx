@@ -10,13 +10,13 @@ import {
 } from '@fluentui/react-components';
 import { Toolbox24Regular } from '@fluentui/react-icons';
 import React from 'react';
-import { Conversation } from '../../models/Conversation';
-import { ConversationMessage } from '../../models/ConversationMessage';
-import { useGetConversationMessageDebugDataQuery } from '../../services/workbench';
-import { CodeLabel } from '../App/CodeLabel';
-import { DebugInspector } from './DebugInspector';
-import { MessageContent } from './Message/MessageContent';
-import { MessageDelete } from './MessageDelete';
+import { Conversation } from '../../../models/Conversation';
+import { ConversationMessage } from '../../../models/ConversationMessage';
+import { useGetConversationMessageDebugDataQuery } from '../../../services/workbench';
+import { CodeLabel } from '../../App/CodeLabel';
+import { DebugInspector } from '../DebugInspector';
+import { MessageDelete } from '../MessageDelete';
+import { MessageContent } from './MessageContent';
 
 const useClasses = makeStyles({
     root: {
@@ -38,7 +38,7 @@ const useClasses = makeStyles({
     },
 });
 
-interface ToolResultProps {
+interface ToolResultMessageProps {
     conversation: Conversation;
     message: ConversationMessage;
     readOnly: boolean;
@@ -56,7 +56,7 @@ interface ToolResultProps {
  * This component will display each tool call result in an accordion, with the tool name
  * as the header and the result as the content.
  */
-export const ToolResult: React.FC<ToolResultProps> = (props) => {
+export const ToolResultMessage: React.FC<ToolResultMessageProps> = (props) => {
     const { conversation, message, readOnly } = props;
     const classes = useClasses();
 
@@ -110,4 +110,4 @@ export const ToolResult: React.FC<ToolResultProps> = (props) => {
     );
 };
 
-export const MemoizedToolResultMessage = React.memo(ToolResult);
+export const MemoizedToolResultMessage = React.memo(ToolResultMessage);

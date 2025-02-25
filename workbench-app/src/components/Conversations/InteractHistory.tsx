@@ -15,8 +15,8 @@ import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
 import { MemoizedInteractMessage } from './Message/InteractMessage';
+import { MemoizedToolResultMessage } from './Message/ToolResultMessage';
 import { ParticipantStatus } from './ParticipantStatus';
-import { MemoizedToolResultMessage } from './ToolResult';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
