@@ -1,7 +1,6 @@
 import adsk.core
 
 from textwrap import dedent
-from typing import List
 
 from ..fusion_utils import (
     errorHandler,
@@ -25,12 +24,15 @@ class FusionGeometryTools:
         @mcp.tool(
             name="create_line",
             description=dedent("""
-                Creates a line between two points.
+                Creates a line between two 3D points.
+        
+                Draws a line connecting the specified start and end points. If a sketch name is provided,
+                the line is created in that sketch; otherwise, a construction line is added to the root component.
                 
                 Args:
-                    start_point (list[float]): Start point of the line, e.g., [x, y, z].
-                    end_point (list[float]): End point of the line, e.g., [x, y, z].
-                    sketch_name (str, optional): The name of the sketch to create the line in. Defaults to None.
+                    start_point (list[float]): A list [x, y, z] representing the starting point.
+                    end_point (list[float]): A list [x, y, z] representing the ending point.
+                    sketch_name (str, optional): The name of the sketch to draw the line. Defaults to None.
                 Returns:
                     bool: True if the line was created successfully.
             """).strip(),
@@ -59,12 +61,15 @@ class FusionGeometryTools:
         @mcp.tool(
             name="create_circle",
             description=dedent("""
-                Creates a circle.
+                Creates a circle given a center and radius.
+        
+                Draws a circle centered at the specified point with the provided radius. If a sketch name is provided,
+                the circle is added to that sketch; otherwise, it is added as a construction circle in the root component.
                 
                 Args:
-                    center (list[float]): Center point of the circle, e.g., [x, y, z].
-                    radius (float): Radius of the circle.
-                    sketch_name (str, optional): The name of the sketch to create the circle in. Defaults to None.
+                    center (list[float]): A list [x, y, z] representing the circle's center.
+                    radius (float): The radius of the circle (positive value).
+                    sketch_name (str, optional): The name of the sketch to create the circle. Defaults to None.
                 Returns:
                     bool: True if the circle was created successfully.
             """).strip(),
@@ -91,12 +96,15 @@ class FusionGeometryTools:
         @mcp.tool(
             name="create_rectangle",
             description=dedent("""
-                Creates a rectangle between two points.
+                Creates a rectangle defined by two diagonal corner points.
+        
+                Draws a rectangle between two specified 3D points. If a sketch name is provided,
+                the rectangle is created within that sketch; otherwise, it is created as construction lines in the root component.
                 
                 Args:
-                    point_1 (list[float]): First point of the rectangle, e.g., [x, y, z].
-                    point_2 (list[float]): Second point of the rectangle, e.g., [x, y, z].
-                    sketch_name (str, optional): The name of the sketch to create the rectangle in. Defaults to None.
+                    point_1 (list[float]): A list [x, y, z] representing the first corner.
+                    point_2 (list[float]): A list [x, y, z] representing the opposite corner.
+                    sketch_name (str, optional): The name of the sketch to create the rectangle. Defaults to None.
                 Returns:
                     bool: True if the rectangle was created successfully.
             """).strip(),

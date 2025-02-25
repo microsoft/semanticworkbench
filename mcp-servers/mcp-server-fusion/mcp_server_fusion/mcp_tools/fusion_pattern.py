@@ -24,16 +24,19 @@ class FusionPatternTools:
         @mcp.tool(
             name="rectangular_pattern",
             description=dedent("""
-                Creates a rectangular pattern of entities in the Fusion 360 workspace.
+                Creates a rectangular (grid) pattern of existing entities in the Fusion 360 workspace.
+        
+                Arranges copies of the specified entities in a grid defined by the number of instances and spacing along the X and Y directions.
+                The pattern is aligned using the root component's X and Y construction axes.
                 
                 Args:
-                    entity_names (List[str]): List of entity names to be patterned.
-                    xCount (int): Number of instances in the X direction.
-                    xSpacing (float): Spacing between instances in the X direction.
-                    yCount (int): Number of instances in the Y direction.
-                    ySpacing (float): Spacing between instances in the Y direction.
+                    entity_names (List[str]): A list of names corresponding to the entities (e.g., bodies) to be patterned. Each name must reference an existing entity.
+                    xCount (int): The number of instances to create along the X direction.
+                    xSpacing (float): The spacing distance between instances along the X axis.
+                    yCount (int): The number of instances to create along the Y direction.
+                    ySpacing (float): The spacing distance between instances along the Y axis.
                 Returns:
-                    List[str]: List of patterned entity names.
+                    List[str]: A list containing the names of the patterned entities.
             """).strip(),
         )
         @errorHandler
