@@ -8,7 +8,7 @@ from openai_client import (
     message_content_from_completion,
     validate_completion,
 )
-from skill_library import AskUserFn, EmitFn, Metadata, RunContext, RunRoutineFn
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.common import CommonSkill
 
@@ -20,7 +20,7 @@ async def main(
     run: RunRoutineFn,
     ask_user: AskUserFn,
     prompt: str,
-) -> tuple[str, Metadata]:
+) -> str:
     """Use the vast knowledge of GPT-4 completion using any prompt you provide. All information needed for the prompt should be in the prompt. No other context or content is available from anywhere other than this prompt. Don't refer to content outside the prompt. The prompt can be big. Returns the completion."""
 
     common_skill = cast(CommonSkill, context.skills["common"])
@@ -54,4 +54,5 @@ async def main(
         )
         raise completion_error from e
     else:
-        return message_content_from_completion(completion), metadata
+        context.log("gpt_complete", metadata=metadata)
+        return message_content_from_completion(completion)

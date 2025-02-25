@@ -33,6 +33,7 @@ from semantic_workbench_assistant.assistant_app import (
 from skill_library import Engine
 from skill_library.skills.common import CommonSkill, CommonSkillConfig
 from skill_library.skills.eval import EvalSkill, EvalSkillConfig
+from skill_library.skills.fabric import FabricSkill, FabricSkillConfig
 from skill_library.skills.meta import MetaSkill, MetaSkillConfig
 from skill_library.skills.posix import PosixSkill, PosixSkillConfig
 from skill_library.skills.research import ResearchSkill, ResearchSkillConfig
@@ -288,6 +289,14 @@ async def get_or_register_skill_engine(
                         name="research",
                         language_model=language_model,
                         drive=assistant_drive.subdrive("research"),
+                    ),
+                ),
+                (
+                    FabricSkill,
+                    FabricSkillConfig(
+                        name="fabric",
+                        language_model=language_model,
+                        drive=assistant_drive.subdrive("fabric"),
                     ),
                 ),
             ],
