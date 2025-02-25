@@ -166,9 +166,6 @@
     {
       "name": ".github",
       "path": ".github"
-    },
-    {
-      "path": "mcp-servers/mcp-server-filesystem"
     }
   ],
   "settings": {
