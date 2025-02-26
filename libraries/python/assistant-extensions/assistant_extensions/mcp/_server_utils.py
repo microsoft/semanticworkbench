@@ -82,23 +82,15 @@ async def connect_to_mcp_server_sse(
         url = server_config.command
 
         # Process args to add URL parameters
-        # First arg is the parameter name, subsequent args are comma-separated values
+        # All args are joined into a single comma-separated list
         if server_config.args and len(server_config.args) >= 1:
-            param_name = server_config.args[0]
-            param_values = []
-
-            # If there are more args, use them as values
-            if len(server_config.args) > 1:
-                param_values = server_config.args[1:]
-
-            # Join values with commas
-            param_value = ",".join(param_values)
-
-            # Add to URL
-            if param_name:
-                url_params = {param_name: param_value}
-                url = add_params_to_url(url, url_params)
-                logger.debug(f"Added parameter {param_name}={param_value} to URL")
+            # Join all args with commas
+            args_value = ",".join(server_config.args)
+            
+            # Add to URL with 'args' as the parameter name
+            url_params = {"args": args_value}
+            url = add_params_to_url(url, url_params)
+            logger.debug(f"Added parameter args={args_value} to URL")
 
         logger.debug(f"Attempting to connect to {server_config.key} with SSE transport: {url}")
 
