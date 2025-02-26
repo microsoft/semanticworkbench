@@ -10,10 +10,13 @@ import {
 } from '@fluentui/react-components';
 import { Toolbox24Regular } from '@fluentui/react-icons';
 import React from 'react';
-import { Conversation } from '../../models/Conversation';
-import { ConversationMessage } from '../../models/ConversationMessage';
-import { CodeLabel } from '../App/CodeLabel';
-import { MessageContent } from './Message/MessageContent';
+import { Conversation } from '../../../models/Conversation';
+import { ConversationMessage } from '../../../models/ConversationMessage';
+import { useGetConversationMessageDebugDataQuery } from '../../../services/workbench';
+import { CodeLabel } from '../../App/CodeLabel';
+import { DebugInspector } from '../DebugInspector';
+import { MessageDelete } from '../MessageDelete';
+import { MessageContent } from './MessageContent';
 
 const useClasses = makeStyles({
     root: {
@@ -28,11 +31,17 @@ const useClasses = makeStyles({
         alignItems: 'center',
         gap: tokens.spacingHorizontalS,
     },
+    actions: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
 });
 
-interface ToolResultProps {
+interface ToolResultMessageProps {
     conversation: Conversation;
     message: ConversationMessage;
+    readOnly: boolean;
 }
 
 /**
@@ -47,9 +56,19 @@ interface ToolResultProps {
  * This component will display each tool call result in an accordion, with the tool name
  * as the header and the result as the content.
  */
-export const ToolResult: React.FC<ToolResultProps> = (props) => {
-    const { conversation, message } = props;
+export const ToolResultMessage: React.FC<ToolResultMessageProps> = (props) => {
+    const { conversation, message, readOnly } = props;
     const classes = useClasses();
+
+    const [skipDebugLoad, setSkipDebugLoad] = React.useState(true);
+    const {
+        data: debugData,
+        isLoading: isLoadingDebugData,
+        isUninitialized: isUninitializedDebugData,
+    } = useGetConversationMessageDebugDataQuery(
+        { conversationId: conversation.id, messageId: message.id },
+        { skip: skipDebugLoad },
+    );
 
     const toolCallId = message.metadata?.['tool_result']?.['tool_call_id'] as string;
     const toolCalls: { id: string; name: string }[] = message.metadata?.['tool_calls'];
@@ -73,8 +92,22 @@ export const ToolResult: React.FC<ToolResultProps> = (props) => {
                     <AccordionPanel>{messageContent}</AccordionPanel>
                 </AccordionItem>
             </Accordion>
+            <div className={classes.actions}>
+                <DebugInspector
+                    debug={message.hasDebugData ? debugData?.debugData || { loading: true } : undefined}
+                    loading={isLoadingDebugData || isUninitializedDebugData}
+                    onOpen={() => {
+                        setSkipDebugLoad(false);
+                    }}
+                />
+                {!readOnly && (
+                    <>
+                        <MessageDelete conversationId={conversation.id} message={message} />
+                    </>
+                )}
+            </div>
         </div>
     );
 };
 
-export const MemoizedToolResultMessage = React.memo(ToolResult);
+export const MemoizedToolResultMessage = React.memo(ToolResultMessage);
