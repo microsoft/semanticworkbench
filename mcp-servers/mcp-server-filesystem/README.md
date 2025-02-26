@@ -71,6 +71,39 @@ Moves or renames a file or directory from a source path to a target destination.
 Returns a list of directories that the server is permitted to access.
 
 
+## Tools Available
+
+### `read_file`
+Reads the contents of a specific file.
+
+### `write_file`
+Writes content to a specified file path. Creates the file if it does not exist.
+
+### `list_directory`
+Lists all files and subdirectories within a specified directory.
+
+### `create_directory`
+Creates a new directory or ensures an existing one remains accessible.
+
+### `edit_file`
+Edits the contents of a text file with specified replacements. Supports a dry run mode to preview changes without applying them.
+
+### `search_files`
+Recursively searches for files matching a pattern across subdirectories.
+
+### `get_file_info`
+Retrieves and displays detailed metadata about a specified file or directory.
+
+### `read_multiple_files`
+Reads the content of multiple files simultaneously and returns their contents in a dictionary. Files not accessible are marked with error messages.
+
+### `move_file`
+Moves or renames a file or directory from a source path to a target destination.
+
+### `list_allowed_directories`
+Returns a list of directories that the server is permitted to access.
+
+
 ## Client Configuration
 
 To use this MCP server in your setup, consider the following configuration:

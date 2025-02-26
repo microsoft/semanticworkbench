@@ -51,6 +51,7 @@ def read_file(path: str) -> str:
         The content of the file as a string.
     """
     file = validate_path(path)
+    file = validate_path(path)
 
     if not file.exists() or not file.is_file():
         raise FileNotFoundError(f"File does not exist at path: {path}")
@@ -72,6 +73,7 @@ def write_file(path: str, content: str) -> str:
         A confirmation message.
     """
     file = validate_path(path)
+    file = validate_path(path)
     try:
         file.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
         file.write_text(content, encoding="utf-8")
@@ -89,6 +91,7 @@ def list_directory(path: str) -> list[str]:
     Returns:
         A list of filenames and subdirectory names.
     """
+    dir_path = validate_path(path)
     dir_path = validate_path(path)
     if not dir_path.exists() or not dir_path.is_dir():
         raise FileNotFoundError(f"Directory does not exist at {path}")
@@ -109,6 +112,7 @@ def create_directory(path: str) -> str:
         A confirmation message.
     """
     dir_path = validate_path(path)
+    dir_path = validate_path(path)
 
     try:
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -128,6 +132,7 @@ def edit_file(path: str, edits: list[dict], dry_run: bool = False) -> str:
     Returns:
         A string representation of the changes (e.g., diff).
     """
+    file = validate_path(path)
     file = validate_path(path)
     if not file.exists() or not file.is_file():
         raise FileNotFoundError(f"File does not exist at {path}")
@@ -165,6 +170,7 @@ def search_files(root_path: str, pattern: str) -> list[str]:
         A list of matching file paths.
     """
     root = validate_path(root_path)
+    root = validate_path(root_path)
 
     if not root.exists() or not root.is_dir():
         raise FileNotFoundError(f"Root path does not exist at {root_path}")
@@ -184,6 +190,7 @@ def get_file_info(path: str) -> dict:
     Returns:
         A dictionary with file information (size, permissions, timestamps, etc.).
     """
+    file = validate_path(path)
     file = validate_path(path)
 
     if not file.exists():
