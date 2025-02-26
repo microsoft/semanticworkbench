@@ -41,10 +41,11 @@ def main() -> None:
     mcp = create_mcp_server()
 
     if args.transport == "sse":
-        # For SSE, the directories can be provided via URL query parameters
+        # For SSE, the directories are provided directly as query parameters
         mcp.settings.port = args.port
         logger.info(f"Starting SSE server on port {args.port}")
-        logger.info(f"Use http://127.0.0.1:{args.port}/sse?allowed_directories=/path1,/path2 to connect")
+        # Note: The client will add all args as a comma-separated list in the 'args' parameter
+        logger.info(f"Example usage: Use http://127.0.0.1:{args.port}/sse?args=/path1,/path2,/path3 or configure with args=['/path1', '/path2', '/path3']")
         
         # Setting port in MCP settings
         mcp.settings.port = args.port

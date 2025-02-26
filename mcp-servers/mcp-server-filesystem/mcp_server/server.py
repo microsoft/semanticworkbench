@@ -295,25 +295,31 @@ def create_mcp_server() -> FastMCP:
             query_params = dict(request.query_params)
             logger.info(f"Query parameters: {query_params}")
 
-            # Check for allowed_directories parameter
-            if "allowed_directories" in query_params:
-                # Parse comma-separated list of directories
-                directories = query_params["allowed_directories"].split(",")
-                if directories:
-                    settings.allowed_directories = directories
-                    logger.info(f"Setting allowed_directories from URL parameter: {directories}")
-                else:
-                    logger.warning("allowed_directories parameter is empty")
-
-            # Verify we have at least one allowed directory
-            allowed_dirs = get_allowed_directories()
-            if not allowed_dirs:
-                logger.error("No allowed_directories provided")
+            # Look specifically for the 'args' parameter
+            directories = []
+            
+            if 'args' in query_params:
+                args_value = query_params['args']
+                # Split the comma-separated list of directories
+                if args_value and ',' in args_value:
+                    directories = [d.strip() for d in args_value.split(',') if d.strip()]
+                elif args_value.strip():
+                    # Single directory
+                    directories.append(args_value.strip())
+                    
+                logger.info(f"Found directories in 'args' parameter: {directories}")
+            if directories:
+                settings.allowed_directories = directories
+                logger.info(f"Setting allowed_directories from query parameters: {directories}")
+            else:
+                logger.error("No directories provided in 'args' parameter")
                 return PlainTextResponse(
-                    "Error: No allowed_directories provided. Add '?allowed_directories=/path1,/path2' to the URL",
+                    "Error: No directories provided in 'args' parameter. Use /sse?args=/path1,/path2,/path3 format",
                     status_code=400
                 )
 
+            # Get the allowed directories from settings after our update
+            allowed_dirs = get_allowed_directories()
             logger.info(f"Proceeding with allowed_directories: {allowed_dirs}")
 
             # Continue with normal SSE connection

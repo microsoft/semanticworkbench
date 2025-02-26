@@ -32,11 +32,13 @@ For SSE transport, you can start the server without specifying directories:
 uv run -m mcp_server.start --transport sse --port 6060
 ```
 
-But when connecting, you must include the allowed directories as URL parameters:
+But when connecting, you must include the allowed directories as comma-separated values in the 'args' parameter:
 
 ```
-http://127.0.0.1:6060/sse?allowed_directories=/path1,/path2,/path3
+http://127.0.0.1:6060/sse?args=/path1,/path2,/path3
 ```
+
+The server will parse these comma-separated values as the allowed directories.
 
 ## Tools Available
 
@@ -127,26 +129,28 @@ To use this MCP server in your setup, consider the following configuration:
 {
   "mcpServers": {
     "mcp-server-filesystem": {
-      "command": "http://127.0.0.1:6060/sse?allowed_directories=/path1,/path2",
+      "command": "http://127.0.0.1:6060/sse",
+      "args": ["/path1", "/path2"]
+    }
+  }
+}
+```
+
+The args will be automatically joined with commas and added as a query parameter named 'args'.
+
+### Direct URL Configuration
+
+If you prefer, you can also configure the URL directly with the args parameter already included:
+
+```json
+{
+  "mcpServers": {
+    "mcp-server-filesystem": {
+      "command": "http://127.0.0.1:6060/sse?args=/path1,/path2,/path3",
       "args": []
     }
   }
 }
 ```
 
-### SSE with Separate Arguments
-
-For clients that support it, you can specify the allowed directories using the args array:
-
-```json
-{
-  "mcpServers": {
-    "mcp-server-filesystem": {
-      "command": "http://127.0.0.1:6060/sse",
-      "args": ["allowed_directories", "/path1", "/path2"]
-    }
-  }
-}
-```
-
-In this format, the first argument is the parameter name and subsequent arguments will be joined with commas as the parameter value (if supported by the client).
+This approach is more verbose but might be preferable in some configurations.
