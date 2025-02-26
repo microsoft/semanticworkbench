@@ -23,5 +23,5 @@ mcp-server-bundle = "mcp_server_bundle.main:main"
 
 [dependency-groups]
 dev = [
-    "pyinstaller>=6.0.0",
+    "pyinstaller>=6.12.0",
 ]

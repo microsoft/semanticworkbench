@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.11"
 
 [[package]]
@@ -170,7 +171,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pyinstaller", specifier = ">=6.0.0" }]
+dev = [{ name = "pyinstaller", specifier = ">=6.12.0" }]
 
 [[package]]
 name = "mcp-server-office"

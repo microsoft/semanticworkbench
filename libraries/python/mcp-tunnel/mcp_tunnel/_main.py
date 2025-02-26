@@ -276,10 +276,6 @@ def tunnel_servers(servers: list[MCPServer]):
     print("DevTunnel CLI detected and user is logged in")
     print(f"Starting tunnels for servers: {', '.join(s.name for s in servers)}")
 
-    # Set up signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, tunnel_manager.signal_handler)
-    signal.signal(signal.SIGTERM, tunnel_manager.signal_handler)
-
     try:
         # Start all tunnel processes
         tunnel_manager.start_all_tunnels()
@@ -288,6 +284,11 @@ def tunnel_servers(servers: list[MCPServer]):
         print("\nAll tunnels started. Press Ctrl+C to stop all tunnels.\n")
         while True:
             time.sleep(1)
+
+    except KeyboardInterrupt:
+        print("\nReceived keyboard interrupt. Shutting down...")
+        tunnel_manager.terminate_tunnels()
+        return 0
 
     except Exception as e:
         print(f"Error: {str(e)}")

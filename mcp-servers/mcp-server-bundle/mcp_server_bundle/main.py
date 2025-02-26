@@ -6,12 +6,12 @@ which starts the appropriate services based on the platform.
 """
 
 import argparse
+import importlib.util
 import platform
 import sys
+import threading
 import time
 from typing import Any
-
-from .process_manager import ProcessManager
 
 
 def parse_arguments() -> dict[str, Any]:
@@ -34,26 +34,36 @@ def parse_arguments() -> dict[str, Any]:
     return vars(args)
 
 
-def get_platform_module():
-    """
-    Get the appropriate platform module based on the current system.
+def start_threads(args: dict[str, Any]) -> None:
+    threading.Thread(target=execute_mcp_server_office, daemon=True).start()
+    threading.Thread(target=execute_mcp_tunnel, daemon=True).start()
 
-    Returns:
-        The platform module for the current system.
-    """
-    system = platform.system()
 
-    if system == "Windows":
-        from .platform import windows
+def execute_mcp_server_office() -> None:
+    try:
+        if importlib.util.find_spec("mcp_server.start"):
+            import mcp_server.start
 
-        return windows
-    elif system == "Darwin":  # macOS
-        from .platform import macos
+            mcp_server.start.main()
 
-        return macos
-    else:
-        print(f"Unsupported platform: {system}")
-        sys.exit(1)
+    except ImportError:
+        pass
+
+    print("Warning: mcp-server-office not found")
+    return None
+
+
+def execute_mcp_tunnel() -> list[str]:
+    try:
+        if importlib.util.find_spec("mcp_tunnel"):
+            import mcp_tunnel
+
+            mcp_tunnel.main()
+    except ImportError:
+        pass
+
+    print("Error: mcp-tunnel not found")
+    sys.exit(1)
 
 
 def main() -> int:
@@ -63,34 +73,12 @@ def main() -> int:
     Returns:
         Exit code.
     """
-    manager: ProcessManager | None = None
     try:
         # Parse command-line arguments
         args = parse_arguments()
 
-        # Get the appropriate platform module
-        platform_module = get_platform_module()
-
-        # Get the commands to run
-        commands = platform_module.get_commands(args)
-
-        if not commands:
-            print("No commands to run")
-            return 1
-
-        # Create the process manager
-        manager = ProcessManager()
-
-        # Set up signal handlers
-        manager.setup_signal_handlers()
-
-        # Start each process
-        for name, command in commands.items():
-            print(f"Starting {name}...")
-            if not manager.start_process(name, command):
-                print(f"Failed to start {name}")
-                manager.terminate_processes()
-                return 1
+        # Start the threads
+        start_threads(args)
 
         print("\nAll services started. Press Ctrl+C to exit.\n")
 
@@ -100,15 +88,7 @@ def main() -> int:
 
     except KeyboardInterrupt:
         print("\nReceived keyboard interrupt. Shutting down...")
-        if manager:
-            manager.terminate_processes()
         return 0
-
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        if manager:
-            manager.terminate_processes()
-        return 1
 
 
 if __name__ == "__main__":

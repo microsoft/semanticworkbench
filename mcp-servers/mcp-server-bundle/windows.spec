@@ -8,10 +8,11 @@ a = Analysis(
     binaries=[],
     datas=[],
     hiddenimports=[
-        'mcp_server_bundle.platform.windows',
         'subprocess',
         'signal',
         'threading',
+        'mcp_server.start',
+        'mcp_tunnel',
     ],
     hookspath=[],
     hooksconfig={},
