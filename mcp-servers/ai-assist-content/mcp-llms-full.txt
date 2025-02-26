@@ -1,138 +1,5 @@
-# null
-
-
-
-# Contributor Covenant Code of Conduct
-
-## Our Pledge
-
-We as members, contributors, and leaders pledge to make participation in our
-community a harassment-free experience for everyone, regardless of age, body
-size, visible or invisible disability, ethnicity, sex characteristics, gender
-identity and expression, level of experience, education, socio-economic status,
-nationality, personal appearance, race, religion, or sexual identity
-and orientation.
-
-We pledge to act and interact in ways that contribute to an open, welcoming,
-diverse, inclusive, and healthy community.
-
-## Our Standards
-
-Examples of behavior that contributes to a positive environment for our
-community include:
-
-*   Demonstrating empathy and kindness toward other people
-*   Being respectful of differing opinions, viewpoints, and experiences
-*   Giving and gracefully accepting constructive feedback
-*   Accepting responsibility and apologizing to those affected by our mistakes,
-    and learning from the experience
-*   Focusing on what is best not just for us as individuals, but for the
-    overall community
-
-Examples of unacceptable behavior include:
-
-*   The use of sexualized language or imagery, and sexual attention or
-    advances of any kind
-*   Trolling, insulting or derogatory comments, and personal or political attacks
-*   Public or private harassment
-*   Publishing others' private information, such as a physical or email
-    address, without their explicit permission
-*   Other conduct which could reasonably be considered inappropriate in a
-    professional setting
-
-## Enforcement Responsibilities
-
-Community leaders are responsible for clarifying and enforcing our standards of
-acceptable behavior and will take appropriate and fair corrective action in
-response to any behavior that they deem inappropriate, threatening, offensive,
-or harmful.
-
-Community leaders have the right and responsibility to remove, edit, or reject
-comments, commits, code, wiki edits, issues, and other contributions that are
-not aligned to this Code of Conduct, and will communicate reasons for moderation
-decisions when appropriate.
-
-## Scope
-
-This Code of Conduct applies within all community spaces, and also applies when
-an individual is officially representing the community in public spaces.
-Examples of representing our community include using an official e-mail address,
-posting via an official social media account, or acting as an appointed
-representative at an online or offline event.
-
-## Enforcement
-
-Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-[mcp-coc@anthropic.com](mailto:mcp-coc@anthropic.com).
-All complaints will be reviewed and investigated promptly and fairly.
-
-All community leaders are obligated to respect the privacy and security of the
-reporter of any incident.
-
-## Enforcement Guidelines
-
-Community leaders will follow these Community Impact Guidelines in determining
-the consequences for any action they deem in violation of this Code of Conduct:
-
-### 1. Correction
-
-**Community Impact**: Use of inappropriate language or other behavior deemed
-unprofessional or unwelcome in the community.
-
-**Consequence**: A private, written warning from community leaders, providing
-clarity around the nature of the violation and an explanation of why the
-behavior was inappropriate. A public apology may be requested.
-
-### 2. Warning
-
-**Community Impact**: A violation through a single incident or series
-of actions.
-
-**Consequence**: A warning with consequences for continued behavior. No
-interaction with the people involved, including unsolicited interaction with
-those enforcing the Code of Conduct, for a specified period of time. This
-includes avoiding interactions in community spaces as well as external channels
-like social media. Violating these terms may lead to a temporary or
-permanent ban.
-
-### 3. Temporary Ban
-
-**Community Impact**: A serious violation of community standards, including
-sustained inappropriate behavior.
-
-**Consequence**: A temporary ban from any sort of interaction or public
-communication with the community for a specified period of time. No public or
-private interaction with the people involved, including unsolicited interaction
-with those enforcing the Code of Conduct, is allowed during this period.
-Violating these terms may lead to a permanent ban.
-
-### 4. Permanent Ban
-
-**Community Impact**: Demonstrating a pattern of violation of community
-standards, including sustained inappropriate behavior,  harassment of an
-individual, or aggression toward or disparagement of classes of individuals.
-
-**Consequence**: A permanent ban from any sort of public interaction within
-the community.
-
-## Attribution
-
-This Code of Conduct is adapted from the [Contributor Covenant][homepage],
-version 2.0, available at
-[https://www.contributor-covenant.org/version/2/0/code\_of\_conduct.html](https://www.contributor-covenant.org/version/2/0/code_of_conduct.html).
-
-Community Impact Guidelines were inspired by [Mozilla's code of conduct
-enforcement ladder](https://github.com/mozilla/diversity).
-
-[homepage]: https://www.contributor-covenant.org
-
-For answers to common questions about this code of conduct, see the FAQ at
-[https://www.contributor-covenant.org/faq](https://www.contributor-covenant.org/faq). Translations are available at
-[https://www.contributor-covenant.org/translations](https://www.contributor-covenant.org/translations).
-
-
 # Example Clients
+Source: https://modelcontextprotocol.io/clients
 
 A list of applications that support MCP integrations
 
@@ -140,22 +7,27 @@ This page provides an overview of applications that support the Model Context Pr
 
 ## Feature support matrix
 
-| Client                                     | [Resources] | [Prompts] | [Tools] | [Sampling] | Roots | Notes                                                              |
-| ------------------------------------------ | ----------- | --------- | ------- | ---------- | ----- | ------------------------------------------------------------------ |
-| [Claude Desktop App][Claude]               | ✅           | ✅         | ✅       | ❌          | ❌     | Full support for all MCP features                                  |
-| [Cursor][Cursor]                           | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools.                                                    |
-| [Zed][Zed]                                 | ❌           | ✅         | ❌       | ❌          | ❌     | Prompts appear as slash commands                                   |
-| [Sourcegraph Cody][Cody]                   | ✅           | ❌         | ❌       | ❌          | ❌     | Supports resources through OpenCTX                                 |
-| [Firebase Genkit][Genkit]                  | ⚠️          | ✅         | ✅       | ❌          | ❌     | Supports resource list and lookup through tools.                   |
-| [Continue][Continue]                       | ✅           | ✅         | ✅       | ❌          | ❌     | Full support for all MCP features                                  |
-| [GenAIScript][GenAIScript]                 | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools.                                                    |
-| [Cline][Cline]                             | ✅           | ❌         | ✅       | ❌          | ❌     | Supports tools and resources.                                      |
-| [LibreChat][LibreChat]                     | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools for Agents                                          |
-| [TheiaAI/TheiaIDE][TheiaAI/TheiaIDE]       | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools for Agents in Theia AI and the AI-powered Theia IDE |
-| [Superinterface][Superinterface]           | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools                                                     |
-| [5ire][5ire]                               | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools.                                                    |
-| [Bee Agent Framework][Bee Agent Framework] | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools in agentic workflows.                               |
-| [mcp-agent][mcp-agent]                     | ❌           | ❌         | ✅       | ⚠️         | ❌     | Supports tools, server connection management, and agent workflows. |
+| Client                               | [Resources] | [Prompts] | [Tools] | [Sampling] | Roots | Notes                                                              |
+| ------------------------------------ | ----------- | --------- | ------- | ---------- | ----- | ------------------------------------------------------------------ |
+| [Claude Desktop App][Claude]         | ✅           | ✅         | ✅       | ❌          | ❌     | Full support for all MCP features                                  |
+| [5ire][5ire]                         | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools.                                                    |
+| [BeeAI Framework][BeeAI Framework]   | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools in agentic workflows.                               |
+| [Cline][Cline]                       | ✅           | ❌         | ✅       | ❌          | ❌     | Supports tools and resources.                                      |
+| [Continue][Continue]                 | ✅           | ✅         | ✅       | ❌          | ❌     | Full support for all MCP features                                  |
+| [Cursor][Cursor]                     | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools.                                                    |
+| [Emacs Mcp][Mcp.el]                  | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools in Emacs.                                           |
+| [Firebase Genkit][Genkit]            | ⚠️          | ✅         | ✅       | ❌          | ❌     | Supports resource list and lookup through tools.                   |
+| [GenAIScript][GenAIScript]           | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools.                                                    |
+| [Goose][Goose]                       | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools.                                                    |
+| [LibreChat][LibreChat]               | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools for Agents                                          |
+| [mcp-agent][mcp-agent]               | ❌           | ❌         | ✅       | ⚠️         | ❌     | Supports tools, server connection management, and agent workflows. |
+| [Roo Code][Roo Code]                 | ✅           | ❌         | ✅       | ❌          | ❌     | Supports tools and resources.                                      |
+| [Sourcegraph Cody][Cody]             | ✅           | ❌         | ❌       | ❌          | ❌     | Supports resources through OpenCTX                                 |
+| [Superinterface][Superinterface]     | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools                                                     |
+| [TheiaAI/TheiaIDE][TheiaAI/TheiaIDE] | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools for Agents in Theia AI and the AI-powered Theia IDE |
+| [Windsurf Editor][Windsurf]          | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools with AI Flow for collaborative development.         |
+| [Zed][Zed]                           | ❌           | ✅         | ❌       | ❌          | ❌     | Prompts appear as slash commands                                   |
+| \[OpenSumi]\[OpenSumi]               | ❌           | ❌         | ✅       | ❌          | ❌     | Supports tools in OpenSumi                                         |
 
 [Claude]: https://claude.ai/download
 
@@ -181,9 +53,17 @@ This page provides an overview of applications that support the Model Context Pr
 
 [5ire]: https://github.com/nanbingxyz/5ire
 
-[Bee Agent Framework]: https://i-am-bee.github.io/bee-agent-framework
+[BeeAI Framework]: https://i-am-bee.github.io/beeai-framework
 
 [mcp-agent]: https://github.com/lastmile-ai/mcp-agent
+
+[Mcp.el]: https://github.com/lizqwerscott/mcp.el
+
+[Roo Code]: https://roocode.com
+
+[Goose]: https://block.github.io/goose/docs/goose-architecture/#interoperability-with-extensions
+
+[Windsurf]: https://codeium.com/windsurf
 
 [Resources]: https://modelcontextprotocol.io/docs/concepts/resources
 
@@ -208,47 +88,40 @@ The Claude desktop application provides comprehensive support for MCP, enabling 
 
 > ⓘ Note: The Claude.ai web application does not currently support MCP. MCP features are only available in the desktop application.
 
-### Cursor
+### 5ire
 
-[Cursor](https://docs.cursor.com/advanced/model-context-protocol) is an AI code editor.
-
-**Key Features**:
-
-* Support for MCP tools in Cursor Composer
-* Support for both STDIO and SSE
-
-### Zed
-
-[Zed](https://zed.dev/docs/assistant/model-context-protocol) is a high-performance code editor with built-in MCP support, focusing on prompt templates and tool integration.
+[5ire](https://github.com/nanbingxyz/5ire) is an open source cross-platform desktop AI assistant that supports tools through MCP servers.
 
 **Key features:**
 
-* Prompt templates surface as slash commands in the editor
-* Tool integration for enhanced coding workflows
-* Tight integration with editor features and workspace context
-* Does not support MCP resources
+* Built-in MCP servers can be quickly enabled and disabled.
+* Users can add more servers by modifying the configuration file.
+* It is open-source and user-friendly, suitable for beginners.
+* Future support for MCP will be continuously improved.
 
-### Sourcegraph Cody
+### BeeAI Framework
 
-[Cody](https://openctx.org/docs/providers/modelcontextprotocol) is Sourcegraph's AI coding assistant, which implements MCP through OpenCTX.
-
-**Key features:**
-
-* Support for MCP resources
-* Integration with Sourcegraph's code intelligence
-* Uses OpenCTX as an abstraction layer
-* Future support planned for additional MCP features
-
-### Firebase Genkit
-
-[Genkit](https://github.com/firebase/genkit) is Firebase's SDK for building and integrating GenAI features into applications. The [genkitx-mcp](https://github.com/firebase/genkit/tree/main/js/plugins/mcp) plugin enables consuming MCP servers as a client or creating MCP servers from Genkit tools and prompts.
+[BeeAI Framework](https://i-am-bee.github.io/beeai-framework) is an open-source framework for building, deploying, and serving powerful agentic workflows at scale. The framework includes the **MCP Tool**, a native feature that simplifies the integration of MCP servers into agentic workflows.
 
 **Key features:**
 
-* Client support for tools and prompts (resources partially supported)
-* Rich discovery with support in Genkit's Dev UI playground
-* Seamless interoperability with Genkit's existing tools and prompts
-* Works across a wide variety of GenAI models from top providers
+* Seamlessly incorporate MCP tools into agentic workflows.
+* Quickly instantiate framework-native tools from connected MCP client(s).
+* Planned future support for agentic MCP capabilities.
+
+**Learn more:**
+
+* [Example of using MCP tools in agentic workflow](https://i-am-bee.github.io/beeai-framework/#/typescript/tools?id=using-the-mcptool-class)
+
+### Cline
+
+[Cline](https://github.com/cline/cline) is an autonomous coding agent in VS Code that edits files, runs commands, uses a browser, and more–with your permission at each step.
+
+**Key features:**
+
+* Create and add tools through natural language (e.g. "add a tool that searches the web")
+* Share custom MCP servers Cline creates with others via the `~/Documents/Cline/MCP` directory
+* Displays configured MCP servers along with their tools, resources, and any error logs
 
 ### Continue
 
@@ -261,6 +134,34 @@ The Claude desktop application provides comprehensive support for MCP, enabling 
 * Use both built-in and MCP tools directly in chat
 * Supports VS Code and JetBrains IDEs, with any LLM
 
+### Cursor
+
+[Cursor](https://docs.cursor.com/advanced/model-context-protocol) is an AI code editor.
+
+**Key Features**:
+
+* Support for MCP tools in Cursor Composer
+* Support for both STDIO and SSE
+
+### Emacs Mcp
+
+[Emacs Mcp](https://github.com/lizqwerscott/mcp.el) is an Emacs client designed to interface with MCP servers, enabling seamless connections and interactions. It provides MCP tool invocation support for AI plugins like [gptel](https://github.com/karthink/gptel) and [llm](https://github.com/ahyatt/llm), adhering to Emacs' standard tool invocation format. This integration enhances the functionality of AI tools within the Emacs ecosystem.
+
+**Key features:**
+
+* Provides MCP tool support for Emacs.
+
+### Firebase Genkit
+
+[Genkit](https://github.com/firebase/genkit) is Firebase's SDK for building and integrating GenAI features into applications. The [genkitx-mcp](https://github.com/firebase/genkit/tree/main/js/plugins/mcp) plugin enables consuming MCP servers as a client or creating MCP servers from Genkit tools and prompts.
+
+**Key features:**
+
+* Client support for tools and prompts (resources partially supported)
+* Rich discovery with support in Genkit's Dev UI playground
+* Seamless interoperability with Genkit's existing tools and prompts
+* Works across a wide variety of GenAI models from top providers
+
 ### GenAIScript
 
 Programmatically assemble prompts for LLMs using [GenAIScript](https://microsoft.github.io/genaiscript/) (in JavaScript). Orchestrate LLMs, tools, and data in JavaScript.
@@ -271,15 +172,16 @@ Programmatically assemble prompts for LLMs using [GenAIScript](https://microsoft
 * Abstraction to make it easy and productive
 * Seamless Visual Studio Code integration
 
-### Cline
+### Goose
 
-[Cline](https://github.com/cline/cline) is an autonomous coding agent in VS Code that edits files, runs commands, uses a browser, and more–with your permission at each step.
+[Goose](https://github.com/block/goose) is an open source AI agent that supercharges your software development by automating coding tasks.
 
 **Key features:**
 
-* Create and add tools through natural language (e.g. "add a tool that searches the web")
-* Share custom MCP servers Cline creates with others via the `~/Documents/Cline/MCP` directory
-* Displays configured MCP servers along with their tools, resources, and any error logs
+* Expose MCP functionality to Goose through tools.
+* MCPs can be installed directly via the [extensions directory](https://block.github.io/goose/v1/extensions/), CLI, or UI.
+* Goose allows you to extend its functionality by [building your own MCP servers](https://block.github.io/goose/docs/tutorials/custom-extensions).
+* Includes built-in tools for development, web scraping, automation, memory, and integrations with JetBrains and Google Drive.
 
 ### LibreChat
 
@@ -291,6 +193,48 @@ Programmatically assemble prompts for LLMs using [GenAIScript](https://microsoft
 * Add tools to customizable [Agents](https://www.librechat.ai/docs/features/agents), using a variety of LLMs from top providers
 * Open-source and self-hostable, with secure multi-user support
 * Future roadmap includes expanded MCP feature support
+
+### mcp-agent
+
+[mcp-agent] is a simple, composable framework to build agents using Model Context Protocol.
+
+**Key features:**
+
+* Automatic connection management of MCP servers.
+* Expose tools from multiple servers to an LLM.
+* Implements every pattern defined in [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents).
+* Supports workflow pause/resume signals, such as waiting for human feedback.
+
+### Roo Code
+
+[Roo Code](https://roocode.com) enables AI coding assistance via MCP.
+
+**Key features:**
+
+* Support for MCP tools and resources
+* Integration with development workflows
+* Extensible AI capabilities
+
+### Sourcegraph Cody
+
+[Cody](https://openctx.org/docs/providers/modelcontextprotocol) is Sourcegraph's AI coding assistant, which implements MCP through OpenCTX.
+
+**Key features:**
+
+* Support for MCP resources
+* Integration with Sourcegraph's code intelligence
+* Uses OpenCTX as an abstraction layer
+* Future support planned for additional MCP features
+
+### Superinterface
+
+[Superinterface](https://superinterface.ai) is AI infrastructure and a developer platform to build in-app AI assistants with support for MCP, interactive components, client-side function calling and more.
+
+**Key features:**
+
+* Use tools from MCP servers in assistants embedded via React components or script tags
+* SSE transport support
+* Use any AI model from any AI provider (OpenAI, Anthropic, Ollama, others)
 
 ### TheiaAI/TheiaIDE
 
@@ -309,51 +253,35 @@ Theia AI and Theia IDE's MCP integration provide users with flexibility, making 
 * [Theia IDE and Theia AI MCP Announcement](https://eclipsesource.com/blogs/2024/12/19/theia-ide-and-theia-ai-support-mcp/)
 * [Download the AI-powered Theia IDE](https://theia-ide.org/)
 
-### Superinterface
+### Windsurf Editor
 
-[Superinterface](https://superinterface.ai) is AI infrastructure and a developer platform to build in-app AI assistants with support for MCP, interactive components, client-side function calling and more.
-
-**Key features:**
-
-* Use tools from MCP servers in assistants embedded via React components or script tags
-* SSE transport support
-* Use any AI model from any AI provider (OpenAI, Anthropic, Ollama, others)
-
-### 5ire
-
-[5ire](https://github.com/nanbingxyz/5ire) is an open source cross-platform desktop AI assistant that supports tools through MCP servers.
+[Windsurf Editor](https://codeium.com/windsurf) is an agentic IDE that combines AI assistance with developer workflows. It features an innovative AI Flow system that enables both collaborative and independent AI interactions while maintaining developer control.
 
 **Key features:**
 
-* Built-in MCP servers can be quickly enabled and disabled.
-* Users can add more servers by modifying the configuration file.
-* It is open-source and user-friendly, suitable for beginners.
-* Future support for MCP will be continuously improved.
+* Revolutionary AI Flow paradigm for human-AI collaboration
+* Intelligent code generation and understanding
+* Rich development tools with multi-model support
 
-### Bee Agent Framework
+### Zed
 
-[Bee Agent Framework](https://i-am-bee.github.io/bee-agent-framework) is an open-source framework for building, deploying, and serving powerful agentic workflows at scale. The framework includes the **MCP Tool**, a native feature that simplifies the integration of MCP servers into agentic workflows.
-
-**Key features:**
-
-* Seamlessly incorporate MCP tools into agentic workflows.
-* Quickly instantiate framework-native tools from connected MCP client(s).
-* Planned future support for agentic MCP capabilities.
-
-**Learn more:**
-
-* [Example of using MCP tools in agentic workflow](https://i-am-bee.github.io/bee-agent-framework/#/tools?id=using-the-mcptool-class)
-
-### mcp-agent
-
-[mcp-agent] is a simple, composable framework to build agents using Model Context Protocol.
+[Zed](https://zed.dev/docs/assistant/model-context-protocol) is a high-performance code editor with built-in MCP support, focusing on prompt templates and tool integration.
 
 **Key features:**
 
-* Automatic connection management of MCP servers.
-* Expose tools from multiple servers to an LLM.
-* Implements every pattern defined in [Building Effective Agents](https://www.anthropic.com/research/building-effective-agents).
-* Supports workflow pause/resume signals, such as waiting for human feedback.
+* Prompt templates surface as slash commands in the editor
+* Tool integration for enhanced coding workflows
+* Tight integration with editor features and workspace context
+* Does not support MCP resources
+
+### OpenSumi
+
+[OpenSumi](https://github.com/opensumi/core) is a framework helps you quickly build AI Native IDE products.
+
+**Key features:**
+
+* Supports MCP tools in OpenSumi
+* Supports built-in IDE MCP servers and custom MCP servers
 
 ## Adding MCP support to your application
 
@@ -374,6 +302,7 @@ This list is maintained by the community. If you notice any inaccuracies or woul
 
 
 # Contributing
+Source: https://modelcontextprotocol.io/development/contributing
 
 How to participate in Model Context Protocol development
 
@@ -385,6 +314,7 @@ For questions and discussions, please use [GitHub Discussions](https://github.co
 
 
 # Roadmap
+Source: https://modelcontextprotocol.io/development/roadmap
 
 Our plans for evolving Model Context Protocol (H1 2025)
 
@@ -444,26 +374,41 @@ We welcome community participation in shaping MCP's future. Visit our [GitHub Di
 
 
 # What's New
+Source: https://modelcontextprotocol.io/development/updates
 
 The latest updates and improvements to MCP
 
+<Update label="2025-02-14" description="Java SDK released">
+  * We're excited to announce that the Java SDK developed by Spring AI at VMware Tanzu is now
+    the official [Java SDK](https://github.com/modelcontextprotocol/java-sdk) for MCP.
+    This joins our existing Kotlin SDK in our growing list of supported languages.
+    The Spring AI team will maintain the SDK as an integral part of the Model Context Protocol
+    organization. We're thrilled to welcome them to the MCP community!
+</Update>
+
+<Update label="2025-01-27" description="Python SDK 1.2.1">
+  * Version [1.2.1](https://github.com/modelcontextprotocol/python-sdk/releases/tag/v1.2.1) of the MCP Python SDK has been released,
+    delivering important stability improvements and bug fixes.
+</Update>
+
 <Update label="2025-01-18" description="SDK and Server Improvements">
-  *   Simplified, express-like API in the [TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
-  *   Added 8 new clients to the [clients page](https://modelcontextprotocol.io/clients)
+  * Simplified, express-like API in the [TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
+  * Added 8 new clients to the [clients page](https://modelcontextprotocol.io/clients)
 </Update>
 
 <Update label="2025-01-03" description="SDK and Server Improvements">
-  *   FastMCP API in the [Python SDK](https://github.com/modelcontextprotocol/python-sdk)
-  *   Dockerized MCP servers in the [servers repo](https://github.com/modelcontextprotocol/servers)
+  * FastMCP API in the [Python SDK](https://github.com/modelcontextprotocol/python-sdk)
+  * Dockerized MCP servers in the [servers repo](https://github.com/modelcontextprotocol/servers)
 </Update>
 
 <Update label="2024-12-21" description="Kotlin SDK released">
-  *   Jetbrains released a Kotlin SDK for MCP!
-  *   For a sample MCP Kotlin server, check out [this repository](https://github.com/modelcontextprotocol/kotlin-sdk/tree/main/samples/kotlin-mcp-server)
+  * Jetbrains released a Kotlin SDK for MCP!
+  * For a sample MCP Kotlin server, check out [this repository](https://github.com/modelcontextprotocol/kotlin-sdk/tree/main/samples/kotlin-mcp-server)
 </Update>
 
 
 # Core architecture
+Source: https://modelcontextprotocol.io/docs/concepts/architecture
 
 Understand how MCP connects clients, servers, and LLMs
 
@@ -818,6 +763,7 @@ Here's a basic example of implementing an MCP server:
 
 
 # Prompts
+Source: https://modelcontextprotocol.io/docs/concepts/prompts
 
 Create reusable prompt templates and workflows
 
@@ -1246,6 +1192,7 @@ When implementing prompts:
 
 
 # Resources
+Source: https://modelcontextprotocol.io/docs/concepts/resources
 
 Expose data and content from your servers to LLMs
 
@@ -1504,6 +1451,7 @@ When exposing resources:
 
 
 # Roots
+Source: https://modelcontextprotocol.io/docs/concepts/roots
 
 Understanding roots in MCP
 
@@ -1584,6 +1532,7 @@ This configuration suggests the server focus on both a local repository and an A
 
 
 # Sampling
+Source: https://modelcontextprotocol.io/docs/concepts/sampling
 
 Let your servers request completions from LLMs
 
@@ -1831,6 +1780,7 @@ Be aware of these limitations:
 
 
 # Tools
+Source: https://modelcontextprotocol.io/docs/concepts/tools
 
 Enable LLMs to perform actions through your server
 
@@ -2147,6 +2097,7 @@ A comprehensive testing strategy for MCP tools should cover:
 
 
 # Transports
+Source: https://modelcontextprotocol.io/docs/concepts/transports
 
 Learn about MCP's communication mechanisms
 
@@ -2565,6 +2516,7 @@ Tips for debugging transport issues:
 
 
 # Debugging
+Source: https://modelcontextprotocol.io/docs/tools/debugging
 
 A comprehensive guide to debugging Model Context Protocol (MCP) integrations
 
@@ -2850,6 +2802,7 @@ When encountering issues:
 
 
 # Inspector
+Source: https://modelcontextprotocol.io/docs/tools/inspector
 
 In-depth guide to using the MCP Inspector for testing and debugging Model Context Protocol servers
 
@@ -2992,6 +2945,7 @@ The Inspector provides several features for interacting with your MCP server:
 
 
 # Example Servers
+Source: https://modelcontextprotocol.io/examples
 
 A list of example servers and implementations
 
@@ -3003,61 +2957,62 @@ These official reference servers demonstrate core MCP features and SDK usage:
 
 ### Data and file systems
 
-*   **[Filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem)** - Secure file operations with configurable access controls
-*   **[PostgreSQL](https://github.com/modelcontextprotocol/servers/tree/main/src/postgres)** - Read-only database access with schema inspection capabilities
-*   **[SQLite](https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite)** - Database interaction and business intelligence features
-*   **[Google Drive](https://github.com/modelcontextprotocol/servers/tree/main/src/gdrive)** - File access and search capabilities for Google Drive
+* **[Filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem)** - Secure file operations with configurable access controls
+* **[PostgreSQL](https://github.com/modelcontextprotocol/servers/tree/main/src/postgres)** - Read-only database access with schema inspection capabilities
+* **[SQLite](https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite)** - Database interaction and business intelligence features
+* **[Google Drive](https://github.com/modelcontextprotocol/servers/tree/main/src/gdrive)** - File access and search capabilities for Google Drive
 
 ### Development tools
 
-*   **[Git](https://github.com/modelcontextprotocol/servers/tree/main/src/git)** - Tools to read, search, and manipulate Git repositories
-*   **[GitHub](https://github.com/modelcontextprotocol/servers/tree/main/src/github)** - Repository management, file operations, and GitHub API integration
-*   **[GitLab](https://github.com/modelcontextprotocol/servers/tree/main/src/gitlab)** - GitLab API integration enabling project management
-*   **[Sentry](https://github.com/modelcontextprotocol/servers/tree/main/src/sentry)** - Retrieving and analyzing issues from Sentry.io
+* **[Git](https://github.com/modelcontextprotocol/servers/tree/main/src/git)** - Tools to read, search, and manipulate Git repositories
+* **[GitHub](https://github.com/modelcontextprotocol/servers/tree/main/src/github)** - Repository management, file operations, and GitHub API integration
+* **[GitLab](https://github.com/modelcontextprotocol/servers/tree/main/src/gitlab)** - GitLab API integration enabling project management
+* **[Sentry](https://github.com/modelcontextprotocol/servers/tree/main/src/sentry)** - Retrieving and analyzing issues from Sentry.io
 
 ### Web and browser automation
 
-*   **[Brave Search](https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search)** - Web and local search using Brave's Search API
-*   **[Fetch](https://github.com/modelcontextprotocol/servers/tree/main/src/fetch)** - Web content fetching and conversion optimized for LLM usage
-*   **[Puppeteer](https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer)** - Browser automation and web scraping capabilities
+* **[Brave Search](https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search)** - Web and local search using Brave's Search API
+* **[Fetch](https://github.com/modelcontextprotocol/servers/tree/main/src/fetch)** - Web content fetching and conversion optimized for LLM usage
+* **[Puppeteer](https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer)** - Browser automation and web scraping capabilities
 
 ### Productivity and communication
 
-*   **[Slack](https://github.com/modelcontextprotocol/servers/tree/main/src/slack)** - Channel management and messaging capabilities
-*   **[Google Maps](https://github.com/modelcontextprotocol/servers/tree/main/src/google-maps)** - Location services, directions, and place details
-*   **[Memory](https://github.com/modelcontextprotocol/servers/tree/main/src/memory)** - Knowledge graph-based persistent memory system
+* **[Slack](https://github.com/modelcontextprotocol/servers/tree/main/src/slack)** - Channel management and messaging capabilities
+* **[Google Maps](https://github.com/modelcontextprotocol/servers/tree/main/src/google-maps)** - Location services, directions, and place details
+* **[Memory](https://github.com/modelcontextprotocol/servers/tree/main/src/memory)** - Knowledge graph-based persistent memory system
 
 ### AI and specialized tools
 
-*   **[EverArt](https://github.com/modelcontextprotocol/servers/tree/main/src/everart)** - AI image generation using various models
-*   **[Sequential Thinking](https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking)** - Dynamic problem-solving through thought sequences
-*   **[AWS KB Retrieval](https://github.com/modelcontextprotocol/servers/tree/main/src/aws-kb-retrieval-server)** - Retrieval from AWS Knowledge Base using Bedrock Agent Runtime
+* **[EverArt](https://github.com/modelcontextprotocol/servers/tree/main/src/everart)** - AI image generation using various models
+* **[Sequential Thinking](https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking)** - Dynamic problem-solving through thought sequences
+* **[AWS KB Retrieval](https://github.com/modelcontextprotocol/servers/tree/main/src/aws-kb-retrieval-server)** - Retrieval from AWS Knowledge Base using Bedrock Agent Runtime
 
 ## Official integrations
 
 These MCP servers are maintained by companies for their platforms:
 
-*   **[Axiom](https://github.com/axiomhq/mcp-server-axiom)** - Query and analyze logs, traces, and event data using natural language
-*   **[Browserbase](https://github.com/browserbase/mcp-server-browserbase)** - Automate browser interactions in the cloud
-*   **[Cloudflare](https://github.com/cloudflare/mcp-server-cloudflare)** - Deploy and manage resources on the Cloudflare developer platform
-*   **[E2B](https://github.com/e2b-dev/mcp-server)** - Execute code in secure cloud sandboxes
-*   **[Neon](https://github.com/neondatabase/mcp-server-neon)** - Interact with the Neon serverless Postgres platform
-*   **[Obsidian Markdown Notes](https://github.com/calclavia/mcp-obsidian)** - Read and search through Markdown notes in Obsidian vaults
-*   **[Qdrant](https://github.com/qdrant/mcp-server-qdrant/)** - Implement semantic memory using the Qdrant vector search engine
-*   **[Raygun](https://github.com/MindscapeHQ/mcp-server-raygun)** - Access crash reporting and monitoring data
-*   **[Search1API](https://github.com/fatwang2/search1api-mcp)** - Unified API for search, crawling, and sitemaps
-*   **[Tinybird](https://github.com/tinybirdco/mcp-tinybird)** - Interface with the Tinybird serverless ClickHouse platform
+* **[Axiom](https://github.com/axiomhq/mcp-server-axiom)** - Query and analyze logs, traces, and event data using natural language
+* **[Browserbase](https://github.com/browserbase/mcp-server-browserbase)** - Automate browser interactions in the cloud
+* **[Cloudflare](https://github.com/cloudflare/mcp-server-cloudflare)** - Deploy and manage resources on the Cloudflare developer platform
+* **[E2B](https://github.com/e2b-dev/mcp-server)** - Execute code in secure cloud sandboxes
+* **[Neon](https://github.com/neondatabase/mcp-server-neon)** - Interact with the Neon serverless Postgres platform
+* **[Obsidian Markdown Notes](https://github.com/calclavia/mcp-obsidian)** - Read and search through Markdown notes in Obsidian vaults
+* **[Qdrant](https://github.com/qdrant/mcp-server-qdrant/)** - Implement semantic memory using the Qdrant vector search engine
+* **[Raygun](https://github.com/MindscapeHQ/mcp-server-raygun)** - Access crash reporting and monitoring data
+* **[Search1API](https://github.com/fatwang2/search1api-mcp)** - Unified API for search, crawling, and sitemaps
+* **[Stripe](https://github.com/stripe/agent-toolkit)** - Interact with the Stripe API
+* **[Tinybird](https://github.com/tinybirdco/mcp-tinybird)** - Interface with the Tinybird serverless ClickHouse platform
 
 ## Community highlights
 
 A growing ecosystem of community-developed servers extends MCP's capabilities:
 
-*   **[Docker](https://github.com/ckreiling/mcp-server-docker)** - Manage containers, images, volumes, and networks
-*   **[Kubernetes](https://github.com/Flux159/mcp-server-kubernetes)** - Manage pods, deployments, and services
-*   **[Linear](https://github.com/jerhadf/linear-mcp-server)** - Project management and issue tracking
-*   **[Snowflake](https://github.com/datawiz168/mcp-snowflake-service)** - Interact with Snowflake databases
-*   **[Spotify](https://github.com/varunneal/spotify-mcp)** - Control Spotify playback and manage playlists
-*   **[Todoist](https://github.com/abhiz123/todoist-mcp-server)** - Task management integration
+* **[Docker](https://github.com/ckreiling/mcp-server-docker)** - Manage containers, images, volumes, and networks
+* **[Kubernetes](https://github.com/Flux159/mcp-server-kubernetes)** - Manage pods, deployments, and services
+* **[Linear](https://github.com/jerhadf/linear-mcp-server)** - Project management and issue tracking
+* **[Snowflake](https://github.com/datawiz168/mcp-snowflake-service)** - Interact with Snowflake databases
+* **[Spotify](https://github.com/varunneal/spotify-mcp)** - Control Spotify playback and manage playlists
+* **[Todoist](https://github.com/abhiz123/todoist-mcp-server)** - Task management integration
 
 > **Note:** Community servers are untested and should be used at your own risk. They are not affiliated with or endorsed by Anthropic.
 
@@ -3112,20 +3067,21 @@ To use an MCP server with Claude, add it to your configuration:
 
 ## Additional resources
 
-*   [MCP Servers Repository](https://github.com/modelcontextprotocol/servers) - Complete collection of reference implementations and community servers
-*   [Awesome MCP Servers](https://github.com/punkpeye/awesome-mcp-servers) - Curated list of MCP servers
-*   [MCP CLI](https://github.com/wong2/mcp-cli) - Command-line inspector for testing MCP servers
-*   [MCP Get](https://mcp-get.com) - Tool for installing and managing MCP servers
-*   [Supergateway](https://github.com/supercorp-ai/supergateway) - Run MCP stdio servers over SSE
+* [MCP Servers Repository](https://github.com/modelcontextprotocol/servers) - Complete collection of reference implementations and community servers
+* [Awesome MCP Servers](https://github.com/punkpeye/awesome-mcp-servers) - Curated list of MCP servers
+* [MCP CLI](https://github.com/wong2/mcp-cli) - Command-line inspector for testing MCP servers
+* [MCP Get](https://mcp-get.com) - Tool for installing and managing MCP servers
+* [Supergateway](https://github.com/supercorp-ai/supergateway) - Run MCP stdio servers over SSE
 
 Visit our [GitHub Discussions](https://github.com/orgs/modelcontextprotocol/discussions) to engage with the MCP community.
 
 
 # Introduction
+Source: https://modelcontextprotocol.io/introduction
 
 Get started with the Model Context Protocol (MCP)
 
-<Note>Kotlin SDK released! Check out [what else is new.](/development/updates)</Note>
+<Note>Java SDK released! Check out [what else is new.](/development/updates)</Note>
 
 MCP is an open protocol that standardizes how applications provide context to LLMs. Think of MCP like a USB-C port for AI applications. Just as USB-C provides a standardized way to connect your devices to various peripherals and accessories, MCP provides a standardized way to connect AI models to different data sources and tools.
 
@@ -3258,6 +3214,7 @@ Here's how to get help or provide feedback:
 
 
 # For Client Developers
+Source: https://modelcontextprotocol.io/quickstart/client
 
 Get started building your own client that can integrate with all MCP servers.
 
@@ -3271,9 +3228,9 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
 
     Before starting, ensure your system meets these requirements:
 
-    *   Mac or Windows computer
-    *   Latest Python version installed
-    *   Latest version of `uv` installed
+    * Mac or Windows computer
+    * Latest Python version installed
+    * Latest version of `uv` installed
 
     ## Setting Up Your Environment
 
@@ -3365,7 +3322,7 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
     ```python
     async def connect_to_server(self, server_script_path: str):
         """Connect to an MCP server
-        
+
         Args:
             server_script_path: Path to the server script (.py or .js)
         """
@@ -3373,20 +3330,20 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
         is_js = server_script_path.endswith('.js')
         if not (is_python or is_js):
             raise ValueError("Server script must be a .py or .js file")
-            
+
         command = "python" if is_python else "node"
         server_params = StdioServerParameters(
             command=command,
             args=[server_script_path],
             env=None
         )
-        
+
         stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
         self.stdio, self.write = stdio_transport
         self.session = await self.exit_stack.enter_async_context(ClientSession(self.stdio, self.write))
-        
+
         await self.session.initialize()
-        
+
         # List available tools
         response = await self.session.list_tools()
         tools = response.tools
@@ -3408,7 +3365,7 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
         ]
 
         response = await self.session.list_tools()
-        available_tools = [{ 
+        available_tools = [{
             "name": tool.name,
             "description": tool.description,
             "input_schema": tool.inputSchema
@@ -3426,27 +3383,34 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
         tool_results = []
         final_text = []
 
+        assistant_message_content = []
         for content in response.content:
             if content.type == 'text':
                 final_text.append(content.text)
+                assistant_message_content.append(content)
             elif content.type == 'tool_use':
                 tool_name = content.name
                 tool_args = content.input
-                
+
                 # Execute tool call
                 result = await self.session.call_tool(tool_name, tool_args)
                 tool_results.append({"call": tool_name, "result": result})
                 final_text.append(f"[Calling tool {tool_name} with args {tool_args}]")
 
-                # Continue conversation with tool results
-                if hasattr(content, 'text') and content.text:
-                    messages.append({
-                      "role": "assistant",
-                      "content": content.text
-                    })
+                assistant_message_content.append(content)
                 messages.append({
-                    "role": "user", 
-                    "content": result.content
+                    "role": "assistant",
+                    "content": assistant_message_content
+                })
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": content.id,
+                            "content": result.content
+                        }
+                    ]
                 })
 
                 # Get next response from Claude
@@ -3454,6 +3418,7 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=1000,
                     messages=messages,
+                    tools=available_tools
                 )
 
                 final_text.append(response.content[0].text)
@@ -3470,17 +3435,17 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
         """Run an interactive chat loop"""
         print("\nMCP Client Started!")
         print("Type your queries or 'quit' to exit.")
-        
+
         while True:
             try:
                 query = input("\nQuery: ").strip()
-                
+
                 if query.lower() == 'quit':
                     break
-                    
+
                 response = await self.process_query(query)
                 print("\n" + response)
-                    
+
             except Exception as e:
                 print(f"\nError: {str(e)}")
 
@@ -3498,7 +3463,7 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
         if len(sys.argv) < 2:
             print("Usage: python client.py <path_to_server_script>")
             sys.exit(1)
-            
+
         client = MCPClient()
         try:
             await client.connect_to_server(sys.argv[1])
@@ -3517,53 +3482,53 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
 
     ### 1. Client Initialization
 
-    *   The `MCPClient` class initializes with session management and API clients
-    *   Uses `AsyncExitStack` for proper resource management
-    *   Configures the Anthropic client for Claude interactions
+    * The `MCPClient` class initializes with session management and API clients
+    * Uses `AsyncExitStack` for proper resource management
+    * Configures the Anthropic client for Claude interactions
 
     ### 2. Server Connection
 
-    *   Supports both Python and Node.js servers
-    *   Validates server script type
-    *   Sets up proper communication channels
-    *   Initializes the session and lists available tools
+    * Supports both Python and Node.js servers
+    * Validates server script type
+    * Sets up proper communication channels
+    * Initializes the session and lists available tools
 
     ### 3. Query Processing
 
-    *   Maintains conversation context
-    *   Handles Claude's responses and tool calls
-    *   Manages the message flow between Claude and tools
-    *   Combines results into a coherent response
+    * Maintains conversation context
+    * Handles Claude's responses and tool calls
+    * Manages the message flow between Claude and tools
+    * Combines results into a coherent response
 
     ### 4. Interactive Interface
 
-    *   Provides a simple command-line interface
-    *   Handles user input and displays responses
-    *   Includes basic error handling
-    *   Allows graceful exit
+    * Provides a simple command-line interface
+    * Handles user input and displays responses
+    * Includes basic error handling
+    * Allows graceful exit
 
     ### 5. Resource Management
 
-    *   Proper cleanup of resources
-    *   Error handling for connection issues
-    *   Graceful shutdown procedures
+    * Proper cleanup of resources
+    * Error handling for connection issues
+    * Graceful shutdown procedures
 
     ## Common Customization Points
 
-    1.  **Tool Handling**
-        *   Modify `process_query()` to handle specific tool types
-        *   Add custom error handling for tool calls
-        *   Implement tool-specific response formatting
+    1. **Tool Handling**
+       * Modify `process_query()` to handle specific tool types
+       * Add custom error handling for tool calls
+       * Implement tool-specific response formatting
 
-    2.  **Response Processing**
-        *   Customize how tool results are formatted
-        *   Add response filtering or transformation
-        *   Implement custom logging
+    2. **Response Processing**
+       * Customize how tool results are formatted
+       * Add response filtering or transformation
+       * Implement custom logging
 
-    3.  **User Interface**
-        *   Add a GUI or web interface
-        *   Implement rich console output
-        *   Add command history or auto-completion
+    3. **User Interface**
+       * Add a GUI or web interface
+       * Implement rich console output
+       * Add command history or auto-completion
 
     ## Running the Client
 
@@ -3580,12 +3545,12 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
 
     The client will:
 
-    1.  Connect to the specified server
-    2.  List available tools
-    3.  Start an interactive chat session where you can:
-        *   Enter queries
-        *   See tool executions
-        *   Get responses from Claude
+    1. Connect to the specified server
+    2. List available tools
+    3. Start an interactive chat session where you can:
+       * Enter queries
+       * See tool executions
+       * Get responses from Claude
 
     Here's an example of what it should look like if connected to the weather server from the server quickstart:
 
@@ -3597,39 +3562,39 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
 
     When you submit a query:
 
-    1.  The client gets the list of available tools from the server
-    2.  Your query is sent to Claude along with tool descriptions
-    3.  Claude decides which tools (if any) to use
-    4.  The client executes any requested tool calls through the server
-    5.  Results are sent back to Claude
-    6.  Claude provides a natural language response
-    7.  The response is displayed to you
+    1. The client gets the list of available tools from the server
+    2. Your query is sent to Claude along with tool descriptions
+    3. Claude decides which tools (if any) to use
+    4. The client executes any requested tool calls through the server
+    5. Results are sent back to Claude
+    6. Claude provides a natural language response
+    7. The response is displayed to you
 
     ## Best practices
 
-    1.  **Error Handling**
-        *   Always wrap tool calls in try-catch blocks
-        *   Provide meaningful error messages
-        *   Gracefully handle connection issues
+    1. **Error Handling**
+       * Always wrap tool calls in try-catch blocks
+       * Provide meaningful error messages
+       * Gracefully handle connection issues
 
-    2.  **Resource Management**
-        *   Use `AsyncExitStack` for proper cleanup
-        *   Close connections when done
-        *   Handle server disconnections
+    2. **Resource Management**
+       * Use `AsyncExitStack` for proper cleanup
+       * Close connections when done
+       * Handle server disconnections
 
-    3.  **Security**
-        *   Store API keys securely in `.env`
-        *   Validate server responses
-        *   Be cautious with tool permissions
+    3. **Security**
+       * Store API keys securely in `.env`
+       * Validate server responses
+       * Be cautious with tool permissions
 
     ## Troubleshooting
 
     ### Server Path Issues
 
-    *   Double-check the path to your server script is correct
-    *   Use the absolute path if the relative path isn't working
-    *   For Windows users, make sure to use forward slashes (/) or escaped backslashes (\\) in the path
-    *   Verify the server file has the correct extension (.py for Python or .js for Node.js)
+    * Double-check the path to your server script is correct
+    * Use the absolute path if the relative path isn't working
+    * For Windows users, make sure to use forward slashes (/) or escaped backslashes (\\) in the path
+    * Verify the server file has the correct extension (.py for Python or .js for Node.js)
 
     Example of correct path usage:
 
@@ -3647,22 +3612,197 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
 
     ### Response Timing
 
-    *   The first response might take up to 30 seconds to return
-    *   This is normal and happens while:
-        *   The server initializes
-        *   Claude processes the query
-        *   Tools are being executed
-    *   Subsequent responses are typically faster
-    *   Don't interrupt the process during this initial waiting period
+    * The first response might take up to 30 seconds to return
+    * This is normal and happens while:
+      * The server initializes
+      * Claude processes the query
+      * Tools are being executed
+    * Subsequent responses are typically faster
+    * Don't interrupt the process during this initial waiting period
 
     ### Common Error Messages
 
     If you see:
 
-    *   `FileNotFoundError`: Check your server path
-    *   `Connection refused`: Ensure the server is running and the path is correct
-    *   `Tool execution failed`: Verify the tool's required environment variables are set
-    *   `Timeout error`: Consider increasing the timeout in your client configuration
+    * `FileNotFoundError`: Check your server path
+    * `Connection refused`: Ensure the server is running and the path is correct
+    * `Tool execution failed`: Verify the tool's required environment variables are set
+    * `Timeout error`: Consider increasing the timeout in your client configuration
+  </Tab>
+
+  <Tab title="Java">
+    <Note>
+      This is a quickstart demo based on Spring AI MCP auto-configuration and boot starters.
+      To learn how to create sync and async MCP Clients manually, consult the [Java SDK Client](/sdk/java/mcp-client) documentation
+    </Note>
+
+    This example demonstrates how to build an interactive chatbot that combines Spring AI's Model Context Protocol (MCP) with the [Brave Search MCP Server](https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search). The application creates a conversational interface powered by Anthropic's Claude AI model that can perform internet searches through Brave Search, enabling natural language interactions with real-time web data.
+    [You can find the complete code for this tutorial here.](https://github.com/spring-projects/spring-ai-examples/tree/main/model-context-protocol/web-search/brave-chatbot)
+
+    ## System Requirements
+
+    Before starting, ensure your system meets these requirements:
+
+    * Java 17 or higher
+    * Maven 3.6+
+    * npx package manager
+    * Anthropic API key (Claude)
+    * Brave Search API key
+
+    ## Setting Up Your Environment
+
+    1. Install npx (Node Package eXecute):
+       First, make sure to install [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+       and then run:
+       ```bash
+       npm install -g npx
+       ```
+
+    2. Clone the repository:
+       ```bash
+       git clone https://github.com/spring-projects/spring-ai-examples.git
+       cd model-context-protocol/brave-chatbot
+       ```
+
+    3. Set up your API keys:
+       ```bash
+       export ANTHROPIC_API_KEY='your-anthropic-api-key-here'
+       export BRAVE_API_KEY='your-brave-api-key-here'
+       ```
+
+    4. Build the application:
+       ```bash
+       ./mvnw clean install
+       ```
+
+    5. Run the application using Maven:
+       ```bash
+       ./mvnw spring-boot:run
+       ```
+
+    <Warning>
+      Make sure you keep your `ANTHROPIC_API_KEY` and `BRAVE_API_KEY` keys secure!
+    </Warning>
+
+    ## How it Works
+
+    The application integrates Spring AI with the Brave Search MCP server through several components:
+
+    ### MCP Client Configuration
+
+    1. Required dependencies in pom.xml:
+
+    ```xml
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-mcp-client-spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-anthropic-spring-boot-starter</artifactId>
+    </dependency>
+    ```
+
+    2. Application properties (application.yml):
+
+    ```yml
+    spring:
+      ai:
+        mcp:
+          client:
+            enabled: true
+            name: brave-search-client
+            version: 1.0.0
+            type: SYNC
+            request-timeout: 20s
+            stdio:
+              root-change-notification: true
+              servers-configuration: classpath:/mcp-servers-config.json
+        anthropic:
+          api-key: ${ANTHROPIC_API_KEY}
+    ```
+
+    This activates the `spring-ai-mcp-client-spring-boot-starter` to create one or more `McpClient`s based on the provided server configuration.
+
+    3. MCP Server Configuration (`mcp-servers-config.json`):
+
+    ```json
+    {
+      "mcpServers": {
+        "brave-search": {
+          "command": "npx",
+          "args": [
+            "-y",
+            "@modelcontextprotocol/server-brave-search"
+          ],
+          "env": {
+            "BRAVE_API_KEY": "<PUT YOUR BRAVE API KEY>"
+          }
+        }
+      }
+    }
+    ```
+
+    ### Chat Implementation
+
+    The chatbot is implemented using Spring AI's ChatClient with MCP tool integration:
+
+    ```java
+    var chatClient = chatClientBuilder
+        .defaultSystem("You are useful assistant, expert in AI and Java.")
+        .defaultTools((Object[]) mcpToolAdapter.toolCallbacks())
+        .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
+        .build();
+    ```
+
+    Key features:
+
+    * Uses Claude AI model for natural language understanding
+    * Integrates Brave Search through MCP for real-time web search capabilities
+    * Maintains conversation memory using InMemoryChatMemory
+    * Runs as an interactive command-line application
+
+    ### Build and run
+
+    ```bash
+    ./mvnw clean install
+    java -jar ./target/ai-mcp-brave-chatbot-0.0.1-SNAPSHOT.jar
+    ```
+
+    or
+
+    ```bash
+    ./mvnw spring-boot:run
+    ```
+
+    The application will start an interactive chat session where you can ask questions. The chatbot will use Brave Search when it needs to find information from the internet to answer your queries.
+
+    The chatbot can:
+
+    * Answer questions using its built-in knowledge
+    * Perform web searches when needed using Brave Search
+    * Remember context from previous messages in the conversation
+    * Combine information from multiple sources to provide comprehensive answers
+
+    ### Advanced Configuration
+
+    The MCP client supports additional configuration options:
+
+    * Client customization through `McpSyncClientCustomizer` or `McpAsyncClientCustomizer`
+    * Multiple clients with multiple transport types: `STDIO` and `SSE` (Server-Sent Events)
+    * Integration with Spring AI's tool execution framework
+    * Automatic client initialization and lifecycle management
+
+    For WebFlux-based applications, you can use the WebFlux starter instead:
+
+    ```xml
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-mcp-client-webflux-spring-boot-starter</artifactId>
+    </dependency>
+    ```
+
+    This provides similar functionality but uses a WebFlux-based SSE transport implementation, recommended for production deployments.
   </Tab>
 </Tabs>
 
@@ -3688,6 +3828,7 @@ In this tutorial, you'll learn how to build a LLM-powered chatbot client that co
 
 
 # For Server Developers
+Source: https://modelcontextprotocol.io/quickstart/server
 
 Get started building your own server to use in Claude for Desktop and other clients.
 
@@ -3719,9 +3860,9 @@ We'll build a server that exposes two tools: `get-alerts` and `get-forecast`. Th
 
 MCP servers can provide three main types of capabilities:
 
-1.  **Resources**: File-like data that can be read by clients (like API responses or file contents)
-2.  **Tools**: Functions that can be called by the LLM (with user approval)
-3.  **Prompts**: Pre-written templates that help users accomplish specific tasks
+1. **Resources**: File-like data that can be read by clients (like API responses or file contents)
+2. **Tools**: Functions that can be called by the LLM (with user approval)
+3. **Prompts**: Pre-written templates that help users accomplish specific tasks
 
 This tutorial will primarily focus on tools.
 
@@ -3733,13 +3874,13 @@ This tutorial will primarily focus on tools.
 
     This quickstart assumes you have familiarity with:
 
-    *   Python
-    *   LLMs like Claude
+    * Python
+    * LLMs like Claude
 
     ### System requirements
 
-    *   Python 3.10 or higher installed.
-    *   You must use the Python MCP SDK 1.2.0 or higher.
+    * Python 3.10 or higher installed.
+    * You must use the Python MCP SDK 1.2.0 or higher.
 
     ### Set up your environment
 
@@ -4001,8 +4142,8 @@ This tutorial will primarily focus on tools.
 
     This tells Claude for Desktop:
 
-    1.  There's an MCP server named "weather"
-    2.  To launch it by running `uv --directory /ABSOLUTE/PATH/TO/PARENT/FOLDER/weather run weather`
+    1. There's an MCP server named "weather"
+    2. To launch it by running `uv --directory /ABSOLUTE/PATH/TO/PARENT/FOLDER/weather run weather`
 
     Save the file, and restart **Claude for Desktop**.
   </Tab>
@@ -4014,8 +4155,8 @@ This tutorial will primarily focus on tools.
 
     This quickstart assumes you have familiarity with:
 
-    *   TypeScript
-    *   LLMs like Claude
+    * TypeScript
+    * LLMs like Claude
 
     ### System requirements
 
@@ -4433,10 +4574,303 @@ This tutorial will primarily focus on tools.
 
     This tells Claude for Desktop:
 
-    1.  There's an MCP server named "weather"
-    2.  Launch it by running `node /ABSOLUTE/PATH/TO/PARENT/FOLDER/weather/build/index.js`
+    1. There's an MCP server named "weather"
+    2. Launch it by running `node /ABSOLUTE/PATH/TO/PARENT/FOLDER/weather/build/index.js`
 
     Save the file, and restart **Claude for Desktop**.
+  </Tab>
+
+  <Tab title="Java">
+    <Note>
+      This is a quickstart demo based on Spring AI MCP auto-configuraiton and boot starters.
+      To learn how to create sync and async MCP Servers, manually, consult the [Java SDK Server](/sdk/java/mcp-server) documentation.
+    </Note>
+
+    Let's get started with building our weather server!
+    [You can find the complete code for what we'll be building here.](https://github.com/spring-projects/spring-ai-examples/tree/main/model-context-protocol/weather/starter-stdio-server)
+
+    For more information, see the [MCP Server Boot Starter](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html) reference documentation.
+    For manual MCP Server implementation, refer to the [MCP Server Java SDK documentation](/sdk/java/mcp-server).
+
+    ### System requirements
+
+    * Java 17 or higher installed.
+    * [Spring Boot 3.3.x](https://docs.spring.io/spring-boot/installing.html) or higher
+
+    ### Set up your environment
+
+    Use the [Spring Initizer](https://start.spring.io/) to bootstrat the project.
+
+    You will need to add the following dependencies:
+
+    <Tabs>
+      <Tab title="Maven">
+        ```xml
+        <dependencies>
+              <dependency>
+                  <groupId>org.springframework.ai</groupId>
+                  <artifactId>spring-ai-mcp-server-spring-boot-starter</artifactId>
+              </dependency>
+
+              <dependency>
+                  <groupId>org.springframework</groupId>
+                  <artifactId>spring-web</artifactId>
+              </dependency>
+        </dependencies>
+        ```
+      </Tab>
+
+      <Tab title="Gradle">
+        ```groovy
+        dependencies {
+          implementation platform("org.springframework.ai:spring-ai-mcp-server-spring-boot-starter")
+          implementation platform("org.springframework:spring-web")   
+        }
+        ```
+      </Tab>
+    </Tabs>
+
+    Then configure your application by setting the applicaiton properties:
+
+    <CodeGroup>
+      ```bash application.properties
+      spring.main.bannerMode=off
+      logging.pattern.console=
+      ```
+
+      ```yaml application.yml
+      logging:
+        pattern:
+          console:
+      spring:
+        main:
+          banner-mode: off
+      ```
+    </CodeGroup>
+
+    The [Server Configuration Properties](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html#_configuration_properties) documents all available properties.
+
+    Now let's dive into building your server.
+
+    ## Building your server
+
+    ### Weather Service
+
+    Let's implement a [WeatheService.java](https://github.com/spring-projects/spring-ai-examples/blob/main/model-context-protocol/weather/starter-stdio-server/src/main/java/org/springframework/ai/mcp/sample/server/WeatherService.java) that uses a REST client to query the data from the National Weather Service API:
+
+    ```java
+    @Service
+    public class WeatherService {
+
+    	private final RestClient restClient;
+
+    	public WeatherService() {
+    		this.restClient = RestClient.builder()
+    			.baseUrl("https://api.weather.gov")
+    			.defaultHeader("Accept", "application/geo+json")
+    			.defaultHeader("User-Agent", "WeatherApiClient/1.0 (your@email.com)")
+    			.build();
+    	}
+
+      @Tool(description = "Get weather forecast for a specific latitude/longitude")
+      public String getWeatherForecastByLocation(
+          double latitude,   // Latitude coordinate
+          double longitude   // Longitude coordinate
+      ) {
+          // Returns detailed forecast including:
+          // - Temperature and unit
+          // - Wind speed and direction
+          // - Detailed forecast description
+      }
+    	
+      @Tool(description = "Get weather alerts for a US state")
+      public String getAlerts(
+          @ToolParam(description = "Two-letter US state code (e.g. CA, NY") String state)
+      ) {
+          // Returns active alerts including:
+          // - Event type
+          // - Affected area
+          // - Severity
+          // - Description
+          // - Safety instructions
+      }
+
+      // ......
+    }
+    ```
+
+    The `@Service` annotation with auto-register the service in your applicaiton context.
+    The Spring AI `@Tool` annotation, making it easy to create and maintain MCP tools.
+
+    The auto-configuration will automatically register these tools with the MCP server.
+
+    ### Create your Boot Applicaiton
+
+    ```java
+    @SpringBootApplication
+    public class McpServerApplication {
+
+    	public static void main(String[] args) {
+    		SpringApplication.run(McpServerApplication.class, args);
+    	}
+
+    	@Bean
+    	public ToolCallbackProvider weatherTools(WeatherService weatherService) {
+    		return  MethodToolCallbackProvider.builder().toolObjects(weatherService).build();
+    	}
+    }
+    ```
+
+    Uses the the `MethodToolCallbackProvider` utils to convert the `@Tools` into actionalble callbackes used by the MCP server.
+
+    ### Running the server
+
+    Finally, let's build the server:
+
+    ```bash
+    ./mvnw clean install
+    ```
+
+    This will generate a `mcp-weather-stdio-server-0.0.1-SNAPSHOT.jar` file within the `target` folder.
+
+    Let's now test your server from an existing MCP host, Claude for Desktop.
+
+    ## Testing your server with Claude for Desktop
+
+    <Note>
+      Claude for Desktop is not yet available on Linux.
+    </Note>
+
+    First, make sure you have Claude for Desktop installed.
+    [You can install the latest version here.](https://claude.ai/download) If you already have Claude for Desktop, **make sure it's updated to the latest version.**
+
+    We'll need to configure Claude for Desktop for whichever MCP servers you want to use.
+    To do this, open your Claude for Desktop App configuration at `~/Library/Application Support/Claude/claude_desktop_config.json` in a text editor.
+    Make sure to create the file if it doesn't exist.
+
+    For example, if you have [VS Code](https://code.visualstudio.com/) installed:
+
+    <Tabs>
+      <Tab title="MacOS/Linux">
+        ```bash
+        code ~/Library/Application\ Support/Claude/claude_desktop_config.json
+        ```
+      </Tab>
+
+      <Tab title="Windows">
+        ```powershell
+        code $env:AppData\Claude\claude_desktop_config.json
+        ```
+      </Tab>
+    </Tabs>
+
+    You'll then add your servers in the `mcpServers` key.
+    The MCP UI elements will only show up in Claude for Desktop if at least one server is properly configured.
+
+    In this case, we'll add our single weather server like so:
+
+    <Tabs>
+      <Tab title="MacOS/Linux">
+        ```json java
+        {
+          "mcpServers": {
+            "spring-ai-mcp-weather": {
+              "command": "java",
+              "args": [
+                "-Dspring.ai.mcp.server.stdio=true",
+                "-jar",
+                "/ABSOLUTE/PATH/TO/PARENT/FOLDER/mcp-weather-stdio-server-0.0.1-SNAPSHOT.jar"
+              ]
+            }
+          }
+        }
+        ```
+      </Tab>
+
+      <Tab title="Windows">
+        ```json java
+        {
+          "mcpServers": {
+            "spring-ai-mcp-weather": {
+              "command": "java",
+              "args": [
+                "-Dspring.ai.mcp.server.transport=STDIO",
+                "-jar",
+                "C:\\ABSOLUTE\\PATH\\TO\\PARENT\\FOLDER\\weather\\mcp-weather-stdio-server-0.0.1-SNAPSHOT.jar"
+              ]
+            }
+          }
+        }
+        ```
+      </Tab>
+    </Tabs>
+
+    <Note>
+      Make sure you pass in the absolute path to your server.
+    </Note>
+
+    This tells Claude for Desktop:
+
+    1. There's an MCP server named "my-weather-server"
+    2. To launch it by running `java -jar /ABSOLUTE/PATH/TO/PARENT/FOLDER/mcp-weather-stdio-server-0.0.1-SNAPSHOT.jar`
+
+    Save the file, and restart **Claude for Desktop**.
+
+    ## Testing your server with Java client
+
+    ### Create a MCP Client manually
+
+    Use the `McpClient` to connect to the server:
+
+    ```java
+    var stdioParams = ServerParameters.builder("java")
+      .args("-jar", "/ABSOLUTE/PATH/TO/PARENT/FOLDER/mcp-weather-stdio-server-0.0.1-SNAPSHOT.jar")
+      .build();
+
+    var stdioTransport = new StdioClientTransport(stdioParams);
+
+    var mcpClient = McpClient.sync(stdioTransport).build();
+
+    mcpClient.initialize();
+
+    ListToolsResult toolsList = mcpClient.listTools();
+
+    CallToolResult weather = mcpClient.callTool(
+      new CallToolRequest("getWeatherForecastByLocation",
+          Map.of("latitude", "47.6062", "longitude", "-122.3321")));
+
+    CallToolResult alert = mcpClient.callTool(
+      new CallToolRequest("getAlerts", Map.of("state", "NY")));
+
+    mcpClient.closeGracefully();
+    ```
+
+    ### Use MCP Client Boot Starter
+
+    Create a new boot starter applicaiton using the `spring-ai-mcp-client-spring-boot-starter` dependency:
+
+    ```xml
+    <dependency>
+        <groupId>org.springframework.ai</groupId>
+        <artifactId>spring-ai-mcp-client-spring-boot-starter</artifactId>
+    </dependency>
+    ```
+
+    and set the `spring.ai.mcp.client.stdio.servers-configuration` property to point to your `claude_desktop_config.json`.
+    You can re-use the existing Anthropic Destop configuration:
+
+    ```properties
+    spring.ai.mcp.client.stdio.servers-configuration=file:PATH/TO/claude_desktop_config.json
+    ```
+
+    When you stasrt your client applicaiton, the auto-configuration will create, automatically MCP clients from the claude\_desktop\_config.json.
+
+    For more information, see the [MCP Client Boot Starters](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-client-docs.html) reference documentation.
+
+    ## More Java MCP Server examples
+
+    The [starter-webflux-server](https://github.com/spring-projects/spring-ai-examples/tree/main/model-context-protocol/weather/starter-webflux-server) demonstrates how to create a MCP server using SSE transport.
+    It showcases how to define and register MCP Tools, Resources, and Prompts, using the Spring Boot's auto-configuration capabilities.
   </Tab>
 </Tabs>
 
@@ -4458,8 +4892,8 @@ If your server isn't being picked up by Claude for Desktop, proceed to the [Trou
 
 If the hammer icon has shown up, you can now test your server by running the following commands in Claude for Desktop:
 
-*   What's the weather in Sacramento?
-*   What are the active weather alerts in Texas?
+* What's the weather in Sacramento?
+* What are the active weather alerts in Texas?
 
 <Frame>
   <img src="https://mintlify.s3.us-west-1.amazonaws.com/mcp/images/current-weather.png" />
@@ -4477,12 +4911,12 @@ If the hammer icon has shown up, you can now test your server by running the fol
 
 When you ask a question:
 
-1.  The client sends your question to Claude
-2.  Claude analyzes the available tools and decides which one(s) to use
-3.  The client executes the chosen tool(s) through the MCP server
-4.  The results are sent back to Claude
-5.  Claude formulates a natural language response
-6.  The response is displayed to you!
+1. The client sends your question to Claude
+2. Claude analyzes the available tools and decides which one(s) to use
+3. The client executes the chosen tool(s) through the MCP server
+4. The results are sent back to Claude
+5. Claude formulates a natural language response
+6. The response is displayed to you!
 
 ## Troubleshooting
 
@@ -4492,8 +4926,8 @@ When you ask a question:
 
     Claude.app logging related to MCP is written to log files in `~/Library/Logs/Claude`:
 
-    *   `mcp.log` will contain general logging about MCP connections and connection failures.
-    *   Files named `mcp-server-SERVERNAME.log` will contain error (stderr) logging from the named server.
+    * `mcp.log` will contain general logging about MCP connections and connection failures.
+    * Files named `mcp-server-SERVERNAME.log` will contain error (stderr) logging from the named server.
 
     You can run the following command to list recent logs and follow along with any new ones:
 
@@ -4504,17 +4938,17 @@ When you ask a question:
 
     **Server not showing up in Claude**
 
-    1.  Check your `claude_desktop_config.json` file syntax
-    2.  Make sure the path to your project is absolute and not relative
-    3.  Restart Claude for Desktop completely
+    1. Check your `claude_desktop_config.json` file syntax
+    2. Make sure the path to your project is absolute and not relative
+    3. Restart Claude for Desktop completely
 
     **Tool calls failing silently**
 
     If Claude attempts to use the tools but they fail:
 
-    1.  Check Claude's logs for errors
-    2.  Verify your server builds and runs without errors
-    3.  Try restarting Claude for Desktop
+    1. Check Claude's logs for errors
+    2. Verify your server builds and runs without errors
+    3. Try restarting Claude for Desktop
 
     **None of this is working. What do I do?**
 
@@ -4526,15 +4960,15 @@ When you ask a question:
 
     This usually means either:
 
-    1.  The coordinates are outside the US
-    2.  The NWS API is having issues
-    3.  You're being rate limited
+    1. The coordinates are outside the US
+    2. The NWS API is having issues
+    3. You're being rate limited
 
     Fix:
 
-    *   Verify you're using US coordinates
-    *   Add a small delay between requests
-    *   Check the NWS API status page
+    * Verify you're using US coordinates
+    * Add a small delay between requests
+    * Check the NWS API status page
 
     **Error: No active alerts for \[STATE]**
 
@@ -4568,6 +5002,7 @@ When you ask a question:
 
 
 # For Claude Desktop Users
+Source: https://modelcontextprotocol.io/quickstart/user
 
 Get started using pre-built servers in Claude for Desktop.
 
@@ -4611,8 +5046,8 @@ Click on "Developer" in the lefthand bar of the Settings pane, and then click on
 
 This will create a configuration file at:
 
-*   macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-*   Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+* macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+* Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 if you don't already have one, and will display the file in your file system.
 
@@ -4660,8 +5095,8 @@ Make sure to replace `username` with your computer's username. The paths should 
 
 You will also need [Node.js](https://nodejs.org) on your computer for this to run properly. To verify you have Node installed, open the command line on your computer.
 
-*   On macOS, open the Terminal from your Applications folder
-*   On Windows, press Windows + R, type "cmd", and press Enter
+* On macOS, open the Terminal from your Applications folder
+* On Windows, press Windows + R, type "cmd", and press Enter
 
 Once in the command line, verify you have Node installed by entering in the following command:
 
@@ -4674,7 +5109,7 @@ If you get an error saying "command not found" or "node is not recognized", down
 <Tip>
   **How does the configuration file work?**
 
-  This configuration file tells Claude for Dekstop which MCP servers to start up every time you start the application. In this case, we have added one server called "filesystem" that will use the Node `npx` command to install and run `@modelcontextprotocol/server-filesystem`. This server, described [here](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem), will let you access your file system in Claude for Desktop.
+  This configuration file tells Claude for Desktop which MCP servers to start up every time you start the application. In this case, we have added one server called "filesystem" that will use the Node `npx` command to install and run `@modelcontextprotocol/server-filesystem`. This server, described [here](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem), will let you access your file system in Claude for Desktop.
 </Tip>
 
 <Warning>
@@ -4707,9 +5142,9 @@ You can now talk to Claude and ask it about your filesystem. It should know when
 
 Things you might try asking Claude:
 
-*   Can you write a poem and save it to my desktop?
-*   What are some work-related files in my downloads folder?
-*   Can you take all the images on my desktop and move them to a new folder called "Images"?
+* Can you write a poem and save it to my desktop?
+* What are some work-related files in my downloads folder?
+* Can you take all the images on my desktop and move them to a new folder called "Images"?
 
 As needed, Claude will call the relevant tools and seek your approval before taking an action:
 
@@ -4721,11 +5156,11 @@ As needed, Claude will call the relevant tools and seek your approval before tak
 
 <AccordionGroup>
   <Accordion title="Server not showing up in Claude / hammer icon missing">
-    1.  Restart Claude for Desktop completely
-    2.  Check your `claude_desktop_config.json` file syntax
-    3.  Make sure the file paths included in `claude_desktop_config.json` are valid and that they are absolute and not relative
-    4.  Look at [logs](#getting-logs-from-claude-for-desktop) to see why the server is not connecting
-    5.  In your command line, try manually running the server (replacing `username` as you did in `claude_desktop_config.json`) to see if you get any errors:
+    1. Restart Claude for Desktop completely
+    2. Check your `claude_desktop_config.json` file syntax
+    3. Make sure the file paths included in `claude_desktop_config.json` are valid and that they are absolute and not relative
+    4. Look at [logs](#getting-logs-from-claude-for-desktop) to see why the server is not connecting
+    5. In your command line, try manually running the server (replacing `username` as you did in `claude_desktop_config.json`) to see if you get any errors:
 
     <Tabs>
       <Tab title="MacOS/Linux">
@@ -4745,13 +5180,13 @@ As needed, Claude will call the relevant tools and seek your approval before tak
   <Accordion title="Getting logs from Claude for Desktop">
     Claude.app logging related to MCP is written to log files in:
 
-    *   macOS: `~/Library/Logs/Claude`
+    * macOS: `~/Library/Logs/Claude`
 
-    *   Windows: `%APPDATA%\Claude\logs`
+    * Windows: `%APPDATA%\Claude\logs`
 
-    *   `mcp.log` will contain general logging about MCP connections and connection failures.
+    * `mcp.log` will contain general logging about MCP connections and connection failures.
 
-    *   Files named `mcp-server-SERVERNAME.log` will contain error (stderr) logging from the named server.
+    * Files named `mcp-server-SERVERNAME.log` will contain error (stderr) logging from the named server.
 
     You can run the following command to list recent logs and follow along with any new ones (on Windows, it will only show recent logs):
 
@@ -4774,9 +5209,9 @@ As needed, Claude will call the relevant tools and seek your approval before tak
   <Accordion title="Tool calls failing silently">
     If Claude attempts to use the tools but they fail:
 
-    1.  Check Claude's logs for errors
-    2.  Verify your server builds and runs without errors
-    3.  Try restarting Claude for Desktop
+    1. Check Claude's logs for errors
+    2. Verify your server builds and runs without errors
+    3. Try restarting Claude for Desktop
   </Accordion>
 
   <Accordion title="None of this is working. What do I do?">
@@ -4826,488 +5261,876 @@ As needed, Claude will call the relevant tools and seek your approval before tak
 </CardGroup>
 
 
-# null
+# MCP Client
+Source: https://modelcontextprotocol.io/sdk/java/mcp-client
+
+Learn how to use the Model Context Protocol (MCP) client to interact with MCP servers
+
+# Model Context Protocol Client
+
+The MCP Client is a key component in the Model Context Protocol (MCP) architecture, responsible for establishing and managing connections with MCP servers. It implements the client-side of the protocol, handling:
+
+* Protocol version negotiation to ensure compatibility with servers
+* Capability negotiation to determine available features
+* Message transport and JSON-RPC communication
+* Tool discovery and execution
+* Resource access and management
+* Prompt system interactions
+* Optional features like roots management and sampling support
+
+The client provides both synchronous and asynchronous APIs for flexibility in different application contexts.
+
+<Tabs>
+  <Tab title="Sync API">
+    ```java
+    // Create a sync client with custom configuration
+    McpSyncClient client = McpClient.sync(transport)
+        .requestTimeout(Duration.ofSeconds(10))
+        .capabilities(ClientCapabilities.builder()
+            .roots(true)      // Enable roots capability
+            .sampling()       // Enable sampling capability
+            .build())
+        .sampling(request -> new CreateMessageResult(response))
+        .build();
+
+    // Initialize connection
+    client.initialize();
+
+    // List available tools
+    ListToolsResult tools = client.listTools();
+
+    // Call a tool
+    CallToolResult result = client.callTool(
+        new CallToolRequest("calculator", 
+            Map.of("operation", "add", "a", 2, "b", 3))
+    );
+
+    // List and read resources
+    ListResourcesResult resources = client.listResources();
+    ReadResourceResult resource = client.readResource(
+        new ReadResourceRequest("resource://uri")
+    );
+
+    // List and use prompts
+    ListPromptsResult prompts = client.listPrompts();
+    GetPromptResult prompt = client.getPrompt(
+        new GetPromptRequest("greeting", Map.of("name", "Spring"))
+    );
+
+    // Add/remove roots
+    client.addRoot(new Root("file:///path", "description"));
+    client.removeRoot("file:///path");
+
+    // Close client
+    client.closeGracefully();
+    ```
+  </Tab>
+
+  <Tab title="Async API">
+    ```java
+    // Create an async client with custom configuration
+    McpAsyncClient client = McpClient.async(transport)
+        .requestTimeout(Duration.ofSeconds(10))
+        .capabilities(ClientCapabilities.builder()
+            .roots(true)      // Enable roots capability
+            .sampling()       // Enable sampling capability
+            .build())
+        .sampling(request -> Mono.just(new CreateMessageResult(response)))
+        .toolsChangeConsumer(tools -> Mono.fromRunnable(() -> {
+            logger.info("Tools updated: {}", tools);
+        }))
+        .resourcesChangeConsumer(resources -> Mono.fromRunnable(() -> {
+            logger.info("Resources updated: {}", resources);
+        }))
+        .promptsChangeConsumer(prompts -> Mono.fromRunnable(() -> {
+            logger.info("Prompts updated: {}", prompts);
+        }))
+        .build();
+
+    // Initialize connection and use features
+    client.initialize()
+        .flatMap(initResult -> client.listTools())
+        .flatMap(tools -> {
+            return client.callTool(new CallToolRequest(
+                "calculator", 
+                Map.of("operation", "add", "a", 2, "b", 3)
+            ));
+        })
+        .flatMap(result -> {
+            return client.listResources()
+                .flatMap(resources -> 
+                    client.readResource(new ReadResourceRequest("resource://uri"))
+                );
+        })
+        .flatMap(resource -> {
+            return client.listPrompts()
+                .flatMap(prompts ->
+                    client.getPrompt(new GetPromptRequest(
+                        "greeting", 
+                        Map.of("name", "Spring")
+                    ))
+                );
+        })
+        .flatMap(prompt -> {
+            return client.addRoot(new Root("file:///path", "description"))
+                .then(client.removeRoot("file:///path"));            
+        })
+        .doFinally(signalType -> {
+            client.closeGracefully().subscribe();
+        })
+        .subscribe();
+    ```
+  </Tab>
+</Tabs>
+
+## Client Transport
+
+The transport layer handles the communication between MCP clients and servers, providing different implementations for various use cases. The client transport manages message serialization, connection establishment, and protocol-specific communication patterns.
+
+<Tabs>
+  <Tab title="STDIO">
+    Creates transport for in-process based communication
+
+    ```java
+    ServerParameters params = ServerParameters.builder("npx")
+        .args("-y", "@modelcontextprotocol/server-everything", "dir")
+        .build();
+    McpTransport transport = new StdioClientTransport(params);
+    ```
+  </Tab>
+
+  <Tab title="SSE (HttpClient)">
+    Creates a framework agnostic (pure Java API) SSE client transport. Included in the core mcp module.
+
+    ```java
+    McpTransport transport = new HttpClientSseClientTransport("http://your-mcp-server");
+    ```
+  </Tab>
+
+  <Tab title="SSE (WebFlux)">
+    Creates WebFlux-based SSE client transport. Requires the mcp-webflux-sse-transport dependency.
+
+    ```java
+    WebClient.Builder webClientBuilder = WebClient.builder()
+        .baseUrl("http://your-mcp-server");
+    McpTransport transport = new WebFluxSseClientTransport(webClientBuilder);
+    ```
+  </Tab>
+</Tabs>
+
+## Client Capabilities
+
+The client can be configured with various capabilities:
+
+```java
+var capabilities = ClientCapabilities.builder()
+    .roots(true)      // Enable filesystem roots support with list changes notifications
+    .sampling()       // Enable LLM sampling support
+    .build();
+```
+
+### Roots Support
+
+Roots define the boundaries of where servers can operate within the filesystem:
+
+```java
+// Add a root dynamically
+client.addRoot(new Root("file:///path", "description"));
+
+// Remove a root
+client.removeRoot("file:///path");
+
+// Notify server of roots changes
+client.rootsListChangedNotification();
+```
+
+The roots capability allows servers to:
+
+* Request the list of accessible filesystem roots
+* Receive notifications when the roots list changes
+* Understand which directories and files they have access to
+
+### Sampling Support
+
+Sampling enables servers to request LLM interactions ("completions" or "generations") through the client:
+
+```java
+// Configure sampling handler
+Function<CreateMessageRequest, CreateMessageResult> samplingHandler = request -> {
+    // Sampling implementation that interfaces with LLM
+    return new CreateMessageResult(response);
+};
+
+// Create client with sampling support
+var client = McpClient.sync(transport)
+    .capabilities(ClientCapabilities.builder()
+        .sampling()
+        .build())
+    .sampling(samplingHandler)
+    .build();
+```
+
+This capability allows:
+
+* Servers to leverage AI capabilities without requiring API keys
+* Clients to maintain control over model access and permissions
+* Support for both text and image-based interactions
+* Optional inclusion of MCP server context in prompts
+
+## Using MCP Clients
+
+### Tool Execution
+
+Tools are server-side functions that clients can discover and execute. The MCP client provides methods to list available tools and execute them with specific parameters. Each tool has a unique name and accepts a map of parameters.
+
+<Tabs>
+  <Tab title="Sync API">
+    ```java
+    // List available tools and their names
+    var tools = client.listTools();
+    tools.forEach(tool -> System.out.println(tool.getName()));
+
+    // Execute a tool with parameters
+    var result = client.callTool("calculator", Map.of(
+        "operation", "add",
+        "a", 1,
+        "b", 2
+    ));
+    ```
+  </Tab>
+
+  <Tab title="Async API">
+    ```java
+    // List available tools asynchronously
+    client.listTools()
+        .doOnNext(tools -> tools.forEach(tool -> 
+            System.out.println(tool.getName())))
+        .subscribe();
+
+    // Execute a tool asynchronously
+    client.callTool("calculator", Map.of(
+            "operation", "add",
+            "a", 1,
+            "b", 2
+        ))
+        .subscribe();
+    ```
+  </Tab>
+</Tabs>
+
+### Resource Access
+
+Resources represent server-side data sources that clients can access using URI templates. The MCP client provides methods to discover available resources and retrieve their contents through a standardized interface.
+
+<Tabs>
+  <Tab title="Sync API">
+    ```java
+    // List available resources and their names
+    var resources = client.listResources();
+    resources.forEach(resource -> System.out.println(resource.getName()));
+
+    // Retrieve resource content using a URI template
+    var content = client.getResource("file", Map.of(
+        "path", "/path/to/file.txt"
+    ));
+    ```
+  </Tab>
+
+  <Tab title="Async API">
+    ```java
+    // List available resources asynchronously
+    client.listResources()
+        .doOnNext(resources -> resources.forEach(resource -> 
+            System.out.println(resource.getName())))
+        .subscribe();
+
+    // Retrieve resource content asynchronously
+    client.getResource("file", Map.of(
+            "path", "/path/to/file.txt"
+        ))
+        .subscribe();
+    ```
+  </Tab>
+</Tabs>
+
+### Prompt System
+
+The prompt system enables interaction with server-side prompt templates. These templates can be discovered and executed with custom parameters, allowing for dynamic text generation based on predefined patterns.
+
+<Tabs>
+  <Tab title="Sync API">
+    ```java
+    // List available prompt templates
+    var prompts = client.listPrompts();
+    prompts.forEach(prompt -> System.out.println(prompt.getName()));
+
+    // Execute a prompt template with parameters
+    var response = client.executePrompt("echo", Map.of(
+        "text", "Hello, World!"
+    ));
+    ```
+  </Tab>
+
+  <Tab title="Async API">
+    ```java
+    // List available prompt templates asynchronously
+    client.listPrompts()
+        .doOnNext(prompts -> prompts.forEach(prompt -> 
+            System.out.println(prompt.getName())))
+        .subscribe();
+
+    // Execute a prompt template asynchronously
+    client.executePrompt("echo", Map.of(
+            "text", "Hello, World!"
+        ))
+        .subscribe();
+    ```
+  </Tab>
+</Tabs>
 
 
+# Overview
+Source: https://modelcontextprotocol.io/sdk/java/mcp-overview
 
-<Tab title="Node">
-  ## System Requirements
+Introduction to the Model Context Protocol (MCP) Java SDK
 
-  Before starting, ensure your system meets these requirements:
+Java SDK for the [Model Context Protocol](https://modelcontextprotocol.org/docs/concepts/architecture)
+enables standardized integration between AI models and tools.
 
-  *   Mac or Windows computer
-  *   Node.js version 16 or higher installed
-  *   npm (comes with Node.js)
+## Features
 
-  ## Setting Up Your Environment
+* MCP Client and MCP Server implementations supporting:
+  * Protocol [version compatibility negotiation](https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/lifecycle/#initialization)
+  * [Tool](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/tools/) discovery, execution, list change notifications
+  * [Resource](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/resources/) management with URI templates
+  * [Roots](https://spec.modelcontextprotocol.io/specification/2024-11-05/client/roots/) list management and notifications
+  * [Prompt](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/prompts/) handling and management
+  * [Sampling](https://spec.modelcontextprotocol.io/specification/2024-11-05/client/sampling/) support for AI model interactions
+* Multiple transport implementations:
+  * Default transports:
+    * Stdio-based transport for process-based communication
+    * Java HttpClient-based SSE client transport for HTTP SSE Client-side streaming
+    * Servlet-based SSE server transport for HTTP SSE Server streaming
+  * Spring-based transports:
+    * WebFlux SSE client and server transports for reactive HTTP streaming
+    * WebMVC SSE transport for servlet-based HTTP streaming
+* Supports Synchronous and Asynchronous programming paradigms
 
-  First, create a new Node.js project:
+## Architecture
 
-  ```bash
-  # Create project directory
-  mkdir mcp-client
-  cd mcp-client
+The SDK follows a layered architecture with clear separation of concerns:
 
-  # Initialize npm project
-  npm init -y
+![MCP Stack Architecture](https://mintlify.s3.us-west-1.amazonaws.com/mcp/images/java/mcp-stack.svg)
 
-  # Install dependencies
-  npm install @modelcontextprotocol/sdk @anthropic-ai/sdk dotenv
-  npm install -D typescript @types/node
+* **Client/Server Layer (McpClient/McpServer)**: Both use McpSession for sync/async operations,
+  with McpClient handling client-side protocol operations and McpServer managing server-side protocol operations.
+* **Session Layer (McpSession)**: Manages communication patterns and state using DefaultMcpSession implementation.
+* **Transport Layer (McpTransport)**: Handles JSON-RPC message serialization/deserialization via:
+  * StdioTransport (stdin/stdout) in the core module
+  * HTTP SSE transports in dedicated transport modules (Java HttpClient, Spring WebFlux, Spring WebMVC)
 
-  # Create TypeScript config
-  npx tsc --init
+The MCP Client is a key component in the Model Context Protocol (MCP) architecture, responsible for establishing and managing connections with MCP servers.
+It implements the client-side of the protocol.
 
-  # Create necessary files
-  mkdir src
-  touch src/client.ts
-  touch .env
-  ```
+![Java MCP Client Architecture](https://mintlify.s3.us-west-1.amazonaws.com/mcp/images/java/java-mcp-client-architecture.jpg)
 
-  Update your `package.json` to add necessary configuration:
+The MCP Server is a foundational component in the Model Context Protocol (MCP) architecture that provides tools, resources, and capabilities to clients.
+It implements the server-side of the protocol.
 
-  ```json
-  {
-    "type": "module",
-    "scripts": {
-      "build": "tsc",
-      "start": "node build/client.js"
+![Java MCP Server Architecture](https://mintlify.s3.us-west-1.amazonaws.com/mcp/images/java/java-mcp-server-architecture.jpg)
+
+Key Interactions:
+
+* **Client/Server Initialization**: Transport setup, protocol compatibility check, capability negotiation, and implementation details exchange.
+* **Message Flow**: JSON-RPC message handling with validation, type-safe response processing, and error handling.
+* **Resource Management**: Resource discovery, URI template-based access, subscription system, and content retrieval.
+
+## Dependencies
+
+Add the following Maven dependency to your project:
+
+<Tabs>
+  <Tab title="Maven">
+    The core MCP functionality:
+
+    ```xml
+    <dependency>
+        <groupId>io.modelcontextprotocol.sdk</groupId>
+        <artifactId>mcp</artifactId>
+    </dependency>
+    ```
+
+    For HTTP SSE transport implementations, add one of the following dependencies:
+
+    ```xml
+    <!-- Spring WebFlux-based SSE client and server transport -->
+    <dependency>
+        <groupId>io.modelcontextprotocol.sdk</groupId>
+        <artifactId>mcp-spring-webflux</artifactId>
+    </dependency>
+
+    <!-- Spring WebMVC-based SSE server transport -->
+    <dependency>
+        <groupId>io.modelcontextprotocol.sdk</groupId>
+        <artifactId>mcp-spring-webmvc</artifactId>
+    </dependency>
+    ```
+  </Tab>
+
+  <Tab title="Gradle">
+    The core MCP functionality:
+
+    ```groovy
+    dependencies {
+      implementation platform("io.modelcontextprotocol.sdk:mcp")
+      //...
     }
-  }
-  ```
+    ```
 
-  Update your `tsconfig.json` with appropriate settings:
+    For HTTP SSE transport implementations, add one of the following dependencies:
 
-  ```json
-  {
-    "compilerOptions": {
-      "target": "ES2022",
-      "module": "Node16",
-      "moduleResolution": "Node16",
-      "outDir": "./build",
-      "rootDir": "./src",
-      "strict": true,
-      "esModuleInterop": true,
-      "skipLibCheck": true,
-      "forceConsistentCasingInFileNames": true
-    },
-    "include": ["src/**/*"]
-  }
-  ```
-
-  ## Setting Up Your API Key
-
-  You'll need an Anthropic API key from the [Anthropic Console](https://console.anthropic.com/settings/keys).
-
-  Create a `.env` file:
-
-  ```bash
-  ANTHROPIC_API_KEY=your_key_here
-  ```
-
-  Add `.env` to your `.gitignore`:
-
-  ```bash
-  echo ".env" >> .gitignore
-  ```
-
-  ## Creating the Client
-
-  First, let's set up our imports and create the basic client class in `src/client.ts`:
-
-  ```typescript
-  import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-  import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-  import Anthropic from "@anthropic-ai/sdk";
-  import dotenv from "dotenv";
-  import {
-    CallToolResultSchema,
-    ListToolsResultSchema,
-  } from "@modelcontextprotocol/sdk/types.js";
-  import * as readline from "node:readline";
-
-  dotenv.config();
-
-  interface MCPClientConfig {
-    name?: string;
-    version?: string;
-  }
-
-  class MCPClient {
-    private client: Client | null = null;
-    private anthropic: Anthropic;
-    private transport: StdioClientTransport | null = null;
-
-    constructor(config: MCPClientConfig = {}) {
-      this.anthropic = new Anthropic();
+    ```groovy
+    // Spring WebFlux-based SSE client and server transport
+    dependencies {
+      implementation platform("io.modelcontextprotocol.sdk:mcp-spring-webflux")
     }
 
-    // Methods will go here
-  }
-  ```
-
-  ## Server Connection Management
-
-  Next, implement the method to connect to an MCP server:
-
-  ```typescript
-    async connectToServer(serverScriptPath: string): Promise<void> {
-      const isPython = serverScriptPath.endsWith(".py");
-      const isJs = serverScriptPath.endsWith(".js");
-
-      if (!isPython && !isJs) {
-        throw new Error("Server script must be a .py or .js file");
-      }
-
-      const command = isPython ? "python" : "node";
-
-      this.transport = new StdioClientTransport({
-        command,
-        args: [serverScriptPath],
-      });
-
-      this.client = new Client(
-        {
-          name: "mcp-client",
-          version: "1.0.0",
-        },
-        {
-          capabilities: {},
-        }
-      );
-
-      await this.client.connect(this.transport);
-
-      // List available tools
-      const response = await this.client.request(
-        { method: "tools/list" },
-        ListToolsResultSchema
-      );
-
-      console.log(
-        "\nConnected to server with tools:",
-        response.tools.map((tool: any) => tool.name)
-      );
+    // Spring WebMVC-based SSE server transport
+    dependencies {
+      implementation platform("io.modelcontextprotocol.sdk:mcp-spring-webmvc")
     }
-  ```
+    ```
+  </Tab>
+</Tabs>
 
-  ## Query Processing Logic
+### Bill of Materials (BOM)
 
-  Now add the core functionality for processing queries and handling tool calls:
+The Bill of Materials (BOM) declares the recommended versions of all the dependencies used by a given release.
+Using the BOM from your application's build script avoids the need for you to specify and maintain the dependency versions yourself.
+Instead, the version of the BOM you're using determines the utilized dependency versions.
+It also ensures that you're using supported and tested versions of the dependencies by default, unless you choose to override them.
 
-  ```typescript
-    async processQuery(query: string): Promise<string> {
-      if (!this.client) {
-        throw new Error("Client not connected");
-      }
+Add the BOM to your project:
 
-      // Initialize messages array with user query
-      let messages: Anthropic.MessageParam[] = [
-        {
-          role: "user",
-          content: query,
-        },
-      ];
+<Tabs>
+  <Tab title="Maven">
+    ```xml
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.modelcontextprotocol.sdk</groupId>
+                <artifactId>mcp-bom</artifactId>
+                <version>0.7.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    ```
+  </Tab>
 
-      // Get available tools
-      const toolsResponse = await this.client.request(
-        { method: "tools/list" },
-        ListToolsResultSchema
-      );
+  <Tab title="Gradle">
+    ```groovy
+    dependencies {
+      implementation platform("io.modelcontextprotocol.sdk:mcp-bom:0.7.0")
+      //...
+    }
+    ```
 
-      const availableTools = toolsResponse.tools.map((tool: any) => ({
-        name: tool.name,
-        description: tool.description,
-        input_schema: tool.inputSchema,
-      }));
+    Gradle users can also use the Spring AI MCP BOM by leveraging Gradle (5.0+) native support for declaring dependency constraints using a Maven BOM.
+    This is implemented by adding a 'platform' dependency handler method to the dependencies section of your Gradle build script.
+    As shown in the snippet above this can then be followed by version-less declarations of the Starter Dependencies for the one or more spring-ai modules you wish to use, e.g. spring-ai-openai.
+  </Tab>
+</Tabs>
 
-      const finalText: string[] = [];
-      let currentResponse = await this.anthropic.messages.create({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 1000,
-        messages,
-        tools: availableTools,
-      });
+Replace the version number with the version of the BOM you want to use.
 
-      // Process the response and any tool calls
-      while (true) {
-        // Add Claude's response to final text and messages
-        for (const content of currentResponse.content) {
-          if (content.type === "text") {
-            finalText.push(content.text);
-          } else if (content.type === "tool_use") {
-            const toolName = content.name;
-            const toolArgs = content.input;
+### Available Dependencies
 
-            // Execute tool call
-            const result = await this.client.request(
-              {
-                method: "tools/call",
-                params: {
-                  name: toolName,
-                  arguments: toolArgs,
-                },
-              },
-              CallToolResultSchema
-            );
+The following dependencies are available and managed by the BOM:
 
-            finalText.push(
-              `[Calling tool ${toolName} with args ${JSON.stringify(toolArgs)}]`
-            );
+* Core Dependencies
+  * `io.modelcontextprotocol.sdk:mcp` - Core MCP library providing the base functionality and APIs for Model Context Protocol implementation.
+* Transport Dependencies
+  * `io.modelcontextprotocol.sdk:mcp-spring-webflux` - WebFlux-based Server-Sent Events (SSE) transport implementation for reactive applications.
+  * `io.modelcontextprotocol.sdk:mcp-spring-webmvc` - WebMVC-based Server-Sent Events (SSE) transport implementation for servlet-based applications.
+* Testing Dependencies
+  * `io.modelcontextprotocol.sdk:mcp-test` - Testing utilities and support for MCP-based applications.
 
-            // Add Claude's response (including tool use) to messages
-            messages.push({
-              role: "assistant",
-              content: currentResponse.content,
-            });
 
-            // Add tool result to messages
-            messages.push({
-              role: "user",
-              content: [
-                {
-                  type: "tool_result",
-                  tool_use_id: content.id,
-                  content: [
-                    { type: "text", text: JSON.stringify(result.content) },
-                  ],
-                },
-              ],
-            });
+# MCP Server
+Source: https://modelcontextprotocol.io/sdk/java/mcp-server
 
-            // Get next response from Claude with tool results
-            currentResponse = await this.anthropic.messages.create({
-              model: "claude-3-5-sonnet-20241022",
-              max_tokens: 1000,
-              messages,
-              tools: availableTools,
-            });
+Learn how to implement and configure a Model Context Protocol (MCP) server
 
-            // Add Claude's interpretation of the tool results to final text
-            if (currentResponse.content[0]?.type === "text") {
-              finalText.push(currentResponse.content[0].text);
-            }
+## Overview
 
-            // Continue the loop to process any additional tool calls
-            continue;
+The MCP Server is a foundational component in the Model Context Protocol (MCP) architecture that provides tools, resources, and capabilities to clients. It implements the server-side of the protocol, responsible for:
+
+* Exposing tools that clients can discover and execute
+* Managing resources with URI-based access patterns
+* Providing prompt templates and handling prompt requests
+* Supporting capability negotiation with clients
+* Implementing server-side protocol operations
+* Managing concurrent client connections
+* Providing structured logging and notifications
+
+The server supports both synchronous and asynchronous APIs, allowing for flexible integration in different application contexts.
+
+<Tabs>
+  <Tab title="Sync API">
+    ```java
+    // Create a server with custom configuration
+    McpSyncServer syncServer = McpServer.sync(transport)
+        .serverInfo("my-server", "1.0.0")
+        .capabilities(ServerCapabilities.builder()
+            .resources(true)     // Enable resource support
+            .tools(true)         // Enable tool support
+            .prompts(true)       // Enable prompt support
+            .logging()           // Enable logging support
+            .build())
+        .build();
+
+    // Initialize the server
+    syncServer.initialize();
+
+    // Register tools, resources, and prompts
+    syncServer.addTool(syncToolRegistration);
+    syncServer.addResource(syncResourceRegistration);
+    syncServer.addPrompt(syncPromptRegistration);
+
+    // Send logging notifications
+    syncServer.loggingNotification(LoggingMessageNotification.builder()
+        .level(LoggingLevel.INFO)
+        .logger("custom-logger")
+        .data("Server initialized")
+        .build());
+
+    // Close the server when done
+    syncServer.close();
+    ```
+  </Tab>
+
+  <Tab title="Async API">
+    ```java
+    // Create an async server with custom configuration
+    McpAsyncServer asyncServer = McpServer.async(transport)
+        .serverInfo("my-server", "1.0.0")
+        .capabilities(ServerCapabilities.builder()
+            .resources(true)     // Enable resource support
+            .tools(true)         // Enable tool support
+            .prompts(true)       // Enable prompt support
+            .logging()           // Enable logging support
+            .build())
+        .build();
+
+    // Initialize the server
+    asyncServer.initialize()
+        .doOnSuccess(v -> logger.info("Server initialized"))
+        .subscribe();
+
+    // Register tools, resources, and prompts
+    asyncServer.addTool(asyncToolRegistration)
+        .doOnSuccess(v -> logger.info("Tool registered"))
+        .subscribe();
+
+    asyncServer.addResource(asyncResourceRegistration)
+        .doOnSuccess(v -> logger.info("Resource registered"))
+        .subscribe();
+
+    asyncServer.addPrompt(asyncPromptRegistration)
+        .doOnSuccess(v -> logger.info("Prompt registered"))
+        .subscribe();
+
+    // Send logging notifications
+    asyncServer.loggingNotification(LoggingMessageNotification.builder()
+        .level(LoggingLevel.INFO)
+        .logger("custom-logger")
+        .data("Server initialized")
+        .build());
+
+    // Close the server when done
+    asyncServer.close()
+        .doOnSuccess(v -> logger.info("Server closed"))
+        .subscribe();
+    ```
+  </Tab>
+</Tabs>
+
+## Server Transport
+
+The transport layer in the MCP SDK is responsible for handling the communication between clients and servers. It provides different implementations to support various communication protocols and patterns. The SDK includes several built-in transport implementations:
+
+<Tabs>
+  <Tab title="STDIO">
+    <>
+      Create in-process based transport:
+
+      ```java
+      StdioServerTransport transport = new StdioServerTransport(new ObjectMapper());
+      ```
+
+      Provides bidirectional JSON-RPC message handling over standard input/output streams with non-blocking message processing, serialization/deserialization, and graceful shutdown support.
+
+      Key features:
+
+      <ul>
+        <li>Bidirectional communication through stdin/stdout</li>
+        <li>Process-based integration support</li>
+        <li>Simple setup and configuration</li>
+        <li>Lightweight implementation</li>
+      </ul>
+    </>
+  </Tab>
+
+  <Tab title="SSE (WebFlux)">
+    <>
+      <p>Creates WebFlux-based SSE server transport.<br />Requires the <code>mcp-spring-webflux</code> dependency.</p>
+
+      ```java
+      @Configuration
+      class McpConfig {
+          @Bean
+          WebFluxSseServerTransport webFluxSseServerTransport(ObjectMapper mapper) {
+              return new WebFluxSseServerTransport(mapper, "/mcp/message");
           }
-        }
 
-        // If we reach here, there were no tool calls in the response
-        break;
-      }
-
-      return finalText.join("\n");
-    }
-
-  ```
-
-  ## Interactive Chat Interface
-
-  Add the chat loop and cleanup functionality:
-
-  ```typescript
-    async chatLoop(): Promise<void> {
-      console.log("\nMCP Client Started!");
-      console.log("Type your queries or 'quit' to exit.");
-
-      // Using Node's readline for console input
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
-
-      const askQuestion = () => {
-        rl.question("\nQuery: ", async (query: string) => {
-          try {
-            if (query.toLowerCase() === "quit") {
-              await this.cleanup();
-              rl.close();
-              return;
-            }
-
-            const response = await this.processQuery(query);
-            console.log("\n" + response);
-            askQuestion();
-          } catch (error) {
-            console.error("\nError:", error);
-            askQuestion();
+          @Bean
+          RouterFunction<?> mcpRouterFunction(WebFluxSseServerTransport transport) {
+              return transport.getRouterFunction();
           }
-        });
-      };
-
-      askQuestion();
-    }
-
-    async cleanup(): Promise<void> {
-      if (this.transport) {
-        await this.transport.close();
       }
-    }
-  ```
+      ```
 
-  ## Main Entry Point
+      <p>Implements the MCP HTTP with SSE transport specification, providing:</p>
 
-  Finally, add the main execution logic outside the class:
+      <ul>
+        <li>Reactive HTTP streaming with WebFlux</li>
+        <li>Concurrent client connections through SSE endpoints</li>
+        <li>Message routing and session management</li>
+        <li>Graceful shutdown capabilities</li>
+      </ul>
+    </>
+  </Tab>
 
-  ```typescript
-  // Main execution
-  async function main() {
-    if (process.argv.length < 3) {
-      console.log("Usage: ts-node client.ts <path_to_server_script>");
-      process.exit(1);
-    }
+  <Tab title="SSE (WebMvc)">
+    <>
+      <p>Creates WebMvc-based SSE server transport.<br />Requires the <code>mcp-spring-webmvc</code> dependency.</p>
 
-    const client = new MCPClient();
-    try {
-      await client.connectToServer(process.argv[2]);
-      await client.chatLoop();
-    } catch (error) {
-      console.error("Error:", error);
-      await client.cleanup();
-      process.exit(1);
-    }
-  }
+      ```java
+      @Configuration
+      @EnableWebMvc
+      class McpConfig {
+          @Bean
+          WebMvcSseServerTransport webMvcSseServerTransport(ObjectMapper mapper) {
+              return new WebMvcSseServerTransport(mapper, "/mcp/message");
+          }
 
-  // Run main if this is the main module
-  if (import.meta.url === new URL(process.argv[1], "file:").href) {
-    main();
-  }
+          @Bean
+          RouterFunction<ServerResponse> mcpRouterFunction(WebMvcSseServerTransport transport) {
+              return transport.getRouterFunction();
+          }
+      }
+      ```
 
-  export default MCPClient;
-  ```
+      <p>Implements the MCP HTTP with SSE transport specification, providing:</p>
 
-  ## Running the Client
+      <ul>
+        <li>Server-side event streaming</li>
+        <li>Integration with Spring WebMVC</li>
+        <li>Support for traditional web applications</li>
+        <li>Synchronous operation handling</li>
+      </ul>
+    </>
+  </Tab>
 
-  To run your client with any MCP server:
+  <Tab title="SSE (Servlet)">
+    <>
+      <p>
+        Creates a Servlet-based SSE server transport. It is included in the core <code>mcp</code> module.<br />
+        The <code>HttpServletSseServerTransport</code> can be used with any Servlet container.<br />
+        To use it with a Spring Web application, you can register it as a Servlet bean:
+      </p>
 
-  ```bash
-  # Build the TypeScript code. Make sure to rerun this every time you update `client.ts`!
-  npm run build
+      ```java
+      @Configuration
+      @EnableWebMvc
+      public class McpServerConfig implements WebMvcConfigurer {
 
-  # Run the client
-  node build/client.js path/to/server.py  # for Python servers
-  node build/client.js path/to/server.js  # for Node.js servers
-  ```
+          @Bean
+          public HttpServletSseServerTransport servletSseServerTransport() {
+              return new HttpServletSseServerTransport(new ObjectMapper(), "/mcp/message");
+          }
 
-  The client will:
+          @Bean
+          public ServletRegistrationBean customServletBean(HttpServletSseServerTransport servlet) {
+              return new ServletRegistrationBean(servlet);
+          }
+      }
+      ```
 
-  1.  Connect to the specified server
-  2.  List available tools
-  3.  Start an interactive chat session where you can:
-      *   Enter queries
-      *   See tool executions
-      *   Get responses from Claude
+      <p>
+        Implements the MCP HTTP with SSE transport specification using the traditional Servlet API, providing:
+      </p>
 
-  ## Key Components Explained
+      <ul>
+        <li>Asynchronous message handling using Servlet 6.0 async support</li>
+        <li>Session management for multiple client connections</li>
 
-  #### 1. Client Initialization
+        <li>
+          Two types of endpoints:
 
-  *   The `MCPClient` class initializes with session management and API clients
-  *   Sets up the MCP client with basic capabilities
-  *   Configures the Anthropic client for Claude interactions
+          <ul>
+            <li>SSE endpoint (<code>/sse</code>) for server-to-client events</li>
+            <li>Message endpoint (configurable) for client-to-server requests</li>
+          </ul>
+        </li>
 
-  #### 2. Server Connection
+        <li>Error handling and response formatting</li>
+        <li>Graceful shutdown support</li>
+      </ul>
+    </>
+  </Tab>
+</Tabs>
 
-  *   Supports both Python and Node.js servers
-  *   Validates server script type
-  *   Sets up proper communication channels
-  *   Lists available tools on connection
+## Server Capabilities
 
-  #### 3. Query Processing
+The server can be configured with various capabilities:
 
-  *   Maintains conversation context
-  *   Handles Claude's responses and tool calls
-  *   Manages the message flow between Claude and tools
-  *   Combines results into a coherent response
+```java
+var capabilities = ServerCapabilities.builder()
+    .resources(false, true)  // Resource support with list changes notifications
+    .tools(true)            // Tool support with list changes notifications
+    .prompts(true)          // Prompt support with list changes notifications
+    .logging()              // Enable logging support (enabled by default with loging level INFO)
+    .build();
+```
 
-  #### 4. Interactive Interface
+### Logging Support
 
-  *   Provides a simple command-line interface
-  *   Handles user input and displays responses
-  *   Includes basic error handling
-  *   Allows graceful exit
+The server provides structured logging capabilities that allow sending log messages to clients with different severity levels:
 
-  #### 5. Resource Management
+```java
+// Send a log message to clients
+server.loggingNotification(LoggingMessageNotification.builder()
+    .level(LoggingLevel.INFO)
+    .logger("custom-logger")
+    .data("Custom log message")
+    .build());
+```
 
-  *   Proper cleanup of resources
-  *   Error handling for connection issues
-  *   Graceful shutdown procedures
+Clients can control the minimum logging level they receive through the `mcpClient.setLoggingLevel(level)` request. Messages below the set level will be filtered out.
+Supported logging levels (in order of increasing severity): DEBUG (0), INFO (1), NOTICE (2), WARNING (3), ERROR (4), CRITICAL (5), ALERT (6), EMERGENCY (7)
 
-  ### Common Customization Points
+### Tool Registration
 
-  1.  **Tool Handling**
-      *   Modify `processQuery()` to handle specific tool types
-      *   Add custom error handling for tool calls
-      *   Implement tool-specific response formatting
+<Tabs>
+  <Tab title="Sync">
+    ```java
+    // Sync tool registration
+    var syncToolRegistration = new McpServerFeatures.SyncToolRegistration(
+        new Tool("calculator", "Basic calculator", Map.of(
+            "operation", "string",
+            "a", "number",
+            "b", "number"
+        )),
+        arguments -> {
+            // Tool implementation
+            return new CallToolResult(result, false);
+        }
+    );
+    ```
+  </Tab>
 
-  2.  **Response Processing**
-      *   Customize how tool results are formatted
-      *   Add response filtering or transformation
-      *   Implement custom logging
+  <Tab title="Async">
+    ```java
+    // Async tool registration
+    var asyncToolRegistration = new McpServerFeatures.AsyncToolRegistration(
+        new Tool("calculator", "Basic calculator", Map.of(
+            "operation", "string",
+            "a", "number",
+            "b", "number"
+        )),
+        arguments -> {
+            // Tool implementation
+            return Mono.just(new CallToolResult(result, false));
+        }
+    );
+    ```
+  </Tab>
+</Tabs>
 
-  3.  **User Interface**
-      *   Add a GUI or web interface
-      *   Implement rich console output
-      *   Add command history or auto-completion
+### Resource Registration
 
-  ### Best Practices
+<Tabs>
+  <Tab title="Sync">
+    ```java
+    // Sync resource registration
+    var syncResourceRegistration = new McpServerFeatures.SyncResourceRegistration(
+        new Resource("custom://resource", "name", "description", "mime-type", null),
+        request -> {
+            // Resource read implementation
+            return new ReadResourceResult(contents);
+        }
+    );
+    ```
+  </Tab>
 
-  1.  **Error Handling**
-      *   Always wrap tool calls in try-catch blocks
-      *   Provide meaningful error messages
-      *   Gracefully handle connection issues
+  <Tab title="Async">
+    ```java
+    // Async resource registration
+    var asyncResourceRegistration = new McpServerFeatures.AsyncResourceRegistration(
+        new Resource("custom://resource", "name", "description", "mime-type", null),
+        request -> {
+            // Resource read implementation
+            return Mono.just(new ReadResourceResult(contents));
+        }
+    );
+    ```
+  </Tab>
+</Tabs>
 
-  2.  **Resource Management**
-      *   Use proper cleanup methods
-      *   Close connections when done
-      *   Handle server disconnections
+### Prompt Registration
 
-  3.  **Security**
-      *   Store API keys securely in `.env`
-      *   Validate server responses
-      *   Be cautious with tool permissions
+<Tabs>
+  <Tab title="Sync">
+    ```java
+    // Sync prompt registration
+    var syncPromptRegistration = new McpServerFeatures.SyncPromptRegistration(
+        new Prompt("greeting", "description", List.of(
+            new PromptArgument("name", "description", true)
+        )),
+        request -> {
+            // Prompt implementation
+            return new GetPromptResult(description, messages);
+        }
+    );
+    ```
+  </Tab>
 
-  ### Troubleshooting
+  <Tab title="Async">
+    ```java
+    // Async prompt registration
+    var asyncPromptRegistration = new McpServerFeatures.AsyncPromptRegistration(
+        new Prompt("greeting", "description", List.of(
+            new PromptArgument("name", "description", true)
+        )),
+        request -> {
+            // Prompt implementation
+            return Mono.just(new GetPromptResult(description, messages));
+        }
+    );
+    ```
+  </Tab>
+</Tabs>
 
-  #### Server Path Issues
+## Error Handling
 
-  *   Double-check the path to your server script
-  *   Use absolute paths if relative paths aren't working
-  *   For Windows users, use forward slashes (/) or escaped backslashes (\\)
-  *   Verify the server file has the correct extension (.py or .js)
-
-  Example of correct path usage:
-
-  ```bash
-  # Relative path
-  node build/client.js ./server/weather.js
-
-  # Absolute path
-  node build/client.js /Users/username/projects/mcp-server/weather.js
-
-  # Windows path (either format works)
-  node build/client.js C:/projects/mcp-server/weather.js
-  node build/client.js C:\\projects\\mcp-server\\weather.js
-  ```
-
-  #### Connection Issues
-
-  *   Verify the server script exists and has correct permissions
-  *   Check that the server script is executable
-  *   Ensure the server script's dependencies are installed
-  *   Try running the server script directly to check for errors
-
-  #### Tool Execution Issues
-
-  *   Check server logs for error messages
-  *   Verify tool input arguments match the schema
-  *   Ensure tool dependencies are available
-  *   Add debug logging to track execution flow
-</Tab>
+The SDK provides comprehensive error handling through the McpError class, covering protocol compatibility, transport communication, JSON-RPC messaging, tool execution, resource management, prompt handling, timeouts, and connection issues. This unified error handling approach ensures consistent and reliable error management across both synchronous and asynchronous operations.
 
 
 # Building MCP with LLMs
+Source: https://modelcontextprotocol.io/tutorials/building-mcp-with-llms
 
 Speed up your MCP development using LLMs such as Claude!
 
@@ -5380,3 +6203,5 @@ After Claude helps you build your server:
 Remember that Claude can help you modify and improve your server as requirements change over time.
 
 Need more guidance? Just ask Claude specific questions about implementing MCP features or troubleshooting issues that arise.
+
+
