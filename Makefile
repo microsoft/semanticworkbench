@@ -6,14 +6,13 @@ this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
 # workspace and use a path of "${workspaceFolder}/../.venv" in the the workspace
 # settings.json to force the extension to use the correct python interpreter.
 #
+# For Ruff issue, see:
+# https://github.com/astral-sh/ruff-vscode/issues/653#issuecomment-2684697931
+#
 # Example: "ruff.interpreter": ["${workspaceFolder}/../.venv/bin/python"],
 #
-.PHONY: default ensure_venv
 
-default: ensure_venv
-	@echo "Running default action."
-
-ensure_venv:
+install:
 	@if [ ! -d .venv ]; then \
 		echo ".venv not found, creating it using uv venv..."; \
 		uv venv; \
@@ -22,7 +21,7 @@ ensure_venv:
 	fi
 
 clean:
-	rm -rf .venv
+	$(rm_dir) .venv $(ignore_failure)
 	@echo ".venv removed"
 
 include $(this_dir)/tools/makefiles/recursive.mk
