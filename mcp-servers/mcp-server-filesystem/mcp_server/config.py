@@ -1,4 +1,5 @@
 import os
+from typing import List
 from pydantic_settings import BaseSettings
 
 log_level = os.environ.get("LOG_LEVEL", "INFO")
@@ -12,4 +13,5 @@ def load_required_env_var(env_var_name: str) -> str:
 
 class Settings(BaseSettings):
     log_level: str = log_level
+    allowed_directories: List[str] = []
     

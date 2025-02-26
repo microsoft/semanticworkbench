@@ -1,10 +1,43 @@
-from mcp.server.fastmcp import FastMCP
-from . import settings
+import logging
+import sys
 from pathlib import Path
 import os
+from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
+
+from . import settings
 
 # Set the name of the MCP server
 server_name = "filesystem MCP Server"
+
+# Set up logging
+logger = logging.getLogger("mcp_server_filesystem")
+
+# Helper function to get allowed directories from settings
+def get_allowed_directories():
+    # Return directories from settings
+    if settings.allowed_directories:
+        return [Path(directory).resolve() for directory in settings.allowed_directories]
+    # Return empty list if none found
+    return []
+
+# Helper function to validate paths against allowed directories
+def validate_path(requested_path: str) -> Path:
+    # Get the current list of allowed directories
+    allowed_dirs = get_allowed_directories()
+
+    if not allowed_dirs:
+        raise PermissionError("No allowed_directories have been configured")
+
+    absolute_path = Path(requested_path).resolve()
+    for allowed_dir in allowed_dirs:
+        if str(absolute_path).startswith(str(allowed_dir)):
+            return absolute_path
+    raise PermissionError(f"Access denied: {requested_path} is outside allowed_directories: {allowed_dirs}")
 
 # Define MCP tools as module-level functions
 def read_file(path: str) -> str:
@@ -17,7 +50,7 @@ def read_file(path: str) -> str:
     Returns:
         The content of the file as a string.
     """
-    file = Path(path).resolve()
+    file = validate_path(path)
 
     if not file.exists() or not file.is_file():
         raise FileNotFoundError(f"File does not exist at path: {path}")
@@ -38,7 +71,7 @@ def write_file(path: str, content: str) -> str:
     Returns:
         A confirmation message.
     """
-    file = Path(path).resolve()
+    file = validate_path(path)
     try:
         file.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
         file.write_text(content, encoding="utf-8")
@@ -56,7 +89,7 @@ def list_directory(path: str) -> list[str]:
     Returns:
         A list of filenames and subdirectory names.
     """
-    dir_path = Path(path).resolve()
+    dir_path = validate_path(path)
     if not dir_path.exists() or not dir_path.is_dir():
         raise FileNotFoundError(f"Directory does not exist at {path}")
 
@@ -75,7 +108,7 @@ def create_directory(path: str) -> str:
     Returns:
         A confirmation message.
     """
-    dir_path = Path(path).resolve()
+    dir_path = validate_path(path)
 
     try:
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -95,7 +128,7 @@ def edit_file(path: str, edits: list[dict], dry_run: bool = False) -> str:
     Returns:
         A string representation of the changes (e.g., diff).
     """
-    file = Path(path).resolve()
+    file = validate_path(path)
     if not file.exists() or not file.is_file():
         raise FileNotFoundError(f"File does not exist at {path}")
 
@@ -131,7 +164,7 @@ def search_files(root_path: str, pattern: str) -> list[str]:
     Returns:
         A list of matching file paths.
     """
-    root = Path(root_path).resolve()
+    root = validate_path(root_path)
 
     if not root.exists() or not root.is_dir():
         raise FileNotFoundError(f"Root path does not exist at {root_path}")
@@ -151,7 +184,7 @@ def get_file_info(path: str) -> dict:
     Returns:
         A dictionary with file information (size, permissions, timestamps, etc.).
     """
-    file = Path(path).resolve()
+    file = validate_path(path)
 
     if not file.exists():
         raise FileNotFoundError(f"Path does not exist at {path}")
@@ -170,8 +203,50 @@ def get_file_info(path: str) -> dict:
     except Exception as e:
         raise RuntimeError(f"Failed to retrieve file info for {path}: {str(e)}")
 
+def read_multiple_files(paths: list[str]) -> dict:
+    """
+    Reads the contents of multiple files. Returns a dictionary mapping file paths to their contents or error
+    messages for files that cannot be accessed.
+
+    Args:
+        paths: A list of file paths to read.
+
+    Returns:
+        A dictionary where keys are file paths and values are their contents or error messages.
+    """
+    results = {}
+    for path in paths:
+        file = validate_path(path)
+        if not file.is_file():
+            raise PermissionError(f"Path is not a file: {path}")
+        try:
+            results[path] = file.read_text(encoding="utf-8")
+        except Exception as e:
+            results[path] = f"Error: {str(e)}"
+    return results
+
+def move_file(source: str, destination: str) -> str:
+    """
+    Moves or renames a file or directory. Both source and destination paths must be valid and within allowed
+    directories.
+
+    Args:
+        source: The path to the source file or directory.
+        destination: The target path for the file or directory.
+
+    Returns:
+        A confirmation message confirming the move or rename operation.
+    """
+    src = validate_path(source)
+    dest = validate_path(destination)
+    try:
+        src.rename(dest)
+        return f"Successfully moved {source} to {destination}"
+    except Exception as e:
+        raise RuntimeError(f"Failed to move {source} to {destination}: {str(e)}")
+
 def create_mcp_server() -> FastMCP:
-    # Initialize FastMCP with debug logging.
+    # Initialize FastMCP with debug logging
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
     # Register tools with MCP
@@ -182,5 +257,87 @@ def create_mcp_server() -> FastMCP:
     mcp.tool()(edit_file)
     mcp.tool()(search_files)
     mcp.tool()(get_file_info)
+    mcp.tool()(read_multiple_files)
+    mcp.tool()(move_file)
+
+    @mcp.tool()
+    def list_allowed_directories() -> str:
+        """
+        Returns a string of allowed directories.
+
+        Returns:
+            A newline-separated string of allowed directories.
+        """
+        allowed_dirs = get_allowed_directories()
+        if not allowed_dirs:
+            return "No allowed directories have been configured"
+        return '\n'.join(map(str, allowed_dirs))
+
+    # Create a custom run_sse_async method to replace the standard one
+    # This will allow us to intercept URL parameters
+    original_run_sse_async = mcp.run_sse_async
+
+    async def custom_run_sse_async():
+        sse = SseServerTransport("/messages/")
+
+        async def handle_sse(request: Request):
+            # Log the connection details
+            logger.info("Handling SSE connection request")
+
+            # Parse and process query parameters
+            query_params = dict(request.query_params)
+            logger.info(f"Query parameters: {query_params}")
+
+            # Check for allowed_directories parameter
+            if "allowed_directories" in query_params:
+                # Parse comma-separated list of directories
+                directories = query_params["allowed_directories"].split(",")
+                if directories:
+                    settings.allowed_directories = directories
+                    logger.info(f"Setting allowed_directories from URL parameter: {directories}")
+                else:
+                    logger.warning("allowed_directories parameter is empty")
+
+            # Verify we have at least one allowed directory
+            allowed_dirs = get_allowed_directories()
+            if not allowed_dirs:
+                logger.error("No allowed_directories provided")
+                return PlainTextResponse(
+                    "Error: No allowed_directories provided. Add '?allowed_directories=/path1,/path2' to the URL",
+                    status_code=400
+                )
+
+            logger.info(f"Proceeding with allowed_directories: {allowed_dirs}")
+
+            # Continue with normal SSE connection
+            async with sse.connect_sse(
+                request.scope, request.receive, request._send
+            ) as streams:
+                await mcp._mcp_server.run(
+                    streams[0],
+                    streams[1],
+                    mcp._mcp_server.create_initialization_options(),
+                )
+
+        starlette_app = Starlette(
+            debug=mcp.settings.debug,
+            routes=[
+                Route("/sse", endpoint=handle_sse),
+                Mount("/messages/", app=sse.handle_post_message),
+            ],
+        )
+
+        import uvicorn
+        config = uvicorn.Config(
+            starlette_app,
+            host=mcp.settings.host,
+            port=mcp.settings.port,
+            log_level=mcp.settings.log_level.lower(),
+        )
+        server = uvicorn.Server(config)
+        await server.serve()
+
+    # Replace the run_sse_async method
+    mcp.run_sse_async = custom_run_sse_async
 
     return mcp
