@@ -2,6 +2,7 @@ import logging
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import AsyncIterator, Callable, List, Optional
+
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -71,7 +72,10 @@ async def connect_to_mcp_server_sse(
 
         # FIXME: Bumping sse_read_timeout to 15 minutes and timeout to 5 minutes, but this should be configurable
         async with sse_client(
-            url=server_config.command, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
+            url=server_config.command,
+            headers=headers,
+            timeout=60 * 5,
+            sse_read_timeout=60 * 15,
         ) as (
             read_stream,
             write_stream,
@@ -101,6 +105,7 @@ async def connect_to_mcp_server_sse(
         logger.exception(f"Error connecting to {server_config.key}: {e}")
         raise
 
+
 async def refresh_mcp_sessions(mcp_sessions: list[MCPSession]) -> list[MCPSession]:
     """
     Check each MCP session for connectivity. If a session is marked as disconnected,
@@ -109,7 +114,9 @@ async def refresh_mcp_sessions(mcp_sessions: list[MCPSession]) -> list[MCPSessio
     active_sessions = []
     for session in mcp_sessions:
         if not session.is_connected:
-            logger.info(f"Session {session.config.key} is disconnected. Attempting to reconnect...")
+            logger.info(
+                f"Session {session.config.key} is disconnected. Attempting to reconnect..."
+            )
             new_session = await reconnect_mcp_session(session.config)
             if new_session:
                 active_sessions.append(new_session)
@@ -130,10 +137,14 @@ async def reconnect_mcp_session(server_config: MCPServerConfig) -> MCPSession | 
     try:
         async with connect_to_mcp_server(server_config) as client_session:
             if client_session is None:
-                logger.error(f"Reconnection returned no client session for {server_config.key}")
+                logger.error(
+                    f"Reconnection returned no client session for {server_config.key}"
+                )
                 return None
 
-            new_session = MCPSession(config=server_config, client_session=client_session)
+            new_session = MCPSession(
+                config=server_config, client_session=client_session
+            )
             await new_session.initialize()
             new_session.is_connected = True
             logger.info(f"Successfully reconnected to MCP server {server_config.key}")
@@ -144,7 +155,10 @@ async def reconnect_mcp_session(server_config: MCPServerConfig) -> MCPSession | 
 
 
 async def establish_mcp_sessions(
-    tools_config: MCPToolsConfigModel, stack: AsyncExitStack, error_handler: Optional[Callable] = None
+    tools_config: MCPToolsConfigModel,
+    stack: AsyncExitStack,
+    error_handler: Optional[Callable] = None,
+    sampling_callback: Optional[Callable] = None,
 ) -> List[MCPSession]:
     mcp_sessions: List[MCPSession] = []
     for server_config in tools_config.mcp_servers:
@@ -167,7 +181,9 @@ async def establish_mcp_sessions(
             return []
 
         if client_session:
-            mcp_session = MCPSession(config=server_config, client_session=client_session)
+            mcp_session = MCPSession(
+                config=server_config, client_session=client_session
+            )
             await mcp_session.initialize()
             mcp_sessions.append(mcp_session)
         else:

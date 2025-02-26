@@ -57,6 +57,8 @@ async def respond_to_conversation(
                 logger.error("No MCP servers are available.")
                 return
 
+            # add sampling callbacks to the servers
+
         # Retrieve prompts from the MCP servers
         mcp_prompts = get_mcp_server_prompts(config.extensions_config.tools)
 
