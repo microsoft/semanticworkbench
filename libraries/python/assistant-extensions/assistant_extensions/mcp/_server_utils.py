@@ -1,22 +1,51 @@
 import logging
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, Callable, List, Optional
+from typing import AsyncIterator, Callable, List, Optional, TypeVar, Type
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from ._model import MCPServerConfig, MCPSession, MCPToolsConfigModel
+from ._model import KeyValueConfigBase, MCPServerConfig, MCPSession, MCPToolsConfigModel
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar('T', bound=KeyValueConfigBase)
+
+
+def get_key_value_dict(items: List[T]) -> dict[str, str] | None:
+    """
+    Get a dictionary of key-value pairs from a list of KeyValueConfigBase objects.
+    
+    Args:
+        items: List of KeyValueConfigBase objects
+        
+    Returns:
+        A dictionary of key-value pairs, or None if the list is empty
+    """
+    key_value_dict = {item.key: item.value for item in items}
+    if len(key_value_dict) == 0:
+        return None
+    return key_value_dict
 
 
 def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
     """Get the environment variables as a dictionary."""
-    env_dict = {env.key: env.value for env in server_config.env}
-    if len(env_dict) == 0:
-        return None
-    return env_dict
+    return get_key_value_dict(server_config.env)
+
+
+def get_args_list(server_config: MCPServerConfig) -> List[str]:
+    """
+    Convert the structured args to a flat list for stdio transport.
+    For backwards compatibility with libraries expecting a flat list.
+    """
+    args_list = []
+    for arg in server_config.args:
+        args_list.append(arg.key)
+        if arg.value:  # Only add the value if it's non-empty
+            args_list.append(arg.value)
+    return args_list
 
 
 @asynccontextmanager
@@ -36,15 +65,17 @@ async def connect_to_mcp_server(
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
 ) -> AsyncIterator[Optional[ClientSession]]:
-    """Connect to a single MCP server defined in the config."""
-
+    """Connect to a single MCP server defined in the config using stdio transport."""
+    # Convert the structured args to a flat list
+    args_list = get_args_list(server_config)
+    
     server_params = StdioServerParameters(
         command=server_config.command,
-        args=server_config.args,
+        args=args_list,
         env=get_env_dict(server_config),
     )
     logger.debug(
-        f"Attempting to connect to {server_config.key} with command: {server_config.command} {' '.join(server_config.args)}"
+        f"Attempting to connect to {server_config.key} with command: {server_config.command} {' '.join(args_list)}"
     )
     try:
         async with stdio_client(server_params) as (read_stream, write_stream):
@@ -57,6 +88,19 @@ async def connect_to_mcp_server_stdio(
         raise
 
 
+def add_params_to_url(url: str, params: dict[str, str]) -> str:
+    """Add parameters to a URL."""
+    parsed_url = urlparse(url)
+    query_params = dict()
+    if parsed_url.query:
+        for key, value_list in parse_qs(parsed_url.query).items():
+            if value_list:
+                query_params[key] = value_list[0]
+    query_params.update(params)
+    url_parts = list(parsed_url)
+    url_parts[4] = urlencode(query_params)  # 4 is the query part
+    return urlunparse(url_parts)
+
 @asynccontextmanager
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
@@ -64,14 +108,29 @@ async def connect_to_mcp_server_sse(
     """Connect to a single MCP server defined in the config using SSE transport."""
 
     try:
-        logger.debug(
-            f"Attempting to connect to {server_config.key} with SSE transport: {server_config.command}"
-        )
         headers = get_env_dict(server_config)
+        url = server_config.command
+        url_params = {}
+        
+        # Process args to extract query parameters
+        if server_config.args:
+            # Create args dictionary
+            args_dict = get_key_value_dict(server_config.args)
+            if args_dict:
+                # Add all arg parameters to URL
+                url_params.update(args_dict)
+                logger.debug(f"Added URL parameters from args: {args_dict}")
+        
+        # Add parameters to URL
+        if url_params:
+            url = add_params_to_url(url, url_params)
+            logger.debug(f"Final URL with parameters: {url}")
+
+        logger.debug(f"Connecting to {server_config.key} with SSE transport: {url}")
 
         # FIXME: Bumping sse_read_timeout to 15 minutes and timeout to 5 minutes, but this should be configurable
         async with sse_client(
-            url=server_config.command, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
+            url=url, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
         ) as (
             read_stream,
             write_stream,

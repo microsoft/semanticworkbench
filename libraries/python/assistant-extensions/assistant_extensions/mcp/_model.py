@@ -14,10 +14,22 @@ logger = logging.getLogger(__name__)
 OnMCPLoggingMessageHandler = Callable[[str], Awaitable[None]]
 
 
-class MCPServerEnvConfig(BaseModel):
+class KeyValueConfigBase(BaseModel):
+    key: Annotated[str, Field(title="Key", description="Key name.")]
+    value: Annotated[str, Field(title="Value", description="Value for the key.")]
+
+
+class MCPServerEnvConfig(KeyValueConfigBase):
     key: Annotated[str, Field(title="Key", description="Environment variable key.")]
     value: Annotated[
         str, Field(title="Value", description="Environment variable value.")
+    ]
+
+
+class MCPServerArgConfig(KeyValueConfigBase):
+    key: Annotated[str, Field(title="Key", description="Argument key.")]
+    value: Annotated[
+        str, Field(title="Value", description="Argument value.")
     ]
 
 
@@ -39,9 +51,12 @@ class MCPServerConfig(BaseModel):
     ]
 
     args: Annotated[
-        List[str],
-        Field(title="Arguments", description="Arguments to pass to the server."),
-    ]
+        List[MCPServerArgConfig],
+        Field(
+            title="Arguments", 
+            description="Arguments to pass to the server."
+        ),
+    ] = []
 
     env: Annotated[
         List[MCPServerEnvConfig],
@@ -131,15 +146,17 @@ class MCPToolsConfigModel(BaseModel):
             key="filesystem",
             command="npx",
             args=[
-                "-y",
-                "@modelcontextprotocol/server-filesystem",
-                "/workspaces/semanticworkbench",
+                MCPServerArgConfig(key="-y", value=""),
+                MCPServerArgConfig(key="@modelcontextprotocol/server-filesystem", value=""),
+                MCPServerArgConfig(key="/workspaces/semanticworkbench", value=""),
             ],
         ),
         MCPServerConfig(
             key="vscode",
             command="http://127.0.0.1:6010/sse",
-            args=[],
+            args=[
+                MCPServerArgConfig(key="allowed_dirs", value="/workspaces/semanticworkbench")
+            ],
         ),
         MCPServerConfig(
             key="bing-search",
@@ -179,7 +196,10 @@ class MCPToolsConfigModel(BaseModel):
         MCPServerConfig(
             key="memory",
             command="npx",
-            args=["-y", "@modelcontextprotocol/server-memory"],
+            args=[
+                MCPServerArgConfig(key="-y", value=""),
+                MCPServerArgConfig(key="@modelcontextprotocol/server-memory", value=""),
+            ],
             prompt=dedent("""
                 Follow these steps for each interaction:
 
@@ -207,7 +227,10 @@ class MCPToolsConfigModel(BaseModel):
         MCPServerConfig(
             key="sequential-thinking",
             command="npx",
-            args=["-y", "@modelcontextprotocol/server-sequential-thinking"],
+            args=[
+                MCPServerArgConfig(key="-y", value=""),
+                MCPServerArgConfig(key="@modelcontextprotocol/server-sequential-thinking", value=""),
+            ],
             enabled=False,
         ),
     ]
