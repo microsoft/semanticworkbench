@@ -67,5 +67,9 @@
     "pyngrok",
     "taskkill",
     "toplevel"
-  ]
+  ],
+  // Python testing configuration
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"]
 }

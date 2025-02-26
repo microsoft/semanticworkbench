@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-import pythoncom
 import win32com.client as win32
 
 
@@ -36,27 +35,81 @@ def replace_document_content(doc, content):
     doc.Content.Text = content
 
 
-def main():
-    # Initialize COM (especially useful if you later run in a multi-threaded context)
-    pythoncom.CoInitialize()
+def get_markdown_representation(doc):
+    """
+    Get the markdown representation of the document.
+    Currently supports Headings and plaintext.
+    """
+    markdown_text = []
 
-    # Connect to Word application and get the active document
-    word = get_word_app()
-    doc = get_active_document(word)
+    for i in range(1, doc.Paragraphs.Count + 1):
+        paragraph = doc.Paragraphs(i)
+        style_name = paragraph.Style.NameLocal
+        text = paragraph.Range.Text.strip()
 
-    print("Connected to Word.")
+        if not text:
+            continue
 
-    # 1. Read the entire content of the document
-    content = doc.Content.Text
-    print(content)
+        # Handle different heading levels using string multiplication
+        prefix = ""
+        if "Heading" in style_name:
+            # Extract the heading level number and create the prefix
+            try:
+                level = int(style_name.split("Heading")[1].strip())
+                prefix = "#" * level + " "
+            except (ValueError, IndexError):
+                pass
 
-    # 2. Insert new content (by reinserting it all for now)
-    doubled_content = content + content
-    doc.Content.Text = doubled_content
+        markdown_text.append(f"{prefix}{text}")
 
-    # 3. Restore original content by again reinserting it all
-    doc.Content.Text = content
+    # Join all lines with newlines
+    return "\n".join(markdown_text)
 
 
-if __name__ == "__main__":
-    main()
+def write_markdown_to_document(doc, markdown_text):
+    """
+    Write the markdown text to the document.
+    Currently supports headings and plaintext.
+    """
+    # Clear the document content first
+    doc.Content.Text = ""
+
+    word_app = doc.Application
+
+    lines = markdown_text.split("\n")
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        # Check if the line is a heading
+        heading_level = 0
+        if line.startswith("#"):
+            for char in line:
+                if char == "#":
+                    heading_level += 1
+                else:
+                    break
+
+            # Remove the # characters and any leading space
+            text = line[heading_level:].strip()
+
+            # Insert the text at the end of the document
+            selection = word_app.Selection
+            selection.TypeText(text)
+
+            # Get the current paragraph and set its style
+            current_paragraph = selection.Paragraphs.Last
+            if 1 <= heading_level <= 9:  # Word supports Heading 1-9
+                current_paragraph.Style = f"Heading {heading_level}"
+
+            # Add a new line for the next paragraph
+            selection.TypeParagraph()
+        else:
+            # Regular paragraph text
+            selection = word_app.Selection
+            selection.TypeText(line)
+            selection.TypeParagraph()
+
+    # Move cursor to the beginning of the document
+    doc.Range(0, 0).Select()
