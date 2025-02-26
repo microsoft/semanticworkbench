@@ -2,6 +2,7 @@
 
 from mcp.server.fastmcp import FastMCP
 
+from mcp_server import settings
 from mcp_server.app_interaction.excel_editor import get_active_workbook, get_excel_app, get_workbook_content
 from mcp_server.app_interaction.powerpoint_editor import (
     add_text_to_slide,
@@ -13,16 +14,35 @@ from mcp_server.app_interaction.word_editor import (
     get_active_document,
     get_document_content,
     get_word_app,
-    replace_document_content,
 )
-
-from . import settings
+from mcp_server.markdown_edit.markdown_edit import run_markdown_edit
 
 server_name = "Office MCP Server"
 
 
 def create_mcp_server() -> FastMCP:
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
+
+    @mcp.tool()
+    async def edit_word_document(chat_history: str, additional_context: str | None = None) -> str:
+        """
+        The user has a Microsoft Word document open side by side with this chat.
+        Use this tool when you need to make changes to the document.
+        """
+        return run_markdown_edit(chat_history, additional_context)
+
+    # TODO: It might be good to consider having the document content always be available to the assistant if the document is "connected".
+    @mcp.tool()
+    async def get_open_document_content() -> str:
+        """
+        Returns the content of the open document.
+        """
+        word = get_word_app()
+        doc = get_active_document(word)
+        return get_document_content(doc)
+
+    # TODO: DEPRECATED
+    '''
 
     @mcp.tool()
     async def write_to_open_document(text: str) -> bool:
@@ -43,15 +63,7 @@ def create_mcp_server() -> FastMCP:
 
         replace_document_content(doc, text)
         return True
-
-    @mcp.tool()
-    async def get_open_document_content() -> str:
-        """
-        Returns the content of the open document.
-        """
-        word = get_word_app()
-        doc = get_active_document(word)
-        return get_document_content(doc)
+    '''
 
     @mcp.tool()
     async def get_powerpoint_content() -> str:
