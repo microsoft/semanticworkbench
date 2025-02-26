@@ -22,4 +22,4 @@ mcp-tunnel = "mcp_tunnel._main:main"
 
 
 [dependency-groups]
-dev = ["pyright>=1.1.389", "pytest>=8.3.1"]
+dev = ["pyright>=1.1.389"]
