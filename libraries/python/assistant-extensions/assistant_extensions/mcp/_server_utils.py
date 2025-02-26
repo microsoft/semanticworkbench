@@ -5,6 +5,7 @@ from typing import AsyncIterator, Callable, List, Optional
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 from ._model import MCPServerConfig, MCPSession, MCPToolsConfigModel
 
@@ -57,6 +58,19 @@ async def connect_to_mcp_server_stdio(
         raise
 
 
+def add_params_to_url(url: str, params: dict[str, str]) -> str:
+    """Add parameters to a URL."""
+    parsed_url = urlparse(url)
+    query_params = dict()
+    if parsed_url.query:
+        for key, value_list in parse_qs(parsed_url.query).items():
+            if value_list:
+                query_params[key] = value_list[0]
+    query_params.update(params)
+    url_parts = list(parsed_url)
+    url_parts[4] = urlencode(query_params)  # 4 is the query part
+    return urlunparse(url_parts)
+
 @asynccontextmanager
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
@@ -64,14 +78,25 @@ async def connect_to_mcp_server_sse(
     """Connect to a single MCP server defined in the config using SSE transport."""
 
     try:
-        logger.debug(
-            f"Attempting to connect to {server_config.key} with SSE transport: {server_config.command}"
-        )
         headers = get_env_dict(server_config)
+        url = server_config.command
+
+        # Process args to add URL parameters
+        # All args are joined into a single comma-separated list
+        if server_config.args and len(server_config.args) >= 1:
+            # Join all args with commas
+            args_value = ",".join(server_config.args)
+            
+            # Add to URL with 'args' as the parameter name
+            url_params = {"args": args_value}
+            url = add_params_to_url(url, url_params)
+            logger.debug(f"Added parameter args={args_value} to URL")
+
+        logger.debug(f"Attempting to connect to {server_config.key} with SSE transport: {url}")
 
         # FIXME: Bumping sse_read_timeout to 15 minutes and timeout to 5 minutes, but this should be configurable
         async with sse_client(
-            url=server_config.command, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
+            url=url, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
         ) as (
             read_stream,
             write_stream,

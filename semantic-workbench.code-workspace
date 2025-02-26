@@ -152,6 +152,10 @@
       "path": "mcp-servers/mcp-server-vscode"
     },
     {
+      "name": "mcp-servers:mcp-server-filesystem",
+      "path": "mcp-servers/mcp-server-filesystem"
+    },
+    {
       "name": "mcp-servers:mcp-server-template",
       "path": "mcp-servers/mcp-server-template"
     },
