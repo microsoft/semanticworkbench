@@ -209,7 +209,6 @@ source = { editable = "." }
 dependencies = [
     { name = "deepmerge" },
     { name = "mcp" },
-    { name = "pytest-asyncio" },
 ]
 
 [package.optional-dependencies]
@@ -221,6 +220,7 @@ openai = [
 dev = [
     { name = "pyright" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
 ]
 
 [package.metadata]
@@ -228,13 +228,13 @@ requires-dist = [
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "mcp", specifier = ">=1.2.1" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.63.2" },
-    { name = "pytest-asyncio", specifier = ">=0.25.3" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pyright", specifier = ">=1.1.389" },
     { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.25.3" },
 ]
 
 [[package]]

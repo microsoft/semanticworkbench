@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-tunnel"
+version = "0.1.0"
+description = "Command line tool for opening tunnels to local MCP servers."
+authors = [{ name = "Semantic Workbench Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6.0.2",
+    "termcolor>=2.5.0",
+]
+
+[project.optional-dependencies]
+
+
+[project.scripts]
+mcp-tunnel = "mcp_tunnel._main:main"
+
+
+[dependency-groups]
+dev = ["pyright>=1.1.389"]

@@ -7,8 +7,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "deepmerge>=2.0",
- "mcp>=1.2.1",
- "pytest-asyncio>=0.25.3",
+    "mcp>=1.2.1",
 ]
 
 [project.optional-dependencies]
@@ -23,5 +22,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = ["pyright>=1.1.389", "pytest>=8.3.1"]
-
+dev = ["pyright>=1.1.389", "pytest>=8.3.1", "pytest-asyncio>=0.25.3"]
