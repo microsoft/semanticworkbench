@@ -11,11 +11,13 @@ requires-python = ">=3.11"
 authors = [{ name = "Semantic Workbench Team" }]
 dependencies = [
     "mcp-server-office; platform_system == 'Windows'",
+    "mcp-server-filesystem",
     "mcp-tunnel",
 ]
 
 [tool.uv.sources]
 mcp-server-office = { path = "../mcp-server-office", editable = true }
+mcp-server-filesystem= { path = "../mcp-server-filesystem", editable = true }
 mcp-tunnel = { path = "../../libraries/python/mcp-tunnel", editable = true }
 
 [project.scripts]

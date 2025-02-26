@@ -26,10 +26,14 @@ endif
 
 # Windows-specific packaging
 package-windows:
-	uv run pyinstaller windows.spec
+	uv run pyinstaller pyinstaller.spec
 	@echo "Windows package created: dist/mcp-server-bundle.exe"
 
 # macOS-specific packaging
 package-macos:
-	uv run pyinstaller macos.spec
+	uv run pyinstaller pyinstaller.spec
 	@echo "macOS package created: dist/mcp-server-bundle"
+
+clean:
+	$(rm_dir) dist $(ignore_failure)
+	$(rm_dir) build $(ignore_failure)

@@ -1,8 +1,20 @@
-import pytest
-from pathlib import Path
-from mcp_server.server import read_file, write_file, list_directory, create_directory, edit_file, search_files, get_file_info, read_multiple_files, move_file
-from mcp_server import settings
 import tempfile
+from pathlib import Path
+
+import pytest
+from mcp_server_filesystem import settings
+from mcp_server_filesystem.server import (
+    create_directory,
+    edit_file,
+    get_file_info,
+    list_directory,
+    move_file,
+    read_file,
+    read_multiple_files,
+    search_files,
+    write_file,
+)
+
 
 @pytest.fixture(scope="function")
 def test_dir():
@@ -12,6 +24,7 @@ def test_dir():
         settings.allowed_directories.clear()
         settings.allowed_directories.append(str(Path(temp_dir).resolve()))
         yield Path(temp_dir)
+
 
 @pytest.mark.asyncio
 async def test_read_file(test_dir):
@@ -23,6 +36,7 @@ async def test_read_file(test_dir):
     result = read_file(path=str(test_file))
     assert result == content
 
+
 @pytest.mark.asyncio
 async def test_write_file(test_dir):
     test_file = test_dir / "output.txt"
@@ -32,6 +46,7 @@ async def test_write_file(test_dir):
 
     assert test_file.exists()
     assert test_file.read_text() == content
+
 
 @pytest.mark.asyncio
 async def test_list_directory(test_dir):
@@ -44,6 +59,7 @@ async def test_list_directory(test_dir):
     assert "file1.txt" in result
     assert "file2.txt" in result
 
+
 @pytest.mark.asyncio
 async def test_create_directory(test_dir):
     new_dir = test_dir / "subdir"
@@ -53,18 +69,18 @@ async def test_create_directory(test_dir):
     assert new_dir.exists()
     assert new_dir.is_dir()
 
+
 @pytest.mark.asyncio
 async def test_edit_file(test_dir):
     test_file = test_dir / "mutable.txt"
     test_file.write_text("original content")
 
-    edits = [
-        {"oldText": "original", "newText": "updated"}
-    ]
+    edits = [{"oldText": "original", "newText": "updated"}]
 
     edit_file(path=str(test_file), edits=edits, dry_run=False)
 
     assert test_file.read_text() == "updated content"
+
 
 @pytest.mark.asyncio
 async def test_search_files(test_dir):
@@ -77,6 +93,7 @@ async def test_search_files(test_dir):
     assert len(result) == 2
     assert any("match1.txt" in r for r in result)
     assert any("match2.txt" in r for r in result)
+
 
 def test_read_multiple_files(test_dir):
     test_file1 = test_dir / "file1.txt"
@@ -92,6 +109,7 @@ def test_read_multiple_files(test_dir):
     assert result[str(test_file1)] == content1
     assert result[str(test_file2)] == content2
 
+
 def test_move_file(test_dir):
     test_file = test_dir / "test.txt"
     test_file.write_text("Test content")
@@ -102,6 +120,7 @@ def test_move_file(test_dir):
     assert not test_file.exists()
     assert target_file.exists()
     assert target_file.read_text() == "Test content"
+
 
 def test_operations_fail_for_unauthorized_path():
     """
@@ -135,6 +154,7 @@ def test_operations_fail_for_unauthorized_path():
 
     with pytest.raises(PermissionError):
         move_file(source=unauthorized_path, destination="/unauthorized/destination")
+
 
 @pytest.mark.asyncio
 async def test_get_file_info(test_dir):

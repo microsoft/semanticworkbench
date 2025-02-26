@@ -12,6 +12,7 @@ a = Analysis(
         'signal',
         'threading',
         'mcp_tunnel',
+        'mcp_server.start',
     ],
     hookspath=[],
     hooksconfig={},
@@ -49,23 +50,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None
-)
-
-# For macOS, also create a simple app bundle
-app = BUNDLE(
-    exe,
-    name='MCP Server Bundle.app',
-    bundle_identifier='com.example.mcpserverbundle',
-    info_plist={
-        'CFBundleShortVersionString': '1.0.0',
-        'CFBundleVersion': '1.0.0',
-        'NSHighResolutionCapable': 'True',
-        'NSPrincipalClass': 'NSApplication',
-        'CFBundleDisplayName': 'MCP Server Bundle',
-        'CFBundleName': 'MCP Server Bundle',
-        'CFBundleExecutable': 'mcp-server-bundle',
-        'CFBundleIdentifier': 'com.example.mcpserverbundle',
-        'CFBundleInfoDictionaryVersion': '6.0',
-        'CFBundlePackageType': 'APPL',
-    }
 )

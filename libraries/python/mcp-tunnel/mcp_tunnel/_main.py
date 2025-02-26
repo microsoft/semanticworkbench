@@ -1,6 +1,5 @@
 import argparse
 import pathlib
-import signal
 import subprocess
 import sys
 import threading
@@ -237,7 +236,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def parse_servers(servers_str):
+def parse_servers(servers_str: str) -> list[MCPServer]:
     """Parse the servers string into a list of MCPServer objects."""
     servers = []
     for server_str in servers_str.split(","):
@@ -255,7 +254,7 @@ def parse_servers(servers_str):
     return servers
 
 
-def main():
+def main() -> int:
     args = parse_arguments()
     servers = parse_servers(args.servers)
 
@@ -264,6 +263,8 @@ def main():
         return 1
 
     tunnel_servers(servers)
+
+    return 0
 
 
 def tunnel_servers(servers: list[MCPServer]):
