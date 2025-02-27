@@ -6,11 +6,11 @@ from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.mcp import (
     MCPServerConfig,
     MCPSession,
+    SamplingHandler,
     establish_mcp_sessions,
     get_mcp_server_prompts,
     refresh_mcp_sessions,
 )
-from mcp.types import CreateMessageResult, TextContent
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
@@ -52,25 +52,12 @@ async def respond_to_conversation(
                 )
             )
 
-        # FIXME: Move this to an observer pattern to allow for more flexibility in handling sampling requests
-        async def sampling_handler(context, params) -> CreateMessageResult:
-            logger.info(f"Sampling handler invoked with context: {context}, params: {params}")
-            # Return a dummy result; adjust the return value to conform to CreateMessageResult | ErrorData as needed.
-            return CreateMessageResult(
-                role="assistant",
-                content=TextContent(
-                    type="text",
-                    text="This is a dummy response.",
-                ),
-                model="gpt-3.5-turbo",
-                stopReason="stopSequence",
-            )
-
+        sampling_handler = SamplingHandler()
         mcp_sessions = await establish_mcp_sessions(
             tools_config=config.extensions_config.tools,
             stack=stack,
             error_handler=error_handler,
-            sampling_handler=sampling_handler,
+            sampling_handler=sampling_handler.handle_message,
         )
 
         if len(config.extensions_config.tools.mcp_servers) > 0 and len(mcp_sessions) == 0:
@@ -114,6 +101,7 @@ async def respond_to_conversation(
             mcp_sessions = await refresh_mcp_sessions(mcp_sessions)
 
             step_result = await next_step(
+                sampling_handler=sampling_handler,
                 mcp_sessions=mcp_sessions,
                 mcp_prompts=mcp_prompts,
                 attachments_extension=attachments_extension,
