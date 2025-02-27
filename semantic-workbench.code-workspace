@@ -124,8 +124,16 @@
       "path": "libraries/python/skills/skill-library"
     },
     {
+      "name": "libraries:mcp-tunnel",
+      "path": "libraries/python/mcp-tunnel"
+    },
+    {
       "name": "mcp-servers:ai-assist-content",
       "path": "mcp-servers/ai-assist-content"
+    },
+    {
+      "name": "mcp-servers:mcp-server-bundle",
+      "path": "mcp-servers/mcp-server-bundle"
     },
     {
       "name": "mcp-servers:mcp-server-bing-search",
