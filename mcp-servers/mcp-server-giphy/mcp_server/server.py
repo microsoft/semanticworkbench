@@ -33,13 +33,16 @@ def create_mcp_server() -> FastMCP:
         )
 
         # Perform search using context and search term
-        search_results = perform_search(context=context, search_term=search_term)
+        search_results = await perform_search(search_term=search_term, ctx=ctx)
+
+        if not search_results:
+            return None
 
         # Create sampling request message, integrating search results and context
         sampling_result = await perform_sampling(
             context=context,
             search_results=search_results,
-            fastmcp_server_context=ctx,
+            ctx=ctx,
         )
 
         if sampling_result.type == "image":

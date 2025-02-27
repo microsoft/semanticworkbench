@@ -52,33 +52,31 @@ async def respond_to_conversation(
                 )
             )
 
-            async def simple_sampling_handler(context, params) -> CreateMessageResult:
-                logger.info(f"Sampling handler invoked with context: {context}, params: {params}")
-                # Return a dummy result; adjust the return value to conform to CreateMessageResult | ErrorData as needed.
-                return CreateMessageResult(
-                    role="assistant",
-                    content=TextContent(
-                        type="text",
-                        text="This is a dummy response.",
-                    ),
-                    model="gpt-3.5-turbo",
-                    stopReason="stopSequence",
-                )
-
-            mcp_sessions = await establish_mcp_sessions(
-                tools_config=config.extensions_config.tools,
-                stack=stack,
-                error_handler=error_handler,
-                # SamplingFnT
-                sampling_handler=simple_sampling_handler,
+        async def simple_sampling_handler(context, params) -> CreateMessageResult:
+            logger.info(f"Sampling handler invoked with context: {context}, params: {params}")
+            # Return a dummy result; adjust the return value to conform to CreateMessageResult | ErrorData as needed.
+            return CreateMessageResult(
+                role="assistant",
+                content=TextContent(
+                    type="text",
+                    text="This is a dummy response.",
+                ),
+                model="gpt-3.5-turbo",
+                stopReason="stopSequence",
             )
 
-            if len(config.extensions_config.tools.mcp_servers) > 0 and len(mcp_sessions) == 0:
-                # No MCP servers are available, so we should not continue
-                logger.error("No MCP servers are available.")
-                return
+        mcp_sessions = await establish_mcp_sessions(
+            tools_config=config.extensions_config.tools,
+            stack=stack,
+            error_handler=error_handler,
+            # SamplingFnT
+            sampling_handler=simple_sampling_handler,
+        )
 
-            # add sampling callbacks to the servers
+        if len(config.extensions_config.tools.mcp_servers) > 0 and len(mcp_sessions) == 0:
+            # No MCP servers are available, so we should not continue
+            logger.error("No MCP servers are available.")
+            return
 
         # Retrieve prompts from the MCP servers
         mcp_prompts = get_mcp_server_prompts(config.extensions_config.tools)
