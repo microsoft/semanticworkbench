@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 # FIXME: add metadata/debug data to entire flow
+# FIXME: investigate blocking issue that causes the sampling request to wait for something else to finish
+# For now it does work, but it takes much longer than it should and shows the assistant as offline while
+# it does - merging before investigating to unblock others who are waiting on the first version of this.
+
+
 class SamplingHandler:
     def __init__(self) -> None:
         self.service_config: ServiceConfig | None = None
