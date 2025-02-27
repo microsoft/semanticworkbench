@@ -1,13 +1,12 @@
 import logging
-import sys
 from pathlib import Path
-import os
+
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from starlette.applications import Starlette
-from starlette.routing import Mount, Route
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
+from starlette.routing import Mount, Route
 
 from . import settings
 
@@ -17,13 +16,15 @@ server_name = "filesystem MCP Server"
 # Set up logging
 logger = logging.getLogger("mcp_server_filesystem")
 
+
 # Helper function to get allowed directories from settings
-def get_allowed_directories():
+def get_allowed_directories() -> list[Path]:
     # Return directories from settings
     if settings.allowed_directories:
         return [Path(directory).resolve() for directory in settings.allowed_directories]
     # Return empty list if none found
     return []
+
 
 # Helper function to validate paths against allowed directories
 def validate_path(requested_path: str) -> Path:
@@ -33,11 +34,15 @@ def validate_path(requested_path: str) -> Path:
     if not allowed_dirs:
         raise PermissionError("No allowed_directories have been configured")
 
+    if requested_path == ".":
+        requested_path = str(allowed_dirs[0])
+
     absolute_path = Path(requested_path).resolve()
     for allowed_dir in allowed_dirs:
         if str(absolute_path).startswith(str(allowed_dir)):
             return absolute_path
     raise PermissionError(f"Access denied: {requested_path} is outside allowed_directories: {allowed_dirs}")
+
 
 # Define MCP tools as module-level functions
 def read_file(path: str) -> str:
@@ -51,7 +56,6 @@ def read_file(path: str) -> str:
         The content of the file as a string.
     """
     file = validate_path(path)
-    file = validate_path(path)
 
     if not file.exists() or not file.is_file():
         raise FileNotFoundError(f"File does not exist at path: {path}")
@@ -60,6 +64,7 @@ def read_file(path: str) -> str:
         return file.read_text(encoding="utf-8")
     except Exception as e:
         raise RuntimeError(f"Failed to read the file at {path}: {str(e)}")
+
 
 def write_file(path: str, content: str) -> str:
     """
@@ -73,13 +78,13 @@ def write_file(path: str, content: str) -> str:
         A confirmation message.
     """
     file = validate_path(path)
-    file = validate_path(path)
     try:
         file.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
         file.write_text(content, encoding="utf-8")
         return f"Successfully wrote content to {path}"
     except Exception as e:
         raise RuntimeError(f"Failed to write to the file at {path}: {str(e)}")
+
 
 def list_directory(path: str) -> list[str]:
     """
@@ -89,17 +94,17 @@ def list_directory(path: str) -> list[str]:
         path: The directory path to list.
 
     Returns:
-        A list of filenames and subdirectory names.
+        A list of filenames and subdirectory names. Files are prefixed with [F] and directories with [D].
     """
-    dir_path = validate_path(path)
     dir_path = validate_path(path)
     if not dir_path.exists() or not dir_path.is_dir():
         raise FileNotFoundError(f"Directory does not exist at {path}")
 
     try:
-        return [entry.name for entry in dir_path.iterdir()]
+        return [("[D] " if entry.is_dir() else "[F] ") + entry.name for entry in dir_path.iterdir()]
     except Exception as e:
         raise RuntimeError(f"Failed to list directory contents at {path}: {str(e)}")
+
 
 def create_directory(path: str) -> str:
     """
@@ -119,6 +124,7 @@ def create_directory(path: str) -> str:
         return f"Directory at {path} successfully created."
     except Exception as e:
         raise RuntimeError(f"Failed to create directory {path}: {str(e)}")
+
 
 def edit_file(path: str, edits: list[dict], dry_run: bool = False) -> str:
     """
@@ -142,8 +148,8 @@ def edit_file(path: str, edits: list[dict], dry_run: bool = False) -> str:
         modified_content = original_content
 
         for edit in edits:
-            old_text = edit.get('oldText', '')
-            new_text = edit.get('newText', '')
+            old_text = edit.get("oldText", "")
+            new_text = edit.get("newText", "")
 
             if not old_text or not new_text:
                 raise ValueError("Invalid edit specification. Must contain 'oldText' and 'newText'.")
@@ -151,12 +157,13 @@ def edit_file(path: str, edits: list[dict], dry_run: bool = False) -> str:
             modified_content = modified_content.replace(old_text, new_text)
 
         if dry_run:
-            return f"Dry run changes previewed successfully."
+            return "Dry run changes previewed successfully."
 
         file.write_text(modified_content, encoding="utf-8")
         return f"File at {path} successfully edited."
     except Exception as e:
         raise RuntimeError(f"Failed to edit the file at {path}: {str(e)}")
+
 
 def search_files(root_path: str, pattern: str) -> list[str]:
     """
@@ -164,21 +171,21 @@ def search_files(root_path: str, pattern: str) -> list[str]:
 
     Args:
         root_path: The directory to start searching from.
-        pattern: The search pattern (e.g., '*.txt').
+        pattern: The glob search pattern (e.g. '*.txt').
 
     Returns:
         A list of matching file paths.
     """
-    root = validate_path(root_path)
     root = validate_path(root_path)
 
     if not root.exists() or not root.is_dir():
         raise FileNotFoundError(f"Root path does not exist at {root_path}")
 
     try:
-        return [str(file) for file in root.rglob(pattern)]
+        return [("[D] " if path.is_dir() else "[F] ") + str(path) for path in root.rglob(pattern)]
     except Exception as e:
         raise RuntimeError(f"Search failed in {root_path} using pattern {pattern}: {str(e)}")
+
 
 def get_file_info(path: str) -> dict:
     """
@@ -190,7 +197,6 @@ def get_file_info(path: str) -> dict:
     Returns:
         A dictionary with file information (size, permissions, timestamps, etc.).
     """
-    file = validate_path(path)
     file = validate_path(path)
 
     if not file.exists():
@@ -209,6 +215,7 @@ def get_file_info(path: str) -> dict:
         }
     except Exception as e:
         raise RuntimeError(f"Failed to retrieve file info for {path}: {str(e)}")
+
 
 def read_multiple_files(paths: list[str]) -> dict:
     """
@@ -232,6 +239,7 @@ def read_multiple_files(paths: list[str]) -> dict:
             results[path] = f"Error: {str(e)}"
     return results
 
+
 def move_file(source: str, destination: str) -> str:
     """
     Moves or renames a file or directory. Both source and destination paths must be valid and within allowed
@@ -251,6 +259,7 @@ def move_file(source: str, destination: str) -> str:
         return f"Successfully moved {source} to {destination}"
     except Exception as e:
         raise RuntimeError(f"Failed to move {source} to {destination}: {str(e)}")
+
 
 def create_mcp_server() -> FastMCP:
     # Initialize FastMCP with debug logging
@@ -278,11 +287,7 @@ def create_mcp_server() -> FastMCP:
         allowed_dirs = get_allowed_directories()
         if not allowed_dirs:
             return "No allowed directories have been configured"
-        return '\n'.join(map(str, allowed_dirs))
-
-    # Create a custom run_sse_async method to replace the standard one
-    # This will allow us to intercept URL parameters
-    original_run_sse_async = mcp.run_sse_async
+        return "\n".join(map(str, allowed_dirs))
 
     async def custom_run_sse_async():
         sse = SseServerTransport("/messages/")
@@ -297,16 +302,16 @@ def create_mcp_server() -> FastMCP:
 
             # Look specifically for the 'args' parameter
             directories = []
-            
-            if 'args' in query_params:
-                args_value = query_params['args']
+
+            if "args" in query_params:
+                args_value = query_params["args"]
                 # Split the comma-separated list of directories
-                if args_value and ',' in args_value:
-                    directories = [d.strip() for d in args_value.split(',') if d.strip()]
+                if args_value and "," in args_value:
+                    directories = [d.strip() for d in args_value.split(",") if d.strip()]
                 elif args_value.strip():
                     # Single directory
                     directories.append(args_value.strip())
-                    
+
                 logger.info(f"Found directories in 'args' parameter: {directories}")
             if directories:
                 settings.allowed_directories = directories
@@ -315,7 +320,7 @@ def create_mcp_server() -> FastMCP:
                 logger.error("No directories provided in 'args' parameter")
                 return PlainTextResponse(
                     "Error: No directories provided in 'args' parameter. Use /sse?args=/path1,/path2,/path3 format",
-                    status_code=400
+                    status_code=400,
                 )
 
             # Get the allowed directories from settings after our update
@@ -323,9 +328,7 @@ def create_mcp_server() -> FastMCP:
             logger.info(f"Proceeding with allowed_directories: {allowed_dirs}")
 
             # Continue with normal SSE connection
-            async with sse.connect_sse(
-                request.scope, request.receive, request._send
-            ) as streams:
+            async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
                 await mcp._mcp_server.run(
                     streams[0],
                     streams[1],
@@ -341,6 +344,7 @@ def create_mcp_server() -> FastMCP:
         )
 
         import uvicorn
+
         config = uvicorn.Config(
             starlette_app,
             host=mcp.settings.host,

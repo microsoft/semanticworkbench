@@ -16,6 +16,9 @@ dev = ["pyright>=1.1.389"]
 [tool.uv]
 package = true
 
+[project.scripts]
+mcp-server-filesystem = "mcp_server_filesystem.start:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
