@@ -1,12 +1,21 @@
 import logging
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, Callable, List, Optional
+from typing import AsyncIterator, List, Optional
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
 from mcp import ClientSession
+from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from ._model import MCPServerConfig, MCPSession, MCPToolsConfigModel
+from ._model import (
+    MCPErrorHandler,
+    MCPSamplingMessageHandler,
+    MCPServerConfig,
+    MCPSession,
+    MCPToolsConfigModel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,19 +31,25 @@ def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
 @asynccontextmanager
 async def connect_to_mcp_server(
     server_config: MCPServerConfig,
+    sampling_callback: Optional[SamplingFnT] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
     if server_config.command.startswith("http"):
-        async with connect_to_mcp_server_sse(server_config) as client_session:
+        async with connect_to_mcp_server_sse(
+            server_config, sampling_callback
+        ) as client_session:
             yield client_session
     else:
-        async with connect_to_mcp_server_stdio(server_config) as client_session:
+        async with connect_to_mcp_server_stdio(
+            server_config, sampling_callback
+        ) as client_session:
             yield client_session
 
 
 @asynccontextmanager
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
+    sampling_callback: Optional[SamplingFnT] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
 
@@ -48,7 +63,9 @@ async def connect_to_mcp_server_stdio(
     )
     try:
         async with stdio_client(server_params) as (read_stream, write_stream):
-            async with ClientSession(read_stream, write_stream) as client_session:
+            async with ClientSession(
+                read_stream, write_stream, sampling_callback=sampling_callback
+            ) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
 
@@ -57,26 +74,56 @@ async def connect_to_mcp_server_stdio(
         raise
 
 
+def add_params_to_url(url: str, params: dict[str, str]) -> str:
+    """Add parameters to a URL."""
+    parsed_url = urlparse(url)
+    query_params = dict()
+    if parsed_url.query:
+        for key, value_list in parse_qs(parsed_url.query).items():
+            if value_list:
+                query_params[key] = value_list[0]
+    query_params.update(params)
+    url_parts = list(parsed_url)
+    url_parts[4] = urlencode(query_params)  # 4 is the query part
+    return urlunparse(url_parts)
+
+
 @asynccontextmanager
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
+    sampling_callback: Optional[SamplingFnT] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config using SSE transport."""
 
     try:
-        logger.debug(
-            f"Attempting to connect to {server_config.key} with SSE transport: {server_config.command}"
-        )
         headers = get_env_dict(server_config)
+        url = server_config.command
+
+        # Process args to add URL parameters
+        # All args are joined into a single comma-separated list
+        if server_config.args and len(server_config.args) >= 1:
+            # Join all args with commas
+            args_value = ",".join(server_config.args)
+
+            # Add to URL with 'args' as the parameter name
+            url_params = {"args": args_value}
+            url = add_params_to_url(url, url_params)
+            logger.debug(f"Added parameter args={args_value} to URL")
+
+        logger.debug(
+            f"Attempting to connect to {server_config.key} with SSE transport: {url}"
+        )
 
         # FIXME: Bumping sse_read_timeout to 15 minutes and timeout to 5 minutes, but this should be configurable
         async with sse_client(
-            url=server_config.command, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
+            url=url, headers=headers, timeout=60 * 5, sse_read_timeout=60 * 15
         ) as (
             read_stream,
             write_stream,
         ):
-            async with ClientSession(read_stream, write_stream) as client_session:
+            async with ClientSession(
+                read_stream, write_stream, sampling_callback=sampling_callback
+            ) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
 
@@ -101,6 +148,7 @@ async def connect_to_mcp_server_sse(
         logger.exception(f"Error connecting to {server_config.key}: {e}")
         raise
 
+
 async def refresh_mcp_sessions(mcp_sessions: list[MCPSession]) -> list[MCPSession]:
     """
     Check each MCP session for connectivity. If a session is marked as disconnected,
@@ -109,7 +157,9 @@ async def refresh_mcp_sessions(mcp_sessions: list[MCPSession]) -> list[MCPSessio
     active_sessions = []
     for session in mcp_sessions:
         if not session.is_connected:
-            logger.info(f"Session {session.config.key} is disconnected. Attempting to reconnect...")
+            logger.info(
+                f"Session {session.config.key} is disconnected. Attempting to reconnect..."
+            )
             new_session = await reconnect_mcp_session(session.config)
             if new_session:
                 active_sessions.append(new_session)
@@ -130,10 +180,14 @@ async def reconnect_mcp_session(server_config: MCPServerConfig) -> MCPSession | 
     try:
         async with connect_to_mcp_server(server_config) as client_session:
             if client_session is None:
-                logger.error(f"Reconnection returned no client session for {server_config.key}")
+                logger.error(
+                    f"Reconnection returned no client session for {server_config.key}"
+                )
                 return None
 
-            new_session = MCPSession(config=server_config, client_session=client_session)
+            new_session = MCPSession(
+                config=server_config, client_session=client_session
+            )
             await new_session.initialize()
             new_session.is_connected = True
             logger.info(f"Successfully reconnected to MCP server {server_config.key}")
@@ -144,7 +198,10 @@ async def reconnect_mcp_session(server_config: MCPServerConfig) -> MCPSession | 
 
 
 async def establish_mcp_sessions(
-    tools_config: MCPToolsConfigModel, stack: AsyncExitStack, error_handler: Optional[Callable] = None
+    tools_config: MCPToolsConfigModel,
+    stack: AsyncExitStack,
+    error_handler: Optional[MCPErrorHandler] = None,
+    sampling_handler: Optional[MCPSamplingMessageHandler] = None,
 ) -> List[MCPSession]:
     mcp_sessions: List[MCPSession] = []
     for server_config in tools_config.mcp_servers:
@@ -153,7 +210,10 @@ async def establish_mcp_sessions(
             continue
         try:
             client_session: ClientSession | None = await stack.enter_async_context(
-                connect_to_mcp_server(server_config)
+                connect_to_mcp_server(
+                    server_config,
+                    sampling_callback=sampling_handler,
+                )
             )
         except Exception as e:
             # Log a cleaner error message for this specific server
@@ -167,7 +227,9 @@ async def establish_mcp_sessions(
             return []
 
         if client_session:
-            mcp_session = MCPSession(config=server_config, client_session=client_session)
+            mcp_session = MCPSession(
+                config=server_config, client_session=client_session
+            )
             await mcp_session.initialize()
             mcp_sessions.append(mcp_session)
         else:

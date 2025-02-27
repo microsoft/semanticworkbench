@@ -1,9 +1,10 @@
 from ._model import ServerNotificationHandler, ToolCallFunction, ToolCallProgressMessage
+from ._sampling import send_sampling_request
 from ._tool_utils import (
     convert_tools_to_openai_tools,
     execute_tool_with_notifications,
     execute_tool_with_retries,
-    send_tool_call_progress
+    send_tool_call_progress,
 )
 
 # Exported utilities and models for external use.
@@ -13,6 +14,7 @@ __all__ = [
     "convert_tools_to_openai_tools",
     "execute_tool_with_notifications",
     "execute_tool_with_retries",
+    "send_sampling_request",
     "send_tool_call_progress",
     "ServerNotificationHandler",
     "ToolCallFunction",

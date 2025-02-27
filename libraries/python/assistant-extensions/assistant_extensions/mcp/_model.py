@@ -3,15 +3,15 @@ from textwrap import dedent
 from typing import Annotated, Any, Awaitable, Callable, List
 
 from mcp import ClientSession, Tool
-from mcp.types import CallToolRequestParams, CallToolResult
+from mcp.client.session import SamplingFnT
+from mcp.types import (
+    CallToolRequestParams,
+    CallToolResult,
+)
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 logger = logging.getLogger(__name__)
-
-
-# define type for on_logging_message callback
-OnMCPLoggingMessageHandler = Callable[[str], Awaitable[None]]
 
 
 class MCPServerEnvConfig(BaseModel):
@@ -264,3 +264,9 @@ class ExtendedCallToolRequestParams(CallToolRequestParams):
 class ExtendedCallToolResult(CallToolResult):
     id: str
     metadata: dict[str, Any]
+
+
+# define types for callback functions
+MCPErrorHandler = Callable[[MCPServerConfig, Exception], Any]
+MCPLoggingMessageHandler = Callable[[str], Awaitable[None]]
+MCPSamplingMessageHandler = SamplingFnT

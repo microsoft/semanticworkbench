@@ -152,6 +152,10 @@
       "path": "mcp-servers/mcp-server-vscode"
     },
     {
+      "name": "mcp-servers:mcp-server-filesystem",
+      "path": "mcp-servers/mcp-server-filesystem"
+    },
+    {
       "name": "mcp-servers:mcp-server-template",
       "path": "mcp-servers/mcp-server-template"
     },
@@ -170,9 +174,13 @@
   ],
   "settings": {
     "markdown.validate.enabled": true,
-    "ruff.configuration": "${workspaceFolder}/ruff.toml",
+    "ruff.configuration": "${workspaceFolder}/../ruff.toml",
+    "ruff.interpreter": ["${workspaceFolder}/../.venv/bin/python"],
     "ruff.importStrategy": "useBundled",
     "ruff.nativeServer": "on",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff"
+    },
     "better-comments.highlightPlainText": true,
     "better-comments.multilineComments": true,
     "better-comments.tags": [
