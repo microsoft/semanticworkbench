@@ -1,13 +1,20 @@
 import logging
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, Callable, List, Optional
+from typing import AsyncIterator, List, Optional
 
 from mcp import ClientSession
+from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
-from ._model import MCPServerConfig, MCPSession, MCPToolsConfigModel
+from ._model import (
+    MCPErrorHandler,
+    MCPSamplingMessageHandler,
+    MCPServerConfig,
+    MCPSession,
+    MCPToolsConfigModel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +30,25 @@ def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
 @asynccontextmanager
 async def connect_to_mcp_server(
     server_config: MCPServerConfig,
+    sampling_callback: Optional[SamplingFnT] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
     if server_config.command.startswith("http"):
-        async with connect_to_mcp_server_sse(server_config) as client_session:
+        async with connect_to_mcp_server_sse(
+            server_config, sampling_callback
+        ) as client_session:
             yield client_session
     else:
-        async with connect_to_mcp_server_stdio(server_config) as client_session:
+        async with connect_to_mcp_server_stdio(
+            server_config, sampling_callback
+        ) as client_session:
             yield client_session
 
 
 @asynccontextmanager
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
+    sampling_callback: Optional[SamplingFnT] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
 
@@ -49,7 +62,9 @@ async def connect_to_mcp_server_stdio(
     )
     try:
         async with stdio_client(server_params) as (read_stream, write_stream):
-            async with ClientSession(read_stream, write_stream) as client_session:
+            async with ClientSession(
+                read_stream, write_stream, sampling_callback=sampling_callback
+            ) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
 
@@ -61,6 +76,7 @@ async def connect_to_mcp_server_stdio(
 @asynccontextmanager
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
+    sampling_callback: Optional[SamplingFnT] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config using SSE transport."""
 
@@ -80,7 +96,9 @@ async def connect_to_mcp_server_sse(
             read_stream,
             write_stream,
         ):
-            async with ClientSession(read_stream, write_stream) as client_session:
+            async with ClientSession(
+                read_stream, write_stream, sampling_callback=sampling_callback
+            ) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
 
@@ -157,8 +175,8 @@ async def reconnect_mcp_session(server_config: MCPServerConfig) -> MCPSession | 
 async def establish_mcp_sessions(
     tools_config: MCPToolsConfigModel,
     stack: AsyncExitStack,
-    error_handler: Optional[Callable] = None,
-    sampling_callback: Optional[Callable] = None,
+    error_handler: Optional[MCPErrorHandler] = None,
+    sampling_handler: Optional[MCPSamplingMessageHandler] = None,
 ) -> List[MCPSession]:
     mcp_sessions: List[MCPSession] = []
     for server_config in tools_config.mcp_servers:
@@ -167,7 +185,10 @@ async def establish_mcp_sessions(
             continue
         try:
             client_session: ClientSession | None = await stack.enter_async_context(
-                connect_to_mcp_server(server_config)
+                connect_to_mcp_server(
+                    server_config,
+                    sampling_callback=sampling_handler,
+                )
             )
         except Exception as e:
             # Log a cleaner error message for this specific server

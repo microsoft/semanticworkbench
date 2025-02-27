@@ -1,14 +1,20 @@
 from ._model import (
     ExtendedCallToolRequestParams,
     ExtendedCallToolResult,
+    MCPServerConfig,
     MCPSession,
     MCPToolsConfigModel,
 )
-from ._server_utils import establish_mcp_sessions, get_mcp_server_prompts, refresh_mcp_sessions
+from ._server_utils import (
+    establish_mcp_sessions,
+    get_mcp_server_prompts,
+    refresh_mcp_sessions,
+)
 from ._tool_utils import handle_mcp_tool_call, retrieve_mcp_tools_from_sessions
 
 __all__ = [
     "MCPSession",
+    "MCPServerConfig",
     "MCPToolsConfigModel",
     "ExtendedCallToolRequestParams",
     "ExtendedCallToolResult",

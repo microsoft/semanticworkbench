@@ -12,7 +12,6 @@ class GiphyResponse(BaseModel):
 
 
 def perform_search(context, search_term):
-    """Perform a search on GIPHY using the context and search term."""
     api_key = os.getenv("GIPHY_API_KEY")  # Retrieve the GIPHY API Key from the environment
     if not api_key:
         raise ValueError("GIPHY_API_KEY not set in the environment")

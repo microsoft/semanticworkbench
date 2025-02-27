@@ -7,7 +7,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "mcp-extensions[openai]>=0.1.0",
-    "mcp>=1.2.1",
     "anthropic>=0.37.1",
     "beautifulsoup4>=4.12.3",
     "datasets>=2.21.0",

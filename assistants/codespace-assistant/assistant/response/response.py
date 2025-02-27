@@ -3,7 +3,14 @@ from contextlib import AsyncExitStack
 from typing import Any, List
 
 from assistant_extensions.attachments import AttachmentsExtension
-from assistant_extensions.mcp import MCPSession, establish_mcp_sessions, get_mcp_server_prompts, refresh_mcp_sessions
+from assistant_extensions.mcp import (
+    MCPServerConfig,
+    MCPSession,
+    establish_mcp_sessions,
+    get_mcp_server_prompts,
+    refresh_mcp_sessions,
+)
+from mcp.types import CreateMessageResult, TextContent
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
@@ -34,7 +41,7 @@ async def respond_to_conversation(
         # If tools are enabled, establish connections to the MCP servers
         mcp_sessions: List[MCPSession] = []
 
-        async def error_handler(server_config, error) -> None:
+        async def error_handler(server_config: MCPServerConfig, error: Exception) -> None:
             logger.error(f"Failed to connect to MCP server {server_config.key}: {error}")
             # Also notify the user about this server failure here.
             await context.send_messages(
@@ -45,11 +52,25 @@ async def respond_to_conversation(
                 )
             )
 
-        if config.extensions_config.tools.enabled:
+            async def simple_sampling_handler(context, params) -> CreateMessageResult:
+                logger.info(f"Sampling handler invoked with context: {context}, params: {params}")
+                # Return a dummy result; adjust the return value to conform to CreateMessageResult | ErrorData as needed.
+                return CreateMessageResult(
+                    role="assistant",
+                    content=TextContent(
+                        type="text",
+                        text="This is a dummy response.",
+                    ),
+                    model="gpt-3.5-turbo",
+                    stopReason="stopSequence",
+                )
+
             mcp_sessions = await establish_mcp_sessions(
                 tools_config=config.extensions_config.tools,
                 stack=stack,
-                error_handler=error_handler
+                error_handler=error_handler,
+                # SamplingFnT
+                sampling_handler=simple_sampling_handler,
             )
 
             if len(config.extensions_config.tools.mcp_servers) > 0 and len(mcp_sessions) == 0:

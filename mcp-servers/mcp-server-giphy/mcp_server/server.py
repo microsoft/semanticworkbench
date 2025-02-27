@@ -2,6 +2,8 @@ from typing import Optional
 
 from mcp.server.fastmcp import Context, FastMCP
 
+from mcp_server.sampling import perform_sampling
+
 from . import settings
 from .giphy_search import perform_search
 
@@ -14,33 +16,40 @@ def create_mcp_server() -> FastMCP:
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
     @mcp.tool()
-    async def giphy_search_tool(context: str, search_term: str, ctx: Context) -> Optional[list]:
+    async def giphy_search(context: str, search_term: str, ctx: Context) -> Optional[dict]:
+        """
+        A specialized team member that searches the GIPHY database for GIFs based on your search term.
+        Use them to find the perfect GIF to express your thoughts or feelings. Provide as much context
+        as possible to help them understand the context of your search. Your search term should be a
+        specific keyword or phrase that describes the GIF you're looking for. For context, pass as
+        much background as you can: if using this tool in a conversation, include the conversation
+        history; if in a broader context, include any relevant documents or details. If there is no
+        context, pass “None.”
+        """
+
         await ctx.session.send_log_message(
             level="info",
             data="searching...",
         )
 
         # Perform search using context and search term
-        search_results = perform_search(context, search_term)
+        search_results = perform_search(context=context, search_term=search_term)
 
-        # Sampling isn't implemented in FastMCP yet, so we'll need to extend it.
-        # For now, just return a simplified list.
+        # Create sampling request message, integrating search results and context
+        sampling_result = await perform_sampling(
+            context=context,
+            search_results=search_results,
+            fastmcp_server_context=ctx,
+        )
 
-        return [
-            {
-                "title": result["title"],
-                "alt_text": result["alt_text"],
-                "image": result["images"]["original"],
+        if sampling_result.type == "image":
+            return {
+                "data": sampling_result.data,
+                "mimeType": sampling_result.mimeType,
             }
-            for result in search_results
-        ]
-
-        # # Create sampling request message, integrating search results and context
-        # sampling_result = await perform_sampling(search_results, context)
-
-        # # Extract and return image selected by sampling
-        # final_image = next(
-        #     (content for content in sampling_result if content['type'] == "image"), None)
-        # return final_image["data"] if final_image else None
+        else:
+            return {
+                "text": sampling_result.text,
+            }
 
     return mcp
