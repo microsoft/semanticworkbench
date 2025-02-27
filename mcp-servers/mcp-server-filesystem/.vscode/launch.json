@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "mcp-servers: mcp-server-filesystem",
+      "cwd": "${workspaceFolder}",
+      "module": "mcp_server.start",
+      "args": ["--transport", "sse", "--port", "6060"],
+      "consoleTitle": "mcp-server-filesystem"
+      // "justMyCode": false // Set to false to debug external libraries
+    }
+  ],
+  "compounds": [
+    {
+      "name": "test: mcp-server-filesystem",
+      "configurations": [
+        "assistants: codespace-assistant",
+        "app: semantic-workbench-app",
+        "service: semantic-workbench-service",
+        "mcp-servers: mcp-server-filesystem"
+      ]
+    }
+  ]
+}
