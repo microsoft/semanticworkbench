@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_server import settings
 from mcp_server.app_interaction.excel_editor import get_active_workbook, get_excel_app, get_workbook_content
@@ -12,7 +12,7 @@ from mcp_server.app_interaction.powerpoint_editor import (
 )
 from mcp_server.app_interaction.word_editor import (
     get_active_document,
-    get_document_content,
+    get_markdown_representation,
     get_word_app,
 )
 from mcp_server.markdown_edit.markdown_edit import run_markdown_edit
@@ -24,46 +24,24 @@ def create_mcp_server() -> FastMCP:
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
     @mcp.tool()
-    async def edit_word_document(chat_history: str, additional_context: str | None = None) -> str:
+    async def edit_word_document(ctx: Context) -> str:
         """
-        The user has a Microsoft Word document open side by side with this chat.
-        Use this tool when you need to make changes to the document.
+        The user has a Microsoft Word document open side by side with this chat. Use this tool when you need to make changes to the document.
+        Do not provide it any additional context. It will automatically be fetched as needed by this tool.
         """
-        return run_markdown_edit(chat_history, additional_context)
+        return await run_markdown_edit(ctx=ctx)
 
     # TODO: It might be good to consider having the document content always be available to the assistant if the document is "connected".
     @mcp.tool()
     async def get_open_document_content() -> str:
         """
-        Returns the content of the open document.
+        Returns the content of the open Word document. Use this tool when you just need the content of the document.
+        If you need to make changes to the document, use the edit_word_document tool instead. It will automatically also get the current content of the document.
         """
         word = get_word_app()
         doc = get_active_document(word)
-        return get_document_content(doc)
-
-    # TODO: DEPRECATED
-    '''
-
-    @mcp.tool()
-    async def write_to_open_document(text: str) -> bool:
-        """
-        This rewrites the content of the open document. If you need to add text, you MUST rewrite all of the document content.
-        Always call get_open_document_content to get the latest content.
-        DO NOT use Markdown formatting for the text, it will not be rendered correctly. Use plaintext.
-
-        Args:
-            text: The text to write to the open document.
-
-        Returns:
-            True if the text was written to the open document, False otherwise.
-        """
-        # Connect to Word application and get the active document
-        word = get_word_app()
-        doc = get_active_document(word)
-
-        replace_document_content(doc, text)
-        return True
-    '''
+        markdown_from_word = get_markdown_representation(doc)
+        return markdown_from_word
 
     @mcp.tool()
     async def get_powerpoint_content() -> str:

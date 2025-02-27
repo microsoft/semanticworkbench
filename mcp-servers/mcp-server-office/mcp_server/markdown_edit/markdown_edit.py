@@ -3,6 +3,9 @@
 import json
 
 import pendulum
+from mcp.server.fastmcp import Context
+from mcp.types import SamplingMessage, TextContent
+from mcp_extensions import send_sampling_request
 
 from mcp_server.app_interaction.word_editor import (
     get_active_document,
@@ -16,13 +19,14 @@ from mcp_server.markdown_edit.utils import blockify, construct_page_for_llm, exe
 from mcp_server.prompts.markdown_edit import (
     MD_EDIT_CHANGES_MESSAGES,
     MD_EDIT_CONVERT_MESSAGES,
+    MD_EDIT_REASONING_DEV_PROMPT,
     MD_EDIT_REASONING_MESSAGES,
     MD_EDIT_TOOL_NAME,
     SEND_MESSAGE_TOOL_NAME,
 )
 
 
-def run_markdown_edit(chat_history: str, additional_context: str | None = None) -> str:
+async def run_markdown_edit(ctx: Context) -> str:
     """
     Run the markdown edit.
     """
@@ -40,18 +44,38 @@ def run_markdown_edit(chat_history: str, additional_context: str | None = None) 
             "knowledge_cutoff": "2023-10",
             "current_date": pendulum.now().format("YYYY-MM-DD"),
             "task": DEFAULT_DOC_EDIT_TASK,
-            "context": additional_context or "",
+            "context": "",
             "document": doc_for_llm,
-            "chat_history": chat_history,
+            "chat_history": "",
         },
     )
 
-    # TODO: Sampling - Get the reasoning from o3-mini-high using MCP Sampling
-    reasoning = "HARD CODED REASONING FOR NOW"
+    reasoning_system_prompt = compile_messages(
+        messages=[MD_EDIT_REASONING_DEV_PROMPT],
+        variables={
+            "knowledge_cutoff": "2023-10",
+            "current_date": pendulum.now().format("YYYY-MM-DD"),
+            "task": DEFAULT_DOC_EDIT_TASK,
+        },
+    )[0].content
+    reasoning = await send_sampling_request(
+        fastmcp_server_context=ctx,
+        messages=[
+            SamplingMessage(
+                role="user",
+                content=TextContent(
+                    type="text",
+                    text="Generate the reasoning for the best possible sequence of tools to modify the document.",
+                ),
+            ),
+        ],
+        max_tokens=8000,
+        system_prompt=reasoning_system_prompt,  # type: ignore
+    )
 
     convert_messages = compile_messages(
         messages=MD_EDIT_CONVERT_MESSAGES,
-        variables={"reasoning": reasoning},
+        variables={"reasoning": reasoning.content.text},  # type: ignore
     )
 
     # TODO: Sampling to get the tool calls from gpt-4o
@@ -65,7 +89,7 @@ def run_markdown_edit(chat_history: str, additional_context: str | None = None) 
                             "id": "call_abc",
                             "function": {
                                 "name": "doc_edit",
-                                "arguments": '{"operations": [{"type": "insert", "index": "1", "content": "This is a sample inserted content."}]}',
+                                "arguments": '{"operations": [{"type": "insert", "index": "100", "content": "Wait, there\'s more! Let us keep editing"}]}',
                             },
                         }
                     ],
@@ -73,10 +97,10 @@ def run_markdown_edit(chat_history: str, additional_context: str | None = None) 
             }
         ],
     }
+
     updated_doc_markdown = markdown_from_word
     change_summary = ""
     output_message = ""
-
     if convert_response["choices"][0]["message"]["tool_calls"]:
         tool_call = convert_response["choices"][0]["message"]["tool_calls"][0]["function"]
         # If the the model called the send_message, don't update the doc and return the message
@@ -85,14 +109,15 @@ def run_markdown_edit(chat_history: str, additional_context: str | None = None) 
         elif tool_call["name"] == MD_EDIT_TOOL_NAME:
             tool_call["arguments"] = json.loads(tool_call["arguments"])
             blocks = blockify(updated_doc_markdown)
-            blocks = execute_tools(blocks=blocks, edit_tool_call=tool_call)  # type: ignore
+            blocks = execute_tools(blocks=blocks, edit_tool_call=tool_call)
             updated_doc_markdown = unblockify(blocks)
             write_markdown_to_document(doc, updated_doc_markdown)
             del doc, word
             if updated_doc_markdown != markdown_from_word:
-                change_summary = run_change_summary(
+                change_summary = await run_change_summary(
                     before_doc=markdown_from_word,
                     after_doc=updated_doc_markdown,
+                    ctx=ctx,
                 )
             else:
                 change_summary = "No changes were made to the document."
@@ -102,7 +127,7 @@ def run_markdown_edit(chat_history: str, additional_context: str | None = None) 
     return change_summary or output_message
 
 
-def run_change_summary(before_doc: str, after_doc: str) -> str:
+async def run_change_summary(before_doc: str, after_doc: str, ctx: Context) -> str:
     change_summary_messages = compile_messages(
         messages=MD_EDIT_CHANGES_MESSAGES,
         variables={
@@ -110,7 +135,16 @@ def run_change_summary(before_doc: str, after_doc: str) -> str:
             "after_doc": after_doc,
         },
     )
-    # TODO: Sampling to get the change summary from gpt-4o using MCP Sampling
-
-    change_summary = CHANGE_SUMMARY_PREFIX + "HARD CODED SUMMARY"
+    change_summary = await send_sampling_request(
+        fastmcp_server_context=ctx,
+        messages=[
+            SamplingMessage(
+                role="user",
+                content=TextContent(type="text", text=change_summary_messages[1].content),  # type: ignore
+            ),
+        ],
+        max_tokens=1000,
+        system_prompt=change_summary_messages[0].content,  # type: ignore
+    )
+    change_summary = CHANGE_SUMMARY_PREFIX + change_summary.content.text  # type: ignore
     return change_summary

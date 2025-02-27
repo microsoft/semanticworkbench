@@ -7,7 +7,9 @@ readme = "README.md"
 requires-python = ">=3.11, <3.13"
 
 dependencies = [
+    "aiohttp>=3.11.13",
     "mcp>=1.2.1",
+    "mcp-extensions[openai]>=0.1.0",
     "ngrok>=1.4.0",
     "pendulum>=3.0.0",
     "python-liquid>=1.13.0",
@@ -15,13 +17,16 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pyright>=1.1.389", "pyinstaller", "pytest"]
+dev = ["pyright>=1.1.389", "pyinstaller>=6.11", "pytest>=8.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
 
 [build-system]
 requires = ["hatchling"]
