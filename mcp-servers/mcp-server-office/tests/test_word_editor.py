@@ -26,6 +26,42 @@ def test_get_markdown_representation_1(word_document):
     assert markdown_text is not None
 
 
-def test_write_markdown_to_document(word_document):
+def test_write_markdown_to_document_round_trip(word_document):
+    """
+    This will show what is lost when we convert to markdown and back to Word.
+    """
     markdown_text = get_markdown_representation(word_document)
+    write_markdown_to_document(word_document, markdown_text)
+
+
+def test_read_write_document_content(word_document):
+    markdown_text = """- hello!
+# Introduction to Python
+Python is a high-level, interpreted programming language known for its simplicity and readability. It is widely used for web development, data analysis, artificial intelligence, and more.
+
+- Easy to Read and Write: Python's syntax is clear and concise.
+- Cross-Platform: Works on Windows, macOS, and Linux.
+
+## Installing Python
+
+To install Python, follow these steps:
+1. Download the latest version for your operating system.
+1. Run the installer and follow the instructions.
+1. Verify the installation by running `python --version` in the terminal.
+
+That's all!"""
+    write_markdown_to_document(word_document, markdown_text)
+    rt_markdown_text = get_markdown_representation(word_document)
+    write_markdown_to_document(word_document, rt_markdown_text)
+
+
+def test_write_markdown_to_document_lists(word_document):
+    """
+    This will show what is lost when we convert to markdown and back to Word.
+    """
+    markdown_text = """## Market Opportunity
+Here are the market opportunities:
+- Growing Market: The market is projected to grow.
+- Target Audience: Our primary customers are enterprises.
+Let's get into the details."""
     write_markdown_to_document(word_document, markdown_text)
