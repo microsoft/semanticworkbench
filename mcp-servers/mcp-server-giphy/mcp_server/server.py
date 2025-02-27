@@ -27,11 +27,6 @@ def create_mcp_server() -> FastMCP:
         context, pass “None.”
         """
 
-        await ctx.session.send_log_message(
-            level="info",
-            data="searching...",
-        )
-
         # Perform search using context and search term
         search_results = await perform_search(search_term=search_term, ctx=ctx)
 

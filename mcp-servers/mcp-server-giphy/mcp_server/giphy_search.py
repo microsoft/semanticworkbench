@@ -14,7 +14,7 @@ class GiphyResponse(BaseModel):
 
 
 async def perform_search(search_term: str, ctx: Context) -> Optional[List[dict]]:
-    await send_tool_call_progress(ctx, "searching...")
+    await send_tool_call_progress(ctx, "searching for images...")
 
     api_key = os.getenv("GIPHY_API_KEY")  # Retrieve the GIPHY API Key from the environment
     if not api_key:

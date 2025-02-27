@@ -81,6 +81,10 @@ async def respond_to_conversation(
         # Get the AI client configuration based on the request type
         request_config, service_config = get_ai_client_configs(config, request_type)
 
+        # Update the sampling handler with the service and request configurations
+        sampling_handler.set_service_config(service_config)
+        sampling_handler.set_request_config(request_config)
+
         # Loop until the response is complete or the maximum number of steps is reached
         while step_count < max_steps:
             step_count += 1
