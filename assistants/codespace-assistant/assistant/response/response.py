@@ -52,7 +52,8 @@ async def respond_to_conversation(
                 )
             )
 
-        async def simple_sampling_handler(context, params) -> CreateMessageResult:
+        # FIXME: Move this to an observer pattern to allow for more flexibility in handling sampling requests
+        async def sampling_handler(context, params) -> CreateMessageResult:
             logger.info(f"Sampling handler invoked with context: {context}, params: {params}")
             # Return a dummy result; adjust the return value to conform to CreateMessageResult | ErrorData as needed.
             return CreateMessageResult(
@@ -69,8 +70,7 @@ async def respond_to_conversation(
             tools_config=config.extensions_config.tools,
             stack=stack,
             error_handler=error_handler,
-            # SamplingFnT
-            sampling_handler=simple_sampling_handler,
+            sampling_handler=sampling_handler,
         )
 
         if len(config.extensions_config.tools.mcp_servers) > 0 and len(mcp_sessions) == 0:
