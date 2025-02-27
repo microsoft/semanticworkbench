@@ -116,7 +116,7 @@ export default function CustomizedFieldTemplate<
                 {configurationsComponent}
                 {children}
                 {displayLabel && rawDescription ? (
-                    <Text as="p" block style={{ marginTop: 0, marginBottom: 0 }}>
+                    <Text block style={{ display: 'block', marginTop: tokens.spacingVerticalS }}>
                         {description}
                     </Text>
                 ) : null}

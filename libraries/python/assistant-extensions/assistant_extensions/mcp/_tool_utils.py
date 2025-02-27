@@ -12,9 +12,9 @@ from mcp_extensions import execute_tool_with_retries
 from ._model import (
     ExtendedCallToolRequestParams,
     ExtendedCallToolResult,
+    MCPLoggingMessageHandler,
     MCPSession,
     MCPToolsConfigModel,
-    OnMCPLoggingMessageHandler,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,10 +56,12 @@ async def handle_mcp_tool_call(
     mcp_sessions: List[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
-    on_logging_message: OnMCPLoggingMessageHandler,
+    on_logging_message: MCPLoggingMessageHandler,
 ) -> ExtendedCallToolResult:
     # Find the tool and session by tool name.
-    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(mcp_sessions, tool_call.name)
+    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(
+        mcp_sessions, tool_call.name
+    )
 
     if not mcp_session or not tool:
         return ExtendedCallToolResult(
@@ -75,14 +77,16 @@ async def handle_mcp_tool_call(
         )
 
     # Execute the tool call using our robust error-handling function.
-    return await execute_tool(mcp_session, tool_call, method_metadata_key, on_logging_message)
+    return await execute_tool(
+        mcp_session, tool_call, method_metadata_key, on_logging_message
+    )
 
 
 async def handle_long_running_tool_call(
     mcp_sessions: List[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
-    on_logging_message: OnMCPLoggingMessageHandler,
+    on_logging_message: MCPLoggingMessageHandler,
 ) -> AsyncGenerator[ExtendedCallToolResult, None]:
     """
     Handle the streaming tool call by invoking the appropriate tool and returning a ToolCallResult.
@@ -134,7 +138,7 @@ async def execute_tool(
     mcp_session: MCPSession,
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
-    on_logging_message: OnMCPLoggingMessageHandler,
+    on_logging_message: MCPLoggingMessageHandler,
 ) -> ExtendedCallToolResult:
     # Initialize metadata
     metadata = {}
@@ -168,7 +172,9 @@ async def execute_tool(
     except Exception as e:
         if isinstance(e, ExceptionGroup) and len(e.exceptions) == 1:
             e = e.exceptions[0]
-        error_message = str(e).strip() or "Peer disconnected; no error message received."
+        error_message = (
+            str(e).strip() or "Peer disconnected; no error message received."
+        )
         # Check if the error indicates a disconnection.
         if "peer closed connection" in error_message.lower():
             mcp_session.is_connected = False
@@ -180,7 +186,6 @@ async def execute_tool(
             isError=True,
             metadata={"debug": {method_metadata_key: {"error": error_message}}},
         )
-
 
     tool_output = tool_result.content
 

@@ -5,10 +5,7 @@ description = "Extensions for Model Context Protocol (MCP) clients / servers."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-    "deepmerge>=2.0",
-    "mcp>=1.2.1",
-]
+dependencies = ["deepmerge>=2.0", "mcp>=1.3.0"]
 
 [project.optional-dependencies]
 # For any of the above dependencies that are specific to a single extension, it'd be good

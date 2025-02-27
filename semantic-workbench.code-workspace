@@ -174,9 +174,13 @@
   ],
   "settings": {
     "markdown.validate.enabled": true,
-    "ruff.configuration": "${workspaceFolder}/ruff.toml",
+    "ruff.configuration": "${workspaceFolder}/../ruff.toml",
+    "ruff.interpreter": ["${workspaceFolder}/../.venv/bin/python"],
     "ruff.importStrategy": "useBundled",
     "ruff.nativeServer": "on",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff"
+    },
     "better-comments.highlightPlainText": true,
     "better-comments.multilineComments": true,
     "better-comments.tags": [

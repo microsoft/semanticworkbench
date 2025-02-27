@@ -5,7 +5,7 @@ from typing import Any, List
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
-from assistant_extensions.mcp import MCPSession, MCPToolsConfigModel
+from assistant_extensions.mcp import MCPSession, MCPToolsConfigModel, SamplingHandler
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 async def next_step(
+    sampling_handler: SamplingHandler,
     mcp_sessions: List[MCPSession],
     mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
@@ -76,6 +77,7 @@ async def next_step(
 
     # convert the tools to make them compatible with the OpenAI API
     tools = get_openai_tools_from_mcp_sessions(mcp_sessions, tools_config)
+    sampling_handler.set_mcp_tools(mcp_tools=tools)
 
     build_request_result = await build_request(
         mcp_prompts=mcp_prompts,

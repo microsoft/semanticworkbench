@@ -22,7 +22,7 @@ dependencies = [
 # are only installed when the specific extension is installed, to reduce the overall size
 # of the package installation, especially when bundling larger dependencies.
 attachments = ["docx2txt>=0.8", "pdfplumber>=0.11.2"]
-mcp = ["mcp>=1.2.1", "mcp-extensions[openai]>=0.1.0"]
+mcp = ["mcp-extensions[openai]>=0.1.0"]
 
 [dependency-groups]
 dev = ["pyright>=1.1.389", "pytest>=8.3.1", "pytest-asyncio>=0.23.8"]
