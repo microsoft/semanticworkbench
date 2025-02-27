@@ -10,8 +10,8 @@ clean:
 install:
 	pnpm install
 
-.PHONY: lock
-lock:
+.PHONY: lock-upgrade
+lock-upgrade:
 	pnpm update
 
 .PHONY: test type-check

@@ -35,23 +35,19 @@ def main() -> None:
 
     # Create the server
     mcp = create_mcp_server()
+    mcp.settings.host = "127.0.0.1"
+    mcp.settings.port = args.port
 
     if args.transport == "sse":
         # For SSE, the directories are provided directly as query parameters
-        mcp.settings.port = args.port
         logger.info(f"Starting SSE server on port {args.port}")
-        # Note: The client will add all args as a comma-separated list in the 'args' parameter
-        logger.info(
-            f"Example usage: Use http://127.0.0.1:{args.port}/sse?args=/path1,/path2,/path3 or configure with args=['/path1', '/path2', '/path3']"
-        )
 
-        # Setting port in MCP settings
-        mcp.settings.port = args.port
     else:  # stdio transport
         # For stdio, directories must be provided via command line
         if not settings.allowed_directories:
             logger.error("At least one allowed_directory must be specified for stdio transport")
             sys.exit(1)
+
         logger.info("Starting with stdio transport")
         logger.info(f"Using allowed_directories: {settings.allowed_directories}")
 

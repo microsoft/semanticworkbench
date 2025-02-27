@@ -21,10 +21,13 @@ PYTEST_ARGS ?= --color=yes
 install:
 	uv sync $(uv_project_args) $(UV_SYNC_INSTALL_ARGS)
 
-.PHONY: lock-upgrade lock
+.PHONY: lock-upgrade
 lock-upgrade:
 	uv lock --upgrade $(uv_project_args)
-lock: lock-upgrade install
+
+.PHONY: lock
+lock:
+	uv sync $(uv_project_args) $(UV_SYNC_LOCK_ARGS)
 
 .PHONY: clean
 clean:
