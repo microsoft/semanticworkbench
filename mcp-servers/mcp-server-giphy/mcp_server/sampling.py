@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import logging
+from textwrap import dedent
 from typing import Any, Dict, List, Union
 
 from mcp.server.fastmcp import Context
@@ -94,10 +95,15 @@ async def perform_sampling(
 
     await send_tool_call_progress(ctx, "choosing image...")
 
+    # FIXME add support for structured output to enforce image selection
     # Send sampling request to FastMCP server
     sampling_result = await send_sampling_request(
         fastmcp_server_context=ctx,
-        system_prompt=f"Choose the most fitting image based on user context and search results.\nContext: {context}",
+        system_prompt=dedent(f"""
+            Choose the most fitting image based on user context and search results.
+            Context: {context}
+            Return the image data for the chosen image.
+        """).strip(),
         messages=messages,
         max_tokens=100,
     )
