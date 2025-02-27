@@ -1,13 +1,106 @@
 # State Inspectors
 
-Each assistant can have one or more state inspectors. A state inspector is a component that can be used to inspect the state of the assistant. The `config` editor for an assistant is an example of a special state inspector that is required for each assistant.
+## Overview
 
-States beyond the required `config` state exposed by an assistant will be available in the assistant's conversation view. Clicking on the `Show Inspectors` UI will cause a tabbed view to be rendered, with each tab mapping to an exposed state. The inspector view will attempt to render the state in the most user-friendly way, based upon the content/data provided.
+State inspectors provide a way to visualize and interact with an assistant's internal state. Each assistant can have multiple state inspectors, with the `config` editor being a required inspector for all assistants.
 
--   If the state `data` property contains a key of `content` that is a string, it will be rendered as text, supporting markdown and/or html formatting, in addition to plain text.
--   If there is a `JsonSchema` property in the state, it will be rendered as custom UI, based upon the schema. If `UISchema` is also provided, it will be used to customize the UI.
--   Lastly, the state will be rendered as formatted JSON.
+State inspectors can be used for:
+- Debugging assistant behavior
+- Monitoring internal state changes
+- Providing interactive interfaces for modifying assistant state
+- Exposing data and attachments for user inspection
 
-If `JsonSchema` is provided, the state inspector will also provide a button to allow the user to edit the state. The user will be presented with a dialog that will allow them to edit the state. The dialog will be rendered based upon the `JsonSchema` and `UISchema` properties of the state. The user will be able to save the changes, or cancel the dialog. If the user saves the changes, the state will be updated, and the assistant will be notified of the change.
+## Accessing State Inspectors
 
-Assistant state change events can be fired to cause the inspector UI to be updated for real-time state inspection. This can be useful for debugging purposes, or for providing a real-time view of the state of the assistant.
+State inspectors are available in the assistant's conversation view. To access them:
+
+1. Join a conversation with an assistant
+2. Click the `Show Inspectors` button in the conversation interface
+3. A tabbed view will appear with each tab representing a different state
+
+## Rendering Methods
+
+The inspector view will render state based on its content:
+
+1. **Content-based Rendering**: If the state's `data` property contains a `content` key with a string value, it will be rendered as:
+   - Markdown for formatted text
+   - HTML for rich content
+   - Plain text for simple content
+
+2. **Schema-based Rendering**: If the state includes a `JsonSchema` property, a custom UI will be generated based on the schema:
+   - Form elements will be created for each schema property
+   - If a `UISchema` property is provided, it will customize the UI appearance
+   - Validation will follow the schema rules
+
+3. **JSON Fallback**: If neither of the above applies, the state will be rendered as formatted JSON.
+
+## Interactive State Editing
+
+When a state includes a `JsonSchema` property, the inspector provides editing capabilities:
+
+1. An edit button will appear in the inspector
+2. Clicking it opens a dialog with form elements based on the schema
+3. Users can modify values and save changes
+4. Changes are sent to the assistant, which is notified of the update
+
+## Attachments Support
+
+State inspectors can include file attachments:
+
+1. If a state contains `attachments` data, files will be displayed with download options
+2. Users can download attachments for local inspection
+3. Common file types may have preview capabilities
+
+## Implementing State Inspectors
+
+Assistants can implement state inspectors by:
+
+1. Defining data models with appropriate JSON schemas
+2. Exposing state through the assistant service API
+3. Handling state change notifications from the user interface
+4. Updating state in response to internal events
+
+## Example Schema
+
+```json
+{
+  "JsonSchema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Name"
+      },
+      "enabled": {
+        "type": "boolean",
+        "title": "Enabled"
+      },
+      "settings": {
+        "type": "object",
+        "properties": {
+          "threshold": {
+            "type": "number",
+            "title": "Threshold",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    }
+  },
+  "UISchema": {
+    "settings": {
+      "ui:expandable": true
+    }
+  },
+  "data": {
+    "name": "My Assistant",
+    "enabled": true,
+    "settings": {
+      "threshold": 0.7
+    }
+  }
+}
+```
+
+State inspectors provide powerful debugging and interaction capabilities for both developers and users of the Semantic Workbench platform.
