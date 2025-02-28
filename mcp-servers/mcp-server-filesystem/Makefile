@@ -14,6 +14,10 @@ package: install
 	uv run pyinstaller --onefile --name=mcp-server-filesystem --distpath=./dist mcp_server_filesystem/start.py
 	$(rm_file) *.spec
 
-clean:
+.PHONY: clean-package
+
+clean: clean-package
+
+clean-package:
 	$(rm_dir) dist $(ignore_failure)
 	$(rm_dir) build $(ignore_failure)

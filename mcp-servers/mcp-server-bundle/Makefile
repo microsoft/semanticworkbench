@@ -20,6 +20,10 @@ endif
 	$(MAKE) -C ../mcp-server-filesystem package
 	uv run pyinstaller pyinstaller.spec
 
-clean:
+.PHONY: clean-package
+
+clean: clean-package
+
+clean-package:
 	$(rm_dir) dist $(ignore_failure)
 	$(rm_dir) build $(ignore_failure)
