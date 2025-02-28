@@ -9,32 +9,23 @@ this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
 # For Ruff issue, see:
 # https://github.com/astral-sh/ruff-vscode/issues/653#issuecomment-2684697931
 #
-# Example: "ruff.interpreter": ["${workspaceFolder}/../.venv/bin/python"],
+# Example: "ruff.interpreter": ["${workspaceFolder}/../.venv"],
 #
 
-# Detect OS
-ifeq ($(OS),Windows_NT)
-	DETECTED_OS := Windows
-else
-	DETECTED_OS := $(shell uname -s)
-endif
+# Define venv directory
+VENV_DIR := .venv
 
 .PHONY: install
 
-install:
-ifeq ($(DETECTED_OS),Windows)
-	@if not exist .venv (echo .venv not found, creating it using uv venv... && uv venv) else (echo .venv found.)
-else
-	@if [ ! -d .venv ]; then \
-		echo ".venv not found, creating it using uv venv..."; \
-		uv venv; \
-	else \
-		echo ".venv found."; \
-	fi
-endif
+# The .venv directory will be created if it doesn't exist
+install: $(VENV_DIR)
+
+$(VENV_DIR):
+	@echo "$(VENV_DIR) not found, creating it using uv venv..."
+	uv venv
 
 clean:
-	$(rm_dir) .venv $(ignore_failure)
-	@echo ".venv removed"
+	$(rm_dir) $(VENV_DIR) $(ignore_failure)
+	@echo "$(VENV_DIR) removed"
 
 include $(this_dir)/tools/makefiles/recursive.mk
