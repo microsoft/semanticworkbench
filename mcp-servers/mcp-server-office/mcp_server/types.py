@@ -1,7 +1,8 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 from enum import Enum
-from typing import Any, Generic, Literal, TypeVar, Callable
+from typing import Any, Callable, Generic, Literal, TypeVar
+
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, Field
 
@@ -170,6 +171,30 @@ class MarkdownEditRequest(BaseModel):
     context: Context | CustomContext
     request_type: Literal["dev", "mcp"] = Field(default="mcp")
     chat_completion_client: Callable[..., Any] | None = Field(default=None)
+
+
+class MarkdownEditOutput(BaseModel):
+    change_summary: str
+    output_message: str
+    new_markdown: str
+    reasoning: str
+    tool_calls: list[ToolCall]
+    llm_latency: float
+
+
+# endregion
+
+
+# region Evals
+
+
+class TestCase(BaseModel):
+    test_case_name: str
+    transcription_file: str
+    document_markdown: str = Field(
+        description="This is what we assume the initial Markdown content of the document is."
+    )
+    next_ask: str
 
 
 # endregion

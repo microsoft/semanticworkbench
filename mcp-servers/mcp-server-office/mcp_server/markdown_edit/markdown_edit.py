@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import pendulum
+from mcp.server.fastmcp import Context
+
 from mcp_server.app_interaction.word_editor import (
     get_active_document,
     get_markdown_representation,
@@ -25,24 +27,28 @@ from mcp_server.types import (
     ChatCompletionChoice,
     ChatCompletionRequest,
     ChatCompletionResponse,
+    CustomContext,
     Function,
+    MarkdownEditOutput,
     MarkdownEditRequest,
-    ToolCall,
     MessageT,
+    ToolCall,
 )
-from mcp.server.fastmcp import Context
-from mcp_server.types import CustomContext
 
-async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> str:
+
+async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> MarkdownEditOutput:
     """
     Run the markdown edit.
     """
-    # region Preparing context for the routine
+    # region Preparing context
 
     # Get Markdown representation of the currently open Word document
     word = get_word_app()
     doc = get_active_document(word)
-    markdown_from_word = get_markdown_representation(doc)
+    if markdown_edit_request.request_type == "dev" and isinstance(markdown_edit_request.context, CustomContext):
+        markdown_from_word = markdown_edit_request.context.document
+    else:
+        markdown_from_word = get_markdown_representation(doc)
 
     blockified_doc = blockify(markdown_from_word)
     doc_for_llm = construct_page_for_llm(blockified_doc)
@@ -57,7 +63,6 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> str:
         context = markdown_edit_request.context.additional_context
 
     # endregion
-
 
     # region Reasoning step
     # This is necessary since o3-mini-high is much more capable at page edits,
@@ -75,7 +80,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> str:
         },
     )
     if markdown_edit_request.request_type == "mcp" and isinstance(markdown_edit_request.context, Context):
-        reasoning = await chat_completion(
+        reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=reasoning_messages,
                 model="gpt-4o",
@@ -85,7 +90,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> str:
             client=markdown_edit_request.context,
         )
     elif markdown_edit_request.request_type == "dev":
-        reasoning = await chat_completion(
+        reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=reasoning_messages,
                 model="o3-mini",
@@ -93,15 +98,13 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> str:
                 reasoning_effort="high",
             ),
             provider="azure_openai",
-            client=markdown_edit_request.chat_completion_client, # type: ignore
+            client=markdown_edit_request.chat_completion_client,  # type: ignore
         )
     else:
         raise ValueError(f"Invalid request type: {markdown_edit_request.request_type}")
-
-    reasoning = reasoning.choices[0].message.content
+    reasoning = reasoning_response.choices[0].message.content
 
     # endregion
-
 
     # region Convert step
     # This converts reasoning to tool calls
@@ -136,7 +139,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> str:
             messages=convert_messages,
             model="gpt-4o",
             temperature=0,
-            max_completion_tokens=4000,
+            max_completion_tokens=8000,
             tools=[MD_EDIT_TOOL_DEF, SEND_MESSAGE_TOOL_DEF],
             tool_choice="required",
             parallel_tool_calls=False,
@@ -150,7 +153,6 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> str:
         raise ValueError(f"Invalid request type: {markdown_edit_request.request_type}")
 
     # endregion
-
 
     # region Execute step
     # Now that we have the tool calls, we can execute them in Word
@@ -184,10 +186,19 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> str:
 
     # endregion
 
-    return change_summary or output_message
+    output = MarkdownEditOutput(
+        change_summary=change_summary,
+        output_message=output_message,
+        new_markdown=updated_doc_markdown,
+        reasoning=reasoning,
+        tool_calls=convert_response.choices[0].message.tool_calls or [],
+        llm_latency=convert_response.response_duration + reasoning_response.response_duration,
+    )
+    return output
 
 
 # region Change summary
+
 
 async def run_change_summary(before_doc: str, after_doc: str, markdown_edit_request: MarkdownEditRequest) -> str:
     change_summary_messages = compile_messages(
@@ -226,15 +237,17 @@ async def run_change_summary(before_doc: str, after_doc: str, markdown_edit_requ
     change_summary = CHANGE_SUMMARY_PREFIX + change_summary
     return change_summary
 
+
 # endregion
 
 
 # region Helpers
 
+
 def format_chat_history(chat_history: list[MessageT]) -> str:
     formatted_chat_history = ""
     for message in chat_history:
-        formatted_chat_history += f"[{message.role}]: {message.content}\n"
+        formatted_chat_history += f"[{message.role.value}]: {message.content}\n"
     return formatted_chat_history.strip()
 
 

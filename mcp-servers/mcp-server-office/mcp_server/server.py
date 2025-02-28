@@ -30,7 +30,8 @@ def create_mcp_server() -> FastMCP:
         The user has a Microsoft Word document open side by side with this chat. Use this tool when you need to make changes to the document.
         Do not provide it any additional context. It will automatically be fetched as needed by this tool.
         """
-        return await run_markdown_edit(markdown_edit_request=MarkdownEditRequest(context=ctx))
+        markdown_edit_output = await run_markdown_edit(markdown_edit_request=MarkdownEditRequest(context=ctx))
+        return markdown_edit_output.change_summary or markdown_edit_output.output_message
 
     # TODO: It might be good to consider having the document content always be available to the assistant if the document is "connected".
     @mcp.tool()
