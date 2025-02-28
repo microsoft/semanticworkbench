@@ -37,6 +37,8 @@ from skill_library.skills.fabric import FabricSkill, FabricSkillConfig
 from skill_library.skills.meta import MetaSkill, MetaSkillConfig
 from skill_library.skills.posix import PosixSkill, PosixSkillConfig
 from skill_library.skills.research import ResearchSkill, ResearchSkillConfig
+from skill_library.skills.research2 import ResearchSkill as ResearchSkill2
+from skill_library.skills.research2 import ResearchSkillConfig as ResearchSkillConfig2
 
 from assistant.skill_event_mapper import SkillEventMapper
 from assistant.workbench_helpers import WorkbenchMessageProvider
@@ -289,6 +291,14 @@ async def get_or_register_skill_engine(
                         name="research",
                         language_model=language_model,
                         drive=assistant_drive.subdrive("research"),
+                    ),
+                ),
+                (
+                    ResearchSkill2,
+                    ResearchSkillConfig2(
+                        name="research2",
+                        language_model=language_model,
+                        drive=assistant_drive.subdrive("research2"),
                     ),
                 ),
                 (
