@@ -18,9 +18,9 @@ async def main(
     """Search Bing with the given query, return the first num_results URLs."""
 
     load_dotenv()
-    subscription_key = os.getenv("BING_SEARCH_SUBSCRIPTION_KEY")
+    subscription_key = os.getenv("BING_SUBSCRIPTION_KEY")
     if not subscription_key:
-        raise Exception("BING_SEARCH_SUBSCRIPTION_KEY not found in .env.")
+        raise Exception("BING_SUBSCRIPTION_KEY not found in .env.")
     search_url = "https://api.bing.microsoft.com/v7.0/search"
     headers = {"Ocp-Apim-Subscription-Key": subscription_key}
     params = {"q": q}
