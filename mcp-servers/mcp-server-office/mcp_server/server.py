@@ -16,6 +16,7 @@ from mcp_server.app_interaction.word_editor import (
     get_word_app,
 )
 from mcp_server.markdown_edit.markdown_edit import run_markdown_edit
+from mcp_server.types import MarkdownEditRequest
 
 server_name = "Office MCP Server"
 
@@ -29,7 +30,7 @@ def create_mcp_server() -> FastMCP:
         The user has a Microsoft Word document open side by side with this chat. Use this tool when you need to make changes to the document.
         Do not provide it any additional context. It will automatically be fetched as needed by this tool.
         """
-        return await run_markdown_edit(ctx=ctx)
+        return await run_markdown_edit(markdown_edit_request=MarkdownEditRequest(context=ctx))
 
     # TODO: It might be good to consider having the document content always be available to the assistant if the document is "connected".
     @mcp.tool()

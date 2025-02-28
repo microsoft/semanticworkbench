@@ -8,16 +8,23 @@ requires-python = ">=3.11, <3.13"
 
 dependencies = [
     "aiohttp>=3.11.13",
+    "azure-identity>=1.20.0",
     "mcp>=1.2.1",
     "mcp-extensions[openai]>=0.1.0",
     "ngrok>=1.4.0",
     "pendulum>=3.0.0",
+    "python-dotenv>=1.0.1",
     "python-liquid>=1.13.0",
     "pywin32==308",
 ]
 
 [dependency-groups]
-dev = ["pyright>=1.1.389", "pyinstaller>=6.11", "pytest>=8.0"]
+dev = [
+    "pyright>=1.1.389",
+    "pyinstaller>=6.11",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]

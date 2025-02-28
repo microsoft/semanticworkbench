@@ -3,7 +3,8 @@
 from enum import Enum
 from typing import Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel
+from mcp.server.fastmcp import Context
+from pydantic import BaseModel, Field
 
 
 class Role(str, Enum):
@@ -96,3 +97,80 @@ class ToolMessage(BaseMessage[str, Literal[Role.TOOL]]):
 
 
 MessageT = AssistantMessage | DeveloperMessage | SystemMessage | ToolMessage | UserMessage
+
+
+class ChatCompletionRequest(BaseModel):
+    messages: list[MessageT]
+    model: str
+    stream: bool = Field(default=False)
+
+    max_completion_tokens: int | None = Field(default=None)
+    context_window: int | None = Field(default=None)
+    logprobs: bool | None = Field(default=None)
+    n: int | None = Field(default=None)
+
+    tools: list[dict[str, Any]] | None = Field(default=None)
+    tool_choice: str | None = Field(default=None)
+    parallel_tool_calls: bool | None = Field(default=None)
+    json_mode: bool | None = Field(default=None)
+    structured_outputs: dict[str, Any] | None = Field(default=None)
+
+    temperature: float | None = Field(default=None)
+    reasoning_effort: Literal["low", "medium", "high"] | None = Field(default=None)
+    top_p: float | None = Field(default=None)
+    logit_bias: dict[str, float] | None = Field(default=None)
+    top_logprobs: int | None = Field(default=None)
+    frequency_penalty: float | None = Field(default=None)
+    presence_penalty: float | None = Field(default=None)
+    stop: str | list[str] | None = Field(default=None)
+
+    seed: int | None = Field(default=None)
+
+    max_tokens: int | None = Field(
+        default=None,
+        description="Sometimes `max_completion_tokens` is not correctly supported so we provide this as a fallback.",
+    )
+
+
+class ChatCompletionChoice(BaseModel):
+    message: AssistantMessage
+    finish_reason: Literal["stop", "length", "tool_calls", "content_filter"]
+
+    json_message: dict[str, Any] | None = Field(default=None)
+    logprobs: list[dict[str, Any] | list[dict[str, Any]]] | None = Field(default=None)
+
+    extras: Any | None = Field(default=None)
+
+
+class ChatCompletionResponse(BaseModel):
+    choices: list[ChatCompletionChoice]
+
+    errors: str = Field(default="")
+
+    completion_tokens: int
+    prompt_tokens: int
+    completion_detailed_tokens: dict[str, int] | None = Field(default=None)
+    prompt_detailed_tokens: dict[str, int] | None = Field(default=None)
+    response_duration: float
+
+    system_fingerprint: str | None = Field(default=None)
+
+    extras: Any | None = Field(default=None)
+
+
+# region Markdown Edit
+
+
+class CustomContext(BaseModel):
+    chat_history: list[MessageT]
+    document: str
+    additional_context: str
+
+
+class MarkdownEditRequest(BaseModel):
+    context: Context | CustomContext
+    request_type: Literal["dev", "mcp"] = Field(default="mcp")
+    chat_completion_client: Any | None = Field(default=None)
+
+
+# endregion
