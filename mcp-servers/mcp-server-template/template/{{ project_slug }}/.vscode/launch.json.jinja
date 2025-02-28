@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "mcp-servers: {{ project_slug }}",
       "cwd": "${workspaceFolder}",
-      "module": "mcp_server.start",
+      "module": "{{ module_name }}.start",
       "args": ["--transport", "sse", "--port", "{{ default_port }}"],
       "consoleTitle": "{{ project_slug }}"
       // "justMyCode": false // Set to false to debug external libraries
