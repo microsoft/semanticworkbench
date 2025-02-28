@@ -1,3 +1,6 @@
+# Makefile for mcp-server-bundle
+
+# Get the repository root
 repo_root = $(shell git rev-parse --show-toplevel)
 include $(repo_root)/tools/makefiles/python.mk
 
@@ -11,8 +14,11 @@ endif
 .PHONY: package
 
 package: install
-	uv run pyinstaller --onefile --name=mcp-server-filesystem --distpath=./dist mcp_server_filesystem/start.py
-	$(rm_file) *.spec
+ifeq ($(DETECTED_OS),Windows)
+	$(MAKE) -C ../mcp-server-office package
+endif
+	$(MAKE) -C ../mcp-server-filesystem package
+	uv run pyinstaller pyinstaller.spec
 
 .PHONY: clean-package
 

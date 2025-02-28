@@ -10,11 +10,11 @@ dependencies = ["mcp>=1.2.1"]
 [dependency-groups]
 dev = ["pyright>=1.1.389"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["mcp_server"]
-
 [tool.uv]
 package = true
+
+[project.scripts]
+{{ project_slug }} = "{{ module_name }}.start:main"
 
 [build-system]
 requires = ["hatchling"]

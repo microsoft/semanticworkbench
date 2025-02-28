@@ -9,14 +9,6 @@
   "editor.formatOnType": true,
   "editor.formatOnSave": true,
   "files.eol": "\n",
-  "files.exclude": {
-    "**/.git": true,
-    "**/.svn": true,
-    "**/.hg": true,
-    "**/CVS": true,
-    "**/.DS_Store": true,
-    "**/Thumbs.db": true
-  },
   "files.trimTrailingWhitespace": true,
   "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -30,6 +22,8 @@
   "python.analysis.autoImportCompletions": true,
   "python.analysis.diagnosticMode": "workspace",
   "python.analysis.fixAll": ["source.unusedImports"],
+  // Project specific paths
+  "python.analysis.ignore": ["libs"],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "standard",
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
@@ -46,45 +40,19 @@
   "ruff.nativeServer": "on",
   "search.exclude": {
     "**/.venv": true,
-    "**/.data": true,
-    "**/__pycache__": true
+    "**/.data": true
   },
-
   // For use with optional extension: "streetsidesoftware.code-spell-checker"
   "cSpell.ignorePaths": [
+    ".git",
+    ".gitignore",
+    ".vscode",
     ".venv",
     "node_modules",
     "package-lock.json",
+    "pyproject.toml",
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": [
-    "Codespaces",
-    "contentsafety",
-    "debugpy",
-    "deepmerge",
-    "devcontainer",
-    "dotenv",
-    "endregion",
-    "Excalidraw",
-    "fastapi",
-    "GIPHY",
-    "jsonschema",
-    "Langchain",
-    "modelcontextprotocol",
-    "moderations",
-    "mzxrai",
-    "openai",
-    "pdfplumber",
-    "pydantic",
-    "pyproject",
-    "pyright",
-    "pytest",
-    "semanticworkbench",
-    "semanticworkbenchteam",
-    "tiktoken",
-    "updown",
-    "virtualenvs",
-    "webresearch"
-  ]
+  "cSpell.words": ["Apim", "dotenv", "fastmcp", "toplevel"]
 }

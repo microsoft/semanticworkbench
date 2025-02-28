@@ -13,8 +13,13 @@ description:
 
 project_slug:
   type: str
-  help: The code-friendly name for your project (dashes instead of spaces).
+  help: The terminal-friendly and PyPi-friendly name for your project (dashes instead of spaces).
   default: mcp-server-{{ short_name.lower().replace(' ', '-') }}
+
+module_name:
+  type: str
+  help: The code-friendly name for your module (underscores instead of dashes or spaces).
+  default: "{{ project_slug.lower().replace('-', '_') }}"
 
 author_name:
   type: str

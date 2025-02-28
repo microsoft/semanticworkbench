@@ -4,11 +4,11 @@
     {
       "type": "debugpy",
       "request": "launch",
-      "name": "mcp-servers: {{ project_slug }}",
+      "name": "mcp-servers: mcp-server-bundle",
       "cwd": "${workspaceFolder}",
-      "module": "{{ module_name }}.start",
-      "args": ["--transport", "sse", "--port", "{{ default_port }}"],
-      "consoleTitle": "{{ project_slug }}"
+      "module": "mcp_server_bundle.main",
+      "args": [],
+      "consoleTitle": "mcp-server-bundle"
       // "justMyCode": false // Set to false to debug external libraries
     }
   ]

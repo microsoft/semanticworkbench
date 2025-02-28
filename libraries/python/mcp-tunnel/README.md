@@ -29,7 +29,7 @@ make install
 Start tunnels for default MCP servers (vscode on port 6010 and office on port 25566):
 
 ```bash
-mcp-tunnel
+uv run mcp-tunnel
 ```
 
 ### Custom Servers
@@ -37,7 +37,7 @@ mcp-tunnel
 Specify custom server names and ports:
 
 ```bash
-mcp-tunnel --servers "myserver:8080,anotherserver:9000"
+uv run mcp-tunnel --servers "myserver:8080,anotherserver:9000"
 ```
 
 ### Output

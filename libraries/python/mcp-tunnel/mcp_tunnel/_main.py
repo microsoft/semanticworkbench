@@ -1,13 +1,12 @@
 import argparse
 import pathlib
-import signal
 import subprocess
 import sys
 import threading
 import time
 import uuid
-from dataclasses import dataclass
-from typing import IO, NoReturn, cast
+from dataclasses import dataclass, field
+from typing import IO, Any, NoReturn, cast
 
 import yaml
 from termcolor import cprint
@@ -20,6 +19,7 @@ from . import _devtunnel as devtunnel
 class MCPServer:
     name: str
     port: int
+    extras: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -126,7 +126,7 @@ class TunnelManager:
         cprint(f"Failed to start tunnel for {server.name} after 10 attempts", color, file=sys.stderr)
         sys.exit(1)
 
-    def start_all_tunnels(self) -> None:
+    def start_all_tunnels(self) -> list[MCPTunnel]:
         """Start all tunnel processes."""
 
         tunnels: list[MCPTunnel] = []
@@ -134,60 +134,7 @@ class TunnelManager:
             tunnel = self.start_tunnel(server)
             tunnels.append(tunnel)
 
-        self.write_assistant_config(tunnels)
-
-    def write_assistant_config(self, tunnels: list[MCPTunnel]) -> None:
-        """
-        extensions_config:
-        tools:
-            enabled: true
-            mcp_servers:
-            - enabled: true
-                key: vscode
-                command: https://88c223vw-6010.usw2.devtunnels.ms/sse
-                args: []
-                env: []
-                prompt: ''
-                long_running: false
-                task_completion_estimate: 30
-            - enabled: false
-                key: fetch
-                command: https://jtsxbnjx-50001.usw2.devtunnels.ms/sse
-                args: []
-                env: []
-                prompt: ''
-                long_running: false
-                task_completion_estimate: 30
-        """
-
-        config = {
-            "extensions_config": {
-                "tools": {
-                    "enabled": True,
-                    "mcp_servers": [
-                        {
-                            "enabled": True,
-                            "key": server.name,
-                            "command": tunnel.sse_url,
-                            "args": [],
-                            "env": [{"key": key, "value": value} for key, value in tunnel.headers.items()],
-                            "prompt": "",
-                            "long_running": False,
-                            "task_completion_estimate": 30,
-                        }
-                        for server, tunnel in zip(self.servers, tunnels)
-                    ],
-                }
-            }
-        }
-
-        mcp_tunnel_dir = pathlib.Path.home() / ".mcp-tunnel"
-        mcp_tunnel_dir.mkdir(exist_ok=True)
-
-        config_path = mcp_tunnel_dir / "config.yaml"
-        config_path.write_text(yaml.dump(config, sort_keys=False))
-
-        print(f"\nConfig file written to: {config_path}")
+        return tunnels
 
     def terminate_tunnels(self) -> None:
         """Terminate all running tunnel processes."""
@@ -237,7 +184,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def parse_servers(servers_str):
+def parse_servers(servers_str: str) -> list[MCPServer]:
     """Parse the servers string into a list of MCPServer objects."""
     servers = []
     for server_str in servers_str.split(","):
@@ -255,7 +202,7 @@ def parse_servers(servers_str):
     return servers
 
 
-def main():
+def main() -> int:
     args = parse_arguments()
     servers = parse_servers(args.servers)
 
@@ -264,6 +211,63 @@ def main():
         return 1
 
     tunnel_servers(servers)
+
+    return 0
+
+
+def write_assistant_config(servers: list[MCPServer], tunnels: list[MCPTunnel]) -> None:
+    """
+    extensions_config:
+    tools:
+        enabled: true
+        mcp_servers:
+        - enabled: true
+            key: vscode
+            command: https://88c223vw-6010.usw2.devtunnels.ms/sse
+            args: []
+            env: []
+            prompt: ''
+            long_running: false
+            task_completion_estimate: 30
+        - enabled: false
+            key: fetch
+            command: https://jtsxbnjx-50001.usw2.devtunnels.ms/sse
+            args: []
+            env: []
+            prompt: ''
+            long_running: false
+            task_completion_estimate: 30
+    """
+
+    config = {
+        "extensions_config": {
+            "tools": {
+                "enabled": True,
+                "mcp_servers": [
+                    {
+                        "enabled": True,
+                        "key": server.name,
+                        "command": tunnel.sse_url,
+                        "args": [],
+                        "env": [{"key": key, "value": value} for key, value in tunnel.headers.items()],
+                        "prompt": "",
+                        "long_running": False,
+                        "task_completion_estimate": 30,
+                        **server.extras,
+                    }
+                    for server, tunnel in zip(servers, tunnels)
+                ],
+            }
+        }
+    }
+
+    mcp_tunnel_dir = pathlib.Path.home() / ".mcp-tunnel"
+    mcp_tunnel_dir.mkdir(exist_ok=True)
+
+    config_path = mcp_tunnel_dir / "config.yaml"
+    config_path.write_text(yaml.dump(config, sort_keys=False))
+
+    print(f"\nConfig file written to: {config_path}")
 
 
 def tunnel_servers(servers: list[MCPServer]):
@@ -276,18 +280,21 @@ def tunnel_servers(servers: list[MCPServer]):
     print("DevTunnel CLI detected and user is logged in")
     print(f"Starting tunnels for servers: {', '.join(s.name for s in servers)}")
 
-    # Set up signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, tunnel_manager.signal_handler)
-    signal.signal(signal.SIGTERM, tunnel_manager.signal_handler)
-
     try:
         # Start all tunnel processes
-        tunnel_manager.start_all_tunnels()
+        tunnels = tunnel_manager.start_all_tunnels()
+
+        write_assistant_config(servers, tunnels)
 
         # Keep the main thread alive
         print("\nAll tunnels started. Press Ctrl+C to stop all tunnels.\n")
         while True:
             time.sleep(1)
+
+    except KeyboardInterrupt:
+        print("\nReceived keyboard interrupt. Shutting down...")
+        tunnel_manager.terminate_tunnels()
+        return 0
 
     except Exception as e:
         print(f"Error: {str(e)}")

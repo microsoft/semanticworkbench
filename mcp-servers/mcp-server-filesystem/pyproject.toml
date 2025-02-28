@@ -4,21 +4,29 @@ version = "0.1.0"
 description = "Cross platform file system server"
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = ["mcp>=1.2.1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3.4", "pytest-asyncio>=0.25.3"]
 
 [dependency-groups]
-dev = ["pyright>=1.1.389"]
-
-[tool.hatch.build.targets.wheel]
-packages = ["mcp_server"]
+dev = ["pyright>=1.1.389", "pyinstaller>=6.12.0"]
 
 [tool.uv]
 package = true
 
+[project.scripts]
+mcp-server-filesystem = "mcp_server_filesystem.start:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+addopts = "-vv"
+log_cli = true
+log_cli_level = "WARNING"
+log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
