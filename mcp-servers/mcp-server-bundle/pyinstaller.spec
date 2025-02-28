@@ -1,19 +1,41 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+import sys
 
 block_cipher = None
+
+is_windows = sys.platform.startswith('win')
+
+executable_packages = [
+    'mcp-server-filesystem',
+]
+if is_windows:
+    executable_packages += [
+        'mcp-server-office',
+    ]
+
+executable_paths = [
+    f'../{package}/dist/{package}'
+    for package in executable_packages
+]
+
+if is_windows:
+    executable_paths = [
+        path + '.exe'
+        for path in executable_paths
+    ]
 
 a = Analysis(
     ['mcp_server_bundle/main.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[
-        'subprocess',
-        'signal',
-        'threading',
-        'mcp_tunnel',
-        'mcp_server.start',
+    binaries=[
+        # Add the external executable as a binary
+        # Format: (source_path, destination_directory_in_bundle)
+        (exe, 'external_executables')
+        for exe in executable_paths
     ],
+    datas=[],
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

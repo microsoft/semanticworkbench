@@ -1,9 +1,9 @@
-from collections import defaultdict
 import logging
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.session import ServerSession
 
 from . import settings
@@ -27,8 +27,7 @@ async def get_allowed_directories(ctx: Context) -> list[Path]:
     if list_roots_result.roots:
         return [Path(root.uri.path).resolve() for root in list_roots_result.roots if root.uri.path]
 
-    # Return empty list if none found
-    return []
+    raise ValueError("No allowed_directories have been configured and no roots have been set.")
 
 
 # Helper function to validate paths against allowed directories
@@ -177,7 +176,11 @@ async def edit_file(ctx: Context, path: str, edits: list[dict]) -> str:
         raise RuntimeError(f"Failed to edit the file at {path}: {str(e)}")
 
 
-async def search_files(ctx: Context, root_path: str, pattern: str, ) -> list[str]:
+async def search_files(
+    ctx: Context,
+    root_path: str,
+    pattern: str,
+) -> list[str]:
     """
     Searches files and directories matching a pattern within a root path.
 

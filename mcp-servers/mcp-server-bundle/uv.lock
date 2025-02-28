@@ -192,7 +192,10 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pyright", specifier = ">=1.1.389" }]
+dev = [
+    { name = "pyinstaller", specifier = ">=6.12.0" },
+    { name = "pyright", specifier = ">=1.1.389" },
+]
 
 [[package]]
 name = "mcp-server-office"

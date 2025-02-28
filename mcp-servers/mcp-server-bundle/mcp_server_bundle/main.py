@@ -6,16 +6,23 @@ which starts the appropriate services based on the platform.
 """
 
 import argparse
-import asyncio
 import importlib.util
-import platform
+import os
+import subprocess
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from typing import Any
-from unittest.mock import patch
 
 from mcp_tunnel import MCPServer
+
+
+@dataclass
+class MCPServerProcess:
+    server: MCPServer
+    process: subprocess.Popen | None
+
 
 MCP_SERVER_OFFICE_PORT = 25252
 MCP_SERVER_FILE_SYSTEM_PORT = 59595
@@ -30,22 +37,19 @@ def parse_arguments() -> dict[str, Any]:
         A dictionary of parsed arguments.
     """
     parser = argparse.ArgumentParser(description="MCP Server Bundle - Packages mcp-server-office and mcp-tunnel")
-
-    # Common arguments
-    parser.add_argument("--tunnel", nargs="+", help="Additional arguments to pass to mcp-tunnel")
-
-    # Windows-specific arguments
-    if platform.system() == "Windows":
-        parser.add_argument("--office", nargs="+", help="Additional arguments to pass to mcp-server-office")
-
     args = parser.parse_args()
+
     return vars(args)
 
 
-def start_servers(args: dict[str, Any]) -> list[MCPServer]:
-    mcp_servers: list[MCPServer] = []
+def start_servers() -> list[MCPServerProcess]:
+    mcp_servers: list[MCPServerProcess] = []
 
-    for start in [start_mcp_server_office, start_mcp_server_vscode, start_mcp_server_filesystem]:
+    for start in [
+        start_mcp_server_office,
+        start_mcp_server_vscode,
+        start_mcp_server_filesystem,
+    ]:
         mcp_server = start()
         if mcp_server is not None:
             mcp_servers.append(mcp_server)
@@ -53,53 +57,54 @@ def start_servers(args: dict[str, Any]) -> list[MCPServer]:
     return mcp_servers
 
 
-def start_mcp_server_office() -> MCPServer | None:
+def _run_executable(executable_name: str, args: list[str]) -> subprocess.Popen:
+    is_windows = sys.platform.startswith("win")
+
+    # Get the path to the bundled executable
+    # PyInstaller sets _MEIPASS when running from a bundle
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        # When running from the PyInstaller bundle
+        base_path = sys._MEIPASS  # type: ignore
+        executable_path = os.path.join(base_path, "external_executables", executable_name)
+        if is_windows:
+            executable_path += ".exe"
+
+        # Make sure the executable has execute permissions (especially on Unix-like systems)
+        if not is_windows:
+            import stat
+
+            st = os.stat(executable_path)
+            os.chmod(executable_path, st.st_mode | stat.S_IEXEC)
+
+    else:
+        executable_path = f"../{executable_name}/dist/{executable_name}"
+        if is_windows:
+            executable_path += ".exe"
+
+    return subprocess.Popen([executable_path] + args)
+
+
+def start_mcp_server_office() -> MCPServerProcess | None:
     try:
         if not importlib.util.find_spec("mcp_server.start"):
             return None
     except ImportError:
         return None
 
-    def _execute_mcp_server_office() -> None:
-        import mcp_server.start
+    process = _run_executable("mcp-server-office", ["--transport", "sse", "--port", str(MCP_SERVER_OFFICE_PORT)])
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        with patch.object(
-            sys, "argv", ["mcp-server-office", "--transport", "sse", "--port", str(MCP_SERVER_OFFICE_PORT)]
-        ):
-            mcp_server.start.main()
-
-    threading.Thread(target=_execute_mcp_server_office, daemon=True).start()
-
-    return MCPServer("mcp-server-office", MCP_SERVER_OFFICE_PORT)
+    return MCPServerProcess(MCPServer("mcp-server-office", MCP_SERVER_OFFICE_PORT), process)
 
 
-def start_mcp_server_vscode() -> MCPServer | None:
-    return MCPServer("mcp-server-vscode", MCP_SERVER_VSCODE_PORT)
+def start_mcp_server_vscode() -> MCPServerProcess | None:
+    return MCPServerProcess(MCPServer("mcp-server-vscode", MCP_SERVER_VSCODE_PORT), None)
 
 
-def start_mcp_server_filesystem() -> MCPServer | None:
-    try:
-        if not importlib.util.find_spec("mcp_server_filesystem.start"):
-            return None
-    except ImportError:
-        return None
-
-    def _execute_mcp_server_filesystem() -> None:
-        import mcp_server_filesystem.start
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        with patch.object(
-            sys, "argv", ["mcp-server-filesystem", "--port", str(MCP_SERVER_FILE_SYSTEM_PORT), "--transport", "sse"]
-        ):
-            mcp_server_filesystem.start.main()
-
-    threading.Thread(target=_execute_mcp_server_filesystem, daemon=True).start()
-    return MCPServer("mcp-server-filesystem", MCP_SERVER_FILE_SYSTEM_PORT)
+def start_mcp_server_filesystem() -> MCPServerProcess | None:
+    process = _run_executable(
+        "mcp-server-filesystem", ["--transport", "sse", "--port", str(MCP_SERVER_FILE_SYSTEM_PORT)]
+    )
+    return MCPServerProcess(MCPServer("mcp-server-filesystem", MCP_SERVER_FILE_SYSTEM_PORT), process)
 
 
 def start_mcp_tunnel(servers: list[MCPServer]) -> None:
@@ -115,25 +120,39 @@ def main() -> int:
     Returns:
         Exit code.
     """
+    mcp_servers_and_processes: list[MCPServerProcess] = []
+
     try:
         # Parse command-line arguments
-        args = parse_arguments()
+        _ = parse_arguments()
 
         # Start the servers
-        mcp_servers = start_servers(args)
+        mcp_servers_and_processes = start_servers()
 
         # Start the tunnel
-        start_mcp_tunnel(mcp_servers)
+        start_mcp_tunnel([p.server for p in mcp_servers_and_processes])
 
         print("\nAll services started. Press Ctrl+C to exit.\n")
 
         # Keep the main thread alive and monitor processes
         while True:
+            for server_process in mcp_servers_and_processes:
+                if server_process.process is not None:
+                    if server_process.process.poll() is not None:
+                        print(f"{server_process.server.name} has terminated.")
+                        return 1
+
             time.sleep(1)
 
     except KeyboardInterrupt:
         print("\nReceived keyboard interrupt. Shutting down...")
+
         return 0
+
+    finally:
+        for server_process in mcp_servers_and_processes:
+            if server_process.process is not None:
+                server_process.process.terminate()
 
 
 if __name__ == "__main__":

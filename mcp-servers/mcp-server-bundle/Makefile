@@ -11,28 +11,15 @@ else
     DETECTED_OS := $(shell uname -s)
 endif
 
-.PHONY: package package-windows package-macos
+.PHONY: package
 
-# Package target that calls the appropriate OS-specific target
 package: install
+	# First build the mcp-servers we are packaging
 ifeq ($(DETECTED_OS),Windows)
-	$(MAKE) package-windows
-else ifeq ($(DETECTED_OS),Darwin)
-	$(MAKE) package-macos
-else
-	@echo "Unsupported OS for packaging: $(DETECTED_OS)"
-	@exit 1
+	$(MAKE) -C ../mcp-server-office package
 endif
-
-# Windows-specific packaging
-package-windows:
+	$(MAKE) -C ../mcp-server-filesystem package
 	uv run pyinstaller pyinstaller.spec
-	@echo "Windows package created: dist/mcp-server-bundle.exe"
-
-# macOS-specific packaging
-package-macos:
-	uv run pyinstaller pyinstaller.spec
-	@echo "macOS package created: dist/mcp-server-bundle"
 
 clean:
 	$(rm_dir) dist $(ignore_failure)

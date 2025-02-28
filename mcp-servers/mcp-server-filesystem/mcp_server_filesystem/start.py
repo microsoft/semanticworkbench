@@ -4,8 +4,8 @@ import argparse
 import logging
 import sys
 
-from . import settings
-from .server import create_mcp_server
+from mcp_server_filesystem import settings
+from mcp_server_filesystem.server import create_mcp_server
 
 # Set up logging
 logger = logging.getLogger("mcp_server_filesystem")
