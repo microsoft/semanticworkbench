@@ -5,7 +5,12 @@ import time
 from typing import List
 
 import deepmerge
-from assistant_extensions.mcp import ExtendedCallToolRequestParams, MCPSession, handle_mcp_tool_call
+from assistant_extensions.mcp import (
+    ExtendedCallToolRequestParams,
+    MCPSession,
+    OpenAISamplingHandler,
+    handle_mcp_tool_call,
+)
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionToolMessageParam,
@@ -30,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_completion(
+    sampling_handler: OpenAISamplingHandler,
     step_result: StepResult,
     completion: ParsedChatCompletion | ChatCompletion,
     mcp_sessions: List[MCPSession],
@@ -40,7 +46,7 @@ async def handle_completion(
     response_start_time: float,
 ) -> StepResult:
     # get service and request configuration for generative model
-    generative_request_config = request_config
+    request_config = request_config
 
     # get the total tokens used for the completion
     total_tokens = completion.usage.total_tokens if completion.usage else 0
@@ -101,7 +107,7 @@ async def handle_completion(
         request_tokens = total_tokens - completion_tokens
         footer_items.append(
             get_token_usage_message(
-                max_tokens=generative_request_config.max_tokens,
+                max_tokens=request_config.max_tokens,
                 total_tokens=total_tokens,
                 request_tokens=request_tokens,
                 completion_tokens=completion_tokens,
@@ -162,6 +168,7 @@ async def handle_completion(
 
                 try:
                     tool_call_result = await handle_mcp_tool_call(
+                        sampling_handler,
                         mcp_sessions,
                         tool_call,
                         f"{metadata_key}:request:tool_call_{tool_call_count}",
@@ -208,7 +215,7 @@ async def handle_completion(
                         tool_call_id=tool_call.id,
                     )
                 ],
-                model=generative_request_config.model,
+                model=request_config.model,
             )
 
             # Add the tool_result payload to metadata

@@ -16,6 +16,7 @@ from ._model import (
     MCPSession,
     MCPToolsConfigModel,
 )
+from ._openai_utils import OpenAISamplingHandler
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,8 @@ def get_mcp_session_and_tool_by_tool_name(
 
 
 async def handle_mcp_tool_call(
+    # FIXME: use base class, not openai-specific handler
+    sampling_handler: OpenAISamplingHandler,
     mcp_sessions: List[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
