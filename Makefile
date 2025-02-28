@@ -21,11 +21,9 @@ VENV_DIR := .venv
 install: $(VENV_DIR)
 
 $(VENV_DIR):
-	@echo "$(VENV_DIR) not found, creating it using uv venv..."
 	uv venv
 
 clean:
 	$(rm_dir) $(VENV_DIR) $(ignore_failure)
-	@echo "$(VENV_DIR) removed"
 
 include $(this_dir)/tools/makefiles/recursive.mk
