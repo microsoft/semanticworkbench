@@ -7,13 +7,13 @@ IS_ARM64 := $(filter ARM64, $(PROCESSOR_ARCHITECTURE) $(PROCESSOR_ARCHITEW6432))
 
 # Ensure early exit before running any targets if unsupported
 ifneq ($(IS_WINDOWS),Windows_NT)
-	# Only supports Windows
-    override .DEFAULT_GOAL := skip-all
+# Only supports Windows
+override .DEFAULT_GOAL := skip-all
 endif
 
 ifneq ($(IS_ARM64),)
-	# Does not support ARM64
-    override .DEFAULT_GOAL := skip-all
+# Does not support ARM64
+override .DEFAULT_GOAL := skip-all
 endif
 
 .PHONY: skip-all package
@@ -21,5 +21,14 @@ endif
 skip-all:
 	@echo Only for Windows x64 but "$(OS) $(PROCESSOR_ARCHITECTURE) $(PROCESSOR_ARCHITEW6432)" detected, skipping.
 
-package:
-	pyinstaller --onefile --name=mcp-server-office --distpath=./dist mcp_server/start.py
+package: install
+	uv run pyinstaller --onefile --name=mcp-server-office --distpath=./dist mcp_server/start.py
+	$(rm_file) *.spec
+
+.PHONY: clean-package
+
+clean: clean-package
+
+clean-package:
+	$(rm_dir) dist $(ignore_failure)
+	$(rm_dir) build $(ignore_failure)

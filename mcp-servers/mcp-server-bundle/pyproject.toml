@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-server-bundle"
+version = "0.1.0"
+description = "Bundle for mcp-server-office and mcp-tunnel"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Semantic Workbench Team" }]
+dependencies = [
+    "mcp-server-office; platform_system == 'Windows'",
+    "mcp-server-filesystem",
+    "mcp-tunnel",
+]
+
+[tool.uv.sources]
+mcp-server-office = { path = "../mcp-server-office", editable = true }
+mcp-server-filesystem= { path = "../mcp-server-filesystem", editable = true }
+mcp-tunnel = { path = "../../libraries/python/mcp-tunnel", editable = true }
+
+[project.scripts]
+mcp-server-bundle = "mcp_server_bundle.main:main"
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.12.0",
+]

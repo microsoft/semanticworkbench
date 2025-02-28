@@ -15,7 +15,7 @@ dependencies = [
     "pendulum>=3.0.0",
     "python-dotenv>=1.0.1",
     "python-liquid>=1.13.0",
-    "pywin32==308",
+    "pywin32==308; platform_system == 'Windows'",
 ]
 
 [dependency-groups]

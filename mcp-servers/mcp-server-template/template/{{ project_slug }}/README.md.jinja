@@ -21,13 +21,13 @@ Use the VSCode launch configuration, or run manually:
 Defaults to stdio transport:
 
 ```bash
-uv run -m mcp_server.start
+uv run {{ project_slug }}
 ```
 
 For SSE transport:
 
 ```bash
-uv run -m mcp_server.start --transport sse --port {{ default_port }}
+uv run {{ project_slug }} --transport sse --port {{ default_port }}
 ```
 
 The SSE URL is:
@@ -47,7 +47,7 @@ To use this MCP server in your setup, consider the following configuration:
   "mcpServers": {
     "{{ project_slug }}": {
       "command": "uv",
-      "args": ["run", "-m", "mcp_server.start"]
+      "args": ["run", "-m", "{{ module_name }}.start"]
     }
   }
 }

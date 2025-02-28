@@ -22,7 +22,7 @@ server_name = "Office MCP Server"
 
 
 def create_mcp_server() -> FastMCP:
-    mcp = FastMCP(name=server_name, log_level=settings.log_level)
+    mcp = FastMCP(name=server_name, log_level=settings.log_level, host="127.0.0.1")
 
     @mcp.tool()
     async def edit_word_document(ctx: Context) -> str:
