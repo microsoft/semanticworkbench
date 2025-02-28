@@ -1,5 +1,4 @@
 import argparse
-import pathlib
 import subprocess
 import sys
 import threading
@@ -13,6 +12,7 @@ from termcolor import cprint
 from termcolor._types import Color
 
 from . import _devtunnel as devtunnel
+from ._dir import get_mcp_tunnel_dir
 
 
 @dataclass
@@ -107,8 +107,13 @@ class TunnelManager:
         stderr_thread.start()
 
         attempts = 1
-        while attempts <= 10:
+        while attempts <= 20:
             time.sleep(1)
+
+            if process.poll() is not None:
+                cprint("Tunnel hosting process has exited. Restart and try again.", "red", file=sys.stderr)
+                sys.exit(1)
+
             uri = devtunnel.get_tunnel_uri(server.name)
 
             if not uri:
@@ -245,8 +250,8 @@ def write_assistant_config(servers: list[MCPServer], tunnels: list[MCPTunnel]) -
                 "enabled": True,
                 "mcp_servers": [
                     {
-                        "enabled": True,
                         "key": server.name,
+                        "enabled": True,
                         "command": tunnel.sse_url,
                         "args": [],
                         "env": [{"key": key, "value": value} for key, value in tunnel.headers.items()],
@@ -261,13 +266,17 @@ def write_assistant_config(servers: list[MCPServer], tunnels: list[MCPTunnel]) -
         }
     }
 
-    mcp_tunnel_dir = pathlib.Path.home() / ".mcp-tunnel"
-    mcp_tunnel_dir.mkdir(exist_ok=True)
-
-    config_path = mcp_tunnel_dir / "config.yaml"
+    config_path = get_mcp_tunnel_dir() / "config.yaml"
     config_path.write_text(yaml.dump(config, sort_keys=False))
 
-    print(f"\nConfig file written to: {config_path}")
+    cprint(f"\n{'=' * 80}\n", "green")
+    cprint("Assistant config file written:", "green")
+    cprint(f"\tDirectory: {config_path.parent}", "green")
+    cprint(f"\tFilename: {config_path.name}", "green")
+    cprint("\nNext steps:", "green")
+    cprint("1. Review the file and replace any placeholder values, if there are any", "green")
+    cprint("2. Import the file into an assistant to give it access to the MCP servers", "green")
+    cprint(f"\n{'=' * 80}\n", "green")
 
 
 def tunnel_servers(servers: list[MCPServer]):
@@ -287,7 +296,7 @@ def tunnel_servers(servers: list[MCPServer]):
         write_assistant_config(servers, tunnels)
 
         # Keep the main thread alive
-        print("\nAll tunnels started. Press Ctrl+C to stop all tunnels.\n")
+        print("All tunnels started. Press Ctrl+C to stop all tunnels.")
         while True:
             time.sleep(1)
 
