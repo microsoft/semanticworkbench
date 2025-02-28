@@ -12,13 +12,26 @@ this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
 # Example: "ruff.interpreter": ["${workspaceFolder}/../.venv/bin/python"],
 #
 
+# Detect OS
+ifeq ($(OS),Windows_NT)
+	DETECTED_OS := Windows
+else
+	DETECTED_OS := $(shell uname -s)
+endif
+
+.PHONY: install
+
 install:
+ifeq ($(DETECTED_OS),Windows)
+	@if not exist .venv (echo .venv not found, creating it using uv venv... && uv venv) else (echo .venv found.)
+else
 	@if [ ! -d .venv ]; then \
 		echo ".venv not found, creating it using uv venv..."; \
 		uv venv; \
 	else \
 		echo ".venv found."; \
 	fi
+endif
 
 clean:
 	$(rm_dir) .venv $(ignore_failure)
