@@ -8,7 +8,7 @@ from mcp.types import (
     CallToolRequestParams,
     CallToolResult,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, FileUrl
 from semantic_workbench_assistant.config import UISchema
 
 logger = logging.getLogger(__name__)
@@ -42,6 +42,11 @@ class MCPServerConfig(BaseModel):
         List[str],
         Field(title="Arguments", description="Arguments to pass to the server."),
     ]
+
+    roots: Annotated[
+        List[FileUrl],
+        Field(title="Roots", description="Roots to pass to the server."),
+    ] = []
 
     env: Annotated[
         List[MCPServerEnvConfig],

@@ -37,7 +37,7 @@ def is_available() -> tuple[bool, str]:
         - Error message if there was a problem with the devtunnel command
     """
     try:
-        code, stdout, stderr = _exec(["--version"], timeout=5)
+        code, stdout, stderr = _exec(["--version"], timeout=20)
 
         if code != 0:
             return False, f"devtunnel command returned error code {code}: {stderr}"
@@ -56,7 +56,7 @@ def is_logged_in() -> bool:
     Returns:
         Boolean indicating if the user is logged in
     """
-    code, stdout, _ = _exec(["user", "show", "--json"], timeout=10)
+    code, stdout, _ = _exec(["user", "show", "--json"], timeout=20)
     if code != 0:
         return False
 
@@ -74,7 +74,7 @@ def delete_tunnel(tunnel_id: str) -> bool:
     Returns:
         Boolean indicating if the deletion was successful.
     """
-    code, _, stderr = _exec(["delete", tunnel_id, "--force"], timeout=10)
+    code, _, stderr = _exec(["delete", tunnel_id, "--force"], timeout=20)
     if code == 0:
         return True
 
@@ -96,12 +96,12 @@ def create_tunnel(tunnel_id: str, port: int) -> bool:
     Returns:
         Boolean indicating if the creation was successful.
     """
-    code, _, stderr = _exec(["create", tunnel_id], timeout=10)
+    code, _, stderr = _exec(["create", tunnel_id], timeout=20)
     if code != 0:
         print("Error creating tunnel:", stderr, file=sys.stderr)
         return False
 
-    code, _, stderr = _exec(["port", "create", tunnel_id, "--port-number", str(port), "--protocol", "http"], timeout=10)
+    code, _, stderr = _exec(["port", "create", tunnel_id, "--port-number", str(port), "--protocol", "http"], timeout=20)
     if code != 0:
         print("Error creating tunnel:", stderr, file=sys.stderr)
         delete_tunnel(tunnel_id)
@@ -121,7 +121,7 @@ def get_access_token(tunnel_id: str) -> str:
         The access token for the tunnel.
     """
 
-    code, stdout, stderr = _exec(["token", tunnel_id, "--scope", "connect", "--json"], timeout=10)
+    code, stdout, stderr = _exec(["token", tunnel_id, "--scope", "connect", "--json"], timeout=20)
     if code != 0:
         raise RuntimeError(f"Error getting access token: {stderr}")
 
@@ -138,7 +138,7 @@ def get_tunnel_uri(tunnel_id: str) -> str:
     Returns:
         The URI for the tunnel.
     """
-    code, stdout, stderr = _exec(["show", tunnel_id, "--json"], timeout=10)
+    code, stdout, stderr = _exec(["show", tunnel_id, "--json"], timeout=20)
     if code != 0:
         raise RuntimeError(f"Error getting tunnel URI: {stderr}")
 

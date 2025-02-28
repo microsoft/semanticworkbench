@@ -26,6 +26,7 @@
   "python.analysis.ignore": ["libs"],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "standard",
+  "python.testing.pytestEnabled": true,
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",

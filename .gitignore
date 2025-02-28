@@ -9,6 +9,7 @@
 .data
 .idea/
 appsettings.*.json
+**/.DS_Store
 
 # Dependencies and build cache
 node_modules

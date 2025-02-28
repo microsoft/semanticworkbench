@@ -23,13 +23,13 @@ The server requires specifying at least one allowed directory (for security reas
 For stdio transport, specify directories using the --allowed_directories argument:
 
 ```bash
-uv run -m mcp_server.start --allowed_directories /path1 /path2 /path3
+uv run -m mcp_server_filesystem.start --allowed_directories /path1 /path2 /path3
 ```
 
 For SSE transport, you can start the server without specifying directories:
 
 ```bash
-uv run -m mcp_server.start --transport sse --port 6060
+uv run -m mcp_server_filesystem.start --transport sse --port 6060
 ```
 
 But when connecting, you must include the allowed directories as comma-separated values in the 'args' parameter:
@@ -117,7 +117,7 @@ To use this MCP server in your setup, consider the following configuration:
   "mcpServers": {
     "mcp-server-filesystem": {
       "command": "uv",
-      "args": ["run", "-m", "mcp_server.start", "--allowed_directories", "/path1", "/path2"]
+      "args": ["run", "-m", "mcp_server_filesystem.start", "--allowed_directories", "/path1", "/path2"]
     }
   }
 }

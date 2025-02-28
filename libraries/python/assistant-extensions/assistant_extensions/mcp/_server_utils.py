@@ -1,10 +1,11 @@
 import logging
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator, List, Optional
+from typing import Any, AsyncIterator, List, Optional
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-from mcp import ClientSession
+from mcp import ClientSession, types
+from mcp.shared.context import RequestContext
 from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -46,6 +47,18 @@ async def connect_to_mcp_server(
             yield client_session
 
 
+def list_roots_callback_for(server_config: MCPServerConfig):
+    """
+    Provides a callback to return the list of "roots" for a given server config.
+    """
+
+    async def cb(context: RequestContext[ClientSession, Any]) -> types.ListRootsResult | types.ErrorData:
+        roots = server_config.roots
+        return types.ListRootsResult(roots=[types.Root(uri=root) for root in roots])
+
+    return cb
+
+
 @asynccontextmanager
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
@@ -64,7 +77,10 @@ async def connect_to_mcp_server_stdio(
     try:
         async with stdio_client(server_params) as (read_stream, write_stream):
             async with ClientSession(
-                read_stream, write_stream, sampling_callback=sampling_callback
+                read_stream,
+                write_stream,
+                list_roots_callback=list_roots_callback_for(server_config),
+                sampling_callback=sampling_callback,
             ) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
@@ -122,7 +138,10 @@ async def connect_to_mcp_server_sse(
             write_stream,
         ):
             async with ClientSession(
-                read_stream, write_stream, sampling_callback=sampling_callback
+                read_stream,
+                write_stream,
+                list_roots_callback=list_roots_callback_for(server_config),
+                sampling_callback=sampling_callback,
             ) as client_session:
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
