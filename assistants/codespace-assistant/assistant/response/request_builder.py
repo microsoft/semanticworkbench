@@ -1,9 +1,15 @@
+import json
 import logging
 from dataclasses import dataclass
 from typing import List
 
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
-from assistant_extensions.mcp import MCPToolsConfigModel
+from assistant_extensions.mcp import (
+    MCPToolsConfigModel,
+    OpenAISamplingHandler,
+    sampling_message_to_chat_completion_message,
+)
+from mcp.types import SamplingMessage, TextContent
 from openai.types.chat import (
     ChatCompletionDeveloperMessageParam,
     ChatCompletionMessageParam,
@@ -36,6 +42,7 @@ class BuildRequestResult:
 
 
 async def build_request(
+    sampling_handler: OpenAISamplingHandler,
     mcp_prompts: List[str],
     attachments_extension: AttachmentsExtension,
     context: ConversationContext,
@@ -159,6 +166,43 @@ async def build_request(
             f"({total_token_count}). This assistant does not support recovery from this state. "
             "Please start a new conversation and let us know you ran into this."
         )
+
+    # Create a message processor for the sampling handler
+    def message_processor(messages: List[SamplingMessage]) -> List[ChatCompletionMessageParam]:
+        updated_messages: List[ChatCompletionMessageParam] = []
+
+        def add_converted_message(message: SamplingMessage) -> None:
+            updated_messages.append(sampling_message_to_chat_completion_message(message))
+
+        for message in messages:
+            if not isinstance(message.content, TextContent):
+                add_converted_message(message)
+                continue
+
+            # Determine if the message.content.text is a json payload
+            content = message.content.text
+            if not content.startswith("{") or not content.endswith("}"):
+                add_converted_message(message)
+                continue
+
+            # Attempt to parse the json payload
+            try:
+                json_payload = json.loads(content)
+                variable = json_payload.get("variable")
+                match variable:
+                    case "attachment_messages":
+                        return attachment_messages
+                    case "history_messages":
+                        return history_messages_result.messages
+                    case _:
+                        add_converted_message(message)
+
+            except json.JSONDecodeError:
+                add_converted_message(message)
+
+        return updated_messages
+
+    sampling_handler.message_processor = message_processor
 
     return BuildRequestResult(
         chat_message_params=chat_message_params,

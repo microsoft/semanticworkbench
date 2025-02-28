@@ -160,7 +160,7 @@ class MCPToolsConfigModel(BaseModel):
         ),
         MCPServerConfig(
             key="giphy",
-            command="http://127.0.0.1:6000/sse",
+            command="http://127.0.0.1:6040/sse",
             args=[],
             enabled=False,
         ),

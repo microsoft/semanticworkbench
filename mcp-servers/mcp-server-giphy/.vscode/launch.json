@@ -7,7 +7,7 @@
       "name": "mcp-servers: mcp-server-giphy",
       "cwd": "${workspaceFolder}",
       "module": "mcp_server.start",
-      "args": ["--transport", "sse", "--port", "6000"],
+      "args": ["--transport", "sse", "--port", "6040"],
       "consoleTitle": "mcp-server-giphy",
       "justMyCode": false // Set to false to debug external libraries
     }

@@ -151,11 +151,11 @@ class AssistantConfigModel(BaseModel):
     ] = AzureOpenAIClientConfigModel(
         service_config=AzureOpenAIServiceConfig.model_construct(),
         request_config=OpenAIRequestConfig(
-            max_tokens=128_000,
+            max_tokens=200_000,
             response_tokens=65_536,
-            model="o1-mini",
+            model="o3-mini",
             is_reasoning_model=True,
-            reasoning_effort="medium",
+            reasoning_effort="high",
         ),
     )
 
