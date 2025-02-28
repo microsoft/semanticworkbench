@@ -201,14 +201,14 @@ source = { editable = "../mcp-server-office" }
 dependencies = [
     { name = "mcp" },
     { name = "ngrok" },
-    { name = "pywin32" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "mcp", specifier = "==1.2.1" },
     { name = "ngrok", specifier = ">=1.4.0" },
-    { name = "pywin32", specifier = "==308" },
+    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = "==308" },
 ]
 
 [package.metadata.requires-dev]

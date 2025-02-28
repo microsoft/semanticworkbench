@@ -6,6 +6,7 @@ which starts the appropriate services based on the platform.
 """
 
 import argparse
+import asyncio
 import importlib.util
 import platform
 import sys
@@ -15,6 +16,10 @@ from typing import Any
 from unittest.mock import patch
 
 from mcp_tunnel import MCPServer
+
+MCP_SERVER_OFFICE_PORT = 25252
+MCP_SERVER_FILE_SYSTEM_PORT = 59595
+MCP_SERVER_VSCODE_PORT = 6010
 
 
 def parse_arguments() -> dict[str, Any]:
@@ -48,55 +53,53 @@ def start_servers(args: dict[str, Any]) -> list[MCPServer]:
     return mcp_servers
 
 
-MCP_SERVER_OFFICE_PORT = 25252
-
-
 def start_mcp_server_office() -> MCPServer | None:
     try:
-        if importlib.util.find_spec("mcp_server.start"):
-            threading.Thread(target=_execute_mcp_server_office, daemon=True).start()
-
-            return MCPServer("mcp-server-office", MCP_SERVER_OFFICE_PORT)
-
+        if not importlib.util.find_spec("mcp_server.start"):
+            return None
     except ImportError:
-        pass
+        return None
 
-    return None
+    def _execute_mcp_server_office() -> None:
+        import mcp_server.start
 
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-def _execute_mcp_server_office() -> None:
-    import mcp_server.start
+        with patch.object(
+            sys, "argv", ["mcp-server-office", "--transport", "sse", "--port", str(MCP_SERVER_OFFICE_PORT)]
+        ):
+            mcp_server.start.main()
 
-    with patch.object(sys, "argv", ["mcp-server-office", "--transport", "sse", "--port", str(MCP_SERVER_OFFICE_PORT)]):
-        mcp_server.start.main()
+    threading.Thread(target=_execute_mcp_server_office, daemon=True).start()
+
+    return MCPServer("mcp-server-office", MCP_SERVER_OFFICE_PORT)
 
 
 def start_mcp_server_vscode() -> MCPServer | None:
-    return MCPServer("mcp-server-vscode", 6010)
-
-
-MCP_SERVER_FILE_SYSTEM_PORT = 59595
+    return MCPServer("mcp-server-vscode", MCP_SERVER_VSCODE_PORT)
 
 
 def start_mcp_server_filesystem() -> MCPServer | None:
     try:
-        if importlib.util.find_spec("mcp_server_filesystem.start"):
-            threading.Thread(target=_execute_mcp_server_filesystem, daemon=True).start()
-            return MCPServer("mcp-server-filesystem", MCP_SERVER_FILE_SYSTEM_PORT)
-
+        if not importlib.util.find_spec("mcp_server_filesystem.start"):
+            return None
     except ImportError:
-        pass
+        return None
 
-    return None
+    def _execute_mcp_server_filesystem() -> None:
+        import mcp_server_filesystem.start
 
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-def _execute_mcp_server_filesystem() -> None:
-    import mcp_server_filesystem.start
+        with patch.object(
+            sys, "argv", ["mcp-server-filesystem", "--port", str(MCP_SERVER_FILE_SYSTEM_PORT), "--transport", "sse"]
+        ):
+            mcp_server_filesystem.start.main()
 
-    with patch.object(
-        sys, "argv", ["mcp-server-filesystem", "--port", str(MCP_SERVER_FILE_SYSTEM_PORT), "--transport", "sse"]
-    ):
-        mcp_server_filesystem.start.main()
+    threading.Thread(target=_execute_mcp_server_filesystem, daemon=True).start()
+    return MCPServer("mcp-server-filesystem", MCP_SERVER_FILE_SYSTEM_PORT)
 
 
 def start_mcp_tunnel(servers: list[MCPServer]) -> None:
