@@ -5,8 +5,8 @@ import sys
 import threading
 import time
 import uuid
-from dataclasses import dataclass
-from typing import IO, NoReturn, cast
+from dataclasses import dataclass, field
+from typing import IO, Any, NoReturn, cast
 
 import yaml
 from termcolor import cprint
@@ -19,6 +19,7 @@ from . import _devtunnel as devtunnel
 class MCPServer:
     name: str
     port: int
+    extras: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -125,7 +126,7 @@ class TunnelManager:
         cprint(f"Failed to start tunnel for {server.name} after 10 attempts", color, file=sys.stderr)
         sys.exit(1)
 
-    def start_all_tunnels(self) -> None:
+    def start_all_tunnels(self) -> list[MCPTunnel]:
         """Start all tunnel processes."""
 
         tunnels: list[MCPTunnel] = []
@@ -133,60 +134,7 @@ class TunnelManager:
             tunnel = self.start_tunnel(server)
             tunnels.append(tunnel)
 
-        self.write_assistant_config(tunnels)
-
-    def write_assistant_config(self, tunnels: list[MCPTunnel]) -> None:
-        """
-        extensions_config:
-        tools:
-            enabled: true
-            mcp_servers:
-            - enabled: true
-                key: vscode
-                command: https://88c223vw-6010.usw2.devtunnels.ms/sse
-                args: []
-                env: []
-                prompt: ''
-                long_running: false
-                task_completion_estimate: 30
-            - enabled: false
-                key: fetch
-                command: https://jtsxbnjx-50001.usw2.devtunnels.ms/sse
-                args: []
-                env: []
-                prompt: ''
-                long_running: false
-                task_completion_estimate: 30
-        """
-
-        config = {
-            "extensions_config": {
-                "tools": {
-                    "enabled": True,
-                    "mcp_servers": [
-                        {
-                            "enabled": True,
-                            "key": server.name,
-                            "command": tunnel.sse_url,
-                            "args": [],
-                            "env": [{"key": key, "value": value} for key, value in tunnel.headers.items()],
-                            "prompt": "",
-                            "long_running": False,
-                            "task_completion_estimate": 30,
-                        }
-                        for server, tunnel in zip(self.servers, tunnels)
-                    ],
-                }
-            }
-        }
-
-        mcp_tunnel_dir = pathlib.Path.home() / ".mcp-tunnel"
-        mcp_tunnel_dir.mkdir(exist_ok=True)
-
-        config_path = mcp_tunnel_dir / "config.yaml"
-        config_path.write_text(yaml.dump(config, sort_keys=False))
-
-        print(f"\nConfig file written to: {config_path}")
+        return tunnels
 
     def terminate_tunnels(self) -> None:
         """Terminate all running tunnel processes."""
@@ -267,6 +215,61 @@ def main() -> int:
     return 0
 
 
+def write_assistant_config(servers: list[MCPServer], tunnels: list[MCPTunnel]) -> None:
+    """
+    extensions_config:
+    tools:
+        enabled: true
+        mcp_servers:
+        - enabled: true
+            key: vscode
+            command: https://88c223vw-6010.usw2.devtunnels.ms/sse
+            args: []
+            env: []
+            prompt: ''
+            long_running: false
+            task_completion_estimate: 30
+        - enabled: false
+            key: fetch
+            command: https://jtsxbnjx-50001.usw2.devtunnels.ms/sse
+            args: []
+            env: []
+            prompt: ''
+            long_running: false
+            task_completion_estimate: 30
+    """
+
+    config = {
+        "extensions_config": {
+            "tools": {
+                "enabled": True,
+                "mcp_servers": [
+                    {
+                        "enabled": True,
+                        "key": server.name,
+                        "command": tunnel.sse_url,
+                        "args": [],
+                        "env": [{"key": key, "value": value} for key, value in tunnel.headers.items()],
+                        "prompt": "",
+                        "long_running": False,
+                        "task_completion_estimate": 30,
+                        **server.extras,
+                    }
+                    for server, tunnel in zip(servers, tunnels)
+                ],
+            }
+        }
+    }
+
+    mcp_tunnel_dir = pathlib.Path.home() / ".mcp-tunnel"
+    mcp_tunnel_dir.mkdir(exist_ok=True)
+
+    config_path = mcp_tunnel_dir / "config.yaml"
+    config_path.write_text(yaml.dump(config, sort_keys=False))
+
+    print(f"\nConfig file written to: {config_path}")
+
+
 def tunnel_servers(servers: list[MCPServer]):
     tunnel_manager = TunnelManager(servers)
 
@@ -279,7 +282,9 @@ def tunnel_servers(servers: list[MCPServer]):
 
     try:
         # Start all tunnel processes
-        tunnel_manager.start_all_tunnels()
+        tunnels = tunnel_manager.start_all_tunnels()
+
+        write_assistant_config(servers, tunnels)
 
         # Keep the main thread alive
         print("\nAll tunnels started. Press Ctrl+C to stop all tunnels.\n")

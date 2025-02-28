@@ -103,7 +103,14 @@ def start_mcp_server_filesystem() -> MCPServerProcess | None:
     process = _run_executable(
         "mcp-server-filesystem", ["--transport", "sse", "--port", str(MCP_SERVER_FILE_SYSTEM_PORT)]
     )
-    return MCPServerProcess(MCPServer("mcp-server-filesystem", MCP_SERVER_FILE_SYSTEM_PORT), process)
+    return MCPServerProcess(
+        MCPServer(
+            "mcp-server-filesystem",
+            MCP_SERVER_FILE_SYSTEM_PORT,
+            extras={"roots": ["PUT VALID PATH HERE; ex: file:///c:/dir or file:///Users/me/dir"]},
+        ),
+        process,
+    )
 
 
 def start_mcp_tunnel(servers: list[MCPServer]) -> None:
