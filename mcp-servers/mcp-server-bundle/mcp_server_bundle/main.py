@@ -68,13 +68,6 @@ def _run_executable(executable_name: str, args: list[str]) -> subprocess.Popen |
         if is_windows:
             executable_path += ".exe"
 
-        # Make sure the executable has execute permissions (especially on Unix-like systems)
-        if not is_windows:
-            import stat
-
-            st = os.stat(executable_path)
-            os.chmod(executable_path, st.st_mode | stat.S_IEXEC)
-
     else:
         executable_path = f"../{executable_name}/dist/{executable_name}"
         if is_windows:
