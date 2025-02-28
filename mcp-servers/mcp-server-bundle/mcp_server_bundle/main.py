@@ -6,7 +6,6 @@ which starts the appropriate services based on the platform.
 """
 
 import argparse
-import importlib.util
 import os
 import subprocess
 import sys
@@ -57,7 +56,7 @@ def start_servers() -> list[MCPServerProcess]:
     return mcp_servers
 
 
-def _run_executable(executable_name: str, args: list[str]) -> subprocess.Popen:
+def _run_executable(executable_name: str, args: list[str]) -> subprocess.Popen | None:
     is_windows = sys.platform.startswith("win")
 
     # Get the path to the bundled executable
@@ -81,17 +80,17 @@ def _run_executable(executable_name: str, args: list[str]) -> subprocess.Popen:
         if is_windows:
             executable_path += ".exe"
 
+    if not os.path.exists(executable_path):
+        print(f"Executable not found: {executable_path}")
+        return None
+
     return subprocess.Popen([executable_path] + args)
 
 
 def start_mcp_server_office() -> MCPServerProcess | None:
-    try:
-        if not importlib.util.find_spec("mcp_server.start"):
-            return None
-    except ImportError:
-        return None
-
     process = _run_executable("mcp-server-office", ["--transport", "sse", "--port", str(MCP_SERVER_OFFICE_PORT)])
+    if process is None:
+        return None
 
     return MCPServerProcess(MCPServer("mcp-server-office", MCP_SERVER_OFFICE_PORT), process)
 

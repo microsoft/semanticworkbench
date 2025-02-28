@@ -1,4 +1,5 @@
 import logging
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,9 @@ async def get_allowed_directories(ctx: Context) -> list[Path]:
 
     list_roots_result = await ctx.session.list_roots()
     if list_roots_result.roots:
+        if sys.platform.startswith("win"):
+            return [Path(root.uri.path.lstrip("/")).resolve() for root in list_roots_result.roots if root.uri.path]
+
         return [Path(root.uri.path).resolve() for root in list_roots_result.roots if root.uri.path]
 
     raise ValueError("No allowed_directories have been configured and no roots have been set.")

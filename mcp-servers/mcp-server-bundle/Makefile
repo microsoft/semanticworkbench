@@ -14,7 +14,6 @@ endif
 .PHONY: package
 
 package: install
-	# First build the mcp-servers we are packaging
 ifeq ($(DETECTED_OS),Windows)
 	$(MAKE) -C ../mcp-server-office package
 endif
