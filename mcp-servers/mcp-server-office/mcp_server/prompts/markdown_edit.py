@@ -60,11 +60,11 @@ Use the following as a guide for how to use the operations:
 ## On Output Format of the Content Parameter
 - You are writing documents. Use the appropriate Markdown syntax for the content you are writing. Often this means using it sparingly.
 - The following are rules specific to environment where the content will be rendered.
-    - You can ONLY use Markdown syntax for paragraphs, headings, lists (numbered and bulleted, but NON NESTED). All other Markdown syntax is unsupported and forbidden.
+    - You can ONLY use Markdown syntax for paragraphs with bold and italics, headings, lists (numbered and bulleted, but NON NESTED). All other Markdown syntax is unsupported and forbidden.
     - You can only use heading levels 1-6.
     - When creating numbered lists, you must use the syntax of "1." to start each item in the list.
     - Do NOT use nested lists. You must use headings to create a hierarchy of information.
-    - Even if the conversation history includes unsupported syntax such as nested lists, tables, or bolding, you must strictly follow the Markdown syntax described here."""
+    - Even if the conversation history includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here."""
 )
 
 MD_EDIT_REASONING_USER_PROMPT = UserMessage(

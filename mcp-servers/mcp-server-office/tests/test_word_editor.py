@@ -37,16 +37,16 @@ def test_write_markdown_to_document_round_trip(word_document):
 def test_read_write_document_content(word_document):
     markdown_text = """- hello!
 # Introduction to Python
-Python is a high-level, interpreted programming language known for its simplicity and readability. It is widely used for web development, data analysis, artificial intelligence, and more.
+Python is a high-level, **interpreted** programming language *known* for its ***simplicity*** and readability. It is widely used for web development, data analysis, artificial intelligence, and more.
 
-- Easy to Read and Write: Python's syntax is clear and concise.
-- Cross-Platform: Works on Windows, macOS, and Linux.
+- ***Easy to Read and Write***: Python's syntax is clear and concise.
+- **Cross-Platform**: Works on Windows, macOS, and Linux.
 
 ## Installing Python
 
 To install Python, follow these steps:
 1. Download the latest version for your operating system.
-1. Run the installer and follow the instructions.
+1. Run the installer and *follow* the instructions.
 1. Verify the installation by running `python --version` in the terminal.
 
 That's all!"""
