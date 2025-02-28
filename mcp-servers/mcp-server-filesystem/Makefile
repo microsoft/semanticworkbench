@@ -11,7 +11,7 @@ endif
 .PHONY: package
 
 package: install
-	pyinstaller --onefile --name=mcp-server-filesystem --distpath=./dist mcp_server_filesystem/start.py
+	uv run pyinstaller --onefile --name=mcp-server-filesystem --distpath=./dist mcp_server_filesystem/start.py
 	$(rm_file) *.spec
 
 clean:

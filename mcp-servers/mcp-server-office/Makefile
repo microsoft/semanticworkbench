@@ -22,7 +22,7 @@ skip-all:
 	@echo Only for Windows x64 but "$(OS) $(PROCESSOR_ARCHITECTURE) $(PROCESSOR_ARCHITEW6432)" detected, skipping.
 
 package: install
-	pyinstaller --onefile --name=mcp-server-office --distpath=./dist mcp_server/start.py
+	uv run pyinstaller --onefile --name=mcp-server-office --distpath=./dist mcp_server/start.py
 	$(rm_file) *.spec
 
 clean:
