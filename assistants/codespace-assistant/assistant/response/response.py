@@ -6,7 +6,7 @@ from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.mcp import (
     MCPServerConfig,
     MCPSession,
-    SamplingHandler,
+    OpenAISamplingHandler,
     establish_mcp_sessions,
     get_mcp_server_prompts,
     refresh_mcp_sessions,
@@ -52,7 +52,18 @@ async def respond_to_conversation(
                 )
             )
 
-        sampling_handler = SamplingHandler()
+        # TODO: This is a temporary hack to allow directing the request to the reasoning model
+        request_type = "reasoning" if message.content.startswith("reason:") else "generative"
+
+        # Get the AI client configuration based on the request type
+        request_config, service_config = get_ai_client_configs(config, request_type)
+
+        # Create a sampling handler for handling requests from the MCP servers
+        sampling_handler = OpenAISamplingHandler(
+            service_config=service_config,
+            request_config=request_config,
+        )
+
         mcp_sessions = await establish_mcp_sessions(
             tools_config=config.extensions_config.tools,
             stack=stack,
@@ -74,16 +85,6 @@ async def respond_to_conversation(
         encountered_error = False
         completed_within_max_steps = False
         step_count = 0
-
-        # TODO: This is a temporary hack to allow directing the request to the reasoning model
-        request_type = "reasoning" if message.content.startswith("reason:") else "generative"
-
-        # Get the AI client configuration based on the request type
-        request_config, service_config = get_ai_client_configs(config, request_type)
-
-        # Update the sampling handler with the service and request configurations
-        sampling_handler.set_service_config(service_config)
-        sampling_handler.set_request_config(request_config)
 
         # Loop until the response is complete or the maximum number of steps is reached
         while step_count < max_steps:

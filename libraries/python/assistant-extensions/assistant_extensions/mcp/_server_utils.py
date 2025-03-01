@@ -5,10 +5,10 @@ from typing import Any, AsyncIterator, List, Optional
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from mcp import ClientSession, types
-from mcp.shared.context import RequestContext
 from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.shared.context import RequestContext
 
 from ._model import (
     MCPErrorHandler,
@@ -52,7 +52,9 @@ def list_roots_callback_for(server_config: MCPServerConfig):
     Provides a callback to return the list of "roots" for a given server config.
     """
 
-    async def cb(context: RequestContext[ClientSession, Any]) -> types.ListRootsResult | types.ErrorData:
+    async def cb(
+        context: RequestContext[ClientSession, Any],
+    ) -> types.ListRootsResult | types.ErrorData:
         roots = server_config.roots
         return types.ListRootsResult(roots=[types.Root(uri=root) for root in roots])
 

@@ -18,9 +18,16 @@ logger = logging.getLogger(__name__)
 semaphore = asyncio.Semaphore(5)
 
 
-async def get_image_content_with_limit(result: Dict) -> ImageContent:
+def get_image_url(result: Dict) -> str | None:
+    return result.get("images", {}).get("original", {}).get("url", None)
+
+
+async def get_image_content_with_limit(result: Dict) -> ImageContent | None:
     async with semaphore:
-        image_url = result.get("images", {}).get("original", {}).get("url", "<unknown url>")
+        image_url = get_image_url(result)
+        if image_url is None:
+            return None
+
         try:
             image_data = await fetch_url(image_url)
             image_data_base64 = base64.b64encode(image_data).decode("utf-8")
@@ -32,13 +39,7 @@ async def get_image_content_with_limit(result: Dict) -> ImageContent:
             )
         except Exception as e:
             logger.error(f"Failed to fetch image from {image_url}: {str(e)}")
-            # Return a placeholder or fallback image
-            return ImageContent(
-                type="image",
-                # 1x1 transparent GIF
-                data="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-                mimeType="image/gif",
-            )
+            return None
 
 
 def get_text_content(result: Dict) -> TextContent | None:
@@ -47,6 +48,10 @@ def get_text_content(result: Dict) -> TextContent | None:
         parts["title"] = result["title"]
     if "alt_text" in result and len(result["alt_text"].strip()) > 0:
         parts["alt_text"] = result["alt_text"]
+
+    image_url = get_image_url(result)
+    if image_url is not None:
+        parts["url"] = image_url
 
     if len(parts) == 0:
         return None
@@ -68,7 +73,8 @@ async def generate_sampling_messages(search_results: List[Dict]) -> List[Samplin
         text_content = get_text_content(result)
         if text_content is not None:
             messages.append(SamplingMessage(role="user", content=text_content))
-        messages.append(SamplingMessage(role="user", content=image_content))
+        if image_content is not None:
+            messages.append(SamplingMessage(role="user", content=image_content))
     return messages
 
 
