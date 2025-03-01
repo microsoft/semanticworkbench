@@ -82,11 +82,9 @@ class TunnelManager:
             cprint(f"Failed to create new tunnel for {server.name}", color, file=sys.stderr)
             sys.exit(1)
 
-        access_token = devtunnel.get_access_token(server.name)
-
         # Start the devtunnel process
         process = subprocess.Popen(
-            ["devtunnel", "host", server.name],
+            ["devtunnel", "host", devtunnel._local_tunnel_id(server.name)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -121,6 +119,8 @@ class TunnelManager:
                 continue
 
             cprint(f"Tunnel for {server.name} started successfully: {uri}", color)
+
+            access_token = devtunnel.get_access_token(server.name)
 
             uri = uri.rstrip("/") + "/sse"
             return MCPTunnel(

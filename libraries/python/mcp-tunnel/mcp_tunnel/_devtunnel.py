@@ -19,9 +19,8 @@ def _exec(args: list[str], timeout: float | None = None) -> tuple[int, str, str]
         - Standard output from the command
         - Standard error from the command
     """
-    command = ["devtunnel", *args]
     result = subprocess.run(
-        command,
+        ["devtunnel", *args],
         capture_output=True,
         text=True,
         check=False,  # Don't raise exception if command fails
