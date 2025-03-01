@@ -80,9 +80,7 @@ class OpenAISamplingHandler(SamplingHandler):
         context: RequestContext[ClientSession, Any],
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData:
-        logger.info(
-            f"Sampling handler invoked with context: {context}, params: {params}"
-        )
+        logger.info(f"Sampling handler invoked with context: {context}")
 
         if not self.service_config or not self.request_config:
             raise ValueError(
@@ -90,18 +88,27 @@ class OpenAISamplingHandler(SamplingHandler):
             )
 
         try:
-            completion = await self._process_sampling_request(
+            completion_args = await self._create_completion_request(
                 request=params,
-                service_config=self.service_config,
                 request_config=self.request_config,
                 template_processor=self.message_processor,
             )
         except Exception as e:
-            logger.exception(f"Error processing sampling request: {e}")
+            logger.exception(f"Error creating completion request: {e}")
             return ErrorData(
                 code=500,
-                message="Error processing sampling request.",
+                message="Error creating completion request.",
                 data=e,
+            )
+
+        completion: ChatCompletion | None = None
+        async with create_client(self.service_config) as client:
+            completion = await client.chat.completions.create(**completion_args)
+
+        if completion is None:
+            return ErrorData(
+                code=500,
+                message="No completion returned from OpenAI.",
             )
 
         choice = completion.choices[0]
@@ -114,7 +121,6 @@ class OpenAISamplingHandler(SamplingHandler):
         content = choice.message.content
         if content is None:
             content = "[no content]"
-        logger.info(f"Received content: {content}")
 
         return CreateMessageResult(
             role="assistant",
@@ -124,7 +130,10 @@ class OpenAISamplingHandler(SamplingHandler):
             ),
             model=completion.model,
             stopReason=choice.finish_reason,
-            _meta=completion.model_dump(mode="json"),
+            _meta={
+                "request": completion_args,
+                "response": completion.model_dump(mode="json"),
+            },
         )
 
     async def handle_message(
@@ -134,15 +143,14 @@ class OpenAISamplingHandler(SamplingHandler):
     ) -> CreateMessageResult | ErrorData:
         return await self._message_handler(context, params)
 
-    async def _process_sampling_request(
+    async def _create_completion_request(
         self,
         request: CreateMessageRequestParams,
-        service_config: ServiceConfig,
         request_config: OpenAIRequestConfig,
         template_processor: OpenAIMessageProcessor,
-    ) -> ChatCompletion:
+    ) -> dict:
         """
-        Processes a sampling request.
+        Creates a completion request.
         """
 
         messages: list[ChatCompletionMessageParam] = []
@@ -183,11 +191,7 @@ class OpenAISamplingHandler(SamplingHandler):
                 request.metadata["extra_args"],
             )
 
-        async with create_client(service_config) as client:
-            completion: ChatCompletion = await client.chat.completions.create(
-                **completion_args
-            )
-            return completion
+        return completion_args
 
 
 def openai_template_processor(
