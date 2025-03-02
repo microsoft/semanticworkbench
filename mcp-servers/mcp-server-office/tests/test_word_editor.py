@@ -65,3 +65,21 @@ Here are the market opportunities:
 - Target Audience: Our primary customers are enterprises.
 Let's get into the details."""
     write_markdown_to_document(word_document, markdown_text)
+
+
+def test_read_markdown_list_ending(word_document):
+    """
+    Tests what happens when reading a new paragraph after a list.
+    """
+    markdown_text = """Pros:
+1. Direct integration
+2. Focus on accessibility and consistency.
+**Cons**:
+1. Potential overlap
+2. Requires navigating and configuring docs
+## A heading
+- A new bullet
+- Another bullet"""
+    write_markdown_to_document(word_document, markdown_text)
+    rt_markdown_text = get_markdown_representation(word_document)
+    print(rt_markdown_text)

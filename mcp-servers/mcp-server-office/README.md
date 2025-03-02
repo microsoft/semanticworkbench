@@ -46,19 +46,25 @@ The server will start in SSE mode and run on port `25566`. To expose the server 
 
 Use the VSCode launch configuration, or run manually:
 
-Defaults to stdio transport:
+#### Defaults to stdio transport:
 
 ```bash
 uv run -m mcp_server.start
 ```
 
-For SSE transport:
+#### For SSE transport:
 
 ```bash
 uv run -m mcp_server.start --transport sse --port 25566
 ```
 
-If you need a public-facing server, use the `--use-ngrok-tunnel` option:
+To use this MCP server with a hosted Semantic Workbench assistant, go to [libraries:mcp-tunnel](../../libraries/python/mcp-tunnel) and run the following command and copy its output into your assistant configuration:
+
+```bash
+uv run mcp-tunnel --servers "office:25566"
+```
+
+#### If you need a public-facing server, use the `--use-ngrok-tunnel` option:
 
 ```bash
 uv run -m mcp_server.start --use-ngrok-tunnel
