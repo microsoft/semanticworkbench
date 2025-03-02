@@ -1,6 +1,10 @@
 import json
+import re
 import subprocess
 import sys
+import uuid
+
+from ._dir import get_mcp_tunnel_dir
 
 
 def _exec(args: list[str], timeout: float | None = None) -> tuple[int, str, str]:
@@ -74,7 +78,8 @@ def delete_tunnel(tunnel_id: str) -> bool:
     Returns:
         Boolean indicating if the deletion was successful.
     """
-    code, _, stderr = _exec(["delete", tunnel_id, "--force"], timeout=20)
+    local_tunnel_id = _local_tunnel_id(tunnel_id)
+    code, _, stderr = _exec(["delete", local_tunnel_id, "--force"], timeout=20)
     if code == 0:
         return True
 
@@ -96,12 +101,13 @@ def create_tunnel(tunnel_id: str, port: int) -> bool:
     Returns:
         Boolean indicating if the creation was successful.
     """
-    code, _, stderr = _exec(["create", tunnel_id], timeout=20)
+    local_tunnel_id = _local_tunnel_id(tunnel_id)
+    code, _, stderr = _exec(["create", local_tunnel_id], timeout=20)
     if code != 0:
         print("Error creating tunnel:", stderr, file=sys.stderr)
         return False
 
-    code, _, stderr = _exec(["port", "create", tunnel_id, "--port-number", str(port), "--protocol", "http"], timeout=20)
+    code, _, stderr = _exec(["port", "create", local_tunnel_id, "--port-number", str(port), "--protocol", "http"], timeout=20)
     if code != 0:
         print("Error creating tunnel:", stderr, file=sys.stderr)
         delete_tunnel(tunnel_id)
@@ -121,7 +127,8 @@ def get_access_token(tunnel_id: str) -> str:
         The access token for the tunnel.
     """
 
-    code, stdout, stderr = _exec(["token", tunnel_id, "--scope", "connect", "--json"], timeout=20)
+    local_tunnel_id = _local_tunnel_id(tunnel_id)
+    code, stdout, stderr = _exec(["token", local_tunnel_id, "--scope", "connect", "--json"], timeout=20)
     if code != 0:
         raise RuntimeError(f"Error getting access token: {stderr}")
 
@@ -138,7 +145,8 @@ def get_tunnel_uri(tunnel_id: str) -> str:
     Returns:
         The URI for the tunnel.
     """
-    code, stdout, stderr = _exec(["show", tunnel_id, "--json"], timeout=20)
+    local_tunnel_id = _local_tunnel_id(tunnel_id)
+    code, stdout, stderr = _exec(["show", local_tunnel_id, "--json"], timeout=20)
     if code != 0:
         raise RuntimeError(f"Error getting tunnel URI: {stderr}")
 
@@ -152,3 +160,39 @@ def get_tunnel_uri(tunnel_id: str) -> str:
 
     port = ports[0]
     return port.get("portUri") or ""
+
+
+def _local_tunnel_id(tunnel_id: str) -> str:
+    """
+    Generates a valid devtunnel ID that is guaranteed to be unique for the
+    current operating system user and machine.
+
+    Args:
+        tunnel_id: The ID of the tunnel.
+
+    Returns:
+        The local tunnel ID.
+    """
+
+    suffix_path = get_mcp_tunnel_dir() / ".tunnel_suffix"
+    suffix = ""
+
+    # read the suffix from the file if it exists
+    try:
+        suffix = suffix_path.read_text()
+    except FileNotFoundError:
+        pass
+
+    # if the suffix hasn't been set, generate a new one and cache it in the file
+    if not suffix:
+        suffix = uuid.uuid4().hex[:10]
+        suffix_path.write_text(suffix)
+
+    # dev tunnel ids can only contain lowercase letters, numbers, and hyphens
+    safe_tunnel_id = re.sub(r"[^a-z0-9-]", "-", tunnel_id.lower())
+
+    # dev tunnel ids have a maximum length of 60 characters. we'll keep it to 50, to be safe.
+    max_prefix_len = 50 - len(suffix) - 1
+    prefix = safe_tunnel_id[:max_prefix_len]
+
+    return f"{prefix}-{suffix}"

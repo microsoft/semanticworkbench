@@ -74,7 +74,6 @@ def _run_executable(executable_name: str, args: list[str]) -> subprocess.Popen |
             executable_path += ".exe"
 
     if not os.path.exists(executable_path):
-        print(f"Executable not found: {executable_path}")
         return None
 
     return subprocess.Popen([executable_path] + args)
@@ -89,7 +88,7 @@ def start_mcp_server_office() -> MCPServerProcess | None:
 
 
 def start_mcp_server_vscode() -> MCPServerProcess | None:
-    return MCPServerProcess(MCPServer("mcp-server-vscode", MCP_SERVER_VSCODE_PORT), None)
+    return MCPServerProcess(MCPServer("mcp-server-vscode", MCP_SERVER_VSCODE_PORT, extras={"enabled": False}), None)
 
 
 def start_mcp_server_filesystem() -> MCPServerProcess | None:
@@ -100,7 +99,7 @@ def start_mcp_server_filesystem() -> MCPServerProcess | None:
         MCPServer(
             "mcp-server-filesystem",
             MCP_SERVER_FILE_SYSTEM_PORT,
-            extras={"roots": ["PUT VALID PATH HERE; ex: file:///c:/dir or file:///Users/me/dir"]},
+            extras={"roots": ["PUT VALID PATH HERE; ex: c:\\Users\\me\\dir (Windows), /home/me/dir (Linux) or /Users/me/dir (Mac)"]},
         ),
         process,
     )

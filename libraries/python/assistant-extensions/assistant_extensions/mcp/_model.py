@@ -44,8 +44,8 @@ class MCPServerConfig(BaseModel):
     ]
 
     roots: Annotated[
-        List[FileUrl],
-        Field(title="Roots", description="Roots to pass to the server."),
+        List[str],
+        Field(title="Roots", description="Roots to pass to the server. Usually absolute URLs or absolute file paths."),
     ] = []
 
     env: Annotated[

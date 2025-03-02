@@ -191,14 +191,18 @@ async def build_request(
                 variable = json_payload.get("variable")
                 match variable:
                     case "attachment_messages":
-                        return attachment_messages
+                        updated_messages.extend(attachment_messages)
+                        continue
                     case "history_messages":
-                        return history_messages_result.messages
+                        updated_messages.extend(history_messages_result.messages)
+                        continue
                     case _:
                         add_converted_message(message)
+                        continue
 
             except json.JSONDecodeError:
                 add_converted_message(message)
+                continue
 
         return updated_messages
 

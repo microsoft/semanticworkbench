@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import json
 import logging
 from textwrap import dedent
 from typing import Any, Dict, List, Union
@@ -96,8 +97,16 @@ async def perform_sampling(
     # Send progress update
     await send_tool_call_progress(ctx, "gathering image data...")
 
-    # Create inner messages for sampling
-    messages = await generate_sampling_messages(search_results)
+    # Insert attachment and history messages to provide additional context
+    attachment_messages_variable = json.dumps({"variable": "attachment_messages"})
+    history_messages_variable = json.dumps({"variable": "history_messages"})
+    messages = [
+        SamplingMessage(role="user", content=TextContent(type="text", text=attachment_messages_variable)),
+        SamplingMessage(role="user", content=TextContent(type="text", text=history_messages_variable)),
+    ]
+
+    # Generate sampling messages
+    messages += await generate_sampling_messages(search_results)
 
     await send_tool_call_progress(ctx, "choosing image...")
 
@@ -106,9 +115,9 @@ async def perform_sampling(
     sampling_result = await send_sampling_request(
         fastmcp_server_context=ctx,
         system_prompt=dedent(f"""
-            Choose the most fitting image based on user context and search results.
+            Analyze these images and choose the best choice based on provided context.
             Context: {context}
-            Return the image data for the chosen image.
+            Return the url for the chosen image.
         """).strip(),
         messages=messages,
         max_tokens=100,
