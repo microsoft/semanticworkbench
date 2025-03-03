@@ -122,4 +122,4 @@ async def main(
             return content, True
         return content, False
     finally:
-        context.log("plan", metadata)
+        context.log("search_plan", metadata)
