@@ -92,15 +92,7 @@ def process_logprobs(logprobs_content: list[dict[str, Any]]) -> list[dict[str, A
     return logprobs_list
 
 
-def openai_chat_completion(request: ChatCompletionRequest, client: Callable[..., Any]) -> ChatCompletionResponse:
-    validate(request)
-    kwargs = format_kwargs(request)
-
-    start_time = time.time()
-    response = client(**kwargs)
-    end_time = time.time()
-    response_duration = round(end_time - start_time, 4)
-
+def process_response(response: Any, response_duration: float, request: ChatCompletionRequest) -> ChatCompletionResponse:
     errors = ""
     extras: dict[str, Any] = {}
     choices: list[ChatCompletionChoice] = []
@@ -184,6 +176,19 @@ def openai_chat_completion(request: ChatCompletionRequest, client: Callable[...,
         system_fingerprint=system_fingerprint,
         response_duration=response_duration,
     )
+
+
+def openai_chat_completion(request: ChatCompletionRequest, client: Callable[..., Any]) -> ChatCompletionResponse:
+    validate(request)
+    kwargs = format_kwargs(request)
+
+    start_time = time.time()
+    response = client(**kwargs)
+    end_time = time.time()
+    response_duration = round(end_time - start_time, 4)
+
+    processed_response = process_response(response, response_duration, request)
+    return processed_response
 
 
 def create_client_callable(client_class: type[OpenAI | AzureOpenAI], **client_args: Any) -> Callable[..., Any]:

@@ -6,7 +6,8 @@ from mcp.server.fastmcp import Context
 from mcp.types import SamplingMessage, TextContent
 from mcp_extensions import send_sampling_request
 
-from mcp_server.types import AssistantMessage, ChatCompletionChoice, ChatCompletionRequest, ChatCompletionResponse, Role
+from mcp_server.llm.openai_chat_completion import process_response
+from mcp_server.types import ChatCompletionRequest, ChatCompletionResponse, Role
 
 
 async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -> ChatCompletionResponse:
@@ -37,7 +38,6 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
             )
         elif isinstance(message.content, list):
             # Only use the first text content part for simplicity
-            # You might want to handle this differently depending on your needs
             text_parts = [part for part in message.content if part.type == "text"]
             if text_parts:
                 content = TextContent(
@@ -58,32 +58,23 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
             )
         )
 
+    # Any extra args passed to the function are added to the request as metadata
+    extra_args = request.model_dump(mode="json", exclude_none=True)
+    extra_args.pop("messages", None)
+    extra_args.pop("max_completion_tokens", None)
+    metadata = {"extra_args": extra_args}
+
     start_time = time.time()
     response = await send_sampling_request(
         fastmcp_server_context=client,
         messages=messages,
         max_tokens=request.max_completion_tokens or 8000,
         system_prompt=system_prompt,  # type: ignore
+        metadata=metadata,
     )
     end_time = time.time()
     response_duration = round(end_time - start_time, 4)
 
-    text_content = "An error occurred."
-    if isinstance(response.content, TextContent):
-        text_content = response.content.text
-
-    response = ChatCompletionResponse(
-        choices=[
-            ChatCompletionChoice(
-                message=AssistantMessage(
-                    content=text_content,
-                    role=Role.ASSISTANT,
-                ),
-                finish_reason="stop",
-            )
-        ],
-        completion_tokens=-1,
-        prompt_tokens=-1,
-        response_duration=response_duration,
-    )
+    openai_response = response.meta.get("response", {})  # type: ignore
+    response = process_response(openai_response, response_duration, request)
     return response

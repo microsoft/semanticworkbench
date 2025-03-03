@@ -1,5 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import json
+
 import pendulum
 from mcp.server.fastmcp import Context
 
@@ -23,16 +25,12 @@ from mcp_server.prompts.markdown_edit import (
     SEND_MESSAGE_TOOL_NAME,
 )
 from mcp_server.types import (
-    AssistantMessage,
-    ChatCompletionChoice,
     ChatCompletionRequest,
-    ChatCompletionResponse,
     CustomContext,
-    Function,
     MarkdownEditOutput,
     MarkdownEditRequest,
     MessageT,
-    ToolCall,
+    UserMessage,
 )
 
 
@@ -80,9 +78,13 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         },
     )
     if markdown_edit_request.request_type == "mcp" and isinstance(markdown_edit_request.context, Context):
+        messages = [reasoning_messages[0]]  # Developer message
+        messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
+        messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
+        messages.append(reasoning_messages[3])  # Document message
         reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
-                messages=reasoning_messages,
+                messages=messages,
                 model="gpt-4o",
                 max_completion_tokens=8000,
             ),
@@ -113,26 +115,20 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         messages=MD_EDIT_CONVERT_MESSAGES,
         variables={"reasoning": reasoning},
     )
-    if markdown_edit_request.request_type == "mcp":
-        # TODO: Sampling to get the tool calls from gpt-4o
-        function_args = {
-            "operations": [{"type": "insert", "index": "100", "content": "Wait, there's more! Let us keep editing"}]
-        }
-        convert_response = ChatCompletionResponse(
-            choices=[
-                ChatCompletionChoice(
-                    message=AssistantMessage(
-                        content="",
-                        tool_calls=[
-                            ToolCall(id="call_abc", function=Function(name="doc_edit", arguments=function_args))
-                        ],
-                    ),
-                    finish_reason="stop",
-                ),
-            ],
-            completion_tokens=0,
-            prompt_tokens=0,
-            response_duration=0,
+    if markdown_edit_request.request_type == "mcp" and isinstance(markdown_edit_request.context, Context):
+        request = ChatCompletionRequest(
+            messages=convert_messages,
+            model="gpt-4o",
+            temperature=0,
+            max_completion_tokens=8000,
+            tools=[MD_EDIT_TOOL_DEF, SEND_MESSAGE_TOOL_DEF],
+            tool_choice="required",
+            parallel_tool_calls=False,
+        )
+        convert_response = await chat_completion(
+            request=request,
+            provider="mcp",
+            client=markdown_edit_request.context,
         )
     elif markdown_edit_request.request_type == "dev":
         request = ChatCompletionRequest(

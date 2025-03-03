@@ -19,8 +19,7 @@ If the changes are not possible, you should send a message using the send_messag
 
 ## On Provided Context
 You will be provided important context to give you the information needed to select the correct tool(s) to modify the document.
-- Context is always provided enclosed in XML tags.
-- The current contents of the document is enclosed in <document> and </document> tags.
+- The current content of the document is enclosed in <document> and </document> tags.
     - The document is an ordered, structured document which has been chunked into blocks to enable you to edit it.
     - Content is provided to you in the same order as it is shown to the user. Order matters for cohesiveness!
     - Each content of each block is wrapped in <block> and </block> tags.
@@ -30,10 +29,12 @@ You will be provided important context to give you the information needed to sel
     - You MUST use this index exactly as it is provided or else an error will occur.
     - The first content block is a special "start_of_document_indicator" block that allows you to insert content at the beginning of the document. \
 You should never remove or update this block. It is not actually shown to the user.
-- The conversation history between the user and assistant are enclosed in <chat_history> and </chat_history> tags.
-    - You should focus on the latest messages since the last update (when you sent the last message) to determine how to edit the document.
+- The conversation history between the user and assistant is provided after the document.
+    - You should focus on the latest message to determine how to edit the document.
     - The remainder of the conversation is provided for additional context.
-- Additional context is provided in <context> and </context> tags and may be helpful for addressing the user's ask.
+- You may be provided additional context, such as attached documents, before the document and conversation history.
+    - If you they are relevant to the task and user's request, you should use them inform the content you generate.
+    - If you do reference them, make sure to do so accurately and factually. Do not make up information from this extra context.
 
 ## On the Operations
 The doc_edit tool has several operations which should be provided in an array according to the provided JSON schema. \
@@ -67,21 +68,32 @@ Use the following as a guide for how to use the operations:
     - Even if the conversation history includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here."""
 )
 
-MD_EDIT_REASONING_USER_PROMPT = UserMessage(
+MD_EDIT_REASONING_USER_ATTACHMENTS_PROMPT = UserMessage(
     content="""<context>
 {{context}}
-</context>
+</context>"""
+)
 
-<document>
-{{document}}
-</document>
 
-<chat_history>
+MD_EDIT_REASONING_USER_CHAT_HISTORY_PROMPT = UserMessage(
+    content="""<chat_history>
 {{chat_history}}
 </chat_history>"""
 )
 
-MD_EDIT_REASONING_MESSAGES = [MD_EDIT_REASONING_DEV_PROMPT, MD_EDIT_REASONING_USER_PROMPT]
+MD_EDIT_REASONING_USER_DOC_PROMPT = UserMessage(
+    content="""<document>
+{{document}}
+</document>
+Now reason about the best possible sequence of tools(s) to modify the document, including all required parameters."""
+)
+
+MD_EDIT_REASONING_MESSAGES = [
+    MD_EDIT_REASONING_DEV_PROMPT,
+    MD_EDIT_REASONING_USER_ATTACHMENTS_PROMPT,
+    MD_EDIT_REASONING_USER_CHAT_HISTORY_PROMPT,
+    MD_EDIT_REASONING_USER_DOC_PROMPT,
+]
 
 MD_EDIT_CONVERT_SYSTEM_PROMPT = SystemMessage(
     content="""You are a helpful and meticulous assistant.
