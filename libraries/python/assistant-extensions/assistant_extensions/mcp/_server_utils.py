@@ -2,15 +2,13 @@ import logging
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
 import pathlib
-from typing import Any, AsyncIterator, List, Optional
+from typing import AsyncIterator, List, Optional
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from mcp import ClientSession, types
-from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 import pydantic
-from mcp.shared.context import RequestContext
 
 from ._model import (
     MCPErrorHandler,
@@ -34,7 +32,7 @@ def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
 @asynccontextmanager
 async def connect_to_mcp_server(
     server_config: MCPServerConfig,
-    sampling_callback: Optional[SamplingFnT] = None,
+    sampling_callback: Optional[MCPSamplingMessageHandler] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
     if server_config.command.startswith("http"):
@@ -67,7 +65,7 @@ def list_roots_callback_for(server_config: MCPServerConfig):
             case _:
                 return pydantic.FileUrl(f"file://{path.as_posix()}")
 
-    async def cb(context: RequestContext[ClientSession, Any]) -> types.ListRootsResult | types.ErrorData:
+    async def cb(context) -> types.ListRootsResult | types.ErrorData:
         roots = server_config.roots
         return types.ListRootsResult(roots=[
             # mcp sdk is currently typed to FileUrl, but the MCP spec allows for any URL
@@ -82,7 +80,7 @@ def list_roots_callback_for(server_config: MCPServerConfig):
 @asynccontextmanager
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
-    sampling_callback: Optional[SamplingFnT] = None,
+    sampling_callback: Optional[MCPSamplingMessageHandler] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
 
@@ -99,9 +97,8 @@ async def connect_to_mcp_server_stdio(
             async with ClientSession(
                 read_stream,
                 write_stream,
-                list_roots_callback=list_roots_callback_for(server_config),
-                sampling_callback=sampling_callback,
             ) as client_session:
+                # Initialize the client session
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
 
@@ -127,7 +124,7 @@ def add_params_to_url(url: str, params: dict[str, str]) -> str:
 @asynccontextmanager
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
-    sampling_callback: Optional[SamplingFnT] = None,
+    sampling_callback: Optional[MCPSamplingMessageHandler] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config using SSE transport."""
 
@@ -160,9 +157,8 @@ async def connect_to_mcp_server_sse(
             async with ClientSession(
                 read_stream,
                 write_stream,
-                list_roots_callback=list_roots_callback_for(server_config),
-                sampling_callback=sampling_callback,
             ) as client_session:
+                # Initialize the client session
                 await client_session.initialize()
                 yield client_session  # Yield the session for use
 

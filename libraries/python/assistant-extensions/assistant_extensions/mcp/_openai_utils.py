@@ -1,9 +1,8 @@
 import logging
-from typing import Any, Callable, List, Union
+from typing import Callable, List, Union
 
 import deepmerge
-from mcp import ClientSession, CreateMessageResult, SamplingMessage
-from mcp.shared.context import RequestContext
+from mcp import CreateMessageResult, SamplingMessage
 from mcp.types import CreateMessageRequestParams, ErrorData, ImageContent, TextContent
 from openai.types.chat import (
     ChatCompletion,
@@ -77,7 +76,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     async def _default_message_handler(
         self,
-        context: RequestContext[ClientSession, Any],
+        context,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData:
         logger.info(f"Sampling handler invoked with context: {context}")
@@ -138,7 +137,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     async def handle_message(
         self,
-        context: RequestContext[ClientSession, Any],
+        context,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData:
         return await self._message_handler(context, params)

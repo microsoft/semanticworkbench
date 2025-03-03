@@ -7,7 +7,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "anthropic>=0.40.0",
-    "anthropic-client>=0.1.0",
     "assistant-drive>=0.1.0",
     "deepmerge>=2.0",
     "openai>=1.61.0",
