@@ -114,6 +114,9 @@ If you encounter issues with the dynamic URL feature:
    - Use the Command Palette to stop and start the server
    - This will trigger the update script to run
 
+4. **SamplingFnT Type Error**:
+   - If you encounter an error related to `SamplingFnT` in the MCP client session, see [SAMPLING_FN_TYPE_ERROR_FIX.md](SAMPLING_FN_TYPE_ERROR_FIX.md) for details on the fix
+
 ## Related Documentation
 
 - [Connect Hosted Codespace Assistant to Local MCP](connect-hosted-codespace-assistant-to-local-mcp.md)
