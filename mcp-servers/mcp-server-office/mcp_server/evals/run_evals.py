@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from pathlib import Path
 
@@ -21,10 +22,13 @@ from mcp_server.types import (
     UserMessage,
 )
 
+logger = logging.getLogger(__name__)
+
 load_dotenv(override=True)
 
 WORD_TEST_CASES_PATH = Path(__file__).parents[2] / "data" / "word" / "test_cases.yaml"
-WORD_TRANSCRIPT_PATH = Path(__file__).parents[2] / "data" / "word" / "files"
+WORD_TRANSCRIPT_PATH = Path(__file__).parents[2] / "data" / "word" / "transcripts"
+ATTACHMENTS_DIR = Path(__file__).parents[2] / "data" / "attachments"
 
 
 def load_test_cases() -> list[CustomContext]:
@@ -32,7 +36,7 @@ def load_test_cases() -> list[CustomContext]:
         test_cases = yaml.safe_load(f)["test_cases"]
 
     # Load each as the pydantic object
-    test_cases = [TestCase(**test_case) for test_case in test_cases]
+    test_cases = [TestCase(**test_case) for test_case in test_cases][2:3]
 
     custom_contexts = []
     for test_case in test_cases:
@@ -45,11 +49,16 @@ def load_test_cases() -> list[CustomContext]:
         chat_history = _parse_transcript_to_chat_history(transcript_content)
         chat_history.append(UserMessage(content=test_case.next_ask))
 
+        # Load and format attachments if they exist
+        additional_context = ""
+        if test_case.attachments:
+            additional_context = _load_attachments(test_case.attachments)
+
         custom_contexts.append(
             CustomContext(
                 chat_history=chat_history,
                 document=test_case.document_markdown,
-                additional_context="",
+                additional_context=additional_context,
             )
         )
 
@@ -89,6 +98,34 @@ def _parse_transcript_to_chat_history(transcript_content: str) -> list[MessageT]
                 chat_history.append(UserMessage(content=content))
 
     return chat_history
+
+
+def _load_attachments(attachment_filenames: list[str]) -> str:
+    """
+    Load attachment files and format them into the required XML-like format.
+
+    Args:
+        attachment_filenames: List of attachment filenames to load
+
+    Returns:
+        A string containing all formatted attachments
+    """
+    formatted_attachments = []
+
+    for filename in attachment_filenames:
+        file_path = ATTACHMENTS_DIR / filename
+
+        if not file_path.exists():
+            logger.warning(f"Attachment file {filename} not found at {file_path}")
+            continue
+
+        with Path.open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        formatted_attachment = f"<ATTACHMENT><FILENAME>{filename}</FILENAME><CONTENT>{content}</CONTENT></ATTACHMENT>"
+        formatted_attachments.append(formatted_attachment)
+
+    return "\n".join(formatted_attachments)
 
 
 def print_markdown_edit_output(

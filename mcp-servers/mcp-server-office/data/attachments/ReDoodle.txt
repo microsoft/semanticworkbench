@@ -1,0 +1,18 @@
+ReDoodle, is a "daily" web puzzle game where you are given a starting image, and your goal is to transform it into a goal image through a series of prompts. I made this project primarily to learn about web development. To motivate myself to complete it, I made it a goal to open source it; and here it is: <link>
+
+
+Here's a rundown of the tools I used to build the app:
+
+- Client: I used Vite with their template for React + Typescript and also Tailwind CSS to make it pretty. Development and the app itself are very fast, and all these tools all have lots of docs, great compatibility with packages, and work well with AI tooling.
+
+- Code Editor: Cursor and using Claude 3.5 Sonnet within it makes going back to all other AI coding tools feel broken. This is hands down what let me build this quickly. Any ideas I had for the UX, I could try quickly by asking Claude and then having Cursor's AI Apply integrate that into my file. All the other quality of life improvements in Cursor are great too, like mid-line code suggestions, smart rewrites, and the ability to add custom chat instructions.
+
+- Server: I used FastAPI and a SQLite database to persist the game state. Not my finest code, but it was not my goal here - I needed something that was easy to use.
+
+- Image to image and image generation: Originally, I used Flux and it produced beautiful images! However, I ended up going with Stable Diffusion 3.5 Turbo since I found the speed of it a better UX (demo is in real-time at 3-4 seconds per image) while still producing quality images.
+
+- Image similarity: I used a Vision Transformer (ViT) image feature model to compute embeddings of images and cosine similarity to compare them. Lots of room for improvement here, but pretty good for an off the shelf, small model.
+
+- Microsoft Designer for the cute web icon!
+
+- And Microsoft Loop for keeping giving me a place to keep my to-do list, learning resources in one spot, and a great editor to draft this post.

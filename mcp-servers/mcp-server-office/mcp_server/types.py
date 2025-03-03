@@ -195,6 +195,7 @@ class TestCase(BaseModel):
         description="This is what we assume the initial Markdown content of the document is."
     )
     next_ask: str
+    attachments: list[str] = Field(default_factory=list)
 
 
 # endregion

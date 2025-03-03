@@ -35,7 +35,7 @@ def create_mcp_server() -> FastMCP:
 
     # TODO: It might be good to consider having the document content always be available to the assistant if the document is "connected".
     @mcp.tool()
-    async def get_open_document_content() -> str:
+    async def get_word_content(ctx: Context) -> str:
         """
         Returns the content of the open Word document. Use this tool when you just need the content of the document.
         If you need to make changes to the document, use the edit_word_document tool instead. It will automatically also get the current content of the document.

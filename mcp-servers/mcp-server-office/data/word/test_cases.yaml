@@ -3,3 +3,14 @@ test_cases:
     transcription_file: "transcript_Web_Frontends_202502281551.md"
     document_markdown: ""
     next_ask: "Can you create a proposal for which frontend we should use. Fluent + Tailwind is what I want to use, but please include compare/contrast with MUI and Chakra UI"
+  - test_case_name: Startup Idea 1
+    transcription_file: "transcript_Startup_Idea_1_202503031513.md"
+    document_markdown: ""
+    next_ask: "Ok. Let's first start a document on game ideas - I think this is the biggest hurdle. Proving that we have enough novel and interesting games that leverage AI."
+  - test_case_name: Startup Idea Pitch 1
+    transcription_file: "transcript_Startup_Idea_2_202503031659.md"
+    document_markdown: ""
+    next_ask: "I uploaded the game ideas file. Can you now make a new investor pitch document for me?"
+    attachments:
+      - "ReDoodle.txt"
+      - "Daily Game Ideas.txt"
