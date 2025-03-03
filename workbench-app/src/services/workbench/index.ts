@@ -1,9 +1,10 @@
-// Copyright (c) Microsoft. All rights reserved.
+/**
+ * This file exports all the workbench service functions.
+ */
 
-export * from './assistant';
-export * from './assistantServiceRegistration';
-export * from './conversation';
-export * from './file';
-export * from './participant';
+// Export functions for managing the VSCode MCP server URL
+export { getMcpServerUrl, resetMcpServerUrl, setMcpServerUrl } from './mcpServerUrl';
+export { getVscodeMcpServerConfig, hasVscodeMcpServer, updateConfigWithMcpServerUrl } from './updateMcpServerUrl';
+
+// Export other functions from the state module
 export * from './state';
-export * from './workbench';

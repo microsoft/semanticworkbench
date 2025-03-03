@@ -34,7 +34,7 @@ def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
 @asynccontextmanager
 async def connect_to_mcp_server(
     server_config: MCPServerConfig,
-    sampling_callback: Optional[SamplingFnT] = None,
+    sampling_callback: Optional[SamplingFnT[...]] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
     if server_config.command.startswith("http"):
@@ -82,7 +82,7 @@ def list_roots_callback_for(server_config: MCPServerConfig):
 @asynccontextmanager
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
-    sampling_callback: Optional[SamplingFnT] = None,
+    sampling_callback: Optional[SamplingFnT[...]] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
 
@@ -127,7 +127,7 @@ def add_params_to_url(url: str, params: dict[str, str]) -> str:
 @asynccontextmanager
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
-    sampling_callback: Optional[SamplingFnT] = None,
+    sampling_callback: Optional[SamplingFnT[...]] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config using SSE transport."""
 

@@ -1,323 +1,163 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import dedent from 'dedent';
-import express, { Request, Response } from 'express';
-import * as http from 'http';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createServer } from 'http';
 import * as vscode from 'vscode';
-import { DiagnosticSeverity } from 'vscode';
-import { z } from 'zod';
-import packageJson from '../package.json';
-import { codeCheckerTool } from './tools/code_checker';
-import {
-    listDebugSessions,
-    listDebugSessionsSchema,
-    startDebugSession,
-    startDebugSessionSchema,
-    stopDebugSession,
-    stopDebugSessionSchema,
-} from './tools/debug_tools';
-import { focusEditorTool } from './tools/focus_editor';
-import { resolvePort } from './utils/port';
 
-const extensionName = 'vscode-mcp-server';
-const extensionDisplayName = 'VSCode MCP Server';
+// Global variable for the MCP server instance
+let mcpServer: Server;
 
-export const activate = async (context: vscode.ExtensionContext) => {
-    // Create the output channel for logging
-    const outputChannel = vscode.window.createOutputChannel(extensionDisplayName);
+// The port the SSE server will run on - dynamically allocated
+let serverPort: number = 0;
 
-    // Write an initial message to ensure the channel appears in the Output dropdown
-    outputChannel.appendLine(`Activating ${extensionDisplayName}...`);
-    // Uncomment to automatically switch to the output tab and this extension channel on activation
-    // outputChannel.show();
-
-    // Initialize the MCP server instance
-    const mcpServer = new McpServer({
-        name: extensionName,
-        version: packageJson.version,
+export function activate(context: vscode.ExtensionContext) {
+    const disposable = vscode.commands.registerCommand('mcp-server-vscode.startServer', async () => {
+        await startMCPServer();
     });
 
-    // Register the "code_checker" tool.
-    // This tool retrieves diagnostics from VSCode's language services,
-    // filtering out files without issues.
-    mcpServer.tool(
-        'code_checker',
-        dedent`
-            Retrieve diagnostics from VSCode's language services for the active workspace.
-            Use this tool after making changes to any code in the filesystem to ensure no new
-            errors were introduced, or when requested by the user.
-        `.trim(),
-        // Passing the raw shape object directly
+    context.subscriptions.push(disposable);
+
+    // Auto-start the server on extension activation
+    startMCPServer();
+}
+
+/**
+ * Start the MCP server with both stdio and SSE transports
+ */
+async function startMCPServer() {
+    const outputChannel = vscode.window.createOutputChannel('VSCode MCP Server');
+    outputChannel.show();
+    outputChannel.appendLine('Starting VSCode MCP Server...');
+
+    // Create the MCP server
+    mcpServer = new Server(
         {
-            severityLevel: z
-                .enum(['Error', 'Warning', 'Information', 'Hint'])
-                .default('Warning')
-                .describe("Minimum severity level for checking issues: 'Error', 'Warning', 'Information', or 'Hint'."),
+            name: 'vscode',
+            version: '0.1.0',
         },
-        async (params: { severityLevel?: 'Error' | 'Warning' | 'Information' | 'Hint' }) => {
-            const severityLevel = params.severityLevel
-                ? DiagnosticSeverity[params.severityLevel]
-                : DiagnosticSeverity.Warning;
-            const result = await codeCheckerTool(severityLevel);
-            return {
-                ...result,
-                content: result.content.map((c) => ({
-                    ...c,
-                    text: typeof c.text === 'string' ? c.text : String(c.text),
-                    type: 'text',
-                })),
-            };
-        },
-    );
-
-    // Register 'focus_editor' tool
-    mcpServer.tool(
-        'focus_editor',
-        dedent`
-        Open the specified file in the VSCode editor and navigate to a specific line and column.
-        Use this tool to bring a file into focus and position the editor's cursor where desired.
-        Note: This tool operates on the editor visual environment so that the user can see the file. It does not return the file contents in the tool call result.
-        `.trim(),
         {
-            filePath: z.string().describe('The absolute path to the file to focus in the editor.'),
-            line: z.number().int().min(0).default(0).describe('The line number to navigate to (default: 0).'),
-            column: z.number().int().min(0).default(0).describe('The column position to navigate to (default: 0).'),
-            startLine: z.number().int().min(0).optional().describe('The starting line number for highlighting.'),
-            startColumn: z.number().int().min(0).optional().describe('The starting column number for highlighting.'),
-            endLine: z.number().int().min(0).optional().describe('The ending line number for highlighting.'),
-            endColumn: z.number().int().min(0).optional().describe('The ending column number for highlighting.'),
-        },
-        async (params: { filePath: string; line?: number; column?: number }) => {
-            const result = await focusEditorTool(params);
-            return result;
-        },
-    );
-
-    // FIXME: This doesn't return results yet
-    // // Register 'search_symbol' tool
-    // mcpServer.tool(
-    //     'search_symbol',
-    //     dedent`
-    //     Search for a symbol within the workspace.
-    //     - Tries to resolve the definition via VSCode’s "Go to Definition".
-    //     - If not found, searches the entire workspace for the text, similar to Ctrl+Shift+F.
-    //     `.trim(),
-    //     {
-    //         query: z.string().describe('The symbol or text to search for.'),
-    //         useDefinition: z.boolean().default(true).describe("Whether to use 'Go to Definition' as the first method."),
-    //         maxResults: z.number().default(50).describe('Maximum number of global search results to return.'),
-    //         openFile: z.boolean().default(false).describe('Whether to open the found file in the editor.'),
-    //     },
-    //     async (params: { query: string; useDefinition?: boolean; maxResults?: number; openFile?: boolean }) => {
-    //         const result = await searchSymbolTool(params);
-    //         return {
-    //             ...result,
-    //             content: [
-    //                 {
-    //                     text: JSON.stringify(result),
-    //                     type: 'text',
-    //                 },
-    //             ],
-    //         };
-    //     },
-    // );
-
-    // Register 'list_debug_sessions' tool
-    mcpServer.tool(
-        'list_debug_sessions',
-        'List all active debug sessions in the workspace.',
-        listDebugSessionsSchema.shape, // No parameters required
-        async () => {
-            const result = await listDebugSessions();
-            return {
-                ...result,
-                content: result.content.map((item) => ({ type: 'text', text: JSON.stringify(item.json) })),
-            };
-        },
-    );
-
-    // Register 'start_debug_session' tool
-    mcpServer.tool(
-        'start_debug_session',
-        'Start a new debug session with the provided configuration.',
-        startDebugSessionSchema.shape,
-        async (params) => {
-            const result = await startDebugSession(params);
-            return {
-                ...result,
-                content: result.content.map((item) => ({
-                    ...item,
-                    type: 'text' as const,
-                })),
-            };
-        },
-    );
-
-    // Register 'stop_debug_session' tool
-
-    // Register 'restart_debug_session' tool
-    mcpServer.tool(
-        'restart_debug_session',
-        'Restart a debug session by stopping it and then starting it with the provided configuration.',
-        startDebugSessionSchema.shape, // using the same schema as 'start_debug_session'
-        async (params) => {
-            // Stop current session using the provided session name
-            await stopDebugSession({ sessionName: params.configuration.name });
-
-            // Then start a new debug session with the given configuration
-            const result = await startDebugSession(params);
-            return {
-                ...result,
-                content: result.content.map((item) => ({
-                    ...item,
-                    type: 'text' as const,
-                })),
-            };
-        },
-    );
-    mcpServer.tool(
-        'stop_debug_session',
-        'Stop all debug sessions that match the provided session name.',
-        stopDebugSessionSchema.shape,
-        async (params) => {
-            const result = await stopDebugSession(params);
-            return {
-                ...result,
-                content: result.content.map((item) => ({
-                    ...item,
-                    type: 'text' as const,
-                })),
-            };
-        },
-    );
-
-    // Set up an Express app to handle SSE connections
-    const app = express();
-    const mcpConfig = vscode.workspace.getConfiguration('mcpServer');
-    const port = await resolvePort(mcpConfig.get<number>('port', 6010));
-
-    let sseTransport: SSEServerTransport | undefined;
-
-    // GET /sse endpoint: the external MCP client connects here (SSE)
-    app.get('/sse', async (_req: Request, res: Response) => {
-        outputChannel.appendLine('SSE connection initiated...');
-        sseTransport = new SSEServerTransport('/messages', res);
-        try {
-            await mcpServer.connect(sseTransport);
-            outputChannel.appendLine('MCP Server connected via SSE.');
-            outputChannel.appendLine(`SSE Transport sessionId: ${sseTransport.sessionId}`);
-        } catch (err) {
-            outputChannel.appendLine('Error connecting MCP Server via SSE: ' + err);
-        }
-    });
-
-    // POST /messages endpoint: the external MCP client sends messages here
-    app.post('/messages', express.json(), async (req: Request, res: Response) => {
-        // Log in output channel
-        outputChannel.appendLine(`POST /messages: Payload - ${JSON.stringify(req.body, null, 2)}`);
-
-        if (sseTransport) {
-            // Log the session ID of the transport to confirm its initialization
-            outputChannel.appendLine(`SSE Transport sessionId: ${sseTransport.sessionId}`);
-            try {
-                // Note: Passing req.body to handlePostMessage is critical because express.json()
-                // consumes the request stream. Without this, attempting to re-read the stream
-                // within handlePostMessage would result in a "stream is not readable" error.
-                await sseTransport.handlePostMessage(req, res, req.body);
-                outputChannel.appendLine('Handled POST /messages successfully.');
-            } catch (err) {
-                outputChannel.appendLine('Error handling POST /messages: ' + err);
-            }
-        } else {
-            res.status(500).send('SSE Transport not initialized.');
-            outputChannel.appendLine('POST /messages failed: SSE Transport not initialized.');
-        }
-    });
-
-    // Create and start the HTTP server
-    const server = http.createServer(app);
-    function startServer(port: number): void {
-        server.listen(port, () => {
-            outputChannel.appendLine(`MCP SSE Server running at http://127.0.0.1:${port}/sse`);
-        });
-
-        // Add disposal to shut down the HTTP server and output channel on extension deactivation
-        context.subscriptions.push({
-            dispose: () => {
-                server.close();
-                outputChannel.dispose();
+            capabilities: {
+                tools: {},
             },
+        },
+    );
+
+    // Register handlers (commented out for now - will be implemented in a separate PR)
+    // registerHandlers(mcpServer);
+
+    // Handle server errors
+    mcpServer.onerror = (error) => {
+        outputChannel.appendLine(`[MCP Error] ${error}`);
+    };
+
+    try {
+        // Start the stdio transport for internal communication
+        const stdioTransport = new StdioServerTransport();
+        await mcpServer.connect(stdioTransport);
+        outputChannel.appendLine('VSCode MCP server started on stdio transport');
+
+        // Start the SSE transport for external communication
+        const ssePort = await startSseServer(outputChannel);
+        serverPort = ssePort;
+
+        // Notify workbench of the MCP server URL
+        updateWorkbenchMcpServerUrl(ssePort);
+
+        outputChannel.appendLine(`VSCode MCP server started on SSE transport - http://127.0.0.1:${ssePort}/sse`);
+    } catch (error) {
+        outputChannel.appendLine(`Error starting MCP server: ${error}`);
+    }
+}
+
+/**
+ * Start the SSE server on a dynamic port
+ */
+async function startSseServer(outputChannel: vscode.OutputChannel): Promise<number> {
+    return new Promise((resolve, reject) => {
+        // Create an HTTP server
+        const httpServer = createServer();
+
+        // Start on port 0 to let the OS assign an available port
+        httpServer.listen(0, '127.0.0.1', () => {
+            const addressInfo = httpServer.address() as { port: number };
+            const port = addressInfo.port;
+
+            // Create the SSE transport using the HTTP server
+            const sseTransport = new SSEServerTransport({ path: '/sse', server: httpServer });
+
+            // Connect the MCP server to the SSE transport
+            mcpServer.connect(sseTransport).catch(reject);
+
+            // Resolve with the dynamically assigned port
+            resolve(port);
         });
-    }
-    const startOnActivate = mcpConfig.get<boolean>('startOnActivate', true);
-    if (startOnActivate) {
-        startServer(port);
-    } else {
-        outputChannel.appendLine('MCP Server startup disabled by configuration.');
-    }
 
-    // COMMAND PALETTE COMMAND: Stop the MCP Server
-    context.subscriptions.push(
-        vscode.commands.registerCommand('mcpServer.stopServer', () => {
-            if (!server.listening) {
-                vscode.window.showWarningMessage('MCP Server is not running.');
-                outputChannel.appendLine('Attempted to stop the MCP Server, but it is not running.');
+        httpServer.on('error', (error) => {
+            outputChannel.appendLine(`Error starting SSE server: ${error}`);
+            reject(error);
+        });
+    });
+}
+
+/**
+ * Update the workbench with the MCP server URL
+ */
+async function updateWorkbenchMcpServerUrl(port: number) {
+    try {
+        // Run the update script to notify the workbench of the server URL
+        const updateCommand = `node ${
+            vscode.Uri.joinPath(
+                vscode.Uri.file(__dirname),
+                '..',
+                '..',
+                '..',
+                '..',
+                'scripts',
+                'update-vscode-mcp-url.js',
+            ).fsPath
+        } http://127.0.0.1:${port}/sse`;
+
+        // Execute the command
+        const cp = require('child_process');
+        cp.exec(updateCommand, (error: any, stdout: any, stderr: any) => {
+            if (error) {
+                console.error(`Error updating workbench MCP server URL: ${error}`);
                 return;
             }
-            server.close(() => {
-                outputChannel.appendLine('MCP Server stopped.');
-                vscode.window.showInformationMessage('MCP Server stopped.');
-            });
-        }),
-    );
+            console.log(`Workbench MCP server URL updated to http://127.0.0.1:${port}/sse`);
+        });
+    } catch (error) {
+        console.error(`Error running update script: ${error}`);
+    }
+}
 
-    // COMMAND PALETTE COMMAND: Start the MCP Server
-    context.subscriptions.push(
-        vscode.commands.registerCommand('mcpServer.startServer', async () => {
-            if (server.listening) {
-                vscode.window.showWarningMessage('MCP Server is already running.');
-                outputChannel.appendLine('Attempted to start the MCP Server, but it is already running.');
-                return;
-            }
-            const newPort = await resolvePort(mcpConfig.get<number>('port', 6010));
-            startServer(newPort);
-            outputChannel.appendLine(`MCP Server started on port ${newPort}.`);
-            vscode.window.showInformationMessage(`MCP Server started on port ${newPort}.`);
-        }),
-    );
-
-    // COMMAND PALETTE COMMAND: Set the MCP server port and restart the server
-    context.subscriptions.push(
-        vscode.commands.registerCommand('mcpServer.setPort', async () => {
-            const newPortInput = await vscode.window.showInputBox({
-                prompt: 'Enter new port number for the MCP Server:',
-                value: String(port),
-                validateInput: (input) => {
-                    const num = Number(input);
-                    if (isNaN(num) || num < 1 || num > 65535) {
-                        return 'Please enter a valid port number (1-65535).';
-                    }
-                    return null;
-                },
-            });
-            if (newPortInput && newPortInput.trim().length > 0) {
-                const newPort = Number(newPortInput);
-                // Update the configuration so that subsequent startups use the new port
-                await vscode.workspace
-                    .getConfiguration('mcpServer')
-                    .update('port', newPort, vscode.ConfigurationTarget.Global);
-                // Restart the server: close existing server and start a new one
-                server.close();
-                startServer(newPort);
-                outputChannel.appendLine(`MCP Server restarted on port ${newPort}`);
-                vscode.window.showInformationMessage(`MCP Server restarted on port ${newPort}`);
-            }
-        }),
-    );
-
-    outputChannel.appendLine(`${extensionDisplayName} activated.`);
-};
-
+/**
+ * Clean up resources when the extension is deactivated
+ */
 export function deactivate() {
-    // Clean-up is managed by the disposables added in the activate method.
+    if (mcpServer) {
+        // If the server was running, reset the workbench MCP server URL
+        if (serverPort > 0) {
+            try {
+                const cp = require('child_process');
+                const resetCommand = `node ${
+                    vscode.Uri.joinPath(
+                        vscode.Uri.file(__dirname),
+                        '..',
+                        '..',
+                        '..',
+                        '..',
+                        'scripts',
+                        'update-vscode-mcp-url.js',
+                    ).fsPath
+                } reset`;
+                cp.exec(resetCommand);
+            } catch (error) {
+                console.error(`Error resetting workbench MCP server URL: ${error}`);
+            }
+        }
+
+        // Close the MCP server
+        mcpServer.close().catch(console.error);
+    }
 }

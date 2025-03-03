@@ -8,7 +8,7 @@ from mcp.types import (
     CallToolRequestParams,
     CallToolResult,
 )
-from pydantic import BaseModel, Field, FileUrl
+from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 logger = logging.getLogger(__name__)
@@ -274,4 +274,4 @@ class ExtendedCallToolResult(CallToolResult):
 # define types for callback functions
 MCPErrorHandler = Callable[[MCPServerConfig, Exception], Any]
 MCPLoggingMessageHandler = Callable[[str], Awaitable[None]]
-MCPSamplingMessageHandler = SamplingFnT
+MCPSamplingMessageHandler = SamplingFnT[...]
