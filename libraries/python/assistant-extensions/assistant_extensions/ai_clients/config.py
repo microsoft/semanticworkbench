@@ -1,10 +1,28 @@
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, TYPE_CHECKING
 
-from anthropic_client import AnthropicRequestConfig, AnthropicServiceConfig
 from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import UISchema
+
+# For type checking, we import all dependencies
+if TYPE_CHECKING:
+    from anthropic_client import AnthropicRequestConfig, AnthropicServiceConfig
+else:
+    # At runtime, we'll try to import but have a fallback
+    try:
+        # pylint: disable=unused-import
+        from anthropic_client import AnthropicRequestConfig, AnthropicServiceConfig  # type: ignore
+    except ImportError:
+        # Create proxy classes for runtime
+        class _DummyConfig:
+            @classmethod
+            def model_construct(cls, *args, **kwargs):
+                return {}
+
+        # Make the names available at runtime
+        AnthropicServiceConfig = _DummyConfig  # type: ignore
+        AnthropicRequestConfig = _DummyConfig  # type: ignore
 
 
 class AIServiceType(StrEnum):
@@ -68,21 +86,22 @@ class AnthropicClientConfigModel(BaseModel):
 
     ai_service_type: Annotated[Literal[AIServiceType.Anthropic], UISchema(widget="hidden")] = AIServiceType.Anthropic
 
+    # Use dynamic service_config and request_config to handle type checking
     service_config: Annotated[
-        AnthropicServiceConfig,
+        Any,
         Field(
             title="Anthropic Service Configuration",
             description="Configuration for the Anthropic service.",
-            default=AnthropicServiceConfig.model_construct(),
+            default_factory=lambda: AnthropicServiceConfig.model_construct(),  # type: ignore
         ),
     ]
 
     request_config: Annotated[
-        AnthropicRequestConfig,
+        Any,
         Field(
             title="Response Generation",
             description="Configuration for generating responses.",
-            default=AnthropicRequestConfig.model_construct(),
+            default_factory=lambda: AnthropicRequestConfig.model_construct(),  # type: ignore
         ),
     ]
 
