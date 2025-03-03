@@ -28,7 +28,8 @@
       "configurations": [
         "assistants: codespace-assistant",
         "app: semantic-workbench-app",
-        "service: semantic-workbench-service"
+        "service: semantic-workbench-service",
+        "mcp-servers: mcp-server-open-deep-research"
       ]
     }
   ]

@@ -19,7 +19,7 @@ def load_required_env_var(env_var_name: str) -> str:
 
 huggingface_token = load_required_env_var("HUGGINGFACE_TOKEN")
 openai_api_key = load_required_env_var("OPENAI_API_KEY")
-serpapi_api_key = load_required_env_var("SERPAPI_API_KEY")
+serpapi_api_key = load_required_env_var("SERP_API_KEY")
 
 
 class Settings(BaseSettings):
