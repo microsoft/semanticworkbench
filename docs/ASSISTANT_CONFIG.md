@@ -201,7 +201,7 @@ guided_conversation_agent:
 
 - **Max Tokens**: Controls total token usage in requests.
 - **Response Tokens**: Allocates tokens for model responses.
-- **OpenAI Model**: Specifies the model type used, such as GPT-4.
+- **OpenAI Model**: Specifies the model type used, such as GPT-4. **IMPORTANT**: The first model configured for the assistant must be gpt-4o so that it can call subsequent tools.
 
 ### `service_config`
 
@@ -482,4 +482,3 @@ required:
   - another_field
   - list_field
 ```
-
