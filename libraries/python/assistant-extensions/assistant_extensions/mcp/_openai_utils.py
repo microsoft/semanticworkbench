@@ -1,8 +1,8 @@
 import logging
-from typing import Any, Callable, List, Union
+from typing import Callable, List, Union
 
 import deepmerge
-from mcp import ClientSession, CreateMessageResult, SamplingMessage
+from mcp import CreateMessageResult, SamplingMessage
 from mcp.shared.context import RequestContext
 from mcp.types import CreateMessageRequestParams, ErrorData, ImageContent, TextContent
 from openai.types.chat import (
@@ -17,6 +17,7 @@ from openai.types.chat import (
 from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
 
 from ._model import MCPSamplingMessageHandler
+from ._protocol_types import MCPSamplingMessageHandlerProtocol
 from ._sampling_handler import SamplingHandler
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ class OpenAISamplingHandler(SamplingHandler):
         # set a default handler so that it can be registered during client
         # session connection, prior to having access to the actual handler
         # allowing the handler to be set after the client session is created
-        # and more context is available
+        # Use explicit type cast to satisfy the type checker
         self._message_handler: MCPSamplingMessageHandler = (
             handler or self._default_message_handler
         )
@@ -77,7 +78,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     async def _default_message_handler(
         self,
-        context: RequestContext[ClientSession, Any],
+        context: RequestContext,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData:
         logger.info(f"Sampling handler invoked with context: {context}")
@@ -138,7 +139,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     async def handle_message(
         self,
-        context: RequestContext[ClientSession, Any],
+        context: RequestContext,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData:
         return await self._message_handler(context, params)
