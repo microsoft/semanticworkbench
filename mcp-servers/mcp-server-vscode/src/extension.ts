@@ -1,8 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { exec } from 'child_process';
 import dedent from 'dedent';
 import express, { Request, Response } from 'express';
 import * as http from 'http';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { DiagnosticSeverity } from 'vscode';
 import { z } from 'zod';
@@ -18,6 +20,11 @@ import {
 } from './tools/debug_tools';
 import { focusEditorTool } from './tools/focus_editor';
 import { resolvePort } from './utils/port';
+
+// Declare global variable for TypeScript
+declare global {
+    var __VSCODE_MCP_SERVER_URL: string | undefined;
+}
 
 const extensionName = 'vscode-mcp-server';
 const extensionDisplayName = 'VSCode MCP Server';
@@ -38,7 +45,7 @@ export const activate = async (context: vscode.ExtensionContext) => {
     });
 
     // Register the "code_checker" tool.
-    // This tool retrieves diagnostics from VSCode's language services,
+    // This tool retrieves diagnostics from VSCode's language services
     // filtering out files without issues.
     mcpServer.tool(
         'code_checker',
@@ -99,14 +106,14 @@ export const activate = async (context: vscode.ExtensionContext) => {
     //     'search_symbol',
     //     dedent`
     //     Search for a symbol within the workspace.
-    //     - Tries to resolve the definition via VSCode’s "Go to Definition".
-    //     - If not found, searches the entire workspace for the text, similar to Ctrl+Shift+F.
+    //     - Tries to resolve the definition via VSCode's "Go to Definition".
+    //     - If not found, searches the entire workspace for the text similar to Ctrl+Shift+F.
     //     `.trim(),
     //     {
     //         query: z.string().describe('The symbol or text to search for.'),
     //         useDefinition: z.boolean().default(true).describe("Whether to use 'Go to Definition' as the first method."),
     //         maxResults: z.number().default(50).describe('Maximum number of global search results to return.'),
-    //         openFile: z.boolean().default(false).describe('Whether to open the found file in the editor.'),
+    //         openFile: z.boolean().default(false).describe('Whether to open the found file in the editor.')
     //     },
     //     async (params: { query: string; useDefinition?: boolean; maxResults?: number; openFile?: boolean }) => {
     //         const result = await searchSymbolTool(params);
@@ -115,11 +122,11 @@ export const activate = async (context: vscode.ExtensionContext) => {
     //             content: [
     //                 {
     //                     text: JSON.stringify(result),
-    //                     type: 'text',
-    //                 },
-    //             ],
+    //                     type: 'text'
+    //                 }
+    //             ]
     //         };
-    //     },
+    //     }
     // );
 
     // Register 'list_debug_sessions' tool
@@ -236,9 +243,39 @@ export const activate = async (context: vscode.ExtensionContext) => {
 
     // Create and start the HTTP server
     const server = http.createServer(app);
+
+    // Store the server URL for semantic workbench to access
+    let serverUrl = '';
+
     function startServer(port: number): void {
         server.listen(port, () => {
-            outputChannel.appendLine(`MCP SSE Server running at http://127.0.0.1:${port}/sse`);
+            serverUrl = `http://127.0.0.1:${port}/sse`;
+            outputChannel.appendLine(`MCP SSE Server running at ${serverUrl}`);
+
+            // Make the URL available to the semantic workbench
+            // This is stored in a global variable that can be accessed by other extensions
+            global.__VSCODE_MCP_SERVER_URL = serverUrl;
+
+            // Run the script to update the assistant configuration files
+            const scriptPath = path.join(
+                vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
+                'scripts',
+                'update-vscode-mcp-url.js',
+            );
+            try {
+                exec(`node "${scriptPath}"`, (error, stdout, stderr) => {
+                    if (error) {
+                        outputChannel.appendLine(`Error running update script: ${error.message}`);
+                        return;
+                    }
+                    if (stderr) {
+                        outputChannel.appendLine(`Update script stderr: ${stderr}`);
+                    }
+                    outputChannel.appendLine(`Update script stdout: ${stdout}`);
+                });
+            } catch (error) {
+                outputChannel.appendLine(`Error executing update script: ${error}`);
+            }
         });
 
         // Add disposal to shut down the HTTP server and output channel on extension deactivation
@@ -246,6 +283,29 @@ export const activate = async (context: vscode.ExtensionContext) => {
             dispose: () => {
                 server.close();
                 outputChannel.dispose();
+                // Clear the global variable when the server is stopped
+                global.__VSCODE_MCP_SERVER_URL = undefined;
+
+                // Run the script to update the assistant configuration files
+                const scriptPath = path.join(
+                    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
+                    'scripts',
+                    'update-vscode-mcp-url.js',
+                );
+                try {
+                    exec(`node "${scriptPath}"`, (error, stdout, stderr) => {
+                        if (error) {
+                            outputChannel.appendLine(`Error running update script: ${error.message}`);
+                            return;
+                        }
+                        if (stderr) {
+                            outputChannel.appendLine(`Update script stderr: ${stderr}`);
+                        }
+                        outputChannel.appendLine(`Update script stdout: ${stdout}`);
+                    });
+                } catch (error) {
+                    outputChannel.appendLine(`Error executing update script: ${error}`);
+                }
             },
         });
     }
@@ -255,6 +315,13 @@ export const activate = async (context: vscode.ExtensionContext) => {
     } else {
         outputChannel.appendLine('MCP Server startup disabled by configuration.');
     }
+
+    // Register a command to get the current server URL
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mcpServer.getServerUrl', () => {
+            return serverUrl;
+        }),
+    );
 
     // COMMAND PALETTE COMMAND: Stop the MCP Server
     context.subscriptions.push(
@@ -267,6 +334,30 @@ export const activate = async (context: vscode.ExtensionContext) => {
             server.close(() => {
                 outputChannel.appendLine('MCP Server stopped.');
                 vscode.window.showInformationMessage('MCP Server stopped.');
+                // Clear the server URL when stopped
+                serverUrl = '';
+                global.__VSCODE_MCP_SERVER_URL = undefined;
+
+                // Run the script to update the assistant configuration files
+                const scriptPath = path.join(
+                    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
+                    'scripts',
+                    'update-vscode-mcp-url.js',
+                );
+                try {
+                    exec(`node "${scriptPath}"`, (error, stdout, stderr) => {
+                        if (error) {
+                            outputChannel.appendLine(`Error running update script: ${error.message}`);
+                            return;
+                        }
+                        if (stderr) {
+                            outputChannel.appendLine(`Update script stderr: ${stderr}`);
+                        }
+                        outputChannel.appendLine(`Update script stdout: ${stdout}`);
+                    });
+                } catch (error) {
+                    outputChannel.appendLine(`Error executing update script: ${error}`);
+                }
             });
         }),
     );
