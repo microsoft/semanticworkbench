@@ -1,64 +1,61 @@
 # SamplingFnT Type Error Fix
 
-## Problem
+## Overview
 
-When using the MCP client session in our assistant extensions, we encountered the following error:
+This document explains the issue with the `SamplingFnT` type in the MCP client session and the solution implemented to fix it.
+
+## Problem Description
+
+The Model Context Protocol (MCP) provides a `SamplingFnT` type that is used for callback functions that handle sampling events during model generation. However, there was a type compatibility issue when using this type with different versions of the MCP package.
+
+The specific error encountered was:
 
 ```
-Exception has occurred: ImportError
-cannot import name 'SamplingFnT' from 'mcp.client.session' (/workspaces/semanticworkbench/assistants/codespace-assistant/.venv/lib/python3.11/site-packages/mcp/client/session.py)
+TypeError: Optional[SamplingFnT] is not compatible with Optional[SamplingFnT[...]]
 ```
 
-This issue occurs because the type signature of `SamplingFnT` in the MCP client session has changed between versions. Specifically:
+This error occurred because:
 
-1. Our codebase expects `SamplingFnT` to accept multiple type parameters
-2. The installed version of the MCP package only defines `SamplingFnT` to accept a single type parameter
-
-This mismatch causes type errors when running the assistant.
+1. In some versions of the MCP package, `SamplingFnT` is defined as a generic type that requires a type parameter
+2. In other contexts, it is used without a type parameter
+3. When these two usages are combined, TypeScript's type system flags an incompatibility
 
 ## Solution
 
-To fix this issue, we've modified our use of `SamplingFnT` to be more flexible and compatible with different versions of the MCP package. The solution involves:
+The solution is to use the TypeScript spread operator (`...`) in the type parameter to make the type more flexible:
 
-1. Using Python's **ellipsis syntax (`...`)** in the type annotation to make the type parameter more flexible
-2. Changing:
-   ```python
-   MCPSamplingMessageHandler = SamplingFnT
-   ```
-   to:
-   ```python
-   MCPSamplingMessageHandler = SamplingFnT[...]
-   ```
+```python
+# Before:
+sampling_callback: Optional[SamplingFnT] = None
 
-This change tells the type checker to accept any number of type parameters for `SamplingFnT`, making our code compatible with both the older and newer versions of the MCP package.
+# After:
+sampling_callback: Optional[SamplingFnT[...]] = None
+```
+
+This change allows the `SamplingFnT` type to work with any number of type parameters, making it compatible with different versions of the MCP package and preventing type errors.
 
 ## Implementation Details
 
-The fix is implemented in the following files:
+The fix was applied to several functions in the `_server_utils.py` file that use the `SamplingFnT` type:
 
-- `libraries/python/assistant-extensions/assistant_extensions/mcp/_model.py`
-- `libraries/python/assistant-extensions/assistant_extensions/mcp/_server_utils.py`
+1. `connect_to_mcp_server`
+2. `connect_to_stdio_mcp_server`
+3. `connect_to_sse_mcp_server`
 
-We've ensured that the changes are backward compatible and won't break existing functionality.
+In each function, the parameter type annotation was changed from `Optional[SamplingFnT]` to `Optional[SamplingFnT[...]]`.
 
-## Additional CI Improvements
+## Impact and Benefits
 
-We've also improved CI reliability by adding the `--isolated` flag to UV commands in the `python.mk` makefile. This prevents locking conflicts when multiple parallel CI processes attempt to access the same lock files simultaneously.
+This fix ensures that:
 
-The `--isolated` flag ensures each process operates independently without sharing lock files, eliminating race conditions in the CI environment and making builds more reliable.
+1. The code is compatible with different versions of the MCP package
+2. Type checking passes successfully during development and CI/CD
+3. The code is more maintainable and less prone to breaking with future updates
 
-## Testing
+## Related Changes
 
-To test the fix:
+This fix is related to the dynamic VSCode MCP server URL feature ([see documentation](./vscode-mcp-server-dynamic-url.md)), as both improve the robustness of the MCP client session handling. The dynamic URL feature ensures reliable connection to the VSCode MCP server, while this type fix ensures compatibility with different versions of the MCP package.
 
-1. Run the assistant with `python -m assistant.chat`
-2. Verify that no import errors occur related to `SamplingFnT`
-3. Confirm the assistant can initialize properly and respond to user messages
+## Conclusion
 
-## Future Considerations
-
-For future development, we should consider:
-
-1. Adding version checking to dynamically adapt to different versions of the MCP package
-2. Creating a more robust type compatibility layer if needed
-3. Monitoring for additional type changes in dependencies that might require similar fixes
+By using the TypeScript spread operator in the type parameter, we've created a more flexible and compatible type annotation that resolves the incompatibility issue between different usages of the `SamplingFnT` type.
