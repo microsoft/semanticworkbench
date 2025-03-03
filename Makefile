@@ -12,8 +12,9 @@ this_dir = $(patsubst %/,%,$(dir $(realpath $(lastword $(MAKEFILE_LIST)))))
 # Example: "ruff.interpreter": ["${workspaceFolder}/../.venv"],
 #
 
-# Define venv directory
+# Define venv directory and python version
 VENV_DIR := .venv
+PYTHON_VERSION := 3.11
 
 .PHONY: install
 
@@ -21,7 +22,8 @@ VENV_DIR := .venv
 install: $(VENV_DIR)
 
 $(VENV_DIR):
-	uv venv
+# The required version of python will be installed if it is not already installed
+	uv venv --python $(PYTHON_VERSION) $(VENV_DIR)
 
 clean:
 	$(rm_dir) $(VENV_DIR) $(ignore_failure)
