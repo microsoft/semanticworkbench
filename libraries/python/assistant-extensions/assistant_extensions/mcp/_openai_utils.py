@@ -2,7 +2,7 @@ import logging
 from typing import Any, Callable, List, Union
 
 import deepmerge
-from mcp import ClientSession, CreateMessageResult, SamplingMessage
+from mcp import CreateMessageResult, SamplingMessage
 from mcp.shared.context import RequestContext
 from mcp.types import CreateMessageRequestParams, ErrorData, ImageContent, TextContent
 from openai.types.chat import (
@@ -16,7 +16,6 @@ from openai.types.chat import (
 )
 from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
 
-from ._model import MCPSamplingMessageHandler
 from ._sampling_handler import SamplingHandler
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ OpenAIMessageProcessor = Callable[
 
 class OpenAISamplingHandler(SamplingHandler):
     @property
-    def message_handler(self) -> MCPSamplingMessageHandler:
+    def message_handler(self):
         return self._message_handler
 
     def __init__(
@@ -44,7 +43,7 @@ class OpenAISamplingHandler(SamplingHandler):
         request_config: OpenAIRequestConfig | None = None,
         assistant_mcp_tools: list[ChatCompletionToolParam] | None = None,
         message_processor: OpenAIMessageProcessor | None = None,
-        handler: MCPSamplingMessageHandler | None = None,
+        handler: Any | None = None,
     ) -> None:
         self.service_config = service_config
         self.request_config = request_config
@@ -61,7 +60,7 @@ class OpenAISamplingHandler(SamplingHandler):
         # session connection, prior to having access to the actual handler
         # allowing the handler to be set after the client session is created
         # and more context is available
-        self._message_handler: MCPSamplingMessageHandler = (
+        self._message_handler = (
             handler or self._default_message_handler
         )
 
@@ -77,7 +76,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     async def _default_message_handler(
         self,
-        context: RequestContext[ClientSession, Any],
+        context: RequestContext,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData:
         logger.info(f"Sampling handler invoked with context: {context}")
@@ -138,7 +137,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     async def handle_message(
         self,
-        context: RequestContext[ClientSession, Any],
+        context: RequestContext,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData:
         return await self._message_handler(context, params)

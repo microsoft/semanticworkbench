@@ -274,4 +274,4 @@ class ExtendedCallToolResult(CallToolResult):
 # define types for callback functions
 MCPErrorHandler = Callable[[MCPServerConfig, Exception], Any]
 MCPLoggingMessageHandler = Callable[[str], Awaitable[None]]
-MCPSamplingMessageHandler = SamplingFnT[...]
+MCPSamplingMessageHandler = SamplingFnT  # No type arguments to ensure compatibility
