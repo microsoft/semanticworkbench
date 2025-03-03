@@ -133,7 +133,7 @@ Example:
             }
         ],
         "tool_result": {
-            "tool_call_id": "tool_result_1",
+            "tool_call_id": "tool_call_1",
         },
     }
 }
