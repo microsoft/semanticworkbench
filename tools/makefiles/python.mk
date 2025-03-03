@@ -48,16 +48,25 @@ ifneq ($(findstring pyright,$(if $(shell $(call command_exists,uv) $(stderr_redi
 PYRIGHT_EXISTS=true
 endif
 
-ifeq ($(PYRIGHT_EXISTS),true)
 .PHONY: type-check test
 test: type-check
 type-check:
+ifeq ($(PYRIGHT_EXISTS),true)
 	uv run $(uv_project_args) $(UV_RUN_ARGS) pyright $(PYRIGHT_ARGS)
+else
+	@echo "Pyright not detected, skipping type check"
+	@echo "To enable type checking, install pyright: 'uv pip install pyright'"
+	@exit 0
 endif
 
-ifeq ($(PYTEST_EXISTS),true)
 .PHONY: test pytest
 test: pytest
 pytest:
+ifeq ($(PYTEST_EXISTS),true)
 	uv run $(uv_project_args) $(UV_RUN_ARGS) pytest $(PYTEST_ARGS)
+else
+	@echo "Pytest not detected, skipping tests"
+	@echo "To enable testing, install pytest: 'uv pip install pytest'"
+	@exit 0
 endif
+
