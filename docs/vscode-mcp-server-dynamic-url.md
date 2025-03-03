@@ -29,7 +29,9 @@ The dynamic URL feature solves these issues by:
 
 ### Related Changes
 
-This implementation is related to the [SamplingFnT type error fix](./SAMPLING_FN_TYPE_ERROR_FIX.md), as both improve the robustness of the MCP client session handling. The type error fix ensures compatibility with different versions of the MCP package, while the dynamic URL feature ensures reliable connection to the VSCode MCP server.
+This implementation is related to the [SamplingFnT type error fix](./SAMPLING_FN_TYPE_ERROR_FIX.md), as both improve the robustness of the MCP client session handling. 
+
+The SamplingFnT type error fix (using the TypeScript spread operator `...` for type parameters) ensures compatibility with different versions of the MCP package, resolving the `TypeError: Optional[SamplingFnT] is not compatible with Optional[SamplingFnT[...]]` issue that was occurring. Meanwhile, the dynamic URL feature ensures reliable connection to the VSCode MCP server regardless of the port it's running on.
 
 ## Usage
 
