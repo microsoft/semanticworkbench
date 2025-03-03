@@ -118,7 +118,7 @@ async def main(
     else:
         content = message_content_from_completion(completion).strip().strip('"')
         metadata["content"] = content
-        if content == "<DONE>":
+        if "<DONE>" in content:
             return content, True
         return content, False
     finally:
