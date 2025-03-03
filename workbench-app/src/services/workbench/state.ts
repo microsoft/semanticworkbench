@@ -1,6 +1,7 @@
 import { Config } from '../../models/Config';
 import { ConversationState } from '../../models/ConversationState';
 import { ConversationStateDescription } from '../../models/ConversationStateDescription';
+import { updateVSCodeMcpServerUrl } from './updateMcpServerUrl';
 import { workbenchApi } from './workbench';
 
 const stateApi = workbenchApi.injectEndpoints({
@@ -70,21 +71,34 @@ export const {
 
 const transformResponseToConfig = (response: any) => {
     try {
-        return {
+        // Create the config object
+        const config = {
             config: response.config,
             jsonSchema: response.json_schema,
             uiSchema: response.ui_schema,
         };
+
+        // Update the VSCode MCP server URL in the config if it exists
+        if (config.config) {
+            config.config = updateVSCodeMcpServerUrl(config.config);
+        }
+
+        return config;
     } catch (error) {
         throw new Error(`Failed to transform config response: ${error}`);
     }
 };
 
-const transformConfigForRequest = (config: Config) => ({
-    config: config.config,
-    json_schema: config.jsonSchema,
-    ui_schema: config.uiSchema,
-});
+const transformConfigForRequest = (config: Config) => {
+    // Update the VSCode MCP server URL in the config if it exists
+    const updatedConfig = config.config ? updateVSCodeMcpServerUrl(config.config) : config.config;
+
+    return {
+        config: updatedConfig,
+        json_schema: config.jsonSchema,
+        ui_schema: config.uiSchema,
+    };
+};
 
 const transformResponseToConversationState = (response: any, stateId: string) => {
     try {

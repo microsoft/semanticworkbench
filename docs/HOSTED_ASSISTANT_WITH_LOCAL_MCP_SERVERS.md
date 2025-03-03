@@ -104,3 +104,9 @@ NOTE: Make sure you copy the "Connect via browser" URL, not the "Inspect network
 1. Click "Save".
 1. Click "Close".
 1. As a test, try asking the assistant "what tools do you have?".
+
+## Note on Local Development
+
+If you are running the workbench and the assistant locally (not using the hosted workbench), the VSCode MCP server URL is now dynamically pulled from the VSCode output. This means you don't need to manually update the URL in the assistant configuration files if the port changes.
+
+See [VSCode MCP Server Dynamic URL](vscode-mcp-server-dynamic-url.md) for more details.
