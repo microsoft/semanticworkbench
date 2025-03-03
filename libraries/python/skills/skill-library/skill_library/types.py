@@ -74,6 +74,9 @@ class RunContext:
             metadata["run_id"] = self.run_id
         self.metadata_log.append((message, metadata))
 
+    def flattened_metadata(self) -> dict[str, dict[str, Any]]:
+        return {key: data for key, data in self.metadata_log}
+
     def routine_usage(self) -> str:
         return usage_routines_usage(self.skills)
 
