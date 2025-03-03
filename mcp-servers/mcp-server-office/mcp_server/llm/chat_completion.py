@@ -26,7 +26,7 @@ async def chat_completion(
     Returns:
         ChatCompletionResponse: The chat completion response.
     """
-    if (provider == "openai" or provider == "azure_openai") and isinstance(client, Callable):
+    if (provider == "openai" or provider == "azure_openai" or provider == "dev") and isinstance(client, Callable):
         return openai_chat_completion(request, client)
     elif provider == "mcp" and isinstance(client, Context):
         return await mcp_chat_completion(request, client)

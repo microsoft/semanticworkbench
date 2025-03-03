@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import json
+import logging
 
 import pendulum
 from mcp.server.fastmcp import Context
@@ -32,6 +33,8 @@ from mcp_server.types import (
     MessageT,
     UserMessage,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> MarkdownEditOutput:
@@ -105,6 +108,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
     else:
         raise ValueError(f"Invalid request type: {markdown_edit_request.request_type}")
     reasoning = reasoning_response.choices[0].message.content
+    logging.info(f"Reasoning:\n{reasoning}")
 
     # endregion
 
@@ -115,38 +119,22 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         messages=MD_EDIT_CONVERT_MESSAGES,
         variables={"reasoning": reasoning},
     )
-    if markdown_edit_request.request_type == "mcp" and isinstance(markdown_edit_request.context, Context):
-        request = ChatCompletionRequest(
-            messages=convert_messages,
-            model="gpt-4o",
-            temperature=0,
-            max_completion_tokens=8000,
-            tools=[MD_EDIT_TOOL_DEF, SEND_MESSAGE_TOOL_DEF],
-            tool_choice="required",
-            parallel_tool_calls=False,
-        )
-        convert_response = await chat_completion(
-            request=request,
-            provider="mcp",
-            client=markdown_edit_request.context,
-        )
-    elif markdown_edit_request.request_type == "dev":
-        request = ChatCompletionRequest(
-            messages=convert_messages,
-            model="gpt-4o",
-            temperature=0,
-            max_completion_tokens=8000,
-            tools=[MD_EDIT_TOOL_DEF, SEND_MESSAGE_TOOL_DEF],
-            tool_choice="required",
-            parallel_tool_calls=False,
-        )
-        convert_response = await chat_completion(
-            request=request,
-            provider="azure_openai",
-            client=markdown_edit_request.chat_completion_client,  # type: ignore
-        )
-    else:
-        raise ValueError(f"Invalid request type: {markdown_edit_request.request_type}")
+    request = ChatCompletionRequest(
+        messages=convert_messages,
+        model="gpt-4o",
+        temperature=0,
+        max_completion_tokens=8000,
+        tools=[MD_EDIT_TOOL_DEF, SEND_MESSAGE_TOOL_DEF],
+        tool_choice="required",
+        parallel_tool_calls=False,
+    )
+    convert_response = await chat_completion(
+        request=request,
+        provider=markdown_edit_request.request_type,
+        client=markdown_edit_request.context
+        if markdown_edit_request.request_type == "mcp"
+        else markdown_edit_request.chat_completion_client,  # type: ignore
+    )
 
     # endregion
 
@@ -159,12 +147,14 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
     output_message = ""
     if convert_response.choices[0].message.tool_calls:
         tool_call = convert_response.choices[0].message.tool_calls[0].function
+        logging.info(f"Tool call:\n{tool_call}")
         # If the the model called the send_message, don't update the doc and return the message
         if tool_call.name == SEND_MESSAGE_TOOL_NAME:
             output_message = convert_response.choices[0].message.content
         elif tool_call.name == MD_EDIT_TOOL_NAME:
             tool_args = tool_call.arguments
             blocks = blockify(updated_doc_markdown)
+            logging.info(f"Blocks (before modifications):\n{blocks}")
             blocks = execute_tools(blocks=blocks, edit_tool_call={"name": tool_call.name, "arguments": tool_args})
             updated_doc_markdown = unblockify(blocks)
             write_markdown_to_document(doc, updated_doc_markdown)
@@ -204,32 +194,18 @@ async def run_change_summary(before_doc: str, after_doc: str, markdown_edit_requ
             "after_doc": after_doc,
         },
     )
-    if markdown_edit_request.request_type == "mcp" and isinstance(markdown_edit_request.context, Context):
-        change_summary = await chat_completion(
-            request=ChatCompletionRequest(
-                messages=change_summary_messages,
-                model="gpt-4o",
-                max_completion_tokens=1000,
-            ),
-            provider="mcp",
-            client=markdown_edit_request.context,
-        )
-        change_summary = change_summary.choices[0].message.content
-    elif markdown_edit_request.request_type == "dev":
-        request = ChatCompletionRequest(
+    change_summary = await chat_completion(
+        request=ChatCompletionRequest(
             messages=change_summary_messages,
             model="gpt-4o",
             max_completion_tokens=1000,
-        )
-        change_summary = await chat_completion(
-            request=request,
-            provider="azure_openai",
-            client=markdown_edit_request.chat_completion_client,  # type: ignore
-        )
-        change_summary = change_summary.choices[0].message.content
-    else:
-        raise ValueError(f"Invalid request type: {markdown_edit_request.request_type}")
-
+        ),
+        provider=markdown_edit_request.request_type,
+        client=markdown_edit_request.context
+        if markdown_edit_request.request_type == "mcp"
+        else markdown_edit_request.chat_completion_client,  # type: ignore
+    )
+    change_summary = change_summary.choices[0].message.content
     change_summary = CHANGE_SUMMARY_PREFIX + change_summary
     return change_summary
 

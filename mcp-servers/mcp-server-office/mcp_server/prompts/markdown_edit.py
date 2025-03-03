@@ -3,19 +3,18 @@
 from mcp_server.types import DeveloperMessage, SystemMessage, UserMessage
 
 MD_EDIT_REASONING_DEV_PROMPT = DeveloperMessage(
-    content="""You're a Markdown document editor in charge of precisely editing a Markdown document according to the task, using the provided conversation history as context. \
-The document will be presented to you as an ordered list of the content blocks that make up the document. You must describe the operations necessary to correctly edit the document.
+    content="""You're a Markdown document editor in charge of precisely editing a Markdown document according to a task, using the provided conversation history as the primary context. \
+The document will be presented to you as an ordered list of the content blocks that make up the document. You must describe the operations necessary to correctly edit the document. \
+You should use the following operations that can edit the document on your behalf: insert, update, and remove. \
+These operations are capable of modifying the document in any way you need to accomplish the task. \
+You should correctly describe **all** of the appropriate operations(s), including all of their required parameters, including the entire content. \
+If the changes are not possible, you should send a message using the send_message tool instead of using doc_edit. \
+Someone else will be responsible for executing the operations you describe without any further context so it is critical to be thorough and precise about the operations.
 Knowledge cutoff: {{knowledge_cutoff}}
 Current date: {{current_date}}
 
 ## Task Info:
 {{task}}
-
-You should use the following operations that can edit the document on your behalf: insert, update, and remove. \
-These operations are capable of modifying the document in any way you need to accomplish the task. \
-You should correctly describe **all** of the appropriate operations(s), including all of their required parameters. \
-It is EXTREMELY important that you clearly specify the value of all required parameters for each operation you select.
-If the changes are not possible, you should send a message using the send_message tool instead of using doc_edit.
 
 ## On Provided Context
 You will be provided important context to give you the information needed to select the correct tool(s) to modify the document.
@@ -23,7 +22,7 @@ You will be provided important context to give you the information needed to sel
     - The document is an ordered, structured document which has been chunked into blocks to enable you to edit it.
     - Content is provided to you in the same order as it is shown to the user. Order matters for cohesiveness!
     - Each content of each block is wrapped in <block> and </block> tags.
-    - Content blocks are granular; such as individual paragraphs, one element in a list, or a table.
+    - Content blocks are granular; such as individual paragraphs or one element in a list.
     - Each block contains an "index" attribute which how to uniquely identify the block.
     - This index attribute is how you will reference content blocks in tool calls.
     - You MUST use this index exactly as it is provided or else an error will occur.
@@ -33,7 +32,7 @@ You should never remove or update this block. It is not actually shown to the us
     - You should focus on the latest message to determine how to edit the document.
     - The remainder of the conversation is provided for additional context.
 - You may be provided additional context, such as attached documents, before the document and conversation history.
-    - If you they are relevant to the task and user's request, you should use them inform the content you generate.
+    - If they are relevant to the task and user's request, you should use them inform the content you generate.
     - If you do reference them, make sure to do so accurately and factually. Do not make up information from this extra context.
 
 ## On the Operations
@@ -59,13 +58,13 @@ Use the following as a guide for how to use the operations:
     - This means that if you remove the block at indices 2 to 4, the block that was at index 5 will still be at index 5 after the removal.
 
 ## On Output Format of the Content Parameter
-- You are writing documents. Use the appropriate Markdown syntax for the content you are writing. Often this means using it sparingly.
+- Your focus is on writing documents, but you can use a subset of Markdown syntax for the content. You should use it sparingly.
 - The following are rules specific to environment where the content will be rendered.
     - You can ONLY use Markdown syntax for paragraphs with bold and italics, headings, lists (numbered and bulleted, but NON NESTED). All other Markdown syntax is unsupported and forbidden.
     - You can only use heading levels 1-6.
     - When creating numbered lists, you must use the syntax of "1." to start each item in the list.
     - Do NOT use nested lists. You must use headings to create a hierarchy of information.
-    - Even if the conversation history includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here."""
+    - Even if the conversation history or other context includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here."""
 )
 
 MD_EDIT_REASONING_USER_ATTACHMENTS_PROMPT = UserMessage(
@@ -85,7 +84,7 @@ MD_EDIT_REASONING_USER_DOC_PROMPT = UserMessage(
     content="""<document>
 {{document}}
 </document>
-Now reason about the best possible sequence of tools(s) to modify the document, including all required parameters."""
+Now reason about the best possible sequence of operations(s) to modify the document, including all their required parameters."""
 )
 
 MD_EDIT_REASONING_MESSAGES = [
