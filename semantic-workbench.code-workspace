@@ -40,10 +40,6 @@
       "path": "workbench-service"
     },
     {
-      "name": "workspaces-app",
-      "path": "workspaces-app"
-    },
-    {
       "name": "examples:python-01-echo-bot",
       "path": "examples/python/python-01-echo-bot"
     },
@@ -183,7 +179,7 @@
   "settings": {
     "markdown.validate.enabled": true,
     "ruff.configuration": "${workspaceFolder}/../ruff.toml",
-    "ruff.interpreter": ["${workspaceFolder}/../.venv/bin/python"],
+    "ruff.interpreter": ["${workspaceFolder}/../.venv"],
     "ruff.importStrategy": "useBundled",
     "ruff.nativeServer": "on",
     "[python]": {

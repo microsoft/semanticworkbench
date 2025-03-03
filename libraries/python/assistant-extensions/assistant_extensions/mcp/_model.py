@@ -44,8 +44,8 @@ class MCPServerConfig(BaseModel):
     ]
 
     roots: Annotated[
-        List[FileUrl],
-        Field(title="Roots", description="Roots to pass to the server."),
+        List[str],
+        Field(title="Roots", description="Roots to pass to the server. Usually absolute URLs or absolute file paths."),
     ] = []
 
     env: Annotated[
@@ -160,7 +160,7 @@ class MCPToolsConfigModel(BaseModel):
         ),
         MCPServerConfig(
             key="giphy",
-            command="http://127.0.0.1:6000/sse",
+            command="http://127.0.0.1:6040/sse",
             args=[],
             enabled=False,
         ),

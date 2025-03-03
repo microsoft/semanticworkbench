@@ -1,14 +1,16 @@
 import logging
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
+import pathlib
 from typing import Any, AsyncIterator, List, Optional
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from mcp import ClientSession, types
-from mcp.shared.context import RequestContext
 from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
+import pydantic
+from mcp.shared.context import RequestContext
 
 from ._model import (
     MCPErrorHandler,
@@ -52,9 +54,27 @@ def list_roots_callback_for(server_config: MCPServerConfig):
     Provides a callback to return the list of "roots" for a given server config.
     """
 
+    def root_to_uri(root: str) -> pydantic.AnyUrl | pydantic.FileUrl:
+        # if the root is a URL, return it as is
+        if "://" in root:
+            return pydantic.AnyUrl(root)
+
+        # otherwise, assume it is a file path, and convert to a file URL
+        path = pathlib.Path(root)
+        match path:
+            case pathlib.WindowsPath():
+                return pydantic.FileUrl(f"file:///{path.as_posix()}")
+            case _:
+                return pydantic.FileUrl(f"file://{path.as_posix()}")
+
     async def cb(context: RequestContext[ClientSession, Any]) -> types.ListRootsResult | types.ErrorData:
         roots = server_config.roots
-        return types.ListRootsResult(roots=[types.Root(uri=root) for root in roots])
+        return types.ListRootsResult(roots=[
+            # mcp sdk is currently typed to FileUrl, but the MCP spec allows for any URL
+            # the mcp sdk doesn't call any of the FileUrl methods, so this is safe for now
+            types.Root(uri=root_to_uri(root)) # type: ignore
+            for root in roots
+            ])
 
     return cb
 

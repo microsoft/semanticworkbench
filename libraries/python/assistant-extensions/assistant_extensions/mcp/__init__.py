@@ -8,7 +8,10 @@ from ._model import (
     MCPSession,
     MCPToolsConfigModel,
 )
-from ._sampling_utils import SamplingHandler
+from ._openai_utils import (
+    OpenAISamplingHandler,
+    sampling_message_to_chat_completion_message,
+)
 from ._server_utils import (
     establish_mcp_sessions,
     get_mcp_server_prompts,
@@ -25,10 +28,11 @@ __all__ = [
     "MCPServerConfig",
     "MCPSession",
     "MCPToolsConfigModel",
-    "SamplingHandler",
+    "OpenAISamplingHandler",
     "establish_mcp_sessions",
     "get_mcp_server_prompts",
     "handle_mcp_tool_call",
     "refresh_mcp_sessions",
     "retrieve_mcp_tools_from_sessions",
+    "sampling_message_to_chat_completion_message",
 ]

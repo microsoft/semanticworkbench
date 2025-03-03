@@ -115,14 +115,14 @@ async def list_directory(ctx: Context, path: str) -> list[str]:
         path: The directory path to list.
 
     Returns:
-        A list of filenames and subdirectory names. Files are prefixed with [F] and directories with [D].
+        A list of filenames and subdirectory names. Files are prefixed with [FILE] and directories with [DIR].
     """
     dir_path = await validate_path(ctx, path)
     if not dir_path.exists() or not dir_path.is_dir():
         raise FileNotFoundError(f"Directory does not exist at {path}")
 
     try:
-        return [("[D] " if entry.is_dir() else "[F] ") + entry.name for entry in dir_path.iterdir()]
+        return [("[DIR] " if entry.is_dir() else "[FILE] ") + entry.name for entry in dir_path.iterdir()]
     except Exception as e:
         raise RuntimeError(f"Failed to list directory contents at {path}: {str(e)}")
 
@@ -201,7 +201,7 @@ async def search_files(
         raise FileNotFoundError(f"Root path does not exist at {root_path}")
 
     try:
-        return [("[D] " if path.is_dir() else "[F] ") + str(path) for path in root.rglob(pattern)]
+        return [("[DIR] " if path.is_dir() else "[FILE] ") + str(path) for path in root.rglob(pattern)]
     except Exception as e:
         raise RuntimeError(f"Search failed in {root_path} using pattern {pattern}: {str(e)}")
 
