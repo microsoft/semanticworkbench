@@ -3,7 +3,7 @@
 import time
 
 from mcp.server.fastmcp import Context
-from mcp.types import SamplingMessage, TextContent
+from mcp.types import ModelHint, ModelPreferences, SamplingMessage, TextContent
 from mcp_extensions import send_sampling_request
 
 from mcp_server.llm.openai_chat_completion import process_response
@@ -58,10 +58,12 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
             )
         )
 
+    model_preferences = ModelPreferences(hints=[ModelHint(name=request.model)])
     # Any extra args passed to the function are added to the request as metadata
     extra_args = request.model_dump(mode="json", exclude_none=True)
     extra_args.pop("messages", None)
     extra_args.pop("max_completion_tokens", None)
+    extra_args.pop("model", None)
     metadata = {"extra_args": extra_args}
 
     start_time = time.time()
@@ -70,6 +72,7 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
         messages=messages,
         max_tokens=request.max_completion_tokens or 8000,
         system_prompt=system_prompt,  # type: ignore
+        model_preferences=model_preferences,
         metadata=metadata,
     )
     end_time = time.time()

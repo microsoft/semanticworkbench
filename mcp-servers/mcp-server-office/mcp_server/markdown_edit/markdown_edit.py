@@ -87,8 +87,9 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=messages,
-                model="gpt-4o",
-                max_completion_tokens=8000,
+                model="o3-mini",
+                max_completion_tokens=20000,
+                reasoning_effort="high",
             ),
             provider="mcp",
             client=markdown_edit_request.context,
