@@ -2,8 +2,9 @@
 
 import logging
 from textwrap import dedent
-from typing import List, Literal, Tuple
+from typing import List, Literal, Tuple, Union
 
+from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from assistant_extensions.mcp import (
     ExtendedCallToolRequestParams,
     MCPSession,
@@ -28,11 +29,32 @@ logger = logging.getLogger(__name__)
 
 def get_ai_client_configs(
     config: AssistantConfigModel, request_type: Literal["generative", "reasoning"] = "generative"
-) -> tuple[OpenAIRequestConfig, AzureOpenAIServiceConfig | OpenAIServiceConfig]:
-    if request_type == "reasoning":
-        return config.reasoning_ai_client_config.request_config, config.reasoning_ai_client_config.service_config
+) -> Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel]:
+    def create_ai_client_config(
+        service_config: AzureOpenAIServiceConfig | OpenAIServiceConfig,
+        request_config: OpenAIRequestConfig,
+    ) -> AzureOpenAIClientConfigModel | OpenAIClientConfigModel:
+        if isinstance(service_config, AzureOpenAIServiceConfig):
+            return AzureOpenAIClientConfigModel(
+                service_config=service_config,
+                request_config=request_config,
+            )
 
-    return config.generative_ai_client_config.request_config, config.generative_ai_client_config.service_config
+        return OpenAIClientConfigModel(
+            service_config=service_config,
+            request_config=request_config,
+        )
+
+    if request_type == "reasoning":
+        return create_ai_client_config(
+            config.reasoning_ai_client_config.service_config,
+            config.reasoning_ai_client_config.request_config,
+        )
+
+    return create_ai_client_config(
+        config.generative_ai_client_config.service_config,
+        config.generative_ai_client_config.request_config,
+    )
 
 
 async def get_completion(

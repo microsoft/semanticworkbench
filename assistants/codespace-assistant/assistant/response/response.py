@@ -52,16 +52,27 @@ async def respond_to_conversation(
                 )
             )
 
-        # TODO: This is a temporary hack to allow directing the request to the reasoning model
-        request_type = "reasoning" if message.content.startswith("reason:") else "generative"
+        # Get the AI client configurations for this assistant
+        generative_ai_client_config = get_ai_client_configs(config, "generative")
+        reasoning_ai_client_config = get_ai_client_configs(config, "reasoning")
 
-        # Get the AI client configuration based on the request type
-        request_config, service_config = get_ai_client_configs(config, request_type)
+        # TODO: This is a temporary hack to allow directing the request to the reasoning model
+        # Currently we will only use the requested AI client configuration for the turn
+        request_type = "reasoning" if message.content.startswith("reason:") else "generative"
+        # Set a default AI client configuration based on the request type
+        default_ai_client_config = (
+            reasoning_ai_client_config if request_type == "reasoning" else generative_ai_client_config
+        )
+        # Set the service and request configurations for the AI client
+        service_config = default_ai_client_config.service_config
+        request_config = default_ai_client_config.request_config
 
         # Create a sampling handler for handling requests from the MCP servers
         sampling_handler = OpenAISamplingHandler(
-            service_config=service_config,
-            request_config=request_config,
+            ai_client_configs=[
+                generative_ai_client_config,
+                reasoning_ai_client_config,
+            ]
         )
 
         mcp_sessions = await establish_mcp_sessions(
