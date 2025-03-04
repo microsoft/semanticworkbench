@@ -83,13 +83,16 @@ async def get_completion(
 
     # list of models that do not support tools
     no_tools_support = ["o1-preview", "o1-mini"]
+    no_parallel_tool_calls = ["o3-mini"]
 
     # add tools to completion args if model supports tools
     if request_config.model not in no_tools_support:
         completion_args["tools"] = tools or NotGiven()
         if tools is not None:
             completion_args["tool_choice"] = "auto"
-            completion_args["parallel_tool_calls"] = False
+
+            if request_config.model not in no_parallel_tool_calls:
+                completion_args["parallel_tool_calls"] = False
 
     logger.debug(
         dedent(f"""
