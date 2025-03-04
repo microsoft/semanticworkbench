@@ -4,7 +4,6 @@ web research skill
 
 from typing import Any
 
-from events import MessageEvent
 from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 
 
@@ -44,8 +43,5 @@ async def main(
         "research2.make_final_report", topic=topic, plan=plan, facts=facts, observations=observations
     )
 
-    styled_final_report = f"```markdown\n# {topic}\n\n{final_report}\n```"
-
-    await run("posix.write_file", f"{plan_name}.txt", styled_final_report)
-    emit(MessageEvent(message=styled_final_report))
-    return
+    await run("posix.write_file", f"{plan_name}.txt", final_report)
+    return final_report

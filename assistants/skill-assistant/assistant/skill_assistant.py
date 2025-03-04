@@ -131,7 +131,7 @@ async def on_command_message_created(
 
     config = await assistant_config.get(conversation_context.assistant)
     engine = await get_or_register_skill_engine(conversation_context, config)
-    functions = ChatFunctions(engine)
+    functions = ChatFunctions(engine, conversation_context)
 
     command_string = event.data["message"]["content"]
 
@@ -218,10 +218,10 @@ async def on_message_created(
             model=config.chat_driver_config.openai_model,
             instructions=config.chat_driver_config.instructions,
             message_provider=WorkbenchMessageProvider(conversation_context.id, conversation_context),
-            functions=ChatFunctions(engine).list_functions(),
+            functions=ChatFunctions(engine, conversation_context).list_functions(),
         )
         chat_driver = ChatDriver(chat_driver_config)
-        chat_functions = ChatFunctions(engine)
+        chat_functions = ChatFunctions(engine, conversation_context)
         chat_driver_config.functions = [chat_functions.list_routines]
 
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
@@ -322,8 +322,9 @@ class ChatFunctions:
     These are functions that can be run from the chat.
     """
 
-    def __init__(self, engine: Engine) -> None:
+    def __init__(self, engine: Engine, conversation_context: ConversationContext) -> None:
         self.engine = engine
+        self.conversation_context = conversation_context
 
     async def reset(self) -> str:
         """Resets the skill engine run state. Useful for troubleshooting."""
@@ -349,9 +350,18 @@ class ChatFunctions:
 
         return ""
 
-    def _handle_routine_completion(self, task: asyncio.Task) -> None:
+    async def _handle_routine_completion(self, task: asyncio.Task) -> None:
         try:
             result = task.result()
+
+            await self.conversation_context.send_messages(
+                NewConversationMessage(
+                    content=result,
+                    message_type=MessageType.chat,
+                    metadata={"generated_content": False},
+                )
+            )
+
             logger.debug(f"Routine completed with result: {result}")
         except Exception as e:
             logger.error(f"Routine failed with error: {e}")
