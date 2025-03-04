@@ -1,6 +1,6 @@
-from typing import Any, Protocol
+from typing import Protocol
 
-from mcp import ClientSession, CreateMessageResult
+from mcp import CreateMessageResult
 from mcp.shared.context import RequestContext
 from mcp.types import CreateMessageRequestParams, ErrorData
 
@@ -10,7 +10,7 @@ from assistant_extensions.mcp._model import MCPSamplingMessageHandler
 class SamplingHandler(Protocol):
     async def handle_message(
         self,
-        context: RequestContext[ClientSession, Any],
+        context: RequestContext,
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData: ...
 
