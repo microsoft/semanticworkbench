@@ -40,3 +40,10 @@ def compile_messages(messages: list[MessageT], variables: dict[str, str]) -> lis
     messages_formatted = deepcopy(messages)
     messages_formatted = [_apply_templates(message, variables) for message in messages_formatted]
     return messages_formatted
+
+
+def format_chat_history(chat_history: list[MessageT]) -> str:
+    formatted_chat_history = ""
+    for message in chat_history:
+        formatted_chat_history += f"[{message.role.value}]: {message.content}\n"
+    return formatted_chat_history.strip()

@@ -12,8 +12,8 @@ from mcp_server.app_interaction.word_editor import (
     get_word_app,
     write_markdown_to_document,
 )
-from mcp_server.constants import CHANGE_SUMMARY_PREFIX, DEFAULT_DOC_EDIT_TASK
-from mcp_server.helpers import compile_messages
+from mcp_server.constants import CHANGE_SUMMARY_PREFIX
+from mcp_server.helpers import compile_messages, format_chat_history
 from mcp_server.llm.chat_completion import chat_completion
 from mcp_server.markdown_edit.utils import blockify, construct_page_for_llm, execute_tools, unblockify
 from mcp_server.prompts.markdown_edit import (
@@ -30,7 +30,6 @@ from mcp_server.types import (
     CustomContext,
     MarkdownEditOutput,
     MarkdownEditRequest,
-    MessageT,
     UserMessage,
 )
 
@@ -74,7 +73,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         variables={
             "knowledge_cutoff": "2023-10",
             "current_date": pendulum.now().format("YYYY-MM-DD"),
-            "task": DEFAULT_DOC_EDIT_TASK,
+            "task": markdown_edit_request.task,
             "context": context,
             "document": doc_for_llm,
             "chat_history": chat_history,
@@ -150,7 +149,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         logging.info(f"Tool call:\n{tool_call}")
         # If the the model called the send_message, don't update the doc and return the message
         if tool_call.name == SEND_MESSAGE_TOOL_NAME:
-            output_message = convert_response.choices[0].message.content
+            output_message = CHANGE_SUMMARY_PREFIX + convert_response.choices[0].message.content
         elif tool_call.name == MD_EDIT_TOOL_NAME:
             tool_args = tool_call.arguments
             blocks = blockify(updated_doc_markdown)
@@ -166,9 +165,11 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
                     markdown_edit_request=markdown_edit_request,
                 )
             else:
-                change_summary = "No changes were made to the document."
+                change_summary = CHANGE_SUMMARY_PREFIX + "No changes were made to the document."
     else:
-        output_message = "Something went wrong when editing the document and no changes were made."
+        output_message = (
+            CHANGE_SUMMARY_PREFIX + "Something went wrong when editing the document and no changes were made."
+        )
 
     # endregion
 
@@ -208,19 +209,6 @@ async def run_change_summary(before_doc: str, after_doc: str, markdown_edit_requ
     change_summary = change_summary.choices[0].message.content
     change_summary = CHANGE_SUMMARY_PREFIX + change_summary
     return change_summary
-
-
-# endregion
-
-
-# region Helpers
-
-
-def format_chat_history(chat_history: list[MessageT]) -> str:
-    formatted_chat_history = ""
-    for message in chat_history:
-        formatted_chat_history += f"[{message.role.value}]: {message.content}\n"
-    return formatted_chat_history.strip()
 
 
 # endregion

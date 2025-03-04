@@ -28,7 +28,7 @@ You will be provided important context to give you the information needed to sel
     - You MUST use this index exactly as it is provided or else an error will occur.
     - The first content block is a special "start_of_document_indicator" block that allows you to insert content at the beginning of the document. \
 You should never remove or update this block. It is not actually shown to the user.
-- The conversation history between the user and assistant is provided after the document.
+- The conversation history between the user and assistant is provided before the document.
     - You should focus on the latest message to determine how to edit the document.
     - The remainder of the conversation is provided for additional context.
 - You may be provided additional context, such as attached documents, before the document and conversation history.

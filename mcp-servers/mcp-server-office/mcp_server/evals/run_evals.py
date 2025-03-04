@@ -35,8 +35,7 @@ def load_test_cases() -> list[CustomContext]:
     with Path.open(WORD_TEST_CASES_PATH, "r", encoding="utf-8") as f:
         test_cases = yaml.safe_load(f)["test_cases"]
 
-    # Load each as the pydantic object
-    test_cases = [TestCase(**test_case) for test_case in test_cases][2:3]
+    test_cases = [TestCase(**test_case) for test_case in test_cases]
 
     custom_contexts = []
     for test_case in test_cases:

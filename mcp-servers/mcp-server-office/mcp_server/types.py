@@ -6,6 +6,8 @@ from typing import Any, Callable, Generic, Literal, TypeVar
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, Field
 
+from mcp_server.constants import DEFAULT_DOC_EDIT_TASK
+
 
 class Role(str, Enum):
     ASSISTANT = "assistant"
@@ -171,6 +173,7 @@ class MarkdownEditRequest(BaseModel):
     context: Context | CustomContext
     request_type: Literal["dev", "mcp"] = Field(default="mcp")
     chat_completion_client: Callable[..., Any] | None = Field(default=None)
+    task: str = Field(default=DEFAULT_DOC_EDIT_TASK)
 
 
 class MarkdownEditOutput(BaseModel):
