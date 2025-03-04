@@ -8,7 +8,7 @@ from textwrap import dedent
 from typing import Any, Dict, List, Union
 
 from mcp.server.fastmcp import Context
-from mcp.types import ImageContent, SamplingMessage, TextContent
+from mcp.types import ImageContent, ModelPreferences, SamplingMessage, TextContent
 from mcp_extensions import send_sampling_request, send_tool_call_progress
 
 from .utils import fetch_url
@@ -74,8 +74,8 @@ async def generate_sampling_messages(search_results: List[Dict]) -> List[Samplin
         text_content = get_text_content(result)
         if text_content is not None:
             messages.append(SamplingMessage(role="user", content=text_content))
-        if image_content is not None:
-            messages.append(SamplingMessage(role="user", content=image_content))
+        # if image_content is not None:
+        #     messages.append(SamplingMessage(role="user", content=image_content))
     return messages
 
 
@@ -108,19 +108,39 @@ async def perform_sampling(
     # Generate sampling messages
     messages += await generate_sampling_messages(search_results)
 
+    # Set model preferences
+    model_preferences = ModelPreferences(
+        # Can use hints to prefer models with specific names
+        # hints=[
+        #     ModelHint(
+        #         # Prefer models where name starts with `name` value (so `o3` would _include_ `o3-mini`)')
+        #         name="gpt-4o",
+        #     )
+        # ],
+        # Setting speed priority to 1 to choose a faster model, like gpt-4o
+        speedPriority=1,
+        # If needing a reasoning model, set intelligence priority to 1 instead
+        # intelligencePriority=1,
+    )
+
     await send_tool_call_progress(ctx, "choosing image...")
 
     # FIXME add support for structured output to enforce image selection
     # Send sampling request to FastMCP server
-    sampling_result = await send_sampling_request(
-        fastmcp_server_context=ctx,
-        system_prompt=dedent(f"""
-            Analyze these images and choose the best choice based on provided context.
-            Context: {context}
-            Return the url for the chosen image.
-        """).strip(),
-        messages=messages,
-        max_tokens=100,
-    )
+    try:
+        sampling_result = await send_sampling_request(
+            fastmcp_server_context=ctx,
+            system_prompt=dedent(f"""
+                Analyze these images and choose the best choice based on provided context.
+                Context: {context}
+                Return the url for the chosen image.
+            """).strip(),
+            messages=messages,
+            model_preferences=model_preferences,
+            max_tokens=100,
+        )
 
-    return sampling_result.content
+        return sampling_result.content
+    except Exception as e:
+        logger.error(f"Failed to perform sampling: {str(e)}")
+        raise e

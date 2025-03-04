@@ -4,7 +4,13 @@ from typing import Any, Callable, List, Union
 import deepmerge
 from mcp import ClientSession, CreateMessageResult, SamplingMessage
 from mcp.shared.context import RequestContext
-from mcp.types import CreateMessageRequestParams, ErrorData, ImageContent, TextContent
+from mcp.types import (
+    CreateMessageRequestParams,
+    ErrorData,
+    ImageContent,
+    ModelPreferences,
+    TextContent,
+)
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -14,8 +20,9 @@ from openai.types.chat import (
     ChatCompletionToolParam,
     ChatCompletionUserMessageParam,
 )
-from openai_client import OpenAIRequestConfig, ServiceConfig, create_client
+from openai_client import OpenAIRequestConfig, create_client
 
+from ..ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from ._model import MCPSamplingMessageHandler
 from ._sampling_handler import SamplingHandler
 
@@ -40,14 +47,14 @@ class OpenAISamplingHandler(SamplingHandler):
 
     def __init__(
         self,
-        service_config: ServiceConfig | None = None,
-        request_config: OpenAIRequestConfig | None = None,
+        ai_client_configs: list[
+            Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel]
+        ],
         assistant_mcp_tools: list[ChatCompletionToolParam] | None = None,
         message_processor: OpenAIMessageProcessor | None = None,
         handler: MCPSamplingMessageHandler | None = None,
     ) -> None:
-        self.service_config = service_config
-        self.request_config = request_config
+        self.ai_client_configs = ai_client_configs
         self.assistant_mcp_tools = assistant_mcp_tools
 
         # set a default message processor that converts sampling messages to
@@ -82,27 +89,21 @@ class OpenAISamplingHandler(SamplingHandler):
     ) -> CreateMessageResult | ErrorData:
         logger.info(f"Sampling handler invoked with context: {context}")
 
-        if not self.service_config or not self.request_config:
-            raise ValueError(
-                "Service config and request config must be set before handling messages."
-            )
+        ai_client_config = self._ai_client_config_from_model_preferences(
+            params.modelPreferences
+        )
 
-        try:
-            completion_args = await self._create_completion_request(
-                request=params,
-                request_config=self.request_config,
-                template_processor=self.message_processor,
-            )
-        except Exception as e:
-            logger.exception(f"Error creating completion request: {e}")
-            return ErrorData(
-                code=500,
-                message="Error creating completion request.",
-                data=e,
-            )
+        if not ai_client_config:
+            raise ValueError("No AI client configs defined for sampling requests.")
+
+        completion_args = await self._create_completion_request(
+            request=params,
+            request_config=ai_client_config.request_config,
+            template_processor=self.message_processor,
+        )
 
         completion: ChatCompletion | None = None
-        async with create_client(self.service_config) as client:
+        async with create_client(ai_client_config.service_config) as client:
             completion = await client.chat.completions.create(**completion_args)
 
         if completion is None:
@@ -112,12 +113,6 @@ class OpenAISamplingHandler(SamplingHandler):
             )
 
         choice = completion.choices[0]
-        if choice.message.content is None:
-            return ErrorData(
-                code=500,
-                message="No content returned from completion choice.",
-            )
-
         content = choice.message.content
         if content is None:
             content = "[no content]"
@@ -141,7 +136,61 @@ class OpenAISamplingHandler(SamplingHandler):
         context: RequestContext[ClientSession, Any],
         params: CreateMessageRequestParams,
     ) -> CreateMessageResult | ErrorData:
-        return await self._message_handler(context, params)
+        try:
+            return await self._message_handler(context, params)
+        except Exception as e:
+            logger.error(f"Error handling sampling request: {e}")
+            code = getattr(e, "status_code", 500)
+            message = getattr(e, "message", "Error handling sampling request.")
+            data = str(e)
+            return ErrorData(code=code, message=message, data=data)
+
+    def _ai_client_config_from_model_preferences(
+        self, model_preferences: ModelPreferences | None
+    ) -> Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel] | None:
+        """
+        Returns an AI client config from model preferences.
+        """
+
+        # if no configs are provided, return None
+        if not self.ai_client_configs or len(self.ai_client_configs) == 0:
+            return None
+
+        # if not provided, return the first config
+        if not model_preferences:
+            return self.ai_client_configs[0]
+
+        # if hints are provided, return the first hint where the name value matches
+        # the start of the model name
+        if model_preferences.hints:
+            for hint in model_preferences.hints:
+                if not hint.name:
+                    continue
+                for ai_client_config in self.ai_client_configs:
+                    if ai_client_config.request_config.model.startswith(hint.name):
+                        return ai_client_config
+
+        # if any of the priority values are set, return the first config that matches our
+        # criteria: speedPriority equates to non-reasoning models, intelligencePriority
+        # equates to reasoning models for now
+        # note: we are ignoring costPriority for now
+        speed_priority = model_preferences.speedPriority or 0
+        intelligence_priority = model_preferences.intelligencePriority or 0
+        # cost_priority = 0 # ignored for now
+
+        # later we will support more than just reasoning or non-reasoning choices, but
+        # for now we can keep it simple
+        use_reasoning_model = intelligence_priority > speed_priority
+
+        for ai_client_config in self.ai_client_configs:
+            if (
+                ai_client_config.request_config.is_reasoning_model
+                == use_reasoning_model
+            ):
+                return ai_client_config
+
+        # failing to find a config via preferences, return first config
+        return self.ai_client_configs[0]
 
     async def _create_completion_request(
         self,
