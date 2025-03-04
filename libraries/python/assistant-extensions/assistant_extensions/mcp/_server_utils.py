@@ -1,15 +1,15 @@
 import logging
+import pathlib
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
-import pathlib
 from typing import Any, AsyncIterator, List, Optional
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
+import pydantic
 from mcp import ClientSession, types
 from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
-import pydantic
 from mcp.shared.context import RequestContext
 
 from ._model import (
@@ -67,14 +67,18 @@ def list_roots_callback_for(server_config: MCPServerConfig):
             case _:
                 return pydantic.FileUrl(f"file://{path.as_posix()}")
 
-    async def cb(context: RequestContext[ClientSession, Any]) -> types.ListRootsResult | types.ErrorData:
+    async def cb(
+        context: RequestContext[ClientSession, Any],
+    ) -> types.ListRootsResult | types.ErrorData:
         roots = server_config.roots
-        return types.ListRootsResult(roots=[
-            # mcp sdk is currently typed to FileUrl, but the MCP spec allows for any URL
-            # the mcp sdk doesn't call any of the FileUrl methods, so this is safe for now
-            types.Root(uri=root_to_uri(root)) # type: ignore
-            for root in roots
-            ])
+        return types.ListRootsResult(
+            roots=[
+                # mcp sdk is currently typed to FileUrl, but the MCP spec allows for any URL
+                # the mcp sdk doesn't call any of the FileUrl methods, so this is safe for now
+                types.Root(uri=root_to_uri(root))  # type: ignore
+                for root in roots
+            ]
+        )
 
     return cb
 
@@ -243,6 +247,11 @@ async def establish_mcp_sessions(
     sampling_handler: Optional[MCPSamplingMessageHandler] = None,
 ) -> List[MCPSession]:
     mcp_sessions: List[MCPSession] = []
+
+    if tools_config.enabled is False:
+        # MCP tools are disabled, so we should not continue
+        return mcp_sessions
+
     for server_config in tools_config.mcp_servers:
         if not server_config.enabled:
             logger.debug(f"Skipping disabled server: {server_config.key}")
@@ -278,6 +287,10 @@ async def establish_mcp_sessions(
 
 def get_mcp_server_prompts(tools_config: MCPToolsConfigModel) -> List[str]:
     """Get the prompts for all MCP servers."""
+
+    if not tools_config.enabled:
+        return []
+
     return [
         mcp_server.prompt
         for mcp_server in tools_config.mcp_servers

@@ -82,7 +82,11 @@ async def respond_to_conversation(
             sampling_handler=sampling_handler.handle_message,
         )
 
-        if len(config.extensions_config.tools.mcp_servers) > 0 and len(mcp_sessions) == 0:
+        if (
+            config.extensions_config.tools.enabled
+            and len(config.extensions_config.tools.mcp_servers) > 0
+            and len(mcp_sessions) == 0
+        ):
             # No MCP servers are available, so we should not continue
             logger.error("No MCP servers are available.")
             return
