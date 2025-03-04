@@ -7,19 +7,39 @@ readme = "README.md"
 requires-python = ">=3.11, <3.13"
 
 dependencies = [
-    "mcp==1.2.1",
+    "aiohttp>=3.11.13",
+    "azure-identity>=1.20.0",
+    "mcp-extensions[openai]>=0.1.0",
     "ngrok>=1.4.0",
+    "pendulum>=3.0.0",
+    "pydantic>=2.10.6",
+    "pytest-asyncio>=0.25.3",
+    "python-dotenv>=1.0.1",
+    "python-liquid>=1.13.0",
     "pywin32==308; platform_system == 'Windows'",
+    "pyyaml>=6.0.2",
+    "rich>=13.9.4",
 ]
 
 [dependency-groups]
-dev = ["pyright>=1.1.389", "pyinstaller"]
+dev = [
+    "pyright>=1.1.389",
+    "pyinstaller>=6.11",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mcp_server"]
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["hatchling"]

@@ -54,7 +54,10 @@
     "uv.lock"
   ],
   "cSpell.words": [
+    "aoai",
     "AUTHTOKEN",
+    "blockified",
+    "blockify",
     "devtunnel",
     "distpath",
     "dotenv",
@@ -66,6 +69,12 @@
     "pyinstaller",
     "pyngrok",
     "taskkill",
-    "toplevel"
-  ]
+    "toplevel",
+    "unblockified",
+    "unblockify"
+  ],
+  // Python testing configuration
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests", "-s"]
 }
