@@ -160,6 +160,10 @@
       "path": "mcp-servers/mcp-server-filesystem"
     },
     {
+      "name": "mcp-servers:mcp-server-web-research",
+      "path": "mcp-servers/mcp-server-web-research"
+    },
+    {
       "name": "mcp-servers:mcp-server-template",
       "path": "mcp-servers/mcp-server-template"
     },
@@ -179,7 +183,9 @@
   "settings": {
     "markdown.validate.enabled": true,
     "ruff.configuration": "${workspaceFolder}/../ruff.toml",
-    "ruff.interpreter": ["${workspaceFolder}/../.venv"],
+    "ruff.interpreter": [
+      "${workspaceFolder}/../.venv"
+    ],
     "ruff.importStrategy": "useBundled",
     "ruff.nativeServer": "on",
     "[python]": {
