@@ -57,7 +57,7 @@ class RunContext:
 
         # This is a dictionary that can be used to store meta information about
         # the current run.
-        self.metadata_log: list[tuple[str, Metadata]] = []
+        self.metadata_log: list[Metadata] = []
 
     def log(self, message: str, metadata: Metadata) -> None:
         """
@@ -66,13 +66,18 @@ class RunContext:
         happened for a given run.
         """
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        if "log_message" not in metadata:
+            metadata["log_message"] = message
         if "ts" not in metadata:
             metadata["ts"] = ts
         if "session_id" not in metadata:
             metadata["session_id"] = self.session_id
         if "run_id" not in metadata:
             metadata["run_id"] = self.run_id
-        self.metadata_log.append((message, metadata))
+        self.metadata_log.append(metadata)
+
+    def flattened_metadata(self) -> dict[str, dict[str, Any]]:
+        return {f"🕒{item['ts']} ➡️{item['log_message']}": item for item in self.metadata_log}
 
     def routine_usage(self) -> str:
         return usage_routines_usage(self.skills)

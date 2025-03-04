@@ -13,7 +13,7 @@ from typing import (
 from uuid import uuid4
 
 from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
-from events import EventProtocol, InformationEvent, MessageEvent, StatusUpdatedEvent
+from events import ErrorEvent, EventProtocol, InformationEvent, MessageEvent, StatusUpdatedEvent
 from semantic_workbench_api_model.workbench_model import ConversationMessageList
 
 from .logging import extra_data, logger
@@ -162,7 +162,7 @@ class Engine:
         event.session_id = self.engine_id
         self._event_queue.put_nowait(event)
         logger.debug(
-            "Engine queud an event (_emit).", extra_data({"event": {"id": event.id, "message": event.message}})
+            "Engine queued an event (_emit).", extra_data({"event": {"id": event.id, "message": event.message}})
         )
 
     ######################################
@@ -230,8 +230,6 @@ class Engine:
             # self._emit(InformationEvent(message=f"Routine `{designation}` completed successfully. Result: {result}"))
 
         except Exception as e:
-            tb = traceback.format_exc()
-            self._emit(InformationEvent(message=f"Error in routine `{designation}`:\n\n```{str(e)}\n\n{tb}```"))
             result_future.set_exception(e)
         finally:
             if self._routine_output_futures:
@@ -255,34 +253,18 @@ class Engine:
             skills=self._skills,
         )
 
-        skill_name, routine_name = designation.split(".")
-        skill = self._skills[skill_name]
-        routine = skill.get_routine(routine_name)
-        if not routine:
-            self._emit(InformationEvent(message=f"Routine {designation} not found"))
-            return
-
-        result_future = asyncio.Future()
-        logger.debug("Creating new routine.", extra_data({"designation": designation, "id": id(result_future)}))
-        self._routine_output_futures.append(result_future)
-
-        # Start the initial routine
-        asyncio.create_task(
-            self._run_routine_task(
-                run_context,
-                designation,
-                routine,
-                result_future,
-                *args,
-                **kwargs,
+        try:
+            result = await self.run_routine_with_context(run_context, designation, *args, **kwargs)
+            self._emit(InformationEvent(message=str(result), metadata=run_context.flattened_metadata()))
+        except Exception as e:
+            tb = traceback.format_exc()
+            self._emit(
+                ErrorEvent(
+                    message=f"Error in routine `{designation}`:\n\n```{str(e)}\n\n{tb}```",
+                    metadata=run_context.flattened_metadata(),
+                )
             )
-        )
-
-        result = await result_future
-
-        # Return the result along with the metadata log for the full run.
-        metadata = {ts: data for ts, data in run_context.metadata_log}
-        self._emit(InformationEvent(message=str(result), metadata=metadata))
+            raise e
 
         return result
 
@@ -298,18 +280,17 @@ class Engine:
         skill = self._skills[skill_name]
         routine = skill.get_routine(routine_name)
         if not routine:
-            self._emit(InformationEvent(message=f"Routine {designation} not found"))
-            # raise ValueError(f"Routine {designation} not found")
+            run_context.log("Engine error", {"message": f"Routine {designation} not found"})
             return
 
         result_future = asyncio.Future()
         logger.debug("Creating new routine.", extra_data({"designation": designation, "id": id(result_future)}))
         self._routine_output_futures.append(result_future)
 
-        # Create task but don't await it yet
+        # Create task but don't await it yet.
         asyncio.create_task(self._run_routine_task(run_context, designation, routine, result_future, *args, **kwargs))
 
-        # Return the result future directly
+        # Return the result future directly.
         return await result_future
 
     async def resume_routine(self, message: str) -> None:

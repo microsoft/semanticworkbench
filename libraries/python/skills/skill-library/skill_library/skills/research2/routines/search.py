@@ -18,7 +18,7 @@ from skill_library.skills.research2.research_skill import ResearchSkill
 SYSTEM_PROMPT = """
 You are a world expert at searching the web to find facts on a given research topic.
 
-Now for the given topic, along with the facts we've already gathered, an overall research plan, and observations from previous research done, develop a world-class search query that will uncover new facts to complete our research.
+Now for the given topic, along with the facts we've already gathered, an overall research plan, and observations from previous research done, develop a world-class Bing search query that will uncover new facts to complete our research. Make sure your query is tailored to the Bing search engine.
 
 You don't need to create a search query for the whole plan, Just focus on creating a search query for the next part of the plan.
 
@@ -26,7 +26,7 @@ Here is your topic:
 
 {TOPIC}
 
-Now begin! Write your query below. Respond with just the search query.
+Now begin! Write your Bing query below. Respond with just the search query.
 """
 
 
@@ -108,5 +108,5 @@ async def main(
         urls = await run("common.bing_search", query)
         metadata["urls"] = urls
 
-        context.log("plan", metadata)
+        context.log("search", metadata)
         return urls

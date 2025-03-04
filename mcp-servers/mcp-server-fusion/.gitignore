@@ -36,3 +36,7 @@ htmlcov/
 
 # Environment variables
 .env
+
+# Ignore vendor directory, except for README.md within it
+**/vendor/*
+!**/vendor/*/README.md

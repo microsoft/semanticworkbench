@@ -344,8 +344,8 @@ class ChatFunctions:
             task = asyncio.create_task(self.engine.run_routine(designation, *args, **kwargs))
             task.add_done_callback(self._handle_routine_completion)
         except Exception as e:
-            logger.error(f"Failed to start routine {designation}: {e}")
-            return f"Failed to start routine: {designation}"
+            logger.error(f"Failed to run routine {designation}: {e}")
+            return f"Failed to run routine: {designation}"
 
         return ""
 

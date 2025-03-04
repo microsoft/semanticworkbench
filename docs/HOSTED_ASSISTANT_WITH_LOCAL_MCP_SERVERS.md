@@ -1,8 +1,12 @@
-## How to connect the Codespace Assistant (hosted at semantic-workbench.azurewebsites.net) to local MCP servers
+# Hosted Assistant with Local MCP Servers
+
+The [Codespace Assistant](../assistants/codespace-assistant) has support for connecting to MCP servers. This document is how to connect a hosted instance of the Codespace Assistant to a local MCP server.
+
+## How to connect a hosted Codespace Assistant instance to local MCP servers
 
 NOTE: If you are running the workbench and the assistant locally, this guide will NOT help you.
 
-To connect assistants running in the hosted workbench to a local MCP server, the MCP server needs to be available as an SSE service connectable from the public internet.
+To connect assistants running in a hosted workbench to a local MCP server, the MCP server needs to be available as an SSE service connectable from the public internet.
 To make it accessible, you need to set up a tunnel to the localhost server.
 We recommend using the Azure devtunnel service, as it provides a simple and reliable way to create a tunnel.
 For MCP servers that only support stdio transport, you additionally need to run `mcp-proxy`, to expose the app as an HTTP/SSE service.
@@ -88,7 +92,7 @@ NOTE: Make sure you copy the "Connect via browser" URL, not the "Inspect network
 
 ## Configure the Codespace Assistant
 
-1. Open the [semantic-workbench](https://semantic-workbench.azurewebsites.net) in your browser.
+1. Open the hosted Semantic Workbench app in your browser (ex: https://contoso-semantic-workbench.azurewebsites.net).
 1. Create a conversation with a Codespace Assistant or open an existing one.
 1. Click the "Conversation canvas" button in the top-right corner, near your profile picture.
 1. Click the "..." button next to the assistant, and click "Configure".

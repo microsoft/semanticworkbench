@@ -27,8 +27,14 @@ async def main(
     # Search Bing.
     headers = {"Ocp-Apim-Subscription-Key": subscription_key}
     params = {"q": q}
-    response = requests.get(search_url, headers=headers, params=params)
-    response.raise_for_status()
+
+    try:
+        response = requests.get(search_url, headers=headers, params=params)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        key_hint = f"{subscription_key[0:3]}...{subscription_key[-3:]}"
+        context.log("Error during Bing search.", {"exception": e.strerror, "url": search_url, "key": key_hint})
+        raise e
 
     # Unpack results.
     search_results = response.json()

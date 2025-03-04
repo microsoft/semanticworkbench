@@ -40,10 +40,6 @@
       "path": "workbench-service"
     },
     {
-      "name": "workspaces-app",
-      "path": "workspaces-app"
-    },
-    {
       "name": "examples:python-01-echo-bot",
       "path": "examples/python/python-01-echo-bot"
     },
