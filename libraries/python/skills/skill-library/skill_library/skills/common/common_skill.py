@@ -7,6 +7,8 @@ class CommonSkillConfig(SkillConfig):
 
     language_model: LanguageModel
     drive: Drive
+    bing_subscription_key: str = ""
+    bing_search_url: str = "https://api.bing.microsoft.com/v7.0/search"
 
 
 class CommonSkill(Skill):
