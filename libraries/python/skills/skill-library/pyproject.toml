@@ -35,6 +35,8 @@ assistant-extensions = { path = "../../assistant-extensions", editable = true }
 events = { path = "../../events", editable = true }
 openai-client = { path = "../../openai-client", editable = true }
 
+[tool.setuptools.package-data]
+"skill_library" = ["llm_info.txt"]
 
 [build-system]
 requires = ["hatchling"]
@@ -49,3 +51,6 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 norecursedirs = ["skill_library/skills/guided_conversation"]
+
+[project.scripts]
+run-routine = "skill_library.cli.run_routine:entry_point"

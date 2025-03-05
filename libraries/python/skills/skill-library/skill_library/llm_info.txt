@@ -1,0 +1,197 @@
+# Skill Library
+
+This library allows you to create more capable chatbots, a.k.a. assistants, a.k.a. agents. It does this through the concept of a "skill".
+
+## Concepts
+
+### Skills
+
+Think of a skill as a package of assistant capabilities. A skill contains routines that are entire procedures an assistant can run.
+
+#### Routines
+
+Routines are instructions that guide an agent to perform a program in a prescribed manner, oftentimes in collaboration with users over many interactions.
+
+Implementation-wise, a routine is simply a Python module with a `main` function that follows a particular signature. You put all the routines inside a `routine` directory inside a skill package.
+
+### Skill Engine
+
+The `Engine` is the object that gets instantiated with all the running skills. The engine can be asked to list or run any routine it has been configured with and will do so in a managed "run context". The engine contains an "drive" that can be scoped to a specific persistence location to keep all the state of the engine in one spot. The engine also handles the event handling for all registered skills. Once an engine is started you can call (or subscribe to) its `events` endpoint to get a list of generated events.
+
+### Drives
+
+Each engine is given a drive (the "drive") that should be "sub-drived" by all skills to use as storage. This keeps all of the data together in one spot, making it easier to copy/backup/clone/fork assistants.
+
+### Routine Stack state
+
+Even breaking drives down to the skill levels, trying to manage all state in
+drives is somewhat like trying to store information in "global state" and has
+similar problems... it introduces coupling between skills and routines in that
+one routine needs to know where another routine stored specific information. As
+complexity of the routines increases, this can result in an explosion of
+complexity of routine configuration. To avoid this, we created the idea of a
+"routine stack" which is managed by the skill registry's routine runner. Each
+time a routine is run, an object to store state for that routine is created and
+put on a stack for that routine run. If the routine calls a subroutine, another
+frame is added to the stack for the new routine. Once the routine is completed,
+the state object is removed from the run stack automatically. This allows each
+routine to have its own state to be used for persistence of all variables
+between runs (e.g. interactions with the user or switching focus to other
+routines). Of course, a routine can still choose to save data in a drive or
+another location, but putting it on the stack is a simple way to avoid more
+complex configuration.
+
+## Writing routines
+
+Routines are the building blocks of what can be thought of as procedural knowledge. Routines can execute other routines, ask the user for input, and emit messages to the user. Routines can be used to perform a wide variety of tasks, such as generating text, answering questions, or performing calculations.
+
+Routine functions are put in a module and shipped as part of "skill" packages. Skills are Python packages that contain a set of routines. An AGI system can have multiple skills, each with its own set of routines. Skills are loaded into the AGI system at runtime and can be used to extend the capabilities of the system. Each skill has its own configuration, which is used to initialize the skill and its routines.
+
+## Routine specification:
+
+A routine is a Python `main` function that takes a `RunContext`, `routine_state`, `emit`, `run`, and `ask_user` as arguments. The function can return anything. Here's what the required arguments can be used for:
+
+- context: The context of the conversation. You can use this to get information about the user's goal and the current state of the conversation. The context has the following attributes:
+  - session_id: str - A unique identifier for the session. This is useful for tracking the conversation.
+  - run_id: str - A unique identifier for the run. This is useful for tracking the conversation.
+  - run_drive: Drive - A drive object that can be used to read and write files to a particular location. This is useful for storing data that needs to persist between sessions.
+  - skills: dict[str, Skill] - A dictionary of skills that are available to the routine. Each skill has a name and a function that can be used to run the skill.
+  - log(dict[str, Any]): A function that can be used to log metadata about the conversation. This is our primary logging mechanism. Metadata must be serializable.
+- routine_state: dict[str, Any] - A dictionary that can be used to store state between steps in the routine. This is useful for maintaining context between messages.
+- emit(EventProtocol) - A function that can be used to emit messages to the user. This is useful for asking the user for input or providing updates on the progress of the routine. EventProtocol must be one of the following (can be imported from the `events` package):
+  - StatusUpdatedEvent(message="something")  // Communicates what the routine is currently doing.
+  - MessageEvent(message="something")        // Passed on to the user as a chat message.
+  - InformationEvent(message="something")    // Displayed to the user for informational purposes, but not kept in the chat history.
+  - ErrorEvent(message="something")          // Indicates to the user that something went wrong.
+- run: A function that can be used to run any routine. This is useful for breaking up a large routine into smaller, more manageable pieces. A list of all available routines is provided below. The call signature is `run("<skill>.<routine>", *args, **kwargs)`
+- ask_user: A function that can be used to ask the user for input. This is useful for getting information from the user that is needed to complete the routine.
+
+In addition to these required args, the routine function can have any number of additional arguments (args or kwargs). These arguments can be used to pass in data that is needed to complete the routine.
+
+## Type information
+
+```
+LanguageModel = AsyncOpenAI | AsyncAzureOpenAI
+
+AskUserFn = Callable[[str], Awaitable[str]]
+ActionFn = Callable[[RunContext], Awaitable[Any]]
+EmitFn = Callable[[EventProtocol], None]
+
+class RunRoutineFn(Protocol):
+    async def __call__(self, designation: str, *args: Any, **kwargs: Any) -> Any: ...
+```
+
+### Examples
+
+#### A simple example
+
+``` story_unboringer.py
+
+from typing import Any, Optional, cast
+
+from .types import RunContext, EmitFn, RunRoutineFn, AskUserFn
+from events import StatusUpdatedEvent, MessageEvent, InformationEvent, ErrorEvent
+
+async def main(
+    context: RunContext,
+    routine_state: dict[str, Any],
+    emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
+    another_arg: str,
+) -> str:
+    """
+    Docstrings are extracted and used as the routine description. This is useful for
+    providing additional context to the user about what the routine does, so always
+    add an informative one for the routine function.
+    """
+
+    # Skills can be configured. Configured attributed can be used in the routine by referencing any skill instance from the context.
+    common_skill = cast(CommonSkill, context.skills["common"])
+    language_model = common_skill.language_model
+
+    story = ask_user("Tell me a story.")
+    emit(StatusUpdatedEvent(message="Summarizing the story..."))
+    summarization = run("common.summarize", content=story)
+    context.log("story unboringer", {"story": story, "summarization": summarization})
+
+    return f"That's a long story... if I heard you right, you're saying: {summarization}"
+```
+
+#### An example of using a language model
+
+If you need to use a language model, it will be passed into the skill as a configuration item. You should use our openai_client to make calls to the language model.
+
+```
+from typing import Any, Optional, cast
+
+from openai_client import (
+    CompletionError,
+    create_system_message,
+    create_user_message,
+    extra_data,
+    make_completion_args_serializable,
+    message_content_from_completion,
+    validate_completion,
+)
+from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
+from skill_library.logging import logger
+from skill_library.skills.common import CommonSkill
+
+DEFAULT_MAX_SUMMARY_LENGTH = 5000
+
+async def main(
+    context: RunContext,
+    routine_state: dict[str, Any],
+    emit: EmitFn,
+    run: RunRoutineFn,
+    ask_user: AskUserFn,
+    content: str,
+    aspect: Optional[str] = None,
+    max_length: Optional[int] = DEFAULT_MAX_SUMMARY_LENGTH,
+) -> str:
+    """
+    Summarize the content from the given aspect. The content may be relevant or
+    not to a given aspect. If no aspect is provided, summarize the content as
+    is.
+    """
+    common_skill = cast(CommonSkill, context.skills["common"])
+    language_model = common_skill.config.language_model
+
+    system_message = "You are a summarizer. Your job is to summarize the content provided by the user. Don't lose important information."
+    if aspect:
+        system_message += f" Summarize the content only from this aspect: {aspect}"
+
+    completion_args = {
+        "model": "gpt-4o",
+        "messages": [
+            create_system_message(system_message),
+            create_user_message(content),
+        ],
+        "max_tokens": max_length,
+    }
+
+    logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
+    metadata = {}
+    metadata["completion_args"] = make_completion_args_serializable(completion_args)
+    try:
+        completion = await language_model.beta.chat.completions.parse(
+            **completion_args,
+        )
+        validate_completion(completion)
+        logger.debug("Completion response.", extra=extra_data({"completion": completion.model_dump()}))
+        metadata["completion"] = completion.model_dump()
+    except Exception as e:
+        completion_error = CompletionError(e)
+        metadata["completion_error"] = completion_error.message
+        logger.error(
+            completion_error.message,
+            extra=extra_data({"completion_error": completion_error.body, "metadata": context.metadata_log}),
+        )
+        raise completion_error from e
+    else:
+        summary = message_content_from_completion(completion)
+        metadata["summary"] = summary
+        return summary
+    finally:
+        context.log("summarize", metadata)

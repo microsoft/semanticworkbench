@@ -161,7 +161,9 @@ def create_assistant_message(
 ) -> ChatCompletionAssistantMessageParam:
     if var and content:
         content = formatter(content, var)
-    message = ChatCompletionAssistantMessageParam(role="assistant", content=content, refusal=refusal)
+    message = ChatCompletionAssistantMessageParam(role="assistant", content=content)
+    if refusal:
+        message["refusal"] = refusal
     if tool_calls:
         message["tool_calls"] = tool_calls
     return message
