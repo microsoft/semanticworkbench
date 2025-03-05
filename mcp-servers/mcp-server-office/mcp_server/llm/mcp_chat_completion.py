@@ -1,13 +1,16 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import logging
 import time
 
 from mcp.server.fastmcp import Context
-from mcp.types import ModelHint, ModelPreferences, SamplingMessage, TextContent
+from mcp.types import ModelPreferences, SamplingMessage, TextContent
 from mcp_extensions import send_sampling_request
 
 from mcp_server.llm.openai_chat_completion import process_response
 from mcp_server.types import ChatCompletionRequest, ChatCompletionResponse, Role
+
+logger = logging.getLogger(__name__)
 
 
 async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -> ChatCompletionResponse:
@@ -58,9 +61,15 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
             )
         )
 
-    model_preferences = ModelPreferences(hints=[ModelHint(name=request.model)])
     # Any extra args passed to the function are added to the request as metadata
     extra_args = request.model_dump(mode="json", exclude_none=True)
+
+    model = request.model
+    # Default to gpt-4o
+    model_preferences = ModelPreferences(intelligencePriority=0, speedPriority=1)
+    if model.startswith("o3"):
+        model_preferences = ModelPreferences(intelligencePriority=1)
+
     extra_args.pop("messages", None)
     extra_args.pop("max_completion_tokens", None)
     extra_args.pop("model", None)
@@ -78,6 +87,7 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
     end_time = time.time()
     response_duration = round(end_time - start_time, 4)
 
+    logger.info(f"Model called: {response.meta.get('response', {}).get('model', 'unknown')}")  # type: ignore
     openai_response = response.meta.get("response", {})  # type: ignore
     response = process_response(openai_response, response_duration, request)
     return response

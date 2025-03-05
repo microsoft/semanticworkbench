@@ -15,7 +15,14 @@ from mcp_server.app_interaction.word_editor import (
 from mcp_server.constants import CHANGE_SUMMARY_PREFIX
 from mcp_server.helpers import compile_messages, format_chat_history
 from mcp_server.llm.chat_completion import chat_completion
-from mcp_server.markdown_edit.utils import blockify, construct_page_for_llm, execute_tools, unblockify
+from mcp_server.markdown_edit.utils import (
+    blockify,
+    construct_page_for_llm,
+    execute_tools,
+    strip_horizontal_rules,
+    unblockify,
+)
+from mcp_server.prompts.markdown_draft import MD_DRAFT_REASONING_MESSAGES
 from mcp_server.prompts.markdown_edit import (
     MD_EDIT_CHANGES_MESSAGES,
     MD_EDIT_CONVERT_MESSAGES,
@@ -49,6 +56,10 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         markdown_from_word = markdown_edit_request.context.document
     else:
         markdown_from_word = get_markdown_representation(doc)
+
+    # If the document is empty, take a separate path that directly writes a draft.
+    if not markdown_from_word.strip():
+        return await run_markdown_draft(markdown_edit_request, doc)
 
     blockified_doc = blockify(markdown_from_word)
     doc_for_llm = construct_page_for_llm(blockified_doc)
@@ -157,6 +168,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
             logging.info(f"Blocks (before modifications):\n{blocks}")
             blocks = execute_tools(blocks=blocks, edit_tool_call={"name": tool_call.name, "arguments": tool_args})
             updated_doc_markdown = unblockify(blocks)
+            updated_doc_markdown = strip_horizontal_rules(updated_doc_markdown)
             write_markdown_to_document(doc, updated_doc_markdown)
             del doc, word
             if updated_doc_markdown != markdown_from_word:
@@ -213,3 +225,73 @@ async def run_change_summary(before_doc: str, after_doc: str, markdown_edit_requ
 
 
 # endregion
+
+
+async def run_markdown_draft(markdown_edit_request: MarkdownEditRequest, doc) -> MarkdownEditOutput:
+    # Convert chat history to a string if we are in Dev mode
+    chat_history = ""
+    if markdown_edit_request.request_type == "dev" and isinstance(markdown_edit_request.context, CustomContext):
+        chat_history = format_chat_history(markdown_edit_request.context.chat_history)
+
+    context = ""
+    if markdown_edit_request.request_type == "dev" and isinstance(markdown_edit_request.context, CustomContext):
+        context = markdown_edit_request.context.additional_context
+
+    draft_messages = compile_messages(
+        messages=MD_DRAFT_REASONING_MESSAGES,
+        variables={
+            "knowledge_cutoff": "2023-10",
+            "current_date": pendulum.now().format("YYYY-MM-DD"),
+            "task": markdown_edit_request.task,
+            "context": context,
+            "chat_history": chat_history,
+        },
+    )
+
+    if markdown_edit_request.request_type == "mcp" and isinstance(markdown_edit_request.context, Context):
+        messages = [draft_messages[0]]  # Developer message
+        messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
+        messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
+        response = await chat_completion(
+            request=ChatCompletionRequest(
+                messages=messages,
+                model="o3-mini",
+                max_completion_tokens=20000,
+                reasoning_effort="high",
+            ),
+            provider="mcp",
+            client=markdown_edit_request.context,  # type: ignore
+        )
+    elif markdown_edit_request.request_type == "dev":
+        response = await chat_completion(
+            request=ChatCompletionRequest(
+                messages=draft_messages,
+                model="o3-mini",
+                max_completion_tokens=20000,
+                reasoning_effort="high",
+            ),
+            provider="azure_openai",
+            client=markdown_edit_request.chat_completion_client,  # type: ignore
+        )
+    else:
+        raise ValueError(f"Invalid request type: {markdown_edit_request.request_type}")
+
+    markdown_draft = response.choices[0].message.content
+    markdown_draft = strip_horizontal_rules(markdown_draft)
+    write_markdown_to_document(doc, markdown_draft)
+
+    change_summary = await run_change_summary(
+        before_doc="",
+        after_doc=markdown_draft,
+        markdown_edit_request=markdown_edit_request,
+    )
+
+    output = MarkdownEditOutput(
+        change_summary=change_summary,
+        output_message="",
+        new_markdown=markdown_draft,
+        reasoning="",
+        tool_calls=[],
+        llm_latency=response.response_duration,
+    )
+    return output

@@ -352,3 +352,21 @@ def execute_tools(
                     blocks.remove(block)
 
     return blocks
+
+
+def strip_horizontal_rules(text: str) -> str:
+    """Strips Markdown horizontal rules from a string.
+
+    Horizontal rules in Markdown are lines consisting solely of three or more
+    consecutive hyphens, asterisks, or underscores (with optional spaces).
+    """
+    # Pattern matches lines that consist only of 3+ hyphens, asterisks or underscores (with optional spaces)
+    pattern = r"^[ ]*([*_-][ ]*){3,}[ ]*$"
+
+    # Replace all matches with empty string, preserving paragraph structure
+    result = re.sub(pattern, "", text, flags=re.MULTILINE)
+
+    # Clean up any double newlines that might have been created
+    result = re.sub(r"\n{3,}", "\n\n", result)
+
+    return result
