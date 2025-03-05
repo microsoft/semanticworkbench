@@ -25,14 +25,22 @@ def retrieve_mcp_tools_from_sessions(
     mcp_sessions: List[MCPSession], tools_config: MCPToolsConfigModel
 ) -> List[Tool]:
     """
-    Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config.
+    Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config
+    and any duplicate keys (names) - first tool wins.
     """
-    return [
-        tool
-        for mcp_session in mcp_sessions
-        for tool in mcp_session.tools
-        if tool.name not in tools_config.tools_disabled
-    ]
+    tools = []
+    tool_names = set()
+    for mcp_session in mcp_sessions:
+        for tool in mcp_session.tools:
+            if tool.name in tool_names:
+                # Skip duplicate tools
+                continue
+            if tool.name in tools_config.tools_disabled:
+                # Skip disabled tools
+                continue
+            tools.append(tool)
+            tool_names.add(tool.name)
+    return tools
 
 
 def get_mcp_session_and_tool_by_tool_name(
