@@ -4,7 +4,7 @@ from typing import Annotated
 import openai_client
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, Field
-from semantic_workbench_assistant.config import UISchema
+from semantic_workbench_assistant.config import UISchema, first_env_var
 
 # The semantic workbench app uses react-jsonschema-form for rendering
 # dynamic configuration forms based on the configuration model and UI schema
@@ -156,6 +156,22 @@ class AssistantConfigModel(BaseModel):
             description="The path for assistant metadata.",
         ),
     ] = ".data"
+
+    bing_subscription_key: Annotated[
+        str,
+        Field(
+            title="Bing Subscription Key",
+            description="The Bing subscription key to use for the Bing search API.",
+        ),
+    ] = first_env_var("bing_subscription_key", "assistant__bing_subscription_key") or ""
+
+    bing_search_url: Annotated[
+        str,
+        Field(
+            title="Bing Search URL",
+            description="The Bing search URL to use for the Bing search API.",
+        ),
+    ] = first_env_var("bing_search_url", "assistant__bing_search_url") or "https://api.bing.microsoft.com/v7.0/search"
 
 
 # endregion
