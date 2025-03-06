@@ -7,7 +7,7 @@
       "name": "mcp-servers: mcp-server-web-research",
       "cwd": "${workspaceFolder}",
       "module": "mcp_server_web_research.start",
-      "args": ["--transport", "sse", "--port", "45567"],
+      "args": ["--transport", "sse", "--port", "6060"],
       "consoleTitle": "mcp-server-web-research"
       // "justMyCode": false // Set to false to debug external libraries
     }

@@ -2,7 +2,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp_extensions import send_tool_call_progress
 
 from . import settings
-from .web_research import perform_deep_research
+from .web_research import perform_web_research
 
 # Set the name of the MCP server
 server_name = "Web Research MCP Server"
@@ -24,7 +24,7 @@ def create_mcp_server() -> FastMCP:
         return value
 
     @mcp.tool()
-    async def deep_research(context: str, request: str, ctx: Context) -> str:
+    async def web_research(context: str, request: str, ctx: Context) -> str:
         """
         A specialized team member that thoroughly researches the internet to answer your questions.
         Use them for anything requiring web browsing—provide as much context as possible, especially
@@ -44,8 +44,8 @@ def create_mcp_server() -> FastMCP:
             await send_tool_call_progress(ctx, status)
 
         # Make sure to run the async version of the function to avoid blocking the event loop.
-        deep_research_result = await perform_deep_research(
-            model_id="o1", question=f"Context:\n{context}\n\nRequest:\n{request}", on_status_update=on_status_update
+        deep_research_result = await perform_web_research(
+            question=f"Context:\n{context}\n\nRequest:\n{request}", on_status_update=on_status_update
         )
         return deep_research_result
 

@@ -34,9 +34,9 @@ async def main(
     common_skill = cast(CommonSkill, context.skills["common"])
     language_model = common_skill.config.language_model
 
-    system_message = "You are a summarizer. Your job is to summarize the content provided by the user. Don't lose important information."
+    system_message = "You are a technical summarizer. Your job is to summarize the content provided by the user. When you summarize, you don't describe or abstract the content, instead, you keep all the important information while making the content more compact by removing duplicate information, removing filler content, and using more concise language."
     if aspect:
-        system_message += f" Summarize the content only from this aspect: {aspect}"
+        system_message += f"\n\nThe summary should be according to the following aspect. You can exclude any content in your summary not related to it: ```\n{aspect}\n```\n"
 
     completion_args = {
         "model": "gpt-4o",

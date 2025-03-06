@@ -208,7 +208,8 @@ class RoutineRunner:
                         ResearchSkill2,
                         ResearchSkillConfig2(
                             name="research2",
-                            language_model=reasoning_language_model,
+                            language_model=language_model,
+                            reasoning_language_model=reasoning_language_model,
                             drive=drive.subdrive("research2"),
                         ),
                     ),

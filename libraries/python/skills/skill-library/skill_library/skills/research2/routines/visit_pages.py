@@ -8,24 +8,24 @@ from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 
 ASPECT_PROMPT = """
-We are conduction a research project on the topic: {TOPIC}
+We are conduction a research project on the topic: {{TOPIC}}
 
 Our research plan is:
 
 ```
-{PLAN}
+{{PLAN}}
 ```
 
 So far we have gathered the following facts:
 
 ```
-{FACTS}
+{{FACTS}}
 ```
 
 We have made the following observations:
 
 ```
-{OBSERVATIONS}
+{{OBSERVATIONS}}
 ```
 
 We are visiting a page to gather more information about the topic to fill out remaining facts.

@@ -8,7 +8,7 @@ from mcp.types import (
     CallToolRequestParams,
     CallToolResult,
 )
-from pydantic import BaseModel, Field, FileUrl
+from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,10 @@ class MCPServerConfig(BaseModel):
 
     roots: Annotated[
         List[str],
-        Field(title="Roots", description="Roots to pass to the server. Usually absolute URLs or absolute file paths."),
+        Field(
+            title="Roots",
+            description="Roots to pass to the server. Usually absolute URLs or absolute file paths.",
+        ),
     ] = []
 
     env: Annotated[
@@ -226,6 +229,12 @@ class MCPToolsConfigModel(BaseModel):
             key="sequential-thinking",
             command="npx",
             args=["-y", "@modelcontextprotocol/server-sequential-thinking"],
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="web-research",
+            command="http://127.0.0.1:6060/sse",
+            args=[],
             enabled=False,
         ),
     ]

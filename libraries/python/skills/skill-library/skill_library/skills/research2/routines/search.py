@@ -24,7 +24,7 @@ You don't need to create a search query for the whole plan, Just focus on creati
 
 Here is your topic:
 
-{TOPIC}
+{{TOPIC}}
 
 Now begin! Write your Bing query below. Respond with just the search query.
 """
@@ -43,7 +43,7 @@ async def main(
 ) -> list[str]:
     """Perform a search for a research project. Return the top URLs."""
 
-    research_skill = cast(ResearchSkill, context.skills["common"])
+    research_skill = cast(ResearchSkill, context.skills["research2"])
     language_model = research_skill.config.language_model
 
     completion_args = {
