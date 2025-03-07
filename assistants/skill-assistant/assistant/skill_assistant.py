@@ -13,6 +13,7 @@ from textwrap import dedent
 from typing import Any, Callable
 
 import openai_client
+from openai_client import AzureOpenAIServiceConfig
 from assistant_drive import Drive, DriveConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai_client.chat_driver import ChatDriver, ChatDriverConfig
@@ -247,6 +248,12 @@ async def get_or_register_skill_engine(
         assistant_metadata_drive_root = Path(".data") / engine_id / ".assistant"
         assistant_drive = Drive(DriveConfig(root=assistant_drive_root))
         language_model = openai_client.create_client(config.service_config)
+
+        reasoning_service_config = config.service_config.model_copy()
+        if isinstance(reasoning_service_config, AzureOpenAIServiceConfig):
+            reasoning_service_config.azure_openai_deployment = "o1-mini"
+        reasoning_language_model = openai_client.create_client(reasoning_service_config)
+
         message_provider = WorkbenchMessageProvider(engine_id, conversation_context)
 
         # Create the engine and register it. This is where we configure which
@@ -266,6 +273,8 @@ async def get_or_register_skill_engine(
                     CommonSkillConfig(
                         name="common",
                         language_model=language_model,
+                        bing_subscription_key=config.bing_subscription_key,
+                        bing_search_url=config.bing_search_url,
                         drive=assistant_drive.subdrive("common"),
                     ),
                 ),
@@ -298,6 +307,7 @@ async def get_or_register_skill_engine(
                     ResearchSkillConfig2(
                         name="research2",
                         language_model=language_model,
+                        reasoning_language_model=reasoning_language_model,
                         drive=assistant_drive.subdrive("research2"),
                     ),
                 ),

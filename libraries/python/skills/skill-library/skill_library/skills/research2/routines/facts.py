@@ -2,8 +2,6 @@ from typing import Any, cast
 
 from openai_client import (
     CompletionError,
-    create_assistant_message,
-    create_system_message,
     create_user_message,
     extra_data,
     format_with_liquid,
@@ -43,7 +41,7 @@ Do not add anything else.
 Here is the topic that all facts should relate to:
 
 ```
-{TOPIC}
+{{TOPIC}}
 ```
 
 Now begin!
@@ -68,10 +66,28 @@ Do not add anything else.
 Reminder, here is the topic that all facts should relate to:
 
 ```
-{TOPIC}
+{{TOPIC}}
 ```
 
-Now begin!
+Current plan:
+
+```
+{{PLAN}}
+```
+
+Here is the up-to-date list of facts that you know:
+
+```
+{{FACTS}}
+```
+
+Observations from previous research:
+
+```
+{{OBSERVATIONS}}
+```
+
+Update your list of facts. Now begin!
 """
 
 
@@ -88,44 +104,25 @@ async def main(
 ) -> str:
     """Gather facts related to an ongoing research project based on observations we gather in the process of researching."""
 
-    research_skill = cast(ResearchSkill, context.skills["common"])
-    language_model = research_skill.config.language_model
+    research_skill = cast(ResearchSkill, context.skills["research2"])
+    language_model = research_skill.config.reasoning_language_model
 
-    system_prompt = UPDATE_SYSTEM_PROMPT if facts else INITIAL_SYSTEM_PROMPT
+    if not facts:
+        prompt = format_with_liquid(INITIAL_SYSTEM_PROMPT, vars={"TOPIC": topic})
+    else:
+        all_observations = "\n- ".join(observations) if observations else ""
+        prompt = format_with_liquid(
+            UPDATE_SYSTEM_PROMPT, vars={"TOPIC": topic, "PLAN": plan, "FACTS": facts, "OBSERVATIONS": all_observations}
+        )
 
     completion_args = {
-        "model": "gpt-4o",
+        "model": "o1-mini",
         "messages": [
-            create_system_message(
-                format_with_liquid(system_prompt, vars={"TOPIC": topic}),
-            ),
             create_user_message(
-                f"Topic: {topic}",
+                prompt,
             ),
         ],
     }
-
-    if plan:
-        completion_args["messages"].append(
-            create_assistant_message(
-                f"Plan: {plan}",
-            )
-        )
-
-    if facts:
-        completion_args["messages"].append(
-            create_assistant_message(
-                f"Facts: \n```{facts}\n```\n",
-            )
-        )
-
-    if observations:
-        all_observations = "\n- ".join(observations)
-        completion_args["messages"].append(
-            create_assistant_message(
-                f"Observations: \n```{all_observations}\n```\n",
-            )
-        )
 
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
     metadata = {}

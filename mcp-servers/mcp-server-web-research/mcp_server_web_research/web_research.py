@@ -13,7 +13,8 @@ from skill_library.skills.research import ResearchSkill, ResearchSkillConfig
 from skill_library.skills.research2 import ResearchSkill as ResearchSkill2
 from skill_library.skills.research2 import ResearchSkillConfig as ResearchSkillConfig2
 
-from .config import create_client, settings
+from .azure_openai import create_azure_openai_client
+from .config import settings
 
 
 # This is a coupling we probably don't want in the skill library. For this web
@@ -25,7 +26,11 @@ async def message_history_provider() -> ConversationMessageList:
 
 def get_engine(engine_id: str, drive_root: PathLike, metadata_drive_root: PathLike) -> Engine:
     drive = Drive(DriveConfig(root=settings.data_folder))
-    language_model = create_client()
+
+    language_model = create_azure_openai_client(settings.azure_openai_endpoint, settings.azure_openai_deployment)
+    reasoning_language_model = create_azure_openai_client(
+        settings.azure_openai_endpoint, settings.azure_openai_reasoning_deployment
+    )
 
     engine = Engine(
         engine_id=engine_id,
@@ -38,6 +43,8 @@ def get_engine(engine_id: str, drive_root: PathLike, metadata_drive_root: PathLi
                 CommonSkillConfig(
                     name="common",
                     language_model=language_model,
+                    bing_subscription_key=settings.bing_subscription_key,
+                    bing_search_url=settings.bing_search_url,
                     drive=drive.subdrive("common"),
                 ),
             ),
@@ -62,6 +69,7 @@ def get_engine(engine_id: str, drive_root: PathLike, metadata_drive_root: PathLi
                 ResearchSkillConfig2(
                     name="research2",
                     language_model=language_model,
+                    reasoning_language_model=reasoning_language_model,
                     drive=drive.subdrive("research2"),
                 ),
             ),
@@ -79,9 +87,7 @@ def event_string(event: skill_events.EventProtocol) -> str:
     return event_string
 
 
-async def perform_deep_research(
-    model_id: str, question: str, on_status_update: Callable[[str], Awaitable[None]]
-) -> str:
+async def perform_web_research(question: str, on_status_update: Callable[[str], Awaitable[None]]) -> str:
     """
     Perform deep research on a question.
 

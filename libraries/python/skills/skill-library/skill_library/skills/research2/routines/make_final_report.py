@@ -18,7 +18,7 @@ SYSTEM_PROMPT = """
 Please synthesize all the information gathered into a comprehensive report with these sections:
 
 ### 1. Task outcome (short version):
-[Concise summary of findings about {TASK}]
+[Concise summary of findings about {{TASK}}]
 
 ### 2. Task outcome (extremely detailed version):
 [Comprehensive details about partnerships, programs, funding, metrics]
@@ -28,7 +28,7 @@ Please synthesize all the information gathered into a comprehensive report with 
 
 Here is your topic:
 
-{TOPIC}
+{{TOPIC}}
 
 """
 
@@ -46,7 +46,7 @@ async def main(
 ) -> str:
     """Make a search plan for a research project."""
 
-    research_skill = cast(ResearchSkill, context.skills["common"])
+    research_skill = cast(ResearchSkill, context.skills["research2"])
     language_model = research_skill.config.language_model
 
     completion_args = {

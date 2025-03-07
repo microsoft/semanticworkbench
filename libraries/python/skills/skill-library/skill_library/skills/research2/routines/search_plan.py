@@ -2,8 +2,6 @@ from typing import Any, cast
 
 from openai_client import (
     CompletionError,
-    create_assistant_message,
-    create_system_message,
     create_user_message,
     extra_data,
     format_with_liquid,
@@ -15,7 +13,7 @@ from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
 from skill_library.skills.research2.research_skill import ResearchSkill
 
-INITIAL_SYSTEM_PROMPT = """
+INITIAL_PROMPT = """
 You are a world expert at making efficient plans to solve any task using a set of carefully crafted tools.
 
 Now for the given task, develop a step-by-step high-level plan taking into account the above inputs and list of facts.
@@ -24,24 +22,54 @@ Do not skip steps, do not add any superfluous steps. Only write the high-level p
 
 Here is your topic:
 
-{TOPIC}
+`{{TOPIC}}`
 
-List of facts that you know:
+Here is the up-to-date list of facts that you know:
 
-{FACTS}
+```
+{{FACTS}}
+```
+
+Observations from previous research:
+
+```
+{{OBSERVATIONS}}
+```
+
+If you decide that the research topic has been completed, respond only with <DONE>.
 
 Now begin! Write your plan below.
 """
 
-UPDATE_SYSTEM_PROMPT = """
+UPDATE_PROMPT = """
 You're still working towards completing this research:
 
-{TOPIC}
+`{{TOPIC}}`
 
 Now for the given topic, develop a step-by-step high-level plan taking into account the above inputs and list of facts.
 This plan should involve individual tasks that if executed correctly will yield the correct answer.
 
+Current plan:
+
+```
+{{PLAN}}
+```
+
+Here is the up-to-date list of facts that you know:
+
+```
+{{FACTS}}
+```
+
+Observations from previous research:
+
+```
+{{OBSERVATIONS}}
+```
+
 If you decide that the research topic has been completed, respond only with <DONE>.
+
+Now begin! Write your revised plan below.
 """
 
 
@@ -58,44 +86,24 @@ async def main(
 ) -> tuple[str, bool]:
     """Make a search plan for a research project."""
 
-    research_skill = cast(ResearchSkill, context.skills["common"])
-    language_model = research_skill.config.language_model
+    research_skill = cast(ResearchSkill, context.skills["research2"])
+    language_model = research_skill.config.reasoning_language_model
 
-    system_prompt = UPDATE_SYSTEM_PROMPT if plan else INITIAL_SYSTEM_PROMPT
+    if not plan:
+        prompt = format_with_liquid(INITIAL_PROMPT, vars={"TOPIC": topic, "FACTS": facts, "OBSERVATIONS": observations})
+    else:
+        prompt = format_with_liquid(
+            UPDATE_PROMPT, vars={"TOPIC": topic, "FACTS": facts, "PLAN": plan, "OBSERVATIONS": observations}
+        )
 
     completion_args = {
-        "model": "gpt-4o",
+        "model": "o1-mini",
         "messages": [
-            create_system_message(
-                format_with_liquid(system_prompt, vars={"TOPIC": topic, "FACTS": facts}),
-            ),
             create_user_message(
-                f"Topic: {topic}",
+                prompt,
             ),
         ],
     }
-
-    if plan:
-        completion_args["messages"].append(
-            create_assistant_message(
-                f"Plan: {plan}",
-            )
-        )
-
-    if facts:
-        completion_args["messages"].append(
-            create_assistant_message(
-                f"Here is the up-to-date list of facts that you know:: \n```{facts}\n```\n",
-            )
-        )
-
-    if observations:
-        all_observations = "\n- ".join(observations)
-        completion_args["messages"].append(
-            create_assistant_message(
-                f"Observations: \n```{all_observations}\n```\n",
-            )
-        )
 
     logger.debug("Completion call.", extra=extra_data(make_completion_args_serializable(completion_args)))
     metadata = {}

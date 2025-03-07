@@ -4,6 +4,7 @@ from skill_library import LanguageModel, Skill, SkillConfig
 
 class ResearchSkillConfig(SkillConfig):
     language_model: LanguageModel
+    reasoning_language_model: LanguageModel
     drive: Drive
 
 
