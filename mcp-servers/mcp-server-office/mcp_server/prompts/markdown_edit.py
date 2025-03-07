@@ -28,6 +28,9 @@ You will be provided important context to give you the information needed to sel
     - You MUST use this index exactly as it is provided or else an error will occur.
     - The first content block is a special "start_of_document_indicator" block that allows you to insert content at the beginning of the document. \
 You should never remove or update this block. It is not actually shown to the user.
+    - If the document contains comments, they are enclosed in <comments id=i> and </comments> tags at the end of the document.
+    - Each comment includes the text of the comment and the part of the text it refers to, enclosed in the corresponding tags.
+    - You cannot edit these comments, they are only provided for context.
 - The conversation history between the user and assistant is provided before the document.
     - You should focus on the latest message to determine how to edit the document.
     - The remainder of the conversation is provided for additional context.
@@ -63,7 +66,8 @@ Use the following as a guide for how to use the operations:
     - You can ONLY use Markdown syntax for paragraphs with bold and italics, headings, lists (numbered and bulleted, but NON NESTED). All other Markdown syntax is unsupported and forbidden.
     - You can only use heading levels 1-6.
     - When creating numbered lists, you must use the syntax of "1." to start each item in the list.
-    - Do NOT use nested lists. You must use headings to create a hierarchy of information.
+    - Do NOT nest lists. For example, do not create a bulleted list "inside" of a numbered list.
+    - You must use headings to create a hierarchy of information instead of using any form of nested lists.
     - Even if the conversation history or other context includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here."""
 )
 

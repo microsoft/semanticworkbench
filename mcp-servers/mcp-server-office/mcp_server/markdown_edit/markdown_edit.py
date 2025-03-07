@@ -8,6 +8,7 @@ from mcp.server.fastmcp import Context
 
 from mcp_server.app_interaction.word_editor import (
     get_active_document,
+    get_comments_markdown_representation,
     get_markdown_representation,
     get_word_app,
     write_markdown_to_document,
@@ -43,7 +44,9 @@ from mcp_server.types import (
 logger = logging.getLogger(__name__)
 
 
-async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> MarkdownEditOutput:
+async def run_markdown_edit(
+    markdown_edit_request: MarkdownEditRequest,
+) -> MarkdownEditOutput:
     """
     Run the markdown edit.
     """
@@ -63,6 +66,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
 
     blockified_doc = blockify(markdown_from_word)
     doc_for_llm = construct_page_for_llm(blockified_doc)
+    doc_for_llm += get_comments_markdown_representation(doc)
 
     # Convert chat history to a string if we are in Dev mode
     chat_history = ""
@@ -95,6 +99,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
         messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
         messages.append(reasoning_messages[3])  # Document message
+        messages.extend(markdown_edit_request.additional_messages)  # Possible messages from previous steps
         reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=messages,
@@ -226,6 +231,8 @@ async def run_change_summary(before_doc: str, after_doc: str, markdown_edit_requ
 
 # endregion
 
+# region Markdown draft
+
 
 async def run_markdown_draft(markdown_edit_request: MarkdownEditRequest, doc) -> MarkdownEditOutput:
     # Convert chat history to a string if we are in Dev mode
@@ -295,3 +302,6 @@ async def run_markdown_draft(markdown_edit_request: MarkdownEditRequest, doc) ->
         llm_latency=response.response_duration,
     )
     return output
+
+
+# endregion

@@ -2,6 +2,8 @@
 
 import win32com.client as win32
 
+from mcp_server.types import WordCommentData
+
 
 def get_word_app():
     """Connect to Word if it is running, or start a new instance."""
@@ -35,13 +37,12 @@ def replace_document_content(doc, content):
     doc.Content.Text = content
 
 
-def get_markdown_representation(doc):
+def get_markdown_representation(doc, include_comments=False):
     """
     Get the markdown representation of the document.
     Supports Headings, plaintext, bulleted/numbered lists, bold, and italic.
     """
     markdown_text = []
-
     for i in range(1, doc.Paragraphs.Count + 1):
         paragraph = doc.Paragraphs(i)
         style_name = paragraph.Style.NameLocal
@@ -129,7 +130,11 @@ def get_markdown_representation(doc):
         else:
             markdown_text.append(f"{prefix}{para_text}")
 
-    # Join all lines with newlines
+    if include_comments:
+        comment_section = get_comments_markdown_representation(doc)
+        if comment_section:
+            markdown_text.append(comment_section)
+
     return "\n".join(markdown_text)
 
 
@@ -209,11 +214,17 @@ def write_markdown_to_document(doc, markdown_text):
     Write the markdown text to the document.
     Supports headings, plaintext, bulleted/numbered lists, bold, and italic.
     """
+    # Get current comments
+    comments = get_document_comments(doc)
+
     # Clear the document content and formatting
     doc.Content.Delete()
 
     word_app = doc.Application
     selection = word_app.Selection
+
+    # This fixes an issue where if there are comments on a doc, there is no selection which causes insertion to fail
+    doc.Range(0, 0).Select()
 
     # Ensure we start with normal style
     selection.Style = word_app.ActiveDocument.Styles("Normal")
@@ -301,3 +312,158 @@ def write_markdown_to_document(doc, markdown_text):
 
     # Move cursor to the beginning of the document
     doc.Range(0, 0).Select()
+
+    # Reapply comments. Note this implicitly will remove any comments that have locations not in the new text.
+    for comment in comments:
+        add_document_comment(doc, comment)
+
+
+def add_document_comment(
+    doc,
+    comment_data: WordCommentData,
+) -> bool:
+    """
+    Add a comment to specific text within a Word document.
+
+    Returns:
+        bool: True if comment was added successfully, False otherwise
+    """
+    try:
+        content_range = doc.Content
+        found_range = None
+
+        # Find the specified occurrence of the text
+        found_count = 0
+
+        # Use FindText to locate the text
+        content_range.Find.ClearFormatting()
+        found = content_range.Find.Execute(FindText=comment_data.location_text, MatchCase=True, MatchWholeWord=False)
+
+        while found:
+            found_count += 1
+            if found_count == comment_data.occurrence:
+                found_range = content_range.Duplicate
+                break
+
+            # Continue searching from the end of the current match
+            content_range.Collapse(Direction=0)  # Collapse to end
+            found = content_range.Find.Execute(
+                FindText=comment_data.location_text, MatchCase=True, MatchWholeWord=False
+            )
+
+        if not found_range:
+            return False
+
+        # Add a comment to the found range
+        comment = doc.Comments.Add(Range=found_range, Text=comment_data.comment_text)
+        if comment_data.author:
+            comment.Author = comment_data.author
+        return True
+    except Exception:
+        return False
+
+
+def get_document_comments(doc) -> list[WordCommentData]:
+    """
+    Retrieve all comments from a Word document.
+    """
+    comments: list[WordCommentData] = []
+
+    try:
+        if doc.Comments.Count == 0:
+            return comments
+
+        for i in range(1, doc.Comments.Count + 1):
+            try:
+                comment = doc.Comments(i)
+
+                comment_text = ""
+                try:
+                    comment_text = comment.Range.Text
+                except Exception:
+                    pass
+
+                author = "Unknown"
+                try:
+                    author = comment.Author
+                except Exception:
+                    pass
+
+                date = ""
+                try:
+                    date = str(comment.Date)
+                except Exception:
+                    pass
+
+                reference_text = ""
+                try:
+                    if hasattr(comment, "Scope"):
+                        reference_text = comment.Scope.Text
+                except Exception:
+                    pass
+
+                comment_info = WordCommentData(
+                    id=str(i),
+                    comment_text=comment_text,
+                    location_text=reference_text,
+                    date=date,
+                    author=author,
+                )
+                comments.append(comment_info)
+            except Exception:
+                continue
+
+        return comments
+    except Exception as e:
+        print(f"Error retrieving comments: {e}")
+        return comments
+
+
+def get_comments_markdown_representation(doc) -> str:
+    comments = get_document_comments(doc)
+
+    if not comments:
+        return ""
+
+    comment_section = "\n\n<comments>\n"
+    for i, comment in enumerate(comments, 1):
+        comment_section += f'<comment id={i} author="{comment.author}">\n'
+        comment_section += f"  <location_text>{comment.location_text}</location_text>\n"
+        comment_section += f"  <comment_text>{comment.comment_text}</comment_text>\n"
+        comment_section += "</comment>\n"
+    comment_section.rstrip()
+    comment_section += "</comments>"
+    return comment_section
+
+
+def delete_comments_containing_text(doc, search_text: str, case_sensitive: bool = False) -> int:
+    """
+    Delete comments containing specific text.
+
+    Args:
+        doc: Word document object
+        search_text: Text to search for in comments
+        case_sensitive: Whether the search should be case-sensitive
+
+    Returns:
+        int: Number of comments deleted
+    """
+    deleted_count = 0
+    try:
+        if not case_sensitive:
+            search_text = search_text.lower()
+
+        # Work backwards to avoid index shifting issues when deleting
+        for i in range(doc.Comments.Count, 0, -1):
+            comment = doc.Comments(i)
+            comment_text = comment.Range.Text
+
+            if not case_sensitive:
+                comment_text = comment_text.lower()
+
+            if search_text in comment_text:
+                comment.Delete()
+                deleted_count += 1
+        return deleted_count
+    except Exception:
+        return deleted_count

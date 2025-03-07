@@ -61,8 +61,16 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
             )
         )
 
+    if request.json_mode:
+        response_format = {"type": "json_object"}
+    elif request.structured_outputs is not None:
+        response_format = {"type": "json_schema", "json_schema": request.structured_outputs}
+    else:
+        response_format = {"type": "text"}
+
     # Any extra args passed to the function are added to the request as metadata
     extra_args = request.model_dump(mode="json", exclude_none=True)
+    extra_args["response_format"] = response_format
 
     model = request.model
     # Default to gpt-4o
@@ -73,6 +81,8 @@ async def mcp_chat_completion(request: ChatCompletionRequest, client: Context) -
     extra_args.pop("messages", None)
     extra_args.pop("max_completion_tokens", None)
     extra_args.pop("model", None)
+    extra_args.pop("structured_outputs", None)
+    extra_args.pop("json_mode", None)
     metadata = {"extra_args": extra_args}
 
     start_time = time.time()
