@@ -15,7 +15,9 @@ from mcp_server.app_interaction.word_editor import (
     get_markdown_representation,
     get_word_app,
 )
-from mcp_server.markdown_edit.markdown_edit import run_markdown_edit
+from mcp_server.markdown_edit.comment_analysis import run_comment_analysis
+from mcp_server.markdown_edit.feedback_step import run_feedback_step
+from mcp_server.markdown_edit.markdown_routine import run_markdown_edit
 from mcp_server.types import MarkdownEditRequest
 
 server_name = "Office MCP Server"
@@ -25,13 +27,38 @@ def create_mcp_server() -> FastMCP:
     mcp = FastMCP(name=server_name, log_level=settings.log_level, host="127.0.0.1")
 
     @mcp.tool()
-    async def edit_word_document(ctx: Context) -> str:
+    async def edit_word_document(task: str, ctx: Context) -> str:
         """
         The user has a Microsoft Word document open side by side with this chat. Use this tool when you need to make changes to the document.
-        Do not provide it any additional context. It will automatically be fetched as needed by this tool.
+        You should provide it a task that you want it to do in the document. For example, if you want to have it expand on one section,
+        you can say "expand on the section about <topic x>". The task should be a most a few sentences.
+        Do not provide it any additional context outside of the task parameter. It will automatically be fetched as needed by this tool.
         """
-        markdown_edit_output = await run_markdown_edit(markdown_edit_request=MarkdownEditRequest(context=ctx))
-        return markdown_edit_output.change_summary or markdown_edit_output.output_message
+        markdown_edit_output = await run_markdown_edit(
+            markdown_edit_request=MarkdownEditRequest(context=ctx, task=task)
+        )
+        output_string = markdown_edit_output.change_summary + "\n" + markdown_edit_output.output_message
+        return output_string
+
+    @mcp.tool()
+    async def add_comments_to_word_document(ctx: Context) -> str:
+        """
+        Runs a routine that will add feedback as comments to the currently open Word Document.
+        """
+        comment_output = await run_feedback_step(
+            markdown_edit_request=MarkdownEditRequest(context=ctx),
+        )
+        return comment_output.feedback_summary
+
+    @mcp.tool()
+    async def analyze_comments(ctx: Context) -> str:
+        """
+        Runs a routine that analyze the comments in the Word document and determine how they could be solved.
+        """
+        comment_analysis_output = await run_comment_analysis(
+            markdown_edit_request=MarkdownEditRequest(context=ctx),
+        )
+        return comment_analysis_output.edit_instructions + "\n" + comment_analysis_output.assistant_hints
 
     # TODO: It might be good to consider having the document content always be available to the assistant if the document is "connected".
     @mcp.tool()

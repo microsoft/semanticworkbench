@@ -62,6 +62,7 @@
     "distpath",
     "dotenv",
     "ERRORLEVEL",
+    "evals",
     "fastmcp",
     "hiddenimports",
     "ngrok",

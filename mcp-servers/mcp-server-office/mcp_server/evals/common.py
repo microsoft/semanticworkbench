@@ -1,66 +1,99 @@
-import asyncio
+# Copyright (c) Microsoft. All rights reserved.
+
 import logging
-import os
 from pathlib import Path
+from typing import Literal
 
 import yaml
-from dotenv import load_dotenv
-from rich.columns import Columns
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.panel import Panel
 
-from mcp_server.llm.openai_chat_completion import openai_client
-from mcp_server.markdown_edit.markdown_edit import run_markdown_edit
+from mcp_server.constants import COMMENT_AUTHOR
 from mcp_server.types import (
     AssistantMessage,
     CustomContext,
-    MarkdownEditOutput,
-    MarkdownEditRequest,
     MessageT,
     TestCase,
     UserMessage,
+    WordCommentData,
 )
-
-logger = logging.getLogger(__name__)
-
-load_dotenv(override=True)
 
 WORD_TEST_CASES_PATH = Path(__file__).parents[2] / "data" / "word" / "test_cases.yaml"
 WORD_TRANSCRIPT_PATH = Path(__file__).parents[2] / "data" / "word" / "transcripts"
 ATTACHMENTS_DIR = Path(__file__).parents[2] / "data" / "attachments"
 
+logger = logging.getLogger(__name__)
 
-def load_test_cases() -> list[CustomContext]:
+
+def load_test_cases(
+    test_case_type: Literal["writing", "feedback", "comment_analysis"] | None = None,
+) -> list[CustomContext]:
+    """
+    Load test cases and convert them to CustomContext objects.
+
+    Args:
+        test_case_type: Optional filter to only return test cases of a specific type.
+                       If None, returns all test cases.
+
+    Returns:
+        A list of CustomContext objects representing the test cases.
+    """
     with Path.open(WORD_TEST_CASES_PATH, "r", encoding="utf-8") as f:
         test_cases = yaml.safe_load(f)["test_cases"]
 
     test_cases = [TestCase(**test_case) for test_case in test_cases]
 
+    if test_case_type is not None:
+        test_cases = [tc for tc in test_cases if tc.test_case_type == test_case_type]
+
     custom_contexts = []
     for test_case in test_cases:
         transcript_path = WORD_TRANSCRIPT_PATH / test_case.transcription_file
-
-        # Load the transcript content
         with Path.open(transcript_path, "r", encoding="utf-8") as f:
             transcript_content = f.read()
 
         chat_history = _parse_transcript_to_chat_history(transcript_content)
         chat_history.append(UserMessage(content=test_case.next_ask))
 
-        # Load and format attachments if they exist
         additional_context = ""
         if test_case.attachments:
             additional_context = _load_attachments(test_case.attachments)
 
+        document_content = ""
+        if test_case.open_document_markdown_file:
+            document_path = ATTACHMENTS_DIR / test_case.open_document_markdown_file
+            if document_path.exists():
+                with Path.open(document_path, "r", encoding="utf-8") as f:
+                    document_content = f.read()
+            else:
+                logger.warning(f"Document file {test_case.open_document_markdown_file} not found at {document_path}")
+
+        comments: list[WordCommentData] = []
+        if test_case.comments:
+            comment_section = "\n\n<comments>\n"
+            for i, comment in enumerate(test_case.comments, 1):
+                comment_section += f'<comment id={i} author="{COMMENT_AUTHOR}">\n'
+                comment_section += f"  <location_text>{comment.location_text}</location_text>\n"
+                comment_section += f"  <comment_text>{comment.comment_text}</comment_text>\n"
+                comment_section += "</comment>\n"
+                comments.append(
+                    WordCommentData(
+                        author=COMMENT_AUTHOR,
+                        location_text=comment.location_text,
+                        comment_text=comment.comment_text,
+                    )
+                )
+            comment_section.rstrip()
+            comment_section += "</comments>"
+
+            document_content += comment_section
+
         custom_contexts.append(
             CustomContext(
                 chat_history=chat_history,
-                document=test_case.document_markdown,
+                document=document_content,
                 additional_context=additional_context,
+                comments=comments,
             )
         )
-
     return custom_contexts
 
 
@@ -125,72 +158,3 @@ def _load_attachments(attachment_filenames: list[str]) -> str:
         formatted_attachments.append(formatted_attachment)
 
     return "\n".join(formatted_attachments)
-
-
-def print_markdown_edit_output(
-    console: Console,
-    output: MarkdownEditOutput,
-    test_index: int,
-    custom_context: CustomContext,
-) -> None:
-    """
-    Print the markdown edit output to console using Rich formatting.
-    """
-    console.rule(f"Test Case {test_index} Results. Latency: {output.llm_latency:.2f} seconds.", style="cyan")
-
-    console.print(
-        Panel(
-            custom_context.chat_history[-1].content,  # type: ignore
-            title="User Request",
-            border_style="blue",
-            width=120,
-        )
-    )
-
-    original_doc = Panel(
-        Markdown(custom_context.document),
-        title="Original Document",
-        border_style="yellow",
-        width=90,
-    )
-    new_doc = Panel(
-        Markdown(output.new_markdown),
-        title="Edited Document",
-        border_style="green",
-        width=90,
-    )
-    console.print(Columns([original_doc, new_doc]))
-
-    console.print(
-        Panel(
-            output.change_summary or output.output_message,
-            title="Change Summary",
-            border_style="blue",
-            width=120,
-        )
-    )
-
-    console.print()
-
-
-async def main() -> None:
-    console = Console()
-    custom_contexts = load_test_cases()
-    client = openai_client(
-        api_type="azure_openai",
-        azure_endpoint=os.getenv("ASSISTANT__AZURE_OPENAI_ENDPOINT"),
-        aoai_api_version="2025-01-01-preview",
-    )
-
-    for i, custom_context in enumerate(custom_contexts):
-        markdown_edit_request = MarkdownEditRequest(
-            context=custom_context,
-            request_type="dev",
-            chat_completion_client=client,
-        )
-        output = await run_markdown_edit(markdown_edit_request)
-        print_markdown_edit_output(console, output, i + 1, custom_context)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

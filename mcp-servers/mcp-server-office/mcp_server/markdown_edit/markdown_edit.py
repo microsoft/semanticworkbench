@@ -1,18 +1,21 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import asyncio
 import json
 import logging
 
 import pendulum
+from liquid import Template
 from mcp.server.fastmcp import Context
 
 from mcp_server.app_interaction.word_editor import (
     get_active_document,
+    get_comments_markdown_representation,
     get_markdown_representation,
     get_word_app,
     write_markdown_to_document,
 )
-from mcp_server.constants import CHANGE_SUMMARY_PREFIX
+from mcp_server.constants import CHANGE_SUMMARY_PREFIX, DEFAULT_DOC_EDIT_TASK, DEFAULT_DRAFT_TASK
 from mcp_server.helpers import compile_messages, format_chat_history
 from mcp_server.llm.chat_completion import chat_completion
 from mcp_server.markdown_edit.utils import (
@@ -43,7 +46,9 @@ from mcp_server.types import (
 logger = logging.getLogger(__name__)
 
 
-async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> MarkdownEditOutput:
+async def run_markdown_edit(
+    markdown_edit_request: MarkdownEditRequest,
+) -> MarkdownEditOutput:
     """
     Run the markdown edit.
     """
@@ -63,6 +68,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
 
     blockified_doc = blockify(markdown_from_word)
     doc_for_llm = construct_page_for_llm(blockified_doc)
+    doc_for_llm += get_comments_markdown_representation(doc)
 
     # Convert chat history to a string if we are in Dev mode
     chat_history = ""
@@ -72,6 +78,11 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
     context = ""
     if markdown_edit_request.request_type == "dev" and isinstance(markdown_edit_request.context, CustomContext):
         context = markdown_edit_request.context.additional_context
+
+    if markdown_edit_request.task != DEFAULT_DOC_EDIT_TASK:
+        task = Template(DEFAULT_DOC_EDIT_TASK).render(task=markdown_edit_request.task)
+    else:
+        task = Template(DEFAULT_DOC_EDIT_TASK).render(task="")
 
     # endregion
 
@@ -84,7 +95,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         variables={
             "knowledge_cutoff": "2023-10",
             "current_date": pendulum.now().format("YYYY-MM-DD"),
-            "task": markdown_edit_request.task,
+            "task": task,
             "context": context,
             "document": doc_for_llm,
             "chat_history": chat_history,
@@ -95,6 +106,7 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
         messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
         messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
         messages.append(reasoning_messages[3])  # Document message
+        messages.extend(markdown_edit_request.additional_messages)  # Possible messages from previous steps
         reasoning_response = await chat_completion(
             request=ChatCompletionRequest(
                 messages=messages,
@@ -169,14 +181,17 @@ async def run_markdown_edit(markdown_edit_request: MarkdownEditRequest) -> Markd
             blocks = execute_tools(blocks=blocks, edit_tool_call={"name": tool_call.name, "arguments": tool_args})
             updated_doc_markdown = unblockify(blocks)
             updated_doc_markdown = strip_horizontal_rules(updated_doc_markdown)
-            write_markdown_to_document(doc, updated_doc_markdown)
-            del doc, word
+
             if updated_doc_markdown != markdown_from_word:
-                change_summary = await run_change_summary(
-                    before_doc=markdown_from_word,
-                    after_doc=updated_doc_markdown,
-                    markdown_edit_request=markdown_edit_request,
+                change_summary_task = asyncio.create_task(
+                    run_change_summary(
+                        before_doc=markdown_from_word,
+                        after_doc=updated_doc_markdown,
+                        markdown_edit_request=markdown_edit_request,
+                    )
                 )
+                write_markdown_to_document(doc, updated_doc_markdown)
+                change_summary = await change_summary_task
             else:
                 change_summary = CHANGE_SUMMARY_PREFIX + "No changes were made to the document."
     else:
@@ -226,6 +241,8 @@ async def run_change_summary(before_doc: str, after_doc: str, markdown_edit_requ
 
 # endregion
 
+# region Markdown draft
+
 
 async def run_markdown_draft(markdown_edit_request: MarkdownEditRequest, doc) -> MarkdownEditOutput:
     # Convert chat history to a string if we are in Dev mode
@@ -237,12 +254,17 @@ async def run_markdown_draft(markdown_edit_request: MarkdownEditRequest, doc) ->
     if markdown_edit_request.request_type == "dev" and isinstance(markdown_edit_request.context, CustomContext):
         context = markdown_edit_request.context.additional_context
 
+    if markdown_edit_request.task != DEFAULT_DRAFT_TASK:
+        task = Template(DEFAULT_DRAFT_TASK).render(task=markdown_edit_request.task)
+    else:
+        task = Template(DEFAULT_DOC_EDIT_TASK).render(task="")
+
     draft_messages = compile_messages(
         messages=MD_DRAFT_REASONING_MESSAGES,
         variables={
             "knowledge_cutoff": "2023-10",
             "current_date": pendulum.now().format("YYYY-MM-DD"),
-            "task": markdown_edit_request.task,
+            "task": task,
             "context": context,
             "chat_history": chat_history,
         },
@@ -278,13 +300,16 @@ async def run_markdown_draft(markdown_edit_request: MarkdownEditRequest, doc) ->
 
     markdown_draft = response.choices[0].message.content
     markdown_draft = strip_horizontal_rules(markdown_draft)
-    write_markdown_to_document(doc, markdown_draft)
 
-    change_summary = await run_change_summary(
-        before_doc="",
-        after_doc=markdown_draft,
-        markdown_edit_request=markdown_edit_request,
+    change_summary_task = asyncio.create_task(
+        run_change_summary(
+            before_doc="",
+            after_doc=markdown_draft,
+            markdown_edit_request=markdown_edit_request,
+        )
     )
+    write_markdown_to_document(doc, markdown_draft)
+    change_summary = await change_summary_task
 
     output = MarkdownEditOutput(
         change_summary=change_summary,
@@ -295,3 +320,6 @@ async def run_markdown_draft(markdown_edit_request: MarkdownEditRequest, doc) ->
         llm_latency=response.response_duration,
     )
     return output
+
+
+# endregion

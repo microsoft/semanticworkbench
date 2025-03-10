@@ -4,10 +4,11 @@ from mcp_server.types import DeveloperMessage, SystemMessage, UserMessage
 
 MD_EDIT_REASONING_DEV_PROMPT = DeveloperMessage(
     content="""You're a Markdown document editor in charge of precisely editing a Markdown document according to a task, using the provided conversation history as the primary context. \
-The document will be presented to you as an ordered list of the content blocks that make up the document. You must describe the operations necessary to correctly edit the document. \
+The document will be presented to you as an ordered list of the content blocks that make up the document. \
+You must describe the operations necessary to correctly edit the document, including the complete values of each parameter. \
 You should use the following operations that can edit the document on your behalf: insert, update, and remove. \
 These operations are capable of modifying the document in any way you need to accomplish the task. \
-You should correctly describe **all** of the appropriate operations(s), including all of their required parameters, including the entire content. \
+You should correctly describe **all** of the appropriate operations(s), including the entire content parameter for the insert and update operations. \
 If the changes are not possible, you should send a message using the send_message tool instead of using doc_edit. \
 Someone else will be responsible for executing the operations you describe without any further context so it is critical to be thorough and precise about the operations.
 Knowledge cutoff: {{knowledge_cutoff}}
@@ -23,14 +24,17 @@ You will be provided important context to give you the information needed to sel
     - Content is provided to you in the same order as it is shown to the user. Order matters for cohesiveness!
     - Each content of each block is wrapped in <block> and </block> tags.
     - Content blocks are granular; such as individual paragraphs or one element in a list.
+    - Pay attention to which block headings belong to. If the block you are updating has a heading, remember to rewrite it if you don't want to delete it. \
+On the other hand, if you are updating the block after a heading, do not accidentally rewrite the heading.
     - Each block contains an "index" attribute which how to uniquely identify the block.
     - This index attribute is how you will reference content blocks in tool calls.
     - You MUST use this index exactly as it is provided or else an error will occur.
     - The first content block is a special "start_of_document_indicator" block that allows you to insert content at the beginning of the document. \
 You should never remove or update this block. It is not actually shown to the user.
+    - If the document contains comments, they are enclosed in <comments id=i> and </comments> tags at the end of the document.
+    - Each comment includes the text of the comment and the part of the text it refers to, enclosed in the corresponding tags.
+    - You cannot edit these comments, they are only provided for context.
 - The conversation history between the user and assistant is provided before the document.
-    - You should focus on the latest message to determine how to edit the document.
-    - The remainder of the conversation is provided for additional context.
 - You may be provided additional context, such as attached documents, before the document and conversation history.
     - If they are relevant to the task and user's request, you should use them inform the content you generate.
     - If you do reference them, make sure to do so accurately and factually. Do not make up information from this extra context.
@@ -63,7 +67,8 @@ Use the following as a guide for how to use the operations:
     - You can ONLY use Markdown syntax for paragraphs with bold and italics, headings, lists (numbered and bulleted, but NON NESTED). All other Markdown syntax is unsupported and forbidden.
     - You can only use heading levels 1-6.
     - When creating numbered lists, you must use the syntax of "1." to start each item in the list.
-    - Do NOT use nested lists. You must use headings to create a hierarchy of information.
+    - Do NOT nest lists. For example, do not create a bulleted list "inside" of a numbered list.
+    - You must use headings to create a hierarchy of information instead of using any form of nested lists.
     - Even if the conversation history or other context includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here."""
 )
 
@@ -84,7 +89,9 @@ MD_EDIT_REASONING_USER_DOC_PROMPT = UserMessage(
     content="""<document>
 {{document}}
 </document>
-Now reason about the best possible sequence of operations(s) to modify the document, including all their required parameters."""
+Now provide the best possible sequence of operations(s) to modify the document according to the task. \
+The system executing the operations will not have the complete context, \
+so you must provide the complete value of parameters, especially the content parameter, not just a description of what the content should be."""
 )
 
 MD_EDIT_REASONING_MESSAGES = [
@@ -229,7 +236,8 @@ If there is nothing between the tags, that means the document is empty.
 
 # On Your Task
 - You must summarize the changes between the document in a cohesive and concise manner.
-- For example, don't list each individual little change, but rather summarize the major changes in a few sentences."""
+- Do not comment on the quality of the changes. Only accurately summarize the changes themselves.
+- Don't list each individual little change, but rather summarize the major changes in at most a few sentences even if the changes are drastic."""
 )
 
 MD_EDIT_CHANGES_USER_PROMPT = UserMessage(

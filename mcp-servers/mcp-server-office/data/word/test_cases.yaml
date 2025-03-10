@@ -1,16 +1,35 @@
 test_cases:
   - test_case_name: Web Frontends 1
     transcription_file: "transcript_Web_Frontends_202502281551.md"
-    document_markdown: ""
     next_ask: "Can you create a proposal for which frontend we should use. Fluent + Tailwind is what I want to use, but please include compare/contrast with MUI and Chakra UI"
   - test_case_name: Startup Idea 1
     transcription_file: "transcript_Startup_Idea_1_202503031513.md"
-    document_markdown: ""
     next_ask: "Ok. Let's first start a document on game ideas - I think this is the biggest hurdle. Proving that we have enough novel and interesting games that leverage AI."
   - test_case_name: Startup Idea Pitch 1
     transcription_file: "transcript_Startup_Idea_2_202503031659.md"
-    document_markdown: ""
     next_ask: "I uploaded the game ideas file. Can you now make a new investor pitch document for me?"
     attachments:
       - "ReDoodle.txt"
       - "Daily Game Ideas.txt"
+  - test_case_name: Startup Idea Feedback 1
+    test_case_type: "feedback"
+    transcription_file: "transcript_Startup_Idea_2_202503031659.md"
+    open_document_markdown_file: "Daily Game Ideas.txt"
+    next_ask: "Can you give feedback on the doc?"
+    attachments:
+      - "ReDoodle.txt"
+  - test_case_name: Web Frontends Edit 2
+    test_case_type: "writing"
+    transcription_file: "transcript_Web_Frontends_202502281551.md"
+    open_document_markdown_file: "Frontend Framework Proposal.txt"
+    next_ask: "Please consolidate the Recommendation and Conclusion sections"
+  - test_case_name: Web Frontends Comments 3
+    test_case_type: "comment_analysis"
+    transcription_file: "transcript_Web_Frontends_202502281551.md"
+    open_document_markdown_file: "Frontend Framework Proposal.txt"
+    next_ask: "Please resolve the comments in the document."
+    comments:
+      - location_text: "Initial Learning Curve:"
+        comment_text: "Find some data to support the claims made in this section?"
+      - location_text: "Based on the analysis, using Fluent UI"
+        comment_text: "Combine this section with the Conclusion section"

@@ -1,7 +1,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import time
+
 import pytest
 from mcp_server.app_interaction.word_editor import (
+    WordCommentData,
+    add_document_comment,
+    delete_comments_containing_text,
     get_active_document,
     get_markdown_representation,
     get_word_app,
@@ -22,7 +27,7 @@ def word_document():
 
 
 def test_get_markdown_representation_1(word_document):
-    markdown_text = get_markdown_representation(word_document)
+    markdown_text = get_markdown_representation(word_document, include_comments=True)
     assert markdown_text is not None
 
 
@@ -56,9 +61,6 @@ That's all!"""
 
 
 def test_write_markdown_to_document_lists(word_document):
-    """
-    This will show what is lost when we convert to markdown and back to Word.
-    """
     markdown_text = """## Market Opportunity
 Here are the market opportunities:
 - Growing Market: The market is projected to grow.
@@ -83,3 +85,16 @@ def test_read_markdown_list_ending(word_document):
     write_markdown_to_document(word_document, markdown_text)
     rt_markdown_text = get_markdown_representation(word_document)
     print(rt_markdown_text)
+
+
+def test_comments(word_document):
+    markdown_text = "This is some text in my document."
+    write_markdown_to_document(word_document, markdown_text)
+    text_to_remove = "This is a comment."
+    comment_data = WordCommentData(
+        comment_text=text_to_remove,
+        location_text="some text",
+    )
+    add_document_comment(word_document, comment_data)
+    time.sleep(2)
+    delete_comments_containing_text(word_document, text_to_remove)
