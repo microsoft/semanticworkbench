@@ -87,6 +87,44 @@ def test_read_markdown_list_ending(word_document):
     print(rt_markdown_text)
 
 
+def test_read_markdown_code(word_document):
+    markdown_text = """This example illustrates a very simple Python program.
+```python
+a = 2
+b = 3
+total = a + b
+if total > 4:
+    print(f"Hello, the answer is {a + b}")
+
+```
+This is a new paragraph after the code block.
+"""
+    write_markdown_to_document(word_document, markdown_text)
+    rt_markdown_text = get_markdown_representation(word_document)
+    print(rt_markdown_text)
+
+
+def test_read_markdown_code_2(word_document):
+    markdown_text = """- item 1
+- item 2
+- item 3
+```python
+a = 2
+b = 3
+total = a + b
+if total > 4:
+    print(f"Hello, the answer is {a + b}")
+
+```
+#### This is a heading 4
+1. item 1
+1. item 2
+And here is a regular paragraph"""
+    write_markdown_to_document(word_document, markdown_text)
+    rt_markdown_text = get_markdown_representation(word_document)
+    print(rt_markdown_text)
+
+
 def test_comments(word_document):
     markdown_text = "This is some text in my document."
     write_markdown_to_document(word_document, markdown_text)
