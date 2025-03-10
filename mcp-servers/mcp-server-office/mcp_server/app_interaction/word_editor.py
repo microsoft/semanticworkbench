@@ -37,15 +37,28 @@ def replace_document_content(doc, content):
     doc.Content.Text = content
 
 
-def get_markdown_representation(doc, include_comments=False):
+def get_markdown_representation(doc, include_comments: bool = False) -> str:
     """
     Get the markdown representation of the document.
-    Supports Headings, plaintext, bulleted/numbered lists, bold, and italic.
+    Supports Headings, plaintext, bulleted/numbered lists, bold, italic, and code blocks.
     """
     markdown_text = []
+    in_code_block = False
     for i in range(1, doc.Paragraphs.Count + 1):
         paragraph = doc.Paragraphs(i)
         style_name = paragraph.Style.NameLocal
+
+        # Handle Code style for code blocks
+        if style_name == "Code":
+            if not in_code_block:
+                markdown_text.append("```")
+                in_code_block = True
+            markdown_text.append(paragraph.Range.Text.rstrip())
+            continue
+        elif in_code_block:
+            # Close code block when style changes
+            markdown_text.append("```")
+            in_code_block = False
 
         # Process paragraph style first
         prefix = ""
@@ -130,6 +143,10 @@ def get_markdown_representation(doc, include_comments=False):
         else:
             markdown_text.append(f"{prefix}{para_text}")
 
+    # Close any open code block at the end of document
+    if in_code_block:
+        markdown_text.append("```")
+
     if include_comments:
         comment_section = get_comments_markdown_representation(doc)
         if comment_section:
@@ -209,30 +226,75 @@ def _write_formatted_text(selection, text):
     selection.Font.Italic = False
 
 
-def write_markdown_to_document(doc, markdown_text):
+def write_markdown_to_document(doc, markdown_text: str) -> None:
+    """Writes markdown text to a Word document with appropriate formatting.
+
+    Converts markdown syntax to Word formatting, including:
+    - Headings (# to Heading styles)
+    - Lists (bulleted and numbered)
+    - Text formatting (bold, italic)
+    - Code blocks (``` to Code style)
     """
-    Write the markdown text to the document.
-    Supports headings, plaintext, bulleted/numbered lists, bold, and italic.
-    """
-    # Get current comments
     comments = get_document_comments(doc)
 
-    # Clear the document content and formatting
     doc.Content.Delete()
 
     word_app = doc.Application
     selection = word_app.Selection
 
-    # This fixes an issue where if there are comments on a doc, there is no selection which causes insertion to fail
+    # Create "Code" style if it doesn't exist
+    try:
+        # Check if Code style exists
+        code_style = word_app.ActiveDocument.Styles("Code")
+    except Exception:
+        # Create the Code style
+        code_style = word_app.ActiveDocument.Styles.Add("Code", 1)
+        code_style.Font.Name = "Cascadia Code"
+        code_style.Font.Size = 10
+        code_style.ParagraphFormat.SpaceAfter = 0
+        code_style.QuickStyle = True
+        code_style.LinkStyle = True
+
+    # This fixes an issue where if there are comments on a doc, there is no selection
+    # which causes insertion to fail
     doc.Range(0, 0).Select()
 
     # Ensure we start with normal style
     selection.Style = word_app.ActiveDocument.Styles("Normal")
 
     lines = markdown_text.split("\n")
-    for line in lines:
-        line = line.strip()
+    i = 0
+    in_code_block = False
+    while i < len(lines):
+        line = lines[i].strip()
+        i += 1
+
         if not line:
+            selection.TypeParagraph()
+            continue
+
+        if line.startswith("```"):
+            in_code_block = True
+            i_start = i
+
+            # Find the end of the code block
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                i += 1
+
+            # Process all lines in the code block
+            for j in range(i_start, i):
+                code_line = lines[j]
+                selection.TypeText(code_line)
+                selection.Style = word_app.ActiveDocument.Styles("Code")
+                selection.TypeParagraph()
+
+            # Skip the closing code fence
+            if i < len(lines):
+                i += 1
+            in_code_block = False
+
+            # Restore normal style for next paragraph
+            selection.Style = word_app.ActiveDocument.Styles("Normal")
             continue
 
         # Check if the line is a heading
@@ -247,7 +309,6 @@ def write_markdown_to_document(doc, markdown_text):
             # Remove the # characters and any leading space
             text = line[heading_level:].strip()
 
-            # Insert the text at the end of the document with formatting support
             _write_formatted_text(selection, text)
 
             # Get the current paragraph and set its style
@@ -255,7 +316,6 @@ def write_markdown_to_document(doc, markdown_text):
             if 1 <= heading_level <= 9:  # Word supports Heading 1-9
                 current_paragraph.Style = f"Heading {heading_level}"
 
-            # Add a new line for the next paragraph
             selection.TypeParagraph()
 
         # Check if line is a bulleted list item
@@ -263,16 +323,12 @@ def write_markdown_to_document(doc, markdown_text):
             # Extract the text after the bullet marker
             text = line[2:].strip()
 
-            # Type the text with formatting support
             _write_formatted_text(selection, text)
 
             # Apply bullet formatting
             selection.Range.ListFormat.ApplyBulletDefault()
 
-            # Add a new line
             selection.TypeParagraph()
-
-            # Reset formatting to normal to prevent carrying over to next paragraph
             selection.Style = word_app.ActiveDocument.Styles("Normal")
 
         # Check if line is a numbered list item
@@ -289,16 +345,11 @@ def write_markdown_to_document(doc, markdown_text):
                     text = parts[1]
 
             if text:
-                # Type the text with formatting support
                 _write_formatted_text(selection, text)
 
                 # Apply numbered list formatting
                 selection.Range.ListFormat.ApplyNumberDefault()
-
-                # Add a new line
                 selection.TypeParagraph()
-
-                # Reset formatting to normal to prevent carrying over to next paragraph
                 selection.Style = word_app.ActiveDocument.Styles("Normal")
             else:
                 # If parsing failed, just add the line as normal text
