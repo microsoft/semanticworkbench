@@ -51,7 +51,8 @@ You will be provided important context to give you the information needed to sel
 - Are there duplicated sections?
 - Is there content that seems like it was removed but should not have been?
 - Are there any sections or content that are out of order?
-- Do NOT comment on the Markdown syntax itself or other minor formatting issues.
+- Do NOT comment on the Markdown syntax itself or other minor formatting issues. \
+If the user does ask explicitly about things like grammar or spelling, you are definitely allowed to comment on that.
 
 ### Writing Style
 - Especially if the user provided documents that they have written, is the writing style of this document consistent with the user's style?

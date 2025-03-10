@@ -9,6 +9,9 @@ If the context is relevant, you must use it accurately and factually.
 Knowledge cutoff: {{knowledge_cutoff}}
 Current date: {{current_date}}
 
+## Task Info:
+{{task}}
+
 ## On Provided Context
 You will be provided important context to give you the information needed to select the correct tool(s) to modify the document.
 - The current content of the document is enclosed in <document> and </document> tags.
