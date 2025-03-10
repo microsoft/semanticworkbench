@@ -1,11 +1,11 @@
 import argparse
+import json
 import subprocess
 import sys
 import threading
 import time
-import uuid
 from dataclasses import dataclass, field
-from typing import IO, Any, NoReturn, cast
+from typing import IO, Any, NoReturn
 
 import yaml
 from termcolor import cprint
@@ -23,10 +23,18 @@ class MCPServer:
 
 
 @dataclass
-class MCPTunnel:
-    name: str
+class TunnelledPort:
+    tunnel_id: str
+    port: int
     sse_url: str
     headers: dict[str, str]
+    access_token: str
+
+
+@dataclass
+class MCPTunnel:
+    name: str
+    ports: list[TunnelledPort]
 
 
 class TunnelManager:
@@ -46,8 +54,6 @@ class TunnelManager:
             ][i % 7]
             for i in range(len(servers))
         }
-        suffix = uuid.uuid4().hex[:6]
-        self.server_labels = [f"{server.name}-{suffix}" for server in servers]
 
     def output_reader(self, server_name: str, stream: IO, color: Color):
         """Thread function to read output from a process stream and print it."""
@@ -68,37 +74,43 @@ class TunnelManager:
             line_text = line.rstrip()
             cprint(f"{prefix}{line_text}", color)
 
-    def start_tunnel(self, server: MCPServer) -> MCPTunnel:
+    def start_tunnel(self, servers: list[MCPServer]) -> MCPTunnel:
         """Start a single tunnel process for a server."""
-        color = cast(Color, self.server_colors[server.name])
 
-        cprint(f"Starting tunnel for {server.name} on port {server.port}...", color)
+        ports = [server.port for server in servers]
 
-        if not devtunnel.delete_tunnel(server.name):
-            cprint(f"Warning: Failed to delete existing tunnel for {server.name}", color, file=sys.stderr)
+        color = "yellow"
+        tunnel_id = devtunnel.safe_tunnel_id("/".join((f"{server.name}-{server.port}" for server in servers)))
+
+        cprint(f"Starting tunnel for ports {ports}...", color)
+
+        if not devtunnel.delete_tunnel(tunnel_id):
+            cprint(f"Warning: Failed to delete existing tunnel", "red", file=sys.stderr)
             sys.exit(1)
 
-        if not devtunnel.create_tunnel(server.name, server.port):
-            cprint(f"Failed to create new tunnel for {server.name}", color, file=sys.stderr)
+        if not devtunnel.create_tunnel(tunnel_id, ports):
+            cprint(f"Failed to create new tunnel for ports {ports}", "red", file=sys.stderr)
             sys.exit(1)
+
+        access_token = devtunnel.get_access_token(tunnel_id)
 
         # Start the devtunnel process
         process = subprocess.Popen(
-            ["devtunnel", "host", devtunnel._local_tunnel_id(server.name)],
+            ["devtunnel", "host", tunnel_id],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,  # Line buffered
         )
 
-        self.processes[server.name] = process
+        self.processes[tunnel_id] = process
 
         # Start threads to read stdout and stderr
         stdout_thread = threading.Thread(
-            target=self.output_reader, args=(server.name, process.stdout, color), daemon=True
+            target=self.output_reader, args=(tunnel_id, process.stdout, color), daemon=True
         )
         stderr_thread = threading.Thread(
-            target=self.output_reader, args=(server.name, process.stderr, "red"), daemon=True
+            target=self.output_reader, args=(tunnel_id, process.stderr, "red"), daemon=True
         )
 
         stdout_thread.start()
@@ -112,34 +124,33 @@ class TunnelManager:
                 cprint("Tunnel hosting process has exited. Restart and try again.", "red", file=sys.stderr)
                 sys.exit(1)
 
-            uri = devtunnel.get_tunnel_uri(server.name)
+            tunnelled_ports = []
+            for port in ports:
+                uri = devtunnel.get_tunnel_uri(tunnel_id=tunnel_id, port=port)
 
-            if not uri:
-                attempts += 1
-                continue
+                if not uri:
+                    attempts += 1
+                    continue
 
-            cprint(f"Tunnel for {server.name} started successfully: {uri}", color)
+                cprint(f"Tunnel for {port} started successfully: {uri}", color)
 
-            access_token = devtunnel.get_access_token(server.name)
+                uri = uri.rstrip("/") + "/sse"
+                tunnelled_ports.append(
+                    TunnelledPort(
+                        port=port,
+                        sse_url=uri,
+                        headers={"X-Tunnel-Authorization": f"tunnel {access_token}"},
+                        access_token=access_token,
+                        tunnel_id=tunnel_id,
+                    )
+                )
 
-            uri = uri.rstrip("/") + "/sse"
-            return MCPTunnel(
-                name=server.name, sse_url=uri, headers={"X-Tunnel-Authorization": f"tunnel {access_token}"}
-            )
+
+            return MCPTunnel(tunnel_id, tunnelled_ports)
 
         self.terminate_tunnels()
-        cprint(f"Failed to start tunnel for {server.name} after 10 attempts", color, file=sys.stderr)
+        cprint(f"Failed to start tunnel after 10 attempts", color, file=sys.stderr)
         sys.exit(1)
-
-    def start_all_tunnels(self) -> list[MCPTunnel]:
-        """Start all tunnel processes."""
-
-        tunnels: list[MCPTunnel] = []
-        for server in self.servers:
-            tunnel = self.start_tunnel(server)
-            tunnels.append(tunnel)
-
-        return tunnels
 
     def terminate_tunnels(self) -> None:
         """Terminate all running tunnel processes."""
@@ -220,7 +231,7 @@ def main() -> int:
     return 0
 
 
-def write_assistant_config(servers: list[MCPServer], tunnels: list[MCPTunnel]) -> None:
+def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
     """
     extensions_config:
     tools:
@@ -253,14 +264,20 @@ def write_assistant_config(servers: list[MCPServer], tunnels: list[MCPTunnel]) -
                         "key": server.name,
                         "enabled": True,
                         "command": tunnel.sse_url,
-                        "args": [],
+                        "args": [
+                            json.dumps({
+                                "tunnel_id": tunnel.tunnel_id,
+                                "port": tunnel.port,
+                                "access_token": tunnel.access_token,
+                            })
+                        ],
                         "env": [{"key": key, "value": value} for key, value in tunnel.headers.items()],
                         "prompt": "",
                         "long_running": False,
                         "task_completion_estimate": 30,
                         **server.extras,
                     }
-                    for server, tunnel in zip(servers, tunnels)
+                    for server, tunnel in zip(servers, tunnel.ports)
                 ],
             }
         }
@@ -291,7 +308,7 @@ def tunnel_servers(servers: list[MCPServer]):
 
     try:
         # Start all tunnel processes
-        tunnels = tunnel_manager.start_all_tunnels()
+        tunnels = tunnel_manager.start_tunnel(servers)
 
         write_assistant_config(servers, tunnels)
 
