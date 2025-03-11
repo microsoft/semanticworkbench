@@ -135,15 +135,16 @@ def _dev_tunnel_command_path() -> str:
 
 async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
     # get details of the tunnel, including ports
+    cmd = [
+        _dev_tunnel_command_path(),
+        "show",
+        tunnel_id,
+        "--access-token",
+        access_token,
+        "--json",
+    ]
     completed_process = subprocess.run(
-        [
-            _dev_tunnel_command_path(),
-            "show",
-            tunnel_id,
-            "--access-token",
-            access_token,
-            "--json",
-        ],
+        cmd,
         timeout=20,
         text=True,
         capture_output=True,
@@ -151,7 +152,7 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
 
     if completed_process.returncode != 0:
         raise RuntimeError(
-            f"Failed to execute devtunnel show; exit code: {completed_process.returncode}; error: {completed_process.stderr}"
+            f"Failed to execute devtunnel show; cmd: {cmd}, exit code: {completed_process.returncode}, error: {completed_process.stderr}"
         )
 
     try:
@@ -167,14 +168,15 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
 
     expected_ports: list[dict] = tunnel.get("ports", [])
 
+    cmd = [
+        _dev_tunnel_command_path(),
+        "connect",
+        tunnel_id,
+        "--access-token",
+        access_token,
+    ]
     process = subprocess.Popen(
-        [
-            _dev_tunnel_command_path(),
-            "connect",
-            tunnel_id,
-            "--access-token",
-            access_token,
-        ],
+        cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -182,7 +184,7 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
     )
 
     if process.stdout is None:
-        raise RuntimeError("Failed to start devtunnel connect")
+        raise RuntimeError(f"Failed to start devtunnel connect; cmd: {cmd}, exit code: {process.returncode}")
 
     async def read_port_mapping_from_stdout(
         stdout: IO[str],
@@ -202,7 +204,9 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
             if len(port_mapping) == len(expected_ports):
                 return port_mapping
 
-        raise RuntimeError("Failed to read port mapping from devtunnel process")
+        stderr = process.stderr.read() if process.stderr else ""
+
+        raise RuntimeError(f"Failed to read port mapping from devtunnel process; cmd: {cmd}; err: {stderr}")
 
     async with asyncio.timeout(20):
         port_mapping = await read_port_mapping_from_stdout(process.stdout)
