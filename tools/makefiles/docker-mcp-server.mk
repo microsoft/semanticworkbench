@@ -7,7 +7,7 @@ invoking_makefile_directory = $(notdir $(patsubst %/,%,$(dir $(realpath $(firstw
 
 MCP_SERVER_PACKAGE ?= $(invoking_makefile_directory)
 MCP_SERVER_IMAGE_NAME ?= $(subst -,_,$(invoking_makefile_directory))
-MCP_SERVER_MAIN_MODULE ?= $(MCP_SERVER_PACKAGE).start
+MCP_SERVER_MAIN_MODULE ?= $(MCP_SERVER_IMAGE_NAME).start
 
 DOCKER_PATH = $(repo_root)
 DOCKER_FILE = $(repo_root)/tools/docker/Dockerfile.mcp-server
