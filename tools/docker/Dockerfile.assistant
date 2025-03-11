@@ -47,6 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && curl -sL -o /bin/devtunnel https://tunnelsassetsprod.blob.core.windows.net/cli/linux-x64-devtunnel \
     && chmod +x /bin/devtunnel
+ENV DEVTUNNEL_COMMAND_PATH=/bin/devtunnel
 # END: install devtunnels CLI
 
 COPY --from=build /packages/assistants/assistant/.venv /packages/assistants/assistant/.venv
