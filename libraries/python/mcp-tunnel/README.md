@@ -37,7 +37,7 @@ make install
 Start tunnels for default MCP servers (vscode on port 6010 and office on port 25566):
 
 ```bash
-uvx --from git+https://github.com/microsoft/semanticworkbench#subdirectory=libraries/python/mcp-tunnel mcp-tunnel mcp-tunnel
+uvx --from git+https://github.com/microsoft/semanticworkbench#subdirectory=libraries/python/mcp-tunnel mcp-tunnel
 ```
 
 or on a cloned repo
