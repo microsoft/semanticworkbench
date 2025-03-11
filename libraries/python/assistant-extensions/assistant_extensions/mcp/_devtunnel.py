@@ -144,11 +144,15 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
             access_token,
             "--json",
         ],
-        check=True,
         timeout=20,
         text=True,
         capture_output=True,
     )
+
+    if completed_process.returncode != 0:
+        raise RuntimeError(
+            f"Failed to execute devtunnel show; exit code: {completed_process.returncode}; error: {completed_process.stderr}"
+        )
 
     try:
         output = json.loads(completed_process.stdout)
@@ -178,7 +182,7 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
     )
 
     if process.stdout is None:
-        raise RuntimeError("Failed to start devtunnel process")
+        raise RuntimeError("Failed to start devtunnel connect")
 
     async def read_port_mapping_from_stdout(
         stdout: IO[str],
