@@ -50,6 +50,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV DEVTUNNEL_COMMAND_PATH=/bin/devtunnel
 # END: install devtunnels CLI
 
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gettext \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /packages/assistants/assistant/.venv /packages/assistants/assistant/.venv
 ENV PATH=/packages/assistants/assistant/.venv/bin:$PATH
 
