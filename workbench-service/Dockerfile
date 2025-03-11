@@ -26,6 +26,10 @@ ENV SSHD_PORT=2222
 ########
 # END: enable ssh in azure web app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gettext \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /workbench-service/.venv /workbench-service/.venv
 ENV PATH=/workbench-service/.venv/bin:$PATH
 
