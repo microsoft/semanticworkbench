@@ -156,8 +156,11 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
         )
 
     try:
+        # the output sometimes includes a welcome message :/
+        # so we need to truncate anything prior to the first curly brace
+        stdout = completed_process.stdout[completed_process.stdout.index("{") :]
         output = json.loads(completed_process.stdout)
-    except json.JSONDecodeError as e:
+    except (json.JSONDecodeError, ValueError) as e:
         raise RuntimeError(
             f"Failed to parse JSON output from devtunnel show: {e}"
         ) from e
