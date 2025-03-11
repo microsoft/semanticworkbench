@@ -88,7 +88,8 @@ class TunnelManager:
             cprint(f"Warning: Failed to delete existing tunnel", "red", file=sys.stderr)
             sys.exit(1)
 
-        if not devtunnel.create_tunnel(tunnel_id, ports):
+        success, fully_qualified_tunnel_id = devtunnel.create_tunnel(tunnel_id, ports)
+        if not success:
             cprint(f"Failed to create new tunnel for ports {ports}", "red", file=sys.stderr)
             sys.exit(1)
 
@@ -116,41 +117,18 @@ class TunnelManager:
         stdout_thread.start()
         stderr_thread.start()
 
-        attempts = 1
-        while attempts <= 20:
-            time.sleep(1)
+        tunnelled_ports = [
+            TunnelledPort(
+                port=port,
+                sse_url=f"http://127.0.0.1:{port}/sse",
+                headers={},
+                access_token=access_token,
+                tunnel_id=fully_qualified_tunnel_id,
+            )
+            for port in ports
+        ]
 
-            if process.poll() is not None:
-                cprint("Tunnel hosting process has exited. Restart and try again.", "red", file=sys.stderr)
-                sys.exit(1)
-
-            tunnelled_ports = []
-            for port in ports:
-                uri = devtunnel.get_tunnel_uri(tunnel_id=tunnel_id, port=port)
-
-                if not uri:
-                    attempts += 1
-                    continue
-
-                cprint(f"Tunnel for {port} started successfully: {uri}", color)
-
-                uri = uri.rstrip("/") + "/sse"
-                tunnelled_ports.append(
-                    TunnelledPort(
-                        port=port,
-                        sse_url=uri,
-                        headers={"X-Tunnel-Authorization": f"tunnel {access_token}"},
-                        access_token=access_token,
-                        tunnel_id=tunnel_id,
-                    )
-                )
-
-
-            return MCPTunnel(tunnel_id, tunnelled_ports)
-
-        self.terminate_tunnels()
-        cprint(f"Failed to start tunnel after 10 attempts", color, file=sys.stderr)
-        sys.exit(1)
+        return MCPTunnel(name=fully_qualified_tunnel_id, ports=tunnelled_ports)
 
     def terminate_tunnels(self) -> None:
         """Terminate all running tunnel processes."""
