@@ -7,4 +7,5 @@ if [ -n "${SSHD_PORT}" ]; then
     service ssh start
 fi
 
-exec "$@"
+cmd=$(echo "$@" | envsubst)
+exec ${cmd}

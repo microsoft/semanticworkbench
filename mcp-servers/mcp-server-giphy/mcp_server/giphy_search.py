@@ -1,7 +1,7 @@
 # Giphy Search Functionality
 
-import os
 from typing import List, Optional
+from .config import settings
 
 import requests
 from mcp.server.fastmcp import Context
@@ -43,11 +43,10 @@ async def perform_search(context: str, search_term: str, ctx: Context) -> Option
 
 
 async def search(search_term: str) -> Optional[List[dict]]:
-    api_key = os.getenv("GIPHY_API_KEY")  # Retrieve the GIPHY API Key from the environment
-    if not api_key:
-        raise ValueError("GIPHY_API_KEY not set in the environment")
+    if not settings.giphy_api_key:
+        raise ValueError("Giphy API key is not set in the configuration.")
 
-    giphy_url = f"https://api.giphy.com/v1/gifs/search?api_key={api_key}&q={search_term}&limit=5"
+    giphy_url = f"https://api.giphy.com/v1/gifs/search?api_key={settings.giphy_api_key}&q={search_term}&limit=5"
     response = requests.get(giphy_url)
     if response.status_code == 200:
         return GiphyResponse(**response.json()).data
