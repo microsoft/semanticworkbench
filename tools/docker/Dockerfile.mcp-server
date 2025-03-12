@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
-# Dockerfile for assistants
+# Dockerfile for mcp-servers
 # Context root is expected to be the root of the repo
 ARG python_image=python:3.11-slim
 
-# These build arguments will differ per assistant:
-# package is the directory name of the assistant package under /assistants
+# These build arguments will differ per mcp-server:
+# package is the directory name of the mcp-server package under /mcp-servers
 ARG package
-ARG app
+ARG main_module
 
 FROM ${python_image} AS build
 
@@ -18,14 +18,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 # copy all library packages
 COPY ./libraries/python /packages/libraries/python
 # copy the assistant package
-COPY ./assistants/${package} /packages/assistants/assistant
+COPY ./mcp-servers/${package} /packages/mcp-servers/mcp-server
 
-# install the assistant and dependencies to /.venv
-RUN uv sync --directory /packages/assistants/assistant --no-editable --no-dev --locked
+# install the mcp-server and dependencies to /.venv
+RUN uv sync --directory /packages/mcp-servers/mcp-server --no-editable --no-dev --locked
 
 FROM ${python_image}
 
-ARG app
+ARG main_module
 
 # BEGIN: enable ssh in azure web app - comment out if not needed
 ########
@@ -41,32 +41,20 @@ ENV SSHD_PORT=2222
 ########
 # END: enable ssh in azure web app
 
-# BEGIN: install devtunnels CLI - comment out if not needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl libsecret-1-0 libicu-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -sL -o /bin/devtunnel https://tunnelsassetsprod.blob.core.windows.net/cli/linux-x64-devtunnel \
-    && chmod +x /bin/devtunnel
-ENV DEVTUNNEL_COMMAND_PATH=/bin/devtunnel
-# END: install devtunnels CLI
-
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gettext \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /packages/assistants/assistant/.venv /packages/assistants/assistant/.venv
-ENV PATH=/packages/assistants/assistant/.venv/bin:$PATH
+COPY --from=build /packages/mcp-servers/mcp-server/.venv /packages/mcp-servers/mcp-server/.venv
+ENV PATH=/packages/mcp-servers/mcp-server/.venv/bin:$PATH
 
 COPY ./tools/docker/docker-entrypoint.sh /scripts/docker-entrypoint.sh
 RUN chmod +x /scripts/docker-entrypoint.sh
 
-ENV ASSISTANT_APP=${app}
-
-ENV assistant__host=0.0.0.0
-ENV assistant__port=3001
+ENV MAIN_MODULE=${main_module}
+ENV PORT=3001
 ENV PYTHONUNBUFFERED=1
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
-CMD ["start-assistant"]
+CMD ["python", "-m", "${MAIN_MODULE}", "--transport", "sse", "--port", "${PORT}"]

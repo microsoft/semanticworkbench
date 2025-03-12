@@ -12,6 +12,8 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.shared.context import RequestContext
 
+from . import _devtunnel
+
 from ._model import (
     MCPErrorHandler,
     MCPSamplingMessageHandler,
@@ -37,16 +39,20 @@ async def connect_to_mcp_server(
     sampling_callback: Optional[SamplingFnT] = None,
 ) -> AsyncIterator[Optional[ClientSession]]:
     """Connect to a single MCP server defined in the config."""
-    if server_config.command.startswith("http"):
-        async with connect_to_mcp_server_sse(
-            server_config, sampling_callback
-        ) as client_session:
-            yield client_session
-    else:
-        async with connect_to_mcp_server_stdio(
-            server_config, sampling_callback
-        ) as client_session:
-            yield client_session
+    transport = "sse" if server_config.command.startswith("http") else "stdio"
+
+    match transport:
+        case "sse":
+            async with connect_to_mcp_server_sse(
+                server_config, sampling_callback
+            ) as client_session:
+                yield client_session
+
+        case "stdio":
+            async with connect_to_mcp_server_stdio(
+                server_config, sampling_callback
+            ) as client_session:
+                yield client_session
 
 
 def list_roots_callback_for(server_config: MCPServerConfig):
@@ -139,16 +145,11 @@ async def connect_to_mcp_server_sse(
         headers = get_env_dict(server_config)
         url = server_config.command
 
-        # Process args to add URL parameters
-        # All args are joined into a single comma-separated list
-        if server_config.args and len(server_config.args) >= 1:
-            # Join all args with commas
-            args_value = ",".join(server_config.args)
-
-            # Add to URL with 'args' as the parameter name
-            url_params = {"args": args_value}
-            url = add_params_to_url(url, url_params)
-            logger.debug(f"Added parameter args={args_value} to URL")
+        devtunnel_config = _devtunnel.config_from(server_config.args)
+        if devtunnel_config:
+            url = await _devtunnel.forwarded_url_for(
+                original_url=url, devtunnel=devtunnel_config
+            )
 
         logger.debug(
             f"Attempting to connect to {server_config.key} with SSE transport: {url}"

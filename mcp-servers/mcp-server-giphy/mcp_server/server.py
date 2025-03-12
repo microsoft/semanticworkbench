@@ -2,7 +2,7 @@ from typing import Optional
 
 from mcp.server.fastmcp import Context, FastMCP
 
-from . import settings
+from .config import settings
 from .giphy_search import perform_search
 
 # Set the name of the MCP server

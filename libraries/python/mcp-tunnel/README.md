@@ -10,13 +10,21 @@ The tool uses Microsoft's DevTunnel service to create secure tunnels from the in
 
 ## Prerequisites
 
-- Python 3.11 or higher
+- uv
 - [Microsoft DevTunnel CLI](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started) installed and available in your PATH
 - A Microsoft account (to log in to DevTunnel)
 
-## Installation
+## Quickstart - Run from this repo
 
-Install MCP Tunnel using make from the `mcp-tunnel` directory:
+Run the mcp-tunnel script directly from this repository using `uvx`:
+
+```bash
+uvx --from git+https://github.com/microsoft/semanticworkbench#subdirectory=libraries/python/mcp-tunnel mcp-tunnel --help
+```
+
+## Installation for development on a repo clone
+
+After cloning the repo, install MCP Tunnel using make from the `mcp-tunnel` directory:
 
 ```bash
 make install
@@ -29,12 +37,24 @@ make install
 Start tunnels for default MCP servers (vscode on port 6010 and office on port 25566):
 
 ```bash
+uvx --from git+https://github.com/microsoft/semanticworkbench#subdirectory=libraries/python/mcp-tunnel mcp-tunnel
+```
+
+or on a cloned repo
+
+```bash
 uv run mcp-tunnel
 ```
 
 ### Custom Servers
 
 Specify custom server names and ports:
+
+```bash
+uvx --from git+https://github.com/microsoft/semanticworkbench#subdirectory=libraries/python/mcp-tunnel mcp-tunnel --servers "myserver:8080,anotherserver:9000"
+```
+
+or on a cloned repo
 
 ```bash
 uv run mcp-tunnel --servers "myserver:8080,anotherserver:9000"
@@ -50,29 +70,12 @@ When you run MCP Tunnel, it will:
 4. Generate a configuration file at `~/.mcp-tunnel/config.yaml`
 5. Keep tunnels running until you press Ctrl+C
 
-Example output:
-
-```
-DevTunnel CLI detected and user is logged in
-Starting tunnels for servers: vscode, office
-Starting tunnel for vscode on port 6010...
-Starting tunnel for office on port 25566...
-[vscode] Tunnel vscode-a1b2c3 is online and ready to use
-[vscode] Using tunnel URL: https://a1b2c3d4-6010.usw2.devtunnels.ms
-[office] Tunnel office-a1b2c3 is online and ready to use
-[office] Using tunnel URL: https://e5f6g7h8-25566.usw2.devtunnels.ms
-
-Config file written to: /home/user/.mcp-tunnel/config.yaml
-
-All tunnels started. Press Ctrl+C to stop all tunnels.
-```
-
 ## Configuration
 
 MCP Tunnel generates a configuration file at `~/.mcp-tunnel/config.yaml` that can be used to connect your AI assistant to the tunnels. The configuration includes:
 
 - SSE endpoints for each tunnel
-- Authentication headers
+- Dev tunnel details
 
 You can use this configuration with the Codespace assistant by importing it from the Assistant Configuration screen.
 

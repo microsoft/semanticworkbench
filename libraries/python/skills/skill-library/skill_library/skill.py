@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .logging import extra_data, logger
 from .types import AskUserFn, EmitFn, RunContext, RunRoutineFn
@@ -29,8 +29,9 @@ class SkillConfig(BaseModel):
 
     name: str
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+    )
 
 
 class SkillProtocol(Protocol):

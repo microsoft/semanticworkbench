@@ -89,45 +89,6 @@ class MCPToolsConfigModel(BaseModel):
         ),
     ] = True
 
-    max_steps: Annotated[
-        int,
-        Field(
-            title="Maximum Steps",
-            description="The maximum number of steps to take when using tools, to avoid infinite loops.",
-        ),
-    ] = 50
-
-    max_steps_truncation_message: Annotated[
-        str,
-        Field(
-            title="Maximum Steps Truncation Message",
-            description="The message to display when the maximum number of steps is reached.",
-        ),
-    ] = "[ Maximum steps reached for this turn, engage with assistant to continue ]"
-
-    additional_instructions: Annotated[
-        str,
-        Field(
-            title="Tools Instructions",
-            description=dedent("""
-                General instructions for using tools.  No need to include a list of tools or instruction
-                on how to use them in general, that will be handled automatically.  Instead, use this
-                space to provide any additional instructions for using specific tools, such folders to
-                exclude in file searches, or instruction to always re-read a file before using it.
-            """).strip(),
-        ),
-        UISchema(widget="textarea", enable_markdown_in_description=True),
-    ] = dedent("""
-        - Use the available tools to assist with specific tasks.
-        - Before performing any file operations, use the `list_allowed_directories` tool to get a list of directories
-            that are allowed for file operations. Always use paths relative to an allowed directory.
-        - When searching or browsing for files, consider the kinds of folders and files that should be avoided:
-            - For example, for coding projects exclude folders like `.git`, `.vscode`, `node_modules`, and `dist`.
-        - For each turn, always re-read a file before using it to ensure the most up-to-date information, especially
-            when writing or editing files.
-        - The search tool does not appear to support wildcards, but does work with partial file names.
-    """).strip()
-
     mcp_servers: Annotated[
         List[MCPServerConfig],
         Field(
@@ -238,6 +199,45 @@ class MCPToolsConfigModel(BaseModel):
             enabled=False,
         ),
     ]
+
+    max_steps: Annotated[
+        int,
+        Field(
+            title="Maximum Steps",
+            description="The maximum number of steps to take when using tools, to avoid infinite loops.",
+        ),
+    ] = 50
+
+    max_steps_truncation_message: Annotated[
+        str,
+        Field(
+            title="Maximum Steps Truncation Message",
+            description="The message to display when the maximum number of steps is reached.",
+        ),
+    ] = "[ Maximum steps reached for this turn, engage with assistant to continue ]"
+
+    additional_instructions: Annotated[
+        str,
+        Field(
+            title="Tools Instructions",
+            description=dedent("""
+                General instructions for using tools.  No need to include a list of tools or instruction
+                on how to use them in general, that will be handled automatically.  Instead, use this
+                space to provide any additional instructions for using specific tools, such folders to
+                exclude in file searches, or instruction to always re-read a file before using it.
+            """).strip(),
+        ),
+        UISchema(widget="textarea", enable_markdown_in_description=True),
+    ] = dedent("""
+        - Use the available tools to assist with specific tasks.
+        - Before performing any file operations, use the `list_allowed_directories` tool to get a list of directories
+            that are allowed for file operations. Always use paths relative to an allowed directory.
+        - When searching or browsing for files, consider the kinds of folders and files that should be avoided:
+            - For example, for coding projects exclude folders like `.git`, `.vscode`, `node_modules`, and `dist`.
+        - For each turn, always re-read a file before using it to ensure the most up-to-date information, especially
+            when writing or editing files.
+        - The search tool does not appear to support wildcards, but does work with partial file names.
+    """).strip()
 
     tools_disabled: Annotated[
         list[str],

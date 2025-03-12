@@ -1,7 +1,7 @@
 from mcp.server.fastmcp import Context, FastMCP
 from mcp_extensions import send_tool_call_progress
 
-from . import settings
+from .config import settings
 from .web_research import perform_web_research
 
 # Set the name of the MCP server
