@@ -1,15 +1,15 @@
 import logging
 from contextlib import AsyncExitStack
-from typing import Any, List
+from typing import Any
 
 from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.mcp import (
-    MCPServerConfig,
-    MCPSession,
     OpenAISamplingHandler,
     establish_mcp_sessions,
+    get_enabled_mcp_server_configs,
     get_mcp_server_prompts,
     refresh_mcp_sessions,
+    MCPServerConnectionError,
 )
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
@@ -38,20 +38,6 @@ async def respond_to_conversation(
     """
 
     async with AsyncExitStack() as stack:
-        # If tools are enabled, establish connections to the MCP servers
-        mcp_sessions: List[MCPSession] = []
-
-        async def error_handler(server_config: MCPServerConfig, error: Exception) -> None:
-            logger.error(f"Failed to connect to MCP server {server_config.key}: {error}")
-            # Also notify the user about this server failure here.
-            await context.send_messages(
-                NewConversationMessage(
-                    content=f"Failed to connect to MCP server {server_config.key}: {error}",
-                    message_type=MessageType.notice,
-                    metadata=metadata,
-                )
-            )
-
         # Get the AI client configurations for this assistant
         generative_ai_client_config = get_ai_client_configs(config, "generative")
         reasoning_ai_client_config = get_ai_client_configs(config, "reasoning")
@@ -75,24 +61,27 @@ async def respond_to_conversation(
             ]
         )
 
-        mcp_sessions = await establish_mcp_sessions(
-            tools_config=config.extensions_config.tools,
-            stack=stack,
-            error_handler=error_handler,
-            sampling_handler=sampling_handler.handle_message,
-        )
+        enabled_servers = get_enabled_mcp_server_configs(config.extensions_config.tools)
 
-        if (
-            config.extensions_config.tools.enabled
-            and len(config.extensions_config.tools.mcp_servers) > 0
-            and len(mcp_sessions) == 0
-        ):
-            # No MCP servers are available, so we should not continue
-            logger.error("No MCP servers are available.")
+        try:
+            mcp_sessions = await establish_mcp_sessions(
+                mcp_server_configs=enabled_servers,
+                stack=stack,
+                sampling_handler=sampling_handler.handle_message,
+            )
+
+        except MCPServerConnectionError as e:
+            await context.send_messages(
+                NewConversationMessage(
+                    content=f"Failed to connect to MCP server {e.server_config.key}: {e}",
+                    message_type=MessageType.notice,
+                    metadata=metadata,
+                )
+            )
             return
 
         # Retrieve prompts from the MCP servers
-        mcp_prompts = get_mcp_server_prompts(config.extensions_config.tools)
+        mcp_prompts = get_mcp_server_prompts(enabled_servers)
 
         # Initialize a loop control variable
         max_steps = config.extensions_config.tools.max_steps

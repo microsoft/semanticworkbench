@@ -69,7 +69,9 @@ def is_logged_in() -> bool:
     # the output sometimes includes a welcome message :/
     # so we need to truncate anything prior to the first curly brace
     stdout = stdout[stdout.index("{") :]
-    return json.loads(stdout)["status"] == "Logged in"
+    user_response: dict[str, Any] = json.loads(stdout)
+    status = (user_response.get("status") or "").lower()
+    return  status == "logged in"
 
 
 def delete_tunnel(tunnel_id: str) -> bool:
