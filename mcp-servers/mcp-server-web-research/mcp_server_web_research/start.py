@@ -3,6 +3,7 @@
 import argparse
 
 from .server import create_mcp_server
+from .config import ensure_required_settings
 
 
 def main() -> None:
@@ -22,6 +23,8 @@ def main() -> None:
     mcp = create_mcp_server()
     if args.transport == "sse":
         mcp.settings.port = args.port
+
+    ensure_required_settings()
 
     mcp.run(transport=args.transport)
 

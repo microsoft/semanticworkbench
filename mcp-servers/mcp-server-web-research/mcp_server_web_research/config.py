@@ -19,9 +19,11 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Ensure required settings are set.
-# These values should have been set in the environment.
-required_settings = ["azure_openai_deployment", "azure_openai_endpoint", "bing_subscription_key"]
-for setting in required_settings:
-    if not getattr(settings, setting):
-        raise ValueError(f"Missing required setting: {setting}")
+def ensure_required_settings() -> None:
+    # Ensure required settings are set.
+    # These values should have been set in the environment.
+    required_settings = ["azure_openai_deployment", "azure_openai_endpoint", "bing_subscription_key"]
+    missing_settings = [setting for setting in required_settings if not getattr(settings, setting)]
+
+    if missing_settings:
+        raise ValueError(f"Missing required settings: {', '.join(missing_settings)}")
