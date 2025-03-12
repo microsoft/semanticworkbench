@@ -17,7 +17,7 @@ from mcp_server.app_interaction.word_editor import (
 )
 from mcp_server.markdown_edit.comment_analysis import run_comment_analysis
 from mcp_server.markdown_edit.feedback_step import run_feedback_step
-from mcp_server.markdown_edit.markdown_routine import run_markdown_edit
+from mcp_server.markdown_edit.markdown_edit import run_markdown_edit
 from mcp_server.types import MarkdownEditRequest
 
 server_name = "Office MCP Server"

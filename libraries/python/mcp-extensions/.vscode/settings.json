@@ -43,11 +43,13 @@
     "uv.lock"
   ],
   "cSpell.words": [
+    "aoai",
     "asyncio",
     "deepmerge",
     "fastmcp",
     "interoperating",
     "Lifecycles",
+    "OAIAPI",
     "pydantic",
     "pyright",
     "pytest"

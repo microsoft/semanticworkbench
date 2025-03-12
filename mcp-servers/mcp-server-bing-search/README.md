@@ -1,6 +1,6 @@
 # Bing Search MCP Server
 
-Search the web using Bing services
+Searches the web and reads links
 
 This is a [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP) server project.
 
@@ -21,19 +21,19 @@ Use the VSCode launch configuration, or run manually:
 Defaults to stdio transport:
 
 ```bash
-uv run -m mcp_server.start
+uv run mcp-server-bing-search
 ```
 
 For SSE transport:
 
 ```bash
-uv run -m mcp_server.start --transport sse --port 6030
+uv run mcp-server-bing-search --transport sse --port 25567
 ```
 
 The SSE URL is:
 
 ```bash
-http://127.0.0.1:6030/sse
+http://127.0.0.1:25567/sse
 ```
 
 ## Client Configuration
@@ -47,7 +47,7 @@ To use this MCP server in your setup, consider the following configuration:
   "mcpServers": {
     "mcp-server-bing-search": {
       "command": "uv",
-      "args": ["run", "-m", "mcp_server.start"]
+      "args": ["run", "-m", "mcp_server_bing_search.start"]
     }
   }
 }
@@ -59,7 +59,7 @@ To use this MCP server in your setup, consider the following configuration:
 {
   "mcpServers": {
     "mcp-server-bing-search": {
-      "command": "http://127.0.0.1:6030/sse",
+      "command": "http://127.0.0.1:25567/sse",
       "args": []
     }
   }
