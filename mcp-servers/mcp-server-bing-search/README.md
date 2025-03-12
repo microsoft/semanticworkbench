@@ -4,6 +4,23 @@ Searches the web and reads links
 
 This is a [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP) server project.
 
+## Tools
+
+### `search(query: str) -> str`
+- Calls the Bing Search API with the provided query.
+- Processes each URL from the search results:
+  - Gets the content of the page
+  - Converts it to Markdown using Markitdown
+  - Parses out links separately. Caches a unique hash to associate with each link.
+  - (Optional, on by default) Uses sampling to select the most important links to return.
+  - (Optional, on by default) Filters out the Markdown content to the most important parts.
+- Returns the processed content and links as a LLM-friendly string.
+
+### `click(hashes: list[str]) -> str`
+- Takes a list of hashes (which originate from the `search` tool).
+- For each hash gets the corresponding URL from the local cache.
+- Then does the same processing as `search` for each URL and returns a similar LLM-friendly string.
+
 ## Setup and Installation
 
 Simply run:
