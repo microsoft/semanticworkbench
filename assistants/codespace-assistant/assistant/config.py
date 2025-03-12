@@ -90,6 +90,14 @@ class PromptsConfigModel(BaseModel):
 
 # the workbench app builds dynamic forms based on the configuration model and UI schema
 class AssistantConfigModel(BaseModel):
+    extensions_config: Annotated[
+        ExtensionsConfigModel,
+        Field(
+            title="Extensions Configuration",
+            description="Configuration for the assistant extensions.",
+        ),
+    ] = ExtensionsConfigModel()
+
     prompts: Annotated[
         PromptsConfigModel,
         Field(
@@ -166,14 +174,6 @@ class AssistantConfigModel(BaseModel):
         ),
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
-
-    extensions_config: Annotated[
-        ExtensionsConfigModel,
-        Field(
-            title="Extensions Configuration",
-            description="Configuration for the assistant extensions.",
-        ),
-    ] = ExtensionsConfigModel()
 
     # add any additional configuration fields
 

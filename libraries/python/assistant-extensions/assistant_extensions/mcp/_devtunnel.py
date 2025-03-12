@@ -21,6 +21,11 @@ class DevTunnelConfig:
     port: int
 
 
+    def unique_tunnel_id(self) -> str:
+        """Generate a unique ID for the tunnel."""
+        return f"{self.tunnel_id}-{self.access_token}"
+
+
 def config_from(args: list[str]) -> DevTunnelConfig | None:
     dev_tunnel_id = ""
     dev_tunnel_access_token = ""
@@ -51,11 +56,7 @@ def config_from(args: list[str]) -> DevTunnelConfig | None:
 
 
 async def forwarded_url_for(devtunnel: DevTunnelConfig, original_url: str) -> str:
-    local_port = await _get_devtunnel_local_port(
-        tunnel_id=devtunnel.tunnel_id,
-        port=devtunnel.port,
-        access_token=devtunnel.access_token,
-    )
+    local_port = await _get_devtunnel_local_port(devtunnel)
     return original_url.replace(f":{devtunnel.port}", f":{local_port}", 1)
 
 
@@ -75,7 +76,7 @@ _retirement_task: asyncio.Task | None = None
 
 
 def _updated_retire_at() -> float:
-    return perf_counter() + (60.0 * 30)  # 30 minutes
+    return perf_counter() + (60.0 * 60)  # 60 minutes
 
 
 async def _retire_tunnels() -> None:
@@ -113,9 +114,10 @@ async def _retire_tunnels_periodically() -> None:
         await asyncio.sleep(60)
 
 
-async def _get_tunnel(tunnel_id: str) -> DevTunnel | None:
+async def _get_tunnel(devtunnel: DevTunnelConfig) -> DevTunnel | None:
     async with _read_lock:
-        dev_tunnel = _dev_tunnels.get(tunnel_id)
+        key = devtunnel.unique_tunnel_id()
+        dev_tunnel = _dev_tunnels.get(key)
 
         if not dev_tunnel:
             return None
@@ -125,7 +127,7 @@ async def _get_tunnel(tunnel_id: str) -> DevTunnel | None:
             return None
 
         # update the retirement time
-        _dev_tunnels_retire_at[tunnel_id] = _updated_retire_at()
+        _dev_tunnels_retire_at[key] = _updated_retire_at()
         return dev_tunnel
 
 
@@ -133,14 +135,14 @@ def _dev_tunnel_command_path() -> str:
     return os.getenv("DEVTUNNEL_COMMAND_PATH", "devtunnel")
 
 
-async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
+async def _create_tunnel(devtunnel: DevTunnelConfig) -> DevTunnel:
     # get details of the tunnel, including ports
     cmd = [
         _dev_tunnel_command_path(),
         "show",
-        tunnel_id,
+        devtunnel.tunnel_id,
         "--access-token",
-        access_token,
+        devtunnel.access_token,
         "--json",
     ]
     completed_process = subprocess.run(
@@ -159,7 +161,7 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
         # the output sometimes includes a welcome message :/
         # so we need to truncate anything prior to the first curly brace
         stdout = completed_process.stdout[completed_process.stdout.index("{") :]
-        output = json.loads(completed_process.stdout)
+        output = json.loads(stdout)
     except (json.JSONDecodeError, ValueError) as e:
         raise RuntimeError(
             f"Failed to parse JSON output from devtunnel show: {e}"
@@ -167,16 +169,16 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
 
     tunnel: dict[str, Any] = output.get("tunnel")
     if not tunnel:
-        raise RuntimeError(f"Tunnel {tunnel_id} not found")
+        raise RuntimeError(f"Tunnel {devtunnel.tunnel_id} not found")
 
     expected_ports: list[dict] = tunnel.get("ports", [])
 
     cmd = [
         _dev_tunnel_command_path(),
         "connect",
-        tunnel_id,
+        devtunnel.tunnel_id,
         "--access-token",
-        access_token,
+        devtunnel.access_token,
     ]
     process = subprocess.Popen(
         cmd,
@@ -215,9 +217,10 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
         port_mapping = await read_port_mapping_from_stdout(process.stdout)
 
     dev_tunnel = DevTunnel(process=process, port_mapping=port_mapping)
-    _dev_tunnels[tunnel_id] = dev_tunnel
-    # retire the tunnel after 30 minutes of inactivity
-    _dev_tunnels_retire_at[tunnel_id] = _updated_retire_at()
+
+    key = devtunnel.unique_tunnel_id()
+    _dev_tunnels[key] = dev_tunnel
+    _dev_tunnels_retire_at[key] = _updated_retire_at()
 
     # start the retirement task if not already started
     global _retirement_task
@@ -227,24 +230,22 @@ async def _create_tunnel(tunnel_id: str, access_token: str) -> DevTunnel:
     return dev_tunnel
 
 
-async def _get_devtunnel_local_port(
-    tunnel_id: str, port: int, access_token: str
-) -> int:
+async def _get_devtunnel_local_port(devtunnel: DevTunnelConfig) -> int:
     # try to get tunnel
-    dev_tunnel = await _get_tunnel(tunnel_id)
+    dev_tunnel = await _get_tunnel(devtunnel)
 
     # if not found, lock, and try to get again
     if not dev_tunnel:
         async with _write_lock:
-            dev_tunnel = await _get_tunnel(tunnel_id)
+            dev_tunnel = await _get_tunnel(devtunnel)
 
             # if still not found, create tunnel
             if not dev_tunnel:
-                dev_tunnel = await _create_tunnel(tunnel_id, access_token)
+                dev_tunnel = await _create_tunnel(devtunnel)
 
-    local_port = dev_tunnel.port_mapping.get(port)
+    local_port = dev_tunnel.port_mapping.get(devtunnel.port)
     if local_port is None:
         raise RuntimeError(
-            f"Port {port} is not found for tunnel {tunnel_id}. Available ports: {list(dev_tunnel.port_mapping.keys())}"
+            f"Port {devtunnel.port} is not found for tunnel {devtunnel.tunnel_id}. Available ports: {list(dev_tunnel.port_mapping.keys())}"
         )
     return local_port
