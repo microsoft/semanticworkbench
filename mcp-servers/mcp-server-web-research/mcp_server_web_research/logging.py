@@ -3,12 +3,14 @@ import logging
 from datetime import datetime
 from typing import Any
 from uuid import UUID
+from .config import settings
 
 from pydantic import BaseModel
 
+
+logging.root.setLevel(logging.getLevelNamesMapping()[settings.log_level.upper()])
+
 logger = logging.getLogger("skill-assistant")
-logger.setLevel(logging.DEBUG)
-# logger.addHandler(NullHandler())
 
 
 def convert_to_serializable(data: Any) -> Any:
