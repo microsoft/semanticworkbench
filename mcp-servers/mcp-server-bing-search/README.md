@@ -27,13 +27,13 @@ uv run mcp-server-bing-search
 For SSE transport:
 
 ```bash
-uv run mcp-server-bing-search --transport sse --port 25567
+uv run mcp-server-bing-search --transport sse --port 6030
 ```
 
 The SSE URL is:
 
 ```bash
-http://127.0.0.1:25567/sse
+http://127.0.0.1:6030/sse
 ```
 
 ## Client Configuration
@@ -59,7 +59,7 @@ To use this MCP server in your setup, consider the following configuration:
 {
   "mcpServers": {
     "mcp-server-bing-search": {
-      "command": "http://127.0.0.1:25567/sse",
+      "command": "http://127.0.0.1:6030/sse",
       "args": []
     }
   }

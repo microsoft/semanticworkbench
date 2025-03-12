@@ -7,7 +7,7 @@
       "name": "mcp-servers: mcp-server-bing-search",
       "cwd": "${workspaceFolder}",
       "module": "mcp_server_bing_search.start",
-      "args": ["--transport", "sse", "--port", "25567"],
+      "args": ["--transport", "sse", "--port", "6030"],
       "consoleTitle": "mcp-server-bing-search"
       // "justMyCode": false // Set to false to debug external libraries
     },
