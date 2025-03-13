@@ -3,17 +3,37 @@
 import asyncio
 import os
 
+from mcp_extensions.llm.openai_chat_completion import openai_client
 from rich.console import Console
 from rich.panel import Panel
 
+from mcp_server.app_interaction.word_editor import (
+    get_active_document,
+    get_word_app,
+    write_markdown_to_document,
+)
 from mcp_server.evals.common import load_test_cases
-from mcp_server.llm.openai_chat_completion import openai_client
 from mcp_server.markdown_edit.feedback_step import run_feedback_step
 from mcp_server.types import (
     CustomContext,
     FeedbackOutput,
     MarkdownEditRequest,
 )
+
+
+def write_context_to_word(custom_context: CustomContext) -> None:
+    """
+    Write the document content from the custom context to a Word document.
+
+    Args:
+        custom_context: Context containing the document to write
+    """
+    try:
+        word_app = get_word_app()
+        doc = get_active_document(word_app)
+        write_markdown_to_document(doc, custom_context.document)
+    except Exception as e:
+        raise RuntimeError(f"Failed to write context to Word document.\n{e}") from e
 
 
 def print_feedback_output(
@@ -61,6 +81,8 @@ async def main() -> None:
     )
 
     for i, custom_context in enumerate(custom_contexts):
+        write_context_to_word(custom_context)
+
         markdown_edit_request = MarkdownEditRequest(
             context=custom_context,
             request_type="dev",

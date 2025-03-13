@@ -5,14 +5,12 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
+from mcp_extensions.llm.llm_types import AssistantMessage, MessageT, UserMessage
 
 from mcp_server.constants import COMMENT_AUTHOR
 from mcp_server.types import (
-    AssistantMessage,
     CustomContext,
-    MessageT,
     TestCase,
-    UserMessage,
     WordCommentData,
 )
 

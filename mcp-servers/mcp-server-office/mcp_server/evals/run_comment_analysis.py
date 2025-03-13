@@ -3,10 +3,10 @@
 import asyncio
 import os
 
+from mcp_extensions.llm.openai_chat_completion import openai_client
 from rich.console import Console
 
 from mcp_server.evals.common import load_test_cases
-from mcp_server.llm.openai_chat_completion import openai_client
 from mcp_server.markdown_edit.comment_analysis import run_comment_analysis
 from mcp_server.types import (
     MarkdownEditRequest,

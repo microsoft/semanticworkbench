@@ -4,6 +4,8 @@ import json
 import logging
 
 import pendulum
+from mcp_extensions.llm.chat_completion import chat_completion
+from mcp_extensions.llm.llm_types import ChatCompletionRequest, UserMessage
 
 from mcp_server.app_interaction.word_editor import (
     add_document_comment,
@@ -12,7 +14,6 @@ from mcp_server.app_interaction.word_editor import (
     get_word_app,
 )
 from mcp_server.helpers import compile_messages, format_chat_history
-from mcp_server.llm.chat_completion import chat_completion
 from mcp_server.prompts.feedback import (
     FEEDBACK_CONVERT_MESSAGES,
     FEEDBACK_MESSAGES,
@@ -20,11 +21,9 @@ from mcp_server.prompts.feedback import (
     FEEDBACK_TOOL_NAME,
 )
 from mcp_server.types import (
-    ChatCompletionRequest,
     CustomContext,
     FeedbackOutput,
     MarkdownEditRequest,
-    UserMessage,
     WordCommentData,
 )
 

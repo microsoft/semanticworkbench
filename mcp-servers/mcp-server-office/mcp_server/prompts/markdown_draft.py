@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from mcp_server.types import DeveloperMessage, UserMessage
+from mcp_extensions.llm.llm_types import DeveloperMessage, UserMessage
 
 MD_DRAFT_REASONING_DEV_PROMPT = DeveloperMessage(
     content="""You're a document writer working inside Microsoft Word with PhD-level expertise across multiple domains and are using the provided conversation history as the primary context. \

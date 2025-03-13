@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from mcp_server.types import DeveloperMessage, SystemMessage, UserMessage
+from mcp_extensions.llm.llm_types import DeveloperMessage, SystemMessage, UserMessage
 
 FEEDBACK_DEV_PROMPT = DeveloperMessage(
     content="""You are an expert document reviewer with PhD-level expertise across multiple domains. \
