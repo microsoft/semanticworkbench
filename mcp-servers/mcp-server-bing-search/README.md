@@ -1,8 +1,25 @@
 # Bing Search MCP Server
 
-Search the web using Bing services
+Searches the web and reads links
 
 This is a [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP) server project.
+
+## Tools
+
+### `search(query: str) -> str`
+- Calls the Bing Search API with the provided query.
+- Processes each URL from the search results:
+  - Gets the content of the page
+  - Converts it to Markdown using Markitdown
+  - Parses out links separately. Caches a unique hash to associate with each link.
+  - (Optional, on by default) Uses sampling to select the most important links to return.
+  - (Optional, on by default) Filters out the Markdown content to the most important parts.
+- Returns the processed content and links as a LLM-friendly string.
+
+### `click(hashes: list[str]) -> str`
+- Takes a list of hashes (which originate from the `search` tool).
+- For each hash gets the corresponding URL from the local cache.
+- Then does the same processing as `search` for each URL and returns a similar LLM-friendly string.
 
 ## Setup and Installation
 
@@ -21,13 +38,13 @@ Use the VSCode launch configuration, or run manually:
 Defaults to stdio transport:
 
 ```bash
-uv run -m mcp_server.start
+uv run mcp-server-bing-search
 ```
 
 For SSE transport:
 
 ```bash
-uv run -m mcp_server.start --transport sse --port 6030
+uv run mcp-server-bing-search --transport sse --port 6030
 ```
 
 The SSE URL is:
@@ -47,7 +64,7 @@ To use this MCP server in your setup, consider the following configuration:
   "mcpServers": {
     "mcp-server-bing-search": {
       "command": "uv",
-      "args": ["run", "-m", "mcp_server.start"]
+      "args": ["run", "-m", "mcp_server_bing_search.start"]
     }
   }
 }

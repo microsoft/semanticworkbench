@@ -270,7 +270,6 @@ def write_markdown_to_document(doc, markdown_text: str) -> None:
         i += 1
 
         if not line:
-            selection.TypeParagraph()
             continue
 
         if line.startswith("```"):
