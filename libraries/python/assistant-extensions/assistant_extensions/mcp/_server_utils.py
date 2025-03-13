@@ -2,7 +2,7 @@ import logging
 import pathlib
 from asyncio import CancelledError
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Any, AsyncIterator, List, Optional
+from typing import Any, AsyncIterator, Optional
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import pydantic
@@ -15,7 +15,6 @@ from mcp.shared.context import RequestContext
 from . import _devtunnel
 
 from ._model import (
-    MCPErrorHandler,
     MCPSamplingMessageHandler,
     MCPServerConfig,
     MCPSession,
@@ -37,7 +36,7 @@ def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
 async def connect_to_mcp_server(
     server_config: MCPServerConfig,
     sampling_callback: Optional[SamplingFnT] = None,
-) -> AsyncIterator[Optional[ClientSession]]:
+) -> AsyncIterator[ClientSession]:
     """Connect to a single MCP server defined in the config."""
     transport = "sse" if server_config.command.startswith("http") else "stdio"
 
@@ -93,7 +92,7 @@ def list_roots_callback_for(server_config: MCPServerConfig):
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
     sampling_callback: Optional[SamplingFnT] = None,
-) -> AsyncIterator[Optional[ClientSession]]:
+) -> AsyncIterator[ClientSession]:
     """Connect to a single MCP server defined in the config."""
 
     server_params = StdioServerParameters(
@@ -138,7 +137,7 @@ def add_params_to_url(url: str, params: dict[str, str]) -> str:
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
     sampling_callback: Optional[SamplingFnT] = None,
-) -> AsyncIterator[Optional[ClientSession]]:
+) -> AsyncIterator[ClientSession]:
     """Connect to a single MCP server defined in the config using SSE transport."""
 
     try:
@@ -241,24 +240,32 @@ async def reconnect_mcp_session(server_config: MCPServerConfig) -> MCPSession | 
         return None
 
 
+class MCPServerConnectionError(Exception):
+    """Custom exception for errors related to MCP server connections."""
+
+    def __init__(self, server_config: MCPServerConfig, error: Exception):
+        super().__init__(str(error))
+        self.server_config = server_config
+        self.error = error
+
+
 async def establish_mcp_sessions(
-    tools_config: MCPToolsConfigModel,
+    mcp_server_configs: list[MCPServerConfig],
     stack: AsyncExitStack,
-    error_handler: Optional[MCPErrorHandler] = None,
     sampling_handler: Optional[MCPSamplingMessageHandler] = None,
-) -> List[MCPSession]:
-    mcp_sessions: List[MCPSession] = []
+) -> list[MCPSession]:
+    """
+    Establish connections to multiple MCP servers and return their sessions.
+    """
 
-    if tools_config.enabled is False:
-        # MCP tools are disabled, so we should not continue
-        return mcp_sessions
-
-    for server_config in tools_config.mcp_servers:
+    mcp_sessions: list[MCPSession] = []
+    for server_config in mcp_server_configs:
         if not server_config.enabled:
-            logger.debug(f"Skipping disabled server: {server_config.key}")
+            logger.debug("skipping disabled MCP server: %s", server_config.key)
             continue
+
         try:
-            client_session: ClientSession | None = await stack.enter_async_context(
+            client_session: ClientSession = await stack.enter_async_context(
                 connect_to_mcp_server(
                     server_config,
                     sampling_callback=sampling_handler,
@@ -266,34 +273,33 @@ async def establish_mcp_sessions(
             )
         except Exception as e:
             # Log a cleaner error message for this specific server
-            logger.error(f"Failed to connect to MCP server {server_config.key}: {e}")
-            # Also notify the user about this server failure here.
-            if error_handler:
-                await error_handler(server_config, e)
-            # Abort the connection attempt for the servers to avoid only partial server connections
-            # This could lead to assistant creatively trying to use the other tools to compensate
-            # for the missing tools, which can sometimes be very problematic.
-            return []
+            logger.exception("failed to connect to MCP server: %s", server_config.key)
+            raise MCPServerConnectionError(server_config, e) from e
 
-        if client_session:
-            mcp_session = MCPSession(
-                config=server_config, client_session=client_session
-            )
-            await mcp_session.initialize()
-            mcp_sessions.append(mcp_session)
-        else:
-            logger.warning(f"Could not establish session with {server_config.key}")
+        mcp_session = MCPSession(
+            config=server_config, client_session=client_session
+        )
+        await mcp_session.initialize()
+        mcp_sessions.append(mcp_session)
+
     return mcp_sessions
 
 
-def get_mcp_server_prompts(tools_config: MCPToolsConfigModel) -> List[str]:
-    """Get the prompts for all MCP servers."""
-
-    if not tools_config.enabled:
+def get_enabled_mcp_server_configs(tools: MCPToolsConfigModel) -> list[MCPServerConfig]:
+    if not tools.enabled:
         return []
 
     return [
+        server_config
+        for server_config in tools.mcp_servers
+        if server_config.enabled
+    ]
+
+
+def get_mcp_server_prompts(mcp_servers: list[MCPServerConfig]) -> list[str]:
+    """Get the prompts for all MCP servers that have them."""
+    return [
         mcp_server.prompt
-        for mcp_server in tools_config.mcp_servers
+        for mcp_server in mcp_servers
         if mcp_server.prompt
     ]

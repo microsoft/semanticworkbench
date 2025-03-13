@@ -214,10 +214,10 @@ def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
     extensions_config:
     tools:
         enabled: true
-        mcp_servers:
+        personal_mcp_servers:
         - enabled: true
             key: vscode
-            command: https://88c223vw-6010.usw2.devtunnels.ms/sse
+            command: https://aaaaa-6010.usw2.devtunnels.ms/sse
             args: []
             env: []
             prompt: ''
@@ -225,7 +225,7 @@ def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
             task_completion_estimate: 30
         - enabled: false
             key: fetch
-            command: https://jtsxbnjx-50001.usw2.devtunnels.ms/sse
+            command: https://aaaaa-50001.usw2.devtunnels.ms/sse
             args: []
             env: []
             prompt: ''
@@ -237,7 +237,7 @@ def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
         "extensions_config": {
             "tools": {
                 "enabled": True,
-                "mcp_servers": [
+                "personal_mcp_servers": [
                     {
                         "key": server.name,
                         "enabled": True,

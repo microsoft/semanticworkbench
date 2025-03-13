@@ -1,4 +1,5 @@
 import logging
+import os
 from textwrap import dedent
 from typing import Annotated, Any, Awaitable, Callable, List
 
@@ -41,7 +42,7 @@ class MCPServerConfig(BaseModel):
     args: Annotated[
         List[str],
         Field(title="Arguments", description="Arguments to pass to the server."),
-    ]
+    ] = []
 
     roots: Annotated[
         List[str],
@@ -80,6 +81,116 @@ class MCPServerConfig(BaseModel):
     ] = 30
 
 
+class HostedMCPServerConfig(MCPServerConfig):
+    enabled: Annotated[
+        bool, Field(title="Enabled", description="Enable the server.")
+    ] = True
+
+    key: Annotated[
+        str,
+        Field(title="Key", description="Unique key for the server configuration."),
+        UISchema(readonly=True, widget="hidden"),
+    ]
+
+    command: Annotated[
+        str,
+        Field(
+            title="Command",
+            description="Command to run the server, use url if using SSE transport.",
+        ),
+        UISchema(readonly=True, widget="hidden"),
+    ]
+
+    args: Annotated[
+        List[str],
+        Field(title="Arguments", description="Arguments to pass to the server."),
+        UISchema(readonly=True, widget="hidden"),
+    ] = []
+
+    roots: Annotated[
+        List[str],
+        Field(
+            title="Roots",
+            description="Roots to pass to the server. Usually absolute URLs or absolute file paths.",
+        ),
+        UISchema(readonly=True, widget="hidden"),
+    ] = []
+
+    env: Annotated[
+        List[MCPServerEnvConfig],
+        Field(
+            title="Environment Variables", description="Environment variables to set."
+        ),
+        UISchema(readonly=True, widget="hidden"),
+    ] = []
+
+    prompt: Annotated[
+        str,
+        Field(title="Prompt", description="Instructions for using the server."),
+        UISchema(widget="textarea"),
+        UISchema(readonly=True, widget="hidden"),
+    ] = ""
+
+    long_running: Annotated[
+        bool,
+        Field(
+            title="Long Running", description="Does this server run long running tasks?"
+        ),
+        UISchema(readonly=True, widget="hidden"),
+    ] = False
+
+    task_completion_estimate: Annotated[
+        int,
+        Field(
+            title="Long Running Task Completion Time Estimate",
+            description="Estimated time to complete an average long running task (in seconds).",
+        ),
+        UISchema(readonly=True, widget="hidden"),
+    ] = 30
+
+
+
+def _mcp_server_config_from_env(key: str, url_env_var: str) -> HostedMCPServerConfig:
+    """Returns a HostedMCPServerConfig object with the command (URL) set from the environment variable."""
+    env_value = os.getenv(url_env_var.upper()) or os.getenv(url_env_var.lower()) or ""
+    return HostedMCPServerConfig(key=key, command=env_value, enabled=bool(env_value))
+
+
+class HostedMCPServersConfigModel(BaseModel):
+    """
+    Configuration model for hosted MCP servers.
+    """
+
+    web_research: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Web Research",
+            description="Configuration for the web research server.",
+        ),
+    ] = _mcp_server_config_from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
+
+    giphy: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Giphy",
+            description="Configuration for the Giphy server.",
+        ),
+    ] = _mcp_server_config_from_env("giphy", "MCP_SERVER_GIPHY_URL")
+
+    @property
+    def mcp_servers(self) -> list[HostedMCPServerConfig]:
+        """
+        Returns a list of all hosted MCP servers that are configured.
+        """
+        # Get all fields that are of type HostedMCPServerConfig
+        configs = [getattr(self, field) for field in self.model_fields if isinstance(getattr(self, field), HostedMCPServerConfig)]
+        # Filter out any configs that are missing command (URL)
+        return [
+            config for config in configs if config.command
+        ]
+
+
+
 class MCPToolsConfigModel(BaseModel):
     enabled: Annotated[
         bool,
@@ -89,11 +200,19 @@ class MCPToolsConfigModel(BaseModel):
         ),
     ] = True
 
-    mcp_servers: Annotated[
+    hosted_mcp_servers: Annotated[
+        HostedMCPServersConfigModel,
+        Field(
+            title="Hosted MCP Servers",
+            description="Configuration for hosted MCP servers that provide tools to the assistant.",
+        ),
+    ] = HostedMCPServersConfigModel()
+
+    personal_mcp_servers: Annotated[
         List[MCPServerConfig],
         Field(
-            title="MCP Servers",
-            description="Configuration for MCP servers that provide tools to the assistant.",
+            title="Personal MCP Servers",
+            description="Configuration for personal MCP servers that provide tools to the assistant.",
         ),
     ] = [
         MCPServerConfig(
@@ -104,11 +223,13 @@ class MCPToolsConfigModel(BaseModel):
                 "@modelcontextprotocol/server-filesystem",
                 "/workspaces/semanticworkbench",
             ],
+            enabled=False,
         ),
         MCPServerConfig(
             key="vscode",
             command="http://127.0.0.1:6010/sse",
             args=[],
+            enabled=False,
         ),
         MCPServerConfig(
             key="bing-search",
@@ -249,6 +370,13 @@ class MCPToolsConfigModel(BaseModel):
             """).strip(),
         ),
     ] = ["directory_tree"]
+
+    @property
+    def mcp_servers(self) -> list[MCPServerConfig]:
+        """
+        Returns a list of all MCP servers, including both hosted and personal configurations.
+        """
+        return self.hosted_mcp_servers.mcp_servers + self.personal_mcp_servers
 
 
 class MCPSession:
