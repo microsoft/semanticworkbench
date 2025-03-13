@@ -3,6 +3,8 @@
 import json
 
 import pendulum
+from mcp_extensions.llm.chat_completion import chat_completion
+from mcp_extensions.llm.llm_types import ChatCompletionRequest, UserMessage
 
 from mcp_server.app_interaction.word_editor import (
     get_active_document,
@@ -12,15 +14,12 @@ from mcp_server.app_interaction.word_editor import (
 )
 from mcp_server.constants import FEEDBACK_ASSISTANT_PREFIX
 from mcp_server.helpers import compile_messages, format_chat_history
-from mcp_server.llm.chat_completion import chat_completion
 from mcp_server.prompts.comment_analysis import COMMENT_ANALYSIS_MESSAGES, COMMENT_ANALYSIS_SCHEMA
 from mcp_server.types import (
-    ChatCompletionRequest,
     CommentAnalysisData,
     CommentAnalysisOutput,
     CustomContext,
     MarkdownEditRequest,
-    UserMessage,
 )
 
 
@@ -95,6 +94,9 @@ async def run_comment_analysis(markdown_edit_request: MarkdownEditRequest) -> Co
             else:
                 try:
                     comment_id = int(comment_id) - 1
+                    # Add bounds check to prevent index error when comments list is empty
+                    if comment_id < 0 or comment_id >= len(comments):
+                        continue
                 except ValueError:
                     continue
             comment_analysis_data.append(

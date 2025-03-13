@@ -7,7 +7,9 @@ The assistant has provided you the following task:
 <task>
 {{task}}
 </task>
-You should follow this task, if provided. However also make sure to consider the entire context of the document, user's preferences, additional context, and the assistant's suggestions.
+You should follow this task, if provided. DO NOT make more changes than are requested, even if the user had requested additional changes or their comments say to resolve things. \
+You will very likely make these changes in a future step, so focus on the current task with high quality.
+You should still make sure to consider the user's preferences and any additional context.
 When you are unsure how far to go with the edits, make smaller changes or ask the user/assistant for more information.
 Whenever possible, ground your edits on the provided context including the conversation with the user and any additionally provided context."""
 

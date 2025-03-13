@@ -7,6 +7,8 @@ import logging
 import pendulum
 from liquid import Template
 from mcp.server.fastmcp import Context
+from mcp_extensions.llm.chat_completion import chat_completion
+from mcp_extensions.llm.llm_types import ChatCompletionRequest, UserMessage
 
 from mcp_server.app_interaction.word_editor import (
     get_active_document,
@@ -17,7 +19,6 @@ from mcp_server.app_interaction.word_editor import (
 )
 from mcp_server.constants import CHANGE_SUMMARY_PREFIX, DEFAULT_DOC_EDIT_TASK, DEFAULT_DRAFT_TASK
 from mcp_server.helpers import compile_messages, format_chat_history
-from mcp_server.llm.chat_completion import chat_completion
 from mcp_server.markdown_edit.utils import (
     blockify,
     construct_page_for_llm,
@@ -36,11 +37,9 @@ from mcp_server.prompts.markdown_edit import (
     SEND_MESSAGE_TOOL_NAME,
 )
 from mcp_server.types import (
-    ChatCompletionRequest,
     CustomContext,
     MarkdownEditOutput,
     MarkdownEditRequest,
-    UserMessage,
 )
 
 logger = logging.getLogger(__name__)

@@ -8,8 +8,7 @@ requires-python = ">=3.11, <3.13"
 
 dependencies = [
     "aiohttp>=3.11.13",
-    "azure-identity>=1.20.0",
-    "mcp-extensions[openai]>=0.1.0",
+    "mcp-extensions[llm,openai]>=0.1.0",
     "ngrok>=1.4.0",
     "pendulum>=3.0.0",
     "pydantic>=2.10.6",

@@ -6,13 +6,13 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from mcp_extensions.llm.openai_chat_completion import openai_client
 from rich.columns import Columns
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
 from mcp_server.evals.common import load_test_cases
-from mcp_server.llm.openai_chat_completion import openai_client
 from mcp_server.markdown_edit.markdown_edit import run_markdown_edit
 from mcp_server.types import (
     CustomContext,

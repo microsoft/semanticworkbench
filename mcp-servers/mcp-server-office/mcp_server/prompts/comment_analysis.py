@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from mcp_server.types import SystemMessage, UserMessage
+from mcp_extensions.llm.llm_types import SystemMessage, UserMessage
 
 COMMENT_ANALYSIS_DEV_PROMPT = SystemMessage(
     content="""You are an expert document editor with deep knowledge of technical writing and content revision workflows.

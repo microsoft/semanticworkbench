@@ -65,7 +65,7 @@ def create_mcp_server() -> FastMCP:
     async def get_word_content(ctx: Context) -> str:
         """
         Returns the content of the open Word document. Use this tool when you just need the content of the document.
-        If you need to make changes to the document, use the edit_word_document tool instead. It will automatically also get the current content of the document.
+        You should use this after making edits to get the current state of the document.
         """
         word = get_word_app()
         doc = get_active_document(word)

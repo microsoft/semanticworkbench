@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from mcp_server.types import DeveloperMessage, SystemMessage, UserMessage
+from mcp_extensions.llm.llm_types import DeveloperMessage, SystemMessage, UserMessage
 
 MD_EDIT_REASONING_DEV_PROMPT = DeveloperMessage(
     content="""You're a Markdown document editor in charge of precisely editing a Markdown document according to a task, using the provided conversation history as the primary context. \
@@ -33,6 +33,8 @@ On the other hand, if you are updating the block after a heading, do not acciden
 You should never remove or update this block. It is not actually shown to the user.
     - If the document contains comments, they are enclosed in <comments id=i> and </comments> tags at the end of the document.
     - Each comment includes the text of the comment and the part of the text it refers to, enclosed in the corresponding tags.
+    - Comments are NOT auto-resolved. They might be left over and the user has not resolved them yet. \
+If it appears that you have resolved them in a previous turn, do not keep addressing them.
     - You cannot edit these comments, they are only provided for context.
 - The conversation history between the user and assistant is provided before the document.
 - You may be provided additional context, such as attached documents, before the document and conversation history.
