@@ -23,11 +23,6 @@ class MCPServerProcess:
     process: subprocess.Popen | None
 
 
-MCP_SERVER_OFFICE_PORT = 25252
-MCP_SERVER_FILE_SYSTEM_PORT = 59595
-MCP_SERVER_VSCODE_PORT = 6010
-
-
 def parse_arguments() -> dict[str, Any]:
     """
     Parse command-line arguments.
@@ -79,6 +74,9 @@ def _run_executable(executable_name: str, args: list[str]) -> subprocess.Popen |
     return subprocess.Popen([executable_path] + args)
 
 
+MCP_SERVER_OFFICE_PORT = 25252
+
+
 def start_mcp_server_office() -> MCPServerProcess | None:
     process = _run_executable("mcp-server-office", ["--transport", "sse", "--port", str(MCP_SERVER_OFFICE_PORT)])
     if process is None:
@@ -87,19 +85,34 @@ def start_mcp_server_office() -> MCPServerProcess | None:
     return MCPServerProcess(MCPServer("mcp-server-office", MCP_SERVER_OFFICE_PORT), process)
 
 
+MCP_SERVER_VSCODE_PORT = 6010
+
+
 def start_mcp_server_vscode() -> MCPServerProcess | None:
-    return MCPServerProcess(MCPServer("mcp-server-vscode", MCP_SERVER_VSCODE_PORT, extras={"enabled": False}), None)
+    return MCPServerProcess(
+        MCPServer("mcp-server-vscode", MCP_SERVER_VSCODE_PORT, extra_assistant_config={"enabled": False}), None
+    )
+
+
+MCP_SERVER_FILE_SYSTEM_PORT = 59595
 
 
 def start_mcp_server_filesystem() -> MCPServerProcess | None:
     process = _run_executable(
         "mcp-server-filesystem", ["--transport", "sse", "--port", str(MCP_SERVER_FILE_SYSTEM_PORT)]
     )
+    if process is None:
+        return None
+
     return MCPServerProcess(
         MCPServer(
             "mcp-server-filesystem",
             MCP_SERVER_FILE_SYSTEM_PORT,
-            extras={"roots": ["PUT VALID PATH HERE; ex: c:\\Users\\me\\dir (Windows), /home/me/dir (Linux) or /Users/me/dir (Mac)"]},
+            extra_assistant_config={
+                "roots": [
+                    "PUT VALID PATH HERE; ex: c:\\Users\\me\\dir (Windows), /home/me/dir (Linux) or /Users/me/dir (Mac)"
+                ]
+            },
         ),
         process,
     )

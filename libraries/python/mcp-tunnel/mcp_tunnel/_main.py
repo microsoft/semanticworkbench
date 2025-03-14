@@ -19,7 +19,7 @@ from ._dir import get_mcp_tunnel_dir
 class MCPServer:
     name: str
     port: int
-    extras: dict[str, Any] = field(default_factory=dict)
+    extra_assistant_config: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -27,13 +27,12 @@ class TunnelledPort:
     tunnel_id: str
     port: int
     sse_url: str
-    headers: dict[str, str]
-    access_token: str
 
 
 @dataclass
 class MCPTunnel:
-    name: str
+    tunnel_id: str
+    access_token: str
     ports: list[TunnelledPort]
 
 
@@ -85,7 +84,7 @@ class TunnelManager:
         cprint(f"Starting tunnel for ports {ports}...", color)
 
         if not devtunnel.delete_tunnel(tunnel_id):
-            cprint(f"Warning: Failed to delete existing tunnel", "red", file=sys.stderr)
+            cprint("Warning: Failed to delete existing tunnel", "red", file=sys.stderr)
             sys.exit(1)
 
         success, fully_qualified_tunnel_id = devtunnel.create_tunnel(tunnel_id, ports)
@@ -121,14 +120,12 @@ class TunnelManager:
             TunnelledPort(
                 port=port,
                 sse_url=f"http://127.0.0.1:{port}/sse",
-                headers={},
-                access_token=access_token,
                 tunnel_id=fully_qualified_tunnel_id,
             )
             for port in ports
         ]
 
-        return MCPTunnel(name=fully_qualified_tunnel_id, ports=tunnelled_ports)
+        return MCPTunnel(tunnel_id=fully_qualified_tunnel_id, ports=tunnelled_ports, access_token=access_token)
 
     def terminate_tunnels(self) -> None:
         """Terminate all running tunnel processes."""
@@ -241,54 +238,92 @@ def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
                     {
                         "key": server.name,
                         "enabled": True,
-                        "command": tunnel.sse_url,
+                        "command": port.sse_url,
                         "args": [
                             json.dumps({
-                                "tunnel_id": tunnel.tunnel_id,
-                                "port": tunnel.port,
+                                "tunnel_id": port.tunnel_id,
+                                "port": port.port,
                                 "access_token": tunnel.access_token,
                             })
                         ],
-                        "env": [{"key": key, "value": value} for key, value in tunnel.headers.items()],
                         "prompt": "",
                         "long_running": False,
                         "task_completion_estimate": 30,
-                        **server.extras,
+                        **server.extra_assistant_config,
                     }
-                    for server, tunnel in zip(servers, tunnel.ports)
+                    for server, port in zip(servers, tunnel.ports)
                 ],
             }
         }
     }
 
-    config_path = get_mcp_tunnel_dir() / "config.yaml"
+    config_path = get_mcp_tunnel_dir() / "assistant-config.yaml"
     config_path.write_text(yaml.dump(config, sort_keys=False))
 
-    cprint(f"\n{'=' * 80}\n", "green")
-    cprint("Assistant config file written:", "green")
+    cprint("\n\nAssistant config", "green")
+    cprint(f"{'-' * 80}\n", "green")
     cprint(f"\tDirectory: {config_path.parent}", "green")
-    cprint(f"\tFilename: {config_path.name}", "green")
+    cprint(f"\tFile: {config_path}", "green")
     cprint("\nNext steps:", "green")
     cprint("1. Review the file and replace any placeholder values, if there are any", "green")
     cprint("2. Import the file into an assistant to give it access to the MCP servers", "green")
-    cprint(f"\n{'=' * 80}\n", "green")
 
 
-def tunnel_servers(servers: list[MCPServer]):
+def write_mcp_client_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
+    """Write MCP client configuration file (mcp-client.json) for use with MCP clients."""
+
+    # Generate mcp-client.json
+    mcp_client_config = {
+        "servers": [
+            {
+                "name": server.name,
+                "url": tunnel.sse_url,
+            }
+            for server, tunnel in zip(servers, tunnel.ports)
+        ]
+    }
+
+    # Write mcp-client.json
+    mcp_client_path = get_mcp_tunnel_dir() / "mcp-client.json"
+    mcp_client_path.write_text(json.dumps(mcp_client_config, indent=2))
+
+    cprint("\n\nMCP client config", "green")
+    cprint(f"{'-' * 80}\n", "green")
+    cprint(f"\tDirectory: {mcp_client_path.parent}", "green")
+    cprint(f"\tFile: {mcp_client_path}", "green")
+    cprint("\nNext steps:", "green")
+    cprint("1. Review the file and replace any placeholder values, if there are any", "green")
+    cprint("\nOn your MCP client machine:", "green")
+    cprint(
+        "1. Install devtunnel https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started?#install",
+        "green",
+    )
+    cprint("2. Login with the same Microsoft account:", "green")
+    cprint("        devtunnel user login")
+    cprint("3. Start port forwarding:", "green")
+    cprint(f"        devtunnel connect {tunnel.tunnel_id}")
+    cprint("4. Update your MCP client config according to the instructions for your MCP client", "green")
+    cprint("5. Restart your MCP client", "green")
+
+
+def tunnel_servers(servers: list[MCPServer]) -> None:
     tunnel_manager = TunnelManager(servers)
 
     # Ensure the `devtunnel` CLI is available
     if not ensure_devtunnel():
-        return 1
+        sys.exit(1)
 
-    print("DevTunnel CLI detected and user is logged in")
+    print("User is logged in to devtunnel")
     print(f"Starting tunnels for servers: {', '.join(s.name for s in servers)}")
 
     try:
         # Start all tunnel processes
         tunnels = tunnel_manager.start_tunnel(servers)
 
+        cprint(f"\n{'=' * 80}", "green")
         write_assistant_config(servers, tunnels)
+        write_mcp_client_config(servers, tunnels)
+        cprint(f"\n\n{'=' * 80}\n", "green")
 
         # Keep the main thread alive
         print("All tunnels started. Press Ctrl+C to stop all tunnels.")
@@ -298,12 +333,12 @@ def tunnel_servers(servers: list[MCPServer]):
     except KeyboardInterrupt:
         print("\nReceived keyboard interrupt. Shutting down...")
         tunnel_manager.terminate_tunnels()
-        return 0
+        return
 
     except Exception as e:
         print(f"Error: {str(e)}")
         tunnel_manager.terminate_tunnels()
-        return 1
+        sys.exit(1)
 
 
 def ensure_devtunnel() -> bool:
@@ -321,9 +356,13 @@ def ensure_devtunnel() -> bool:
         return False
 
     # Ensure the user is logged in to the `devtunnel` CLI
-    if not devtunnel.is_logged_in():
-        print("Error: You are not logged in to the DevTunnel CLI.", file=sys.stderr)
-        print("Please log in using 'devtunnel login' command.", file=sys.stderr)
+    logged_in = devtunnel.is_logged_in()
+
+    if not logged_in:
+        logged_in = devtunnel.login()
+
+    if not logged_in:
+        print("Error: DevTunnel login failed.", file=sys.stderr)
         return False
 
     return True

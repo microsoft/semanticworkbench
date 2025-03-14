@@ -71,7 +71,24 @@ def is_logged_in() -> bool:
     stdout = stdout[stdout.index("{") :]
     user_response: dict[str, Any] = json.loads(stdout)
     status = (user_response.get("status") or "").lower()
-    return  status == "logged in"
+    return status == "logged in"
+
+
+def login() -> bool:
+    """
+    Log in to the devtunnel CLI.
+
+    Returns:
+        Boolean indicating if the login was successful
+    """
+
+    print("Opening a browser for authentication. Log in to your Microsoft account.")
+
+    code, _, _ = _exec(["user", "login", "--entra", "--use-browser-auth"], timeout=20)
+    if code != 0:
+        return False
+
+    return is_logged_in()
 
 
 def delete_tunnel(tunnel_id: str) -> bool:
