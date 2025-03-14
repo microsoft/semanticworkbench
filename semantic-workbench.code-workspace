@@ -136,6 +136,10 @@
       "path": "mcp-servers/mcp-server-bing-search"
     },
     {
+      "name": "mcp-servers:mcp-server-filesystem",
+      "path": "mcp-servers/mcp-server-filesystem"
+    },
+    {
       "name": "mcp-servers:mcp-server-fusion",
       "path": "mcp-servers/mcp-server-fusion"
     },
@@ -156,10 +160,6 @@
       "path": "mcp-servers/mcp-server-vscode"
     },
     {
-      "name": "mcp-servers:mcp-server-filesystem",
-      "path": "mcp-servers/mcp-server-filesystem"
-    },
-    {
       "name": "mcp-servers:mcp-server-web-research",
       "path": "mcp-servers/mcp-server-web-research"
     },
@@ -178,13 +178,17 @@
     {
       "name": ".github",
       "path": ".github"
+    },
+    {
+      "name": ".multi-root-tools",
+      "path": ".multi-root-tools"
     }
   ],
   "settings": {
     "markdown.validate.enabled": true,
-    "ruff.configuration": "${workspaceFolder}/../ruff.toml",
+    "ruff.configuration": "${workspaceFolder:.multi-root-tools}/../ruff.toml",
     "ruff.interpreter": [
-      "${workspaceFolder}/../.venv"
+      "${workspaceFolder:.multi-root-tools}/.venv"
     ],
     "ruff.importStrategy": "useBundled",
     "ruff.nativeServer": "on",
