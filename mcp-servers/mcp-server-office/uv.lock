@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.11, <3.13"
 
 [[package]]
@@ -513,6 +514,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "python-liquid", marker = "extra == 'llm'", specifier = ">=1.13.0" },
 ]
+provides-extras = ["llm", "openai"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -527,7 +529,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
-    { name = "azure-identity" },
     { name = "mcp-extensions", extra = ["llm", "openai"] },
     { name = "ngrok" },
     { name = "pendulum" },
@@ -551,7 +552,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.11.13" },
-    { name = "azure-identity", specifier = ">=1.20.0" },
     { name = "mcp-extensions", extras = ["llm", "openai"], editable = "../../libraries/python/mcp-extensions" },
     { name = "ngrok", specifier = ">=1.4.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
