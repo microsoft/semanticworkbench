@@ -64,20 +64,25 @@ uv run mcp-tunnel --servers "myserver:8080,anotherserver:9000"
 
 When you run MCP Tunnel, it will:
 
-1. Check if DevTunnel CLI is installed and you're logged in
-2. Create tunnels for each specified server
-3. Start tunnel processes and display their output with color-coding
-4. Generate a configuration file at `~/.mcp-tunnel/config.yaml`
-5. Keep tunnels running until you press Ctrl+C
+1. Check if DevTunnel CLI is installed
+2. Check if you are logged in to DevTunnel CLI, and if not, initiate a login
+3. Create tunnels for each specified server
+4. Start tunnel processes and display their output with color-coding
+5. Generate an assistant configuration file at `~/.mcp-tunnel/assistant-config.yaml`, for use with the Codespace assistant
+6. Generate an MCP client configuration file at `~/.mcp-tunnel/mcp-client.json`, for use with MCP clients such as Claude desktop
+6. Keep tunnels running until you press Ctrl+C
 
-## Configuration
+## Assistant Configuration
 
-MCP Tunnel generates a configuration file at `~/.mcp-tunnel/config.yaml` that can be used to connect your AI assistant to the tunnels. The configuration includes:
-
-- SSE endpoints for each tunnel
-- Dev tunnel details
+MCP Tunnel generates a configuration file at `~/.mcp-tunnel/assistant-config.yaml` that can be used to connect your AI assistant to the tunnels.
 
 You can use this configuration with the Codespace assistant by importing it from the Assistant Configuration screen.
+
+## MCP Client Configuration
+
+MCP Tunnel generates a configuration file at `~/.mcp-tunnel/mcp-client.json` that can be used to connect your MCP clients to the tunnels.
+
+Read the documentation for your specific MCP client to learn how to apply this configuration.
 
 ## Troubleshooting
 
@@ -88,19 +93,3 @@ If you see an error about the DevTunnel CLI not being found:
 1. Install the DevTunnel CLI by following the [official instructions](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started)
 2. Make sure it's in your PATH
 3. Test that it works by running `devtunnel --version`
-
-### Not Logged In
-
-If you're not logged in to DevTunnel:
-
-```bash
-devtunnel login
-```
-
-### Tunnels Not Starting
-
-If tunnels aren't starting, check:
-
-1. That the ports you specified are correct
-2. That your local MCP servers are running on those ports
-3. That the ports aren't being blocked by a firewall
