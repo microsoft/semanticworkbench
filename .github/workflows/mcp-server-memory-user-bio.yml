@@ -1,0 +1,40 @@
+name: mcp-server-memory-use-bio continuous integration
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "mcp-servers/mcp-server-memory-user-bio/**"
+      - "libraries/python/**"
+      - "tools/docker/**"
+      - ".github/workflows/mcp-server-memory-user-bio.yml"
+
+  push:
+    branches: ["main"]
+    paths:
+      - "mcp-servers/mcp-server-memory-user-bio/**"
+      - "libraries/python/**"
+      - "tools/docker/**"
+      - ".github/workflows/mcp-server-memory-user-bio.yml"
+
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: mcp-servers/mcp-server-memory-user-bio
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: test
+        run: |
+          make test
