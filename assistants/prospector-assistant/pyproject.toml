@@ -14,6 +14,7 @@ dependencies = [
     "markdown>=3.6",
     "openai-client>=0.1.0",
     "openai>=1.61.0",
+    "torch==2.2.2 ; platform_machine == 'x86_64' and sys_platform == 'darwin'", # the most recent version compiled for mac x86_64
 ]
 
 [tool.uv]
