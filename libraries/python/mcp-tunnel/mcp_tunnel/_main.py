@@ -274,13 +274,15 @@ def write_mcp_client_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None
 
     # Generate mcp-client.json
     mcp_client_config = {
-        "servers": [
-            {
-                "name": server.name,
-                "url": tunnel.sse_url,
+        "mcpServers": {
+            server.name: {
+                "command": "mcp-proxy",
+                "args": [
+                    port.sse_url,
+                ],
             }
-            for server, tunnel in zip(servers, tunnel.ports)
-        ]
+            for server, port in zip(servers, tunnel.ports)
+        }
     }
 
     # Write mcp-client.json
@@ -302,8 +304,9 @@ def write_mcp_client_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None
     cprint("        devtunnel user login")
     cprint("3. Start port forwarding:", "green")
     cprint(f"        devtunnel connect {tunnel.tunnel_id}")
-    cprint("4. Update your MCP client config according to the instructions for your MCP client", "green")
-    cprint("5. Restart your MCP client", "green")
+    cprint("4. Install mcp-proxy https://github.com/sparfenyuk/mcp-proxy?tab=readme-ov-file#installation", "green")
+    cprint("5. Update your MCP client config according to the instructions for your MCP client", "green")
+    cprint("6. Restart your MCP client", "green")
 
 
 def tunnel_servers(servers: list[MCPServer]) -> None:
