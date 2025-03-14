@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "mcp-servers: mcp-server-memory-user-bio",
+      "cwd": "${workspaceFolder}",
+      "module": "mcp_server_memory_user_bio.start",
+      "args": ["--transport", "sse", "--port", "34737"],
+      "consoleTitle": "mcp-server-memory-user-bio"
+      // "justMyCode": false // Set to false to debug external libraries
+    }
+  ]
+}
