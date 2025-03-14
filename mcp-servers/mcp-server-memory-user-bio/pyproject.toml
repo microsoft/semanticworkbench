@@ -1,0 +1,21 @@
+[project]
+name = "mcp-server-memory-user-bio"
+version = "0.1.0"
+description = "Allows saving of memories across conversations related to user interests, preferences, and ongoing projects."
+authors = [{ name = "Semantic Workbench Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.2.1"]
+
+[dependency-groups]
+dev = ["pyright>=1.1.389"]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+mcp-server-memory-user-bio = "mcp_server_memory_user_bio.start:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
