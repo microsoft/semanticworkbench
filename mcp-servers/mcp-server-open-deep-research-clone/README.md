@@ -1,4 +1,4 @@
-# Web Research MCP Server
+# Open Deep Research Clone MCP Server
 
 Uses the web to research a given topic.
 
@@ -21,13 +21,13 @@ Use the VSCode launch configuration, or run manually:
 Defaults to stdio transport:
 
 ```bash
-uv run mcp-server-web-research
+uv run mcp-server-open-deep-research-clone
 ```
 
 For SSE transport:
 
 ```bash
-uv run mcp-server-web-research --transport sse --port 6060
+uv run mcp-server-open-deep-research-clone --transport sse --port 6061
 ```
 
 The SSE URL is:
@@ -45,9 +45,9 @@ To use this MCP server in your setup, consider the following configuration:
 ```json
 {
   "mcpServers": {
-    "mcp-server-web-research": {
+    "mcp-server-open-deep-research-clone": {
       "command": "uv",
-      "args": ["run", "-m", "mcp_server_web_research.start"]
+      "args": ["run", "-m", "mcp_server_open_deep_research_clone.start"]
     }
   }
 }
@@ -58,8 +58,8 @@ To use this MCP server in your setup, consider the following configuration:
 ```json
 {
   "mcpServers": {
-    "mcp-server-web-research": {
-      "command": "http://127.0.0.1:6060/sse",
+    "mcp-server-open-deep-research-clone": {
+      "command": "http://127.0.0.1:6061/sse",
       "args": []
     }
   }

@@ -3,6 +3,7 @@ from typing import Annotated
 
 import openai_client
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
+from openai_client import AzureOpenAIServiceConfig
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema, first_env_var
 
@@ -129,7 +130,34 @@ class AssistantConfigModel(BaseModel):
         ),
     ] = HighTokenUsageWarning()
 
-    service_config: openai_client.ServiceConfig
+    general_model_service_config: Annotated[
+        openai_client.ServiceConfig,
+        Field(
+            title="General Model Service Configuration",
+            description="The configuration for the general model service.",
+        ),
+    ] = AzureOpenAIServiceConfig.model_construct(
+        azure_openai_deployment=first_env_var("general_model_deployment"),
+        azure_openai_endpoint=first_env_var("general_model_endpoint"),
+    )
+
+    reasoning_model_service_config: Annotated[
+        openai_client.ServiceConfig,
+        Field(
+            title="Reasoning Model Service Configuration",
+            description="The configuration for the reasoning model service.",
+        ),
+    ] = AzureOpenAIServiceConfig.model_construct(
+        azure_openai_deployment=first_env_var("reasoning_model_deployment"),
+        azure_openai_endpoint=first_env_var("reasoning_model_endpoint"),
+    )
+
+    # openai_service_config: Annotated[
+    #     openai_client.ServiceConfig,
+    #     Field(
+    #         title="OpenAI Service Configuration",
+    #     ),
+    # ] = OpenAIServiceConfig.model_construct(openai_api_key=first_env_var("openai_api_key"))
 
     content_safety_config: Annotated[
         CombinedContentSafetyEvaluatorConfig,

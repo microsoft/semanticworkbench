@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "mcp-servers: mcp-server-open-deep-research-clone",
+      "cwd": "${workspaceFolder}",
+      "module": "mcp_server_open_deep_research_clone.start",
+      "args": ["--transport", "sse", "--port", "6061"],
+      "consoleTitle": "mcp-server-open-deep-research-clone"
+      // "justMyCode": false // Set to false to debug external libraries
+    }
+  ]
+}

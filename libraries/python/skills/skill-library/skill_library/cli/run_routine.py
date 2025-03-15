@@ -77,8 +77,7 @@ try:
     from skill_library.skills.common import CommonSkill, CommonSkillConfig
     from skill_library.skills.posix import PosixSkill, PosixSkillConfig
     from skill_library.skills.research import ResearchSkill, ResearchSkillConfig
-    from skill_library.skills.research2 import ResearchSkill as ResearchSkill2
-    from skill_library.skills.research2 import ResearchSkillConfig as ResearchSkillConfig2
+    from skill_library.skills.web_research import WebResearchSkill, WebResearchSkillConfig
 except ImportError as e:
     print(f"Error: Required dependency not found - {e}", file=sys.stderr)
     print("Please ensure skill_library and its dependencies are installed.", file=sys.stderr)
@@ -205,12 +204,12 @@ class RoutineRunner:
                         ),
                     ),
                     (
-                        ResearchSkill2,
-                        ResearchSkillConfig2(
-                            name="research2",
+                        WebResearchSkill,
+                        WebResearchSkillConfig(
+                            name="web_research",
                             language_model=language_model,
                             reasoning_language_model=reasoning_language_model,
-                            drive=drive.subdrive("research2"),
+                            drive=drive.subdrive("web_research"),
                         ),
                     ),
                     # Additional skills would be loaded based on config

@@ -158,7 +158,7 @@ class ChatDriver:
                 return InformationEvent(message=f"Error! {e}", metadata={"error": str(e)})
 
         # If not a command, add the message to the history.
-        if message is not None:
+        if message is not None and not isinstance(self.message_provider, InMemoryMessageHistoryProvider):
             user_message: ChatCompletionUserMessageParam = {
                 "role": "user",
                 "content": message,

@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.11"
 
 [[package]]
@@ -163,7 +162,7 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "platform_system == 'Windows'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593 }
 wheels = [
@@ -365,20 +364,27 @@ source = { editable = "../../libraries/python/mcp-extensions" }
 dependencies = [
     { name = "deepmerge" },
     { name = "mcp" },
+    { name = "pydantic" },
 ]
 
 [package.optional-dependencies]
+llm = [
+    { name = "azure-identity" },
+    { name = "python-liquid" },
+]
 openai = [
     { name = "openai" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "azure-identity", marker = "extra == 'llm'", specifier = ">=1.20.0" },
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "mcp", specifier = ">=1.3.0" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.63.2" },
+    { name = "pydantic", specifier = ">=2.10.6" },
+    { name = "python-liquid", marker = "extra == 'llm'", specifier = ">=1.13.0" },
 ]
-provides-extras = ["openai"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -393,7 +399,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp-server-filesystem" },
-    { name = "mcp-server-office", marker = "sys_platform == 'win32'" },
+    { name = "mcp-server-office", marker = "platform_system == 'Windows'" },
     { name = "mcp-tunnel" },
 ]
 
@@ -405,7 +411,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "mcp-server-filesystem", editable = "../mcp-server-filesystem" },
-    { name = "mcp-server-office", marker = "sys_platform == 'win32'", editable = "../mcp-server-office" },
+    { name = "mcp-server-office", marker = "platform_system == 'Windows'", editable = "../mcp-server-office" },
     { name = "mcp-tunnel", editable = "../../libraries/python/mcp-tunnel" },
 ]
 
@@ -426,7 +432,6 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.4" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25.3" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -440,15 +445,14 @@ version = "0.1.0"
 source = { editable = "../mcp-server-office" }
 dependencies = [
     { name = "aiohttp" },
-    { name = "azure-identity" },
-    { name = "mcp-extensions", extra = ["openai"] },
+    { name = "mcp-extensions", extra = ["llm", "openai"] },
     { name = "ngrok" },
     { name = "pendulum" },
     { name = "pydantic" },
     { name = "pytest-asyncio" },
     { name = "python-dotenv" },
     { name = "python-liquid" },
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "pywin32", marker = "platform_system == 'Windows'" },
     { name = "pyyaml" },
     { name = "rich" },
 ]
@@ -456,15 +460,14 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.11.13" },
-    { name = "azure-identity", specifier = ">=1.20.0" },
-    { name = "mcp-extensions", extras = ["openai"], editable = "../../libraries/python/mcp-extensions" },
+    { name = "mcp-extensions", extras = ["llm", "openai"], editable = "../../libraries/python/mcp-extensions" },
     { name = "ngrok", specifier = ">=1.4.0" },
     { name = "pendulum", specifier = ">=3.0.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pytest-asyncio", specifier = ">=0.25.3" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "python-liquid", specifier = ">=1.13.0" },
-    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = "==308" },
+    { name = "pywin32", marker = "platform_system == 'Windows'", specifier = "==308" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rich", specifier = ">=13.9.4" },
 ]
@@ -623,7 +626,7 @@ name = "portalocker"
 version = "2.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "pywin32", marker = "platform_system == 'Windows'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/d3/c6c64067759e87af98cc668c1cc75171347d0f1577fab7ca3749134e3cd4/portalocker-2.10.1.tar.gz", hash = "sha256:ef1bf844e878ab08aee7e40184156e1151f228f103aa5c6bd0724cc330960f8f", size = 40891 }
 wheels = [
@@ -1036,7 +1039,7 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "platform_system == 'Windows'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737 }
 wheels = [

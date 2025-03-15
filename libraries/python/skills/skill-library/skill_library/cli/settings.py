@@ -14,7 +14,7 @@ class Settings:
         self.data_folder = skills_home_dir / "data"
         self.azure_openai_endpoint = ""
         self.azure_openai_deployment = "gpt-4o"
-        self.azure_openai_reasoning_deployment = "o1-mini"
+        self.azure_openai_reasoning_deployment = "o3-mini"
         self.bing_subscription_key = ""
         self.bing_search_url = "https://api.bing.microsoft.com/v7.0/search"
         self.serpapi_api_key = ""

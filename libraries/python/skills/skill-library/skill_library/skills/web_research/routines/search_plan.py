@@ -11,65 +11,66 @@ from openai_client import (
 )
 from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
-from skill_library.skills.research2.research_skill import ResearchSkill
+from skill_library.skills.web_research.research_skill import WebResearchSkill
 
 INITIAL_PROMPT = """
-You are a world expert at making efficient plans to solve any task using a set of carefully crafted tools.
-
-Now for the given task, develop a step-by-step high-level plan taking into account the above inputs and list of facts.
-This plan should involve individual tasks based on the available tools, that if executed correctly will yield the correct answer.
-Do not skip steps, do not add any superfluous steps. Only write the high-level plan.
-
-Here is your topic:
+As a research expert, create a strategic search plan for:
 
 `{{TOPIC}}`
 
-Here is the up-to-date list of facts that you know:
+Your plan should:
+1. Prioritize finding high-quality, authoritative sources over quantity
+2. Include specific steps to bypass SEO-optimized content in favor of substantive information
+3. Focus on locating genuine expert reviews and authentic user feedback
+4. Identify specific technical resources likely to contain verifiable information
+
+Current facts:
 
 ```
 {{FACTS}}
 ```
 
-Observations from previous research:
+Observations:
 
 ```
 {{OBSERVATIONS}}
 ```
 
-If you decide that the research topic has been completed, respond only with <DONE>.
-
-Now begin! Write your plan below.
+If you determine the research is complete, respond only with <DONE>.
+Otherwise, provide a step-by-step plan focusing on filling information gaps with reliable sources.
 """
 
 UPDATE_PROMPT = """
-You're still working towards completing this research:
+You're researching:
 
 `{{TOPIC}}`
 
-Now for the given topic, develop a step-by-step high-level plan taking into account the above inputs and list of facts.
-This plan should involve individual tasks that if executed correctly will yield the correct answer.
-
-Current plan:
+Review what we've learned and what gaps remain. Current plan:
 
 ```
 {{PLAN}}
 ```
 
-Here is the up-to-date list of facts that you know:
+Current facts:
 
 ```
 {{FACTS}}
 ```
 
-Observations from previous research:
+Observations:
 
 ```
 {{OBSERVATIONS}}
 ```
 
-If you decide that the research topic has been completed, respond only with <DONE>.
+For the next phase of research:
+1. Evaluate which sources have proven most reliable so far
+2. Identify specific information gaps with the highest priority
+3. Target specialized and authoritative sources for remaining questions
+4. Develop strategies to find technical details and verified user experiences
 
-Now begin! Write your revised plan below.
+If the research topic has been completed with verified information, respond only with <DONE>.
+Otherwise, revise your plan to focus on remaining information gaps.
 """
 
 
@@ -86,7 +87,7 @@ async def main(
 ) -> tuple[str, bool]:
     """Make a search plan for a research project."""
 
-    research_skill = cast(ResearchSkill, context.skills["research2"])
+    research_skill = cast(WebResearchSkill, context.skills["web_research"])
     language_model = research_skill.config.reasoning_language_model
 
     if not plan:
@@ -97,7 +98,7 @@ async def main(
         )
 
     completion_args = {
-        "model": "o1",
+        "model": "o3-mini",
         "reasoning_effort": "high",
         "messages": [
             create_user_message(
