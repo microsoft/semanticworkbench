@@ -11,59 +11,60 @@ from openai_client import (
 )
 from skill_library import AskUserFn, EmitFn, RunContext, RunRoutineFn
 from skill_library.logging import logger
-from skill_library.skills.research2.research_skill import ResearchSkill
+from skill_library.skills.web_research.research_skill import WebResearchSkill
 
 INITIAL_SYSTEM_PROMPT = """
-Below I will present you a topic.
+Below I will present you a topic for research.
 
-You will now build a comprehensive preparatory survey of which facts we have at our disposal and which ones we still need.
-To do so, you will have to read the topic and identify things that must be discovered in order to successfully complete it.
-Don't make any assumptions. For each item, provide a thorough reasoning. Here is how you will structure this survey:
+Your job is to build a comprehensive and accurate inventory of facts related to this topic.
 
----
+Structure your response as follows:
+
 ### 1. Facts given in the topic
-List here the specific facts given in the topic that could help you (there might be nothing here).
+List the specific, verifiable facts explicitly stated in the topic description.
 
 ### 2. Facts to look up
-List here any facts that we may need to look up.
-Also list where to find each of these, for instance a website, a file... - maybe the topic contains some sources that you should re-use here.
+List specific information that needs to be researched, focusing on:
+- Technical details and specifications
+- Verified data from authoritative sources
+- Expert opinions from trusted reviewers
+- Genuine user experiences and feedback
+For each fact, suggest potential high-quality sources (e.g., official documentation, academic papers, specialized forums) and avoid SEO-optimized content.
 
 ### 3. Facts to derive
-List here anything that we want to derive from the above by logical reasoning, for instance computation or simulation.
+List conclusions that can be drawn through logical reasoning based on verified information.
 
-Keep in mind that \"facts\" will typically be specific names, dates, values, etc. Your answer should use the below headings:
-### 1. Facts given in the task
-### 2. Facts to look up
-### 3. Facts to derive
-
-Do not add anything else.
-
-Here is the topic that all facts should relate to:
+Here is the topic:
 
 ```
 {{TOPIC}}
 ```
-
-Now begin!
 """
 
 UPDATE_SYSTEM_PROMPT = """
-You will now build a comprehensive preparatory survey of which facts we have at our disposal and which ones we still need.
+You are updating your fact inventory based on new research. Be rigorous about distinguishing between:
+- Verified facts (with identified sources)
+- Inferred information (clearly marked)
+- Information gaps (explicitly acknowledged)
 
-Earlier we've built a list of facts.
-
-But since in your previous steps you may have learned useful new facts or invalidated some false ones.
-
-Please update your list of facts based on the previous history, and provide these headings:
+Structure your response as follows:
 
 ### 1. Facts given in the topic
-### 2. Facts that we have learned
+List only explicit facts from the original topic.
+
+### 2. Facts we have verified
+For each fact, include:
+- The specific information learned
+- The source it came from
+- A confidence rating (High/Medium/Low)
+
 ### 3. Facts still to look up
+Be specific about remaining information gaps and potential sources.
+
 ### 4. Facts still to derive
+List conclusions that could be drawn with additional information.
 
-Do not add anything else.
-
-Reminder, here is the topic that all facts should relate to:
+Topic:
 
 ```
 {{TOPIC}}
@@ -75,13 +76,13 @@ Current plan:
 {{PLAN}}
 ```
 
-Here is the up-to-date list of facts that you know:
+Current facts:
 
 ```
 {{FACTS}}
 ```
 
-Observations from previous research:
+Observations:
 
 ```
 {{OBSERVATIONS}}
@@ -104,7 +105,7 @@ async def main(
 ) -> str:
     """Gather facts related to an ongoing research project based on observations we gather in the process of researching."""
 
-    research_skill = cast(ResearchSkill, context.skills["research2"])
+    research_skill = cast(WebResearchSkill, context.skills["web_research"])
     language_model = research_skill.config.reasoning_language_model
 
     if not facts:
@@ -116,7 +117,7 @@ async def main(
         )
 
     completion_args = {
-        "model": "o1",
+        "model": "o3-mini",
         "reasoning_effort": "high",
         "messages": [
             create_user_message(
