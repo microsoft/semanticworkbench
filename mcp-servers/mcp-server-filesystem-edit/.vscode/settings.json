@@ -54,7 +54,17 @@
     "settings.json",
     "uv.lock"
   ],
-  "cSpell.words": ["dotenv", "fastmcp", "toplevel"],
+  "cSpell.words": [
+    "aoai",
+    "blockified",
+    "blockify",
+    "dotenv",
+    "Evals",
+    "fastmcp",
+    "toplevel",
+    "unblockified",
+    "unblockify"
+  ],
   // Python testing configuration
   "python.testing.pytestEnabled": true,
   "python.testing.unittestEnabled": false,

@@ -10,6 +10,14 @@
       "args": ["--transport", "sse", "--port", "25567"],
       "consoleTitle": "mcp-server-filesystem-edit"
       // "justMyCode": false // Set to false to debug external libraries
+    },
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
     }
   ]
 }
