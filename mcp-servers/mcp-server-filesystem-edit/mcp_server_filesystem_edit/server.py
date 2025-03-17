@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+from typing import Literal
 
 from mcp.server.fastmcp import Context, FastMCP
 
@@ -110,7 +111,7 @@ def create_mcp_server() -> FastMCP:
     @mcp.tool()
     async def edit_file(ctx: Context, path: str, task: str) -> str:
         """
-        The user has a file editor corresponding to the file type, open like VSCode or MikTeK, open side by side with this chat.
+        The user has a file editor corresponding to the file type, open like VSCode or TeXworks, open side by side with this chat.
         Use this tool when you need to make changes to that file or you want to create a new file (provide a new file path).
         Provide it a task that you want it to do in the document. For example, if you want to have it expand on one section,
         you can say "expand on the section about <topic x>". The task should be at most a few sentences.
@@ -122,7 +123,18 @@ def create_mcp_server() -> FastMCP:
         """
         file_content = await read_file(ctx, path)
 
-        # TODO: Delegating between file types
+        # Determine the file type based on file extension
+        file_path = Path(path)
+        file_extension = file_path.suffix.lower()
+        supported_extensions: dict[str, Literal["markdown", "latex"]] = {
+            ".md": "markdown",
+            ".tex": "latex",
+        }
+
+        if file_extension not in supported_extensions:
+            return f"File type '{file_extension}' is not supported for editing. Currently supported types: {', '.join(supported_extensions.keys())}"
+
+        file_type = supported_extensions[file_extension]
 
         editor = CommonEdit()
         request = EditRequest(
@@ -130,11 +142,12 @@ def create_mcp_server() -> FastMCP:
             request_type="mcp",
             file_content=file_content,
             task=task,
+            file_type=file_type,
         )
         output = await editor.run(request)
         tool_output: str = output.change_summary + "\n" + output.output_message
 
-        await write_file(ctx, path, output.new_markdown)
+        await write_file(ctx, path, output.new_content)
         return tool_output
 
     @mcp.tool()

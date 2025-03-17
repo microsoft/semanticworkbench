@@ -14,8 +14,8 @@ from mcp_server_filesystem_edit.types import (
     TestCase,
 )
 
-WORD_TEST_CASES_PATH = Path(__file__).parents[2] / "data" / "word" / "test_cases.yaml"
-WORD_TRANSCRIPT_PATH = Path(__file__).parents[2] / "data" / "word" / "transcripts"
+WORD_TEST_CASES_PATH = Path(__file__).parents[2] / "data" / "test_cases.yaml"
+WORD_TRANSCRIPT_PATH = Path(__file__).parents[2] / "data" / "transcripts"
 ATTACHMENTS_DIR = Path(__file__).parents[2] / "data" / "attachments"
 
 logger = logging.getLogger(__name__)
@@ -56,13 +56,13 @@ def load_test_cases(
             additional_context = _load_attachments(test_case.attachments)
 
         document_content = ""
-        if test_case.open_document_markdown_file:
-            document_path = ATTACHMENTS_DIR / test_case.open_document_markdown_file
+        if test_case.open_file:
+            document_path = ATTACHMENTS_DIR / test_case.open_file
             if document_path.exists():
                 with Path.open(document_path, "r", encoding="utf-8") as f:
                     document_content = f.read()
             else:
-                logger.warning(f"Document file {test_case.open_document_markdown_file} not found at {document_path}")
+                logger.warning(f"Document file {test_case.open_file} not found at {document_path}")
 
         comments: list[Comment] = []
         if test_case.comments:

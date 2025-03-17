@@ -10,6 +10,7 @@ from mcp_extensions.llm.helpers import compile_messages
 from mcp_extensions.llm.llm_types import ChatCompletionRequest, ChatCompletionResponse, MessageT, UserMessage
 
 from mcp_server_filesystem_edit import settings
+from mcp_server_filesystem_edit.prompts.latex_edit import LATEX_EDIT_REASONING_MESSAGES
 from mcp_server_filesystem_edit.prompts.markdown_edit import (
     MD_EDIT_CHANGES_MESSAGES,
     MD_EDIT_CONVERT_MESSAGES,
@@ -19,11 +20,10 @@ from mcp_server_filesystem_edit.prompts.markdown_edit import (
     SEND_MESSAGE_TOOL_DEF,
     SEND_MESSAGE_TOOL_NAME,
 )
+from mcp_server_filesystem_edit.tools.edit_adapters.common import execute_tools, format_blocks_for_llm
+from mcp_server_filesystem_edit.tools.edit_adapters.latex import blockify as latex_blockify
+from mcp_server_filesystem_edit.tools.edit_adapters.latex import unblockify as latex_unblockify
 from mcp_server_filesystem_edit.tools.edit_adapters.markdown import blockify as markdown_blockify
-from mcp_server_filesystem_edit.tools.edit_adapters.markdown import execute_tools as markdown_execute_tools
-from mcp_server_filesystem_edit.tools.edit_adapters.markdown import (
-    format_blocks_for_llm as markdown_format_blocks_for_llm,
-)
 from mcp_server_filesystem_edit.tools.edit_adapters.markdown import unblockify as markdown_unblockify
 from mcp_server_filesystem_edit.tools.helpers import format_chat_history
 from mcp_server_filesystem_edit.types import Block, CustomContext, EditOutput, EditRequest, EditTelemetry
@@ -36,19 +36,23 @@ class CommonEdit:
         self.telemetry = EditTelemetry()
 
     async def blockify(self, request: EditRequest) -> list[Block]:
-        blocks = markdown_blockify(request.file_content)
+        if request.file_type == "latex":
+            blocks = latex_blockify(request.file_content)
+        elif request.file_type == "markdown":
+            blocks = markdown_blockify(request.file_content)
+        else:
+            raise ValueError(f"Unsupported file type: {request.file_type}")
         return blocks
 
-    async def format_blocks_for_llm(self, blocks: list[Block]) -> str:
-        doc = await markdown_format_blocks_for_llm(blocks)
-        return doc
-
-    async def unblockify(self, blocks: list[Block]) -> str:
-        unblockified_doc = markdown_unblockify(blocks)
+    async def unblockify(self, request: EditRequest, blocks: list[Block]) -> str:
+        if request.file_type == "latex":
+            unblockified_doc = latex_unblockify(blocks)
+        else:
+            unblockified_doc = markdown_unblockify(blocks)
         return unblockified_doc
 
     async def construct_reasoning_prompt(self, request: EditRequest, blockified_doc: list[Block]) -> list[MessageT]:
-        doc_for_llm = await self.format_blocks_for_llm(blockified_doc)
+        doc_for_llm = await format_blocks_for_llm(blockified_doc)
 
         chat_history = ""
         if request.request_type == "dev" and isinstance(request.context, CustomContext):
@@ -59,7 +63,7 @@ class CommonEdit:
             context = request.context.additional_context
 
         reasoning_messages = compile_messages(
-            messages=MD_EDIT_REASONING_MESSAGES,
+            messages=LATEX_EDIT_REASONING_MESSAGES if request.file_type == "latex" else MD_EDIT_REASONING_MESSAGES,
             variables={
                 "knowledge_cutoff": "2023-10",
                 "current_date": pendulum.now().format("YYYY-MM-DD"),
@@ -137,18 +141,15 @@ class CommonEdit:
         output_message = ""
         if convert_response.choices[0].message.tool_calls:
             tool_call = convert_response.choices[0].message.tool_calls[0].function
-            logging.info(f"Tool call:\n{tool_call}")
+            logger.info(f"Tool call:\n{tool_call}")
             # If the the model called the send_message, don't update the doc and return the message
             if tool_call.name == SEND_MESSAGE_TOOL_NAME:
                 output_message = settings.doc_editor_prefix + convert_response.choices[0].message.content
             elif tool_call.name == MD_EDIT_TOOL_NAME:
                 tool_args = tool_call.arguments
                 blocks = await self.blockify(request)
-                logging.info(f"Blocks (before modifications):\n{blocks}")
-                blocks = markdown_execute_tools(
-                    blocks=blocks, edit_tool_call={"name": tool_call.name, "arguments": tool_args}
-                )
-                updated_doc_markdown = await self.unblockify(blocks)
+                blocks = execute_tools(blocks=blocks, edit_tool_call={"name": tool_call.name, "arguments": tool_args})
+                updated_doc_markdown = await self.unblockify(request, blocks)
         else:
             output_message = (
                 settings.doc_editor_prefix + "Something went wrong when editing the document and no changes were made."
@@ -187,6 +188,7 @@ class CommonEdit:
         blockified_doc = await self.blockify(request)
         reasoning_messages = await self.construct_reasoning_prompt(request, blockified_doc)
         reasoning = await self.get_reasoning_response(request, reasoning_messages)
+        logger.info(f"Reasoning:\n{reasoning}")
         convert_messages = await self.construct_convert_prompt(reasoning)
         convert_response = await self.get_convert_response(request, convert_messages)
         updated_doc_markdown, output_message = await self.execute_tool_calls(request, convert_response)
@@ -199,7 +201,7 @@ class CommonEdit:
         output = EditOutput(
             change_summary=change_summary,
             output_message=output_message,
-            new_markdown=updated_doc_markdown,
+            new_content=updated_doc_markdown,
             reasoning=reasoning,
             tool_calls=convert_response.choices[0].message.tool_calls or [],
             llm_latency=self.telemetry.reasoning_latency

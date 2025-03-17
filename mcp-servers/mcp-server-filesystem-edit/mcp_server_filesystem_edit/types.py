@@ -27,6 +27,7 @@ class CustomContext(BaseModel):
 class EditRequest(BaseModel):
     context: Context | CustomContext
     request_type: Literal["dev", "mcp"] = Field(default="mcp")
+    file_type: Literal["markdown", "latex"] = Field(default="markdown")
     chat_completion_client: Callable[..., Any] | None = Field(default=None)
     file_content: str = Field(default="")
     task: str = Field(default="")
@@ -35,7 +36,7 @@ class EditRequest(BaseModel):
 class EditOutput(BaseModel):
     change_summary: str
     output_message: str
-    new_markdown: str
+    new_content: str
     reasoning: str
     tool_calls: list[ToolCall]
     llm_latency: float
@@ -43,7 +44,7 @@ class EditOutput(BaseModel):
 
 class Block(BaseModel):
     id: int
-    markdown: str
+    content: str
 
 
 class EditOperation(BaseModel):
@@ -76,8 +77,9 @@ class CommentForEvals(BaseModel):
 class TestCase(BaseModel):
     test_case_name: str
     test_case_type: Literal["writing", "feedback", "comment_analysis"] = Field(default="writing")
+    file_type: Literal["markdown", "latex"] = Field(default="markdown")
     transcription_file: str
-    open_document_markdown_file: str | None = Field(
+    open_file: str | None = Field(
         default=None, description="The txt or md file to load containing the document content."
     )
     next_ask: str

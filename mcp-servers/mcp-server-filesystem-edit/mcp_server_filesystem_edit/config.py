@@ -17,7 +17,8 @@ def load_required_env_var(env_var_name: str) -> str:
 
 class Settings(BaseSettings):
     log_level: str = log_level
-    allowed_directories: list[str] = [str(Path(__file__).parents[1] / "temp")]
+    # TODO: Currently hardcoding the allowed dirs.
+    allowed_directories: list[str] = [str(Path(__file__).parents[1] / "temp" / "latex")]
 
     # LLM and prompt related settings
     comment_author: str = "Feedback Tool"

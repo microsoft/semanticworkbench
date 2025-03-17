@@ -1,0 +1,95 @@
+\documentclass[12pt,a4paper]{article}
+
+% Essential packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}         % Times New Roman font
+\usepackage{graphicx}         % For images
+\usepackage{amsmath,amssymb}  % Math symbols
+\usepackage[hidelinks]{hyperref}  % For clickable references
+\usepackage[left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}  % Margins
+\usepackage{natbib}           % For citations
+\usepackage{setspace}         % For line spacing
+\usepackage{booktabs}         % For professional tables
+\usepackage{microtype}        % Typography improvements
+
+% Document settings
+\setlength{\parindent}{1.5em}
+\setlength{\parskip}{0.5em}
+\onehalfspacing
+
+% Title information
+\title{Paper Title: Subtitle}
+\author{Author Name\\
+\small{Department, Institution}\\
+\small{\texttt{email@example.com}}
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This is the abstract of your paper. It should be a concise summary of the main points, methods, findings, and conclusions. Generally, an abstract should be between 150-250 words. Write this section last after completing your paper to ensure it accurately reflects the content.
+\end{abstract}
+
+\section{Introduction}
+The introduction should provide context for your research, state the problem being addressed, and outline the purpose and significance of your work. End with a clear statement of your research question or hypothesis and a brief overview of your approach.
+
+\section{Related Work}
+
+
+This section should review relevant literature and establish how your work builds on or differs from previous research. Organize this section thematically rather than chronologically.
+
+
+
+\section{Methodology}
+Describe your research methods in sufficient detail for others to replicate your work. Include information about data collection, experimental setup, analytical techniques, or theoretical frameworks as appropriate.
+
+\section{Results}
+Present your findings without interpretation. Use subsections for clarity if needed:
+
+\subsection{First Result Category}
+Results can be presented in text, tables, or figures as appropriate. For example:
+
+\begin{table}[h]
+\centering
+\caption{Sample Table of Results}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Factor & Value & Significance \\
+\midrule
+Factor 1 & 12.3 & p < 0.05 \\
+Factor 2 & 45.6 & p < 0.01 \\
+Factor 3 & 78.9 & n.s. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Second Result Category}
+
+
+Some content here
+
+\subsubsection{Deeper analysis}
+This is an even deeper section
+
+\section{Discussion}
+Interpret your results in the context of your research question and the existing literature. Address any limitations of your study and suggest implications for theory or practice.
+
+\section{Conclusion}
+Summarize your main findings and their significance. Suggest directions for future research.
+
+\section*{Acknowledgments}
+Thank individuals or organizations who contributed to this work but are not listed as authors. Mention any funding sources.
+
+\bibliographystyle{plainnat}
+% The bibliography file should be named references.bib
+\bibliography{references}
+
+\appendix
+\section{Supplementary Material}
+Include any additional information that supports your paper but would disrupt the flow of the main text.
+
+\end{document}

@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import os
-from pathlib import Path
 
 from dotenv import load_dotenv
 from mcp_extensions.llm.openai_chat_completion import openai_client
@@ -24,19 +23,15 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(override=True)
 
-WORD_TEST_CASES_PATH = Path(__file__).parents[2] / "data" / "word" / "test_cases.yaml"
-WORD_TRANSCRIPT_PATH = Path(__file__).parents[2] / "data" / "word" / "transcripts"
-ATTACHMENTS_DIR = Path(__file__).parents[2] / "data" / "attachments"
 
-
-def print_markdown_edit_output(
+def print_edit_output(
     console: Console,
     output: EditOutput,
     test_index: int,
     custom_context: CustomContext,
 ) -> None:
     """
-    Print the markdown edit output to console using Rich formatting.
+    Print the edit output to console using Rich formatting.
     """
     console.rule(f"Test Case {test_index} Results. Latency: {output.llm_latency:.2f} seconds.", style="cyan")
     console.print(
@@ -54,7 +49,7 @@ def print_markdown_edit_output(
         width=90,
     )
     new_doc = Panel(
-        Markdown(output.new_markdown),
+        Markdown(output.new_content),
         title="Edited Document",
         border_style="green",
         width=90,
@@ -80,16 +75,17 @@ async def main() -> None:
         aoai_api_version="2025-01-01-preview",
     )
 
-    for i, custom_context in enumerate(custom_contexts[3:4]):
-        markdown_edit_request = EditRequest(
+    for i, custom_context in enumerate(custom_contexts[4:5]):
+        edit_request = EditRequest(
             context=custom_context,
+            file_type="latex",
             request_type="dev",
             chat_completion_client=client,
             file_content=custom_context.document,
         )
         editor = CommonEdit()
-        output = await editor.run(markdown_edit_request)
-        print_markdown_edit_output(console, output, i + 1, custom_context)
+        output = await editor.run(edit_request)
+        print_edit_output(console, output, i + 1, custom_context)
 
 
 if __name__ == "__main__":
