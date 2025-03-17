@@ -310,16 +310,16 @@ class MCPToolsConfigModel(BaseModel):
             enabled=False,
         ),
         MCPServerConfig(
-            key="open-deep-research-clone",
+            key="open-deep-research-clone-personal",
             command="http://127.0.0.1:6061/sse",
             args=[],
             enabled=False,
         ),
         MCPServerConfig(
-            key="web-research",
+            key="web-research-personal",
             command="http://127.0.0.1:6060/sse",
             args=[],
-            enabled=True,
+            enabled=False,
         ),
     ]
 
