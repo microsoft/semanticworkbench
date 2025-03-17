@@ -133,10 +133,14 @@ class HostedMCPServerConfig(MCPServerConfig):
     ] = 30
 
 
-def _mcp_server_config_from_env(key: str, url_env_var: str) -> HostedMCPServerConfig:
+def _mcp_server_config_from_env(key: str, url_env_var: str, enabled: bool = True) -> HostedMCPServerConfig:
     """Returns a HostedMCPServerConfig object with the command (URL) set from the environment variable."""
     env_value = os.getenv(url_env_var.upper()) or os.getenv(url_env_var.lower()) or ""
-    return HostedMCPServerConfig(key=key, command=env_value, enabled=bool(env_value))
+
+    if not env_value:
+        enabled = False
+
+    return HostedMCPServerConfig(key=key, command=env_value, enabled=enabled)
 
 
 class HostedMCPServersConfigModel(BaseModel):
@@ -151,6 +155,14 @@ class HostedMCPServersConfigModel(BaseModel):
             description="Configuration for the web research server.",
         ),
     ] = _mcp_server_config_from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
+
+    open_deep_research_clone: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Open Deep Research Clone",
+            description="Configuration for the open deep research clone.",
+        ),
+    ] = _mcp_server_config_from_env("open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", False)
 
     giphy: Annotated[
         HostedMCPServerConfig,
