@@ -49,6 +49,8 @@ log_cli_level = "WARNING"
 log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
 testpaths = ["tests"]
 norecursedirs = ["skill_library/skills/guided_conversation"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [project.scripts]
 run-routine = "skill_library.cli.run_routine:entry_point"
