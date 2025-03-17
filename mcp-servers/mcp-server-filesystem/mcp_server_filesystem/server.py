@@ -1,11 +1,8 @@
 import logging
 import sys
-from collections import defaultdict
 from pathlib import Path
-from typing import Any
 
 from mcp.server.fastmcp import Context, FastMCP
-from mcp.server.session import ServerSession
 
 from . import settings
 
@@ -14,8 +11,6 @@ server_name = "filesystem MCP Server"
 
 # Set up logging
 logger = logging.getLogger("mcp_server_filesystem")
-
-session_vars: dict[ServerSession, dict[str, Any]] = defaultdict(dict)
 
 
 # Helper function to get allowed directories from settings

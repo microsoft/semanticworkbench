@@ -27,7 +27,7 @@ uv run mcp-server-web-research
 For SSE transport:
 
 ```bash
-uv run mcp-server-web-research --transport sse --port 45567
+uv run mcp-server-web-research --transport sse --port 6060
 ```
 
 The SSE URL is:
@@ -59,7 +59,7 @@ To use this MCP server in your setup, consider the following configuration:
 {
   "mcpServers": {
     "mcp-server-web-research": {
-      "command": "http://127.0.0.1:45567/sse",
+      "command": "http://127.0.0.1:6060/sse",
       "args": []
     }
   }

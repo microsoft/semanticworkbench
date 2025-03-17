@@ -1,0 +1,51 @@
+[project]
+name = "mcp-server-open-deep-research-clone"
+version = "0.1.0"
+description = "Uses the web to research a given topic."
+authors = [{ name = "Semantic Workbench Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.2.1",
+    "skill-library>=0.1.0",
+    "content-safety>=0.1.0",
+    "openai-client>=0.1.0",
+    "assistant-drive>=0.1.0",
+    "mcp-extensions[openai]>=0.1.0",
+]
+
+[project.scripts]
+mcp-server-open-deep-research-clone = "mcp_server_open_deep_research_clone.start:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.1",
+    "pytest-asyncio>=0.23.8",
+    "pytest-repeat>=0.9.3",
+    "pyright>=1.1.389",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+skill-library = { path = "../../libraries/python/skills/skill-library", editable = true }
+content-safety = { path = "../../libraries/python/content-safety", editable = true }
+openai-client = { path = "../../libraries/python/openai-client", editable = true }
+assistant-drive = { path = "../../libraries/python/assistant-drive", editable = true }
+mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pyright]
+exclude = ["venv", ".venv"]
+
+[tool.pytest.ini_options]
+addopts = ["-vv", "--capture=no"]
+log_cli = true
+log_cli_level = "WARNING"
+log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

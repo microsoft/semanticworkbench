@@ -10,8 +10,7 @@ from skill_library import Engine
 from skill_library.skills.common import CommonSkill, CommonSkillConfig
 from skill_library.skills.posix import PosixSkill, PosixSkillConfig
 from skill_library.skills.research import ResearchSkill, ResearchSkillConfig
-from skill_library.skills.research2 import ResearchSkill as ResearchSkill2
-from skill_library.skills.research2 import ResearchSkillConfig as ResearchSkillConfig2
+from skill_library.skills.web_research import WebResearchSkill, WebResearchSkillConfig
 
 from .azure_openai import create_azure_openai_client
 from .config import settings
@@ -65,12 +64,12 @@ def get_engine(engine_id: str, drive_root: PathLike, metadata_drive_root: PathLi
                 ),
             ),
             (
-                ResearchSkill2,
-                ResearchSkillConfig2(
-                    name="research2",
+                WebResearchSkill,
+                WebResearchSkillConfig(
+                    name="web_research",
                     language_model=language_model,
                     reasoning_language_model=reasoning_language_model,
-                    drive=drive.subdrive("research2"),
+                    drive=drive.subdrive("web_research"),
                 ),
             ),
         ],
@@ -118,7 +117,7 @@ async def perform_web_research(question: str, on_status_update: Callable[[str], 
     monitor_task = asyncio.create_task(monitor_events())
 
     try:
-        designation = "research2.research"
+        designation = "web_research.research"
         args = []
         kwargs = {
             "plan_name": "temp",

@@ -136,12 +136,20 @@
       "path": "mcp-servers/mcp-server-bing-search"
     },
     {
+      "name": "mcp-servers:mcp-server-filesystem",
+      "path": "mcp-servers/mcp-server-filesystem"
+    },
+    {
       "name": "mcp-servers:mcp-server-fusion",
       "path": "mcp-servers/mcp-server-fusion"
     },
     {
       "name": "mcp-servers:mcp-server-giphy",
       "path": "mcp-servers/mcp-server-giphy"
+    },
+    {
+      "name": "mcp-servers:mcp-server-memory-user-bio",
+      "path": "mcp-servers/mcp-server-memory-user-bio"
     },
     {
       "name": "mcp-servers:mcp-server-office",
@@ -152,16 +160,16 @@
       "path": "mcp-servers/mcp-server-open-deep-research"
     },
     {
-      "name": "mcp-servers:mcp-server-vscode",
-      "path": "mcp-servers/mcp-server-vscode"
-    },
-    {
-      "name": "mcp-servers:mcp-server-filesystem",
-      "path": "mcp-servers/mcp-server-filesystem"
+      "name": "mcp-servers:mcp-server-open-deep-research-clone",
+      "path": "mcp-servers/mcp-server-open-deep-research-clone"
     },
     {
       "name": "mcp-servers:mcp-server-web-research",
       "path": "mcp-servers/mcp-server-web-research"
+    },
+    {
+      "name": "mcp-servers:mcp-server-vscode",
+      "path": "mcp-servers/mcp-server-vscode"
     },
     {
       "name": "mcp-servers:mcp-server-template",
@@ -178,13 +186,17 @@
     {
       "name": ".github",
       "path": ".github"
+    },
+    {
+      "name": ".multi-root-tools",
+      "path": ".multi-root-tools"
     }
   ],
   "settings": {
     "markdown.validate.enabled": true,
-    "ruff.configuration": "${workspaceFolder}/../ruff.toml",
+    "ruff.configuration": "${workspaceFolder:.multi-root-tools}/../ruff.toml",
     "ruff.interpreter": [
-      "${workspaceFolder}/../.venv"
+      "${workspaceFolder:.multi-root-tools}/.venv"
     ],
     "ruff.importStrategy": "useBundled",
     "ruff.nativeServer": "on",

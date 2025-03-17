@@ -97,7 +97,8 @@ async def main(
         )
 
     completion_args = {
-        "model": "o1-mini",
+        "model": "o1",
+        "reasoning_effort": "high",
         "messages": [
             create_user_message(
                 prompt,

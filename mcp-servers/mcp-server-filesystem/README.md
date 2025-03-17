@@ -32,46 +32,14 @@ For SSE transport, you can start the server without specifying directories:
 uv run -m mcp_server_filesystem.start --transport sse --port 6060
 ```
 
-But when connecting, you must include the allowed directories as comma-separated values in the 'args' parameter:
+### Setting Allowed Directories
 
-```
-http://127.0.0.1:6060/sse?args=/path1,/path2,/path3
-```
+The server uses "allowed directories" for security purposes. There are two ways to configure them:
 
-The server will parse these comma-separated values as the allowed directories.
+1. **Command line arguments**: Using `--allowed_directories` parameter (required for stdio transport)
+2. **Root configuration**: For SSE transport, the server can use the roots defined by the client
 
-## Tools Available
-
-### `read_file`
-Reads the contents of a specific file.
-
-### `write_file`
-Writes content to a specified file path. Creates the file if it does not exist.
-
-### `list_directory`
-Lists all files and subdirectories within a specified directory.
-
-### `create_directory`
-Creates a new directory or ensures an existing one remains accessible.
-
-### `edit_file`
-Edits the contents of a text file with specified replacements. Supports a dry run mode to preview changes without applying them.
-
-### `search_files`
-Recursively searches for files matching a pattern across subdirectories.
-
-### `get_file_info`
-Retrieves and displays detailed metadata about a specified file or directory.
-
-### `read_multiple_files`
-Reads the content of multiple files simultaneously and returns their contents in a dictionary. Files not accessible are marked with error messages.
-
-### `move_file`
-Moves or renames a file or directory from a source path to a target destination.
-
-### `list_allowed_directories`
-Returns a list of directories that the server is permitted to access.
-
+When using the root configuration approach, the MCP client sets the accessible directories through the session's `list_roots()` mechanism so each allowed directory must be set in the client's root configuration.
 
 ## Tools Available
 
