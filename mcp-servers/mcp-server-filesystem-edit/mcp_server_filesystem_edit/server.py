@@ -150,6 +150,18 @@ def create_mcp_server() -> FastMCP:
         await write_file(ctx, path, output.new_content)
         return tool_output
 
+    async def list_allowed_directories(ctx: Context) -> str:
+        """
+        Returns a string of allowed directories.
+
+        Returns:
+            A newline-separated string of allowed directories.
+        """
+        allowed_dirs = await get_allowed_directories(ctx)
+        if not allowed_dirs:
+            return "No allowed directories have been configured"
+        return "\n".join(map(str, allowed_dirs))
+
     @mcp.tool()
     async def list_directory(ctx: Context, path: str) -> list[str]:
         """

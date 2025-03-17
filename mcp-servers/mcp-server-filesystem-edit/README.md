@@ -36,6 +36,17 @@ The SSE URL is:
 http://127.0.0.1:25567/sse
 ```
 
+
+### Setting Allowed Directories
+
+The server uses "allowed directories" for security purposes. There are two ways to configure them:
+
+1. **Command line arguments**: Using `--allowed_directories` parameter (required for stdio transport)
+2. **Root configuration**: For SSE transport, the server can use the roots defined by the client
+
+When using the root configuration approach, the MCP client sets the accessible directories through the session's `list_roots()` mechanism so each allowed directory must be set in the client's root configuration.
+
+
 ## Client Configuration
 
 To use this MCP server in your setup, consider the following configuration:
