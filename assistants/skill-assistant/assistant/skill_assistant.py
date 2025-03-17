@@ -13,7 +13,6 @@ from textwrap import dedent
 from typing import Any, Callable
 
 import openai_client
-from openai_client import AzureOpenAIServiceConfig
 from assistant_drive import Drive, DriveConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai_client.chat_driver import ChatDriver, ChatDriverConfig
@@ -38,8 +37,7 @@ from skill_library.skills.fabric import FabricSkill, FabricSkillConfig
 from skill_library.skills.meta import MetaSkill, MetaSkillConfig
 from skill_library.skills.posix import PosixSkill, PosixSkillConfig
 from skill_library.skills.research import ResearchSkill, ResearchSkillConfig
-from skill_library.skills.research2 import ResearchSkill as ResearchSkill2
-from skill_library.skills.research2 import ResearchSkillConfig as ResearchSkillConfig2
+from skill_library.skills.web_research import WebResearchSkill, WebResearchSkillConfig
 
 from assistant.skill_event_mapper import SkillEventMapper
 from assistant.workbench_helpers import WorkbenchMessageProvider
@@ -178,7 +176,16 @@ async def on_command_message_created(
                 return
 
             # Run the function.
-            result = await getattr(functions, function_string)(*args, **kwargs)
+            try:
+                result = await getattr(functions, function_string)(*args, **kwargs)
+            except Exception as e:
+                await conversation_context.send_messages(
+                    NewConversationMessage(
+                        content=f"Error running command: {e}",
+                        message_type=MessageType.notice,
+                    ),
+                )
+                return
 
             if result:
                 await conversation_context.send_messages(
@@ -215,7 +222,7 @@ async def on_message_created(
     # Use a chat driver to respond.
     async with conversation_context.set_status("thinking..."):
         chat_driver_config = ChatDriverConfig(
-            openai_client=openai_client.create_client(config.service_config),
+            openai_client=openai_client.create_client(config.general_model_service_config),
             model=config.chat_driver_config.openai_model,
             instructions=config.chat_driver_config.instructions,
             message_provider=WorkbenchMessageProvider(conversation_context.id, conversation_context),
@@ -247,13 +254,8 @@ async def get_or_register_skill_engine(
         assistant_drive_root = Path(".data") / engine_id / "assistant"
         assistant_metadata_drive_root = Path(".data") / engine_id / ".assistant"
         assistant_drive = Drive(DriveConfig(root=assistant_drive_root))
-        language_model = openai_client.create_client(config.service_config)
-
-        reasoning_service_config = config.service_config.model_copy()
-        if isinstance(reasoning_service_config, AzureOpenAIServiceConfig):
-            reasoning_service_config.azure_openai_deployment = "o1-mini"
-        reasoning_language_model = openai_client.create_client(reasoning_service_config)
-
+        language_model = openai_client.create_client(config.general_model_service_config)
+        reasoning_language_model = openai_client.create_client(config.reasoning_model_service_config)
         message_provider = WorkbenchMessageProvider(engine_id, conversation_context)
 
         # Create the engine and register it. This is where we configure which
@@ -303,12 +305,12 @@ async def get_or_register_skill_engine(
                     ),
                 ),
                 (
-                    ResearchSkill2,
-                    ResearchSkillConfig2(
-                        name="research2",
+                    WebResearchSkill,
+                    WebResearchSkillConfig(
+                        name="web_research",
                         language_model=language_model,
                         reasoning_language_model=reasoning_language_model,
-                        drive=assistant_drive.subdrive("research2"),
+                        drive=assistant_drive.subdrive("web_research"),
                     ),
                 ),
                 (

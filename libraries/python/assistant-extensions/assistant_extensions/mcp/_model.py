@@ -17,19 +17,13 @@ logger = logging.getLogger(__name__)
 
 class MCPServerEnvConfig(BaseModel):
     key: Annotated[str, Field(title="Key", description="Environment variable key.")]
-    value: Annotated[
-        str, Field(title="Value", description="Environment variable value.")
-    ]
+    value: Annotated[str, Field(title="Value", description="Environment variable value.")]
 
 
 class MCPServerConfig(BaseModel):
-    enabled: Annotated[
-        bool, Field(title="Enabled", description="Enable the server.")
-    ] = True
+    enabled: Annotated[bool, Field(title="Enabled", description="Enable the server.")] = True
 
-    key: Annotated[
-        str, Field(title="Key", description="Unique key for the server configuration.")
-    ]
+    key: Annotated[str, Field(title="Key", description="Unique key for the server configuration.")]
 
     command: Annotated[
         str,
@@ -54,9 +48,7 @@ class MCPServerConfig(BaseModel):
 
     env: Annotated[
         List[MCPServerEnvConfig],
-        Field(
-            title="Environment Variables", description="Environment variables to set."
-        ),
+        Field(title="Environment Variables", description="Environment variables to set."),
     ] = []
 
     prompt: Annotated[
@@ -67,9 +59,7 @@ class MCPServerConfig(BaseModel):
 
     long_running: Annotated[
         bool,
-        Field(
-            title="Long Running", description="Does this server run long running tasks?"
-        ),
+        Field(title="Long Running", description="Does this server run long running tasks?"),
     ] = False
 
     task_completion_estimate: Annotated[
@@ -82,9 +72,7 @@ class MCPServerConfig(BaseModel):
 
 
 class HostedMCPServerConfig(MCPServerConfig):
-    enabled: Annotated[
-        bool, Field(title="Enabled", description="Enable the server.")
-    ] = True
+    enabled: Annotated[bool, Field(title="Enabled", description="Enable the server.")] = True
 
     key: Annotated[
         str,
@@ -118,9 +106,7 @@ class HostedMCPServerConfig(MCPServerConfig):
 
     env: Annotated[
         List[MCPServerEnvConfig],
-        Field(
-            title="Environment Variables", description="Environment variables to set."
-        ),
+        Field(title="Environment Variables", description="Environment variables to set."),
         UISchema(readonly=True, widget="hidden"),
     ] = []
 
@@ -133,9 +119,7 @@ class HostedMCPServerConfig(MCPServerConfig):
 
     long_running: Annotated[
         bool,
-        Field(
-            title="Long Running", description="Does this server run long running tasks?"
-        ),
+        Field(title="Long Running", description="Does this server run long running tasks?"),
         UISchema(readonly=True, widget="hidden"),
     ] = False
 
@@ -147,7 +131,6 @@ class HostedMCPServerConfig(MCPServerConfig):
         ),
         UISchema(readonly=True, widget="hidden"),
     ] = 30
-
 
 
 def _mcp_server_config_from_env(key: str, url_env_var: str) -> HostedMCPServerConfig:
@@ -183,12 +166,13 @@ class HostedMCPServersConfigModel(BaseModel):
         Returns a list of all hosted MCP servers that are configured.
         """
         # Get all fields that are of type HostedMCPServerConfig
-        configs = [getattr(self, field) for field in self.model_fields if isinstance(getattr(self, field), HostedMCPServerConfig)]
-        # Filter out any configs that are missing command (URL)
-        return [
-            config for config in configs if config.command
+        configs = [
+            getattr(self, field)
+            for field in self.model_fields
+            if isinstance(getattr(self, field), HostedMCPServerConfig)
         ]
-
+        # Filter out any configs that are missing command (URL)
+        return [config for config in configs if config.command]
 
 
 class MCPToolsConfigModel(BaseModel):
@@ -234,12 +218,6 @@ class MCPToolsConfigModel(BaseModel):
         MCPServerConfig(
             key="bing-search",
             command="http://127.0.0.1:6030/sse",
-            args=[],
-            enabled=False,
-        ),
-        MCPServerConfig(
-            key="open-deep-research",
-            command="http://127.0.0.1:6020/sse",
             args=[],
             enabled=False,
         ),
@@ -314,10 +292,22 @@ class MCPToolsConfigModel(BaseModel):
             enabled=False,
         ),
         MCPServerConfig(
+            key="open-deep-research",
+            command="http://127.0.0.1:6020/sse",
+            args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
+            key="open-deep-research-clone",
+            command="http://127.0.0.1:6061/sse",
+            args=[],
+            enabled=False,
+        ),
+        MCPServerConfig(
             key="web-research",
             command="http://127.0.0.1:6060/sse",
             args=[],
-            enabled=False,
+            enabled=True,
         ),
     ]
 
@@ -394,9 +384,7 @@ class MCPSession:
         tools_result = await self.client_session.list_tools()
         self.tools = tools_result.tools
         self.is_connected = True
-        logger.debug(
-            f"Loaded {len(tools_result.tools)} tools from session '{self.config.key}'"
-        )
+        logger.debug(f"Loaded {len(tools_result.tools)} tools from session '{self.config.key}'")
 
 
 class ExtendedCallToolRequestParams(CallToolRequestParams):
