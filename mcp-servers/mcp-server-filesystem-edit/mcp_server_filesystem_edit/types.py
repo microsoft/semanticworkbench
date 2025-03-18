@@ -20,6 +20,7 @@ class Comment(BaseModel):
 class CustomContext(BaseModel):
     chat_history: list[MessageT]
     document: str
+    file_type: Literal["markdown", "latex"] = Field(default="markdown")
     additional_context: str
     comments: list[Comment] = Field(default_factory=list)
 

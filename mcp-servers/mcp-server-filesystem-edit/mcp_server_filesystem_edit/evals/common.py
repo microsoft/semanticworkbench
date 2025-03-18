@@ -88,6 +88,7 @@ def load_test_cases(
             CustomContext(
                 chat_history=chat_history,
                 document=document_content,
+                file_type=test_case.file_type,
                 additional_context=additional_context,
                 comments=comments,
             )

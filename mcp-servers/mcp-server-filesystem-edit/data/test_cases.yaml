@@ -37,4 +37,5 @@ test_cases:
     test_case_type: "writing"
     transcription_file: "transcript_research_simple.md"
     open_file: "Research Template.tex"
+    file_type: "latex"
     next_ask: "Please write the introduction section of my research paper on asteroids."

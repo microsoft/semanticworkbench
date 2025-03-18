@@ -1,7 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import os
-from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
@@ -17,8 +16,7 @@ def load_required_env_var(env_var_name: str) -> str:
 
 class Settings(BaseSettings):
     log_level: str = log_level
-    # TODO: Currently hardcoding the allowed dirs.
-    allowed_directories: list[str] = [str(Path(__file__).parents[1] / "temp" / "latex")]
+    allowed_directories: list[str] = []
 
     # LLM and prompt related settings
     comment_author: str = "Feedback Tool"

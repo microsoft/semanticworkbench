@@ -75,10 +75,10 @@ async def main() -> None:
         aoai_api_version="2025-01-01-preview",
     )
 
-    for i, custom_context in enumerate(custom_contexts[4:5]):
+    for i, custom_context in enumerate(custom_contexts):
         edit_request = EditRequest(
             context=custom_context,
-            file_type="latex",
+            file_type=custom_context.file_type,
             request_type="dev",
             chat_completion_client=client,
             file_content=custom_context.document,
