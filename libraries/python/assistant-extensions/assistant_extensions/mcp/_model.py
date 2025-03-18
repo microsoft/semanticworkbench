@@ -152,7 +152,7 @@ class HostedMCPServersConfigModel(BaseModel):
         HostedMCPServerConfig,
         Field(
             title="Web Research",
-            description="Configuration for the web research server.",
+            description="This tool performs web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
         ),
     ] = _mcp_server_config_from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
 
@@ -160,7 +160,7 @@ class HostedMCPServersConfigModel(BaseModel):
         HostedMCPServerConfig,
         Field(
             title="Open Deep Research Clone",
-            description="Configuration for the open deep research clone.",
+            description="This is a web research tool that was created to be as similar to the Open Deep Research project as a demonstration of writing routines using our Skills library.",
         ),
     ] = _mcp_server_config_from_env("open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", False)
 

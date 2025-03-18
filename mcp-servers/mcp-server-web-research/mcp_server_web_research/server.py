@@ -12,17 +12,6 @@ def create_mcp_server() -> FastMCP:
     # Initialize FastMCP with debug logging.
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
-    # Define each tool and its setup.
-
-    # Example tool
-    @mcp.tool()
-    async def echo(value: str) -> str:
-        """
-        Will return whatever is passed to it.
-        """
-
-        return value
-
     @mcp.tool()
     async def web_research(context: str, request: str, ctx: Context) -> str:
         """
