@@ -8,8 +8,8 @@
       "cwd": "${workspaceFolder}",
       "module": "mcp_server_filesystem_edit.start",
       "args": ["--transport", "sse", "--port", "25567"],
-      "consoleTitle": "mcp-server-filesystem-edit"
-      // "justMyCode": false // Set to false to debug external libraries
+      "consoleTitle": "mcp-server-filesystem-edit",
+      "justMyCode": false
     },
     {
       "name": "Python: Current File",

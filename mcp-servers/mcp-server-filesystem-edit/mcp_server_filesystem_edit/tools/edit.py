@@ -83,7 +83,7 @@ class CommonEdit:
             mcp_messages.append(messages[3])  # Document message
             reasoning_response = await chat_completion(
                 request=ChatCompletionRequest(
-                    messages=messages,
+                    messages=mcp_messages,
                     model="o3-mini",
                     max_completion_tokens=20000,
                     reasoning_effort="high",
