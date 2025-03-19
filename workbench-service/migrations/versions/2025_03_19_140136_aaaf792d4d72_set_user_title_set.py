@@ -38,4 +38,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    pass
+    bind = op.get_bind()
+
+    # Drop the __user_title_set key
+    for conversation_id, meta_data in bind.execute(
+        sm.select(db.Conversation.conversation_id, db.Conversation.meta_data)
+    ).yield_per(1):
+        meta_data = meta_data or {}
+        if not meta_data.pop("__user_title_set", None):
+            continue
+
+        bind.execute(
+            sm.update(db.Conversation)
+            .where(sm.col(db.Conversation.conversation_id) == conversation_id)
+            .values(meta_data=meta_data)
+        )
