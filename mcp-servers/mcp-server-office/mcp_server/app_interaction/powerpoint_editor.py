@@ -1,11 +1,15 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-import pythoncom
-import win32com.client as win32
+import sys
 
 
 def get_powerpoint_app():
     """Connect to PowerPoint if it is running, or start a new instance."""
+    if sys.platform != "win32":
+        raise EnvironmentError("This script only works on Windows.")
+
+    import win32com.client as win32
+
     try:
         # Try connecting to an existing instance of PowerPoint
         powerpoint = win32.GetActiveObject("PowerPoint.Application")
@@ -84,6 +88,11 @@ def remove_slide(presentation, slide_number):
 
 
 def main():
+    if sys.platform != "win32":
+        raise EnvironmentError("This script is only supported on Windows.")
+
+    import pythoncom
+
     # Initialize COM
     pythoncom.CoInitialize()
 
