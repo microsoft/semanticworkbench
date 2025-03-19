@@ -1,6 +1,7 @@
 import datetime
 import logging
 import openai_client
+from openai.types.chat import ChatCompletionMessageParam
 import uuid
 from typing import Annotated, AsyncContextManager, Awaitable, Callable, Iterable, Literal, Sequence
 
@@ -751,6 +752,7 @@ class ConversationController:
                     self._retitle_conversation,
                     principal,
                     conversation_id,
+                    message.sequence,
                 )
 
         message_response = convert.conversation_message_from_db(message, has_debug=bool(message_debug))
@@ -789,7 +791,9 @@ class ConversationController:
 
         return True
 
-    async def _retitle_conversation(self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID) -> None:
+    async def _retitle_conversation(
+        self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID, latest_message_sequence: int
+    ) -> None:
         """Retitle the conversation based on the most recent messages."""
 
         if not settings.service.azure_openai_endpoint:
@@ -812,7 +816,7 @@ class ConversationController:
                         select(db.ConversationMessage)
                         .where(
                             db.ConversationMessage.conversation_id == conversation_id,
-                            db.ConversationMessage.sender_participant_role == ParticipantRole.user.value,
+                            db.ConversationMessage.sequence <= latest_message_sequence,
                             db.ConversationMessage.message_type == MessageType.chat.value,
                         )
                         .order_by(col(db.ConversationMessage.sequence).desc())
@@ -823,7 +827,22 @@ class ConversationController:
             if not messages:
                 return
 
-            messages.reverse()
+        messages.reverse()
+
+        completion_messages: list[ChatCompletionMessageParam] = []
+        for message in messages:
+            match message.sender_participant_role:
+                case ParticipantRole.user.value:
+                    completion_messages.append({
+                        "role": "user",
+                        "content": message.content,
+                    })
+
+                case _:
+                    completion_messages.append({
+                        "role": "assistant",
+                        "content": message.content,
+                    })
 
         # Call the LLM to get a new title
         try:
@@ -836,13 +855,7 @@ class ConversationController:
             ) as client:
                 response = await client.beta.chat.completions.parse(
                     messages=[
-                        *[
-                            {
-                                "role": "user",
-                                "content": message.content,
-                            }
-                            for message in messages
-                        ],
+                        *completion_messages,
                         {
                             "role": "developer",
                             "content": ("The current conversation title is: {conversation.title}"),
