@@ -9,6 +9,7 @@ from mcp.server.fastmcp import Context, FastMCP
 from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.tools.edit import CommonEdit
 from mcp_server_filesystem_edit.types import EditRequest
+from mcp_server_filesystem_edit.app_handling.miktex import compile_tex_to_pdf
 
 # Set the name of the MCP server
 server_name = "Filesystem Edit MCP Server"
@@ -148,6 +149,15 @@ def create_mcp_server() -> FastMCP:
         tool_output: str = output.change_summary + "\n" + output.output_message
 
         await write_file(ctx, path, output.new_content)
+
+        # If this is a tex file, auto compile it to PDF
+        if file_type == "latex":
+            success, error_msg = compile_tex_to_pdf(file_path)
+            if not success:
+                tool_output += f"\n\nError compiling LaTeX to PDF: {error_msg}\nPlease understand what caused the error and fix it in the LaTeX file."
+            else:
+                tool_output += "\n\nLaTeX compiled successfully to PDF."
+
         return tool_output
 
     async def list_allowed_directories(ctx: Context) -> str:

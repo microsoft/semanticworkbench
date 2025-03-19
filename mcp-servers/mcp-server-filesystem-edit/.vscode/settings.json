@@ -61,6 +61,9 @@
     "dotenv",
     "Evals",
     "fastmcp",
+    "miktex",
+    "nonstopmode",
+    "pdflatex",
     "toplevel",
     "unblockified",
     "unblockify"
