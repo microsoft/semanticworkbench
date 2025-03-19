@@ -47,8 +47,8 @@ class ConversationTitleResponse(BaseModel):
     ]
 
 
-META_DATA_KEY_USER_SET_TITLE = "_user_set_title"
-META_DATA_KEY_AUTO_TITLE_COUNT = "_auto_title_count"
+META_DATA_KEY_USER_SET_TITLE = "__user_set_title"
+META_DATA_KEY_AUTO_TITLE_COUNT = "__auto_title_count"
 AUTO_TITLE_COUNT_LIMIT = 3
 """
 The maximum number of times a conversation can be automatically retitled.
@@ -312,7 +312,7 @@ class ConversationController:
             for key, value in update_conversation.model_dump(exclude_unset=True).items():
                 match key:
                     case "metadata":
-                        system_entries = {k: v for k, v in conversation.meta_data.items() if k.startswith("_")}
+                        system_entries = {k: v for k, v in conversation.meta_data.items() if k.startswith("__")}
                         conversation.meta_data = {**value, **system_entries}
                     case "title":
                         if value == conversation.title:

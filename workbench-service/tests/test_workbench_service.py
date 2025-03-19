@@ -123,7 +123,7 @@ def test_create_assistant_request_failure(
 
 def exclude_system_keys(metadata: dict) -> dict:
     """Omit system metadata from the given metadata dictionary."""
-    return {k: v for k, v in metadata.items() if not k.startswith("_")}
+    return {k: v for k, v in metadata.items() if not k.startswith("__")}
 
 
 def test_create_conversation(workbench_service: FastAPI, test_user: MockUser):
