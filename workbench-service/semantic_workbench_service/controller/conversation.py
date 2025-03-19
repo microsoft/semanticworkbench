@@ -82,7 +82,10 @@ class ConversationController:
             )
 
             if new_conversation.title and new_conversation.title != NewConversation().title:
-                conversation.meta_data[META_DATA_KEY_USER_SET_TITLE] = True
+                conversation.meta_data = {
+                    **conversation.meta_data,
+                    META_DATA_KEY_USER_SET_TITLE: True,
+                }
 
             session.add(conversation)
 
@@ -312,8 +315,13 @@ class ConversationController:
                         system_entries = {k: v for k, v in conversation.meta_data.items() if k.startswith("_")}
                         conversation.meta_data = {**value, **system_entries}
                     case "title":
+                        if value == conversation.title:
+                            continue
                         conversation.title = value
-                        conversation.meta_data[META_DATA_KEY_USER_SET_TITLE] = True
+                        conversation.meta_data = {
+                            **conversation.meta_data,
+                            META_DATA_KEY_USER_SET_TITLE: True,
+                        }
                     case _:
                         setattr(conversation, key, value)
 
@@ -741,6 +749,7 @@ class ConversationController:
             ) and self._message_candidate_for_retitling(message=message):
                 background_task = (
                     self._retitle_conversation,
+                    principal,
                     conversation_id,
                 )
 
@@ -780,7 +789,7 @@ class ConversationController:
 
         return True
 
-    async def _retitle_conversation(self, conversation_id: uuid.UUID) -> None:
+    async def _retitle_conversation(self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID) -> None:
         """Retitle the conversation based on the most recent messages."""
 
         if not settings.service.azure_openai_endpoint:
@@ -871,13 +880,20 @@ class ConversationController:
             if result.title.strip():
                 conversation.title = result.title.strip()
 
-            conversation.meta_data[META_DATA_KEY_AUTO_TITLE_COUNT] = (
-                conversation.meta_data.get(META_DATA_KEY_AUTO_TITLE_COUNT, 0) + 1
-            )
+            conversation.meta_data = {
+                **conversation.meta_data,
+                META_DATA_KEY_AUTO_TITLE_COUNT: conversation.meta_data.get(META_DATA_KEY_AUTO_TITLE_COUNT, 0) + 1,
+            }
 
             session.add(conversation)
             await session.commit()
             await session.refresh(conversation)
+
+        conversation_model = await self.get_conversation(
+            conversation_id=conversation.conversation_id,
+            principal=principal,
+            latest_message_types=set(),
+        )
 
         await self._notify_event(
             ConversationEventQueueItem(
@@ -885,7 +901,7 @@ class ConversationController:
                     conversation_id=conversation.conversation_id,
                     event=ConversationEventType.conversation_updated,
                     data={
-                        "conversation": conversation.model_dump(),
+                        "conversation": conversation_model.model_dump(),
                     },
                 )
             )
