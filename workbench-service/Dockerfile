@@ -4,8 +4,7 @@ FROM ${python_image} AS build
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-COPY ./libraries/python/semantic-workbench-api-model /libraries/python/semantic-workbench-api-model
-COPY ./libraries/python/semantic-workbench-assistant /libraries/python/semantic-workbench-assistant
+COPY ./libraries/python /libraries/python
 COPY ./workbench-service /workbench-service
 
 RUN uv sync --directory /workbench-service --no-editable --no-dev --locked
@@ -45,6 +44,7 @@ WORKDIR /workbench-service
 
 ENV workbench__service__host=0.0.0.0
 ENV workbench__service__port=3000
+ENV PYTHONUNBUFFERED=1
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]

@@ -1,9 +1,11 @@
 import datetime
 import logging
+import openai_client
 import uuid
-from typing import AsyncContextManager, Awaitable, Callable, Iterable, Literal, Sequence
+from typing import Annotated, AsyncContextManager, Awaitable, Callable, Iterable, Literal, Sequence
 
 import deepmerge
+from pydantic import BaseModel, Field, HttpUrl
 from semantic_workbench_api_model.assistant_service_client import AssistantError
 from semantic_workbench_api_model.workbench_model import (
     Conversation,
@@ -25,13 +27,32 @@ from semantic_workbench_api_model.workbench_model import (
 from sqlmodel import and_, col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from .. import auth, db, query
+from .. import auth, db, query, settings
 from ..event import ConversationEventQueueItem
 from . import assistant, convert, exceptions
 from . import participant as participant_
 from . import user as user_
 
 logger = logging.getLogger(__name__)
+
+
+class ConversationTitleResponse(BaseModel):
+    """Model for responses from LLM for automatic conversation re-titling."""
+
+    title: Annotated[
+        str,
+        Field(
+            description="The updated title of the conversation. If the subject matter of the conversation has changed significantly from the current title, suggest a short, but descriptive title for the conversation. Ideally 4 words or less in length. Leave it blank to keep the current title.",
+        ),
+    ]
+
+
+META_DATA_KEY_USER_SET_TITLE = "__user_set_title"
+META_DATA_KEY_AUTO_TITLE_COUNT = "__auto_title_count"
+AUTO_TITLE_COUNT_LIMIT = 3
+"""
+The maximum number of times a conversation can be automatically retitled.
+"""
 
 
 class ConversationController:
@@ -55,10 +76,16 @@ class ConversationController:
 
             conversation = db.Conversation(
                 owner_id=user_principal.user_id,
-                title=new_conversation.title,
+                title=new_conversation.title or NewConversation().title,
                 meta_data=new_conversation.metadata,
                 imported_from_conversation_id=None,
             )
+
+            if new_conversation.title and new_conversation.title != NewConversation().title:
+                conversation.meta_data = {
+                    **conversation.meta_data,
+                    META_DATA_KEY_USER_SET_TITLE: True,
+                }
 
             session.add(conversation)
 
@@ -285,7 +312,16 @@ class ConversationController:
             for key, value in update_conversation.model_dump(exclude_unset=True).items():
                 match key:
                     case "metadata":
-                        conversation.meta_data = value
+                        system_entries = {k: v for k, v in conversation.meta_data.items() if k.startswith("__")}
+                        conversation.meta_data = {**value, **system_entries}
+                    case "title":
+                        if value == conversation.title:
+                            continue
+                        conversation.title = value
+                        conversation.meta_data = {
+                            **conversation.meta_data,
+                            META_DATA_KEY_USER_SET_TITLE: True,
+                        }
                     case _:
                         setattr(conversation, key, value)
 
@@ -637,7 +673,7 @@ class ConversationController:
         principal: auth.ActorPrincipal,
         conversation_id: uuid.UUID,
         new_message: NewConversationMessage,
-    ) -> ConversationMessage:
+    ) -> tuple[ConversationMessage, Iterable]:
         async with self._get_session() as session:
             conversation = (
                 await session.exec(
@@ -707,6 +743,16 @@ class ConversationController:
             await session.commit()
             await session.refresh(message)
 
+            background_task: Iterable = ()
+            if self._conversation_candidate_for_retitling(
+                conversation=conversation
+            ) and self._message_candidate_for_retitling(message=message):
+                background_task = (
+                    self._retitle_conversation,
+                    principal,
+                    conversation_id,
+                )
+
         message_response = convert.conversation_message_from_db(message, has_debug=bool(message_debug))
 
         await self._notify_event(
@@ -721,7 +767,145 @@ class ConversationController:
             )
         )
 
-        return message_response
+        return message_response, background_task
+
+    def _message_candidate_for_retitling(self, message: db.ConversationMessage) -> bool:
+        """Check if the message is a candidate for retitling the conversation."""
+        if message.sender_participant_role != ParticipantRole.user.value:
+            return False
+
+        if message.message_type != MessageType.chat.value:
+            return False
+
+        return True
+
+    def _conversation_candidate_for_retitling(self, conversation: db.Conversation) -> bool:
+        """Check if the conversation is a candidate for retitling."""
+        if conversation.meta_data.get(META_DATA_KEY_USER_SET_TITLE, False):
+            return False
+
+        if conversation.meta_data.get(META_DATA_KEY_AUTO_TITLE_COUNT, 0) >= AUTO_TITLE_COUNT_LIMIT:
+            return False
+
+        return True
+
+    async def _retitle_conversation(self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID) -> None:
+        """Retitle the conversation based on the most recent messages."""
+
+        if not settings.service.azure_openai_endpoint:
+            logger.warning(
+                "Azure OpenAI endpoint is not configured, skipping retitling conversation %s", conversation_id
+            )
+            return
+
+        if not settings.service.azure_openai_deployment:
+            logger.warning(
+                "Azure OpenAI deployment is not configured, skipping retitling conversation %s", conversation_id
+            )
+            return
+
+        async with self._get_session() as session:
+            # Retrieve the most recent messages
+            messages = list(
+                (
+                    await session.exec(
+                        select(db.ConversationMessage)
+                        .where(
+                            db.ConversationMessage.conversation_id == conversation_id,
+                            db.ConversationMessage.sender_participant_role == ParticipantRole.user.value,
+                            db.ConversationMessage.message_type == MessageType.chat.value,
+                        )
+                        .order_by(col(db.ConversationMessage.sequence).desc())
+                        .limit(10)
+                    )
+                ).all()
+            )
+            if not messages:
+                return
+
+            messages.reverse()
+
+        # Call the LLM to get a new title
+        try:
+            async with openai_client.create_client(
+                openai_client.AzureOpenAIServiceConfig(
+                    auth_config=openai_client.AzureOpenAIAzureIdentityAuthConfig(),
+                    azure_openai_deployment=settings.service.azure_openai_deployment,
+                    azure_openai_endpoint=HttpUrl(settings.service.azure_openai_endpoint),
+                ),
+            ) as client:
+                response = await client.beta.chat.completions.parse(
+                    messages=[
+                        *[
+                            {
+                                "role": "user",
+                                "content": message.content,
+                            }
+                            for message in messages
+                        ],
+                        {
+                            "role": "developer",
+                            "content": ("The current conversation title is: {conversation.title}"),
+                        },
+                    ],
+                    model=settings.service.azure_openai_model,
+                    # the model's description also contains instructions
+                    response_format=ConversationTitleResponse,
+                )
+
+                if not response.choices:
+                    raise RuntimeError("No choices in azure openai response")
+
+                result = response.choices[0].message.parsed
+                if result is None:
+                    raise RuntimeError("No parsed result in azure openai response")
+
+        except Exception:
+            logger.exception("Failed to retitle conversation %s", conversation_id)
+            return
+
+        # Update the conversation title if it has not already been changed from the default
+        async with self._get_session() as session:
+            conversation = (
+                await session.exec(
+                    select(db.Conversation).where(db.Conversation.conversation_id == conversation_id).with_for_update()
+                )
+            ).one_or_none()
+            if conversation is None:
+                return
+
+            if not self._conversation_candidate_for_retitling(conversation):
+                return
+
+            if result.title.strip():
+                conversation.title = result.title.strip()
+
+            conversation.meta_data = {
+                **conversation.meta_data,
+                META_DATA_KEY_AUTO_TITLE_COUNT: conversation.meta_data.get(META_DATA_KEY_AUTO_TITLE_COUNT, 0) + 1,
+            }
+
+            session.add(conversation)
+            await session.commit()
+            await session.refresh(conversation)
+
+        conversation_model = await self.get_conversation(
+            conversation_id=conversation.conversation_id,
+            principal=principal,
+            latest_message_types=set(),
+        )
+
+        await self._notify_event(
+            ConversationEventQueueItem(
+                event=ConversationEvent(
+                    conversation_id=conversation.conversation_id,
+                    event=ConversationEventType.conversation_updated,
+                    data={
+                        "conversation": conversation_model.model_dump(),
+                    },
+                )
+            )
+        )
 
     async def get_message(
         self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID, message_id: uuid.UUID

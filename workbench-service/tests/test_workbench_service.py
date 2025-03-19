@@ -4,9 +4,12 @@ import io
 import json
 import logging
 import re
+import time
+from unittest.mock import AsyncMock, Mock
 import uuid
 
 import httpx
+import openai_client
 import pytest
 import semantic_workbench_api_model.assistant_model as api_model
 import semantic_workbench_service
@@ -15,6 +18,7 @@ from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 from pytest_httpx import HTTPXMock
 from semantic_workbench_api_model import workbench_model, workbench_service_client
+
 
 from .types import MockUser
 
@@ -117,9 +121,14 @@ def test_create_assistant_request_failure(
         )
 
 
+def exclude_system_keys(metadata: dict) -> dict:
+    """Omit system metadata from the given metadata dictionary."""
+    return {k: v for k, v in metadata.items() if not k.startswith("__")}
+
+
 def test_create_conversation(workbench_service: FastAPI, test_user: MockUser):
     with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
-        new_conversation = workbench_model.NewConversation(title="test-conversation", metadata={"test": "value"})
+        new_conversation = workbench_model.NewConversation(title="test", metadata={"test": "value"})
         http_response = client.post("/conversations", json=new_conversation.model_dump(mode="json"))
         assert httpx.codes.is_success(http_response.status_code)
 
@@ -127,14 +136,83 @@ def test_create_conversation(workbench_service: FastAPI, test_user: MockUser):
 
         conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         assert conversation_response.title == new_conversation.title
-        assert conversation_response.metadata == new_conversation.metadata
+        assert exclude_system_keys(conversation_response.metadata) == new_conversation.metadata
 
         http_response = client.get(f"/conversations/{conversation_response.id}")
         assert httpx.codes.is_success(http_response.status_code)
 
         get_conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         assert get_conversation_response.title == new_conversation.title
-        assert get_conversation_response.metadata == new_conversation.metadata
+        assert exclude_system_keys(get_conversation_response.metadata) == new_conversation.metadata
+
+
+class AsyncContextManagerMock:
+    def __init__(self, mock: Mock) -> None:
+        self.mock = mock
+
+    async def __aenter__(self):
+        """Enter async context manager."""
+        return self.mock
+
+    async def __aexit__(self, exc_type, exc, tb):
+        """Exit async context manager."""
+        pass
+
+
+def test_create_conversation_and_retitle(
+    workbench_service: FastAPI, test_user: MockUser, monkeypatch: pytest.MonkeyPatch
+):
+    from semantic_workbench_service.controller.conversation import ConversationTitleResponse
+
+    mock_parsed_choice = Mock()
+    mock_parsed_choice.message.parsed = ConversationTitleResponse(title="A sweet title")
+
+    mock_parsed_completion = Mock()
+    mock_parsed_completion.choices = [mock_parsed_choice]
+
+    mock_client = Mock()
+    mock_client.beta.chat.completions.parse = AsyncMock()
+    mock_client.beta.chat.completions.parse.return_value = mock_parsed_completion
+
+    mock_create_client = Mock(spec=openai_client.create_client)
+    mock_create_client.return_value = AsyncContextManagerMock(mock_client)
+
+    monkeypatch.setattr(openai_client, "create_client", mock_create_client)
+
+    monkeypatch.setattr(semantic_workbench_service.settings.service, "azure_openai_endpoint", "https://something/")
+    monkeypatch.setattr(semantic_workbench_service.settings.service, "azure_openai_deployment", "something")
+
+    with TestClient(app=workbench_service, headers=test_user.authorization_headers) as client:
+        new_conversation = workbench_model.NewConversation(metadata={"test": "value"})
+        http_response = client.post("/conversations", json=new_conversation.model_dump(mode="json"))
+        assert httpx.codes.is_success(http_response.status_code)
+
+        conversation_response = workbench_model.Conversation.model_validate(http_response.json())
+        assert conversation_response.title == "New Conversation"
+
+        http_response = client.get(f"/conversations/{conversation_response.id}")
+        assert httpx.codes.is_success(http_response.status_code)
+
+        get_conversation_response = workbench_model.Conversation.model_validate(http_response.json())
+        assert get_conversation_response.title == new_conversation.title
+
+        new_message = workbench_model.NewConversationMessage(content="hi")
+        http_response = client.post(
+            f"/conversations/{conversation_response.id}/messages", json=new_message.model_dump(mode="json")
+        )
+        assert httpx.codes.is_success(http_response.status_code)
+
+        for _ in range(10):
+            http_response = client.get(f"/conversations/{conversation_response.id}")
+            assert httpx.codes.is_success(http_response.status_code)
+
+            get_conversation_response = workbench_model.Conversation.model_validate(http_response.json())
+            if get_conversation_response.title != "New Conversation":
+                break
+            time.sleep(0.1)
+
+        get_conversation_response = workbench_model.Conversation.model_validate(http_response.json())
+        assert get_conversation_response.title == "A sweet title"
 
 
 def test_create_update_conversation(workbench_service: FastAPI, test_user: MockUser):
@@ -161,7 +239,7 @@ def test_create_update_conversation(workbench_service: FastAPI, test_user: MockU
 
         get_conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         assert get_conversation_response.title == updated_title
-        assert get_conversation_response.metadata == updated_metadata
+        assert exclude_system_keys(get_conversation_response.metadata) == updated_metadata
 
 
 def test_create_assistant_add_to_conversation(

@@ -5,8 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "workbench-service/**"
-      - "libraries/python/semantic-workbench-assistant/**"
-      - "libraries/python/semantic-workbench-api-model/**"
+      - "libraries/python/**"
       - "tools/docker/**"
       - ".github/workflows/workbench-service.yml"
 
@@ -14,8 +13,7 @@ on:
     branches: ["main"]
     paths:
       - "workbench-service/**"
-      - "libraries/python/semantic-workbench-assistant/**"
-      - "libraries/python/semantic-workbench-api-model/**"
+      - "libraries/python/**"
       - "tools/docker/**"
       - ".github/workflows/workbench-service.yml"
 
