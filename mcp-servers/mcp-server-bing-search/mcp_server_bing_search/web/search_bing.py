@@ -13,6 +13,9 @@ def search_bing(query: str) -> list[SearchResult]:
     """
     # Add your Bing Search V7 subscription key and endpoint to your environment variables.
     subscription_key = settings.bing_search_api_key
+    if not subscription_key:
+        raise ValueError("BING_SEARCH_API_KEY is not set in the environment variables.")
+
     endpoint = "https://api.bing.microsoft.com/v7.0/search"
 
     mkt = "en-US"

@@ -1,11 +1,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-import win32com.client as win32
 
 from mcp_server.types import WordCommentData
 
 
 def get_word_app():
+    import win32com.client as win32
+
     """Connect to Word if it is running, or start a new instance."""
     try:
         # Try connecting to an existing instance of Word
