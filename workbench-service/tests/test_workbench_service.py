@@ -239,7 +239,7 @@ def test_create_update_conversation(workbench_service: FastAPI, test_user: MockU
 
         get_conversation_response = workbench_model.Conversation.model_validate(http_response.json())
         assert get_conversation_response.title == updated_title
-        assert get_conversation_response.metadata == updated_metadata
+        assert exclude_system_keys(get_conversation_response.metadata) == updated_metadata
 
 
 def test_create_assistant_add_to_conversation(
