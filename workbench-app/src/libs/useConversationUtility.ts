@@ -141,7 +141,7 @@ export const useConversationUtility = () => {
 
             // Save the conversation
             await updateConversation({
-                ...conversation,
+                id: conversation.id,
                 metadata: {
                     ...conversation.metadata,
                     participantAppMetadata: {

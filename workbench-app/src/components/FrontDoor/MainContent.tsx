@@ -58,7 +58,6 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
     const { createConversation } = useCreateConversation();
     const [isValid, setIsValid] = React.useState(false);
-    const [title, setTitle] = React.useState<string>();
     const [assistantId, setAssistantId] = React.useState<string>();
     const [name, setName] = React.useState<string>();
     const [assistantServiceId, setAssistantServiceId] = React.useState<string>();
@@ -75,7 +74,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     }, [activeConversationId, siteUtility]);
 
     const handleCreate = React.useCallback(async () => {
-        if (submitted || !isValid || !title || !assistantId) {
+        if (submitted || !isValid || !assistantId) {
             return;
         }
 
@@ -93,13 +92,13 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
         setSubmitted(true);
 
         try {
-            const { conversation } = await createConversation(title, assistantInfo);
+            const { conversation } = await createConversation(assistantInfo);
             navigateToConversation(conversation.id);
         } finally {
             // In case of error, allow user to retry
             setSubmitted(false);
         }
-    }, [assistantId, assistantServiceId, createConversation, isValid, name, navigateToConversation, submitted, title]);
+    }, [assistantId, assistantServiceId, createConversation, isValid, name, navigateToConversation, submitted]);
 
     const handleImport = React.useCallback(
         (conversationIds: string[]) => {
@@ -129,7 +128,6 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                             onSubmit={handleCreate}
                             onChange={(isValid, data) => {
                                 setIsValid(isValid);
-                                setTitle(data.title);
                                 setAssistantId(data.assistantId);
                                 setAssistantServiceId(data.assistantServiceId);
                                 setName(data.name);

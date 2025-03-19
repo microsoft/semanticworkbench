@@ -65,7 +65,6 @@ export const useCreateConversation = () => {
 
     const create = React.useCallback(
         async (
-            title: string,
             assistantInfo:
                 | {
                       assistantId: string;
@@ -81,7 +80,7 @@ export const useCreateConversation = () => {
 
             let assistant: Assistant | undefined = undefined;
 
-            const conversation = await createConversation({ title }).unwrap();
+            const conversation = await createConversation({}).unwrap();
 
             if ('assistantId' in assistantInfo) {
                 assistant = assistants?.find((a) => a.id === assistantInfo.assistantId);

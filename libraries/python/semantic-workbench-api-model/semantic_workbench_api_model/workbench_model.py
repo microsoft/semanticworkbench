@@ -426,7 +426,7 @@ class UpdateConversation(BaseModel):
     Update the conversation's title and/or metadata. Leave a field as None to not update it.
     """
 
-    title: str
+    title: str | None = None
     metadata: dict[str, Any] = {}
 
 
