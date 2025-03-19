@@ -16,8 +16,8 @@ from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
+from mcp.types import TextResourceContents
 from semantic_workbench_assistant.assistant_app import ConversationContext
-
 from ..config import AssistantConfigModel
 from .step_handler import next_step
 from .utils import get_ai_client_configs
@@ -109,10 +109,29 @@ async def respond_to_conversation(
             # Reconnect to the MCP servers if they were disconnected
             mcp_sessions = await refresh_mcp_sessions(mcp_sessions)
 
+            memories: list[tuple[str, str]] = []
+            for mcp_session in mcp_sessions:
+                list_resources_result = await mcp_session.client_session.list_resources()
+                for resource in list_resources_result.resources:
+                    if resource.uri.host != "open_file":
+                        continue
+                    read_resource_result = await mcp_session.client_session.read_resource(resource.uri)
+
+                    memory_content: str = ""
+                    for content in read_resource_result.contents:
+                        if not isinstance(content, TextResourceContents):
+                            logger.warning(
+                                "Unexpected content type for memory; uri: %s, type: %s", resource.uri, type(content)
+                            )
+                            continue
+                        memory_content += content.text
+                    memories.append((resource.name, memory_content))
+
             step_result = await next_step(
                 sampling_handler=sampling_handler,
                 mcp_sessions=mcp_sessions,
                 mcp_prompts=mcp_prompts,
+                memories=memories,
                 attachments_extension=attachments_extension,
                 context=context,
                 request_config=request_config,

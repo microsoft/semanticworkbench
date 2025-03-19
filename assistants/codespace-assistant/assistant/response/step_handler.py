@@ -43,6 +43,7 @@ async def next_step(
     attachments_config: AttachmentsConfigModel,
     metadata: dict[str, Any],
     metadata_key: str,
+    memories: list[tuple[str, str]] = [],
 ) -> StepResult:
     step_result = StepResult(status="continue", metadata=metadata.copy())
 
@@ -84,6 +85,7 @@ async def next_step(
         mcp_prompts=mcp_prompts,
         attachments_extension=attachments_extension,
         context=context,
+        memories=memories,
         prompts_config=prompts_config,
         request_config=request_config,
         tools_config=tools_config,

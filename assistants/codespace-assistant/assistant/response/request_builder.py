@@ -15,6 +15,7 @@ from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionToolParam,
+    ChatCompletionUserMessageParam,
 )
 from openai_client import (
     OpenAIRequestConfig,
@@ -52,6 +53,7 @@ async def build_request(
     tools_config: MCPToolsConfigModel,
     attachments_config: AttachmentsConfigModel,
     silence_token: str,
+    memories: list[tuple[str, str]] = [],
 ) -> BuildRequestResult:
     # Get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
@@ -153,6 +155,16 @@ async def build_request(
 
     # Add history messages
     chat_message_params.extend(history_messages_result.messages)
+
+    # Add currently open document
+    if memories and len(memories) > 0:
+        doc = memories[0]
+        chat_message_params.append(
+            ChatCompletionUserMessageParam(
+                role="user",
+                content=f"<document>\n{doc[1]}\n</document>",
+            )
+        )
 
     # Check token count
     total_token_count = num_tokens_from_tools_and_messages(
