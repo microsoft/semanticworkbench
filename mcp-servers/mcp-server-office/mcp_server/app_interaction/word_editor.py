@@ -1,10 +1,15 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 
+import sys
+
 from mcp_server.types import WordCommentData
 
 
 def get_word_app():
+    if sys.platform != "win32":
+        raise EnvironmentError("This script only works on Windows.")
+
     import win32com.client as win32
 
     """Connect to Word if it is running, or start a new instance."""
@@ -265,7 +270,6 @@ def write_markdown_to_document(doc, markdown_text: str) -> None:
 
     lines = markdown_text.split("\n")
     i = 0
-    in_code_block = False
     while i < len(lines):
         line = lines[i].strip()
         i += 1
@@ -274,7 +278,6 @@ def write_markdown_to_document(doc, markdown_text: str) -> None:
             continue
 
         if line.startswith("```"):
-            in_code_block = True
             i_start = i
 
             # Find the end of the code block
@@ -291,7 +294,6 @@ def write_markdown_to_document(doc, markdown_text: str) -> None:
             # Skip the closing code fence
             if i < len(lines):
                 i += 1
-            in_code_block = False
 
             # Restore normal style for next paragraph
             selection.Style = word_app.ActiveDocument.Styles("Normal")

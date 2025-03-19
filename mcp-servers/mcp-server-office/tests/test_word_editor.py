@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-import os
 import time
 
 import pytest
@@ -15,16 +14,8 @@ from mcp_server.app_interaction.word_editor import (
 )
 
 
-@pytest.fixture(scope="function")
-def skip_if_not_on_windows() -> None:
-    """Skip tests if not running on Windows."""
-    if os.name == "nt":
-        return
-    pytest.skip("Skipping test: not running on Windows.")
-
-
 @pytest.fixture
-def word_document(skip_if_not_on_windows):
+def word_document():
     """Fixture that provides an active Word document."""
     word_app = get_word_app()
     doc = get_active_document(word_app)
