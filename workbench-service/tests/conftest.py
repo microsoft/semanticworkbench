@@ -157,7 +157,7 @@ async def db_settings(db_type: str, echo_sql: bool, request: pytest.FixtureReque
                     await admin_connection.execute(f"DROP DATABASE {db_name}")
 
             finally:
-                await admin_connection.close()
+                admin_connection.close()
 
 
 @pytest.fixture

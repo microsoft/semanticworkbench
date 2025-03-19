@@ -45,6 +45,7 @@ WORKDIR /workbench-service
 
 ENV workbench__service__host=0.0.0.0
 ENV workbench__service__port=3000
+ENV PYTHONUNBUFFERED=1
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/scripts/docker-entrypoint.sh"]

@@ -880,12 +880,16 @@ def init(
         conversation_id: uuid.UUID,
         new_message: NewConversationMessage,
         principal: auth.DependsActorPrincipal,
+        background_tasks: BackgroundTasks,
     ) -> ConversationMessage:
-        return await conversation_controller.create_conversation_message(
+        response, task_args = await conversation_controller.create_conversation_message(
             conversation_id=conversation_id,
             new_message=new_message,
             principal=principal,
         )
+        if task_args:
+            background_tasks.add_task(*task_args)
+        return response
 
     @app.get(
         "/conversations/{conversation_id}/messages/{message_id}",

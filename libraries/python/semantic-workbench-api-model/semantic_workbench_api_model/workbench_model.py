@@ -417,7 +417,7 @@ class AssistantStateEvent(BaseModel):
 
 
 class NewConversation(BaseModel):
-    title: str
+    title: str = "New Conversation"
     metadata: dict[str, Any] = {}
 
 
