@@ -42,6 +42,17 @@ class EditOutput(BaseModel):
     tool_calls: list[ToolCall]
     llm_latency: float
 
+class CommentOutput(BaseModel):
+    new_content: str
+    comment_summary: str
+    reasoning: str
+    tool_calls: list[ToolCall]
+    llm_latency: float
+
+class AnalyzeCommentsOutput(BaseModel):
+    edit_instructions: str
+    assistant_hints: str
+    json_message: dict | None
 
 class Block(BaseModel):
     id: int

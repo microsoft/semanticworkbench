@@ -21,3 +21,4 @@ class Settings(BaseSettings):
     # LLM and prompt related settings
     comment_author: str = "Feedback Tool"
     doc_editor_prefix: str = "[Document Editor]: "
+    feedback_tool_prefix: str = "[Feedback Tool]: "

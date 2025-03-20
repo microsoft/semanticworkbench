@@ -8,6 +8,8 @@ from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.tools.edit import CommonEdit
+from mcp_server_filesystem_edit.tools.add_comments import CommonComments
+from mcp_server_filesystem_edit.tools.analyze_comments import CommonAnalyzeComments
 from mcp_server_filesystem_edit.types import EditRequest
 from mcp_server_filesystem_edit.app_handling.miktex import compile_tex_to_pdf
 
@@ -162,6 +164,72 @@ def create_mcp_server() -> FastMCP:
 
         return tool_output
 
+    @mcp.tool()
+    async def add_comments(ctx: Context, path: str) -> str:
+        """
+        Runs a routine that will add feedback as comments to the currently open file.
+
+        Args:
+            path: The absolute or relative path to the file.
+        """
+        file_content = await read_file(ctx, path)
+
+        # Determine the file type based on file extension
+        file_path = Path(path)
+        file_extension = file_path.suffix.lower()
+        supported_extensions: dict[str, Literal["markdown", "latex"]] = {
+            ".md": "markdown",
+            ".tex": "latex",
+        }
+
+        if file_extension not in supported_extensions:
+            return f"File type '{file_extension}' is not supported for editing. Currently supported types: {', '.join(supported_extensions.keys())}"
+
+        file_type = supported_extensions[file_extension]
+        commenter = CommonComments()
+        request = EditRequest(
+            context=ctx,
+            request_type="mcp",
+            file_content=file_content,
+            file_type=file_type,
+        )
+        output = await commenter.run(request)
+        await write_file(ctx, path, output.new_content)
+        return output.comment_summary
+
+    @mcp.tool()
+    async def analyze_comments(ctx: Context, path: str) -> str:
+        """
+        Runs a routine that analyze the comments in the Word document and determine how they could be solved.
+
+        Args:
+            path: The absolute or relative path to the file.
+        """
+        file_content = await read_file(ctx, path)
+
+        # Determine the file type based on file extension
+        file_path = Path(path)
+        file_extension = file_path.suffix.lower()
+        supported_extensions: dict[str, Literal["markdown", "latex"]] = {
+            ".md": "markdown",
+            ".tex": "latex",
+        }
+
+        if file_extension not in supported_extensions:
+            return f"File type '{file_extension}' is not supported for editing. Currently supported types: {', '.join(supported_extensions.keys())}"
+
+        file_type = supported_extensions[file_extension]
+        comment_analyzer = CommonAnalyzeComments()
+        request = EditRequest(
+            context=ctx,
+            request_type="mcp",
+            file_content=file_content,
+            file_type=file_type,
+        )
+        output = await comment_analyzer.run(request)
+        return output.edit_instructions + "\n" + output.assistant_hints
+
+
     async def list_allowed_directories(ctx: Context) -> str:
         """
         Returns a string of allowed directories.
@@ -204,12 +272,12 @@ def create_mcp_server() -> FastMCP:
         """
         try:
             ctx = mcp.get_context()
-            allowed_dirs = await get_allowed_directories(ctx)
+            allowed_dirs = await get_allowed_directories(ctx) # type: ignore
             for directory in allowed_dirs:
                 for ext in [".md", ".tex"]:
                     matching_files = list(directory.glob(f"*{ext}"))
                     if matching_files:
-                        return await read_file(ctx, str(matching_files[0]))
+                        return await read_file(ctx, str(matching_files[0])) # type: ignore
             return ""
         except Exception:
             return ""
