@@ -5,7 +5,6 @@ from typing import List
 
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from assistant_extensions.mcp import (
-    MCPToolsConfigModel,
     OpenAISamplingHandler,
     sampling_message_to_chat_completion_message,
 )
@@ -25,7 +24,7 @@ from openai_client import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import PromptsConfigModel
+from ..config import MCPToolsConfigModel, PromptsConfigModel
 from .utils import (
     build_system_message_content,
     get_history_messages,
@@ -63,7 +62,7 @@ async def build_request(
     if tools_config.enabled:
         additional_system_message_content.append((
             "Tool Instructions",
-            tools_config.additional_instructions,
+            tools_config.advanced.additional_instructions,
         ))
 
     # Add MCP Server prompts to the system message content

@@ -4,12 +4,12 @@ from typing import Any
 
 from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.mcp import (
+    MCPServerConnectionError,
     OpenAISamplingHandler,
     establish_mcp_sessions,
     get_enabled_mcp_server_configs,
     get_mcp_server_prompts,
     refresh_mcp_sessions,
-    MCPServerConnectionError,
 )
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
@@ -61,7 +61,9 @@ async def respond_to_conversation(
             ]
         )
 
-        enabled_servers = get_enabled_mcp_server_configs(config.extensions_config.tools)
+        enabled_servers = []
+        if config.tools.enabled:
+            enabled_servers = get_enabled_mcp_server_configs(config.tools.mcp_servers)
 
         try:
             mcp_sessions = await establish_mcp_sessions(
@@ -84,7 +86,7 @@ async def respond_to_conversation(
         mcp_prompts = get_mcp_server_prompts(enabled_servers)
 
         # Initialize a loop control variable
-        max_steps = config.extensions_config.tools.max_steps
+        max_steps = config.tools.advanced.max_steps
         interrupted = False
         encountered_error = False
         completed_within_max_steps = False
@@ -118,7 +120,7 @@ async def respond_to_conversation(
                 request_config=request_config,
                 service_config=service_config,
                 prompts_config=config.prompts,
-                tools_config=config.extensions_config.tools,
+                tools_config=config.tools,
                 attachments_config=config.extensions_config.attachments,
                 metadata=metadata,
                 metadata_key=f"respond_to_conversation:step_{step_count}",
@@ -136,7 +138,7 @@ async def respond_to_conversation(
         if not completed_within_max_steps and not encountered_error and not interrupted:
             await context.send_messages(
                 NewConversationMessage(
-                    content=config.extensions_config.tools.max_steps_truncation_message,
+                    content=config.tools.advanced.max_steps_truncation_message,
                     message_type=MessageType.notice,
                     metadata=metadata,
                 )

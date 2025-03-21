@@ -122,7 +122,7 @@ class GuidedConversationDefinition(BaseModel):
     rules: Annotated[
         list[str],
         Field(title="Rules", description="Do's and don'ts that the agent should attempt to follow"),
-        UISchema(schema={"items": {"ui:widget": "textarea", "ui:options": {"rows": 2}}}),
+        UISchema(items=UISchema(widget="textarea", rows=2)),
     ] = []
 
     conversation_flow: Annotated[
@@ -131,7 +131,7 @@ class GuidedConversationDefinition(BaseModel):
             title="Conversation Flow",
             description="A loose natural language description of the steps of the conversation",
         ),
-        UISchema(widget="textarea", schema={"ui:options": {"rows": 10}}, placeholder="[optional]"),
+        UISchema(widget="textarea", rows=10, placeholder="[optional]"),
     ] = ""
 
     context: Annotated[
@@ -140,7 +140,7 @@ class GuidedConversationDefinition(BaseModel):
             title="Context",
             description="General background context for the conversation.",
         ),
-        UISchema(widget="textarea", placeholder="[optional]"),
+        UISchema(widget="textarea", rows=2, placeholder="[optional]"),
     ] = ""
 
     # override the default resource constraint to add annotations

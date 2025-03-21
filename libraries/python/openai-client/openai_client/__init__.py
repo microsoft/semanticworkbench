@@ -11,6 +11,8 @@ from .config import (
     OpenAIRequestConfig,
     OpenAIServiceConfig,
     ServiceConfig,
+    azure_openai_service_config_construct,
+    azure_openai_service_config_reasoning_construct,
 )
 from .errors import (
     CompletionError,
@@ -47,6 +49,8 @@ __all__ = [
     "AzureOpenAIApiKeyAuthConfig",
     "AzureOpenAIAzureIdentityAuthConfig",
     "AzureOpenAIServiceConfig",
+    "azure_openai_service_config_construct",
+    "azure_openai_service_config_reasoning_construct",
     "CompletionError",
     "convert_from_completion_messages",
     "create_client",
