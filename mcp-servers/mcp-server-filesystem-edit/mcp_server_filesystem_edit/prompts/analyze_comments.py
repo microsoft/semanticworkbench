@@ -94,7 +94,7 @@ COMMENT_ANALYSIS_SCHEMA = {
                             "description": "Reasoning based on the provided conversation and context the comment can be addressed without further user input.",
                         },
                         "already_addressed_reasoning": {
-                            "type" : "string",
+                            "type": "string",
                             "description": "Reason if the comment has already been addressed in the document and should be removed.",
                         },
                         "is_actionable": {
@@ -110,7 +110,14 @@ COMMENT_ANALYSIS_SCHEMA = {
                             "description": "If actionable, describes how to edit the document to address the comment OR the hint to the user about what we would need to edit the page.",
                         },
                     },
-                    "required": ["comment_id", "necessary_context_reasoning", "already_addressed_reasoning", "is_actionable", "is_addressed", "output_message"],
+                    "required": [
+                        "comment_id",
+                        "necessary_context_reasoning",
+                        "already_addressed_reasoning",
+                        "is_actionable",
+                        "is_addressed",
+                        "output_message",
+                    ],
                     "additionalProperties": False,
                 },
                 "description": "List of analyzed comments with their actionability assessment",

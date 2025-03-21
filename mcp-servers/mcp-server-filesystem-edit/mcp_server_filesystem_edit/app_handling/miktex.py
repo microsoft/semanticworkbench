@@ -34,4 +34,3 @@ def compile_tex_to_pdf(tex_file: Path) -> tuple[bool, str]:
     except Exception as e:
         output = f"Error running pdflatex: {str(e)}"
         return False, output
-

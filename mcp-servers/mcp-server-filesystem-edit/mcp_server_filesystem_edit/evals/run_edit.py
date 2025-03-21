@@ -16,7 +16,7 @@ from mcp_server_filesystem_edit.tools.edit import CommonEdit
 from mcp_server_filesystem_edit.types import (
     CustomContext,
     EditOutput,
-    EditRequest,
+    FileOpRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ async def main() -> None:
     )
 
     for i, custom_context in enumerate(custom_contexts):
-        edit_request = EditRequest(
+        edit_request = FileOpRequest(
             context=custom_context,
             file_type=custom_context.file_type,
             request_type="dev",

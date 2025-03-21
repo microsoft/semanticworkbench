@@ -26,7 +26,7 @@ from mcp_server_filesystem_edit.tools.edit_adapters.latex import unblockify as l
 from mcp_server_filesystem_edit.tools.edit_adapters.markdown import blockify as markdown_blockify
 from mcp_server_filesystem_edit.tools.edit_adapters.markdown import unblockify as markdown_unblockify
 from mcp_server_filesystem_edit.tools.helpers import format_chat_history
-from mcp_server_filesystem_edit.types import Block, CustomContext, EditOutput, EditRequest, EditTelemetry
+from mcp_server_filesystem_edit.types import Block, CustomContext, EditOutput, EditTelemetry, FileOpRequest
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class CommonEdit:
     def __init__(self) -> None:
         self.telemetry = EditTelemetry()
 
-    async def blockify(self, request: EditRequest) -> list[Block]:
+    async def blockify(self, request: FileOpRequest) -> list[Block]:
         if request.file_type == "latex":
             blocks = latex_blockify(request.file_content)
         elif request.file_type == "markdown":
@@ -44,14 +44,14 @@ class CommonEdit:
             raise ValueError(f"Unsupported file type: {request.file_type}")
         return blocks
 
-    async def unblockify(self, request: EditRequest, blocks: list[Block]) -> str:
+    async def unblockify(self, request: FileOpRequest, blocks: list[Block]) -> str:
         if request.file_type == "latex":
             unblockified_doc = latex_unblockify(blocks)
         else:
             unblockified_doc = markdown_unblockify(blocks)
         return unblockified_doc
 
-    async def construct_reasoning_prompt(self, request: EditRequest, blockified_doc: list[Block]) -> list[MessageT]:
+    async def construct_reasoning_prompt(self, request: FileOpRequest, blockified_doc: list[Block]) -> list[MessageT]:
         doc_for_llm = await format_blocks_for_llm(blockified_doc)
 
         chat_history = ""
@@ -75,7 +75,7 @@ class CommonEdit:
         )
         return reasoning_messages
 
-    async def get_reasoning_response(self, request: EditRequest, messages: list[MessageT]) -> str:
+    async def get_reasoning_response(self, request: FileOpRequest, messages: list[MessageT]) -> str:
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
@@ -116,7 +116,7 @@ class CommonEdit:
         )
         return convert_messages
 
-    async def get_convert_response(self, request: EditRequest, messages: list[MessageT]) -> ChatCompletionResponse:
+    async def get_convert_response(self, request: FileOpRequest, messages: list[MessageT]) -> ChatCompletionResponse:
         chat_completion_request = ChatCompletionRequest(
             messages=messages,
             model="gpt-4o",
@@ -135,7 +135,7 @@ class CommonEdit:
         return convert_response
 
     async def execute_tool_calls(
-        self, request: EditRequest, convert_response: ChatCompletionResponse
+        self, request: FileOpRequest, convert_response: ChatCompletionResponse
     ) -> tuple[str, str]:
         updated_doc_markdown = request.file_content
         output_message = ""
@@ -157,7 +157,7 @@ class CommonEdit:
 
         return updated_doc_markdown, output_message
 
-    async def run_change_summary(self, before_doc: str, after_doc: str, edit_request: EditRequest) -> str:
+    async def run_change_summary(self, before_doc: str, after_doc: str, edit_request: FileOpRequest) -> str:
         change_summary_messages = compile_messages(
             messages=MD_EDIT_CHANGES_MESSAGES,
             variables={
@@ -180,7 +180,7 @@ class CommonEdit:
         change_summary = settings.doc_editor_prefix + change_summary
         return change_summary
 
-    async def run(self, request: EditRequest) -> EditOutput:
+    async def run(self, request: FileOpRequest) -> EditOutput:
         """
         Run the edit request and return the result.
         """

@@ -25,11 +25,11 @@ class CustomContext(BaseModel):
     comments: list[Comment] = Field(default_factory=list)
 
 
-class EditRequest(BaseModel):
+class FileOpRequest(BaseModel):
     context: Context | CustomContext
     request_type: Literal["dev", "mcp"] = Field(default="mcp")
-    file_type: Literal["markdown", "latex"] = Field(default="markdown")
     chat_completion_client: Callable[..., Any] | None = Field(default=None)
+    file_type: Literal["markdown", "latex"] = Field(default="markdown")
     file_content: str = Field(default="")
     task: str = Field(default="")
 
@@ -42,6 +42,7 @@ class EditOutput(BaseModel):
     tool_calls: list[ToolCall]
     llm_latency: float
 
+
 class CommentOutput(BaseModel):
     new_content: str
     comment_summary: str
@@ -49,10 +50,12 @@ class CommentOutput(BaseModel):
     tool_calls: list[ToolCall]
     llm_latency: float
 
+
 class AnalyzeCommentsOutput(BaseModel):
     edit_instructions: str
     assistant_hints: str
     json_message: dict | None
+
 
 class Block(BaseModel):
     id: int

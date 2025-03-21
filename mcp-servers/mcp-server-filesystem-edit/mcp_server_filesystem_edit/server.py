@@ -12,7 +12,7 @@ from mcp_server_filesystem_edit.app_handling.miktex import compile_tex_to_pdf
 from mcp_server_filesystem_edit.tools.add_comments import CommonComments
 from mcp_server_filesystem_edit.tools.analyze_comments import CommonAnalyzeComments
 from mcp_server_filesystem_edit.tools.edit import CommonEdit
-from mcp_server_filesystem_edit.types import EditRequest
+from mcp_server_filesystem_edit.types import FileOpRequest
 
 # Set the name of the MCP server
 server_name = "Filesystem Edit MCP Server"
@@ -225,7 +225,7 @@ def create_mcp_server() -> FastMCP:
             return read_file_result.error_msg
 
         editor = CommonEdit()
-        request = EditRequest(
+        request = FileOpRequest(
             context=ctx,
             request_type="mcp",
             file_content=read_file_result.file_content,
@@ -260,7 +260,7 @@ def create_mcp_server() -> FastMCP:
             return read_file_result.error_msg
 
         commenter = CommonComments()
-        request = EditRequest(
+        request = FileOpRequest(
             context=ctx,
             request_type="mcp",
             file_content=read_file_result.file_content,
@@ -283,7 +283,7 @@ def create_mcp_server() -> FastMCP:
             return read_file_result.error_msg
 
         comment_analyzer = CommonAnalyzeComments()
-        request = EditRequest(
+        request = FileOpRequest(
             context=ctx,
             request_type="mcp",
             file_content=read_file_result.file_content,

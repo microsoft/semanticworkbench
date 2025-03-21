@@ -7,17 +7,18 @@ from mcp.server.fastmcp import Context
 from mcp_extensions.llm.chat_completion import chat_completion
 from mcp_extensions.llm.helpers import compile_messages
 from mcp_extensions.llm.llm_types import ChatCompletionRequest, MessageT, UserMessage
-from mcp_server_filesystem_edit.tools.edit_adapters.latex import unblockify as latex_unblockify
+
 from mcp_server_filesystem_edit.prompts.add_comments import (
     ADD_COMMENTS_CONVERT_MESSAGES,
     ADD_COMMENTS_MESSAGES,
     ADD_COMMENTS_TOOL_DEF,
     ADD_COMMENTS_TOOL_NAME,
 )
-from mcp_server_filesystem_edit.tools.edit_adapters.latex import blockify as latex_blockify
 from mcp_server_filesystem_edit.tools.edit_adapters.common import format_blocks_for_llm
+from mcp_server_filesystem_edit.tools.edit_adapters.latex import blockify as latex_blockify
+from mcp_server_filesystem_edit.tools.edit_adapters.latex import unblockify as latex_unblockify
 from mcp_server_filesystem_edit.tools.helpers import format_chat_history
-from mcp_server_filesystem_edit.types import Block, CommentOutput, CustomContext, EditRequest, EditTelemetry
+from mcp_server_filesystem_edit.types import Block, CommentOutput, CustomContext, EditTelemetry, FileOpRequest
 
 logger = logging.getLogger(__name__)
 
@@ -26,21 +27,21 @@ class CommonComments:
     def __init__(self) -> None:
         self.telemetry = EditTelemetry()
 
-    async def blockify(self, request: EditRequest) -> list[Block]:
+    async def blockify(self, request: FileOpRequest) -> list[Block]:
         if request.file_type == "latex":
             blocks = latex_blockify(request.file_content)
         else:
             raise ValueError(f"Unsupported file type for comments: {request.file_type}")
         return blocks
 
-    async def unblockify(self, request: EditRequest, blocks: list[Block]) -> str:
+    async def unblockify(self, request: FileOpRequest, blocks: list[Block]) -> str:
         if request.file_type == "latex":
             unblockified_doc = latex_unblockify(blocks)
         else:
             raise ValueError(f"Unsupported file type for comments: {request.file_type}")
         return unblockified_doc
 
-    async def construct_comments_prompt(self, request: EditRequest, blockified_doc: list[Block]) -> list[MessageT]:
+    async def construct_comments_prompt(self, request: FileOpRequest, blockified_doc: list[Block]) -> list[MessageT]:
         doc_for_llm = await format_blocks_for_llm(blockified_doc)
 
         chat_history = ""
@@ -63,7 +64,7 @@ class CommonComments:
         )
         return comments_messages
 
-    async def get_comments_reasoning(self, request: EditRequest, messages: list[MessageT]) -> str:
+    async def get_comments_reasoning(self, request: FileOpRequest, messages: list[MessageT]) -> str:
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
@@ -104,7 +105,7 @@ class CommonComments:
         )
         return convert_messages
 
-    async def get_convert_response(self, request: EditRequest, messages: list[MessageT]) -> tuple[Any, list[dict]]:
+    async def get_convert_response(self, request: FileOpRequest, messages: list[MessageT]) -> tuple[Any, list[dict]]:
         chat_completion_request = ChatCompletionRequest(
             messages=messages,
             model="gpt-4o",
@@ -123,15 +124,17 @@ class CommonComments:
 
         # Extract comments from the tool call
         parsed_comments = []
-        if (convert_response.choices[0].message.tool_calls and
-                convert_response.choices[0].message.tool_calls[0].function.name == ADD_COMMENTS_TOOL_NAME):
+        if (
+            convert_response.choices[0].message.tool_calls
+            and convert_response.choices[0].message.tool_calls[0].function.name == ADD_COMMENTS_TOOL_NAME
+        ):
             tool_call = convert_response.choices[0].message.tool_calls[0].function
             parsed_comments = tool_call.arguments.get("comments", [])
             logger.info(f"Extracted {len(parsed_comments)} comments from tool call")
 
         return convert_response, parsed_comments
 
-    async def add_comments_to_content(self, request: EditRequest, parsed_comments: list[dict]) -> str:
+    async def add_comments_to_content(self, request: FileOpRequest, parsed_comments: list[dict]) -> str:
         """Add comments to the LaTeX document by inserting them at the start of identified blocks."""
         if not parsed_comments:
             return request.file_content
@@ -164,7 +167,7 @@ class CommonComments:
 
         return "\n".join(summary_parts)
 
-    async def run(self, request: EditRequest) -> CommentOutput:
+    async def run(self, request: FileOpRequest) -> CommentOutput:
         """Run the comment addition process for LaTeX documents and return the result."""
         if request.file_type != "latex":
             raise ValueError(f"File type '{request.file_type}' is not supported for this operation. Expected 'latex'.")
