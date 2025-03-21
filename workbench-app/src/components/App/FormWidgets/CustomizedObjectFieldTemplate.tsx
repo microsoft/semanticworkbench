@@ -7,6 +7,7 @@ import {
     AccordionPanel,
     Divider,
     Text,
+    Tooltip,
     makeStyles,
     tokens,
 } from '@fluentui/react-components';
@@ -31,20 +32,28 @@ export const CustomizedObjectFieldTemplate: React.FC<ObjectFieldTemplateProps> =
     const { title, description, properties, uiSchema, idSchema, schema } = props;
     const classes = useClasses();
 
-    const hideTitle = uiSchema?.['ui:options']?.['hide_title'];
+    const hideTitle = uiSchema?.['ui:options']?.['hideTitle'];
 
-    const isCollapsed = uiSchema?.['ui:options']?.['collapsed'] === true;
-    const isCollapsible = isCollapsed || uiSchema?.['ui:options']?.['collapsible'] === true;
-    const openItems = isCollapsed ? [] : properties.map((_, index) => index);
+    const isCollapsed = uiSchema?.['ui:options']?.['collapsed'] !== false;
+    const isCollapsible = uiSchema?.['ui:options']?.['collapsed'] !== undefined || uiSchema?.['ui:options']?.['collapsible'] !== false;
+    const openItems = isCollapsed ? [] : [idSchema.$id];
+
+    const descriptionValue = description ?? schema.description;
 
     if (isCollapsible) {
         return (
             <Accordion multiple collapsible defaultOpenItems={openItems}>
                 <AccordionItem value={idSchema.$id}>
                     <AccordionHeader>
-                        <Text>{title}</Text>
+                        {descriptionValue &&
+                            <Tooltip content={descriptionValue || ''} relationship='description'>
+                                <Text>{title}</Text>
+                            </Tooltip>
+                        }
+                        {!descriptionValue && <Text>{title}</Text>}
                     </AccordionHeader>
                     <AccordionPanel>
+                        {descriptionValue && <Text italic>{descriptionValue}</Text>}
                         <div className={classes.items}>
                             {properties.map((element, index) => {
                                 return <div key={index}>{element.content}</div>;
@@ -55,8 +64,6 @@ export const CustomizedObjectFieldTemplate: React.FC<ObjectFieldTemplateProps> =
             </Accordion>
         );
     }
-
-    const descriptionValue = description ?? schema.description;
 
     return (
         <div>

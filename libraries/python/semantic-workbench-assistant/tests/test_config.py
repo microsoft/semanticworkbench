@@ -142,3 +142,32 @@ def test_annotations() -> None:
             "other_child_name": {"ui:options": {"other_child_name": True}},
         },
     }
+
+
+def test_list_items() -> None:
+    class ChildModel(BaseModel):
+        child_name: Annotated[str, UISchema({"ui:options": {"child_name": True}})] = "default-child-name"
+
+    class TestModel(BaseModel):
+        children: Annotated[
+            list[ChildModel],
+            UISchema(
+                items=UISchema(rows=2),
+                schema={
+                    "items": {
+                        "ui:options": {"items-key": "items-value"},
+                    }
+                },
+            ),
+        ] = [ChildModel()]
+
+    ui_schema = get_ui_schema(TestModel)
+
+    assert ui_schema == {
+        "children": {
+            "items": {
+                "ui:options": {"items-key": "items-value", "rows": 2},
+                "child_name": {"ui:options": {"child_name": True}},
+            }
+        },
+    }

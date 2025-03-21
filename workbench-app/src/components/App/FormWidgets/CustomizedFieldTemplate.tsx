@@ -1,4 +1,4 @@
-import { Dropdown, Field, Option, Text, tokens } from '@fluentui/react-components';
+import { Dropdown, Field, makeStaticStyles, makeStyles, Option, Text, tokens } from '@fluentui/react-components';
 import {
     FieldTemplateProps,
     FormContextType,
@@ -8,6 +8,19 @@ import {
     StrictRJSFSchema,
 } from '@rjsf/utils';
 import React from 'react';
+
+// Global styles for parent elements we don't directly control
+const useStaticStyles = makeStaticStyles({
+    'div:has(> [data-hidden-rjsf-field="true"])': {
+        display: 'none',
+    },
+});
+
+const useClasses = makeStyles({
+    hiddenField: {
+        display: 'none',
+    },
+});
 
 /** The `FieldTemplate` component is the template used by `SchemaField` to render any field. It renders the field
  * content, (label, description, children, errors and help) inside of a `WrapIfAdditional` component.
@@ -49,6 +62,8 @@ export default function CustomizedFieldTemplate<
         registry,
         uiOptions,
     );
+    const classes = useClasses();
+    useStaticStyles();
 
     // If uiSchema includes ui:options for this field, check if it has configurations
     // These are used to provide a dropdown to select a configuration for the field
@@ -95,7 +110,7 @@ export default function CustomizedFieldTemplate<
     }, [formData, label, onChange, uiOptions]);
 
     if (hidden) {
-        return <div style={{ display: 'none' }}>{children}</div>;
+        return <div className={classes.hiddenField} data-hidden-rjsf-field="true">{children}</div>;
     }
     return (
         <WrapIfAdditionalTemplate

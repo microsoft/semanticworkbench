@@ -27,6 +27,7 @@ class AzureOpenAIClientConfigModel(BaseModel):
             description="Configuration for the Azure OpenAI service.",
             default=AzureOpenAIServiceConfig.model_construct(),
         ),
+        UISchema(collapsed=False),
     ]
 
     request_config: Annotated[

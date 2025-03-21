@@ -8,7 +8,6 @@ from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel,
 from assistant_extensions.mcp import (
     ExtendedCallToolRequestParams,
     MCPSession,
-    MCPToolsConfigModel,
     retrieve_mcp_tools_from_sessions,
 )
 from mcp_extensions import convert_tools_to_openai_tools
@@ -22,7 +21,7 @@ from openai.types.chat import (
 from openai_client import AzureOpenAIServiceConfig, OpenAIRequestConfig, OpenAIServiceConfig
 from pydantic import BaseModel
 
-from ...config import AssistantConfigModel
+from ...config import AssistantConfigModel, MCPToolsConfigModel
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +163,7 @@ def get_openai_tools_from_mcp_sessions(
     Retrieve the tools from the MCP sessions.
     """
 
-    mcp_tools = retrieve_mcp_tools_from_sessions(mcp_sessions, tools_config)
+    mcp_tools = retrieve_mcp_tools_from_sessions(mcp_sessions, tools_config.advanced.tools_disabled)
     extra_parameters = {
         "aiContext": {
             "type": "string",
