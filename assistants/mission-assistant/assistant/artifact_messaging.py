@@ -438,8 +438,38 @@ class ArtifactMessenger:
             # Get the state manager's storage path
             storage_path = MissionStateManager.get_state_file_path(context).parent
 
+            # Determine the enum value for the artifact type
+            enum_value = None
+            artifact_class = None
+            if artifact_type == MissionBriefing:
+                enum_value = ArtifactType.MISSION_BRIEFING.value
+                artifact_class = MissionBriefing
+            elif artifact_type == MissionKB:
+                enum_value = ArtifactType.MISSION_KB.value
+                artifact_class = MissionKB
+            elif artifact_type == MissionStatus:
+                enum_value = ArtifactType.MISSION_STATUS.value
+                artifact_class = MissionStatus
+            elif artifact_type == FieldRequest:
+                enum_value = ArtifactType.FIELD_REQUEST.value
+                artifact_class = FieldRequest
+            elif artifact_type == MissionLog:
+                enum_value = ArtifactType.MISSION_LOG.value
+                artifact_class = MissionLog
+            else:
+                # Try to find by checking directories
+                for dir_name in ["mission_briefing", "mission_kb", "mission_status", "field_request", "mission_log"]:
+                    test_path = storage_path / "artifacts" / dir_name / f"{artifact_id}.json"
+                    if test_path.exists():
+                        enum_value = dir_name
+                        break
+            
+            if not enum_value:
+                logger.warning(f"Could not determine enum value for artifact type: {artifact_type}")
+                return None
+
             # Construct the file path
-            file_path = storage_path / "artifacts" / str(artifact_type) / f"{artifact_id}.json"
+            file_path = storage_path / "artifacts" / enum_value / f"{artifact_id}.json"
 
             if not file_path.exists():
                 logger.warning(f"Artifact file not found: {file_path}")
@@ -448,23 +478,23 @@ class ArtifactMessenger:
             # Read the file
             artifact_json = file_path.read_text()
             artifact_data = json.loads(artifact_json)
-
-            # Determine the appropriate class and deserialize
-            artifact_class = None
-            if artifact_type == ArtifactType.MISSION_BRIEFING:
-                artifact_class = MissionBriefing
-            elif artifact_type == ArtifactType.MISSION_KB:
-                artifact_class = MissionKB
-            elif artifact_type == ArtifactType.MISSION_STATUS:
-                artifact_class = MissionStatus
-            elif artifact_type == ArtifactType.FIELD_REQUEST:
-                artifact_class = FieldRequest
-            elif artifact_type == ArtifactType.MISSION_LOG:
-                artifact_class = MissionLog
-
+            
+            # If we couldn't determine the artifact class from the type, use the data's artifact_type
             if not artifact_class:
-                logger.error(f"Unknown artifact type: {artifact_type}")
-                return None
+                artifact_type_str = artifact_data.get('artifact_type')
+                if artifact_type_str == ArtifactType.MISSION_BRIEFING.value:
+                    artifact_class = MissionBriefing
+                elif artifact_type_str == ArtifactType.MISSION_KB.value:
+                    artifact_class = MissionKB
+                elif artifact_type_str == ArtifactType.MISSION_STATUS.value:
+                    artifact_class = MissionStatus
+                elif artifact_type_str == ArtifactType.FIELD_REQUEST.value:
+                    artifact_class = FieldRequest
+                elif artifact_type_str == ArtifactType.MISSION_LOG.value:
+                    artifact_class = MissionLog
+                else:
+                    logger.error(f"Unknown artifact type: {artifact_type}")
+                    return None
 
             # Deserialize
             return cast(T, artifact_class.model_validate(artifact_data))
@@ -489,28 +519,42 @@ class ArtifactMessenger:
             # Get the state manager's storage path
             storage_path = MissionStateManager.get_state_file_path(context).parent
 
-            # Construct the directory path
-            dir_path = storage_path / "artifacts" / str(artifact_type)
+            # Determine the enum value for the artifact type
+            enum_value = None
+            artifact_class = None
+            if artifact_type == MissionBriefing:
+                enum_value = ArtifactType.MISSION_BRIEFING.value
+                artifact_class = MissionBriefing
+            elif artifact_type == MissionKB:
+                enum_value = ArtifactType.MISSION_KB.value
+                artifact_class = MissionKB
+            elif artifact_type == MissionStatus:
+                enum_value = ArtifactType.MISSION_STATUS.value
+                artifact_class = MissionStatus
+            elif artifact_type == FieldRequest:
+                enum_value = ArtifactType.FIELD_REQUEST.value
+                artifact_class = FieldRequest
+            elif artifact_type == MissionLog:
+                enum_value = ArtifactType.MISSION_LOG.value
+                artifact_class = MissionLog
+            else:
+                # For backwards compatibility, also check class string paths
+                for dir_name in ["mission_briefing", "mission_kb", "mission_status", "field_request", "mission_log", str(artifact_type)]:
+                    temp_path = storage_path / "artifacts" / dir_name
+                    if temp_path.exists() and next(temp_path.glob("*.json"), None):
+                        enum_value = dir_name
+                        break
+
+            # If we couldn't determine the type, log an error and return empty list
+            if not enum_value or not artifact_class:
+                logger.error(f"Unknown artifact type: {artifact_type}")
+                return []
+
+            # Construct the directory path using the enum value
+            dir_path = storage_path / "artifacts" / enum_value
 
             if not dir_path.exists():
                 dir_path.mkdir(parents=True, exist_ok=True)
-                return []
-
-            # Determine the appropriate class
-            artifact_class = None
-            if artifact_type == ArtifactType.MISSION_BRIEFING:
-                artifact_class = MissionBriefing
-            elif artifact_type == ArtifactType.MISSION_KB:
-                artifact_class = MissionKB
-            elif artifact_type == ArtifactType.MISSION_STATUS:
-                artifact_class = MissionStatus
-            elif artifact_type == ArtifactType.FIELD_REQUEST:
-                artifact_class = FieldRequest
-            elif artifact_type == ArtifactType.MISSION_LOG:
-                artifact_class = MissionLog
-
-            if not artifact_class:
-                logger.error(f"Unknown artifact type: {artifact_type}")
                 return []
 
             # Get all JSON files in the directory

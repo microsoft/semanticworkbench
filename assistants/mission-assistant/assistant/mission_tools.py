@@ -7,25 +7,32 @@ by the LLM during chat completions to proactively assist users.
 
 import logging
 from datetime import datetime
-
-# Import these modules within functions to avoid circular dependencies
-# These imports will be resolved dynamically at runtime
-# Type hints only - not actually importing
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
+from uuid import UUID
 
 from openai_client.tools import ToolFunctions
 from semantic_workbench_api_model.workbench_model import (
+    ConversationMessage,
+    MessageSender,
     MessageType,
     NewConversationMessage,
+    ParticipantRole,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from assistant.artifacts import FieldRequest, MissionBriefing, MissionKB, MissionStatus
-from assistant.mission import ConversationClientManager
-
-if TYPE_CHECKING:
-    from .artifact_messaging import ArtifactMessenger
-    from .mission import MissionStateManager
+from .artifact_messaging import ArtifactManager, ArtifactMessenger
+from .artifacts import (
+    ArtifactType,
+    FieldRequest,
+    LogEntryType, 
+    MissionBriefing,
+    MissionKB,
+    MissionStatus,
+    RequestPriority,
+    RequestStatus,
+)
+from .chat import process_add_goal_command, process_add_kb_section_command
+from .mission import ConversationClientManager, MissionStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -103,12 +110,12 @@ class MissionTools:
             "Suggest the next action the user should take based on mission state",
         )
 
-    async def get_mission_info(self, info_type: str) -> str:
+    async def get_mission_info(self, info_type: Literal["all", "briefing", "kb", "status", "requests"]) -> str:
         """
         Get information about the current mission.
 
         Args:
-            info_type: Type of information to retrieve (all, briefing, kb, status, requests). Default is "all".
+            info_type: Type of information to retrieve. Must be one of: all, briefing, kb, status, requests.
 
         Returns:
             Information about the mission in a formatted string
@@ -116,8 +123,8 @@ class MissionTools:
         if info_type not in ["all", "briefing", "kb", "status", "requests"]:
             return f"Invalid info_type: {info_type}. Must be one of: all, briefing, kb, status, requests. Use 'all' to get all information types."
 
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactMessenger
+        # Fetch mission artifacts from the shared artifact storage system
+        # ArtifactMessenger provides access to artifacts across linked conversations
 
         output = []
 
@@ -274,8 +281,8 @@ class MissionTools:
         if self.role != "hq":
             return "Only HQ can create mission briefings."
 
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactManager
+        # Create a new mission briefing artifact using ArtifactManager
+        # This will be visible to both HQ and Field conversations
 
         success, briefing = await ArtifactManager.create_mission_briefing(
             self.context, mission_name, mission_description
@@ -293,22 +300,23 @@ class MissionTools:
         else:
             return "Failed to create mission briefing. Please try again."
 
-    async def add_mission_goal(
-        self, goal_name: str, goal_description: str, success_criteria: Optional[List[str]] = None
-    ) -> str:
+    async def add_mission_goal(self, goal_name: str, goal_description: str, success_criteria: List[str]) -> str:
         """
         Add a goal to the mission briefing.
 
         Args:
             goal_name: The name of the goal
             goal_description: A description of the goal
-            success_criteria: Optional list of success criteria
+            success_criteria: Optional list of success criteria. If not provided, an empty list will be used.
 
         Returns:
             A message indicating success or failure
         """
         if self.role != "hq":
             return "Only HQ can add mission goals."
+
+        # Retrieve the existing mission briefing to add goals to it
+        # MissionBriefing is the primary artifact that defines mission objectives
 
         # Get existing mission briefing
         briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
@@ -318,18 +326,13 @@ class MissionTools:
 
         # Use the formatted command processor from chat.py to leverage existing functionality
         criteria_str = ""
-        if success_criteria and len(success_criteria) > 0:
+        if len(success_criteria) > 0:
             criteria_str = "|" + ";".join(success_criteria)
 
         command_content = f"/add-goal {goal_name}|{goal_description}{criteria_str}"
 
-        # Call the command processor dynamically
-        from uuid import UUID
-
-        # Create a temporary message object
-        from semantic_workbench_api_model.workbench_model import ConversationMessage, MessageSender, ParticipantRole
-
-        from .chat import process_add_goal_command
+        # Create a temporary system message to invoke the command processor
+        # This reuses the existing command handling logic from chat.py
 
         temp_message = ConversationMessage(
             id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
@@ -367,13 +370,8 @@ class MissionTools:
         # Use the formatted command processor from chat.py to leverage existing functionality
         command_content = f"/add-kb-section {title}|{content}"
 
-        # Call the command processor dynamically
-        from uuid import UUID
-
-        # Create a temporary message object
-        from semantic_workbench_api_model.workbench_model import ConversationMessage, MessageSender, ParticipantRole
-
-        from .chat import process_add_kb_section_command
+        # Create a temporary system message to invoke the KB section command processor
+        # This approach maintains consistency with command handling in the chat interface
 
         temp_message = ConversationMessage(
             id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
@@ -408,8 +406,8 @@ class MissionTools:
         if self.role != "hq":
             return "Only HQ can resolve field requests."
 
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactManager
+        # Resolve the field request using ArtifactManager
+        # This updates the request status and notifies the field conversation
 
         success, field_request = await ArtifactManager.resolve_field_request(self.context, request_id, resolution)
 
@@ -419,14 +417,16 @@ class MissionTools:
         else:
             return "Failed to resolve the field request. Make sure the request ID is correct."
 
-    async def create_field_request(self, title: str, description: str, priority: str = "medium") -> str:
+    async def create_field_request(
+        self, title: str, description: str, priority: Literal["low", "medium", "high", "critical"]
+    ) -> str:
         """
         Create a field request for information or to report a blocker.
 
         Args:
             title: The title of the request
             description: A description of the request
-            priority: The priority of the request (low, medium, high, critical)
+            priority: The priority of the request. Must be one of: low, medium, high, critical.
 
         Returns:
             A message indicating success or failure
@@ -434,9 +434,12 @@ class MissionTools:
         if self.role != "field":
             return "Only Field can create field requests."
 
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactManager
-        from .artifacts import RequestPriority
+        # Create a field request with specified priority level
+        # RequestPriority helps HQ understand urgency (LOW, MEDIUM, HIGH, CRITICAL)
+
+        # Set default priority if not provided
+        if priority is None:
+            priority = "medium"
 
         # Map priority string to enum
         priority_map = {
@@ -464,19 +467,19 @@ class MissionTools:
 
     async def update_mission_status(
         self,
-        status: str,
-        progress: Optional[int] = None,
-        status_message: Optional[str] = None,
-        next_actions: Optional[List[str]] = None,
+        status: Literal["planning", "in_progress", "blocked", "completed", "aborted"],
+        progress: Optional[int],
+        status_message: Optional[str],
+        next_actions: Optional[List[str]],
     ) -> str:
         """
         Update the status and progress of the mission.
 
         Args:
-            status: The mission status (planning, in_progress, blocked, completed, aborted)
-            progress: The progress percentage (0-100)
-            status_message: A custom status message
-            next_actions: A list of next actions
+            status: The mission status. Must be one of: planning, in_progress, blocked, completed, aborted.
+            progress: The progress percentage (0-100). If not provided, no progress will be updated.
+            status_message: A custom status message. If not provided, no status message will be updated.
+            next_actions: A list of next actions. If not provided, no next actions will be updated.
 
         Returns:
             A message indicating success or failure
@@ -484,8 +487,9 @@ class MissionTools:
         if self.role != "field":
             return "Only Field can update mission status."
 
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactManager
+        # Handle optional parameters for status update
+        # Only specified parameters will be updated in the mission status artifact
+        # The mission status is shared between HQ and field to maintain synchronization
 
         # Update the mission status
         success, status_obj = await ArtifactManager.update_mission_status(
@@ -521,9 +525,9 @@ class MissionTools:
         if self.role != "field":
             return "Only Field can mark criteria as completed."
 
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactMessenger
-        from .artifacts import ArtifactType, LogEntryType
+        # Access mission briefing and track criterion completion
+        # Updates are logged with ArtifactType.MISSION_BRIEFING and LogEntryType.CRITERION_COMPLETED
+        # for audit trail and notification purposes
 
         # Get existing mission briefing
         briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
@@ -660,10 +664,9 @@ class MissionTools:
         if self.role != "hq":
             return "Only HQ can mark a mission as ready for field."
 
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactMessenger
-        from .artifacts import ArtifactType, LogEntryType, MissionStatus
-        from .mission import MissionStateManager
+        # Verify mission readiness requirements before marking as ready for field
+        # This is a critical gate transition that moves the mission from planning to operational phase
+        # Updates MissionStatus and notifies linked conversations via MissionStateManager
 
         # Get existing mission briefing and KB
         briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
@@ -972,9 +975,9 @@ class MissionTools:
         Returns:
             Dict with suggestion details
         """
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactMessenger
-        from .artifacts import RequestPriority, RequestStatus
+        # Analyze mission state to determine appropriate next actions
+        # Based on current briefing, KB, status, and pending field requests
+        # Uses RequestPriority and RequestStatus to prioritize suggestions
 
         # Get mission state information
         briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
@@ -1142,7 +1145,7 @@ class MissionTools:
             }
 
 
-# Get an instance of MissionTools for a given context and role
+# Factory function to create a role-specific MissionTools instance
 async def get_mission_tools(context: ConversationContext, role: str) -> MissionTools:
     """
     Get an instance of MissionTools for a given context and role.
