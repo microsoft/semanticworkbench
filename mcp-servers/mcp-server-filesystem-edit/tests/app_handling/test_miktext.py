@@ -1,5 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+# This assumes that `pdflatex` is installed and available in the PATH.
+
 from pathlib import Path
 from mcp_server_filesystem_edit.app_handling.miktex import compile_tex_to_pdf
 

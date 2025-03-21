@@ -4,20 +4,21 @@ from typing import Any
 
 from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.mcp import (
+    MCPServerConnectionError,
     OpenAISamplingHandler,
     establish_mcp_sessions,
     get_enabled_mcp_server_configs,
     get_mcp_server_prompts,
     refresh_mcp_sessions,
-    MCPServerConnectionError,
 )
+from mcp.types import TextResourceContents
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
     NewConversationMessage,
 )
-from mcp.types import TextResourceContents
 from semantic_workbench_assistant.assistant_app import ConversationContext
+
 from ..config import AssistantConfigModel
 from .step_handler import next_step
 from .utils import get_ai_client_configs
@@ -113,7 +114,7 @@ async def respond_to_conversation(
             for mcp_session in mcp_sessions:
                 list_resources_result = await mcp_session.client_session.list_resources()
                 for resource in list_resources_result.resources:
-                    if resource.uri.host != "open_file":
+                    if resource.uri.host != "filesystem_edit":
                         continue
                     read_resource_result = await mcp_session.client_session.read_resource(resource.uri)
 

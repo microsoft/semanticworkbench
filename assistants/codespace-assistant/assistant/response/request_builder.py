@@ -158,11 +158,11 @@ async def build_request(
 
     # Add currently open document
     if memories and len(memories) > 0:
-        doc = memories[0]
+        docs = memories[0]
         chat_message_params.append(
             ChatCompletionUserMessageParam(
                 role="user",
-                content=f"<document>\n{doc[1]}\n</document>",
+                content=docs[1],
             )
         )
 
