@@ -90,6 +90,33 @@ class AzureOpenAIServiceConfig(BaseModel):
     ]
 
 
+def azure_openai_service_config_construct(default_deployment: str = "gpt-4o") -> AzureOpenAIServiceConfig:
+    return AzureOpenAIServiceConfig.model_construct(
+        azure_openai_endpoint=first_env_var("azure_openai_endpoint", "assistant__azure_openai_endpoint") or "",
+        azure_openai_deployment=first_env_var("azure_openai_deployment", "assistant__azure_openai_deployment")
+        or default_deployment,
+    )
+
+
+def azure_openai_service_config_reasoning_construct(default_deployment: str = "o3-mini") -> AzureOpenAIServiceConfig:
+    return AzureOpenAIServiceConfig.model_construct(
+        azure_openai_endpoint=first_env_var(
+            "azure_openai_reasoning_endpoint",
+            "assistant__azure_openai_reasoning_endpoint",
+            "azure_openai_endpoint",
+            "assistant__azure_openai_endpoint",
+        )
+        or "",
+        azure_openai_deployment=first_env_var(
+            "azure_openai_reasoning_deployment",
+            "assistant__azure_openai_reasoning_deployment",
+            "azure_openai_deployment",
+            "assistant__azure_openai_deployment",
+        )
+        or default_deployment,
+    )
+
+
 class OpenAIServiceConfig(BaseModel):
     model_config = ConfigDict(title="OpenAI", json_schema_extra={"required": ["openai_api_key"]})
 

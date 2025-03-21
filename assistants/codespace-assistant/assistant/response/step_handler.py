@@ -5,7 +5,7 @@ from typing import Any, List
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
-from assistant_extensions.mcp import MCPSession, MCPToolsConfigModel, OpenAISamplingHandler
+from assistant_extensions.mcp import MCPSession, OpenAISamplingHandler
 from openai.types.chat import (
     ChatCompletion,
     ParsedChatCompletion,
@@ -17,7 +17,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import PromptsConfigModel
+from ..config import PromptsConfigModel, MCPToolsConfigModel
 from .completion_handler import handle_completion
 from .models import StepResult
 from .request_builder import build_request

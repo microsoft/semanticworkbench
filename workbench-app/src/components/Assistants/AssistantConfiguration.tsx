@@ -201,8 +201,12 @@ export const AssistantConfiguration: React.FC<AssistantConfigurationProps> = (pr
                         templates={templates}
                         schema={config.jsonSchema ?? {}}
                         uiSchema={{
-                            'ui:title': 'Update the assistant configuration',
                             ...config.uiSchema,
+                            'ui:options': {
+                                ...config.uiSchema?.['ui:options'],
+                                collapsible: false,
+                                hideTitle: true,
+                            },
                             'ui:submitButtonOptions': {
                                 norender: true,
                                 submitText: 'Save',
@@ -237,16 +241,6 @@ function extractDefaultsFromSchema(schema: RJSFSchema): any {
     const defaults: any = {};
 
     function traverse(schema: any, path: string[] = [], rootSchema: any = schema) {
-        if (schema.default !== undefined) {
-            setDefault(defaults, path, schema.default);
-        }
-
-        if (schema.properties) {
-            for (const key in schema.properties) {
-                traverse(schema.properties[key], [...path, key], rootSchema);
-            }
-        }
-
         if (schema.$ref) {
             const refPath = schema.$ref.replace(/^#\/\$defs\//, '').split('/');
             const refSchema = refPath.reduce((acc: any, key: string) => acc?.[key], rootSchema.$defs);
@@ -254,6 +248,16 @@ function extractDefaultsFromSchema(schema: RJSFSchema): any {
                 traverse(refSchema, path, rootSchema);
             } else {
                 console.error(`Reference not found: ${schema.$ref}`);
+            }
+        }
+
+        if (schema.default !== undefined) {
+            setDefault(defaults, path, schema.default);
+        }
+
+        if (schema.properties) {
+            for (const key in schema.properties) {
+                traverse(schema.properties[key], [...path, key], rootSchema);
             }
         }
     }

@@ -56,17 +56,21 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
     const { items, canAdd, onAddClick, className, disabled, schema, uiSchema, title, formData, rawErrors } = props;
     const classes = useClasses();
 
-    const hideTitle = uiSchema?.['ui:options']?.['hide_title'] === true;
+    const hideTitle = uiSchema?.['ui:options']?.['hideTitle'] === true;
+    const collapsed = uiSchema?.['ui:options']?.['collapsed'] !== false;
+    const isCollapsible = collapsed || uiSchema?.['ui:options']?.['collapsible'] !== false;
+    const itemTitleFields: string[] = uiSchema?.items?.['ui:options']?.['titleFields'] ??  [];
+    const itemCollapsed = uiSchema?.items?.['ui:options']?.['collapsed'] !== false;
+    const itemCollapsible = itemCollapsed || uiSchema?.items?.['ui:options']?.['collapsible'] !== false;
 
-    const collapsed = uiSchema?.['ui:options']?.['collapsed'] === true;
     const openItems: AccordionItemValue[] = [];
-    if (!collapsed) {
+    if (!itemCollapsed) {
         for (let i = 0; i < items.length; i++) {
             openItems.push(i);
         }
     }
 
-    const get_item_actions = (
+    const getItemActions = (
         element: ArrayFieldTemplateItemType<any, RJSFSchema, any>,
         index: number,
         options: {
@@ -130,7 +134,7 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
     const isSimpleArray = items.every(
         (item) => item.schema.type === 'string' || item.schema.type === 'number' || item.schema.type === 'integer',
     );
-    if (isSimpleArray && !collapsed) {
+    if (isSimpleArray) {
         content = (
             <div>
                 {items.map((element, index) => {
@@ -139,7 +143,7 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
                         <div key={index} className={classes.simpleItem}>
                             {children}
                             <div className={classes.inline}>
-                                {get_item_actions(element, index, {
+                                {getItemActions(element, index, {
                                     hasRemove,
                                     hasMoveUp,
                                     hasMoveDown,
@@ -153,17 +157,17 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
         );
     } else {
         content = (
-            <Accordion multiple collapsible defaultOpenItems={openItems}>
+            <Accordion multiple collapsible={itemCollapsible} defaultOpenItems={openItems}>
                 {items.map((element, index) => {
                     const { children, hasRemove, hasMoveUp, hasMoveDown } = element;
 
                     let itemTitle = `${schema.title}: ${index + 1}`;
-                    const titleField = uiSchema?.items?.['ui:options']?.['title_field']?.toString() ?? 'title';
-                    if (titleField && formData[index][titleField]) {
-                        itemTitle = formData[index][titleField];
+                    if (itemTitleFields && itemTitleFields.length > 0) {
+                        itemTitle = itemTitleFields
+                            // @ts-ignore
+                            .map((field) => `${items[index].schema.properties?.[field]?.title ?? field}: ${formData[index][field]}`)
+                            .join(', ');
                     }
-
-                    const descriptionValue = schema.description;
 
                     let itemCount = undefined;
                     const countField = uiSchema?.items?.['ui:options']?.['count_field']?.toString();
@@ -182,8 +186,7 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
                                 {itemCount !== undefined && <Text>&nbsp;({itemCount})</Text>}
                             </AccordionHeader>
                             <AccordionPanel className={classes.panel}>
-                                {descriptionValue && <Text italic>{descriptionValue}</Text>}
-                                {get_item_actions(element, index, { hasRemove, hasMoveUp, hasMoveDown })}
+                                {getItemActions(element, index, { hasRemove, hasMoveUp, hasMoveDown })}
                                 <div>{children}</div>
                             </AccordionPanel>
                         </AccordionItem>
@@ -193,29 +196,52 @@ export const CustomizedArrayFieldTemplate: React.FC<ArrayFieldTemplateProps> = (
         );
     }
 
+    const descriptionAndControls =
+        <>
+            {schema.description && <Text italic>{schema.description}</Text>}
+            {canAdd && (
+                <div>
+                    <Button
+                        icon={<Add16Regular />}
+                        appearance="outline"
+                        size="small"
+                        onClick={onAddClick}
+                        disabled={disabled}
+                    >
+                        Add
+                    </Button>
+                </div>
+            )}
+            {rawErrors && rawErrors.length > 0 && (
+                <div>
+                    <Text style={{ color: 'red' }}>{rawErrors.join(', ')}</Text>
+                </div>
+            )}
+        </>;
+
+    if (isCollapsible) {
+        return (
+            <Accordion multiple collapsible defaultOpenItems={openItems}>
+                <AccordionItem value={schema.$id}>
+                    <AccordionHeader>
+                        <Text>{title}</Text>
+                    </AccordionHeader>
+                    <AccordionPanel>
+                        <div className={classes.heading}>
+                            {descriptionAndControls}
+                        </div>
+                        {content}
+                    </AccordionPanel>
+                </AccordionItem>
+            </Accordion>
+        );
+    }
+
     return (
         <div className={className}>
             <div className={classes.heading}>
                 {!hideTitle && <Text>{title}</Text>}
-                {schema.description && <Text italic>{schema.description}</Text>}
-                {canAdd && (
-                    <div>
-                        <Button
-                            icon={<Add16Regular />}
-                            appearance="outline"
-                            size="small"
-                            onClick={onAddClick}
-                            disabled={disabled}
-                        >
-                            Add
-                        </Button>
-                    </div>
-                )}
-                {rawErrors && rawErrors.length > 0 && (
-                    <div>
-                        <Text style={{ color: 'red' }}>{rawErrors.join(', ')}</Text>
-                    </div>
-                )}
+                {descriptionAndControls}
             </div>
             {content}
         </div>

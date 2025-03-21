@@ -50,6 +50,26 @@ def first_env_var(*env_vars: str, include_upper_and_lower: bool = True, include_
 
 
 class UISchema:
+    """
+    UISchema defines the uiSchema for a field on a Pydantic config model. The uiSchema
+    directs the workbench app on how to render the field in the UI.
+    This class is intended to be used as a type annotation. See the example.
+    The full uiSchema for a model can be extracted by passing the model type to `get_ui_schema`.
+
+    uiSchema reference:
+    https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/uiSchema/
+
+    Example:
+        ```
+        class MyConfig(BaseModel):
+            description: Annotated[str, UISchema(widget="textarea")]
+            option: Annotated[Union[Literal["yes"], Literal["no"]], UISchema(widget="radio")]
+
+
+        ui_schema = get_ui_schema(MyConfig)
+        ```
+    """
+
     def __init__(
         self,
         schema: dict[str, Any] | None = None,
@@ -59,15 +79,15 @@ class UISchema:
         hide_title: Literal[True] | None = None,
         enable_markdown_in_description: bool | None = None,
         readonly: bool | None = None,
+        title: str | None = None,
+        title_fields: list[str] | None = None,
+        rows: int | None = None,
+        items: "UISchema | None" = None,
+        collapsible: bool | None = None,
+        collapsed: bool | None = None,
     ) -> None:
         """
-        UISchema defines the uiSchema for a field on a Pydantic config model. The uiSchema
-        directs the workbench app on how to render the field in the UI.
-        This class is intended to be used as a type annotation. See the example.
-        The full uiSchema for a model can be extracted by passing the model type to `get_ui_schema`.
-
-        uiSchema reference:
-        https://rjsf-team.github.io/react-jsonschema-form/docs/api-reference/uiSchema/
+        Initialize a UISchema instance with the provided options.
 
         The schema parameter provides full control over the schema. The additional parameters are
         shortcuts for common options.
@@ -81,34 +101,65 @@ class UISchema:
             placeholder: The placeholder text to display in the field.
             hide_title: Whether to hide the title of the field in the UI.
             enable_markdown_in_description: Whether to enable markdown when rendering the field description.
-
-        Example:
-            ```
-            class MyConfig(BaseModel):
-                description: Annotated[str, UISchema(widget="textarea")]
-                option: Annotated[Union[Literal["yes"], Literal["no"]], UISchema(widget="radio")]
-
-
-            ui_schema = get_ui_schema(MyConfig)
-            ```
+            readonly: Whether the field should be read-only in the UI.
+            title: Custom title to display for the field in the UI.
+            title_fields: List of field names to use for generating a title in array items.
+            rows: Number of rows to display for textarea widgets.
+            items: UISchema to apply to array items.
+            collapsible: Whether the field should be collapsible in the UI.
+            collapsed: Whether the field should be initially collapsed in the UI.
         """
+        # Initialize schema with provided value or empty dict
         self.schema = schema or {}
-        ui_options: dict[str, Any] = self.schema.get("ui:options", {})
-        if help:
-            ui_options.update({"help": help})
-        if widget:
-            ui_options.update({"widget": widget})
-        if hide_title is not None:
-            ui_options.update({"hide_title": hide_title})
-        if enable_markdown_in_description is not None:
-            ui_options.update({"enableMarkdownInDescription": enable_markdown_in_description})
-        if placeholder is not None:
-            ui_options.update({"placeholder": placeholder})
-        if readonly is not None:
-            ui_options.update({"readonly": readonly})
 
+        # Get existing UI options or create empty dict
+        ui_options: dict[str, Any] = self.schema.get("ui:options", {}).copy()
+
+        # Process items schema
+        items_schema = {}
+        items_ui_options = {}
+
+        if items:
+            items_schema = items.schema.copy() if items.schema else {}
+            items_ui_options = items.schema.get("ui:options", {}).copy()
+
+        # Also check if there are existing items UI options in the schema
+        if "items" in self.schema and "ui:options" in self.schema["items"]:
+            items_ui_options.update(self.schema["items"]["ui:options"])
+
+        # Build UI options dictionary with all provided parameters
+        option_mappings = {
+            "help": help,
+            "widget": widget,
+            "hideTitle": hide_title,
+            "enableMarkdownInDescription": enable_markdown_in_description,
+            "placeholder": placeholder,
+            "readonly": readonly,
+            "title": title,
+            "collapsible": collapsible,
+            "collapsed": collapsed,
+            "titleFields": title_fields,
+            "rows": rows,
+        }
+
+        # Update ui_options with non-None values
+        for key, value in option_mappings.items():
+            if value is not None:
+                ui_options[key] = value
+
+        # Update schema with ui_options if any exist
         if ui_options:
-            self.schema.update({"ui:options": ui_options})
+            self.schema["ui:options"] = ui_options
+
+        # Handle items schema
+        if items_schema:
+            self.schema["items"] = items_schema
+
+        # Add items UI options if they exist
+        if items_ui_options:
+            if "items" not in self.schema:
+                self.schema["items"] = {}
+            self.schema["items"]["ui:options"] = items_ui_options
 
 
 def get_ui_schema(type_: Type[BaseModel]) -> dict[str, Any]:

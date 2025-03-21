@@ -42,7 +42,7 @@ class GuidedConversationConfigModel(BaseModel):
     rules: Annotated[
         list[str],
         Field(title="Rules", description="Do's and don'ts that the agent should attempt to follow"),
-        UISchema(schema={"items": {"ui:widget": "textarea", "ui:options": {"rows": 2}}}),
+        UISchema(items=UISchema(widget="textarea", rows=2)),
     ]
 
     conversation_flow: Annotated[

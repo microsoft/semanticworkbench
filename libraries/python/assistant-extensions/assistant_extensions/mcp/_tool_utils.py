@@ -14,16 +14,13 @@ from ._model import (
     ExtendedCallToolResult,
     MCPLoggingMessageHandler,
     MCPSession,
-    MCPToolsConfigModel,
 )
 from ._openai_utils import OpenAISamplingHandler
 
 logger = logging.getLogger(__name__)
 
 
-def retrieve_mcp_tools_from_sessions(
-    mcp_sessions: List[MCPSession], tools_config: MCPToolsConfigModel
-) -> List[Tool]:
+def retrieve_mcp_tools_from_sessions(mcp_sessions: List[MCPSession], exclude_tools: list[str] = []) -> List[Tool]:
     """
     Retrieve tools from all MCP sessions, excluding any tools that are disabled in the tools config
     and any duplicate keys (names) - first tool wins.
@@ -33,11 +30,16 @@ def retrieve_mcp_tools_from_sessions(
     for mcp_session in mcp_sessions:
         for tool in mcp_session.tools:
             if tool.name in tool_names:
+                logger.warning(
+                    "Duplicate tool name '%s' found in session %s; skipping", tool.name, mcp_session.config.key
+                )
                 # Skip duplicate tools
                 continue
-            if tool.name in tools_config.tools_disabled:
-                # Skip disabled tools
+
+            if tool.name in exclude_tools:
+                # Skip excluded tools
                 continue
+
             tools.append(tool)
             tool_names.add(tool.name)
     return tools
@@ -51,12 +53,7 @@ def get_mcp_session_and_tool_by_tool_name(
     Retrieve the MCP session and tool by tool name.
     """
     return next(
-        (
-            (mcp_session, tool)
-            for mcp_session in mcp_sessions
-            for tool in mcp_session.tools
-            if tool.name == tool_name
-        ),
+        ((mcp_session, tool) for mcp_session in mcp_sessions for tool in mcp_session.tools if tool.name == tool_name),
         (None, None),
     )
 
@@ -70,9 +67,7 @@ async def handle_mcp_tool_call(
     on_logging_message: MCPLoggingMessageHandler,
 ) -> ExtendedCallToolResult:
     # Find the tool and session by tool name.
-    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(
-        mcp_sessions, tool_call.name
-    )
+    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(mcp_sessions, tool_call.name)
 
     if not mcp_session or not tool:
         return ExtendedCallToolResult(
@@ -88,9 +83,7 @@ async def handle_mcp_tool_call(
         )
 
     # Execute the tool call using our robust error-handling function.
-    return await execute_tool(
-        mcp_session, tool_call, method_metadata_key, on_logging_message
-    )
+    return await execute_tool(mcp_session, tool_call, method_metadata_key, on_logging_message)
 
 
 async def handle_long_running_tool_call(
@@ -104,9 +97,7 @@ async def handle_long_running_tool_call(
     """
 
     # Find the tool and session from the full collection of sessions
-    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(
-        mcp_sessions, tool_call.name
-    )
+    mcp_session, tool = get_mcp_session_and_tool_by_tool_name(mcp_sessions, tool_call.name)
 
     if not mcp_session or not tool:
         yield ExtendedCallToolResult(
@@ -139,9 +130,7 @@ async def handle_long_running_tool_call(
     )
 
     # Perform the tool call
-    tool_call_result = await execute_tool(
-        mcp_session, tool_call, method_metadata_key, on_logging_message
-    )
+    tool_call_result = await execute_tool(mcp_session, tool_call, method_metadata_key, on_logging_message)
     yield tool_call_result
 
 
@@ -160,9 +149,7 @@ async def execute_tool(
     content_items: List[str] = []
 
     async def tool_call_function() -> CallToolResult:
-        return await mcp_session.client_session.call_tool(
-            tool_call.name, tool_call.arguments
-        )
+        return await mcp_session.client_session.call_tool(tool_call.name, tool_call.arguments)
 
     async def notification_handler(message: ServerNotification) -> None:
         if message.root.method == "notifications/message":
@@ -170,9 +157,7 @@ async def execute_tool(
         else:
             logger.warning(f"Received unknown notification: {message}")
 
-    logger.debug(
-        f"Invoking '{mcp_session.config.key}.{tool_call.name}' with arguments: {tool_call.arguments}"
-    )
+    logger.debug(f"Invoking '{mcp_session.config.key}.{tool_call.name}' with arguments: {tool_call.arguments}")
 
     try:
         tool_result = await execute_tool_with_retries(
@@ -183,9 +168,7 @@ async def execute_tool(
     except Exception as e:
         if isinstance(e, ExceptionGroup) and len(e.exceptions) == 1:
             e = e.exceptions[0]
-        error_message = (
-            str(e).strip() or "Peer disconnected; no error message received."
-        )
+        error_message = str(e).strip() or "Peer disconnected; no error message received."
         # Check if the error indicates a disconnection.
         if "peer closed connection" in error_message.lower():
             mcp_session.is_connected = False
@@ -229,9 +212,7 @@ async def execute_tool(
         content=[
             TextContent(
                 type="text",
-                text="\n\n".join(content_items)
-                if content_items
-                else "[tool call successful, but no output]",
+                text="\n\n".join(content_items) if content_items else "[tool call successful, but no output]",
             ),
         ],
         metadata=metadata,
