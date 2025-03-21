@@ -20,7 +20,8 @@
           "examples: python-03-multimodel-chatbot",
           "assistants: guided-conversation-assistant",
           "assistants: prospector-assistant",
-          "assistants: skill-assistant"
+          "assistants: skill-assistant",
+          "assistants: mission-assistant"
         ]
       }
     ]
@@ -70,6 +71,10 @@
     {
       "name": "assistants:skill-assistant",
       "path": "assistants/skill-assistant"
+    },
+    {
+      "name": "assistants:mission-assistant",
+      "path": "assistants/mission-assistant"
     },
     {
       "name": "libraries:assistant-drive",
