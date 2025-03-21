@@ -26,7 +26,6 @@ const useClasses = makeStyles({
 });
 
 export interface NewConversationData {
-    title?: string;
     assistantId?: string;
     assistantServiceId?: string;
     name?: string;
@@ -44,7 +43,6 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
     const { assistants, assistantServicesByCategories } = useCreateConversation();
 
     const [config, setConfig] = React.useState<NewConversationData>({
-        title: '',
         assistantId: '',
         assistantServiceId: '',
         name: '',
@@ -52,7 +50,7 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
     const [manualEntry, setManualEntry] = React.useState(false);
 
     const checkIsValid = React.useCallback((data: NewConversationData) => {
-        if (!data.title || !data.assistantId) {
+        if (!data.assistantId) {
             return false;
         }
 
@@ -91,14 +89,6 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
             }}
         >
             <div className={classes.content}>
-                <Field label="Title">
-                    <Input
-                        disabled={disabled}
-                        value={config.title}
-                        onChange={(_event, data) => updateAndNotifyChange({ title: data?.value })}
-                        aria-autocomplete="none"
-                    />
-                </Field>
                 <Field label="Assistant">
                     <AssistantSelector
                         assistants={assistants}

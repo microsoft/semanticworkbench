@@ -19,7 +19,7 @@ dependencies = [
     "fastapi[standard]~=0.115.0",
     "greenlet~=3.0.3",
     "jsonschema>=4.20.0",
-    "openai~=1.14.2",
+    "openai-client>=0.1.0",
     "pydantic-settings>=2.2.0",
     "python-dotenv>=1.0.0",
     "python-jose[cryptography]>=3.3.0",
@@ -43,6 +43,7 @@ dev = [
 ]
 
 [tool.uv.sources]
+openai-client = { path = "../libraries/python/openai-client", editable = true }
 semantic-workbench-api-model = { path = "../libraries/python/semantic-workbench-api-model", editable = true }
 semantic-workbench-assistant = { path = "../libraries/python/semantic-workbench-assistant", editable = true }
 

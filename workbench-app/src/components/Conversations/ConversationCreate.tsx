@@ -5,8 +5,6 @@ import {
     DialogOpenChangeData,
     DialogOpenChangeEvent,
     DialogTrigger,
-    Field,
-    Input,
     makeStyles,
     tokens,
 } from '@fluentui/react-components';
@@ -36,7 +34,6 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
     const { open, onOpenChange, onCreate, metadata } = props;
     const classes = useClasses();
     const [createConversation] = useCreateConversationMutation();
-    const [title, setTitle] = React.useState('');
     const [submitted, setSubmitted] = React.useState(false);
 
     const handleSave = React.useCallback(async () => {
@@ -46,19 +43,18 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
         setSubmitted(true);
 
         try {
-            const conversation = await createConversation({ title, metadata }).unwrap();
+            const conversation = await createConversation({ metadata }).unwrap();
             onOpenChange?.(false);
             onCreate?.(conversation);
         } finally {
             setSubmitted(false);
         }
-    }, [createConversation, metadata, onCreate, onOpenChange, submitted, title]);
+    }, [createConversation, metadata, onCreate, onOpenChange, submitted]);
 
     React.useEffect(() => {
         if (!open) {
             return;
         }
-        setTitle('');
         setSubmitted(false);
     }, [open]);
 
@@ -84,16 +80,13 @@ export const ConversationCreate: React.FC<ConversationCreateProps> = (props) => 
                         handleSave();
                     }}
                 >
-                    <Field label="Title">
-                        <Input disabled={submitted} value={title} onChange={(_event, data) => setTitle(data.value)} />
-                    </Field>
-                    <button disabled={!title || submitted} type="submit" hidden />
+                    <button disabled={submitted} type="submit" hidden />
                 </form>
             }
             closeLabel="Cancel"
             additionalActions={[
                 <DialogTrigger key="save" disableButtonEnhancement>
-                    <Button disabled={!title || submitted} appearance="primary" onClick={handleSave}>
+                    <Button disabled={submitted} appearance="primary" onClick={handleSave}>
                         {submitted ? 'Saving...' : 'Save'}
                     </Button>
                 </DialogTrigger>,

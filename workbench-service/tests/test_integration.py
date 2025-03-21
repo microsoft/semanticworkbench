@@ -18,14 +18,14 @@ from .types import MockUser
 async def wait_for_assistant_service_registration(
     wb_client: httpx.AsyncClient,
 ) -> workbench_model.AssistantServiceRegistration:
-    for _ in range(5):
+    for _ in range(10):
         http_response = await wb_client.get("/assistant-service-registrations")
         http_response.raise_for_status()
         assistant_services = workbench_model.AssistantServiceRegistrationList.model_validate(http_response.json())
         if assistant_services.assistant_service_registrations:
             return assistant_services.assistant_service_registrations[0]
 
-        await asyncio.sleep(0.001)
+        await asyncio.sleep(0.01)
 
     raise Exception("Timed out waiting for assistant service registration")
 

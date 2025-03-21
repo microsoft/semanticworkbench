@@ -1,11 +1,15 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-import pythoncom
-import win32com.client as win32
+import sys
 
 
 def get_excel_app():
     """Connect to Excel if it is running, or start a new instance."""
+
+    if sys.platform != "win32":
+        raise EnvironmentError("This script only works on Windows.")
+    import win32com.client as win32
+
     try:
         # Try connecting to an existing instance of Excel
         excel = win32.GetActiveObject("Excel.Application")
@@ -77,6 +81,11 @@ def get_workbook_content(workbook):
 
 
 def main():
+    if sys.platform != "win32":
+        raise EnvironmentError("This script only works on Windows.")
+
+    import pythoncom
+
     # Initialize COM
     pythoncom.CoInitialize()
 

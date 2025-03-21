@@ -16,7 +16,7 @@ interface GetConversationMessagesProps {
 
 export const conversationApi = workbenchApi.injectEndpoints({
     endpoints: (builder) => ({
-        createConversation: builder.mutation<Conversation, Partial<Conversation> & Pick<Conversation, 'title'>>({
+        createConversation: builder.mutation<Conversation, Partial<Conversation>>({
             query: (body) => ({
                 url: '/conversations',
                 method: 'POST',
@@ -37,7 +37,7 @@ export const conversationApi = workbenchApi.injectEndpoints({
             invalidatesTags: ['Conversation'],
             transformResponse: (response: any) => transformResponseToImportResult(response),
         }),
-        updateConversation: builder.mutation<Conversation, Pick<Conversation, 'id' | 'title' | 'metadata'>>({
+        updateConversation: builder.mutation<Conversation, Partial<Conversation> & Pick<Conversation, 'id'>>({
             query: (body) => ({
                 url: `/conversations/${body.id}`,
                 method: 'PATCH',

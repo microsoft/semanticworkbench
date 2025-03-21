@@ -133,10 +133,14 @@ class HostedMCPServerConfig(MCPServerConfig):
     ] = 30
 
 
-def _mcp_server_config_from_env(key: str, url_env_var: str) -> HostedMCPServerConfig:
+def _mcp_server_config_from_env(key: str, url_env_var: str, enabled: bool = True) -> HostedMCPServerConfig:
     """Returns a HostedMCPServerConfig object with the command (URL) set from the environment variable."""
     env_value = os.getenv(url_env_var.upper()) or os.getenv(url_env_var.lower()) or ""
-    return HostedMCPServerConfig(key=key, command=env_value, enabled=bool(env_value))
+
+    if not env_value:
+        enabled = False
+
+    return HostedMCPServerConfig(key=key, command=env_value, enabled=enabled)
 
 
 class HostedMCPServersConfigModel(BaseModel):
@@ -148,9 +152,17 @@ class HostedMCPServersConfigModel(BaseModel):
         HostedMCPServerConfig,
         Field(
             title="Web Research",
-            description="Configuration for the web research server.",
+            description="This tool performs web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
         ),
     ] = _mcp_server_config_from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
+
+    open_deep_research_clone: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Open Deep Research Clone",
+            description="This is a web research tool that was created to be as similar to the Open Deep Research project as a demonstration of writing routines using our Skills library.",
+        ),
+    ] = _mcp_server_config_from_env("open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", False)
 
     giphy: Annotated[
         HostedMCPServerConfig,
@@ -298,16 +310,16 @@ class MCPToolsConfigModel(BaseModel):
             enabled=False,
         ),
         MCPServerConfig(
-            key="open-deep-research-clone",
+            key="open-deep-research-clone-personal",
             command="http://127.0.0.1:6061/sse",
             args=[],
             enabled=False,
         ),
         MCPServerConfig(
-            key="web-research",
+            key="web-research-personal",
             command="http://127.0.0.1:6060/sse",
             args=[],
-            enabled=True,
+            enabled=False,
         ),
     ]
 
