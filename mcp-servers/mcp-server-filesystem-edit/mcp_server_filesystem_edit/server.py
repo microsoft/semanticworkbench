@@ -25,19 +25,25 @@ class FileForChanges(BaseModel):
     error_msg: str | None = None
 
 
-async def get_allowed_directories(ctx: Context) -> list[Path]:
+async def get_allowed_directory(ctx: Context) -> Path:
     """
-    Helper function to get allowed directories from settings
+    Helper function to get allowed directory.
+    If no allowed directory is configured through settings, it will use roots where
+    it use the first root as the allowed or "working" directory.
     """
     if settings.allowed_directories:
-        return [Path(directory).resolve() for directory in settings.allowed_directories]
+        return Path(settings.allowed_directories[0]).resolve()
 
     list_roots_result = await ctx.session.list_roots()
     if list_roots_result.roots:
         if sys.platform.startswith("win"):
-            return [Path(root.uri.path.lstrip("/")).resolve() for root in list_roots_result.roots if root.uri.path]
+            roots = [Path(root.uri.path.lstrip("/")).resolve() for root in list_roots_result.roots if root.uri.path]
+        else:
+            roots = [Path(root.uri.path).resolve() for root in list_roots_result.roots if root.uri.path]
 
-        return [Path(root.uri.path).resolve() for root in list_roots_result.roots if root.uri.path]
+        roots = [root for root in roots if root.is_dir()]
+        if roots:
+            return roots[0]
 
     raise ValueError("No allowed_directories have been configured and no roots have been set.")
 
@@ -80,21 +86,27 @@ async def get_context_files(ctx: Context, allowed_file_extensions: list[str] = [
 
 async def validate_path(ctx: Context, requested_path: str) -> Path:
     """
-    Helper function to validate paths against allowed directories
+    Helper function to validate the provided paths against the allowed working directory and
+    returns the absolute path.
+
+    Args:
+        requested_path: The path to validate.
+
+    Returns:
+        The absolute path of the file.
     """
-    allowed_dirs = await get_allowed_directories(ctx)
+    allowed_dir = await get_allowed_directory(ctx)
+    requested_path_obj = Path(requested_path)
 
-    if not allowed_dirs:
-        raise PermissionError("No allowed_directories have been configured")
-
-    if requested_path == ".":
-        requested_path = str(allowed_dirs[0])
-
-    absolute_path = Path(requested_path).resolve()
-    for allowed_dir in allowed_dirs:
-        if str(absolute_path).startswith(str(allowed_dir)):
-            return absolute_path
-    raise PermissionError(f"Access denied: {requested_path} is outside allowed_directories: {allowed_dirs}")
+    # If the path is absolute, check if it's within the allowed directory
+    if requested_path_obj.is_absolute():
+        resolved_path = requested_path_obj.resolve()
+        if not str(resolved_path).startswith(str(allowed_dir)):
+            raise ValueError(f"Path {requested_path} is outside of allowed directory {allowed_dir}")
+        return resolved_path
+    else:
+        # For relative paths, join with the allowed directory
+        return (allowed_dir / requested_path_obj).resolve()
 
 
 async def read_file(ctx: Context, path: str) -> str:
@@ -164,37 +176,21 @@ def create_mcp_server() -> FastMCP:
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
     @mcp.tool()
-    async def list_allowed_directories(ctx: Context) -> str:
+    async def list_working_directory(ctx: Context) -> str:
         """
-        Returns a string of allowed directories.
+        Lists all files in the working directory, including those in subdirs.
 
         Returns:
-            A newline-separated string of allowed directories.
+            Recursively returns all files in the working directory as relative paths.
         """
-        allowed_dirs = await get_allowed_directories(ctx)
-        if not allowed_dirs:
-            return "No allowed directories have been configured"
-        return "\n".join(map(str, allowed_dirs))
+        allowed_dir = await get_allowed_directory(ctx)
+        all_files = [f for f in allowed_dir.glob("**/*") if f.is_file()]
 
-    @mcp.tool()
-    async def list_directory(ctx: Context, path: str) -> list[str]:
-        """
-        Lists all files and subdirectories in a directory.
-
-        Args:
-            path: The directory path to list.
-
-        Returns:
-            A list of filenames and subdirectory names. Files are prefixed with [FILE] and directories with [DIR].
-        """
-        dir_path = await validate_path(ctx, path)
-        if not dir_path.exists() or not dir_path.is_dir():
-            raise FileNotFoundError(f"Directory does not exist at {path}")
-
-        try:
-            return [("[DIR] " if entry.is_dir() else "[FILE] ") + entry.name for entry in dir_path.iterdir()]
-        except Exception as e:
-            raise RuntimeError(f"Failed to list directory contents at {path}: {str(e)}")
+        file_string = ""
+        for file in all_files:
+            relative_path = file.relative_to(allowed_dir)
+            file_string += f"{relative_path}\n"
+        return file_string.strip()
 
     @mcp.tool()
     async def view(ctx: Context, path: str) -> str:
@@ -202,7 +198,7 @@ def create_mcp_server() -> FastMCP:
         Reads the content of a file specified by the path.
 
         Args:
-            path: The absolute or relative path to the file.
+            path: The relative path to the file.
 
         Returns:
             The content of the file as a string.
@@ -221,7 +217,7 @@ def create_mcp_server() -> FastMCP:
         If the file fails to compile after making changes, it will return the error message generated by pdflatex.
 
         Args:
-            path: The absolute or relative path to the file.
+            path: The relative path to the file.
             task: The specific task to be performed on the document.
         """
         read_file_result = await read_file_for_edits(ctx, path)
@@ -257,7 +253,7 @@ def create_mcp_server() -> FastMCP:
         Runs a routine that will add feedback as comments to the given file.
 
         Args:
-            path: The absolute or relative path to the file.
+            path: The relative path to the file.
         """
         read_file_result = await read_file_for_edits(ctx, path)
         if read_file_result.error_msg:
@@ -280,7 +276,7 @@ def create_mcp_server() -> FastMCP:
         Runs a routine that analyzes the comments in the file and determines how they could be solved.
 
         Args:
-            path: The absolute or relative path to the file.
+            path: The relative path to the file.
         """
         read_file_result = await read_file_for_edits(ctx, path)
         if read_file_result.error_msg:
