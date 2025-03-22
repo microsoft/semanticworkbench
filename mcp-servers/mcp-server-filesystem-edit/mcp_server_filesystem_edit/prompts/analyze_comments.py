@@ -22,30 +22,37 @@ You will be provided important context to determine if comments can be actioned:
 
 ## On Your Analysis
 Take the following steps to analyze each comment, in order, if the comment is actionable and how to address it.
-### Focus on a Comment
-- Determine the  you are analyzing and write down a way to identify it.
-### Reasoning step by step
+### 1. Focus on a Comment
+- Determine the comment you are analyzing and write down a way to identify it.
+### 2. Reasoning step by step
 - Think step by step if the comment can be **fully** addressed given the conversation history and provided context.
-- Examples of feedback that can usually be addressed:
+- Examples of comments that can typically be addressed:
   - Writing style and structure
-  - Depth or brevity of content
+  - Depth or brevity of content, unless it requires external data, further research, or information from the user.
   - Adding more information from provided context or conversation history
   - Making the document sound less generic and more like an expert wrote it
   - Updating structure like consolidating sections or removing duplicates
 - Examples where feedback might not be actionable:
   - Adding or updating data or external information this is **not** already provided. You must reason if the data is already in the conversation history or context.
   - Creating or modifying diagrams or images.
-  - The comment has already been addressed and is just a leftover.
-3. Based on your reasoning, determine if the comment is actionable and has not already been addressed.
+  - The comment has already been addressed and is just a leftover. Use the conversation history to help determine, such as if comments were added in a previous interaction.
+- Then explicitly reason if the comment has already been addressed in the document or cannot be addressed based on a previous interaction.
+  - For example, the comment was previously analyzed it was determined that it needed more information and that information has not yet been provided.
+### 3. Decision time
+- Based on your reasoning, determine if the comment is actionable and has not already been addressed.
   - If actionable, write "true".
   - If not actionable, write "false".
-4. Depending on step 3:
-- If actionable, write high-level instructions to the editor on how to address the comment in the document. \
-Be sure to include references to the conversation history and/or context.
+- Based on your reasoning, determine if the comment has already been addressed in the document or has already been analyzed/addressed in a previous interaction. \
+Then similarly write "true" or "false".
+### 4. Next steps
+- Finally, you must provide next steps to return to the assistant or user.
+- If the comment was actionable, write high-level instructions to the editor on how to address the comment in the document. \
+Be sure to include specific references to the conversation history and/or context.
 - If not actionable, write a hint to the user about what additional information is needed to address the comment. \
 For example, would we need web searches, data, or do we need to ask the user question(s)? \
 You should NOT assume that user will know exactly which comment you are referring to, so you should say something like \
-"To address the feedback about including more detailed data and web sources, can you please provide <x and y>?\""""
+"To address the feedback about including more detailed data and web sources, can you please provide <x and y>?"
+- If the comment has already been addressed, suggest that the comment be removed."""
 )
 
 COMMENT_ANALYSIS_USER_ATTACHMENTS_PROMPT = UserMessage(
@@ -95,7 +102,7 @@ COMMENT_ANALYSIS_SCHEMA = {
                         },
                         "already_addressed_reasoning": {
                             "type": "string",
-                            "description": "Reason if the comment has already been addressed in the document and should be removed.",
+                            "description": "Reason if the comment has already been addressed in the document or has already been analyzed/addressed in a previous interaction.",
                         },
                         "is_actionable": {
                             "type": "boolean",

@@ -7,9 +7,7 @@ from typing import Literal
 import yaml
 from mcp_extensions.llm.llm_types import AssistantMessage, MessageT, UserMessage
 
-from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.types import (
-    Comment,
     CustomContext,
     TestCase,
 )
@@ -22,14 +20,14 @@ logger = logging.getLogger(__name__)
 
 
 def load_test_cases(
-    test_case_type: Literal["writing", "feedback", "comment_analysis"] | None = None,
+    test_case_type: Literal["writing", "comments"] | None = None,
 ) -> list[CustomContext]:
     """
     Load test cases and convert them to CustomContext objects.
 
     Args:
         test_case_type: Optional filter to only return test cases of a specific type.
-                       If None, returns all test cases.
+        If None, returns all test cases.
 
     Returns:
         A list of CustomContext objects representing the test cases.
@@ -64,33 +62,12 @@ def load_test_cases(
             else:
                 logger.warning(f"Document file {test_case.open_file} not found at {document_path}")
 
-        comments: list[Comment] = []
-        if test_case.comments:
-            comment_section = "\n\n<comments>\n"
-            for i, comment in enumerate(test_case.comments, 1):
-                comment_section += f'<comment id={i} author="{settings.comment_author}">\n'
-                comment_section += f"  <location_text>{comment.location_text}</location_text>\n"
-                comment_section += f"  <comment_text>{comment.comment_text}</comment_text>\n"
-                comment_section += "</comment>\n"
-                comments.append(
-                    Comment(
-                        author=settings.comment_author,
-                        location_text=comment.location_text,
-                        comment_text=comment.comment_text,
-                    )
-                )
-            comment_section.rstrip()
-            comment_section += "</comments>"
-
-            document_content += comment_section
-
         custom_contexts.append(
             CustomContext(
                 chat_history=chat_history,
                 document=document_content,
                 file_type=test_case.file_type,
                 additional_context=additional_context,
-                comments=comments,
             )
         )
     return custom_contexts

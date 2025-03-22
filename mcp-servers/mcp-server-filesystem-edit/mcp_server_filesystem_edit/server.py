@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.app_handling.miktex import compile_tex_to_pdf
 from mcp_server_filesystem_edit.tools.add_comments import CommonComments
-from mcp_server_filesystem_edit.tools.analyze_comments import CommonAnalyzeComments
 from mcp_server_filesystem_edit.tools.edit import CommonEdit
 from mcp_server_filesystem_edit.types import FileOpRequest
 
@@ -268,29 +267,7 @@ def create_mcp_server() -> FastMCP:
         )
         output = await commenter.run(request)
         await write_file(ctx, path, output.new_content)
-        return output.comment_summary
-
-    @mcp.tool()
-    async def analyze_comments(ctx: Context, path: str) -> str:
-        """
-        Runs a routine that analyzes the comments in the file and determines how they could be solved.
-
-        Args:
-            path: The relative path to the file.
-        """
-        read_file_result = await read_file_for_edits(ctx, path)
-        if read_file_result.error_msg:
-            return read_file_result.error_msg
-
-        comment_analyzer = CommonAnalyzeComments()
-        request = FileOpRequest(
-            context=ctx,
-            request_type="mcp",
-            file_content=read_file_result.file_content,
-            file_type=read_file_result.file_type,
-        )
-        output = await comment_analyzer.run(request)
-        return output.edit_instructions + "\n" + output.assistant_hints
+        return output.comment_instructions
 
     @mcp.resource(
         uri="resource://filesystem_edit/open_files",

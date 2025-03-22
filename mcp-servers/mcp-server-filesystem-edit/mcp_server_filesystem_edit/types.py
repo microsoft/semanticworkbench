@@ -6,23 +6,12 @@ from mcp.server.fastmcp import Context
 from mcp_extensions.llm.llm_types import MessageT, ToolCall
 from pydantic import BaseModel, Field
 
-from mcp_server_filesystem_edit import settings
-
-
-class Comment(BaseModel):
-    id: str = Field(default="Unused")
-    comment_text: str
-    location_text: str
-    author: str = Field(default=settings.comment_author)
-    occurrence: int = Field(default=1)
-
 
 class CustomContext(BaseModel):
     chat_history: list[MessageT]
     document: str
     file_type: Literal["markdown", "latex"] = Field(default="markdown")
     additional_context: str
-    comments: list[Comment] = Field(default_factory=list)
 
 
 class FileOpRequest(BaseModel):
@@ -45,16 +34,10 @@ class EditOutput(BaseModel):
 
 class CommentOutput(BaseModel):
     new_content: str
-    comment_summary: str
+    comment_instructions: str
     reasoning: str
     tool_calls: list[ToolCall]
     llm_latency: float
-
-
-class AnalyzeCommentsOutput(BaseModel):
-    edit_instructions: str
-    assistant_hints: str
-    json_message: dict | None
 
 
 class Block(BaseModel):
@@ -84,14 +67,9 @@ class RemoveOperation(EditOperation):
     end_index: int
 
 
-class CommentForEvals(BaseModel):
-    location_text: str
-    comment_text: str
-
-
 class TestCase(BaseModel):
     test_case_name: str
-    test_case_type: Literal["writing", "feedback", "comment_analysis"] = Field(default="writing")
+    test_case_type: Literal["writing", "comments"] = Field(default="writing")
     file_type: Literal["markdown", "latex"] = Field(default="markdown")
     transcription_file: str
     open_file: str | None = Field(
@@ -99,10 +77,9 @@ class TestCase(BaseModel):
     )
     next_ask: str
     attachments: list[str] = Field(default_factory=list)
-    comments: list[CommentForEvals] = Field(default_factory=list)
 
 
-class EditTelemetry(BaseModel):
+class FileOpTelemetry(BaseModel):
     reasoning_latency: float = Field(default=0.0, description="Time spent on reasoning LLM call in seconds")
     convert_latency: float = Field(default=0.0, description="Time spent on convert LLM call in seconds")
     change_summary_latency: float = Field(default=0.0, description="Time spent on change summary LLM call in seconds")

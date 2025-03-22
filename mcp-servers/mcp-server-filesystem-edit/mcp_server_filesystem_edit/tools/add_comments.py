@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import json
 import logging
 from typing import Any
@@ -8,37 +10,41 @@ from mcp_extensions.llm.chat_completion import chat_completion
 from mcp_extensions.llm.helpers import compile_messages
 from mcp_extensions.llm.llm_types import ChatCompletionRequest, MessageT, UserMessage
 
+from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.prompts.add_comments import (
     ADD_COMMENTS_CONVERT_MESSAGES,
     ADD_COMMENTS_MESSAGES,
     ADD_COMMENTS_TOOL_DEF,
     ADD_COMMENTS_TOOL_NAME,
 )
+from mcp_server_filesystem_edit.prompts.analyze_comments import COMMENT_ANALYSIS_MESSAGES, COMMENT_ANALYSIS_SCHEMA
 from mcp_server_filesystem_edit.tools.edit_adapters.common import format_blocks_for_llm
 from mcp_server_filesystem_edit.tools.edit_adapters.latex import blockify as latex_blockify
 from mcp_server_filesystem_edit.tools.edit_adapters.latex import unblockify as latex_unblockify
+from mcp_server_filesystem_edit.tools.edit_adapters.markdown import blockify as markdown_blockify
+from mcp_server_filesystem_edit.tools.edit_adapters.markdown import unblockify as markdown_unblockify
 from mcp_server_filesystem_edit.tools.helpers import format_chat_history
-from mcp_server_filesystem_edit.types import Block, CommentOutput, CustomContext, EditTelemetry, FileOpRequest
+from mcp_server_filesystem_edit.types import Block, CommentOutput, CustomContext, FileOpRequest, FileOpTelemetry
 
 logger = logging.getLogger(__name__)
 
 
 class CommonComments:
     def __init__(self) -> None:
-        self.telemetry = EditTelemetry()
+        self.telemetry = FileOpTelemetry()
 
     async def blockify(self, request: FileOpRequest) -> list[Block]:
         if request.file_type == "latex":
             blocks = latex_blockify(request.file_content)
         else:
-            raise ValueError(f"Unsupported file type for comments: {request.file_type}")
+            blocks = markdown_blockify(request.file_content)
         return blocks
 
     async def unblockify(self, request: FileOpRequest, blocks: list[Block]) -> str:
         if request.file_type == "latex":
             unblockified_doc = latex_unblockify(blocks)
         else:
-            raise ValueError(f"Unsupported file type for comments: {request.file_type}")
+            unblockified_doc = markdown_unblockify(blocks)
         return unblockified_doc
 
     async def construct_comments_prompt(self, request: FileOpRequest, blockified_doc: list[Block]) -> list[MessageT]:
@@ -60,39 +66,29 @@ class CommonComments:
                 "context": context,
                 "document": doc_for_llm,
                 "chat_history": chat_history,
+                "file_type": request.file_type,
             },
         )
         return comments_messages
 
     async def get_comments_reasoning(self, request: FileOpRequest, messages: list[MessageT]) -> str:
+        mcp_messages = messages
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
             mcp_messages.append(messages[3])  # Document message
-            reasoning_response = await chat_completion(
-                request=ChatCompletionRequest(
-                    messages=mcp_messages,
-                    model="o3-mini",
-                    max_completion_tokens=15000,
-                    reasoning_effort="medium",
-                ),
-                provider="mcp",
-                client=request.context,
-            )
-        elif request.request_type == "dev":
-            reasoning_response = await chat_completion(
-                request=ChatCompletionRequest(
-                    messages=messages,
-                    model="o3-mini",
-                    max_completion_tokens=15000,
-                    reasoning_effort="medium",
-                ),
-                provider="azure_openai",
-                client=request.chat_completion_client,  # type: ignore
-            )
-        else:
-            raise ValueError(f"Invalid request type: {request.request_type}")
+
+        reasoning_response = await chat_completion(
+            request=ChatCompletionRequest(
+                messages=mcp_messages,
+                model="o3-mini",
+                max_completion_tokens=15000,
+                reasoning_effort="medium",
+            ),
+            provider=request.request_type,
+            client=request.context if request.request_type == "mcp" else request.chat_completion_client,  # type: ignore
+        )
 
         self.telemetry.reasoning_latency = reasoning_response.response_duration
         reasoning = reasoning_response.choices[0].message.content
@@ -134,8 +130,17 @@ class CommonComments:
 
         return convert_response, parsed_comments
 
+    def format_comment(self, file_type: str, comment_text: str) -> str:
+        """Returns a formatted comment based on file type."""
+        if file_type == "markdown":
+            return f"<!-- Feedback: {comment_text} -->\n"
+        else:
+            return f"% Feedback: {comment_text}\n"
+
     async def add_comments_to_content(self, request: FileOpRequest, parsed_comments: list[dict]) -> str:
-        """Add comments to the LaTeX document by inserting them at the start of identified blocks."""
+        """
+        Add comments to the document by inserting them at the start of identified blocks.
+        """
         if not parsed_comments:
             return request.file_content
 
@@ -144,51 +149,122 @@ class CommonComments:
 
         for comment in parsed_comments:
             block_id = comment.get("block_id", 0)
+            if block_id < 1:
+                continue
             comment_text = comment.get("comment_text", "")
-
             if block_id in blocks_by_id:
                 block = blocks_by_id[block_id]
-                comment_line = f"% Feedback: {comment_text}\n"
+                comment_line = self.format_comment(request.file_type, comment_text)
                 block.content = comment_line + block.content
 
         updated_content = await self.unblockify(request, blocks)
         return updated_content
 
-    async def summarize_comments(self, comments: list[dict]) -> str:
-        if not comments:
-            return "No comments were added to the document."
+    async def construct_analyze_comments_prompt(
+        self, request: FileOpRequest, document_with_new_comments: str
+    ) -> list[MessageT]:
+        """
+        Constructs the prompt for analyzing comments.
+        """
+        chat_history = ""
+        if request.request_type == "dev" and isinstance(request.context, CustomContext):
+            chat_history = format_chat_history(request.context.chat_history)
 
-        summary_parts = ["I've added the following comments to your LaTeX document:"]
+        context = ""
+        if request.request_type == "dev" and isinstance(request.context, CustomContext):
+            context = request.context.additional_context
 
-        for _, comment in enumerate(comments, 1):
-            comment_text = comment.get("comment_text", "")
-            summary_parts.append(f"   **Comment**: {comment_text}")
-            summary_parts.append("")
+        comments_messages = compile_messages(
+            messages=COMMENT_ANALYSIS_MESSAGES,
+            variables={
+                "knowledge_cutoff": "2023-10",
+                "current_date": pendulum.now().format("YYYY-MM-DD"),
+                "context": context,
+                "document": document_with_new_comments,
+                "chat_history": chat_history,
+            },
+        )
+        return comments_messages
 
-        return "\n".join(summary_parts)
+    async def get_analysis_response(self, request: FileOpRequest, messages: list[MessageT]) -> dict:
+        mcp_messages = messages
+        if request.request_type == "mcp" and isinstance(request.context, Context):
+            mcp_messages = [messages[0]]  # Developer message
+            mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
+            mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
+            mcp_messages.append(messages[3])  # Document message
+
+        analysis_response = await chat_completion(
+            request=ChatCompletionRequest(
+                messages=mcp_messages,
+                model="gpt-4o",
+                max_completion_tokens=8000,
+                temperature=0.5,
+                structured_outputs=COMMENT_ANALYSIS_SCHEMA,
+            ),
+            provider=request.request_type,
+            client=request.context if request.request_type == "mcp" else request.chat_completion_client,  # type: ignore
+        )
+        self.telemetry.change_summary_latency = analysis_response.response_duration
+        comment_analysis = analysis_response.choices[0].json_message or {}
+        logger.info(f"Comment analysis response:\n{comment_analysis}")
+        return comment_analysis
+
+    async def convert_to_instructions(self, json_message: dict) -> str:
+        edit_instructions = ""
+        assistant_hints = ""
+        if json_message:
+            for comment in json_message.get("comment_analysis", []):
+                comment_id = comment.get("comment_id", None)
+                if comment_id is None:
+                    continue
+                output_message = comment.get("output_message", None)
+                if output_message is None:
+                    continue
+                if comment.get("is_actionable", False) and not comment.get("is_addressed", True):
+                    edit_str = f'To address the comment "{comment_id}", please do the following:'
+                    edit_instructions += f"{edit_str}\n{output_message}\n\n"
+                elif comment.get("is_actionable", False):
+                    assistant_str = f'To address the comment "{comment_id}",'
+                    assistant_hints += f"{assistant_str}\n{output_message}\n\n"
+
+        final_instructions = ""
+        if edit_instructions or assistant_hints:
+            final_instructions = f"{settings.feedback_tool_prefix}## Comments were added to the document, here are tips on how to address them\n"
+            if assistant_hints:
+                final_instructions += f"### Not immediately actionable (seek more information)\n{assistant_hints}\n"
+            if edit_instructions:
+                final_instructions += f"### Actionable comments (act on these by editing)\n{edit_instructions}\n"
+
+        return final_instructions.strip()
 
     async def run(self, request: FileOpRequest) -> CommentOutput:
-        """Run the comment addition process for LaTeX documents and return the result."""
-        if request.file_type != "latex":
-            raise ValueError(f"File type '{request.file_type}' is not supported for this operation. Expected 'latex'.")
-
+        """
+        Run the comment addition process for documents
+        """
         self.telemetry.reset()
+
+        # Add comments to the file
         blockified_doc = await self.blockify(request)
         comments_messages = await self.construct_comments_prompt(request, blockified_doc)
         reasoning = await self.get_comments_reasoning(request, comments_messages)
         logger.info(f"Comments reasoning:\n{reasoning}")
-
         convert_messages = await self.construct_convert_prompt(reasoning)
         convert_response, parsed_comments = await self.get_convert_response(request, convert_messages)
-
         new_content = await self.add_comments_to_content(request, parsed_comments)
-        comment_summary = await self.summarize_comments(parsed_comments)
+
+        # Analyze the comments
+        analyze_comments_messages = await self.construct_analyze_comments_prompt(request, new_content)
+        comment_analysis = await self.get_analysis_response(request, analyze_comments_messages)
+        comment_instructions = await self.convert_to_instructions(comment_analysis)
 
         output = CommentOutput(
             new_content=new_content,
-            comment_summary=comment_summary,
+            comment_instructions=comment_instructions,
             reasoning=reasoning,
             tool_calls=convert_response.choices[0].message.tool_calls or [],
-            llm_latency=self.telemetry.reasoning_latency + self.telemetry.convert_latency,
+            llm_latency=self.telemetry.reasoning_latency
+            + self.telemetry.convert_latency
+            + self.telemetry.change_summary_latency,
         )
         return output

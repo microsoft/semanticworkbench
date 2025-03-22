@@ -26,22 +26,20 @@ from mcp_server_filesystem_edit.tools.edit_adapters.latex import unblockify as l
 from mcp_server_filesystem_edit.tools.edit_adapters.markdown import blockify as markdown_blockify
 from mcp_server_filesystem_edit.tools.edit_adapters.markdown import unblockify as markdown_unblockify
 from mcp_server_filesystem_edit.tools.helpers import format_chat_history
-from mcp_server_filesystem_edit.types import Block, CustomContext, EditOutput, EditTelemetry, FileOpRequest
+from mcp_server_filesystem_edit.types import Block, CustomContext, EditOutput, FileOpRequest, FileOpTelemetry
 
 logger = logging.getLogger(__name__)
 
 
 class CommonEdit:
     def __init__(self) -> None:
-        self.telemetry = EditTelemetry()
+        self.telemetry = FileOpTelemetry()
 
     async def blockify(self, request: FileOpRequest) -> list[Block]:
         if request.file_type == "latex":
             blocks = latex_blockify(request.file_content)
-        elif request.file_type == "markdown":
-            blocks = markdown_blockify(request.file_content)
         else:
-            raise ValueError(f"Unsupported file type: {request.file_type}")
+            blocks = markdown_blockify(request.file_content)
         return blocks
 
     async def unblockify(self, request: FileOpRequest, blocks: list[Block]) -> str:
