@@ -1,7 +1,7 @@
 import { Divider, Dropdown, Label, makeStyles, Option, tokens, Tooltip } from '@fluentui/react-components';
-import { Info16Regular, PresenceAvailableRegular, PresenceOfflineRegular } from '@fluentui/react-icons';
+import { Info16Regular, PresenceAvailableRegular } from '@fluentui/react-icons';
 import React from 'react';
-import { AssistantServiceRegistration } from '../../../models/AssistantServiceRegistration';
+import { AssistantServiceTemplate } from '../../../libs/useCreateConversation';
 
 const useClasses = makeStyles({
     option: {
@@ -20,9 +20,9 @@ const useClasses = makeStyles({
 interface AssistantServiceSelectorProps {
     assistantServicesByCategory: Array<{
         category: string;
-        assistantServices: AssistantServiceRegistration[];
+        assistantServices: AssistantServiceTemplate[];
     }>;
-    onChange: (value: AssistantServiceRegistration) => void;
+    onChange: (value: AssistantServiceTemplate) => void;
     disabled?: boolean;
 }
 
@@ -31,44 +31,32 @@ export const AssistantServiceSelector: React.FC<AssistantServiceSelectorProps> =
     const classes = useClasses();
 
     const assistantServiceOption = React.useCallback(
-        (assistantService: AssistantServiceRegistration) => (
-            <Option
-                key={assistantService.assistantServiceId}
-                text={assistantService.name}
-                value={assistantService.assistantServiceId}
-            >
-                <div className={classes.option}>
-                    {assistantService.assistantServiceOnline ? (
+        (assistantService: AssistantServiceTemplate) => {
+            const key = JSON.stringify([assistantService.service.assistantServiceId, assistantService.template.id]);
+            return (
+                <Option key={key} text={assistantService.template.name} value={key}>
+                    <div className={classes.option}>
                         <PresenceAvailableRegular color="green" />
-                    ) : (
-                        <PresenceOfflineRegular color="red" />
-                    )}
-                    <Label weight="semibold">{assistantService.name}</Label>
-                    <Tooltip
-                        content={
-                            <div className={classes.optionDescription}>
-                                <Label size="small">
-                                    <em>{assistantService.description}</em>
-                                </Label>
-                                <Divider />
-                                <Label size="small">Assistant service ID:</Label>
-                                <Label size="small">{assistantService.assistantServiceId}</Label>
-                                <Divider />
-                                <Label size="small">Hosted at:</Label>
-                                <Label size="small">{assistantService.assistantServiceUrl}</Label>
-                                <Divider />
-                                <Label size="small">Created by:</Label>
-                                <Label size="small">{assistantService.createdByUserName}</Label>
-                                <Label size="small">[{assistantService.createdByUserId}]</Label>
-                            </div>
-                        }
-                        relationship="description"
-                    >
-                        <Info16Regular />
-                    </Tooltip>
-                </div>
-            </Option>
-        ),
+                        <Label weight="semibold">{assistantService.template.name}</Label>
+                        <Tooltip
+                            content={
+                                <div className={classes.optionDescription}>
+                                    <Label size="small">
+                                        <em>{assistantService.template.description}</em>
+                                    </Label>
+                                    <Divider />
+                                    <Label size="small">Assistant service ID:</Label>
+                                    <Label size="small">{assistantService.service.assistantServiceId}</Label>
+                                </div>
+                            }
+                            relationship="description"
+                        >
+                            <Info16Regular />
+                        </Tooltip>
+                    </div>
+                </Option>
+            );
+        },
         [classes],
     );
 
@@ -77,9 +65,14 @@ export const AssistantServiceSelector: React.FC<AssistantServiceSelectorProps> =
             placeholder="Select an assistant service"
             disabled={disabled}
             onOptionSelect={(_event, data) => {
+                const [assistantServiceId, templateId] = JSON.parse(data.optionValue as string);
                 const assistantService = assistantServicesByCategory
                     .flatMap((category) => category.assistantServices)
-                    .find((assistantService) => assistantService.assistantServiceId === (data.optionValue as string));
+                    .find(
+                        (assistantService) =>
+                            assistantService.service.assistantServiceId === assistantServiceId &&
+                            assistantService.template.id === templateId,
+                    );
                 if (assistantService) {
                     onChange(assistantService);
                 }
@@ -87,7 +80,7 @@ export const AssistantServiceSelector: React.FC<AssistantServiceSelectorProps> =
         >
             {assistantServicesByCategory.map(({ assistantServices }) =>
                 assistantServices
-                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .sort((a, b) => a.template.name.localeCompare(b.template.name))
                     .map((assistantService) => assistantServiceOption(assistantService)),
             )}
         </Dropdown>
