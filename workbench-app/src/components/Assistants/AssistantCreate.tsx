@@ -23,14 +23,14 @@ import {
     makeStyles,
     tokens,
 } from '@fluentui/react-components';
-import { Info16Regular, PresenceAvailableRegular, PresenceOfflineRegular } from '@fluentui/react-icons';
+import { Info16Regular, PresenceAvailableRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { Constants } from '../../Constants';
 import { Assistant } from '../../models/Assistant';
-import { AssistantServiceRegistration } from '../../models/AssistantServiceRegistration';
+import { AssistantServiceInfo } from '../../models/AssistantServiceInfo';
 import {
     useCreateAssistantMutation,
-    useGetAssistantServiceRegistrationsQuery,
+    useGetAssistantServiceInfosQuery,
     useGetAssistantsQuery,
 } from '../../services/workbench';
 import { AssistantImport } from './AssistantImport';
@@ -70,16 +70,17 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
         refetch: refetchAssistantServices,
         error: getAssistantServicesError,
         isLoading: isLoadingAssistantServices,
-    } = useGetAssistantServiceRegistrationsQuery({});
+    } = useGetAssistantServiceInfosQuery({});
     const {
         data: myAssistantServices,
         refetch: refetchMyAssistantServices,
         error: getMyAssistantServicesError,
         isLoading: isLoadingMyAssistantServices,
-    } = useGetAssistantServiceRegistrationsQuery({ userIds: ['me'] });
+    } = useGetAssistantServiceInfosQuery({ userIds: ['me'] });
     const [createAssistant] = useCreateAssistantMutation();
     const [name, setName] = React.useState('');
     const [assistantServiceId, setAssistantServiceId] = React.useState('');
+    const [templateId, setTemplateId] = React.useState('');
     const [manualEntry, setManualEntry] = React.useState(false);
     const [submitted, setSubmitted] = React.useState(false);
 
@@ -102,6 +103,7 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
             const assistant = await createAssistant({
                 name,
                 assistantServiceId,
+                templateId: templateId,
             }).unwrap();
             await refetchAssistants();
             onOpenChange?.(false);
@@ -141,13 +143,13 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
         onOpenChange?.(false);
     };
 
-    const categorizedAssistantServices: Record<string, AssistantServiceRegistration[]> = {
+    const categorizedAssistantServices: Record<string, AssistantServiceInfo[]> = {
         ...(assistantServices ?? [])
             .filter(
                 (service) =>
                     !myAssistantServices?.find(
                         (myService) => myService.assistantServiceId === service.assistantServiceId,
-                    ) && service.assistantServiceUrl !== null,
+                    ),
             )
             .reduce((accumulated, assistantService) => {
                 const entry = Object.entries(Constants.assistantCategories).find(([_, serviceIds]) =>
@@ -159,8 +161,8 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
                 }
                 accumulated[assignedCategory].push(assistantService);
                 return accumulated;
-            }, {} as Record<string, AssistantServiceRegistration[]>),
-        'My Services': myAssistantServices?.filter((service) => service.assistantServiceUrl !== null) ?? [],
+            }, {} as Record<string, AssistantServiceInfo[]>),
+        'My Services': myAssistantServices ?? [],
     };
 
     const orderedCategories = [...Object.keys(Constants.assistantCategories), 'Other', 'My Services'].filter(
@@ -170,45 +172,43 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
     const options = orderedCategories.map((category) => (
         <OptionGroup key={category} label={category}>
             {(categorizedAssistantServices[category] ?? [])
+                .flatMap((assistantService) => {
+                    return assistantService.templates.map((template) => ({
+                        assistantServiceId: assistantService.assistantServiceId,
+                        name: template.name,
+                        templateId: template.id,
+                        description: template.description,
+                    }));
+                })
                 .toSorted((a, b) => a.name.localeCompare(b.name))
-                .map((assistantService) => (
-                    <Option
-                        key={assistantService.assistantServiceId}
-                        text={assistantService.name}
-                        value={assistantService.assistantServiceId}
-                    >
-                        <div className={classes.option}>
-                            {assistantService.assistantServiceOnline ? (
+                .map((assistantService) => {
+                    const key = JSON.stringify([assistantService.assistantServiceId, assistantService.templateId]);
+                    return (
+                        <Option key={key} text={assistantService.name} value={key}>
+                            <div className={classes.option}>
                                 <PresenceAvailableRegular color="green" />
-                            ) : (
-                                <PresenceOfflineRegular color="red" />
-                            )}
-                            <Label weight="semibold">{assistantService.name}</Label>
-                            <Tooltip
-                                content={
-                                    <div className={classes.optionDescription}>
-                                        <Label size="small">
-                                            <em>{assistantService.description}</em>
-                                        </Label>
-                                        <Divider />
-                                        <Label size="small">Assistant service ID:</Label>
-                                        <Label size="small">{assistantService.assistantServiceId}</Label>
-                                        <Divider />
-                                        <Label size="small">Hosted at:</Label>
-                                        <Label size="small">{assistantService.assistantServiceUrl}</Label>
-                                        <Divider />
-                                        <Label size="small">Created by:</Label>
-                                        <Label size="small">{assistantService.createdByUserName}</Label>
-                                        <Label size="small">[{assistantService.createdByUserId}]</Label>
-                                    </div>
-                                }
-                                relationship="description"
-                            >
-                                <Info16Regular />
-                            </Tooltip>
-                        </div>
-                    </Option>
-                ))}
+                                <Label weight="semibold">{assistantService.name}</Label>
+                                <Tooltip
+                                    content={
+                                        <div className={classes.optionDescription}>
+                                            <Label size="small">
+                                                <em>{assistantService.description}</em>
+                                            </Label>
+                                            <Divider />
+                                            <Label size="small">Assistant service ID:</Label>
+                                            <Label size="small">{assistantService.assistantServiceId}</Label>
+                                            <Label size="small">Assistant type ID:</Label>
+                                            <Label size="small">{assistantService.templateId}</Label>
+                                        </div>
+                                    }
+                                    relationship="description"
+                                >
+                                    <Info16Regular />
+                                </Tooltip>
+                            </div>
+                        </Option>
+                    );
+                })}
         </OptionGroup>
     ));
 
@@ -235,7 +235,9 @@ export const AssistantCreate: React.FC<AssistantCreateProps> = (props) => {
                                         disabled={submitted}
                                         onOptionSelect={(_event, data) => {
                                             if (data.optionValue) {
-                                                setAssistantServiceId(data.optionValue as string);
+                                                const [assistantServiceId, templateId] = JSON.parse(data.optionValue);
+                                                setAssistantServiceId(assistantServiceId);
+                                                setTemplateId(templateId);
                                             }
 
                                             if (data.optionText && name === '') {

@@ -5,6 +5,7 @@ export type Assistant = {
     name: string;
     image?: string;
     assistantServiceId: string;
+    templateId: string;
     createdDatetime: string;
     conversations: {
         [additionalPropertyId: string]: {

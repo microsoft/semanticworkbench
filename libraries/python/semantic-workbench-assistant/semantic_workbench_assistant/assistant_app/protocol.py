@@ -87,8 +87,15 @@ class AssistantConfigDataModel:
 
 class AssistantConfigProvider(Protocol):
     async def get(self, assistant_context: AssistantContext) -> AssistantConfigDataModel: ...
-
     async def set(self, assistant_context: AssistantContext, config: dict[str, Any]) -> None: ...
+    def default_for(self, template_id: str) -> AssistantConfigDataModel: ...
+
+
+@dataclass
+class AssistantTemplate:
+    id: str
+    name: str
+    description: str
 
 
 EventHandlerT = TypeVar("EventHandlerT")
@@ -290,6 +297,9 @@ class AssistantAppProtocol(Protocol):
 
     @property
     def config_provider(self) -> AssistantConfigProvider: ...
+
+    @property
+    def templates(self) -> dict[str, AssistantTemplate]: ...
 
     @property
     def data_exporter(self) -> AssistantDataExporter: ...

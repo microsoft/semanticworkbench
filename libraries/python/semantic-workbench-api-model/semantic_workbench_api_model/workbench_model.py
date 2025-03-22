@@ -44,11 +44,16 @@ class AssistantServiceRegistrationList(BaseModel):
     assistant_service_registrations: list[AssistantServiceRegistration]
 
 
+class AssistantServiceInfoList(BaseModel):
+    assistant_service_infos: list[assistant_model.ServiceInfoModel]
+
+
 class Assistant(BaseModel):
     id: uuid.UUID
     name: str
     image: str | None
     assistant_service_id: str
+    template_id: str
     metadata: dict[str, Any]
     created_datetime: datetime.datetime
 
@@ -395,6 +400,7 @@ class UpdateAssistantServiceRegistrationUrl(BaseModel):
 
 class NewAssistant(BaseModel):
     assistant_service_id: str
+    template_id: str = "default"
     name: str
     image: str | None = None
     metadata: dict[str, Any] = {}

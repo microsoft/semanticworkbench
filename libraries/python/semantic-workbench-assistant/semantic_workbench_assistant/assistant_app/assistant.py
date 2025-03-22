@@ -1,5 +1,6 @@
 from typing import (
     Any,
+    Iterable,
     Mapping,
 )
 
@@ -7,9 +8,9 @@ import deepmerge
 from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict
 
+from semantic_workbench_assistant.assistant_app.config import BaseModelAssistantConfig
 from semantic_workbench_assistant.assistant_service import create_app
 
-from .config import BaseModelAssistantConfig
 from .content_safety import AlwaysWarnContentSafetyEvaluator, ContentSafety
 from .export_import import FileStorageAssistantDataExporter, FileStorageConversationDataExporter
 from .protocol import (
@@ -17,6 +18,7 @@ from .protocol import (
     AssistantConfigProvider,
     AssistantConversationInspectorStateProvider,
     AssistantDataExporter,
+    AssistantTemplate,
     ContentInterceptor,
     ConversationDataExporter,
     Events,
@@ -41,6 +43,7 @@ class AssistantApp:
         conversation_data_exporter: ConversationDataExporter = FileStorageConversationDataExporter(),
         inspector_state_providers: Mapping[str, AssistantConversationInspectorStateProvider] | None = None,
         content_interceptor: ContentInterceptor | None = ContentSafety(AlwaysWarnContentSafetyEvaluator.factory),
+        other_templates: Iterable[AssistantTemplate] = [],
     ) -> None:
         self.assistant_service_id = assistant_service_id
         self.assistant_service_name = assistant_service_name
@@ -50,6 +53,18 @@ class AssistantApp:
 
         self.config_provider = config_provider
         self.data_exporter = data_exporter
+        self.templates = {
+            "default": AssistantTemplate(
+                id="default",
+                name=assistant_service_name,
+                description=assistant_service_description,
+            ),
+        }
+        if other_templates:
+            for template in other_templates:
+                if template.id in self.templates:
+                    raise ValueError(f"Template {template.id} already exists")
+                self.templates[template.id] = template
         self.conversation_data_exporter = conversation_data_exporter
         self.inspector_state_providers = dict(inspector_state_providers or {})
         self.content_interceptor = content_interceptor

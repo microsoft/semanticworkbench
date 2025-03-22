@@ -114,7 +114,9 @@ async def test_assistant_with_event_handlers(
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
-        assistant_request = assistant_model.AssistantPutRequestModel(assistant_name="my assistant")
+        assistant_request = assistant_model.AssistantPutRequestModel(
+            assistant_name="my assistant", template_id="default"
+        )
 
         client_builder = assistant_service_client.AssistantServiceClientBuilder("https://fake", "")
         service_client = client_builder.for_service()
@@ -257,7 +259,9 @@ async def test_assistant_with_inspector(
         assistant_id = uuid.uuid4()
         conversation_id = uuid.uuid4()
 
-        assistant_request = assistant_model.AssistantPutRequestModel(assistant_name="my assistant")
+        assistant_request = assistant_model.AssistantPutRequestModel(
+            assistant_name="my assistant", template_id="default"
+        )
 
         client_builder = assistant_service_client.AssistantServiceClientBuilder("https://fake", "")
         service_client = client_builder.for_service()
@@ -326,7 +330,9 @@ async def test_assistant_with_state_exporter(
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
-        assistant_request = assistant_model.AssistantPutRequestModel(assistant_name="my assistant")
+        assistant_request = assistant_model.AssistantPutRequestModel(
+            assistant_name="my assistant", template_id="default"
+        )
 
         client_builder = assistant_service_client.AssistantServiceClientBuilder("https://fake", "")
         service_client = client_builder.for_service()
@@ -405,7 +411,9 @@ async def test_assistant_with_config_provider(
 
     async with LifespanManager(service):
         assistant_id = uuid.uuid4()
-        assistant_request = assistant_model.AssistantPutRequestModel(assistant_name="my assistant")
+        assistant_request = assistant_model.AssistantPutRequestModel(
+            assistant_name="my assistant", template_id="default"
+        )
 
         client_builder = assistant_service_client.AssistantServiceClientBuilder("https://fake", "")
         service_client = client_builder.for_service()
@@ -508,6 +516,7 @@ async def test_file_system_storage_state_data_provider_to_empty_dir(
         title="My conversation",
         assistant=AssistantContext(
             _assistant_service_id="",
+            _template_id="",
             id=str(uuid.uuid4()),
             name="my assistant",
         ),
@@ -518,6 +527,7 @@ async def test_file_system_storage_state_data_provider_to_empty_dir(
         title="My conversation",
         assistant=AssistantContext(
             _assistant_service_id="",
+            _template_id="",
             id=str(uuid.uuid4()),
             name="my assistant",
         ),
@@ -556,6 +566,7 @@ async def test_file_system_storage_state_data_provider_to_non_empty_dir(
         title="My conversation",
         assistant=AssistantContext(
             _assistant_service_id="",
+            _template_id="",
             id=str(uuid.uuid4()),
             name="my assistant",
         ),
@@ -566,6 +577,7 @@ async def test_file_system_storage_state_data_provider_to_non_empty_dir(
         title="My conversation",
         assistant=AssistantContext(
             _assistant_service_id="",
+            _template_id="",
             id=str(uuid.uuid4()),
             name="my assistant",
         ),

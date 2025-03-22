@@ -20,13 +20,14 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
     AssistantContext,
+    AssistantTemplate,
     BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, MCPToolsConfigModel
+from .config import AssistantConfigModel, MCPToolsConfigModel, WorkspaceAssistantConfigModel
 from .response import respond_to_conversation
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,9 @@ service_description = "An assistant for developing in the Codespaces."
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
+assistant_config = BaseModelAssistantConfig(
+    AssistantConfigModel, other_templates={"workspace": WorkspaceAssistantConfigModel}
+)
 
 
 # define the content safety evaluator factory
@@ -63,6 +66,13 @@ assistant = AssistantApp(
     assistant_service_description=service_description,
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
+    other_templates=[
+        AssistantTemplate(
+            id="workspace",
+            name="Workspace Assistant",
+            description="An assistant for workspaces.",
+        ),
+    ],
 )
 
 

@@ -11,6 +11,7 @@ from .context import AssistantContext, ConversationContext, storage_directory_fo
 from .error import BadRequestError, ConflictError, NotFoundError
 from .export_import import FileStorageAssistantDataExporter, FileStorageConversationDataExporter
 from .protocol import (
+    AssistantTemplate,
     AssistantAppProtocol,
     AssistantCapability,
     AssistantConfigDataModel,
@@ -29,6 +30,7 @@ __all__ = [
     "AssistantContext",
     "AssistantConversationInspectorStateDataModel",
     "AssistantConversationInspectorStateProvider",
+    "AssistantTemplate",
     "BaseModelAssistantConfig",
     "ConversationContext",
     "ContentSafety",

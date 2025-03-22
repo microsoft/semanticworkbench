@@ -3,7 +3,6 @@ import contextlib
 import functools
 import logging
 import pathlib
-import uuid
 from contextlib import asynccontextmanager, contextmanager
 from typing import (
     IO,
@@ -47,6 +46,8 @@ class _AssistantState(BaseModel):
 
     assistant_id: str
     assistant_name: str
+
+    template_id: str = "default"
 
     conversations: dict[str, _ConversationState] = {}
 
@@ -169,9 +170,10 @@ class AssistantService(FastAPIAssistantService):
     def write_assistant_states(self, new_states: _PersistedAssistantStates) -> None:
         write_model(self._assistant_states_path, new_states)
 
-    def _build_assistant_context(self, assistant_id: str, assistant_name: str) -> AssistantContext:
+    def _build_assistant_context(self, assistant_id: str, template_id: str, assistant_name: str) -> AssistantContext:
         return AssistantContext(
             _assistant_service_id=self.service_id,
+            _template_id=template_id,
             id=assistant_id,
             name=assistant_name,
         )
@@ -181,7 +183,9 @@ class AssistantService(FastAPIAssistantService):
         assistant_state = states.assistants.get(assistant_id)
         if assistant_state is None:
             return None
-        return self._build_assistant_context(assistant_state.assistant_id, assistant_state.assistant_name)
+        return self._build_assistant_context(
+            assistant_state.assistant_id, assistant_state.template_id, assistant_state.assistant_name
+        )
 
     def get_conversation_context(self, assistant_id: str, conversation_id: str) -> ConversationContext | None:
         states = self.read_assistant_states()
@@ -192,7 +196,9 @@ class AssistantService(FastAPIAssistantService):
         if conversation_state is None:
             return None
 
-        assistant_context = self._build_assistant_context(assistant_id, assistant_state.assistant_name)
+        assistant_context = self._build_assistant_context(
+            assistant_id, assistant_state.template_id, assistant_state.assistant_name
+        )
         context = ConversationContext(
             assistant=assistant_context,
             id=conversation_state.conversation_id,
@@ -222,18 +228,23 @@ class AssistantService(FastAPIAssistantService):
 
     @translate_assistant_errors
     async def get_service_info(self) -> assistant_model.ServiceInfoModel:
-        non_existent_assistant = self._build_assistant_context(str(uuid.uuid4()), "")
-        default_config = await self.assistant_app.config_provider.get(non_existent_assistant)
         return assistant_model.ServiceInfoModel(
             assistant_service_id=self.service_id,
             name=self.service_name,
-            description=self.service_description,
-            default_config=assistant_model.ConfigResponseModel(
-                config=default_config.config,
-                errors=default_config.errors,
-                json_schema=default_config.json_schema,
-                ui_schema=default_config.ui_schema,
-            ),
+            templates=[
+                assistant_model.AssistantTemplateModel(
+                    id=template.id,
+                    name=template.name,
+                    description=template.description,
+                    config=assistant_model.ConfigResponseModel(
+                        config=self.assistant_app.config_provider.default_for(template.id).config,
+                        errors=[],
+                        json_schema=self.assistant_app.config_provider.default_for(template.id).json_schema,
+                        ui_schema=self.assistant_app.config_provider.default_for(template.id).ui_schema,
+                    ),
+                )
+                for template in self.assistant_app.templates.values()
+            ],
             metadata=self.assistant_app.assistant_service_metadata,
         )
 
@@ -250,6 +261,7 @@ class AssistantService(FastAPIAssistantService):
         assistant_state = states.assistants.get(assistant_id) or _AssistantState(
             assistant_id=assistant_id,
             assistant_name=assistant.assistant_name,
+            template_id=assistant.template_id,
         )
         assistant_state.assistant_name = assistant.assistant_name
 

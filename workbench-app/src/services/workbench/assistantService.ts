@@ -1,11 +1,22 @@
+import { AssistantServiceInfo } from '../../models/AssistantServiceInfo';
 import {
     AssistantServiceRegistration,
     NewAssistantServiceRegistration,
 } from '../../models/AssistantServiceRegistration';
 import { workbenchApi } from './workbench';
 
-export const assistantServiceRegistrationApi = workbenchApi.injectEndpoints({
+export const assistantServiceApi = workbenchApi.injectEndpoints({
     endpoints: (builder) => ({
+        getAssistantServiceInfo: builder.query<AssistantServiceInfo, string>({
+            query: (assistantServiceId: string) => `/assistant-services/${encodeURIComponent(assistantServiceId)}`,
+            providesTags: ['AssistantServiceInfo'],
+            transformResponse: (response: any) => transformResponseToAssistantServiceInfo(response),
+        }),
+        getAssistantServiceInfos: builder.query<AssistantServiceInfo[], { userIds?: string[] }>({
+            query: () => `/assistant-services`,
+            providesTags: ['AssistantServiceInfo'],
+            transformResponse: (response: any) => transformResponseToAssistantServiceInfos(response),
+        }),
         getAssistantServiceRegistration: builder.query<AssistantServiceRegistration, string>({
             query: (id) => `/assistant-service-registrations/${encodeURIComponent(id)}`,
             providesTags: ['AssistantServiceRegistration'],
@@ -87,13 +98,33 @@ export const assistantServiceRegistrationApi = workbenchApi.injectEndpoints({
 });
 
 export const {
+    useGetAssistantServiceInfoQuery,
+    useGetAssistantServiceInfosQuery,
     useGetAssistantServiceRegistrationQuery,
     useGetAssistantServiceRegistrationsQuery,
     useCreateAssistantServiceRegistrationMutation,
     useRemoveAssistantServiceRegistrationMutation,
     useUpdateAssistantServiceRegistrationMutation,
     useResetAssistantServiceRegistrationApiKeyMutation,
-} = assistantServiceRegistrationApi;
+} = assistantServiceApi;
+
+const transformResponseToAssistantServiceInfo = (response: any): AssistantServiceInfo => ({
+    assistantServiceId: response.assistant_service_id,
+    templates: response.templates.map((template: any) => ({
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        config: {
+            config: template.config.config,
+            jsonSchema: template.config.json_schema,
+            uiSchema: template.config.ui_schema,
+        },
+    })),
+    metadata: response.metadata,
+});
+
+const transformResponseToAssistantServiceInfos = (response: any): AssistantServiceInfo[] =>
+    (response.assistant_service_infos || []).map(transformResponseToAssistantServiceInfo);
 
 const transformResponseToAssistantServiceRegistration = (response: any): AssistantServiceRegistration => ({
     assistantServiceId: response.assistant_service_id,

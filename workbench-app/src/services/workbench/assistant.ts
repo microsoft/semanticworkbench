@@ -1,14 +1,8 @@
 import { Assistant } from '../../models/Assistant';
-import { AssistantServiceInfo } from '../../models/AssistantServiceInfo';
 import { workbenchApi } from './workbench';
 
 export const assistantApi = workbenchApi.injectEndpoints({
     endpoints: (builder) => ({
-        getAssistantServiceInfo: builder.query<AssistantServiceInfo, string>({
-            query: (assistantServiceId: string) => `/assistant-services/${encodeURIComponent(assistantServiceId)}/info`,
-            providesTags: ['AssistantServiceInfo'],
-            transformResponse: (response: any) => transformResponseToAssistantServiceDescription(response),
-        }),
         getAssistants: builder.query<Assistant[], void>({
             query: () => '/assistants',
             providesTags: ['Assistant'],
@@ -26,7 +20,7 @@ export const assistantApi = workbenchApi.injectEndpoints({
         }),
         createAssistant: builder.mutation<
             Assistant,
-            Partial<Assistant> & Pick<Assistant, 'name' | 'assistantServiceId'>
+            Partial<Assistant> & Pick<Assistant, 'name' | 'assistantServiceId' | 'templateId'>
         >({
             query: (body) => ({
                 url: '/assistants',
@@ -58,7 +52,6 @@ export const assistantApi = workbenchApi.injectEndpoints({
 });
 
 export const {
-    useGetAssistantServiceInfoQuery,
     useGetAssistantsQuery,
     useGetAssistantsInConversationQuery,
     useGetAssistantQuery,
@@ -67,19 +60,11 @@ export const {
     useDeleteAssistantMutation,
 } = assistantApi;
 
-const transformResponseToAssistantServiceDescription = (response: any): AssistantServiceInfo => ({
-    defaultConfig: {
-        config: response.default_config.config,
-        jsonSchema: response.default_config.json_schema,
-        uiSchema: response.default_config.ui_schema,
-    },
-    metadata: response.metadata,
-});
-
 const transformAssistantForRequest = (assistant: Partial<Assistant>) => ({
     id: assistant.id,
     name: assistant.name,
     assistant_service_id: assistant.assistantServiceId,
+    template_id: assistant.templateId,
     metadata: assistant.metadata,
 });
 
@@ -91,6 +76,7 @@ export const transformResponseToAssistant = (response: any): Assistant => {
             image: response.image,
             assistantServiceId: response.assistant_service_id,
             createdDatetime: response.created_datetime,
+            templateId: response.template_id,
             conversations: {
                 ...Object.fromEntries(
                     Object.entries(response.conversations ?? {}).map(
