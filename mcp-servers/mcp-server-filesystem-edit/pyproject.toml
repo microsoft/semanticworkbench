@@ -11,7 +11,6 @@ dependencies = [
     "pendulum>=3.0.0",
     "pydantic>=2.10.6",
     "python-dotenv>=1.0.1",
-    "python-liquid>=1.13.0",
     "pyyaml>=6.0.2",
     "rich>=13.9.4",
 ]

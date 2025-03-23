@@ -25,12 +25,21 @@ def main() -> None:
         nargs="*",
         help="Space-separated list of directories that the server is allowed to access. Required for stdio transport.",
     )
+    parse_args.add_argument(
+        "--enable-pdflatex",
+        action="store_true",
+        help="Enable LaTeX compilation support. Disabled by default.",
+    )
     args = parse_args.parse_args()
 
     # Process allowed directories from command line args
     if args.allowed_directories:
         # settings.allowed_directories = args.allowed_directories
         logger.info(f"Using allowed_directories from command line: {settings.allowed_directories}")
+
+    # Set pdflatex_enabled based on command line argument
+    settings.pdflatex_enabled = args.enable_pdflatex
+    logger.info(f"LaTeX compilation support: {'enabled' if settings.pdflatex_enabled else 'disabled'}")
 
     mcp = create_mcp_server()
 

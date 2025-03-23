@@ -250,7 +250,7 @@ def create_mcp_server() -> FastMCP:
         await write_file(ctx, path, output.new_content)
 
         # If this is a tex file, auto compile it to PDF
-        if read_file_result.file_type == "latex":
+        if read_file_result.file_type == "latex" and settings.pdflatex_enabled:
             success, error_msg = compile_tex_to_pdf(read_file_result.file_path)
             if not success:
                 tool_output = f"\n\nError compiling LaTeX to PDF: {error_msg}\nPlease understand what caused the error and fix it in the LaTeX file in the next step."

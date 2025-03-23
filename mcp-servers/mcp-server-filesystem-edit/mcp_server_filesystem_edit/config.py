@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     log_level: str = log_level
     allowed_directories: list[str] = []
     include_hidden_paths: bool = False
+    pdflatex_enabled: bool = False
 
     # LLM and prompt related settings
     comment_author: str = "Feedback Tool"
