@@ -17,8 +17,10 @@ def load_required_env_var(env_var_name: str) -> str:
 class Settings(BaseSettings):
     log_level: str = log_level
     allowed_directories: list[str] = []
+    include_hidden_paths: bool = False
 
     # LLM and prompt related settings
     comment_author: str = "Feedback Tool"
     doc_editor_prefix: str = "[Document Editor]: "
     feedback_tool_prefix: str = "[Feedback Tool]: "
+    file_tool_prefix: str = "[File Tool]: "

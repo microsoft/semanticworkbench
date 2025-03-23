@@ -4,6 +4,7 @@ from mcp_server_filesystem_edit.tools.edit_adapters.markdown import (
     blockify,
     combine_overlapping_blocks,
     find_code_blocks,
+    find_comments,
     find_lists,
     find_tables,
     unblockify,
@@ -253,7 +254,54 @@ def test_combine_overlapping_blocks_2():
     assert result == [(0, 10), (11, 25)]
 
 
+COMMENT_TEXT_1 = """## Introduction
+This is an introduction.
+
+<!-- This is a comment -->
+
+This is a paragraph.
+"""
+
+COMMENT_TEXT_2 = """## Introduction
+This is an introduction.
+
+<!-- This is a
+multi-line comment
+spanning three lines -->
+
+This is a paragraph.
+"""
+
+COMMENT_TEXT_3 = """## Introduction
+<!-- Comment 1 -->
+This is an introduction.
+<!-- Comment 2 -->
+This is a paragraph.
+<!--
+Comment 3
+with multiple lines
+-->
+"""
+
+
+def test_find_comments():
+    result = find_comments(COMMENT_TEXT_1)
+    assert len(result) == 1
+    assert result[0] == (42, 68)
+
+    result = find_comments(COMMENT_TEXT_2)
+    assert len(result) == 1
+    assert result[0] == (42, 100)
+
+    result = find_comments(COMMENT_TEXT_3)
+    assert len(result) == 3
+    assert result[0] == (16, 34)
+    assert result[1] == (60, 78)
+    assert result[2] == (100, 138)
+
+
 MARKDOWN_TEXT = markdown_text = """## Introduction
+<!-- This is a comment -->
 Markdown is a lightweight markup language that allows you to create formatted text using a plain-text editor. It is widely used for documentation, notes, and content creation.
 
 This is another paragraph.
@@ -263,6 +311,7 @@ This is a third paragraph.
 - **Simplicity**: Easy to learn and use.
 - **Portability**: Supported in many applications and platforms.
 - **Flexibility**: Can include headings, tables, lists, and more.
+<!-- This is a comment -->
 ## Syntax Examples
 ### Headings
 Use `#` symbols to define headings:
@@ -273,6 +322,10 @@ Example:
 ```markdown
 # This is a Heading 1
 ## This is a Heading 2
+<!--
+Comment 3
+with multiple lines
+-->
 ### This is a Heading 3
 ```
 

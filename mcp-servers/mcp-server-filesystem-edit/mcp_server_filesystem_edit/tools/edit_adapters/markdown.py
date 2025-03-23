@@ -61,6 +61,17 @@ def find_lists(text: str) -> list[tuple[int, int]]:
     return lists
 
 
+def find_comments(text: str) -> list[tuple[int, int]]:
+    """Finds the start and end indices of HTML comments in a Markdown string.
+
+    HTML comments in Markdown have the form <!-- comment text -->.
+    They can span multiple lines.
+    """
+    pattern = r"<!--(.*?)-->"
+    matches = list(re.finditer(pattern, text, re.DOTALL))
+    return [(m.start(), m.end()) for m in matches]
+
+
 def combine_overlapping_blocks(blocks: list[tuple[int, int]]) -> list[tuple[int, int]]:
     """Combines overlapping blocks into a single block.
 
@@ -188,9 +199,10 @@ def blockify(markdown_text: str) -> list[Block]:
     table_blocks = find_tables(markdown_text)
     code_blocks = find_code_blocks(markdown_text)
     list_blocks = find_lists(markdown_text)
+    comment_blocks = find_comments(markdown_text)
 
     # Combine blocks that overlap into a single block
-    combined_blocks = combine_overlapping_blocks(table_blocks + code_blocks + list_blocks)
+    combined_blocks = combine_overlapping_blocks(table_blocks + code_blocks + list_blocks + comment_blocks)
 
     # Fill in the missing blocks
     filled_blocks = fill_gaps_blocks(combined_blocks, len(markdown_text))

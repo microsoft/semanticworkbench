@@ -22,8 +22,10 @@ You will be provided important context to determine if comments can be actioned:
 
 ## On Your Analysis
 Take the following steps to analyze each comment, in order, if the comment is actionable and how to address it.
+
 ### 1. Focus on a Comment
 - Determine the comment you are analyzing and write down a way to identify it.
+
 ### 2. Reasoning step by step
 - Think step by step if the comment can be **fully** addressed given the conversation history and provided context.
 - Examples of comments that can typically be addressed:
@@ -33,17 +35,20 @@ Take the following steps to analyze each comment, in order, if the comment is ac
   - Making the document sound less generic and more like an expert wrote it
   - Updating structure like consolidating sections or removing duplicates
 - Examples where feedback might not be actionable:
-  - Adding or updating data or external information this is **not** already provided. You must reason if the data is already in the conversation history or context.
+  - Adding or updating data or external information that is **not** already provided. \
+Often this involves web searches, extra research, accessing data not provided, etc. \
+You must reason if the data is already in the conversation history or context.
   - Creating or modifying diagrams or images.
-  - The comment has already been addressed and is just a leftover. Use the conversation history to help determine, such as if comments were added in a previous interaction.
 - Then explicitly reason if the comment has already been addressed in the document or cannot be addressed based on a previous interaction.
   - For example, the comment was previously analyzed it was determined that it needed more information and that information has not yet been provided.
+
 ### 3. Decision time
 - Based on your reasoning, determine if the comment is actionable and has not already been addressed.
   - If actionable, write "true".
   - If not actionable, write "false".
 - Based on your reasoning, determine if the comment has already been addressed in the document or has already been analyzed/addressed in a previous interaction. \
 Then similarly write "true" or "false".
+
 ### 4. Next steps
 - Finally, you must provide next steps to return to the assistant or user.
 - If the comment was actionable, write high-level instructions to the editor on how to address the comment in the document. \

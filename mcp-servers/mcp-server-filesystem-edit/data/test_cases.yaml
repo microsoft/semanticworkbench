@@ -26,6 +26,6 @@ test_cases:
     test_case_type: "comments"
     transcription_file: "transcript_Startup_Idea_2_202503031659.md"
     open_file: "Daily Game Ideas.txt"
-    next_ask: "Can you give feedback on the doc?"
+    next_ask: "Can you give feedback on the doc? Include at least one piece of feedback about searching for recent similar games."
     attachments:
       - "ReDoodle.txt"

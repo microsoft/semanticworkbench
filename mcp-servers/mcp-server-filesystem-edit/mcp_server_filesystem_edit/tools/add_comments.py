@@ -223,14 +223,14 @@ class CommonComments:
                     continue
                 if comment.get("is_actionable", False) and not comment.get("is_addressed", True):
                     edit_str = f'To address the comment "{comment_id}", please do the following:'
-                    edit_instructions += f"{edit_str}\n{output_message}\n\n"
-                elif comment.get("is_actionable", False):
+                    edit_instructions += f"{edit_str} {output_message}\n"
+                elif not comment.get("is_actionable", False) and not comment.get("is_addressed", True):
                     assistant_str = f'To address the comment "{comment_id}",'
-                    assistant_hints += f"{assistant_str}\n{output_message}\n\n"
+                    assistant_hints += f"{assistant_str} {output_message}\n"
 
         final_instructions = ""
         if edit_instructions or assistant_hints:
-            final_instructions = f"{settings.feedback_tool_prefix}## Comments were added to the document, here are tips on how to address them\n"
+            final_instructions = f"{settings.feedback_tool_prefix}## Comments were added to the document, here are tips on how to address them\n\n"
             if assistant_hints:
                 final_instructions += f"### Not immediately actionable (seek more information)\n{assistant_hints}\n"
             if edit_instructions:
@@ -238,33 +238,46 @@ class CommonComments:
 
         return final_instructions.strip()
 
-    async def run(self, request: FileOpRequest) -> CommentOutput:
+    async def run(self, request: FileOpRequest, only_analyze: bool = False) -> CommentOutput:
         """
         Run the comment addition process for documents
         """
         self.telemetry.reset()
+        if not only_analyze:
+            # Add comments to the file
+            blockified_doc = await self.blockify(request)
+            comments_messages = await self.construct_comments_prompt(request, blockified_doc)
+            reasoning = await self.get_comments_reasoning(request, comments_messages)
+            logger.info(f"Comments reasoning:\n{reasoning}")
+            convert_messages = await self.construct_convert_prompt(reasoning)
+            convert_response, parsed_comments = await self.get_convert_response(request, convert_messages)
+            new_content = await self.add_comments_to_content(request, parsed_comments)
 
-        # Add comments to the file
-        blockified_doc = await self.blockify(request)
-        comments_messages = await self.construct_comments_prompt(request, blockified_doc)
-        reasoning = await self.get_comments_reasoning(request, comments_messages)
-        logger.info(f"Comments reasoning:\n{reasoning}")
-        convert_messages = await self.construct_convert_prompt(reasoning)
-        convert_response, parsed_comments = await self.get_convert_response(request, convert_messages)
-        new_content = await self.add_comments_to_content(request, parsed_comments)
+            # Analyze the comments
+            analyze_comments_messages = await self.construct_analyze_comments_prompt(request, new_content)
+            comment_analysis = await self.get_analysis_response(request, analyze_comments_messages)
+            comment_instructions = await self.convert_to_instructions(comment_analysis)
 
-        # Analyze the comments
-        analyze_comments_messages = await self.construct_analyze_comments_prompt(request, new_content)
-        comment_analysis = await self.get_analysis_response(request, analyze_comments_messages)
-        comment_instructions = await self.convert_to_instructions(comment_analysis)
-
-        output = CommentOutput(
-            new_content=new_content,
-            comment_instructions=comment_instructions,
-            reasoning=reasoning,
-            tool_calls=convert_response.choices[0].message.tool_calls or [],
-            llm_latency=self.telemetry.reasoning_latency
-            + self.telemetry.convert_latency
-            + self.telemetry.change_summary_latency,
-        )
-        return output
+            output = CommentOutput(
+                new_content=new_content,
+                comment_instructions=comment_instructions,
+                reasoning=reasoning,
+                tool_calls=convert_response.choices[0].message.tool_calls or [],
+                llm_latency=self.telemetry.reasoning_latency
+                + self.telemetry.convert_latency
+                + self.telemetry.change_summary_latency,
+            )
+            return output
+        else:
+            # Analyze the comments
+            analyze_comments_messages = await self.construct_analyze_comments_prompt(request, request.file_content)
+            comment_analysis = await self.get_analysis_response(request, analyze_comments_messages)
+            comment_instructions = await self.convert_to_instructions(comment_analysis)
+            output = CommentOutput(
+                new_content=request.file_content,
+                comment_instructions=comment_instructions,
+                reasoning="",
+                tool_calls=[],
+                llm_latency=self.telemetry.change_summary_latency,
+            )
+            return output

@@ -31,11 +31,10 @@ On the other hand, if you are updating the block after a heading, do not acciden
     - You MUST use this index exactly as it is provided or else an error will occur.
     - The first content block is a special "start_of_document_indicator" block that allows you to insert content at the beginning of the document. \
 You should never remove or update this block. It is not actually shown to the user.
-    - If the document contains comments, they are enclosed in <comments id=i> and </comments> tags at the end of the document.
-    - Each comment includes the text of the comment and the part of the text it refers to, enclosed in the corresponding tags.
-    - Comments are NOT auto-resolved. They might be left over and the user has not resolved them yet. \
-If it appears that you have resolved them in a previous turn, do not keep addressing them.
-    - You cannot edit these comments, they are only provided for context.
+    - Existing comments in the document will be directly in the document as "<!-- Feedback: text of comment -->".
+    - Comments are NOT automatically deleted as they are addressed. They might be left over and the user has not resolved them yet. \
+If you are currently addressing the comment or it was already addressed, remove it. Do not keep trying to address them and instead remove them. \
+However, when removing comments, make sure to not remove the content that is not a part of the comment.
 - The conversation history between the user and assistant is provided before the document.
 - You may be provided additional context, such as attached documents, before the document and conversation history.
     - If they are relevant to the task and user's request, you should use them inform the content you generate.
@@ -64,14 +63,8 @@ Use the following as a guide for how to use the operations:
     - This means that if you remove the block at indices 2 to 4, the block that was at index 5 will still be at index 5 after the removal.
 
 ## On Output Format of the Content Parameter
-- Your focus is on writing documents, but you can use a subset of Markdown syntax for the content. You should use it sparingly.
-- The following are rules specific to environment where the content will be rendered.
-    - You can ONLY use Markdown syntax for paragraphs with bold and italics, headings, lists (numbered and bulleted, but NON NESTED). All other Markdown syntax is unsupported and forbidden.
-    - You can only use heading levels 1-6.
-    - When creating numbered lists, you must use the syntax of "1." to start each item in the list.
-    - Do NOT nest lists. For example, do not create a bulleted list "inside" of a numbered list.
-    - You must use headings to create a hierarchy of information instead of using any form of nested lists.
-    - Even if the conversation history or other context includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here."""
+- Your focus is on writing documents, but you can use standard Markdown syntax for the content. You should use it sparingly.
+- Do not insert extra newlines, such as after list items, unless it is already the existing style of the document."""
 )
 
 MD_EDIT_REASONING_USER_ATTACHMENTS_PROMPT = UserMessage(

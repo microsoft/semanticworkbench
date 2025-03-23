@@ -178,6 +178,7 @@ def create_mcp_server() -> FastMCP:
     async def list_working_directory(ctx: Context) -> str:
         """
         Lists all files in the working directory, including those in subdirs.
+        Hidden directories (starting with '.') are excluded by default.
 
         Returns:
             Recursively returns all files in the working directory as relative paths.
@@ -187,9 +188,18 @@ def create_mcp_server() -> FastMCP:
 
         file_string = ""
         for file in all_files:
+            # Skip files in hidden directories unless include_hidden_paths is enabled
+            if not settings.include_hidden_paths and any(part.startswith(".") for part in file.parts):
+                continue
+
             relative_path = file.relative_to(allowed_dir)
             file_string += f"{relative_path}\n"
-        return file_string.strip()
+
+        return (
+            file_string.strip()
+            if file_string
+            else f"{settings.file_tool_prefix}No files found in the working directory."
+        )
 
     @mcp.tool()
     async def view(ctx: Context, path: str) -> str:
@@ -203,6 +213,9 @@ def create_mcp_server() -> FastMCP:
             The content of the file as a string.
         """
         file_content = await read_file(ctx, path)
+        # If the file content is empty, return a message indicating that
+        if not file_content:
+            return f"{settings.file_tool_prefix}File viewed successfully, but it is currently empty."
         return file_content
 
     @mcp.tool()
@@ -247,12 +260,19 @@ def create_mcp_server() -> FastMCP:
         return tool_output
 
     @mcp.tool()
-    async def add_comments(ctx: Context, path: str) -> str:
+    async def add_comments(ctx: Context, path: str, only_analyze: bool = False) -> str:
         """
-        Runs a routine that will add feedback as comments to the given file.
+        Adds feedback as comments to the given file and to get suggestions on how to address them.
+        Use this to help continually improve a document.
+        If the user only wants to address the current comments, set only_analyze to True.
+        This will not add any new comments and only figure how to address the current ones.
 
         Args:
             path: The relative path to the file.
+            only_analyze: If True, only analyze the currently available comments without adding them.
+
+        Returns:
+            A summary of the comments added and suggestions for how to address them.
         """
         read_file_result = await read_file_for_edits(ctx, path)
         if read_file_result.error_msg:
@@ -265,7 +285,7 @@ def create_mcp_server() -> FastMCP:
             file_content=read_file_result.file_content,
             file_type=read_file_result.file_type,
         )
-        output = await commenter.run(request)
+        output = await commenter.run(request, only_analyze=only_analyze)
         await write_file(ctx, path, output.new_content)
         return output.comment_instructions
 
