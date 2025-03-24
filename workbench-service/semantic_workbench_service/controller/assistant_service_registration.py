@@ -3,7 +3,9 @@ import logging
 from typing import AsyncContextManager, Awaitable, Callable, Iterable
 
 from semantic_workbench_api_model.assistant_model import ServiceInfoModel
+from semantic_workbench_api_model.assistant_service_client import AssistantError
 from semantic_workbench_api_model.workbench_model import (
+    AssistantServiceInfoList,
     AssistantServiceRegistration,
     AssistantServiceRegistrationList,
     ConversationEventType,
@@ -376,3 +378,33 @@ class AssistantServiceRegistrationController:
                 raise exceptions.NotFoundError()
 
         return await (await self._client_pool.service_client(registration=registration)).get_service_info()
+
+    async def get_service_infos(self, user_ids: set[str] = set()) -> AssistantServiceInfoList:
+        async with self._get_session() as session:
+            query_registrations = (
+                select(db.AssistantServiceRegistration)
+                .where(col(db.AssistantServiceRegistration.include_in_listing).is_(True))
+                .order_by(col(db.AssistantServiceRegistration.created_datetime).asc())
+            )
+
+            if user_ids:
+                query_registrations = select(db.AssistantServiceRegistration).where(
+                    col(db.AssistantServiceRegistration.created_by_user_id).in_(user_ids)
+                )
+
+            query_registrations = query_registrations.where(
+                col(db.AssistantServiceRegistration.assistant_service_online).is_(True)
+            )
+
+            assistant_services = await session.exec(query_registrations)
+
+        infos = []
+        for registration in assistant_services:
+            try:
+                info = await (await self._client_pool.service_client(registration=registration)).get_service_info()
+                infos.append(info)
+
+            except AssistantError:
+                logger.exception("failed to get assistant service info for %s", registration.assistant_service_id)
+
+        return AssistantServiceInfoList(assistant_service_infos=infos)

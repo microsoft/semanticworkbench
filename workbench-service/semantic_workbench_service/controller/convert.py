@@ -86,6 +86,7 @@ def assistant_from_db(
         image=model.image,
         metadata=model.meta_data,
         assistant_service_id=model.assistant_service_id,
+        template_id=model.template_id,
         created_datetime=model.created_datetime,
     )
 

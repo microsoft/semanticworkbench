@@ -86,6 +86,7 @@ class Assistant(SQLModel, table=True):
             nullable=False,
         ),
     )
+    template_id: str
     created_datetime: datetime.datetime = date_time_default_to_now()
     imported_from_assistant_id: uuid.UUID | None
     name: str

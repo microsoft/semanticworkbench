@@ -58,7 +58,7 @@ def test_create_assistant_put_config(canonical_assistant_service: FastAPI, mock_
     with TestClient(app=canonical_assistant_service) as client:
         assistant_id = str(uuid.uuid4())
         assistant_definition = assistant_model.AssistantPutRequestModel(
-            assistant_name="test-assistant",
+            assistant_name="test-assistant", template_id="default"
         )
         response = client.put(f"/{assistant_id}", data={"assistant": assistant_definition.model_dump_json()})
         response.raise_for_status()
@@ -110,7 +110,7 @@ def test_create_assistant_put_invalid_config(canonical_assistant_service: FastAP
     with TestClient(app=canonical_assistant_service) as client:
         assistant_id = str(uuid.uuid4())
         assistant_definition = assistant_model.AssistantPutRequestModel(
-            assistant_name="test-assistant",
+            assistant_name="test-assistant", template_id="default"
         )
 
         response = client.put(f"/{assistant_id}", data={"assistant": assistant_definition.model_dump_json()})

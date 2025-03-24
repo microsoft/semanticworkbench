@@ -15,6 +15,7 @@ export const NewConversationButton: React.FC = () => {
     const [assistantId, setAssistantId] = React.useState<string>();
     const [name, setName] = React.useState<string>();
     const [assistantServiceId, setAssistantServiceId] = React.useState<string>();
+    const [templateId, setTemplateId] = React.useState<string>();
     const [submitted, setSubmitted] = React.useState(false);
     const { navigateToConversation } = useConversationUtility();
     const { notifyError } = useNotify();
@@ -25,9 +26,12 @@ export const NewConversationButton: React.FC = () => {
         }
 
         // ensure we have a valid assistant info
-        let assistantInfo: { assistantId: string } | { name: string; assistantServiceId: string } | undefined;
-        if (assistantId === 'new' && name && assistantServiceId) {
-            assistantInfo = { name, assistantServiceId };
+        let assistantInfo:
+            | { assistantId: string }
+            | { name: string; assistantServiceId: string; templateId: string }
+            | undefined;
+        if (assistantId === 'new' && name && assistantServiceId && templateId) {
+            assistantInfo = { name, assistantServiceId, templateId };
         } else {
             assistantInfo = { assistantId };
         }
@@ -46,7 +50,16 @@ export const NewConversationButton: React.FC = () => {
         }
 
         setOpen(false);
-    }, [assistantId, assistantServiceId, createConversation, isValid, name, navigateToConversation, submitted]);
+    }, [
+        assistantId,
+        assistantServiceId,
+        createConversation,
+        isValid,
+        name,
+        navigateToConversation,
+        submitted,
+        templateId,
+    ]);
 
     const handleImport = React.useCallback(
         (conversationIds: string[]) => {
@@ -81,6 +94,7 @@ export const NewConversationButton: React.FC = () => {
                         setIsValid(isValid);
                         setAssistantId(data.assistantId);
                         setAssistantServiceId(data.assistantServiceId);
+                        setTemplateId(data.templateId);
                         setName(data.name);
                     }}
                     disabled={submitted}

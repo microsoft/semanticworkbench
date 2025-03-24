@@ -6,7 +6,6 @@ from typing import Any, AsyncGenerator, AsyncIterator, Callable
 from unittest import mock
 
 import pytest
-from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 from llm_client.model import (
     CompletionMessage,
     CompletionMessageImageContent,
@@ -15,6 +14,8 @@ from llm_client.model import (
 from openai.types.chat import ChatCompletionMessageParam
 from semantic_workbench_api_model.workbench_model import File, FileList, ParticipantRole
 from semantic_workbench_assistant.assistant_app import AssistantAppProtocol, AssistantContext, ConversationContext
+
+from assistant_extensions.attachments import AttachmentsConfigModel, AttachmentsExtension
 
 
 @pytest.mark.parametrize(
@@ -107,6 +108,7 @@ async def test_get_completion_messages_for_attachments(
                 id="assistant_id",
                 name="assistant_name",
                 _assistant_service_id="assistant_id",
+                _template_id="",
             ),
         )
     )

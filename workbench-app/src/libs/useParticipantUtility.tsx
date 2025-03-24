@@ -38,22 +38,11 @@ export const useParticipantUtility = () => {
         [localUserState.avatar, localUserState.id],
     );
 
-    const sortParticipants = React.useCallback(
-        (participants: ConversationParticipant[], includeInactive?: boolean, mixUsersWithAssistants?: boolean) => {
-            const result = [];
-            if (mixUsersWithAssistants) {
-                const users = participants.filter((participant) => participant.role === 'user');
-                const assistants = participants.filter((participant) => participant.role === 'assistant');
-                result.push(...users, ...assistants);
-            } else {
-                result.push(...participants);
-            }
-            return result
-                .filter((participant) => includeInactive || participant.active)
-                .sort((a, b) => a.name.localeCompare(b.name));
-        },
-        [],
-    );
+    const sortParticipants = React.useCallback((participants: ConversationParticipant[], includeInactive?: boolean) => {
+        return participants
+            .filter((participant) => includeInactive || participant.active)
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, []);
 
     return {
         getAvatarData,

@@ -61,6 +61,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     const [assistantId, setAssistantId] = React.useState<string>();
     const [name, setName] = React.useState<string>();
     const [assistantServiceId, setAssistantServiceId] = React.useState<string>();
+    const [templateId, setTemplateId] = React.useState<string>();
     const [submitted, setSubmitted] = React.useState(false);
     const { navigateToConversation } = useConversationUtility();
     const siteUtility = useSiteUtility();
@@ -79,9 +80,12 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
         }
 
         // ensure we have a valid assistant info
-        let assistantInfo: { assistantId: string } | { name: string; assistantServiceId: string } | undefined;
-        if (assistantId === 'new' && name && assistantServiceId) {
-            assistantInfo = { name, assistantServiceId };
+        let assistantInfo:
+            | { assistantId: string }
+            | { name: string; assistantServiceId: string; templateId: string }
+            | undefined;
+        if (assistantId === 'new' && name && assistantServiceId && templateId) {
+            assistantInfo = { name, assistantServiceId, templateId };
         } else {
             assistantInfo = { assistantId };
         }
@@ -98,7 +102,16 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
             // In case of error, allow user to retry
             setSubmitted(false);
         }
-    }, [assistantId, assistantServiceId, createConversation, isValid, name, navigateToConversation, submitted]);
+    }, [
+        assistantId,
+        assistantServiceId,
+        createConversation,
+        isValid,
+        name,
+        navigateToConversation,
+        submitted,
+        templateId,
+    ]);
 
     const handleImport = React.useCallback(
         (conversationIds: string[]) => {
@@ -130,6 +143,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                 setIsValid(isValid);
                                 setAssistantId(data.assistantId);
                                 setAssistantServiceId(data.assistantServiceId);
+                                setTemplateId(data.templateId);
                                 setName(data.name);
                             }}
                             disabled={submitted}

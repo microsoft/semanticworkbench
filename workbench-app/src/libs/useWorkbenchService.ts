@@ -11,7 +11,7 @@ import { ConversationMessage } from '../models/ConversationMessage';
 import { ConversationParticipant } from '../models/ConversationParticipant';
 import { useAppDispatch } from '../redux/app/hooks';
 import { addError } from '../redux/features/app/appSlice';
-import { assistantApi, assistantServiceRegistrationApi, conversationApi, workbenchApi } from '../services/workbench';
+import { assistantServiceApi, conversationApi, workbenchApi } from '../services/workbench';
 import { AuthHelper } from './AuthHelper';
 import { Utility } from './Utility';
 import { useEnvironment } from './useEnvironment';
@@ -306,7 +306,9 @@ export const useWorkbenchService = () => {
 
     const getAssistantServiceInfoAsync = React.useCallback(
         async (assistantServiceId: string): Promise<AssistantServiceInfo | undefined> => {
-            const results = await dispatch(assistantApi.endpoints.getAssistantServiceInfo.initiate(assistantServiceId));
+            const results = await dispatch(
+                assistantServiceApi.endpoints.getAssistantServiceInfo.initiate(assistantServiceId),
+            );
             if (results.isError) {
                 throw results.error;
             }
@@ -318,7 +320,7 @@ export const useWorkbenchService = () => {
     const getAssistantServiceRegistrationAsync = React.useCallback(
         async (assistantServiceId: string): Promise<AssistantServiceRegistration | undefined> => {
             const results = await dispatch(
-                assistantServiceRegistrationApi.endpoints.getAssistantServiceRegistration.initiate(assistantServiceId),
+                assistantServiceApi.endpoints.getAssistantServiceRegistration.initiate(assistantServiceId),
             );
             if (results.isError) {
                 throw results.error;

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 class AssistantPutRequestModel(BaseModel):
     assistant_name: str
+    template_id: str
 
 
 class AssistantResponseModel(BaseModel):
@@ -51,11 +52,17 @@ class ConfigPutRequestModel(BaseModel):
     config: dict[str, Any]
 
 
+class AssistantTemplateModel(BaseModel):
+    id: str
+    name: str
+    description: str
+    config: ConfigResponseModel
+
+
 class ServiceInfoModel(BaseModel):
     assistant_service_id: str
     name: str
-    description: str
-    default_config: ConfigResponseModel
+    templates: list[AssistantTemplateModel]
     metadata: dict[str, Any] = {}
 
 

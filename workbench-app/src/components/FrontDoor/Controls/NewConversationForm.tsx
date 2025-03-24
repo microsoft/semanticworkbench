@@ -1,6 +1,6 @@
 import { Checkbox, Field, Input, makeStyles, tokens } from '@fluentui/react-components';
 import React from 'react';
-import { useCreateConversation } from '../../../libs/useCreateConversation';
+import { AssistantServiceTemplate, useCreateConversation } from '../../../libs/useCreateConversation';
 import { AssistantImport } from '../../Assistants/AssistantImport';
 import { AssistantSelector } from './AssistantSelector';
 import { AssistantServiceSelector } from './AssistantServiceSelector';
@@ -28,6 +28,7 @@ const useClasses = makeStyles({
 export interface NewConversationData {
     assistantId?: string;
     assistantServiceId?: string;
+    templateId?: string;
     name?: string;
 }
 
@@ -55,7 +56,7 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
         }
 
         if (data.assistantId === 'new') {
-            if (!data.assistantServiceId || !data.name) {
+            if (!data.assistantServiceId || !data.name || !data.templateId) {
                 return false;
             }
         }
@@ -71,6 +72,7 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
             if (data.assistantId === 'new') {
                 updatedConfig.assistantServiceId = data.assistantServiceId ?? '';
                 updatedConfig.name = data.name ?? '';
+                updatedConfig.templateId = data.templateId ?? '';
             }
 
             setConfig(updatedConfig);
@@ -109,7 +111,13 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
                                 <AssistantServiceSelector
                                     disabled={disabled}
                                     assistantServicesByCategory={assistantServicesByCategories}
-                                    onChange={(assistantService) => updateAndNotifyChange(assistantService)}
+                                    onChange={(assistantService: AssistantServiceTemplate) =>
+                                        updateAndNotifyChange({
+                                            assistantServiceId: assistantService.service.assistantServiceId,
+                                            name: assistantService.template.name,
+                                            templateId: assistantService.template.id,
+                                        })
+                                    }
                                 />
                             </Field>
                         )}

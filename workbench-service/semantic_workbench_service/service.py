@@ -43,6 +43,7 @@ from semantic_workbench_api_model.assistant_model import (
 from semantic_workbench_api_model.workbench_model import (
     Assistant,
     AssistantList,
+    AssistantServiceInfoList,
     AssistantServiceRegistration,
     AssistantServiceRegistrationList,
     AssistantStateEvent,
@@ -426,12 +427,21 @@ def init(
         )
 
     @app.get("/assistant-services/{assistant_service_id:path}/info")
+    @app.get("/assistant-services/{assistant_service_id:path}")
     async def get_assistant_service_info(
         user_principal: auth.DependsUserPrincipal, assistant_service_id: str
     ) -> ServiceInfoModel:
         return await assistant_service_registration_controller.get_service_info(
             assistant_service_id=assistant_service_id
         )
+
+    @app.get("/assistant-services")
+    async def list_assistant_service_infos(
+        user_principal: auth.DependsUserPrincipal,
+        user_ids: Annotated[list[str], Query(alias="user_id")] = [],
+    ) -> AssistantServiceInfoList:
+        user_id_set = set([user_principal.user_id if user_id == "me" else user_id for user_id in user_ids])
+        return await assistant_service_registration_controller.get_service_infos(user_ids=user_id_set)
 
     @app.get("/assistants")
     async def list_assistants(

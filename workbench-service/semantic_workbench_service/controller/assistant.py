@@ -124,7 +124,7 @@ class AssistantController:
             )
         ).put_assistant(
             assistant_id=assistant.assistant_id,
-            request=AssistantPutRequestModel(assistant_name=assistant.name),
+            request=AssistantPutRequestModel(assistant_name=assistant.name, template_id=assistant.template_id),
             from_export=from_export,
         )
 
@@ -235,6 +235,7 @@ class AssistantController:
                 image=new_assistant.image,
                 meta_data=new_assistant.metadata,
                 assistant_service_id=assistant_service.assistant_service_id,
+                template_id=new_assistant.template_id,
                 imported_from_assistant_id=None,
             )
             session.add(assistant)

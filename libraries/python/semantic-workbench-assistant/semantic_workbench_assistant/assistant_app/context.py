@@ -22,6 +22,7 @@ class AssistantContext:
     name: str
 
     _assistant_service_id: str
+    _template_id: str = field(default="default")
 
 
 @dataclass

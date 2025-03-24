@@ -37,6 +37,50 @@ app = assistant.fastapi_app()
 
 This approach provides a complete assistant service with event handlers, configuration management, and extension support.
 
+### Assistant Templates
+
+Assistant services can define multiple templates, each representing a different type of assistant with its own name, description, and default configuration. When users create a new assistant in the workbench, they select from these templates rather than configuring an assistant from scratch.
+
+To define templates for your assistant service:
+
+```python
+# In your assistant service
+from semantic_workbench_assistant.assistant_app import AssistantApp, AssistantTemplate
+
+# Define multiple templates
+templates = [
+    AssistantTemplate(
+        id="general",
+        name="General Purpose Assistant",
+        description="A versatile assistant for everyday tasks",
+        config={
+            "welcome_message": "Hello! How can I help you today?",
+            "only_respond_to_mentions": False
+        }
+    ),
+    AssistantTemplate(
+        id="coding",
+        name="Coding Assistant",
+        description="Specialized assistant for programming tasks",
+        config={
+            "welcome_message": "Ready to help with your coding questions!",
+            "only_respond_to_mentions": True
+        }
+    )
+]
+
+# Create the AssistantApp with templates
+assistant = AssistantApp(
+    assistant_service_id="your-assistant-id",
+    assistant_service_name="Your Assistant Service",
+    assistant_service_description="Description of your service",
+    additional_templates=templates,  # Use additional_templates parameter
+    config_provider=your_config_provider
+)
+```
+
+Each assistant service automatically has a "default" template using the service name and description. The templates appear in the workbench UI when users create a new assistant, making it easier for them to select the right type of assistant for their needs.
+
 ### Configuration with Pydantic Models
 
 Assistant configurations are defined using Pydantic models with UI annotations for rendering in the workbench interface:

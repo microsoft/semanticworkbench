@@ -31,6 +31,7 @@ def assistant_context() -> AssistantContext:
         id="test",
         name="test-assistant",
         _assistant_service_id="test",
+        _template_id="test",
     )
 
 
