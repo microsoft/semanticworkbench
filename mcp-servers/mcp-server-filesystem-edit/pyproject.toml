@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.10.6",
     "python-dotenv>=1.0.1",
     "pyyaml>=6.0.2",
+    "pywin32==308; platform_system == 'Windows'",
     "rich>=13.9.4",
 ]
 
