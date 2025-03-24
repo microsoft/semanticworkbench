@@ -23,7 +23,7 @@ export const AssistantSelector: React.FC<AssistantSelectorProps> = (props) => {
 
     return (
         <Dropdown
-            placeholder={`Select an assistant (${defaultAssistant?.name} ${defaultAssistant?.createdDatetime})`}
+            placeholder="Select an assistant"
             disabled={disabled}
             onOptionSelect={(_event, data) => onChange(data.optionValue as string)}
             defaultSelectedOptions={defaultAssistant ? [defaultAssistant.id] : []}
