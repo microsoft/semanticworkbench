@@ -28,6 +28,12 @@ class AuthSettings(BaseSettings):
     allowed_app_id: str = "22cb77c3-ca98-4a26-b4db-ac4dcecba690"
 
 
+class AssistantIdentifiers(BaseSettings):
+    assistant_service_id: str
+    template_id: str
+    name: str
+
+
 class WebServiceSettings(BaseSettings):
     protocol: str = "http"
     host: str = "127.0.0.1"
@@ -43,6 +49,8 @@ class WebServiceSettings(BaseSettings):
     azure_openai_deployment: Annotated[str, Field(validation_alias="azure_openai_deployment")] = "gpt-4o-mini"
     azure_openai_model: Annotated[str, Field(validation_alias="azure_openai_model")] = "gpt-4o-mini"
     azure_openai_api_version: Annotated[str, Field(validation_alias="azure_openai_api_version")] = "2025-02-01-preview"
+
+    default_assistants: list[AssistantIdentifiers] = []
 
 
 class AzureSpeechSettings(BaseSettings):
