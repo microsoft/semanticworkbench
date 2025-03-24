@@ -102,7 +102,7 @@ wheels = [
 
 [[package]]
 name = "azure-identity"
-version = "1.20.0"
+version = "1.21.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-core" },
@@ -111,9 +111,18 @@ dependencies = [
     { name = "msal-extensions" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ee/89/7d170fab0b85d9650cdb7abda087e849644beb52bd28f6804620dd0cecd9/azure_identity-1.20.0.tar.gz", hash = "sha256:40597210d56c83e15031b0fe2ea3b26420189e1e7f3e20bdbb292315da1ba014", size = 264447 }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/a1/f1a683672e7a88ea0e3119f57b6c7843ed52650fdcac8bfa66ed84e86e40/azure_identity-1.21.0.tar.gz", hash = "sha256:ea22ce6e6b0f429bc1b8d9212d5b9f9877bd4c82f1724bfa910760612c07a9a6", size = 266445 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/aa/819513c1dbef990af690bb5eefb5e337f8698d75dfdb7302528f50ce1994/azure_identity-1.20.0-py3-none-any.whl", hash = "sha256:5f23fc4889a66330e840bd78830287e14f3761820fe3c5f77ac875edcb9ec998", size = 188243 },
+    { url = "https://files.pythonhosted.org/packages/3d/9f/1f9f3ef4f49729ee207a712a5971a9ca747f2ca47d9cbf13cf6953e3478a/azure_identity-1.21.0-py3-none-any.whl", hash = "sha256:258ea6325537352440f71b35c3dffe9d240eae4a5126c1b7ce5efd5766bd9fd9", size = 189190 },
+]
+
+[[package]]
+name = "babel"
+version = "2.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/6b/d52e42361e1aa00709585ecc30b3f9684b3ab62530771402248b1b1d6240/babel-2.17.0.tar.gz", hash = "sha256:0c54cffb19f690cdcc52a3b50bcbf71e07a808d1c80d549f2459b9d2cf0afb9d", size = 9951852 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/b8/3fe70c75fe32afc4bb507f75563d39bc5642255d1d94f1f23604725780bf/babel-2.17.0-py3-none-any.whl", hash = "sha256:4d0b53093fdfb4b21c92b5213dba5a1b23885afa8383709427046b21c366e5f2", size = 10182537 },
 ]
 
 [[package]]
@@ -162,7 +171,7 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593 }
 wheels = [
@@ -282,15 +291,6 @@ wheels = [
 ]
 
 [[package]]
-name = "importlib-resources"
-version = "6.5.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cf/8c/f834fbf984f691b4f7ff60f50b514cc3de5cc08abfc3295564dd89c5e2e7/importlib_resources-6.5.2.tar.gz", hash = "sha256:185f87adef5bcc288449d98fb4fba07cea78bc036455dd44c5fc4a2fe78fed2c", size = 44693 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a4/ed/1f1afb2e9e7f38a545d628f864d562a5ae64fe6f7a10e28ffb9b185b4e89/importlib_resources-6.5.2-py3-none-any.whl", hash = "sha256:789cfdc3ed28c78b67a06acb8126751ced69a3d5f79c095a98298cd8a760ccec", size = 37461 },
-]
-
-[[package]]
 name = "iniconfig"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -339,6 +339,22 @@ wheels = [
 ]
 
 [[package]]
+name = "markupsafe"
+version = "3.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/97/5d42485e71dfc078108a86d6de8fa46db44a1a9295e89c5d6d4a06e23a62/markupsafe-3.0.2.tar.gz", hash = "sha256:ee55d3edf80167e48ea11a923c7386f4669df67d7994554387f84e7d8b0a2bf0", size = 20537 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/34/a15aa69f01e2181ed8d2b685c0d2f6655d5cca2c4db0ddea775e631918cd/MarkupSafe-3.0.2-cp311-cp311-win32.whl", hash = "sha256:6c89876f41da747c8d3677a2b540fb32ef5715f97b66eeb0c6b66f5e3ef6f59d", size = 15094 },
+    { url = "https://files.pythonhosted.org/packages/da/b8/3a3bd761922d416f3dc5d00bfbed11f66b1ab89a0c2b6e887240a30b0f6b/MarkupSafe-3.0.2-cp311-cp311-win_amd64.whl", hash = "sha256:70a87b411535ccad5ef2f1df5136506a10775d267e197e4cf531ced10537bd6b", size = 15521 },
+    { url = "https://files.pythonhosted.org/packages/51/ae/97827349d3fcffee7e184bdf7f41cd6b88d9919c80f0263ba7acd1bbcb18/MarkupSafe-3.0.2-cp312-cp312-win32.whl", hash = "sha256:0f4ca02bea9a23221c0182836703cbf8930c5e9454bacce27e767509fa286a30", size = 15097 },
+    { url = "https://files.pythonhosted.org/packages/c1/80/a61f99dc3a936413c3ee4e1eecac96c0da5ed07ad56fd975f1a9da5bc630/MarkupSafe-3.0.2-cp312-cp312-win_amd64.whl", hash = "sha256:8e06879fc22a25ca47312fbe7c8264eb0b662f6db27cb2d3bbbc74b1df4b9b87", size = 15601 },
+    { url = "https://files.pythonhosted.org/packages/ee/55/c271b57db36f748f0e04a759ace9f8f759ccf22b4960c270c78a394f58be/MarkupSafe-3.0.2-cp313-cp313-win32.whl", hash = "sha256:bcf3e58998965654fdaff38e58584d8937aa3096ab5354d493c77d1fdd66d7a1", size = 15101 },
+    { url = "https://files.pythonhosted.org/packages/29/88/07df22d2dd4df40aba9f3e402e6dc1b8ee86297dddbad4872bd5e7b0094f/MarkupSafe-3.0.2-cp313-cp313-win_amd64.whl", hash = "sha256:e6a2a455bd412959b57a172ce6328d2dd1f01cb2135efda2e4576e8a23fa3b0f", size = 15603 },
+    { url = "https://files.pythonhosted.org/packages/82/78/fedb03c7d5380df2427038ec8d973587e90561b2d90cd472ce9254cf348b/MarkupSafe-3.0.2-cp313-cp313t-win32.whl", hash = "sha256:ba8062ed2cf21c07a9e295d5b8a2a5ce678b913b45fdf68c32d95d6c1291e0b6", size = 15208 },
+    { url = "https://files.pythonhosted.org/packages/4f/65/6079a46068dfceaeabb5dcad6d674f5f5c61a6fa5673746f42a9f4c233b3/MarkupSafe-3.0.2-cp313-cp313t-win_amd64.whl", hash = "sha256:e444a31f8db13eb18ada366ab3cf45fd4b31e4db1236a4448f68778c1d1a5a2f", size = 15739 },
+]
+
+[[package]]
 name = "mcp"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -378,12 +394,12 @@ openai = [
 
 [package.metadata]
 requires-dist = [
-    { name = "azure-identity", marker = "extra == 'llm'", specifier = ">=1.20.0" },
+    { name = "azure-identity", marker = "extra == 'llm'", specifier = ">=1.21,<2.0" },
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "mcp", specifier = ">=1.3.0" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.63.2" },
     { name = "pydantic", specifier = ">=2.10.6" },
-    { name = "python-liquid", marker = "extra == 'llm'", specifier = ">=1.13.0" },
+    { name = "python-liquid", marker = "extra == 'llm'", specifier = ">=2.0,<3.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -399,7 +415,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp-server-filesystem" },
-    { name = "mcp-server-office", marker = "platform_system == 'Windows'" },
+    { name = "mcp-server-office", marker = "sys_platform == 'win32'" },
     { name = "mcp-tunnel" },
 ]
 
@@ -411,7 +427,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "mcp-server-filesystem", editable = "../mcp-server-filesystem" },
-    { name = "mcp-server-office", marker = "platform_system == 'Windows'", editable = "../mcp-server-office" },
+    { name = "mcp-server-office", marker = "sys_platform == 'win32'", editable = "../mcp-server-office" },
     { name = "mcp-tunnel", editable = "../../libraries/python/mcp-tunnel" },
 ]
 
@@ -452,7 +468,7 @@ dependencies = [
     { name = "pytest-asyncio" },
     { name = "python-dotenv" },
     { name = "python-liquid" },
-    { name = "pywin32", marker = "platform_system == 'Windows'" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "pyyaml" },
     { name = "rich" },
 ]
@@ -467,7 +483,7 @@ requires-dist = [
     { name = "pytest-asyncio", specifier = ">=0.25.3" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "python-liquid", specifier = ">=1.13.0" },
-    { name = "pywin32", marker = "platform_system == 'Windows'", specifier = "==308" },
+    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = "==308" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rich", specifier = ">=13.9.4" },
 ]
@@ -626,7 +642,7 @@ name = "portalocker"
 version = "2.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "platform_system == 'Windows'" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/d3/c6c64067759e87af98cc668c1cc75171347d0f1577fab7ca3749134e3cd4/portalocker-2.10.1.tar.gz", hash = "sha256:ef1bf844e878ab08aee7e40184156e1151f228f103aa5c6bd0724cc330960f8f", size = 40891 }
 wheels = [
@@ -853,16 +869,26 @@ wheels = [
 
 [[package]]
 name = "python-liquid"
-version = "1.13.0"
+version = "2.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "importlib-resources" },
+    { name = "babel" },
+    { name = "markupsafe" },
     { name = "python-dateutil" },
-    { name = "typing-extensions" },
+    { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/75/0fed0ca920161b058806fa52d3e2ed82cf14beb2abe1afb114358ccc1413/python_liquid-1.13.0.tar.gz", hash = "sha256:c158fbaad6dd41c49de7cff34e3611bff7211326fb3049322d27673e1d66e166", size = 127389 }
+sdist = { url = "https://files.pythonhosted.org/packages/82/ac/72697357280e90d27a2cc3b81ee078816b6279d3377933a64ea343b8a86b/python_liquid-2.0.1.tar.gz", hash = "sha256:9bf589ea11c690ed598866929b05f2cacc81bd8a9647a2049d2648a5088cf613", size = 119838 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/b0/a795755aad1230c8d2f15c63c703204c351abd183deeff85941866a88a92/python_liquid-1.13.0-py3-none-any.whl", hash = "sha256:843ed7b8af00c1480d1bf402553ed07bdddce130ebbf4b1fefc84bb2e076f5d4", size = 210446 },
+    { url = "https://files.pythonhosted.org/packages/f9/07/7ab1943f6a337b977042e3855efaa53847363c0e7cbe4d58c2c61ad829e4/python_liquid-2.0.1-py3-none-any.whl", hash = "sha256:8ddbf0b85992f84c4a9680d883a87b170d38af5a820072c980138301cbc5a5e1", size = 197694 },
+]
+
+[[package]]
+name = "pytz"
+version = "2025.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/57/df1c9157c8d5a05117e455d66fd7cf6dbc46974f832b1058ed4856785d8a/pytz-2025.1.tar.gz", hash = "sha256:c2db42be2a2518b28e65f9207c4d05e6ff547d1efa4086469ef855e4ab70178e", size = 319617 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/38/ac33370d784287baa1c3d538978b5e2ea064d4c1b93ffbd12826c190dd10/pytz-2025.1-py2.py3-none-any.whl", hash = "sha256:89dd22dca55b46eac6eda23b2d72721bf1bdfef212645d81513ef5d03038de57", size = 507930 },
 ]
 
 [[package]]
@@ -1039,7 +1065,7 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737 }
 wheels = [

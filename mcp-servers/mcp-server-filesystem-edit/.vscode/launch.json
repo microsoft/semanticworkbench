@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "mcp-servers: mcp-server-filesystem-edit",
+      "cwd": "${workspaceFolder}",
+      "module": "mcp_server_filesystem_edit.start",
+      "args": ["--transport", "sse", "--port", "25567"],
+      "consoleTitle": "mcp-server-filesystem-edit",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

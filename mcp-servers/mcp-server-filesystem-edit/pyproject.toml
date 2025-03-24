@@ -1,0 +1,37 @@
+[project]
+name = "mcp-server-filesystem-edit"
+version = "0.1.0"
+description = "Allows for robust editing of files like Markdown and LaTeX"
+authors = [{ name = "Semantic Workbench Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.3.0",
+    "mcp-extensions[llm,openai]>=0.1.0",
+    "pendulum>=3.0.0",
+    "pydantic>=2.10.6",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.2",
+    "rich>=13.9.4",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.11",
+    "pyright>=1.1.389",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.25",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
+
+[project.scripts]
+mcp-server-filesystem-edit = "mcp_server_filesystem_edit.start:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

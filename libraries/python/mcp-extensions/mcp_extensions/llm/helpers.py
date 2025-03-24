@@ -3,7 +3,7 @@
 from copy import deepcopy
 from typing import Any
 
-from liquid import Template
+from liquid import render
 from pydantic import BaseModel
 
 from mcp_extensions.llm.llm_types import MessageT
@@ -12,7 +12,7 @@ from mcp_extensions.llm.llm_types import MessageT
 def _apply_templates(value: Any, variables: dict[str, str]) -> Any:
     """Recursively applies Liquid templating to all string fields within the given value."""
     if isinstance(value, str):
-        return Template(value).render(**variables)
+        return render(value, **variables)
     elif isinstance(value, list):
         return [_apply_templates(item, variables) for item in value]
     elif isinstance(value, dict):
@@ -28,10 +28,10 @@ def _apply_templates(value: Any, variables: dict[str, str]) -> Any:
 
 def compile_messages(messages: list[MessageT], variables: dict[str, str]) -> list[MessageT]:
     """Compiles messages using Liquid templating and the provided variables.
-    Calls Template(content_part).render(**variables) on each text content part.
+    Calls render(content_part, **variables) on each text content part.
 
     Args:
-        messages: List of dict[str, Any] where content can contain Liquid templates.
+        messages: List of MessageT where content can contain Liquid templates.
         variables: The variables to inject into the templates.
 
     Returns:

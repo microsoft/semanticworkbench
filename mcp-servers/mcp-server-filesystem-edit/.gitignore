@@ -1,0 +1,41 @@
+# Project specific
+temp/
+
+# Python files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv
+
+# Poetry
+poetry.lock
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+
+# Environment variables
+.env

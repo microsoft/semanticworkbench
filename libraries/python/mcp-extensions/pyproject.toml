@@ -16,7 +16,7 @@ dependencies = [
 # to consider moving them to the optional-dependencies section. This way, the dependencies
 # are only installed when the specific extension is installed, to reduce the overall size
 # of the package installation, especially when bundling larger dependencies.
-llm = ["azure-identity>=1.20.0", "python-liquid>=1.13.0"]
+llm = ["azure-identity>=1.21,<2.0", "python-liquid>=2.0,<3.0"]
 openai = ["openai>=1.63.2"]
 
 [build-system]

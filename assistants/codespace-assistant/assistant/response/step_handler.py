@@ -17,7 +17,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from ..config import PromptsConfigModel, MCPToolsConfigModel
+from ..config import MCPToolsConfigModel, PromptsConfigModel
 from .completion_handler import handle_completion
 from .models import StepResult
 from .request_builder import build_request

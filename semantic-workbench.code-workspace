@@ -140,6 +140,10 @@
       "path": "mcp-servers/mcp-server-filesystem"
     },
     {
+      "name": "mcp-servers:mcp-server-filesystem-edit",
+      "path": "mcp-servers/mcp-server-filesystem-edit"
+    },
+    {
       "name": "mcp-servers:mcp-server-fusion",
       "path": "mcp-servers/mcp-server-fusion"
     },
@@ -195,9 +199,7 @@
   "settings": {
     "markdown.validate.enabled": true,
     "ruff.configuration": "${workspaceFolder:.multi-root-tools}/../ruff.toml",
-    "ruff.interpreter": [
-      "${workspaceFolder:.multi-root-tools}/.venv"
-    ],
+    "ruff.interpreter": ["${workspaceFolder:.multi-root-tools}/.venv"],
     "ruff.importStrategy": "useBundled",
     "ruff.nativeServer": "on",
     "[python]": {
