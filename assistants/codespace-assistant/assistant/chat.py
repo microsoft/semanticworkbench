@@ -47,7 +47,7 @@ service_description = "An assistant for developing in the Codespaces."
 # create the configuration provider, using the extended configuration model
 #
 assistant_config = BaseModelAssistantConfig(
-    AssistantConfigModel, other_templates={"workspace": WorkspaceAssistantConfigModel}
+    AssistantConfigModel, additional_templates={"workspace": WorkspaceAssistantConfigModel}
 )
 
 
@@ -66,7 +66,7 @@ assistant = AssistantApp(
     assistant_service_description=service_description,
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
-    other_templates=[
+    additional_templates=[
         AssistantTemplate(
             id="workspace",
             name="Workspace Assistant",

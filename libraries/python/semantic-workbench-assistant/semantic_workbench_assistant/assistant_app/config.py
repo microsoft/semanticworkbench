@@ -31,15 +31,17 @@ class BaseModelAssistantConfig(Generic[ConfigModelT]):
     Assistant-config implementation that uses a BaseModel for default config.
     """
 
-    def __init__(self, default_cls: type[ConfigModelT], other_templates: dict[str, type[ConfigModelT]] = {}) -> None:
+    def __init__(
+        self, default_cls: type[ConfigModelT], additional_templates: dict[str, type[ConfigModelT]] = {}
+    ) -> None:
         self._templates = {
             "default": default_cls,
         }
 
-        if not other_templates:
+        if not additional_templates:
             return
 
-        for template_id, template_cls in other_templates.items():
+        for template_id, template_cls in additional_templates.items():
             if template_id in self._templates:
                 raise ValueError(f"Template {template_id} already exists")
             self._templates[template_id] = template_cls

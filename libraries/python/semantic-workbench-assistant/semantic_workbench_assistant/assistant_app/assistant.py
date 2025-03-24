@@ -43,7 +43,7 @@ class AssistantApp:
         conversation_data_exporter: ConversationDataExporter = FileStorageConversationDataExporter(),
         inspector_state_providers: Mapping[str, AssistantConversationInspectorStateProvider] | None = None,
         content_interceptor: ContentInterceptor | None = ContentSafety(AlwaysWarnContentSafetyEvaluator.factory),
-        other_templates: Iterable[AssistantTemplate] = [],
+        additional_templates: Iterable[AssistantTemplate] = [],
     ) -> None:
         self.assistant_service_id = assistant_service_id
         self.assistant_service_name = assistant_service_name
@@ -60,8 +60,8 @@ class AssistantApp:
                 description=assistant_service_description,
             ),
         }
-        if other_templates:
-            for template in other_templates:
+        if additional_templates:
+            for template in additional_templates:
                 if template.id in self.templates:
                     raise ValueError(f"Template {template.id} already exists")
                 self.templates[template.id] = template

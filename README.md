@@ -70,7 +70,7 @@ Workspace files allow us to manage multiple projects within a monorepo more effe
 
 Open the app in your browser at [`https://localhost:4000`](https://localhost:4000). When you first log into the Semantic Workbench, follow these steps to get started:
 
-1. **Create an Assistant**: On the dashboard, click the `New Assistant` button. Select your assistant service, provide a name, and click `Save`.
+1. **Create an Assistant**: On the dashboard, click the `New Assistant` button. Select a template from the available assistant services, provide a name, and click `Save`.
 
 2. **Start a Conversation**: On the dashboard, click the `New Conversation` button. Provide a title for the conversation and click `Save`.
 
