@@ -40,7 +40,7 @@ export const useCreateConversation = () => {
     const [addConversationParticipant] = useAddConversationParticipantMutation();
     const [createConversationMessage] = useCreateConversationMessageMutation();
 
-    const [isFetching, setIsFetching] = React.useState(false);
+    const [isFetching, setIsFetching] = React.useState(true);
     const localUserName = useAppSelector((state) => state.localUser.name);
 
     if (assistantsError) {

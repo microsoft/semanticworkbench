@@ -41,7 +41,11 @@ interface NewConversationFormProps {
 export const NewConversationForm: React.FC<NewConversationFormProps> = (props) => {
     const { onSubmit, onChange, disabled } = props;
     const classes = useClasses();
-    const { assistants, assistantServicesByCategories } = useCreateConversation();
+    const {
+        isFetching: createConversationIsFetching,
+        assistants,
+        assistantServicesByCategories,
+    } = useCreateConversation();
 
     const [config, setConfig] = React.useState<NewConversationData>({
         assistantId: '',
@@ -92,17 +96,22 @@ export const NewConversationForm: React.FC<NewConversationFormProps> = (props) =
         >
             <div className={classes.content}>
                 <Field label="Assistant">
-                    <AssistantSelector
-                        assistants={assistants}
-                        onChange={(assistantId) =>
-                            updateAndNotifyChange({
-                                assistantId,
-                                assistantServiceId: assistantId === 'new' ? '' : undefined,
-                                name: assistantId === 'new' ? '' : undefined,
-                            })
-                        }
-                        disabled={disabled}
-                    />
+                    {createConversationIsFetching ? (
+                        <Input disabled={true} value="Loading..." />
+                    ) : (
+                        <AssistantSelector
+                            assistants={assistants}
+                            defaultAssistant={assistants?.[0]}
+                            onChange={(assistantId) =>
+                                updateAndNotifyChange({
+                                    assistantId,
+                                    assistantServiceId: assistantId === 'new' ? '' : undefined,
+                                    name: assistantId === 'new' ? '' : undefined,
+                                })
+                            }
+                            disabled={disabled}
+                        />
+                    )}
                 </Field>
                 {config.assistantId === 'new' && (
                     <>
