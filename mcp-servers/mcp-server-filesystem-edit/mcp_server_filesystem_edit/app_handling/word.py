@@ -210,12 +210,6 @@ def get_document_comments(doc) -> list[tuple[str, str]]:
         return comments
 
 
-def insert_comments(markdown_text: str, comments: list[tuple[str, str]]) -> str:
-    """
-    Insert comments into the markdown text at the specified locations.
-    """
-
-
 def _write_formatted_text(selection, text):
     """
     Helper function to write text with markdown formatting (bold, italic) to the document.
@@ -441,19 +435,48 @@ def _get_comments_from_markdown(markdown_text: str) -> list[tuple[str, str]]:
     """
     comments = []
     comment_pattern = re.compile(r"<!--(.*?)-->", re.DOTALL)
+
+    # First, collect all comment positions to be able to skip over them
+    comment_positions = [(match.start(), match.end()) for match in comment_pattern.finditer(markdown_text)]
     for match in comment_pattern.finditer(markdown_text):
         comment_text = match.group(1).strip()
         end_position = match.end()
 
-        context_text = ""
+        location_text = ""
         pos = end_position
         char_count = 0
+
+        # Skip any immediate whitespace including newlines
+        while pos < len(markdown_text) and markdown_text[pos].isspace():
+            pos += 1
+
         while pos < len(markdown_text) and char_count < 30:
-            # Stop at newline character or the start of another comment
-            if (
-                markdown_text[pos] == "\n" or (pos + 3 < len(markdown_text) and markdown_text[pos : pos + 4] == "<!--")
-            ) and char_count > 0:
+            # Only stop at newline if we've collected some text AND it's not just blank space
+            if markdown_text[pos] == "\n" and char_count > 0 and location_text.strip():
                 break
+
+            # Check for comment boundaries at current or next position
+            inside_comment = False
+            check_positions = [pos]
+            # If we're in whitespace, also check where the whitespace ends
+            if markdown_text[pos].isspace():
+                next_pos = pos
+                while next_pos < len(markdown_text) and markdown_text[next_pos].isspace():
+                    next_pos += 1
+                check_positions.append(next_pos)
+
+            # Check both current position and potential next position after whitespace
+            for check_pos in check_positions:
+                for start_pos, end_pos in comment_positions:
+                    in_comment_range = (check_pos >= start_pos and check_pos < end_pos) or check_pos == start_pos
+                    if in_comment_range:
+                        pos = end_pos
+                        inside_comment = True
+                        break
+                if inside_comment:
+                    break
+            if inside_comment:
+                continue
 
             # Skip list markers (bullet points)
             if pos + 1 < len(markdown_text) and markdown_text[pos : pos + 2] in ("- ", "* "):
@@ -489,14 +512,12 @@ def _get_comments_from_markdown(markdown_text: str) -> list[tuple[str, str]]:
                 continue
             else:
                 # Regular text character
-                context_text += markdown_text[pos]
+                location_text += markdown_text[pos]
                 char_count += 1
                 pos += 1
 
-        # Trim whitespace from context
-        context_text = context_text.strip()
-        comments.append((comment_text, context_text))
-
+        location_text = location_text.strip()
+        comments.append((comment_text, location_text))
     return comments
 
 
