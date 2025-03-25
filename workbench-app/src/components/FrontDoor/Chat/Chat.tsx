@@ -78,6 +78,7 @@ const useClasses = makeStyles({
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        minWidth: Constants.app.conversationHistoryMinWidth,
     },
     canvas: {
         flex: '0 0 auto',
