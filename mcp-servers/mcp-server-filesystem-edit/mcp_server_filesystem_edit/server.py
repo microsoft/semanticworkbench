@@ -2,26 +2,26 @@
 
 import sys
 from pathlib import Path
-from typing import Literal
 
 from mcp.server.fastmcp import Context, FastMCP
-from pydantic import BaseModel
 
 from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.app_handling.miktex import compile_tex_to_pdf
+from mcp_server_filesystem_edit.app_handling.word import (
+    get_markdown_representation,
+    open_document_in_word,
+    write_markdown,
+)
 from mcp_server_filesystem_edit.tools.add_comments import CommonComments
 from mcp_server_filesystem_edit.tools.edit import CommonEdit
-from mcp_server_filesystem_edit.types import FileOpRequest
+from mcp_server_filesystem_edit.types import FileForChanges, FileOpRequest
 
 # Set the name of the MCP server
 server_name = "Filesystem Edit MCP Server"
 
-
-class FileForChanges(BaseModel):
-    file_path: Path
-    file_content: str
-    file_type: Literal["markdown", "latex"]
-    error_msg: str | None = None
+# Assume these are mutually exclusive
+SUPPORTED_APP_EXTENSIONS = [".docx"]
+SUPPORTED_FILE_ONLY_EXTENSIONS = [".md", ".tex"]
 
 
 async def get_allowed_directory(ctx: Context) -> Path:
@@ -130,24 +130,35 @@ async def read_file(ctx: Context, path: str) -> str:
 
 
 async def read_file_for_edits(ctx: Context, path: str) -> FileForChanges:
+    validated_path = await validate_path(ctx, path)
     error_msg = None
 
-    file_content = await read_file(ctx, path)
+    # Check if the file exists and if not, create it
+    if not validated_path.exists():
+        try:
+            validated_path.parent.mkdir(parents=True, exist_ok=True)
+            validated_path.touch()
+        except Exception as e:
+            raise RuntimeError(f"Failed to create the file at {path}: {str(e)}")
 
-    file_path = Path(path)
-    file_extension = file_path.suffix.lower()
-    supported_extensions: dict[str, Literal["markdown", "latex"]] = {
-        ".md": "markdown",
-        ".tex": "latex",
-    }
+    # For file_only extensions, we read as normal.
+    if any(path.endswith(ext) for ext in SUPPORTED_FILE_ONLY_EXTENSIONS):
+        file_type = "markdown" if path.endswith(".md") else "latex"
+        file_content = await read_file(ctx, path)
 
-    file_type = "markdown"
-    if file_extension not in supported_extensions:
-        error_msg = f"File type '{file_extension}' is not supported for this operation. Currently supported types: {', '.join(supported_extensions.keys())}"
+    # For extensions that we can handle in an app, go down the app specific path.
+    elif any(path.endswith(ext) for ext in SUPPORTED_APP_EXTENSIONS):
+        file_type = "markdown"
+        _, document = open_document_in_word(validated_path)
+        file_content = get_markdown_representation(document)
     else:
-        file_type = supported_extensions[file_extension]
+        error_msg = f"File type not supported: {path}"
+        file_type = "markdown"
+        file_content = ""
 
-    output = FileForChanges(file_path=file_path, file_content=file_content, file_type=file_type, error_msg=error_msg)
+    output = FileForChanges(
+        file_path=validated_path, file_content=file_content, file_type=file_type, error_msg=error_msg
+    )
     return output
 
 
@@ -163,12 +174,22 @@ async def write_file(ctx: Context, path: str, content: str) -> str:
         A confirmation message.
     """
     file = await validate_path(ctx, path)
-    try:
-        file.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
-        file.write_text(content, encoding="utf-8")
+
+    # For file_only extensions, read them as normal.
+    if any(path.endswith(ext) for ext in SUPPORTED_FILE_ONLY_EXTENSIONS):
+        try:
+            file.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
+            file.write_text(content, encoding="utf-8")
+            return f"Successfully wrote content to {path}"
+        except Exception as e:
+            raise RuntimeError(f"Failed to write to the file at {path}: {str(e)}")
+    elif any(path.endswith(ext) for ext in SUPPORTED_APP_EXTENSIONS):
+        # For extensions that we can handle in an app, go down the app specific path.
+        _, document = open_document_in_word(file)
+        write_markdown(document, content)
         return f"Successfully wrote content to {path}"
-    except Exception as e:
-        raise RuntimeError(f"Failed to write to the file at {path}: {str(e)}")
+    else:
+        raise ValueError(f"File type not supported: {path}\nOnly .md, .tex, and .docx files are supported. ")
 
 
 def create_mcp_server() -> FastMCP:
@@ -212,25 +233,36 @@ def create_mcp_server() -> FastMCP:
         Returns:
             The content of the file as a string.
         """
-        file_content = await read_file(ctx, path)
-        # If the file content is empty, return a message indicating that
-        if not file_content:
-            return f"{settings.file_tool_prefix}File viewed successfully, but it is currently empty."
-        return file_content
+        empty_file_string = f"{settings.file_tool_prefix}File viewed successfully, but it is currently empty."
+
+        # If this is an app supported file, read it in the app using read_file_for_edits
+        if any(path.endswith(ext) for ext in SUPPORTED_APP_EXTENSIONS):
+            file_content = await read_file_for_edits(ctx, path)
+            if file_content.error_msg:
+                return file_content.error_msg
+            elif not file_content.file_content:
+                return empty_file_string
+            else:
+                return file_content.file_content
+        else:
+            file_content = await read_file(ctx, path)
+            if not file_content:
+                return empty_file_string
+            return file_content
 
     @mcp.tool()
     async def edit_file(ctx: Context, path: str, task: str) -> str:
         """
-        The user has a file editor corresponding to the file type, open like VSCode or TeXworks (+ MiKTeX), open side by side with this chat.
-        Use this tool when you need to make changes to that file or you want to create a new file (provide a new file path).
-        Provide it a task that you want it to do in the document. For example, if you want to have it expand on one section,
+        The user has a file editor corresponding to the file type, open like VSCode, Word, PowerPoint, TeXworks (+ MiKTeX), open side by side with this chat.
+        Use this tool to create new files or edit existing ones.
+        If you provide a new file path, it will be created for you and then the editor will start to edit it (from scratch).
+        Provide a task that you want it to do in the document. For example, if you want to have it expand on one section,
         you can say "expand on the section about <topic x>". The task should be at most a few sentences.
         Do not provide it any additional context outside of the task parameter. It will automatically be fetched as needed by this tool.
-        If the file fails to compile after making changes, it will return the error message generated by pdflatex.
 
         Args:
             path: The relative path to the file.
-            task: The specific task to be performed on the document.
+            task: The specific task that you want the document editor to do.
         """
         read_file_result = await read_file_for_edits(ctx, path)
         if read_file_result.error_msg:
@@ -262,7 +294,7 @@ def create_mcp_server() -> FastMCP:
     @mcp.tool()
     async def add_comments(ctx: Context, path: str, only_analyze: bool = False) -> str:
         """
-        Adds feedback as comments to the given file and to get suggestions on how to address them.
+        Adds feedback as comments to an existing file and to get suggestions on how to address them.
         Use this to help continually improve a document.
         If the user only wants to address the current comments, set only_analyze to True.
         This will not add any new comments and only figure how to address the current ones.
