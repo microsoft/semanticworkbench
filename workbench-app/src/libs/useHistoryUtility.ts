@@ -21,6 +21,7 @@ export const useHistoryUtility = (conversationId: string) => {
         data: conversation,
         error: conversationError,
         isLoading: conversationIsLoading,
+        refetch: refetchConversation,
     } = useGetConversationQuery(conversationId, { refetchOnMountOrArgChange: true });
     const {
         data: allConversationMessages,
@@ -191,5 +192,6 @@ export const useHistoryUtility = (conversationId: string) => {
         assistantsRefetch,
         assistantCapabilitiesIsFetching,
         rewindToBefore,
+        refetchConversation,
     };
 };

@@ -7,4 +7,7 @@ export interface ConversationFile {
     size: number;
     version: number;
     contentType: string;
+    metadata: {
+        [key: string]: any;
+    };
 }

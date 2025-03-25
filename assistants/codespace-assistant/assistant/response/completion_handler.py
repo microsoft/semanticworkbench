@@ -114,6 +114,15 @@ async def handle_completion(
             )
         )
 
+        await context.update_conversation(
+            metadata={
+                "token_counts": {
+                    "total": total_tokens,
+                    "max": request_config.max_tokens,
+                }
+            }
+        )
+
     # Track the end time of the response generation and calculate duration
     response_end_time = time.time()
     response_duration = response_end_time - response_start_time

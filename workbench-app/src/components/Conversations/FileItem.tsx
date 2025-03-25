@@ -1,7 +1,21 @@
 // Copyright (c) Microsoft. All rights reserved.
 
-import { Button, Caption1, Card, CardHeader, DialogTrigger, makeStyles, Text } from '@fluentui/react-components';
-import { ArrowDownloadRegular, Delete16Regular } from '@fluentui/react-icons';
+import {
+    Button,
+    Caption1,
+    Card,
+    CardHeader,
+    DialogOpenChangeData,
+    DialogOpenChangeEvent,
+    makeStyles,
+    Menu,
+    MenuItem,
+    MenuList,
+    MenuPopover,
+    MenuTrigger,
+    Text,
+} from '@fluentui/react-components';
+import { ArrowDownloadRegular, DeleteRegular, MoreHorizontalRegular } from '@fluentui/react-icons';
 import React from 'react';
 import * as StreamSaver from 'streamsaver';
 import { useWorkbenchService } from '../../libs/useWorkbenchService';
@@ -9,7 +23,7 @@ import { Utility } from '../../libs/Utility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationFile } from '../../models/ConversationFile';
 import { useDeleteConversationFileMutation } from '../../services/workbench';
-import { CommandButton } from '../App/CommandButton';
+import { DialogControl } from '../App/DialogControl';
 import { TooltipWrapper } from '../App/TooltipWrapper';
 import { ConversationFileIcon } from './ConversationFileIcon';
 
@@ -39,6 +53,7 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
     const workbenchService = useWorkbenchService();
     const [deleteConversationFile] = useDeleteConversationFileMutation();
     const [submitted, setSubmitted] = React.useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
 
     const time = React.useMemo(
         () => Utility.toFormattedDateString(conversationFile.updated, 'M/D/YYYY h:mm A'),
@@ -49,11 +64,33 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
         if (size < 1024) {
             return `${size} B`;
         } else if (size < 1024 * 1024) {
-            return `${(size / 1024).toFixed(2)} KB`;
+            return `${(size / 1024).toFixed(1).toString().replaceAll('.0', '')} KB`;
         } else {
-            return `${(size / 1024 / 1024).toFixed(2)} MB`;
+            return `${(size / 1024 / 1024).toFixed(1).toString().replaceAll('.0', '')} MB`;
         }
     };
+
+    const tokenCountToDisplay = (count: number) => {
+        const label = `token${count !== 1 ? 's' : ''}`;
+        if (count < 1_000) {
+            return `${count} ${label}`;
+        } else if (count < 1_000_000) {
+            return `${(count / 1_000).toFixed(2).toString().replaceAll('.0', '')}k ${label}`;
+        } else {
+            return `${(count / 1_000_000).toFixed(2).toString().replaceAll('.0', '')}m ${label}`;
+        }
+    };
+
+    const handleDeleteMenuItemClick = React.useCallback(() => {
+        if (deleteDialogOpen) {
+            return;
+        }
+        setDeleteDialogOpen(true);
+    }, [deleteDialogOpen]);
+
+    const onDeleteDialogOpenChange = React.useCallback((_: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
+        setDeleteDialogOpen(data.open);
+    }, []);
 
     const handleDelete = React.useCallback(async () => {
         if (submitted) {
@@ -114,54 +151,73 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
     }, [conversation.id, conversationFile, workbenchService, submitted]);
 
     return (
-        <Card key={conversationFile.name}>
-            <CardHeader
-                className={classes.cardHeader}
-                image={<ConversationFileIcon file={conversationFile} size={24} />}
-                header={
-                    <TooltipWrapper content={conversationFile.name}>
-                        <Text truncate wrap={false} weight="semibold">
-                            {conversationFile.name}
-                        </Text>
-                    </TooltipWrapper>
+        <>
+            <Card key={conversationFile.name} size="small">
+                <CardHeader
+                    className={classes.cardHeader}
+                    image={<ConversationFileIcon file={conversationFile} size={24} />}
+                    header={
+                        <TooltipWrapper content={conversationFile.name}>
+                            <Text truncate wrap={false} weight="semibold">
+                                {conversationFile.name}
+                            </Text>
+                        </TooltipWrapper>
+                    }
+                    description={
+                        <Caption1 truncate wrap={false}>
+                            {time}
+                            <br />
+                            {sizeToDisplay(conversationFile.size)}{' '}
+                            {conversationFile.metadata?.token_count !== undefined
+                                ? `| ${tokenCountToDisplay(conversationFile.metadata?.token_count)}`
+                                : ''}
+                        </Caption1>
+                    }
+                    action={
+                        <div className={classes.actions}>
+                            <Menu>
+                                <MenuTrigger disableButtonEnhancement>
+                                    <Button icon={<MoreHorizontalRegular />} />
+                                </MenuTrigger>
+                                <MenuPopover>
+                                    <MenuList>
+                                        <MenuItem
+                                            icon={<ArrowDownloadRegular />}
+                                            onClick={handleDownload}
+                                            disabled={submitted}
+                                        >
+                                            Download
+                                        </MenuItem>
+                                        <MenuItem
+                                            icon={<DeleteRegular />}
+                                            onClick={handleDeleteMenuItemClick}
+                                            disabled={submitted || readOnly}
+                                        >
+                                            Delete
+                                        </MenuItem>
+                                    </MenuList>
+                                </MenuPopover>
+                            </Menu>
+                        </div>
+                    }
+                />
+            </Card>
+            <DialogControl
+                open={deleteDialogOpen}
+                onOpenChange={onDeleteDialogOpenChange}
+                title="Delete file"
+                content={
+                    <p>
+                        Are you sure you want to delete <strong>{conversationFile.name}</strong>?
+                    </p>
                 }
-                description={
-                    <Caption1>
-                        {time} | {sizeToDisplay(conversationFile.size)}
-                    </Caption1>
-                }
-                action={
-                    <div className={classes.actions}>
-                        <CommandButton
-                            description="Download file from conversation"
-                            icon={<ArrowDownloadRegular />}
-                            onClick={handleDownload}
-                            disabled={submitted}
-                        />
-                        <CommandButton
-                            description="Delete file from conversation"
-                            disabled={readOnly}
-                            icon={<Delete16Regular />}
-                            dialogContent={{
-                                title: 'Delete file',
-                                content: (
-                                    <p>
-                                        Are you sure you want to delete <strong>{conversationFile.name}</strong>?
-                                    </p>
-                                ),
-                                closeLabel: 'Cancel',
-                                additionalActions: [
-                                    <DialogTrigger key="delete" disableButtonEnhancement>
-                                        <Button appearance="primary" onClick={handleDelete} disabled={submitted}>
-                                            {submitted ? 'Deleting...' : 'Delete'}
-                                        </Button>
-                                    </DialogTrigger>,
-                                ],
-                            }}
-                        />
-                    </div>
-                }
+                closeLabel="Cancel"
+                additionalActions={[
+                    <Button appearance="primary" onClick={handleDelete} disabled={submitted} key="delete">
+                        {submitted ? 'Deleting...' : 'Delete'}
+                    </Button>,
+                ]}
             />
-        </Card>
+        </>
     );
 };

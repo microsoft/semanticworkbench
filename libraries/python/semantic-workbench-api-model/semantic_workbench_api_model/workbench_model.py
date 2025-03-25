@@ -220,6 +220,10 @@ class FileVersions(BaseModel):
     versions: list[FileVersion]
 
 
+class UpdateFile(BaseModel):
+    metadata: dict[str, Any]
+
+
 class ConversationImportResult(BaseModel):
     conversation_ids: list[uuid.UUID]
     assistant_ids: list[uuid.UUID]

@@ -5,6 +5,7 @@ import React from 'react';
 import { Conversation } from '../../../models/Conversation';
 import { ConversationFile } from '../../../models/ConversationFile';
 import { ConversationParticipant } from '../../../models/ConversationParticipant';
+import { ContextWindow } from '../ContextWindow';
 import { ConversationTranscript } from '../ConversationTranscript';
 import { FileList } from '../FileList';
 import { ParticipantList } from '../ParticipantList';
@@ -57,6 +58,12 @@ export const ConversationCanvas: React.FC<ConversationCanvasProps> = (props) => 
                     Transcript
                 </Text>
                 <ConversationTranscript conversation={conversation} participants={conversationParticipants} />
+            </Card>
+            <Card className={classes.card}>
+                <Text size={400} weight="semibold">
+                    Context window
+                </Text>
+                <ContextWindow conversation={conversation} />
             </Card>
             <Card className={classes.card}>
                 <Text size={400} weight="semibold">
