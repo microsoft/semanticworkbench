@@ -34,7 +34,7 @@ const useClasses = makeStyles({
         marginTop: tokens.spacingVerticalXL,
     },
     resizer: {
-        width: tokens.spacingHorizontalS,
+        width: tokens.spacingHorizontalXL,
         position: 'absolute',
         top: 0,
         bottom: 0,
