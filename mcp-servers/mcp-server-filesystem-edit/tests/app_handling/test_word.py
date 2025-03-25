@@ -128,8 +128,22 @@ def test_comments_inside_list(word_document):
     markdown_text = """## Market Opportunity
 Here are the market opportunities:
 - Growing Market: The market is projected to grow.
-- Target Audience: Our primary <!-- This is a comment --> customers are enterprises.
+<!-- This is a comment -->
+- Target <!-- second comment --> Audience: Our primary customers are enterprises.
 Let's get into the details."""
+    write_markdown(word_document, markdown_text)
+    rt_markdown_text = get_markdown_representation(word_document)
+    write_markdown(word_document, rt_markdown_text)
+
+
+def test_comments_consecutive(word_document):
+    markdown_text = """## Market Opportunity
+    Here are the market opportunities:
+    - Growing Market: The market is projected to grow.
+    <!-- This is a comment -->
+    <!-- second comment -->
+    - Target Audience: Our primary customers are enterprises.
+    Let's get into the details."""
     write_markdown(word_document, markdown_text)
     rt_markdown_text = get_markdown_representation(word_document)
     write_markdown(word_document, rt_markdown_text)

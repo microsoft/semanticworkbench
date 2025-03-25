@@ -1,5 +1,8 @@
+import re
 import sys
 from pathlib import Path
+
+from mcp_server_filesystem_edit import settings
 
 
 def open_document_in_word(file_path: Path) -> tuple[object, object]:
@@ -155,7 +158,62 @@ def get_markdown_representation(document) -> str:
     if in_code_block:
         markdown_text.append("```")
 
-    return "\n".join(markdown_text)
+    # Add comments as a line before the ones they are associated with
+    comments = get_document_comments(document)
+    for comment_text, location_text in comments:
+        # Find the first occurrence of the location text
+        for i, line in enumerate(markdown_text):
+            if location_text in line:
+                # Insert the comment before the line
+                markdown_text.insert(i, f"<!-- {comment_text} -->")
+                break
+
+    markdown_text = "\n".join(markdown_text)
+    return markdown_text
+
+
+def get_document_comments(doc) -> list[tuple[str, str]]:
+    """
+    Retrieve all comments from a Word document.
+    """
+    comments: list[tuple[str, str]] = []
+
+    try:
+        if doc.Comments.Count == 0:
+            return comments
+
+        for i in range(1, doc.Comments.Count + 1):
+            try:
+                comment = doc.Comments(i)
+
+                comment_text = ""
+                try:
+                    comment_text = comment.Range.Text
+                except Exception:
+                    continue
+
+                reference_text = ""
+                try:
+                    if hasattr(comment, "Scope"):
+                        reference_text = comment.Scope.Text
+                except Exception:
+                    continue
+
+                comment_info = (comment_text, reference_text)
+                comments.append(comment_info)
+            except Exception:
+                continue
+
+        return comments
+    except Exception as e:
+        print(f"Error retrieving comments: {e}")
+        return comments
+
+
+def insert_comments(markdown_text: str, comments: list[tuple[str, str]]) -> str:
+    """
+    Insert comments into the markdown text at the specified locations.
+    """
 
 
 def _write_formatted_text(selection, text):
@@ -238,6 +296,10 @@ def write_markdown(document, markdown_text: str) -> None:
     - Text formatting (bold, italic)
     - Code blocks (``` to Code style)
     """
+    markdown_with_comments = markdown_text
+    # Strip comments from markdown text
+    markdown_text = strip_comments_from_markdown(markdown_with_comments)
+
     document.Content.Delete()
 
     word_app = document.Application
@@ -358,5 +420,145 @@ def write_markdown(document, markdown_text: str) -> None:
             _write_formatted_text(selection, line)
             selection.TypeParagraph()
 
+    # Handle inserting comments
+    comments = _get_comments_from_markdown(markdown_with_comments)
+    for comment_text, location_text in comments:
+        add_document_comment(document, comment_text, location_text, settings.comment_author)
+
     # Move cursor to the beginning of the document
     document.Range(0, 0).Select()
+
+
+def _get_comments_from_markdown(markdown_text: str) -> list[tuple[str, str]]:
+    """
+    Extracts comments from markdown text and returns them with location context.
+
+    Returns a list of tuples containing (comment_text, location_text), where
+    location_text is up to 30 plaintext characters following the comment,
+    with markdown syntax elements removed.
+
+    Only supports comments in "<!-- comment_text -->" format.
+    """
+    comments = []
+    comment_pattern = re.compile(r"<!--(.*?)-->", re.DOTALL)
+    for match in comment_pattern.finditer(markdown_text):
+        comment_text = match.group(1).strip()
+        end_position = match.end()
+
+        context_text = ""
+        pos = end_position
+        char_count = 0
+        while pos < len(markdown_text) and char_count < 30:
+            # Stop at newline character or the start of another comment
+            if (
+                markdown_text[pos] == "\n" or (pos + 3 < len(markdown_text) and markdown_text[pos : pos + 4] == "<!--")
+            ) and char_count > 0:
+                break
+
+            # Skip list markers (bullet points)
+            if pos + 1 < len(markdown_text) and markdown_text[pos : pos + 2] in ("- ", "* "):
+                pos += 2
+                continue
+
+            # Skip numbered list markers (e.g., "1. ", "42) ")
+            if pos + 1 < len(markdown_text):
+                list_match = re.match(r"(\d+)(\.|\))\s", markdown_text[pos : pos + 10])
+                if list_match:
+                    pos += len(list_match.group(0))
+                    continue
+
+            # Skip other markdown syntax elements
+            if pos + 2 < len(markdown_text) and markdown_text[pos : pos + 3] == "***":
+                pos += 3
+            elif pos + 1 < len(markdown_text) and markdown_text[pos : pos + 2] == "**":
+                pos += 2
+            elif markdown_text[pos] == "*" and (pos + 1 >= len(markdown_text) or markdown_text[pos + 1] != "*"):
+                pos += 1
+            elif pos + 3 < len(markdown_text) and markdown_text[pos : pos + 4] == "```\n":
+                pos += 4
+            elif pos + 2 < len(markdown_text) and markdown_text[pos : pos + 3] == "```":
+                pos += 3
+            # Skip heading markers
+            elif pos < len(markdown_text) and markdown_text[pos] == "#":
+                # Skip all consecutive # characters and the following space
+                while pos < len(markdown_text) and markdown_text[pos] == "#":
+                    pos += 1
+                # Skip space after heading markers
+                if pos < len(markdown_text) and markdown_text[pos] == " ":
+                    pos += 1
+                continue
+            else:
+                # Regular text character
+                context_text += markdown_text[pos]
+                char_count += 1
+                pos += 1
+
+        # Trim whitespace from context
+        context_text = context_text.strip()
+        comments.append((comment_text, context_text))
+
+    return comments
+
+
+def strip_comments_from_markdown(markdown_text: str) -> str:
+    """
+    Strips comments from the given markdown text and returns the cleaned text.
+    Comments are represented as "<!-- comment_text -->".
+
+    For example, there might be inline comments like "Target <!-- comment text--> Audience"
+    which will result in "Target Audience" (notice how an extra space between words is not added).
+
+    There can also be comments that are on their own line:
+    "Here are the market opportunities:
+    <!-- This is a comment -->
+    Ok let's get into the details"
+    In this case, after removal the text will be:
+    "Here are the market opportunities:
+    Ok let's get into the details"
+    """
+    # Remove comments that are on their own line.
+    standalone_pattern = re.compile(r"\n\s*<!--.*?-->\s*\n", re.DOTALL)
+    cleaned_text = standalone_pattern.sub("\n", markdown_text)
+
+    # Remove inline comments between non-space characters.
+    inline_between_pattern = re.compile(r"(?<=\S)(\s*)<!--.*?-->(\s*)(?=\S)", re.DOTALL)
+    cleaned_text = inline_between_pattern.sub(
+        lambda m: " " if m.group(1) == " " and m.group(2) == " " else m.group(1) + m.group(2),
+        cleaned_text,
+    )
+
+    # Remove any remaining inline comments.
+    inline_pattern = re.compile(r"<!--.*?-->", re.DOTALL)
+    cleaned_text = inline_pattern.sub("", cleaned_text)
+    return cleaned_text
+
+
+def add_document_comment(
+    doc,
+    comment_text: str,
+    location_text: str,
+    author: str,
+) -> bool:
+    """
+    Add a comment to specific text within a Word document.
+    Inserts the comment at the first occurrence of the location text.
+
+    Returns:
+        bool: True if comment was added successfully, False otherwise
+    """
+    try:
+        content_range = doc.Content
+
+        # Find the first occurrence of the text
+        content_range.Find.ClearFormatting()
+        found = content_range.Find.Execute(FindText=location_text, MatchCase=True, MatchWholeWord=False)
+
+        if not found:
+            return False
+
+        # Add a comment to the found range
+        comment = doc.Comments.Add(Range=content_range.Duplicate, Text=comment_text)
+        comment.Author = author
+        return True
+    except Exception:
+        return False
