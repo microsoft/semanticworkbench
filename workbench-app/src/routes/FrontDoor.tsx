@@ -8,8 +8,8 @@ import { NewConversationButton } from '../components/FrontDoor/Controls/NewConve
 import { SiteMenuButton } from '../components/FrontDoor/Controls/SiteMenuButton';
 import { GlobalContent } from '../components/FrontDoor/GlobalContent';
 import { MainContent } from '../components/FrontDoor/MainContent';
+import { Constants } from '../Constants';
 import { EventSubscriptionManager } from '../libs/EventSubscriptionManager';
-import { useMediaQuery } from '../libs/useMediaQuery';
 import { useWorkbenchConversationEventSource, useWorkbenchUserEventSource } from '../libs/useWorkbenchEventSource';
 import { useAppSelector } from '../redux/app/hooks';
 import { setActiveConversationId, setGlobalContentOpen } from '../redux/features/app/appSlice';
@@ -34,6 +34,7 @@ const useClasses = makeStyles({
         backgroundColor: tokens.colorNeutralBackground2,
         ...shorthands.borderRight(tokens.strokeWidthThick, 'solid', tokens.colorNeutralStroke3),
         boxSizing: 'border-box',
+        minWidth: Constants.app.conversationListMinWidth,
     },
     sideRailLeftBody: {
         // override Fluent UI DrawerBody padding
@@ -80,13 +81,9 @@ export const FrontDoor: React.FC = () => {
     const classes = useClasses();
     const { conversationId } = useParams();
     const activeConversationId = useAppSelector((state) => state.app.activeConversationId);
-    const chatCanvasState = useAppSelector((state) => state.chatCanvas);
     const globalContentOpen = useAppSelector((state) => state.app.globalContentOpen);
     const dispatch = useDispatch();
-    const sideRailLeftRef = React.useRef<HTMLDivElement | null>(null);
     const [isInitialized, setIsInitialized] = React.useState(false);
-    const isSmall = useMediaQuery({ maxWidth: 720 });
-    const [sideRailLeftType, setSideRailLeftType] = React.useState<'inline' | 'overlay'>('inline');
 
     // set up the workbench event sources and connect to the conversation and user event streams
     // any child components can subscribe to these events using the subscription managers
@@ -108,26 +105,6 @@ export const FrontDoor: React.FC = () => {
         setIsInitialized(true);
     }, [conversationId, activeConversationId, dispatch]);
 
-    const handleClickOutside = React.useCallback(
-        (event: MouseEvent) => {
-            if (!sideRailLeftRef.current) return;
-
-            if (!sideRailLeftRef.current.contains(event.target as HTMLElement) && globalContentOpen) {
-                dispatch(setGlobalContentOpen(false));
-            }
-        },
-        [dispatch, globalContentOpen],
-    );
-
-    React.useEffect(() => {
-        if (globalContentOpen && sideRailLeftType === 'overlay') {
-            document.addEventListener('click', handleClickOutside);
-        } else {
-            document.removeEventListener('click', handleClickOutside);
-        }
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, [globalContentOpen, handleClickOutside, sideRailLeftRef, sideRailLeftType]);
-
     const sideRailLeftButton = React.useMemo(
         () => (
             <Button
@@ -141,16 +118,6 @@ export const FrontDoor: React.FC = () => {
         [dispatch, globalContentOpen],
     );
 
-    React.useEffect(() => {
-        if (sideRailLeftType === 'overlay') {
-            if (isSmall || chatCanvasState.open) return;
-            setSideRailLeftType('inline');
-        } else {
-            if (!isSmall && !chatCanvasState.open) return;
-            setSideRailLeftType('overlay');
-        }
-    }, [sideRailLeftType, isSmall, chatCanvasState.open]);
-
     const globalContent = React.useMemo(
         () => <GlobalContent headerBefore={sideRailLeftButton} headerAfter={<NewConversationButton />} />,
         [sideRailLeftButton],
@@ -162,11 +129,10 @@ export const FrontDoor: React.FC = () => {
         <div className={classes.root}>
             <div className={classes.body}>
                 <Drawer
-                    ref={sideRailLeftRef}
                     className={classes.sideRailLeft}
                     open={globalContentOpen}
                     modalType="non-modal"
-                    type={sideRailLeftType}
+                    type="inline"
                     size="small"
                 >
                     <DrawerBody className={classes.sideRailLeftBody}>{globalContent}</DrawerBody>

@@ -15,7 +15,12 @@ export const Constants = {
         autoScrollThreshold: 100,
         maxContentWidth: 900,
         maxInputLength: 2000000, // 2M tokens, effectively unlimited
-        minChatWidthPercent: 20,
+        conversationListMinWidth: '250px',
+        conversationHistoryMinWidth: '270px',
+        resizableCanvasDrawerMinWidth: '200px',
+        get resizableCanvasDrawerMaxWidth() {
+            return `calc(100vw - ${this.conversationListMinWidth} - ${this.conversationHistoryMinWidth})`;
+        },
         defaultChatWidthPercent: 33,
         maxMessagesPerRequest: 500,
         maxFileAttachmentsPerMessage: 10,

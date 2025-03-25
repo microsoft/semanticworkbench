@@ -30,6 +30,10 @@ const useClasses = makeStyles({
         // approximate 60fps (1000ms / 60 = 16.666ms)
         transitionDuration: '16.666ms',
     },
+    resizable: {
+        minWidth: Constants.app.resizableCanvasDrawerMinWidth,
+        maxWidth: Constants.app.resizableCanvasDrawerMaxWidth,
+    },
     title: {
         marginTop: tokens.spacingVerticalXL,
     },
@@ -120,19 +124,13 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = (props) => {
                     const resizerPosition = side === 'left' ? clientRect.left : clientRect.right;
                     const desiredWidth = resizerPosition - clientX;
                     const desiredWidthPercent = (desiredWidth / window.innerWidth) * 100;
-                    const minChatWidthPercent = Constants.app.minChatWidthPercent;
-                    const maxWidth = Math.min(desiredWidthPercent, 100 - minChatWidthPercent);
-                    const updatedChatWidthPercent = Math.max(minChatWidthPercent, maxWidth);
                     console.log(
                         `clientRect: ${clientRect}`,
                         `clientX: ${clientX}`,
                         `desiredWidth: ${desiredWidth}`,
                         `desiredWidthPercent: ${desiredWidthPercent}`,
-                        `minChatWidthPercent: ${minChatWidthPercent}`,
-                        `maxWidth: ${maxWidth}`,
-                        `updatedChatWidthPercent: ${updatedChatWidthPercent}`,
                     );
-                    dispatch(setChatWidthPercent(updatedChatWidthPercent));
+                    dispatch(setChatWidthPercent(desiredWidthPercent));
                 }
             });
         },
@@ -166,7 +164,7 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = (props) => {
         <div className={mergeClasses(classes.root, classNames?.container)}>
             {resizable && <ResizeComponent className={side} />}
             <Drawer
-                className={mergeClasses(classes.drawer, classNames?.drawer)}
+                className={mergeClasses(classes.drawer, classNames?.drawer, resizable && classes.resizable)}
                 ref={sidebarRef}
                 size={resizable ? undefined : size}
                 style={resizable ? { width: `${chatWidthPercent}vw` } : undefined}
