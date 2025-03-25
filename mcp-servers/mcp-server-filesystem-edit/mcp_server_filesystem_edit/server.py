@@ -323,7 +323,8 @@ def create_mcp_server() -> FastMCP:
             )
             commenter = CommonComments()
             output = await commenter.run(request, only_analyze=only_analyze)
-            write_markdown(document, output.new_content)
+            if not only_analyze:  # Don't need to rewrite if only analysis was done.
+                write_markdown(document, output.new_content)
             tool_output = output.comment_instructions
         else:
             tool_output = f"{settings.file_tool_prefix}File type not supported for commenting: {validated_path}\nOnly {', '.join(EDIT_BY_FILE_EXTENSIONS + EDIT_BY_APP_EXTENSIONS)} files are supported."
