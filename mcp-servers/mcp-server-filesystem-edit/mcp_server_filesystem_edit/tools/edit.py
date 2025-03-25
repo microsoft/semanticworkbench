@@ -12,6 +12,7 @@ from mcp_extensions.llm.llm_types import ChatCompletionRequest, ChatCompletionRe
 from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.prompts.latex_edit import LATEX_EDIT_REASONING_MESSAGES
 from mcp_server_filesystem_edit.prompts.markdown_edit import (
+    MARKDOWN_EDIT_FORMAT_INSTRUCTIONS,
     MD_EDIT_CHANGES_MESSAGES,
     MD_EDIT_CONVERT_MESSAGES,
     MD_EDIT_REASONING_MESSAGES,
@@ -19,6 +20,7 @@ from mcp_server_filesystem_edit.prompts.markdown_edit import (
     MD_EDIT_TOOL_NAME,
     SEND_MESSAGE_TOOL_DEF,
     SEND_MESSAGE_TOOL_NAME,
+    WORD_EDIT_FORMAT_INSTRUCTIONS,
 )
 from mcp_server_filesystem_edit.tools.edit_adapters.common import execute_tools, format_blocks_for_llm
 from mcp_server_filesystem_edit.tools.edit_adapters.latex import blockify as latex_blockify
@@ -69,6 +71,9 @@ class CommonEdit:
                 "context": context,
                 "document": doc_for_llm,
                 "chat_history": chat_history,
+                "format_instructions": (
+                    WORD_EDIT_FORMAT_INSTRUCTIONS if request.file_type == "word" else MARKDOWN_EDIT_FORMAT_INSTRUCTIONS
+                ),
             },
         )
         return reasoning_messages

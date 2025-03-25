@@ -148,7 +148,7 @@ async def read_file_for_edits(ctx: Context, path: str) -> FileForChanges:
 
     # For extensions that we can handle in an app, go down the app specific path.
     elif any(path.endswith(ext) for ext in SUPPORTED_APP_EXTENSIONS):
-        file_type = "markdown"
+        file_type = "word" if path.endswith(".docx") else "word"
         _, document = open_document_in_word(validated_path)
         file_content = get_markdown_representation(document)
     else:

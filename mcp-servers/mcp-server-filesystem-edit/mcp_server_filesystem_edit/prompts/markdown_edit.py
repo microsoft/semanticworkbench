@@ -2,6 +2,18 @@
 
 from mcp_extensions.llm.llm_types import DeveloperMessage, SystemMessage, UserMessage
 
+MARKDOWN_EDIT_FORMAT_INSTRUCTIONS = """- Your focus is on writing documents, but you can use standard Markdown syntax for the content. You should use it sparingly.
+- Do not insert extra newlines, such as after list items, unless it is already the existing style of the document."""
+
+WORD_EDIT_FORMAT_INSTRUCTIONS = """- Your focus is on writing documents, but you can use a subset of Markdown syntax for the content. You should use it sparingly.
+- The following are rules specific to environment where the content will be rendered.
+    - You can ONLY use Markdown syntax for paragraphs with bold and italics, headings, lists (numbered and bulleted, but NON NESTED). All other Markdown syntax is unsupported and forbidden.
+    - You can only use heading levels 1-6.
+    - When creating numbered lists, you must use the syntax of "1." to start each item in the list.
+    - Do NOT nest lists. For example, do not create a bulleted list "inside" of a numbered list.
+    - You must use headings to create a hierarchy of information instead of using any form of nested lists.
+    - Even if the conversation history or other context includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here."""
+
 MD_EDIT_REASONING_DEV_PROMPT = DeveloperMessage(
     content="""You're a Markdown document editor in charge of precisely editing a Markdown document according to a task, using the provided conversation history as the primary context. \
 The document will be presented to you as an ordered list of the content blocks that make up the document. \
@@ -63,8 +75,7 @@ Use the following as a guide for how to use the operations:
     - This means that if you remove the block at indices 2 to 4, the block that was at index 5 will still be at index 5 after the removal.
 
 ## On Output Format of the Content Parameter
-- Your focus is on writing documents, but you can use standard Markdown syntax for the content. You should use it sparingly.
-- Do not insert extra newlines, such as after list items, unless it is already the existing style of the document."""
+{{format_instructions}}"""
 )
 
 MD_EDIT_REASONING_USER_ATTACHMENTS_PROMPT = UserMessage(
