@@ -27,7 +27,7 @@ export const conversationApi = workbenchApi.injectEndpoints({
         }),
         duplicateConversation: builder.mutation<
             { conversationIds: string[]; assistantIds: string[] },
-            Pick<Conversation, 'id' | 'title' | 'metadata'>
+            Pick<Conversation, 'id' | 'title'>
         >({
             query: (body) => ({
                 url: `/conversations/${body.id}`,
