@@ -37,6 +37,11 @@ def main() -> None:
         # settings.allowed_directories = args.allowed_directories
         logger.info(f"Using allowed_directories from command line: {settings.allowed_directories}")
 
+    # Enabled Office integration by default if the user is on Windows x64
+    if sys.platform == "win32":
+        settings.office_support_enabled = True
+        logger.info("Windows x64 platform detected, Office support enabled by default.")
+
     # Set pdflatex_enabled based on command line argument
     settings.pdflatex_enabled = args.enable_pdflatex
     logger.info(f"LaTeX compilation support: {'enabled' if settings.pdflatex_enabled else 'disabled'}")

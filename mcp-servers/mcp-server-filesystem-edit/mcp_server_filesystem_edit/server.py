@@ -148,9 +148,12 @@ async def read_file_for_edits(ctx: Context, path: str) -> FileForChanges:
 
     # For extensions that we can handle in an app, go down the app specific path.
     elif any(path.endswith(ext) for ext in SUPPORTED_APP_EXTENSIONS):
-        file_type = "word" if path.endswith(".docx") else "word"
-        _, document = open_document_in_word(validated_path)
-        file_content = get_markdown_representation(document)
+        if sys.platform != "win32":
+            error_msg = "Office integration is currently only supported on Windows. If you want to have the assistant view the document, upload it as an attachment. If you want to edit it, consider using a Markdown file."
+        else:
+            file_type = "word" if path.endswith(".docx") else "word"
+            _, document = open_document_in_word(validated_path)
+            file_content = get_markdown_representation(document)
     else:
         error_msg = f"File type not supported: {path}"
         file_type = "markdown"
