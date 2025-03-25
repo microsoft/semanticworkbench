@@ -440,7 +440,13 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
         () => (
             <Overflow padding={90}>
                 <Toolbar size="small">
-                    <TooltipWrapper content="Mark selected conversations as read">
+                    <TooltipWrapper
+                        content={
+                            !enableBulkActions.read
+                                ? 'Select conversation(s) to enable'
+                                : 'Mark selected conversations as read'
+                        }
+                    >
                         <Button
                             className={classes.toolbarTextButton}
                             appearance="transparent"
@@ -449,7 +455,13 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                             onClick={handleMarkAllAsReadForSelected}
                         />
                     </TooltipWrapper>
-                    <TooltipWrapper content="Mark selected conversations as unread">
+                    <TooltipWrapper
+                        content={
+                            !enableBulkActions.unread
+                                ? 'Select conversation(s) to enable'
+                                : 'Mark selected conversations as unread'
+                        }
+                    >
                         <Button
                             appearance="transparent"
                             icon={<GlassesOffRegular />}
@@ -457,7 +469,13 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                             onClick={handleMarkAsUnreadForSelected}
                         />
                     </TooltipWrapper>
-                    <TooltipWrapper content="Remove selected conversations">
+                    <TooltipWrapper
+                        content={
+                            !enableBulkActions.remove
+                                ? 'Select conversation(s) to enable'
+                                : 'Remove selected conversations'
+                        }
+                    >
                         <Button
                             // hide this until implemented
                             style={{ display: 'none' }}
@@ -467,7 +485,11 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                             onClick={handleRemoveForSelected}
                         />
                     </TooltipWrapper>
-                    <TooltipWrapper content="Pin selected conversations">
+                    <TooltipWrapper
+                        content={
+                            !enableBulkActions.pin ? 'Select conversation(s) to enable' : 'Pin selected conversations'
+                        }
+                    >
                         <Button
                             appearance="subtle"
                             icon={<PinRegular />}
@@ -475,7 +497,13 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                             onClick={handlePinForSelected}
                         />
                     </TooltipWrapper>
-                    <TooltipWrapper content="Unpin selected conversations">
+                    <TooltipWrapper
+                        content={
+                            !enableBulkActions.unpin
+                                ? 'Select conversation(s) to enable'
+                                : 'Unpin selected conversations'
+                        }
+                    >
                         <Button
                             appearance="subtle"
                             icon={<PinOffRegular />}
@@ -483,7 +511,13 @@ export const ConversationListOptions: React.FC<ConversationListOptionsProps> = (
                             onClick={handleUnpinForSelected}
                         />
                     </TooltipWrapper>
-                    <TooltipWrapper content="Remove selected conversations">
+                    <TooltipWrapper
+                        content={
+                            !enableBulkActions.remove
+                                ? 'Select conversation(s) to enable'
+                                : 'Remove selected conversations'
+                        }
+                    >
                         <Button
                             appearance="subtle"
                             icon={<PlugDisconnectedRegular />}

@@ -740,6 +740,7 @@ def init(
                         logger.debug(
                             "sent event to user sse client; user_id: %s, event: %s",
                             user_principal.user_id,
+                            server_sent_event.event,
                         )
 
                     except Exception:
