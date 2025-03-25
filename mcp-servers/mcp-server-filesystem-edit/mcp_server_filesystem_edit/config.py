@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     log_level: str = log_level
     allowed_directories: list[str] = []
     include_hidden_paths: bool = False
+    office_support_enabled: bool = False
     pdflatex_enabled: bool = False
 
     # LLM and prompt related settings
@@ -25,3 +26,4 @@ class Settings(BaseSettings):
     doc_editor_prefix: str = "[Document Editor]: "
     feedback_tool_prefix: str = "[Feedback Tool]: "
     file_tool_prefix: str = "[File Tool]: "
+    rewrite_threshold: int = 250  # Tokens above this will trigger document edits instead of a rewrite

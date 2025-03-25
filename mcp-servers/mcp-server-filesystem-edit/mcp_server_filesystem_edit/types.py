@@ -18,7 +18,7 @@ class FileOpRequest(BaseModel):
     context: Context | CustomContext
     request_type: Literal["dev", "mcp"] = Field(default="mcp")
     chat_completion_client: Callable[..., Any] | None = Field(default=None)
-    file_type: Literal["markdown", "latex"] = Field(default="markdown")
+    file_type: Literal["markdown", "latex", "word"] = Field(default="markdown")
     file_content: str = Field(default="")
     task: str = Field(default="")
 
