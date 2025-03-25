@@ -6,22 +6,26 @@ from pathlib import Path
 from mcp.server.fastmcp import Context, FastMCP
 
 from mcp_server_filesystem_edit import settings
+from mcp_server_filesystem_edit.app_handling.excel import get_worksheet_content_as_md_table
 from mcp_server_filesystem_edit.app_handling.miktex import compile_tex_to_pdf
+from mcp_server_filesystem_edit.app_handling.office_common import OfficeAppType, open_document_in_office
 from mcp_server_filesystem_edit.app_handling.word import (
     get_markdown_representation,
-    open_document_in_word,
     write_markdown,
 )
 from mcp_server_filesystem_edit.tools.add_comments import CommonComments
 from mcp_server_filesystem_edit.tools.edit import CommonEdit
-from mcp_server_filesystem_edit.types import FileForChanges, FileOpRequest
+from mcp_server_filesystem_edit.types import FileOpRequest
 
 # Set the name of the MCP server
 server_name = "Filesystem Edit MCP Server"
 
-# Assume these are mutually exclusive
-SUPPORTED_APP_EXTENSIONS = [".docx"]
-SUPPORTED_FILE_ONLY_EXTENSIONS = [".md", ".tex"]
+
+VIEW_BY_FILE_EXTENSIONS = [".md", ".tex", ".csv"]
+VIEW_CUSTOM_EXTENSIONS = [".docx", ".xlsx", ".csv"]
+
+EDIT_BY_FILE_EXTENSIONS = [".md", ".tex"]
+EDIT_BY_APP_EXTENSIONS = [".docx"]
 
 
 async def get_allowed_directory(ctx: Context) -> Path:
@@ -129,72 +133,6 @@ async def read_file(ctx: Context, path: str) -> str:
         raise RuntimeError(f"Failed to read the file at {path}: {str(e)}")
 
 
-async def read_file_for_edits(ctx: Context, path: str) -> FileForChanges:
-    validated_path = await validate_path(ctx, path)
-    error_msg = None
-
-    # Check if the file exists and if not, create it
-    if not validated_path.exists():
-        try:
-            validated_path.parent.mkdir(parents=True, exist_ok=True)
-            validated_path.touch()
-        except Exception as e:
-            raise RuntimeError(f"Failed to create the file at {path}: {str(e)}")
-
-    # For file_only extensions, we read as normal.
-    if any(path.endswith(ext) for ext in SUPPORTED_FILE_ONLY_EXTENSIONS):
-        file_type = "markdown" if path.endswith(".md") else "latex"
-        file_content = await read_file(ctx, path)
-
-    # For extensions that we can handle in an app, go down the app specific path.
-    elif any(path.endswith(ext) for ext in SUPPORTED_APP_EXTENSIONS):
-        if sys.platform != "win32":
-            error_msg = "Office integration is currently only supported on Windows. If you want to have the assistant view the document, upload it as an attachment. If you want to edit it, consider using a Markdown file."
-        else:
-            file_type = "word" if path.endswith(".docx") else "word"
-            _, document = open_document_in_word(validated_path)
-            file_content = get_markdown_representation(document)
-    else:
-        error_msg = f"File type not supported: {path}"
-        file_type = "markdown"
-        file_content = ""
-
-    output = FileForChanges(
-        file_path=validated_path, file_content=file_content, file_type=file_type, error_msg=error_msg
-    )
-    return output
-
-
-async def write_file(ctx: Context, path: str, content: str) -> str:
-    """
-    Writes content to a file specified by the path. Creates the file if it does not exist.
-
-    Args:
-        path: The absolute or relative path to the file.
-        content: The string content to write into the file.
-
-    Returns:
-        A confirmation message.
-    """
-    file = await validate_path(ctx, path)
-
-    # For file_only extensions, read them as normal.
-    if any(path.endswith(ext) for ext in SUPPORTED_FILE_ONLY_EXTENSIONS):
-        try:
-            file.parent.mkdir(parents=True, exist_ok=True)  # Ensure parent directories exist
-            file.write_text(content, encoding="utf-8")
-            return f"Successfully wrote content to {path}"
-        except Exception as e:
-            raise RuntimeError(f"Failed to write to the file at {path}: {str(e)}")
-    elif any(path.endswith(ext) for ext in SUPPORTED_APP_EXTENSIONS):
-        # For extensions that we can handle in an app, go down the app specific path.
-        _, document = open_document_in_word(file)
-        write_markdown(document, content)
-        return f"Successfully wrote content to {path}"
-    else:
-        raise ValueError(f"File type not supported: {path}\nOnly .md, .tex, and .docx files are supported. ")
-
-
 def create_mcp_server() -> FastMCP:
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
@@ -236,22 +174,32 @@ def create_mcp_server() -> FastMCP:
         Returns:
             The content of the file as a string.
         """
-        empty_file_string = f"{settings.file_tool_prefix}File viewed successfully, but it is currently empty."
+        validated_path = await validate_path(ctx, path)
 
-        # If this is an app supported file, read it in the app using read_file_for_edits
-        if any(path.endswith(ext) for ext in SUPPORTED_APP_EXTENSIONS):
-            file_content = await read_file_for_edits(ctx, path)
-            if file_content.error_msg:
-                return file_content.error_msg
-            elif not file_content.file_content:
-                return empty_file_string
-            else:
-                return file_content.file_content
-        else:
+        empty_file_string = f"{settings.file_tool_prefix}File viewed successfully, but it is currently empty."
+        error_string = f"{settings.file_tool_prefix}File type not supported for filesystem reads: {validated_path}\nOnly {', '.join(VIEW_BY_FILE_EXTENSIONS + VIEW_CUSTOM_EXTENSIONS)} files are supported."
+
+        file_extension = validated_path.suffix.lower()
+        # Handle file types where we read them directly
+        if file_extension in VIEW_BY_FILE_EXTENSIONS:
             file_content = await read_file(ctx, path)
             if not file_content:
                 return empty_file_string
             return file_content
+        # Handle file types that need special code paths.
+        elif file_extension in VIEW_CUSTOM_EXTENSIONS and settings.office_support_enabled:
+            match file_extension:
+                case ".docx":
+                    _, document = open_document_in_office(validated_path, OfficeAppType.WORD)
+                    file_content = get_markdown_representation(document)
+                case ".xlsx":
+                    _, document = open_document_in_office(validated_path, OfficeAppType.EXCEL)
+                    file_content = get_worksheet_content_as_md_table(document)
+                case _:
+                    file_content = error_string
+            return file_content
+        else:
+            return error_string
 
     @mcp.tool()
     async def edit_file(ctx: Context, path: str, task: str) -> str:
@@ -267,31 +215,60 @@ def create_mcp_server() -> FastMCP:
             path: The relative path to the file.
             task: The specific task that you want the document editor to do.
         """
-        read_file_result = await read_file_for_edits(ctx, path)
-        if read_file_result.error_msg:
-            return read_file_result.error_msg
+        validated_path = await validate_path(ctx, path)
 
-        editor = CommonEdit()
-        request = FileOpRequest(
-            context=ctx,
-            request_type="mcp",
-            file_content=read_file_result.file_content,
-            task=task,
-            file_type=read_file_result.file_type,
-        )
-        output = await editor.run(request)
-        tool_output: str = output.change_summary + "\n" + output.output_message
+        if not validated_path.exists():
+            try:
+                validated_path.parent.mkdir(parents=True, exist_ok=True)
+                validated_path.touch()
+            except Exception as e:
+                raise RuntimeError(f"Failed to create the file at {path}: {str(e)}")
 
-        await write_file(ctx, path, output.new_content)
-
-        # If this is a tex file, auto compile it to PDF
-        if read_file_result.file_type == "latex" and settings.pdflatex_enabled:
-            success, error_msg = compile_tex_to_pdf(read_file_result.file_path)
-            if not success:
-                tool_output = f"\n\nError compiling LaTeX to PDF: {error_msg}\nPlease understand what caused the error and fix it in the LaTeX file in the next step."
-            else:
-                tool_output += "\n\nLaTeX compiled successfully to PDF."
-
+        file_extension = validated_path.suffix.lower()
+        if file_extension in EDIT_BY_FILE_EXTENSIONS:
+            file_content = await read_file(ctx, path)
+            match file_extension:
+                case ".md":
+                    file_type = "markdown"
+                case ".tex":
+                    file_type = "latex"
+                case _:
+                    file_type = "markdown"
+            request = FileOpRequest(
+                context=ctx,
+                request_type="mcp",
+                file_content=file_content,
+                task=task,
+                file_type=file_type,
+            )
+            editor = CommonEdit()
+            output = await editor.run(request)
+            tool_output: str = output.change_summary + "\n" + output.output_message
+            validated_path.write_text(output.new_content, encoding="utf-8")
+            # If this is a tex file, auto compile it to PDF
+            if file_type == "latex" and settings.pdflatex_enabled:
+                success, error_msg = compile_tex_to_pdf(validated_path)
+                if not success:
+                    tool_output = f"\n\nError compiling LaTeX to PDF: {error_msg}\nPlease understand what caused the error and fix it in the LaTeX file in the next step."
+                else:
+                    tool_output += "\n\nLaTeX compiled successfully to PDF."
+        elif file_extension in EDIT_BY_APP_EXTENSIONS and settings.office_support_enabled:
+            # Word (.docx) is currently the only supported app for editing
+            _, document = open_document_in_office(validated_path, OfficeAppType.WORD)
+            file_content = get_markdown_representation(document)
+            request = FileOpRequest(
+                context=ctx,
+                request_type="mcp",
+                file_content=file_content,
+                task=task,
+                file_type="word",
+            )
+            editor = CommonEdit()
+            output = await editor.run(request)
+            tool_output: str = output.change_summary + "\n" + output.output_message
+            write_markdown(document, output.new_content)
+        else:
+            tool_output = f"{settings.file_tool_prefix}File type not supported for editing: {validated_path}\nOnly {', '.join(EDIT_BY_FILE_EXTENSIONS + EDIT_BY_APP_EXTENSIONS)} files are supported."
         return tool_output
 
     @mcp.tool()
@@ -309,20 +286,48 @@ def create_mcp_server() -> FastMCP:
         Returns:
             A summary of the comments added and suggestions for how to address them.
         """
-        read_file_result = await read_file_for_edits(ctx, path)
-        if read_file_result.error_msg:
-            return read_file_result.error_msg
+        validated_path = await validate_path(ctx, path)
+        # Error if the file does not exist
+        if not validated_path.exists():
+            return "File does not exist at path: `{path}`"
 
-        commenter = CommonComments()
-        request = FileOpRequest(
-            context=ctx,
-            request_type="mcp",
-            file_content=read_file_result.file_content,
-            file_type=read_file_result.file_type,
-        )
-        output = await commenter.run(request, only_analyze=only_analyze)
-        await write_file(ctx, path, output.new_content)
-        return output.comment_instructions
+        file_extension = validated_path.suffix.lower()
+        if file_extension in EDIT_BY_FILE_EXTENSIONS:
+            file_content = await read_file(ctx, path)
+            match file_extension:
+                case ".md":
+                    file_type = "markdown"
+                case ".tex":
+                    file_type = "latex"
+                case _:
+                    file_type = "markdown"
+            commenter = CommonComments()
+            request = FileOpRequest(
+                context=ctx,
+                request_type="mcp",
+                file_content=file_content,
+                file_type=file_type,
+            )
+            output = await commenter.run(request, only_analyze=only_analyze)
+            validated_path.write_text(output.new_content, encoding="utf-8")
+            tool_output = output.comment_instructions
+        elif file_extension in EDIT_BY_APP_EXTENSIONS and settings.office_support_enabled:
+            # Word (.docx) is currently the only supported app for commenting
+            _, document = open_document_in_office(validated_path, OfficeAppType.WORD)
+            file_content = get_markdown_representation(document)
+            request = FileOpRequest(
+                context=ctx,
+                request_type="mcp",
+                file_content=file_content,
+                file_type="word",
+            )
+            commenter = CommonComments()
+            output = await commenter.run(request, only_analyze=only_analyze)
+            write_markdown(document, output.new_content)
+            tool_output = output.comment_instructions
+        else:
+            tool_output = f"{settings.file_tool_prefix}File type not supported for commenting: {validated_path}\nOnly {', '.join(EDIT_BY_FILE_EXTENSIONS + EDIT_BY_APP_EXTENSIONS)} files are supported."
+        return tool_output
 
     @mcp.resource(
         uri="resource://filesystem_edit/open_files",
@@ -333,6 +338,7 @@ def create_mcp_server() -> FastMCP:
     async def file_context() -> str:
         """
         Looks at the context files, and formats then into a string for the assistant to place in its context window.
+        # TODO: Eventually this should take a similar path as the view tool to read files.
         """
         try:
             ctx = mcp.get_context()

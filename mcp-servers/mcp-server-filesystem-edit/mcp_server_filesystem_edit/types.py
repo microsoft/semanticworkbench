@@ -1,6 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from pathlib import Path
 from typing import Any, Callable, Literal
 
 from mcp.server.fastmcp import Context
@@ -13,13 +12,6 @@ class CustomContext(BaseModel):
     document: str
     file_type: Literal["markdown", "latex"] = Field(default="markdown")
     additional_context: str
-
-
-class FileForChanges(BaseModel):
-    file_path: Path
-    file_content: str
-    file_type: Literal["markdown", "latex", "word"]
-    error_msg: str | None = None
 
 
 class FileOpRequest(BaseModel):

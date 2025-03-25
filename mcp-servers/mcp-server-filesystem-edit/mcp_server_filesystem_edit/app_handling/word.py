@@ -1,50 +1,6 @@
 import re
-import sys
-from pathlib import Path
 
 from mcp_server_filesystem_edit import settings
-
-
-def open_document_in_word(file_path: Path) -> tuple[object, object]:
-    """
-    Opens a document at the specified path in Word, creating and saving it it doesn't exist
-    """
-
-    if sys.platform != "win32":
-        raise EnvironmentError("This function only works on Windows.")
-
-    import win32com.client as win32
-
-    # Ensure path is a Path object and resolve to absolute path
-    doc_path = file_path.resolve()
-
-    # Create parent directories if they don't exist
-    doc_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # First try to get an existing Word instance
-    try:
-        word = win32.GetActiveObject("Word.Application")
-        # Check if the document is already open in this instance
-        for i in range(1, word.Documents.Count + 1):
-            if word.Documents(i).FullName.lower() == str(doc_path).lower():
-                # Document is already open, just return it and its parent app
-                return word, word.Documents(i)
-    except Exception:
-        # No running Word instance found, create a new one
-        word = win32.Dispatch("Word.Application")
-
-    # Make Word visible
-    word.Visible = True
-
-    # If the file exists, open it, otherwise create a new document and save it
-    if doc_path.exists():
-        doc = word.Documents.Open(str(doc_path))
-    else:
-        doc = word.Documents.Add()
-        # Save the new document with the specified path
-        doc.SaveAs(str(doc_path))
-
-    return word, doc
 
 
 def get_markdown_representation(document) -> str:
@@ -293,6 +249,10 @@ def write_markdown(document, markdown_text: str) -> None:
     markdown_with_comments = markdown_text
     # Strip comments from markdown text
     markdown_text = strip_comments_from_markdown(markdown_with_comments)
+
+    # Strip horizontal rules
+    hr_pattern = re.compile(r"(\n|^)\s*([-*_][ \t]*){3,}\s*(\n|$)", re.MULTILINE)
+    markdown_text = hr_pattern.sub(r"\1\3", markdown_text)
 
     document.Content.Delete()
 
