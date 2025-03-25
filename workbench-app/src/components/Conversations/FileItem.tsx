@@ -75,9 +75,9 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
         if (count < 1_000) {
             return `${count} ${label}`;
         } else if (count < 1_000_000) {
-            return `${(count / 1_000).toFixed(2).toString().replaceAll('.0', '')}k ${label}`;
+            return `${(count / 1_000).toFixed(1).toString().replaceAll('.0', '')}k ${label}`;
         } else {
-            return `${(count / 1_000_000).toFixed(2).toString().replaceAll('.0', '')}m ${label}`;
+            return `${(count / 1_000_000).toFixed(1).toString().replaceAll('.0', '')}m ${label}`;
         }
     };
 
