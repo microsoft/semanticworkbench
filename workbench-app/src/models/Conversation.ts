@@ -10,7 +10,7 @@ export interface Conversation {
     created: string;
     latest_message?: ConversationMessage;
     participants: ConversationParticipant[];
-    metadata?: {
+    metadata: {
         [key: string]: any;
     };
     conversationPermission: 'read' | 'read_write';

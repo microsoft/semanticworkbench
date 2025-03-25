@@ -74,6 +74,7 @@ from semantic_workbench_api_model.workbench_model import (
     UpdateAssistantServiceRegistration,
     UpdateAssistantServiceRegistrationUrl,
     UpdateConversation,
+    UpdateFile,
     UpdateParticipant,
     UpdateUser,
     User,
@@ -803,7 +804,7 @@ def init(
     async def update_conversation(
         conversation_id: uuid.UUID,
         update_conversation: UpdateConversation,
-        user_principal: auth.DependsUserPrincipal,
+        user_principal: auth.DependsActorPrincipal,
     ) -> Conversation:
         return await conversation_controller.update_conversation(
             user_principal=user_principal,
@@ -1006,6 +1007,20 @@ def init(
             result.stream,
             media_type=result.content_type,
             headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+        )
+
+    @app.patch("/conversations/{conversation_id}/files/{filename:path}")
+    async def update_file(
+        conversation_id: uuid.UUID,
+        filename: str,
+        principal: auth.DependsActorPrincipal,
+        update_file: UpdateFile,
+    ) -> FileVersions:
+        return await file_controller.update_file_metadata(
+            conversation_id=conversation_id,
+            filename=filename,
+            principal=principal,
+            metadata=update_file.metadata,
         )
 
     @app.delete("/conversations/{conversation_id}/files/{filename:path}", status_code=status.HTTP_204_NO_CONTENT)

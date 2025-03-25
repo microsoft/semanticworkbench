@@ -55,6 +55,16 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
         }
     };
 
+    const tokenCountToDisplay = (count: number) => {
+        if (count < 1_000) {
+            return `${count} token` + (count !== 1 ? 's' : '');
+        } else if (count < 1_000_000) {
+            return `${(count / 1_000).toFixed(2)} K tokens`;
+        } else {
+            return `${(count / 1_000_000).toFixed(2)} M tokens`;
+        }
+    };
+
     const handleDelete = React.useCallback(async () => {
         if (submitted) {
             return;
@@ -127,7 +137,10 @@ export const FileItem: React.FC<FileItemProps> = (props) => {
                 }
                 description={
                     <Caption1>
-                        {time} | {sizeToDisplay(conversationFile.size)}
+                        {time} | {sizeToDisplay(conversationFile.size)}{' '}
+                        {conversationFile.metadata?.token_count !== undefined
+                            ? `| ${tokenCountToDisplay(conversationFile.metadata?.token_count)}`
+                            : ''}
                     </Caption1>
                 }
                 action={

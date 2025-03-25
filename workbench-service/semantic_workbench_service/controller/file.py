@@ -70,6 +70,7 @@ class FileController:
                     select(db.File)
                     .where(db.File.conversation_id == conversation_id)
                     .where(col(db.File.filename).in_(unique_filenames))
+                    .with_for_update()
                 )
             ).all()
 
@@ -207,6 +208,64 @@ class FileController:
                 file=file_records[0][0],
                 versions=(version for _, version in file_records),
             )
+
+    async def update_file_metadata(
+        self,
+        conversation_id: uuid.UUID,
+        filename: str,
+        principal: auth.ActorPrincipal,
+        metadata: dict[str, Any],
+    ) -> FileVersions:
+        async with self._get_session() as session:
+            conversation = (
+                await session.exec(
+                    query.select_conversations_for(principal, include_all_owned=True).where(
+                        db.Conversation.conversation_id == conversation_id
+                    )
+                )
+            ).one_or_none()
+            if conversation is None:
+                raise exceptions.NotFoundError()
+
+            record_pair = (
+                await session.exec(
+                    (
+                        select(db.File, db.FileVersion)
+                        .join(db.FileVersion)
+                        .where(db.File.conversation_id == conversation_id)
+                        .where(db.File.filename == filename)
+                        .order_by(col(db.FileVersion.version).desc())
+                        .limit(1)
+                    )
+                )
+            ).one_or_none()
+            if record_pair is None:
+                raise exceptions.NotFoundError()
+
+            file_record, version_record = record_pair
+            version_record.meta_data = {**version_record.meta_data, **metadata}
+
+            session.add(version_record)
+            await session.commit()
+
+        await self._notify_event(
+            ConversationEventQueueItem(
+                event=ConversationEvent(
+                    conversation_id=conversation_id,
+                    event=ConversationEventType.file_updated,
+                    data={
+                        "file": convert.file_from_db((file_record, version_record)).model_dump(),
+                    },
+                ),
+            )
+        )
+
+        return await self.file_versions(
+            conversation_id=conversation_id,
+            filename=filename,
+            principal=principal,
+            version=version_record.version,
+        )
 
     async def download_file(
         self,

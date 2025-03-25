@@ -1,11 +1,11 @@
 import datetime
 import logging
-import openai_client
-from openai.types.chat import ChatCompletionMessageParam
 import uuid
 from typing import Annotated, AsyncContextManager, Awaitable, Callable, Iterable, Literal, Sequence
 
 import deepmerge
+import openai_client
+from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field, HttpUrl
 from semantic_workbench_api_model.assistant_service_client import AssistantError
 from semantic_workbench_api_model.workbench_model import (
@@ -291,7 +291,7 @@ class ConversationController:
         self,
         conversation_id: uuid.UUID,
         update_conversation: UpdateConversation,
-        user_principal: auth.UserPrincipal,
+        user_principal: auth.ActorPrincipal,
     ) -> Conversation:
         async with self._get_session() as session:
             conversation = (
@@ -302,7 +302,6 @@ class ConversationController:
                     )
                     .where(
                         db.Conversation.conversation_id == conversation_id,
-                        db.Conversation.owner_id == user_principal.user_id,
                     )
                     .with_for_update()
                 )
@@ -314,7 +313,7 @@ class ConversationController:
                 match key:
                     case "metadata":
                         system_entries = {k: v for k, v in conversation.meta_data.items() if k.startswith("__")}
-                        conversation.meta_data = {**value, **system_entries}
+                        conversation.meta_data = {**conversation.meta_data, **value, **system_entries}
                     case "title":
                         if value == conversation.title:
                             continue

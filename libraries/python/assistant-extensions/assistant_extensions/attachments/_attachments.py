@@ -4,6 +4,7 @@ import io
 import logging
 from typing import Any, Awaitable, Callable, Sequence
 
+import openai_client
 from assistant_drive import Drive, DriveConfig, IfDriveFileExistsBehavior
 from llm_client.model import CompletionMessage, CompletionMessageImageContent, CompletionMessageTextContent
 from semantic_workbench_api_model.workbench_model import (
@@ -151,37 +152,11 @@ class AttachmentsExtension:
         if not attachments:
             return []
 
-        messages: list[CompletionMessage] = [_create_message(config, config.context_description)]
+        messages: list[CompletionMessage] = [_create_message(config.preferred_message_role, config.context_description)]
 
         # process each attachment
         for attachment in attachments:
-            # if the content is a data URI, include it as an image type within the message content
-            if attachment.content.startswith("data:image/"):
-                messages.append(
-                    CompletionMessage(
-                        role="user",
-                        content=[
-                            CompletionMessageTextContent(
-                                type="text",
-                                text=f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
-                            ),
-                            CompletionMessageImageContent(
-                                type="image",
-                                media_type="image/png",
-                                data=attachment.content,
-                            ),
-                            CompletionMessageTextContent(
-                                type="text",
-                                text=f"</{image_tag}></{attachment_tag}>",
-                            ),
-                        ],
-                    )
-                )
-                continue
-
-            error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
-            content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}>{error_element}<{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
-            messages.append(_create_message(config, content))
+            messages.append(_create_message_for_attachment(config.preferred_message_role, attachment))
 
         return messages
 
@@ -209,8 +184,35 @@ class AttachmentsExtension:
         return filenames
 
 
-def _create_message(config: AttachmentsConfigModel, content: str) -> CompletionMessage:
-    match config.preferred_message_role:
+def _create_message_for_attachment(preferred_message_role: str, attachment: Attachment) -> CompletionMessage:
+    # if the content is a data URI, include it as an image type within the message content
+    if attachment.content.startswith("data:image/"):
+        return CompletionMessage(
+            role="user",
+            content=[
+                CompletionMessageTextContent(
+                    type="text",
+                    text=f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}><{image_tag}>",
+                ),
+                CompletionMessageImageContent(
+                    type="image",
+                    media_type="image/png",
+                    data=attachment.content,
+                ),
+                CompletionMessageTextContent(
+                    type="text",
+                    text=f"</{image_tag}></{attachment_tag}>",
+                ),
+            ],
+        )
+
+    error_element = f"<{error_tag}>{attachment.error}</{error_tag}>" if attachment.error else ""
+    content = f"<{attachment_tag}><{filename_tag}>{attachment.filename}</{filename_tag}>{error_element}<{content_tag}>{attachment.content}</{content_tag}></{attachment_tag}>"
+    return _create_message(preferred_message_role, content)
+
+
+def _create_message(preferred_message_role: str, content: str) -> CompletionMessage:
+    match preferred_message_role:
         case "system":
             return CompletionMessage(
                 role="system",
@@ -222,7 +224,7 @@ def _create_message(config: AttachmentsConfigModel, content: str) -> CompletionM
                 content=content,
             )
         case _:
-            raise ValueError(f"unsupported preferred_message_role: {config.preferred_message_role}")
+            raise ValueError(f"unsupported preferred_message_role: {preferred_message_role}")
 
 
 async def _get_attachments(
@@ -345,6 +347,17 @@ async def _get_attachment_for_file(
         )
         drive.write_model(
             attachment, _original_to_attachment_filename(file.filename), if_exists=IfDriveFileExistsBehavior.OVERWRITE
+        )
+
+        completion_message = _create_message_for_attachment(preferred_message_role="system", attachment=attachment)
+        openai_completion_messages = openai_client.messages.convert_from_completion_messages([completion_message])
+        token_count = openai_client.num_tokens_from_message(openai_completion_messages[0], model="gpt-4o")
+
+        await context.update_file(
+            file.filename,
+            metadata={
+                "token_count": token_count,
+            },
         )
 
         return attachment

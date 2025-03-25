@@ -143,7 +143,6 @@ export const useConversationUtility = () => {
             await updateConversation({
                 id: conversation.id,
                 metadata: {
-                    ...conversation.metadata,
                     participantAppMetadata: {
                         ...participantAppMetadata,
                         [localUserId]: { ...userAppMetadata, ...appMetadata },

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
+import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { Constants } from '../../../Constants';
 import { useHistoryUtility } from '../../../libs/useHistoryUtility';
@@ -8,6 +9,7 @@ import { useParticipantUtility } from '../../../libs/useParticipantUtility';
 import { useSiteUtility } from '../../../libs/useSiteUtility';
 import { Assistant } from '../../../models/Assistant';
 import { useAppSelector } from '../../../redux/app/hooks';
+import { workbenchConversationEvents } from '../../../routes/FrontDoor';
 import { ExperimentalNotice } from '../../App/ExperimentalNotice';
 import { Loading } from '../../App/Loading';
 import { ConversationShare } from '../../Conversations/ConversationShare';
@@ -135,12 +137,31 @@ export const Chat: React.FC<ChatProps> = (props) => {
         assistantsRefetch,
         assistantCapabilitiesIsFetching,
         rewindToBefore,
+        refetchConversation,
     } = useHistoryUtility(conversationId);
 
     if (historyError) {
         const errorMessage = JSON.stringify(historyError);
         throw new Error(`Error loading conversation (${conversationId}): ${errorMessage}`);
     }
+
+    React.useEffect(() => {
+        if (historyIsLoading) {
+            return;
+        }
+
+        // handle new message events
+        const conversationHandler = async (_event: EventSourceMessage) => {
+            await refetchConversation();
+        };
+
+        workbenchConversationEvents.addEventListener('conversation.updated', conversationHandler);
+
+        return () => {
+            // remove event listeners
+            workbenchConversationEvents.removeEventListener('conversation.updated', conversationHandler);
+        };
+    }, [historyIsLoading, refetchConversation]);
 
     React.useEffect(() => {
         if (conversation) {

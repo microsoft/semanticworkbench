@@ -42,6 +42,7 @@ const transformResponseToFile = (response: any): ConversationFile => {
             size: response.file_size,
             version: response.current_version,
             contentType: response.content_type,
+            metadata: response.metadata,
         };
     } catch (error) {
         throw new Error(`Failed to transform file response: ${error}`);
