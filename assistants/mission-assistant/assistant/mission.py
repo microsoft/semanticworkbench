@@ -16,10 +16,11 @@ from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     ConversationMessage,
     ConversationPermission,
+    ConversationShare, 
     MessageType,
     NewConversationMessage,
-    NewConversationShare,
     ParticipantRole,
+    User,
 )
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -270,7 +271,7 @@ class MissionInvitation:
     @staticmethod
     async def create_invitation(
         context: ConversationContext,
-        target_username: str,
+        target_username: Optional[str] = None,
         files_to_share: Optional[List[str]] = None,
         expiration_hours: int = 24,
         permission: str = "read_write",
@@ -280,7 +281,7 @@ class MissionInvitation:
 
         Args:
             context: The conversation context
-            target_username: Username to invite
+            target_username: Optional username to invite (if None, anyone can join)
             files_to_share: List of filenames to share (None for all)
             expiration_hours: Hours until invitation expires
             permission: Permission level for the invited user
@@ -293,7 +294,7 @@ class MissionInvitation:
             invitation_token = secrets.token_urlsafe(32)
             expiration = datetime.utcnow() + timedelta(hours=expiration_hours)
 
-            # First check if target user exists
+            # Get current conversation and user info
             participants = await context.get_participants()
             current_user_id = None
 
@@ -319,79 +320,60 @@ class MissionInvitation:
                             "content_type": file_info.content_type,
                         })
 
-            # Create invitation metadata
-            invitation_metadata = {
-                "mission_invitation": True,
-                "invitation_token": invitation_token,
-                "invitation_expires": expiration.isoformat(),
-                "target_username": target_username,
-                "invitation_creator_id": current_user_id,
-                "files_to_share": files_metadata if files_to_share else [],
-                "share_all_files": files_to_share is None,
-            }
+            # Create an entry in our local state since we can't directly create a share via API
+            # (The user would normally create it through the UI)
+            share_id = uuid.uuid4()
+            
+            # Store the invitation in our local state
+            links = await MissionStateManager.get_links(context)
 
-            # Create a conversation share using the Workbench API
-            share = NewConversationShare(
-                conversation_id=uuid.UUID(context.id),
-                label=f"Mission Invitation for {target_username}",
-                conversation_permission=ConversationPermission(permission),
-                metadata=invitation_metadata,
+            # Initialize conversation entry if needed
+            conversation_id = str(context.id)
+            if conversation_id not in links.linked_conversations:
+                links.linked_conversations[conversation_id] = LinkedConversation(
+                    conversation_id=conversation_id, status="active", user_id=current_user_id, files=[]
+                )
+
+            # Add pending invitation to state
+            linked_conversation = links.linked_conversations[conversation_id]
+            invitation_data = {
+                "token": invitation_token,
+                "share_id": str(share_id),
+                "expires": expiration.isoformat(),
+                "files_to_share": files_to_share or [],
+            }
+            
+            # Only add username if provided
+            if target_username:
+                invitation_data["target_username"] = target_username
+                
+            linked_conversation.pending_invitations.append(invitation_data)
+
+            await MissionStateManager.save_links(context, links)
+
+            # Generate a shareable invitation code
+            invitation_code = f"{share_id}:{invitation_token}"
+
+            # Format the notification message based on whether a username was provided
+            if target_username:
+                notification_message = f"Mission invitation created for {target_username}. This is a locally managed invitation."
+                success_message = f"Invitation created for {target_username}. They can join by using the /join {invitation_code} command in their conversation."
+            else:
+                notification_message = "Mission invitation created. Anyone with this code can join the mission."
+                success_message = f"Invitation created. Anyone with this code can join by using the /join {invitation_code} command in their conversation."
+
+            # Send notification message about the invitation
+            await context.send_messages(
+                NewConversationMessage(
+                    content=notification_message,
+                    message_type=MessageType.notice,
+                )
             )
 
-            # Since we don't have direct access to the share methods through the client builders,
-            # we'll need to use context.client which has been set up for us
-            from semantic_workbench_assistant import settings
-            
-            # Create a direct HTTP client for the workbench service
-            import httpx
-            async with httpx.AsyncClient(base_url=str(settings.workbench_service_url)) as client:
-                # Add appropriate headers
-                client.headers.update({
-                    "X-Assistant-Service-ID": context.assistant._assistant_service_id,
-                    "X-API-Key": settings.workbench_service_api_key,
-                    "X-Assistant-ID": str(context.assistant.id)
-                })
-                
-                # Send the request directly
-                response = await client.post(
-                    f"/assistant-service-conversations/{context.id}/shares",
-                    json=share.model_dump(exclude_defaults=True, exclude_unset=True, mode="json")
-                )
-                response.raise_for_status()
-                share_result = response.json()
-
-            if share_result:
-                # Store the invitation in our local state as well
-                links = await MissionStateManager.get_links(context)
-
-                # Initialize conversation entry if needed
-                conversation_id = str(context.id)
-                if conversation_id not in links.linked_conversations:
-                    links.linked_conversations[conversation_id] = LinkedConversation(
-                        conversation_id=conversation_id, status="active", user_id=current_user_id, files=[]
-                    )
-
-                # Add pending invitation to state
-                linked_conversation = links.linked_conversations[conversation_id]
-                linked_conversation.pending_invitations.append({
-                    "token": invitation_token,
-                    "share_id": str(share_result.id),
-                    "target_username": target_username,
-                    "expires": expiration.isoformat(),
-                    "files_to_share": files_to_share or [],
-                })
-
-                await MissionStateManager.save_links(context, links)
-
-                # Generate a shareable invitation code
-                invitation_code = f"{share_result.id}:{invitation_token}"
-
-                return (
-                    True,
-                    f"Invitation created for {target_username}. They can join by using the /join {invitation_code} command in their conversation.",
-                )
-
-            return False, "Failed to create invitation share"
+            return (
+                True,
+                success_message,
+            )
 
         except Exception as e:
             logger.exception(f"Error creating invitation: {e}")
@@ -423,45 +405,40 @@ class MissionInvitation:
             except ValueError:
                 return False, "Invalid share ID in invitation", None
 
-            # Get the share using the Workbench API
-            try:
-                # Create direct HTTP client for the workbench service
-                from semantic_workbench_assistant import settings
-                import httpx
-                
-                async with httpx.AsyncClient(base_url=str(settings.workbench_service_url)) as client:
-                    # Add appropriate headers
-                    client.headers.update({
-                        "X-Assistant-Service-ID": context.assistant._assistant_service_id,
-                        "X-API-Key": settings.workbench_service_api_key,
-                        "X-Assistant-ID": str(context.assistant.id)
-                    })
+            # Look for the invitation in all mission state files
+            all_files = pathlib.Path(settings.storage.root).glob("**/mission_links.json")
+            
+            invitation_data = None
+            source_conversation_id = None
+            
+            for state_file in all_files:
+                try:
+                    links = read_model(state_file, ConversationLinks)
+                    if not links:
+                        continue
+                        
+                    # Check each linked conversation's pending invitations
+                    for conv_id, linked_conv in links.linked_conversations.items():
+                        for invitation in linked_conv.pending_invitations:
+                            if invitation.get("share_id") == share_id_str and invitation.get("token") == token:
+                                invitation_data = invitation
+                                source_conversation_id = conv_id
+                                break
+                        
+                        if invitation_data:
+                            break
+                except Exception:
+                    # Skip any problematic files
+                    continue
                     
-                    # Send the request directly
-                    response = await client.get(f"/shares/{share_id}")
-                    response.raise_for_status()
-                    share_data = response.json()
-                    
-                    # Create a ConversationShare object from the response
-                    from semantic_workbench_api_model.workbench_model import ConversationShare
-                    share = ConversationShare.model_validate(share_data)
-            except Exception:
+                if invitation_data:
+                    break
+
+            if not invitation_data:
                 return False, "Invitation not found or expired", None
 
-            if not share:
-                return False, "Invitation not found", None
-
-            # Get invitation metadata
-            metadata = share.metadata or {}
-            if not metadata.get("mission_invitation"):
-                return False, "Not a valid mission invitation", None
-
-            # Verify the token matches
-            if metadata.get("invitation_token") != token:
-                return False, "Invalid invitation token", None
-
             # Check if invitation has expired
-            invitation_expires = metadata.get("invitation_expires")
+            invitation_expires = invitation_data.get("expires")
             if invitation_expires:
                 expires = datetime.fromisoformat(invitation_expires.replace("Z", "+00:00"))
                 if datetime.utcnow() > expires:
@@ -483,21 +460,42 @@ class MissionInvitation:
                 return False, "Could not identify current user", None
                 
             # Verify username matches the target (if specified)
-            target_username = metadata.get("target_username")
+            target_username = invitation_data.get("target_username")
             if target_username and current_username and target_username.lower() != current_username.lower():
                 return False, f"This invitation was created for {target_username}, not for {current_username}", None
+            # If no target username is specified, anyone can use the invitation
+
+            # Create a mock share object for compatibility
+            mock_share = ConversationShare(
+                id=share_id,
+                owner_id=invitation_data.get("invitation_creator_id", ""),
+                label=f"Mission Invitation for {target_username}",
+                created_by_user=User(
+                    id=invitation_data.get("invitation_creator_id", ""),
+                    name=invitation_data.get("invitation_creator_name", "Mission Creator"),
+                    image=None,
+                    service_user=False,
+                    created_datetime=datetime.utcnow()
+                ),
+                conversation_id=uuid.UUID(source_conversation_id) if source_conversation_id else uuid.UUID(invitation_data.get("conversation_id", "00000000-0000-0000-0000-000000000000")),
+                conversation_title="Mission Conversation",
+                conversation_permission=ConversationPermission(invitation_data.get("permission", "read_write")),
+                is_redeemable=True,
+                created_datetime=datetime.utcnow(),
+                metadata=invitation_data
+            )
 
             # Invitation is valid, return the share data
             return (
                 True,
                 "Invitation is valid",
                 {
-                    "share": share,
-                    "source_conversation_id": str(share.conversation_id),
+                    "share": mock_share,
+                    "source_conversation_id": source_conversation_id,
                     "current_user_id": current_user_id,
-                    "files_to_share": metadata.get("files_to_share", []),
-                    "share_all_files": metadata.get("share_all_files", False),
-                    "permission": share.conversation_permission,
+                    "files_to_share": invitation_data.get("files_to_share", []),
+                    "share_all_files": invitation_data.get("share_all_files", False),
+                    "permission": mock_share.conversation_permission,
                 },
             )
 
@@ -531,33 +529,7 @@ class MissionInvitation:
             files_to_share = invitation_data["files_to_share"]
             share_all_files = invitation_data["share_all_files"]
 
-            # Redeem the share
-            try:
-                # Create direct HTTP client for the workbench service
-                from semantic_workbench_assistant import settings
-                import httpx
-                
-                async with httpx.AsyncClient(base_url=str(settings.workbench_service_url)) as client:
-                    # Add appropriate headers
-                    client.headers.update({
-                        "X-Assistant-Service-ID": context.assistant._assistant_service_id,
-                        "X-API-Key": settings.workbench_service_api_key,
-                        "X-Assistant-ID": str(context.assistant.id)
-                    })
-                    
-                    # Send the request directly
-                    response = await client.post(f"/shares/{share.id}/redemptions")
-                    response.raise_for_status()
-                    redemption_data = response.json()
-                    
-                    # Create a ConversationShareRedemption object from the response
-                    from semantic_workbench_api_model.workbench_model import ConversationShareRedemption
-                    redemption = ConversationShareRedemption.model_validate(redemption_data)
-            except Exception as e:
-                return False, f"Failed to redeem invitation: {str(e)}"
-
-            if not redemption:
-                return False, "Failed to redeem invitation"
+            # Track redemption in local state (no need to create a mock redemption object)
 
             # Create a link from this conversation to the source conversation
             links = await MissionStateManager.get_links(context)
@@ -625,14 +597,12 @@ class MissionInvitation:
                         )
 
                     # Update pending invitations to mark this one as accepted
-                    linked_source_conv = source_links.linked_conversations.get(source_conversation_id)
-                    pending_invitations = linked_source_conv.pending_invitations if linked_source_conv else []
-
-                    for invitation in pending_invitations:
-                        if invitation.get("share_id") == str(share.id):
-                            invitation["status"] = "accepted"
-                            invitation["accepted_by"] = current_username
-                            invitation["accepted_time"] = datetime.utcnow().isoformat()
+                    for conv_id, linked_conv in source_links.linked_conversations.items():
+                        for invitation in linked_conv.pending_invitations:
+                            if invitation.get("share_id") == str(share.id):
+                                invitation["status"] = "accepted"
+                                invitation["accepted_by"] = current_username
+                                invitation["accepted_time"] = datetime.utcnow().isoformat()
 
                     await MissionStateManager.save_links(source_context, source_links)
 
@@ -812,38 +782,38 @@ class MissionManager:
     ) -> None:
         """
         Processes an invite command from a user.
-        Format: /invite username
+        Format: /invite [username]  - username is optional
         """
-        # Extract the username from the command
+        # Extract the username from the command if provided
         content = message.content.strip()
         if not content.startswith(f"/{invite_command}"):
             return
 
         parts = content.split(maxsplit=1)
+        
+        # If no username specified, create a universal invitation
         if len(parts) < 2:
-            await context.send_messages(
-                NewConversationMessage(
-                    content=f"Please specify a username to invite. Format: /{invite_command} username",
-                    message_type=MessageType.notice,
-                )
+            # Create a secure invitation without username restriction
+            success, result_message = await MissionInvitation.create_invitation(
+                context=context,
+                files_to_share=None,  # Share all files
             )
-            return
-
-        username = parts[1].strip()
-
-        # Create a secure invitation using our new mechanism
-        success, result_message = await MissionInvitation.create_invitation(
-            context=context,
-            target_username=username,
-            files_to_share=None,  # Share all files
-        )
+        else:
+            # Create a secure invitation for a specific username
+            username = parts[1].strip()
+            success, result_message = await MissionInvitation.create_invitation(
+                context=context,
+                target_username=username,
+                files_to_share=None,  # Share all files
+            )
 
         # Send the message to the user
         await context.send_messages(
             NewConversationMessage(content=result_message, message_type=MessageType.chat if success else MessageType.notice)
         )
 
-        logger.info(f"Invitation command processed for {username}: {success}")
+        username_info = parts[1].strip() if len(parts) > 1 else "anyone"
+        logger.info(f"Invitation command processed for {username_info}: {success}")
 
     @staticmethod
     async def process_join_command(

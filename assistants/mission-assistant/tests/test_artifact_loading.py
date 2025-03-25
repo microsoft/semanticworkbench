@@ -1,17 +1,15 @@
-import asyncio
 import json
-import os
 import shutil
 import pathlib
 import unittest
 import unittest.mock
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING, TypeVar, cast
+from typing import Any, TYPE_CHECKING, TypeVar, cast
 
 # Import only the type
 if TYPE_CHECKING:
-    from semantic_workbench_assistant.assistant_app import ConversationContext
+    pass
 
 from assistant.artifacts import MissionBriefing, ArtifactType
 from assistant.artifact_messaging import ArtifactMessenger
