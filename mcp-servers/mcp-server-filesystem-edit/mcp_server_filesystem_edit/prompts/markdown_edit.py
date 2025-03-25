@@ -242,8 +242,8 @@ If there is nothing between the tags, that means the document is empty.
 
 # On Your Task
 - You must summarize the changes between the document in a cohesive and concise manner.
-- Do not comment on the quality of the changes. Only accurately summarize the changes themselves.
-- Don't list each individual little change, but rather summarize the major changes in at most a few sentences even if the changes are drastic."""
+- Accurately summarize the changes themselves without opinion or bias. For example, do not say things like "thorough", "detailed", or "detailed" as these are subjective.
+- Don't list each individual little change, but rather summarize the major changes in at most a 1 to 3 sentences even if the changes are drastic."""
 )
 
 MD_EDIT_CHANGES_USER_PROMPT = UserMessage(

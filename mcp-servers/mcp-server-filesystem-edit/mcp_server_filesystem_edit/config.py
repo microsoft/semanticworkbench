@@ -25,3 +25,4 @@ class Settings(BaseSettings):
     doc_editor_prefix: str = "[Document Editor]: "
     feedback_tool_prefix: str = "[Feedback Tool]: "
     file_tool_prefix: str = "[File Tool]: "
+    rewrite_threshold: int = 250  # Tokens above this will trigger document edits instead of a rewrite

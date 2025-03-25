@@ -132,7 +132,7 @@ class CommonComments:
 
     def format_comment(self, file_type: str, comment_text: str) -> str:
         """Returns a formatted comment based on file type."""
-        if file_type == "markdown":
+        if file_type == "markdown" or file_type == "word":
             return f"<!-- Feedback: {comment_text} -->\n"
         else:
             return f"% Feedback: {comment_text}\n"

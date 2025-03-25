@@ -13,8 +13,10 @@ Current date: {{current_date}}
 {{task}}
 
 ## On Provided Context
-You will be provided important context to give you the information needed to select the correct tool(s) to modify the document.
+You will be provided important context to give you the information needed to write a high-quality document.
 - The current content of the document is enclosed in <document> and </document> tags.
+    - If there is no document, you are writing it from scratch.
+    - Otherwise, the document should be rewritten/edited.
 - The conversation history between the user and assistant is provided before the document.
     - You should focus on the latest message to determine how to edit the document.
     - The remainder of the conversation is provided for additional context.
@@ -26,10 +28,14 @@ You will be provided important context to give you the information needed to sel
 Keep in mind the following key elements as you write.
 ### Depth
 - The document should have the necessary depth and length for the given the task at hand.
+- For example, if the user asks for a comprehensive technical report, it should be a thorough report that covers the topic in detail, factually and accurately.
+- On the other hand, if the user asks for an email, it should short and concise.
 
 ### Contextual Awareness
 - Pay attention to and incorporate the preferences the user has subtly provided throughout the conversation.
-- Ensure the style of the document aligns with the style of any uploaded documents from the user.
+- Ensure the writing style of the document aligns with the style of any uploaded documents from the user.
+- If there are sources, attachments, or results of tool calls, you should use those factually and accurately. \
+Keep in mind that not all sources are quality, so you should use your judgment and own expertise to determine if you should include it.
 
 ### Document Quality
 - Unless otherwise specified by the user, the document should aim for "PhD" or "Domain Expert Quality".
@@ -41,12 +47,9 @@ Keep in mind the following key elements as you write.
 - Tailor the document writing for its intended audience. For technical audiences such as research papers, use appropriate technical terminology and structure. For senior executives, ensure the content is accessible with appropriate context.
 
 ## On Formatting
-These are guidelines specific to the conversion from your output which should be written in Markdown to Word. You must abide by these in order to ensure the document is displayed correctly to the user.
-- Absolutely do not start your response with things like "Below is the document..." or "Here is the document...". Your response should only be the document itself as it will be directly inserted into the Word document.
-- You can ONLY use Markdown syntax for paragraphs with bold and italics, and headings 1-6. All other Markdown syntax is unsupported and forbidden.
-- You must use headings to create a hierarchy of information. For example, instead of using bold text followed by a colon, prefer to use a heading 4, 5, or 6 as this is more Word-appropriate.
-- Even if the conversation history or other context includes unsupported syntax such as nested lists or tables, you must strictly follow the Markdown syntax described here.
-- Finally, use Markdown syntax sparingly. Always prefer to organize your response using headings and paragraphs."""
+These are guidelines specific to the conversion from your output which should be written in Markdown. You must abide by these in order to ensure the document is displayed correctly to the user.
+- You MUST make sure the content of the document is enclosed in <new_document> and </new_document> tags so that it can be displayed correctly.
+{{format_instructions}}"""
 )
 
 MD_DRAFT_REASONING_USER_ATTACHMENTS_PROMPT = UserMessage(
@@ -62,9 +65,17 @@ MD_DRAFT_REASONING_USER_CHAT_HISTORY_PROMPT = UserMessage(
 </chat_history>"""
 )
 
+MD_EDIT_REASONING_USER_DOC_PROMPT = UserMessage(
+    content="""<document>
+{{document}}
+</document>
+Write the new version of the document and enclose in <new_document> and </new_document> tags."""
+)
+
 
 MD_DRAFT_REASONING_MESSAGES = [
     MD_DRAFT_REASONING_DEV_PROMPT,
     MD_DRAFT_REASONING_USER_ATTACHMENTS_PROMPT,
     MD_DRAFT_REASONING_USER_CHAT_HISTORY_PROMPT,
+    MD_EDIT_REASONING_USER_DOC_PROMPT,
 ]

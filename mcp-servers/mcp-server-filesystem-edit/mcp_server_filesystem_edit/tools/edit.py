@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 
 import pendulum
 from mcp.server.fastmcp import Context
@@ -11,6 +12,7 @@ from mcp_extensions.llm.llm_types import ChatCompletionRequest, ChatCompletionRe
 
 from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.prompts.latex_edit import LATEX_EDIT_REASONING_MESSAGES
+from mcp_server_filesystem_edit.prompts.markdown_draft import MD_DRAFT_REASONING_MESSAGES
 from mcp_server_filesystem_edit.prompts.markdown_edit import (
     MARKDOWN_EDIT_FORMAT_INSTRUCTIONS,
     MD_EDIT_CHANGES_MESSAGES,
@@ -27,7 +29,7 @@ from mcp_server_filesystem_edit.tools.edit_adapters.latex import blockify as lat
 from mcp_server_filesystem_edit.tools.edit_adapters.latex import unblockify as latex_unblockify
 from mcp_server_filesystem_edit.tools.edit_adapters.markdown import blockify as markdown_blockify
 from mcp_server_filesystem_edit.tools.edit_adapters.markdown import unblockify as markdown_unblockify
-from mcp_server_filesystem_edit.tools.helpers import format_chat_history
+from mcp_server_filesystem_edit.tools.helpers import TokenizerOpenAI, format_chat_history
 from mcp_server_filesystem_edit.types import Block, CustomContext, EditOutput, FileOpRequest, FileOpTelemetry
 
 logger = logging.getLogger(__name__)
@@ -36,6 +38,7 @@ logger = logging.getLogger(__name__)
 class CommonEdit:
     def __init__(self) -> None:
         self.telemetry = FileOpTelemetry()
+        self.tokenizer = TokenizerOpenAI(model="gpt-4o")
 
     async def blockify(self, request: FileOpRequest) -> list[Block]:
         if request.file_type == "latex":
@@ -50,6 +53,72 @@ class CommonEdit:
         else:
             unblockified_doc = markdown_unblockify(blocks)
         return unblockified_doc
+
+    async def take_draft_path(self, request: FileOpRequest) -> bool:
+        """
+        Decides if we should take a separate path that will simply use a single prompt
+        that rewrites the document in a single step rather than using editing logic.
+
+        Returns True if we should take the draft path, False otherwise.
+        """
+        if request.file_type == "latex":
+            return False
+        else:
+            # If the document is over the rewrite threshold tokens, we do not take the draft path.
+            num_tokens = self.tokenizer.num_tokens_in_str(request.file_content)
+            if num_tokens > settings.rewrite_threshold:
+                return False
+        return True
+
+    async def get_draft_response(self, request: FileOpRequest) -> str:
+        """
+        Get the rewritten document
+        """
+        chat_history = ""
+        if request.request_type == "dev" and isinstance(request.context, CustomContext):
+            chat_history = format_chat_history(request.context.chat_history)
+        context = ""
+        if request.request_type == "dev" and isinstance(request.context, CustomContext):
+            context = request.context.additional_context
+        messages = compile_messages(
+            messages=MD_DRAFT_REASONING_MESSAGES,
+            variables={
+                "knowledge_cutoff": "2023-10",
+                "current_date": pendulum.now().format("YYYY-MM-DD"),
+                "task": request.task,
+                "context": context,
+                "document": request.file_content,
+                "chat_history": chat_history,
+                "format_instructions": (
+                    WORD_EDIT_FORMAT_INSTRUCTIONS if request.file_type == "word" else MARKDOWN_EDIT_FORMAT_INSTRUCTIONS
+                ),
+            },
+        )
+        mcp_messages = messages
+        if request.request_type == "mcp" and isinstance(request.context, Context):
+            mcp_messages = [messages[0]]  # Developer message
+            mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
+            mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
+            mcp_messages.append(messages[3])  # Document message
+
+        reasoning_response = await chat_completion(
+            request=ChatCompletionRequest(
+                messages=mcp_messages,
+                model="o3-mini",
+                max_completion_tokens=20000,
+                reasoning_effort="high",
+            ),
+            provider=request.request_type,
+            client=request.context if request.request_type == "mcp" else request.chat_completion_client,  # type: ignore
+        )
+        self.telemetry.reasoning_latency = reasoning_response.response_duration
+        draft = reasoning_response.choices[0].message.content
+        # Look for content between <new_document> tags, otherwise return the entire response as the doc.
+        pattern = r"<new_document>(.*?)</new_document>"
+        match = re.search(pattern, draft, re.DOTALL)
+        if match:
+            draft = match.group(1).strip()
+        return draft
 
     async def construct_reasoning_prompt(self, request: FileOpRequest, blockified_doc: list[Block]) -> list[MessageT]:
         doc_for_llm = await format_blocks_for_llm(blockified_doc)
@@ -79,35 +148,22 @@ class CommonEdit:
         return reasoning_messages
 
     async def get_reasoning_response(self, request: FileOpRequest, messages: list[MessageT]) -> str:
+        mcp_messages = messages
         if request.request_type == "mcp" and isinstance(request.context, Context):
             mcp_messages = [messages[0]]  # Developer message
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "attachment_messages"})))
             mcp_messages.append(UserMessage(content=json.dumps({"variable": "history_messages"})))
             mcp_messages.append(messages[3])  # Document message
-            reasoning_response = await chat_completion(
-                request=ChatCompletionRequest(
-                    messages=mcp_messages,
-                    model="o3-mini",
-                    max_completion_tokens=20000,
-                    reasoning_effort="high",
-                ),
-                provider="mcp",
-                client=request.context,
-            )
-        elif request.request_type == "dev":
-            reasoning_response = await chat_completion(
-                request=ChatCompletionRequest(
-                    messages=messages,
-                    model="o3-mini",
-                    max_completion_tokens=20000,
-                    reasoning_effort="high",
-                ),
-                provider="azure_openai",
-                client=request.chat_completion_client,  # type: ignore
-            )
-        else:
-            raise ValueError(f"Invalid request type: {request.request_type}")
-
+        reasoning_response = await chat_completion(
+            request=ChatCompletionRequest(
+                messages=mcp_messages,
+                model="o3-mini",
+                max_completion_tokens=20000,
+                reasoning_effort="high",
+            ),
+            provider=request.request_type,
+            client=request.context if request.request_type == "mcp" else request.chat_completion_client,  # type: ignore
+        )
         self.telemetry.reasoning_latency = reasoning_response.response_duration
         reasoning = reasoning_response.choices[0].message.content
         return reasoning
@@ -157,7 +213,6 @@ class CommonEdit:
             output_message = (
                 settings.doc_editor_prefix + "Something went wrong when editing the document and no changes were made."
             )
-
         return updated_doc_markdown, output_message
 
     async def run_change_summary(self, before_doc: str, after_doc: str, edit_request: FileOpRequest) -> str:
@@ -188,25 +243,34 @@ class CommonEdit:
         Run the edit request and return the result.
         """
         self.telemetry.reset()
-        blockified_doc = await self.blockify(request)
-        reasoning_messages = await self.construct_reasoning_prompt(request, blockified_doc)
-        reasoning = await self.get_reasoning_response(request, reasoning_messages)
-        logger.info(f"Reasoning:\n{reasoning}")
-        convert_messages = await self.construct_convert_prompt(reasoning)
-        convert_response = await self.get_convert_response(request, convert_messages)
-        updated_doc_markdown, output_message = await self.execute_tool_calls(request, convert_response)
+
+        if await self.take_draft_path(request):
+            logger.info("Taking draft path instead of editing.")
+            updated_doc_markdown = await self.get_draft_response(request)
+            output_message = ""
+            reasoning = ""
+            tool_calls = []
+        else:
+            blockified_doc = await self.blockify(request)
+            reasoning_messages = await self.construct_reasoning_prompt(request, blockified_doc)
+            reasoning = await self.get_reasoning_response(request, reasoning_messages)
+            logger.info(f"Reasoning:\n{reasoning}")
+            convert_messages = await self.construct_convert_prompt(reasoning)
+            convert_response = await self.get_convert_response(request, convert_messages)
+            tool_calls = convert_response.choices[0].message.tool_calls or []
+            updated_doc_markdown, output_message = await self.execute_tool_calls(request, convert_response)
+
         change_summary = await self.run_change_summary(
             before_doc=request.file_content,
             after_doc=updated_doc_markdown,
             edit_request=request,
         )
-
         output = EditOutput(
             change_summary=change_summary,
             output_message=output_message,
             new_content=updated_doc_markdown,
             reasoning=reasoning,
-            tool_calls=convert_response.choices[0].message.tool_calls or [],
+            tool_calls=tool_calls,
             llm_latency=self.telemetry.reasoning_latency
             + self.telemetry.convert_latency
             + self.telemetry.change_summary_latency,
