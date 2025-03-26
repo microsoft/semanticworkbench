@@ -50,6 +50,7 @@ from semantic_workbench_assistant.assistant_app import (
 from .artifact_messaging import ArtifactMessenger
 from .config import AssistantConfigModel
 from .mission import FileSynchronizer, MissionManager, MissionStateManager
+from .state_inspector import MissionInspectorStateProvider
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,9 @@ assistant = AssistantApp(
     assistant_service_description=service_description,
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
+    inspector_state_providers={
+        "mission_status": MissionInspectorStateProvider(assistant_config),
+    },
 )
 
 #
