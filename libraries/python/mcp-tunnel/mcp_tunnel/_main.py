@@ -208,7 +208,6 @@ def main() -> int:
 
 def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
     """
-    extensions_config:
     tools:
         enabled: true
         personal_mcp_servers:
@@ -231,29 +230,27 @@ def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
     """
 
     config = {
-        "extensions_config": {
-            "tools": {
-                "enabled": True,
-                "personal_mcp_servers": [
-                    {
-                        "key": server.name,
-                        "enabled": True,
-                        "command": port.sse_url,
-                        "args": [
-                            json.dumps({
-                                "tunnel_id": port.tunnel_id,
-                                "port": port.port,
-                                "access_token": tunnel.access_token,
-                            })
-                        ],
-                        "prompt": "",
-                        "long_running": False,
-                        "task_completion_estimate": 30,
-                        **server.extra_assistant_config,
-                    }
-                    for server, port in zip(servers, tunnel.ports)
-                ],
-            }
+        "tools": {
+            "enabled": True,
+            "personal_mcp_servers": [
+                {
+                    "key": server.name,
+                    "enabled": True,
+                    "command": port.sse_url,
+                    "args": [
+                        json.dumps({
+                            "tunnel_id": port.tunnel_id,
+                            "port": port.port,
+                            "access_token": tunnel.access_token,
+                        })
+                    ],
+                    "prompt": "",
+                    "long_running": False,
+                    "task_completion_estimate": 30,
+                    **server.extra_assistant_config,
+                }
+                for server, port in zip(servers, tunnel.ports)
+            ],
         }
     }
 
