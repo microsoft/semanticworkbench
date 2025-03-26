@@ -1,86 +1,146 @@
 # Mission Assistant
 
-A mediator assistant that enables file sharing between conversations in the Semantic Workbench.
+A dual-mode context transfer system that facilitates collaborative missions between HQ and Field personnel in the Semantic Workbench.
 
 ## Overview
 
-The Mission Assistant allows users to collaborate across separate conversations by securely sharing files. This enables team members to work together on documents and files without requiring them to be in the same direct conversation.
+The Mission Assistant is designed to bridge the information gap between HQ planners and Field operators by providing a structured communication system with shared artifacts, real-time updates, and bidirectional information flow. It enables:
 
-## Features
+- **Mission Definition**: HQ can create detailed mission briefings with goals and success criteria
+- **Information Sharing**: Knowledge transfer between separate conversations
+- **Field Requests**: Field personnel can request information or assistance from HQ
+- **Progress Tracking**: Real-time mission status updates and completion criteria
+- **Inspector Panel**: Visual dashboard showing mission state and progress
 
-- Create invitations to link conversations for file sharing
-- Secure invitation validation and acceptance
-- Automatic file synchronization between linked conversations
-- Conflict detection and resolution for file updates
-- Event-based file updates across conversations
-- Role-based experience for mission senders and receivers
+## Key Features
+
+### Dual Mode Operation
+
+The assistant operates in two distinct modes with different capabilities:
+
+1. **HQ Mode (Definition Stage)**
+   - Create mission briefings with clear goals and success criteria
+   - Develop a knowledge base with mission-critical information
+   - Provide guidance and respond to field requests
+   - Control the "Ready for Field" gate when mission definition is complete
+
+2. **Field Mode (Working Stage)**
+   - Access mission briefing and knowledge base
+   - Mark success criteria as completed
+   - Log requests for information or assistance from HQ
+   - Update mission status with progress information
+   - Report mission completion when all criteria are met
+
+### Key Artifacts
+
+The system manages several core artifacts that support mission operations:
+
+- **Mission Briefing**: Details mission goals and success criteria
+- **Knowledge Base**: Structured information repository for the mission
+- **Field Requests**: Documented information needs from Field personnel
+- **Mission Status**: Real-time progress tracking and state information
+
+### State Management
+
+The assistant uses a multi-layered state management approach:
+
+- **Cross-Conversation Linking**: Connects HQ and Field conversations
+- **File Synchronization**: Key artifacts are shared between conversations
+- **Inspector Panel**: Real-time visual status dashboard for mission progress
+- **Conversation-Specific Storage**: Each conversation maintains role-specific state
 
 ## Usage
 
 ### Commands
 
-#### For Mission Senders
-- `/invite [username]` - Invite another user to collaborate
-- `/list-participants` - List all users in the mission
-- `/revoke [username]` - Revoke a user's access to the mission
-- `/mission-status` - View overall mission status
+#### Common Commands
+- `/status` - View current mission status and progress
+- `/info [briefing|kb|requests|all]` - View mission information
 
-#### For Mission Receivers
-- `/join [invitation_code]` - Accept an invitation to collaborate
-- `/leave-mission` - Leave the current mission
+#### HQ Commands
+- `/create-mission <name> | <description>` - Create a new mission
+- `/add-goal <name> | <description> | [criteria1;criteria2;...]` - Add a mission goal
+- `/add-kb-section <title> | <content>` - Add knowledge base section
+- `/ready-for-field` - Mark mission as ready for field operations
+- `/invite` - Generate mission invitation for field personnel
+- `/resolve <request-id> | <resolution>` - Resolve a field request
 
-#### For All Users
-- `/list-files` - List shared files in the mission
-- `/sync-status [filename]` - Check synchronization status of a file
+#### Field Commands
+- `/join <invitation-code>` - Join an existing mission
+- `/request-info <title> | <description> | [priority]` - Create field request
+- `/update-status <status> | <progress> | <message>` - Update mission status
+- `/complete-criteria <goal-index> <criteria-index>` - Mark criterion as complete
+- `/complete-mission` - Report mission completion
 
 ### Workflow
 
-1. **Creating an Invitation**:
-   - In a conversation with the Mission Assistant, use `/invite username`
-   - The assistant will create a secure invitation and display an invitation code
-   - Share this invitation code with the target user
+1. **HQ Preparation**:
+   - Create mission briefing with goals and success criteria
+   - Develop knowledge base with necessary information
+   - Generate invitation link for field personnel
+   - Mark mission as ready for field
 
-2. **Accepting an Invitation**:
-   - In another conversation with the Mission Assistant, use `/join invitation_code`
-   - The assistant will validate the invitation and establish the link
-   - Both conversations will be notified of the successful connection
+2. **Field Operations**:
+   - Join mission using invitation link
+   - Review mission briefing and knowledge base
+   - Execute mission tasks and track progress
+   - Create field requests when information is needed
+   - Mark criteria as completed when achieved
+   - Report mission completion when all goals are met
 
-3. **File Sharing**:
-   - Upload a file in either linked conversation
-   - The file will automatically be synchronized to the other conversation
-   - Updates to files will be synchronized in both directions
+3. **Collaborative Cycle**:
+   - HQ responds to field requests with information
+   - Field updates mission status with progress
+   - Both sides can view mission status and progress via inspector panel
 
-## Configuration
+## Development
 
-The Mission Assistant can be configured through the Workbench UI:
+### Project Structure
 
-- **Auto-sync Files**: Enable/disable automatic file synchronization
-- **Invite Command**: Customize the command used for invitations (default: "invite")
-- **Join Command**: Customize the command used for accepting invitations (default: "join")
-- **Invitation Message**: Customize the message sent to invited users
-- **Sender Welcome**: Customize welcome message for mission senders
-- **Receiver Welcome**: Customize welcome message for mission receivers
-- **Enable Role Features**: Enable/disable role-based command differentiation
+- `/assistant/`: Core implementation files
+  - `chat.py`: Main assistant implementation with event handlers
+  - `mission_tools.py`: Tool functions for the LLM to use
+  - `state_inspector.py`: Inspector panel implementation
+  - `mission_manager.py`: Mission state and artifact management
+  - `artifact_messaging.py`: Cross-conversation artifact sharing
+  - `command_processor.py`: Command handling logic
 
-## Implementation Details
+- `/docs/`: Documentation files
+  - `DESIGN.md`: System design and architecture
+  - `DEV_GUIDE.md`: Development guidelines
+  - `ASSISTANT_LIBRARY_NOTES.md`: Notes on the assistant library
+  - `WORKBENCH_NOTES.md`: Workbench state management details
 
-The assistant uses a secure invitation system that integrates with the Semantic Workbench conversation sharing API. It manages state for linked conversations and tracks file versions to detect conflicts.
+- `/tests/`: Test files covering key functionality
 
-For full implementation details, see [IMPLEMENTATION.md](./IMPLEMENTATION.md).
+### Development Commands
 
-## Testing
+```bash
+# Install dependencies
+make install
 
-To test the Mission Assistant:
+# Run tests
+make test
 
-1. Create two separate conversations with the Mission Assistant
-2. In the first conversation, use `/invite [username]` to invite a user
-3. Copy the invitation code from the response
-4. In the second conversation, use `/join [invitation_code]` to accept the invitation
-5. Upload a file in one conversation and verify it appears in the other
-6. Modify a file in one conversation and verify the changes propagate
+# Type checking
+make type-check
 
-## Limitations
+# Linting
+make lint
+```
 
-- File conflict resolution is basic (source wins by default)
-- No UI for managing linked conversations or viewing sync status
-- Invitation expiration is not enforced by the UI
+## Architecture
+
+The Mission Assistant leverages the Semantic Workbench Assistant library for core functionality and extends it with:
+
+1. **Cross-Conversation Communication**: Using the conversation sharing API
+2. **Artifact Management**: Structured data models for mission information
+3. **State Inspection**: Real-time mission status dashboard
+4. **Tool-based Interaction**: LLM functions for mission tasks
+5. **Role-Specific Experiences**: Tailored interfaces for HQ and Field roles
+
+The system follows a centralized artifact storage model with event-driven updates to keep all conversations synchronized.
+
+## License
+
+Copyright (c) Microsoft. All rights reserved.

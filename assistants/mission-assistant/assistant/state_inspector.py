@@ -127,7 +127,7 @@ class MissionInspectorStateProvider:
                     priority_emoji = "⚠️"
                 
                 lines.append(f"{priority_emoji} **{request.title}** ({request.status})")
-                lines.append(f"  ID: `{request.artifact_id}`")
+                lines.append(f"  **Request ID for resolution:** `{request.artifact_id}`")
                 lines.append("")
         else:
             lines.append("## Field Requests")

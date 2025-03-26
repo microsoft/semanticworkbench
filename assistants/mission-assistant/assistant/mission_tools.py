@@ -230,7 +230,8 @@ class MissionTools:
                 resolved_requests = [r for r in requests if r.status in ["resolved", "cancelled"]]
 
                 if active_requests:
-                    output.append("### Active Requests\n")
+                    output.append("### Active Requests")
+                    output.append("\n> 📋 **FOR HQ AGENTS:** To resolve a request, first get the Request ID below, then use `resolve_field_request(request_id=\"exact-id-here\", resolution=\"your solution\")`. Do NOT use the request title as the ID.\n")
 
                     for request in active_requests:
                         priority_marker = {
@@ -240,10 +241,10 @@ class MissionTools:
                             "critical": "⚠️",
                         }.get(request.priority, "🔹")
 
-                        # Include request ID for easy reference when resolving
+                        # Make the request ID super obvious for resolving requests
                         output.append(f"{priority_marker} **{request.title}** ({request.status})")
-                        output.append(f"  ID: `{request.artifact_id}`")
-                        output.append(f"  {request.description}")
+                        output.append(f"  **Request ID for resolution:** `{request.artifact_id}`")
+                        output.append(f"  Description: {request.description}")
 
                         if request.updates:
                             last_update = request.updates[-1]
@@ -256,7 +257,7 @@ class MissionTools:
 
                     for request in resolved_requests[:5]:  # Show only the 5 most recent
                         output.append(f"✅ **{request.title}** ({request.status})")
-                        output.append(f"  ID: `{request.artifact_id}`")
+                        output.append(f"  **Request ID:** `{request.artifact_id}`")
 
                         if request.resolution:
                             output.append(f"  Resolution: {request.resolution}")
@@ -411,7 +412,8 @@ class MissionTools:
         [HQ ONLY] This tool is only available to HQ agents.
 
         Args:
-            request_id: ID of the field request to resolve
+            request_id: IMPORTANT! Use the exact Request ID value from get_mission_info output 
+                       (looks like "012345-abcd-67890"), NOT the title of the request
             resolution: Resolution information to add to the request
 
         Returns:
@@ -436,7 +438,15 @@ class MissionTools:
             # This notification is sent to Field by the resolve_field_request method
             return f"Field request '{field_request.title}' has been resolved."
         else:
-            return "Failed to resolve the field request. Make sure the request ID is correct."
+            logger.warning(f"Failed to resolve field request. Invalid ID provided: '{request_id}'")
+            return f'''ERROR: Could not resolve field request with ID "{request_id}".
+
+IMPORTANT STEPS TO RESOLVE FIELD REQUESTS:
+1. FIRST run get_mission_info(info_type="requests") to see the full list of requests
+2. Find the request you want to resolve and copy its exact Request ID (looks like "abc123-def-456")
+3. Then use resolve_field_request with the EXACT ID from step 2, NOT the title of the request
+
+Example: resolve_field_request(request_id="abc123-def-456", resolution="Your solution here")"'''
 
     async def create_field_request(
         self, title: str, description: str, priority: Literal["low", "medium", "high", "critical"]

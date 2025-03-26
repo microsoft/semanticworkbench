@@ -169,7 +169,7 @@ You are operating in HQ Mode (Definition Stage). Your responsibilities include:
 - Establishing measurable success criteria for each goal to track field progress
 - Building a comprehensive Mission Knowledge Base with mission-critical information
 - Providing guidance and information to field personnel
-- Responding to Field Requests from mission participants
+- Responding to Field Requests from mission participants (using get_mission_info first to get the correct Request ID)
 - Controlling the "Ready for Field" gate when mission definition is complete
 - Maintaining an overview of mission progress
 
@@ -183,7 +183,7 @@ Your AUTHORIZED HQ-specific tools are:
 - create_mission_briefing: Use this to start a new mission with a name and description
 - add_mission_goal: Use this to add operational goals that field personnel will complete, with measurable success criteria
 - add_kb_section: Use this to add information sections to the mission knowledge base for field reference
-- resolve_field_request: Use this to resolve information requests or blockers reported by field personnel
+- resolve_field_request: Use this to resolve field requests. VERY IMPORTANT: You MUST use get_mission_info first to get the actual request ID (looks like "abc123-def-456"), and then use that exact ID in the request_id parameter, NOT the title of the request.
 - mark_mission_ready_for_field: Use this when mission planning is complete and field operations can begin
 - get_mission_info: Use this to get information about the current mission
 - suggest_next_action: Use this to suggest the next action based on mission state
@@ -792,6 +792,11 @@ As an HQ agent, you can ONLY use these tools: {available_tools_str}
 You are FORBIDDEN from using these Field-only tools: {forbidden_tools_str}
 
 If you need to perform a task normally done by a Field agent, you must instruct the user to switch to a Field conversation.
+
+IMPORTANT PROCEDURE FOR RESOLVING FIELD REQUESTS:
+1. FIRST run: get_mission_info(info_type="requests")
+2. From the output, copy the exact Request ID (NOT the title)
+3. THEN run: resolve_field_request(request_id="exact-id-from-step-1", resolution="your detailed response")
 """
                 else:  # field role
                     role_enforcement = f"""
