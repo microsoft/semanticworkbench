@@ -132,6 +132,29 @@ class MissionInspectorStateProvider:
         else:
             lines.append("## Field Requests")
             lines.append("No open field requests.")
+            lines.append("")
+        
+        # Add active invitation links section
+        invitations = await MissionManager.list_active_invitations(context)
+        if invitations:
+            lines.append("## Active Invitations")
+            lines.append("Use these invitation links to add field operatives to this mission:")
+            lines.append("")
+            
+            for invitation in invitations:
+                invitation_code = f"{invitation.invitation_id}:{invitation.invitation_token}"
+                target_info = f" for {invitation.target_username}" if invitation.target_username else ""
+                expiry_date = invitation.expires.strftime("%Y-%m-%d %H:%M UTC")
+                
+                lines.append(f"- Invitation{target_info}")
+                lines.append(f"  **Code:** `{invitation_code}`")
+                lines.append(f"  **Expires:** {expiry_date}")
+                lines.append(f"  Field operatives can join using: `/join {invitation_code}`")
+                lines.append("")
+        else:
+            lines.append("## Invitations")
+            lines.append("No active invitations. Use `/invite [username]` to create an invitation link.")
+            lines.append("")
         
         return "\n".join(lines)
         

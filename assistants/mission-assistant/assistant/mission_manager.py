@@ -528,6 +528,48 @@ class MissionManager:
             )
         
         return True, "You have successfully joined the mission", {"mission_id": mission_id}
+        
+    @staticmethod
+    async def list_active_invitations(
+        context: ConversationContext,
+        include_expired: bool = False
+    ) -> List[MissionInvitation]:
+        """
+        Lists all active invitations for the mission associated with the conversation.
+        
+        Args:
+            context: The conversation context
+            include_expired: Whether to include expired invitations (defaults to False)
+            
+        Returns:
+            List of active invitations
+        """
+        mission_id = await ConversationMissionManager.get_conversation_mission(context)
+        
+        if not mission_id:
+            return []
+            
+        # Get the invitations directory for this mission
+        invitation_dir = MissionStorageManager.get_mission_dir(mission_id) / "invitations"
+        
+        if not invitation_dir.exists():
+            return []
+        
+        # Read all invitation files
+        invitations = []
+        for file_path in invitation_dir.glob("*.json"):
+            invitation = read_model(file_path, MissionInvitation)
+            if invitation:
+                # Filter by status (only include pending invitations)
+                if invitation.status == "pending":
+                    # Check expiration if we're not including expired invitations
+                    if include_expired or datetime.utcnow() <= invitation.expires:
+                        invitations.append(invitation)
+        
+        # Sort by creation time (using invitation_id which contains a UUID)
+        invitations.sort(key=lambda inv: inv.invitation_id)
+        
+        return invitations
     
     @staticmethod
     async def process_invite_command(
