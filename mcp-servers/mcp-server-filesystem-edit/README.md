@@ -1,6 +1,7 @@
 # Filesystem Edit MCP Server
 
-Allows for robust editing Markdown and LaTeX files.
+Allows for robust editing of Markdown, Office, and LaTeX files.
+Your system and configuration will determine which are supported. By default working with Markdown (`.md`) files is always enabled
 
 This is a [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP) server project.
 
@@ -37,6 +38,12 @@ http://127.0.0.1:25567/sse
 ```
 
 
+### Optional Features
+- If you have pdflatex installed on your system and you would like `edit_file` to automatically compile LaTeX files for you,
+can provide the argument `--enable-pdflatex` when starting the server.
+- If the system is Windows, it will automatically you have Office apps installed and will use them to edit `.docx` files and also view `.xlsx` files.
+
+
 ### Setting Working Directory
 The server uses a single working directory for security purposes. There are two ways to configure them:
 
@@ -51,22 +58,24 @@ The server uses a single working directory for security purposes. There are two 
 
 ### `view_file(path)`
 - Reads the content of the file at the given path.
+- NOTE: Currently only certain common file types are supported.
+- For viewing:
+  - Directly can view: `.md`, `.csv`, `.tex`
+  - Can be viewed through an office app, only on Windows: `.docx`, `.xlsx` (first worksheet)
+- These file extensions can be edited:
+  - Directly on the filesystem: `.md`, `.tex`
+  - Through an office app, only on Windows: `.docx`
+  - If you have `pdflatex` installed and provide the `--enable-pdflatex` argument, you can also automatically compile LaTeX files.
 
-### `edit_file(path, task)`
+### `edit_file(path, task: str)`
 - Edits the file at the given path with the provided content according to the task.
 - Uses sampling to understand things like conversation history and attachments from the client.
-- If the file extension is `.md` or `.tex`, special handling is applied.
 - All other file types will return an error.
 - If `enable-pdflatex` is set, it will compile the LaTeX file using pdflatex and return the output.
 
-### `add_comments(path, comments)`
+### `add_comments(path, only_analyze: bool)`
 - Reads the file at the given path, adds comments to the content, and returns suggestions on what to do next.
-- Special handling is applied for `.md` and `.tex` files. All other file types will return an error.
-
-
-### Optional Features
-- If you have pdflatex installed on your system and you would like `edit_file` to automatically compile LaTeX files for you,
-can provide the argument `--enable-pdflatex` when starting the server.
+- If only_analyze is set to true, it will only analyze the comments in the current file and return hints on what to do next without modifying the file.
 
 
 ## Client Configuration
