@@ -1,7 +1,10 @@
 # Copyright (c) Microsoft. All rights reserved.
 
 import os
+import sys
+from typing import Annotated
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 log_level = os.environ.get("LOG_LEVEL", "INFO")
@@ -18,8 +21,8 @@ class Settings(BaseSettings):
     log_level: str = log_level
     allowed_directories: list[str] = []
     include_hidden_paths: bool = False
-    office_support_enabled: bool = False
     pdflatex_enabled: bool = False
+    office_support_enabled: Annotated[bool, Field(default_factory=lambda: sys.platform == "win32")] = False
 
     # LLM and prompt related settings
     comment_author: str = "Feedback Tool"

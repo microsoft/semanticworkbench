@@ -7,7 +7,7 @@ import sys
 from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.server import create_mcp_server
 
-logger = logging.getLogger("mcp_server_filesystem")
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -36,11 +36,6 @@ def main() -> None:
     if args.allowed_directories:
         # settings.allowed_directories = args.allowed_directories
         logger.info(f"Using allowed_directories from command line: {settings.allowed_directories}")
-
-    # Enabled Office integration by default if the user is on Windows x64
-    if sys.platform == "win32":
-        settings.office_support_enabled = True
-        logger.info("Windows x64 platform detected, Office support enabled by default.")
 
     # Set pdflatex_enabled based on command line argument
     settings.pdflatex_enabled = args.enable_pdflatex
