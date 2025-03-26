@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import logging
 import sys
 from pathlib import Path
 
@@ -19,6 +20,8 @@ from mcp_server_filesystem_edit.types import FileOpRequest
 
 # Set the name of the MCP server
 server_name = "Filesystem Edit MCP Server"
+
+logger = logging.getLogger("mcp_server_filesystem")
 
 
 VIEW_BY_FILE_EXTENSIONS = [".md", ".tex", ".csv"]
@@ -44,9 +47,13 @@ async def get_allowed_directory(ctx: Context) -> Path:
         else:
             roots = [Path(root.uri.path).resolve() for root in list_roots_result.roots if root.uri.path]
 
-        roots = [root for root in roots if root.is_dir()]
+        roots = [root for root in roots if root.is_dir() or (not root.exists() and not root.suffix)]
         if roots:
-            return roots[0]
+            first_root = roots[0]
+            if not first_root.exists():
+                logger.info(f"Creating directory from first root since it does not exist yet: {first_root}")
+                first_root.mkdir(parents=True, exist_ok=True)
+            return first_root
 
     raise ValueError("No allowed_directories have been configured and no roots have been set.")
 
