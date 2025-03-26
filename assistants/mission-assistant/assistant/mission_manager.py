@@ -531,6 +531,21 @@ class MissionManager:
         await ConversationMissionManager.set_conversation_role(context, mission_id, MissionRole.FIELD)
         await ConversationMissionManager.set_conversation_mission(context, mission_id)
         
+        # Update conversation metadata to indicate this is a field role
+        conversation = await context.get_conversation()
+        metadata = conversation.metadata or {}
+        metadata["mission_role"] = "field"  # Explicitly set the role in metadata
+        
+        # Notify workbench UI to refresh role display
+        from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+        await context.send_conversation_state_event(
+            AssistantStateEvent(
+                state_id="mission_role",
+                event="updated",
+                state=None
+            )
+        )
+        
         # Update the invitation status
         invitation_dir = MissionStorageManager.get_mission_dir(mission_id) / "invitations"
         invitation_path = invitation_dir / f"{invitation['invitation_id']}.json"

@@ -638,11 +638,37 @@ async def respond_to_conversation(
     #     return
 
     # Get the conversation's role
-    from .mission_tools import get_mission_tools
+    from .mission_tools import get_mission_tools, MissionTools
 
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
     role = metadata.get("mission_role", "hq")  # Default to HQ if not set
+
+    # For field role, analyze message for possible field request needs
+    if role == "field" and message.message_type == MessageType.chat:
+        # Create a mission tools instance for field role
+        mission_tools_instance = MissionTools(context, role)
+        
+        # Check if the message indicates a potential field request
+        detection_result = await mission_tools_instance.detect_field_request_needs(message.content)
+        
+        # If a field request is detected, suggest creating one
+        if detection_result.get("is_field_request", False):
+            # Get potential title and priority from detection
+            suggested_title = detection_result.get("potential_title", "")
+            suggested_priority = detection_result.get("suggested_priority", "medium")
+            
+            suggestion = (
+                f"It sounds like you might need information from HQ. "
+                f"Would you like me to create a field request titled '{suggested_title}' with {suggested_priority} priority?"
+            )
+            
+            await context.send_messages(
+                NewConversationMessage(
+                    content=suggestion,
+                    message_type=MessageType.notice,
+                )
+            )
 
     # Set up mission tools for the completion based on role
     mission_tools = await get_mission_tools(context, role)
