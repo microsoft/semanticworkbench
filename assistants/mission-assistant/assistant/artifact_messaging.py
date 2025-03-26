@@ -30,6 +30,7 @@ from .artifacts import (
     MissionGoal,
     MissionKB,
     MissionLog,
+    MissionState,
     MissionStatus,
     RequestPriority,
     RequestStatus,
@@ -369,7 +370,7 @@ class ArtifactMessenger:
     @staticmethod
     async def save_artifact(context: ConversationContext, artifact: BaseArtifact) -> bool:
         """
-        Saves an artifact to local storage.
+        Saves an artifact to mission storage.
 
         Args:
             context: Current conversation context
@@ -379,40 +380,24 @@ class ArtifactMessenger:
             True if artifact was saved successfully, False otherwise
         """
         try:
-            # Get the state manager's storage path
-            storage_path = MissionStateManager.get_state_file_path(context).parent
-
-            # Ensure artifacts directory exists
-            artifacts_dir = storage_path / "artifacts"
-            artifacts_dir.mkdir(exist_ok=True)
-
-            # Create type-specific directory
-            type_dir = artifacts_dir / artifact.artifact_type.value
-            type_dir.mkdir(exist_ok=True)
-
-            # Create file path for this artifact
-            file_path = type_dir / f"{artifact.artifact_id}.json"
-
-            # Check for existing artifact to handle versioning
-            if file_path.exists():
-                try:
-                    existing_data = json.loads(file_path.read_text())
-                    existing_version = existing_data.get("version", 0)
-
-                    # Skip if this version is older than what we already have
-                    if existing_version > artifact.version:
-                        logger.info(f"Skipping save of older artifact version {artifact.version} < {existing_version}")
-                        return False
-                except Exception as e:
-                    logger.warning(f"Error reading existing artifact: {e}, will overwrite")
-
-            # Serialize the artifact
-            artifact_json = artifact.model_dump_json(indent=2)
-
-            # Write to file
-            file_path.write_text(artifact_json)
-
-            logger.info(f"Saved artifact {artifact.artifact_id} to {file_path}")
+            from .mission_storage import MissionStorageWriter, ConversationMissionManager
+            
+            # Get the mission ID associated with this conversation
+            mission_id = await ConversationMissionManager.get_conversation_mission(context)
+            
+            if not mission_id:
+                logger.warning("Cannot save artifact: conversation not associated with any mission")
+                return False
+                
+            # Write the artifact to the mission's shared storage
+            artifact_path = MissionStorageWriter.write_artifact(
+                mission_id=mission_id,
+                artifact_type=artifact.artifact_type.value,
+                artifact_id=artifact.artifact_id,
+                artifact=artifact
+            )
+            
+            logger.info(f"Saved artifact {artifact.artifact_id} to {artifact_path}")
             return True
 
         except Exception as e:
@@ -424,7 +409,7 @@ class ArtifactMessenger:
     @staticmethod
     async def load_artifact(context: ConversationContext, artifact_id: str, artifact_type: Type[T]) -> Optional[T]:
         """
-        Loads an artifact from local storage.
+        Loads an artifact from mission storage.
 
         Args:
             context: Current conversation context
@@ -435,9 +420,15 @@ class ArtifactMessenger:
             The loaded artifact (properly typed as its specific subclass) if found, None otherwise
         """
         try:
-            # Get the state manager's storage path
-            storage_path = MissionStateManager.get_state_file_path(context).parent
-
+            from .mission_storage import MissionStorageReader, ConversationMissionManager
+            
+            # Get the mission ID associated with this conversation
+            mission_id = await ConversationMissionManager.get_conversation_mission(context)
+            
+            if not mission_id:
+                logger.warning("Cannot load artifact: conversation not associated with any mission")
+                return None
+                
             # Determine the enum value for the artifact type
             enum_value = None
             artifact_class = None
@@ -457,47 +448,27 @@ class ArtifactMessenger:
                 enum_value = ArtifactType.MISSION_LOG.value
                 artifact_class = MissionLog
             else:
-                # Try to find by checking directories
-                for dir_name in ["mission_briefing", "mission_kb", "mission_status", "field_request", "mission_log"]:
-                    test_path = storage_path / "artifacts" / dir_name / f"{artifact_id}.json"
-                    if test_path.exists():
-                        enum_value = dir_name
-                        break
-            
-            if not enum_value:
                 logger.warning(f"Could not determine enum value for artifact type: {artifact_type}")
                 return None
-
-            # Construct the file path
-            file_path = storage_path / "artifacts" / enum_value / f"{artifact_id}.json"
-
-            if not file_path.exists():
-                logger.warning(f"Artifact file not found: {file_path}")
+                
+            if not artifact_class:
+                logger.warning(f"Could not determine artifact class for type: {artifact_type}")
                 return None
 
-            # Read the file
-            artifact_json = file_path.read_text()
-            artifact_data = json.loads(artifact_json)
+            # Read the artifact from mission storage
+            artifact = MissionStorageReader.read_artifact(
+                mission_id=mission_id,
+                artifact_type=enum_value,
+                artifact_id=artifact_id,
+                model_class=artifact_class
+            )
             
-            # If we couldn't determine the artifact class from the type, use the data's artifact_type
-            if not artifact_class:
-                artifact_type_str = artifact_data.get('artifact_type')
-                if artifact_type_str == ArtifactType.MISSION_BRIEFING.value:
-                    artifact_class = MissionBriefing
-                elif artifact_type_str == ArtifactType.MISSION_KB.value:
-                    artifact_class = MissionKB
-                elif artifact_type_str == ArtifactType.MISSION_STATUS.value:
-                    artifact_class = MissionStatus
-                elif artifact_type_str == ArtifactType.FIELD_REQUEST.value:
-                    artifact_class = FieldRequest
-                elif artifact_type_str == ArtifactType.MISSION_LOG.value:
-                    artifact_class = MissionLog
-                else:
-                    logger.error(f"Unknown artifact type: {artifact_type}")
-                    return None
-
-            # Deserialize
-            return cast(T, artifact_class.model_validate(artifact_data))
+            if not artifact:
+                logger.warning(f"Artifact {artifact_id} not found in mission {mission_id}")
+                return None
+                
+            # Return with proper typing
+            return cast(T, artifact)
 
         except Exception as e:
             logger.exception(f"Error loading artifact: {e}")
@@ -506,7 +477,7 @@ class ArtifactMessenger:
     @staticmethod
     async def get_artifacts_by_type(context: ConversationContext, artifact_type: Type[T]) -> List[T]:
         """
-        Gets all artifacts of a specific type from local storage.
+        Gets all artifacts of a specific type from mission storage.
 
         Args:
             context: Current conversation context
@@ -516,9 +487,15 @@ class ArtifactMessenger:
             List of artifacts of the specified type (properly typed as their specific subclasses)
         """
         try:
-            # Get the state manager's storage path
-            storage_path = MissionStateManager.get_state_file_path(context).parent
-
+            from .mission_storage import MissionStorageReader, ConversationMissionManager
+            
+            # Get the mission ID associated with this conversation
+            mission_id = await ConversationMissionManager.get_conversation_mission(context)
+            
+            if not mission_id:
+                logger.warning("Cannot get artifacts: conversation not associated with any mission")
+                return []
+                
             # Determine the enum value for the artifact type
             enum_value = None
             artifact_class = None
@@ -538,39 +515,24 @@ class ArtifactMessenger:
                 enum_value = ArtifactType.MISSION_LOG.value
                 artifact_class = MissionLog
             else:
-                # For backwards compatibility, also check class string paths
-                for dir_name in ["mission_briefing", "mission_kb", "mission_status", "field_request", "mission_log", str(artifact_type)]:
-                    temp_path = storage_path / "artifacts" / dir_name
-                    if temp_path.exists() and next(temp_path.glob("*.json"), None):
-                        enum_value = dir_name
-                        break
-
-            # If we couldn't determine the type, log an error and return empty list
-            if not enum_value or not artifact_class:
-                logger.error(f"Unknown artifact type: {artifact_type}")
+                logger.warning(f"Could not determine enum value for artifact type: {artifact_type}")
+                return []
+                
+            if not artifact_class:
+                logger.warning(f"Could not determine artifact class for type: {artifact_type}")
                 return []
 
-            # Construct the directory path using the enum value
-            dir_path = storage_path / "artifacts" / enum_value
-
-            if not dir_path.exists():
-                dir_path.mkdir(parents=True, exist_ok=True)
-                return []
-
-            # Get all JSON files in the directory
-            artifacts = []
-            for file_path in dir_path.glob("*.json"):
-                try:
-                    artifact_json = file_path.read_text()
-                    artifact_data = json.loads(artifact_json)
-                    artifact = artifact_class.model_validate(artifact_data)
-                    artifacts.append(artifact)
-                except Exception as e:
-                    logger.warning(f"Error loading artifact from {file_path}: {e}")
-
+            # Read all artifacts of this type from mission storage
+            artifacts = MissionStorageReader.read_all_artifacts(
+                mission_id=mission_id,
+                artifact_type=enum_value,
+                model_class=artifact_class
+            )
+            
             # Sort by updated_at, newest first
             artifacts.sort(key=lambda a: a.updated_at, reverse=True)
-            return artifacts
+            
+            return cast(List[T], artifacts)
 
         except Exception as e:
             logger.exception(f"Error getting artifacts by type: {e}")
@@ -1242,9 +1204,13 @@ class ArtifactManager:
 
             # Apply updates
             if status:
-                mission_status.status = status
+                # Convert string to enum if needed
+                if isinstance(status, str):
+                    mission_status.state = MissionState(status)
+                else:
+                    mission_status.state = status
             if progress is not None:
-                mission_status.progress = min(max(progress, 0), 100)  # Ensure 0-100
+                mission_status.progress_percentage = min(max(progress, 0), 100)  # Ensure 0-100
             if status_message:
                 mission_status.status_message = status_message
             if next_actions:

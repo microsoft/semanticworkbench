@@ -27,11 +27,15 @@ from .artifacts import (
     LogEntryType, 
     MissionBriefing,
     MissionKB,
+    MissionState,
     MissionStatus,
     RequestPriority,
     RequestStatus,
 )
-from .chat import process_add_goal_command, process_add_kb_section_command
+from .command_processor import (
+    handle_add_goal_command,
+    handle_add_kb_section_command,
+)
 from .mission import ConversationClientManager, MissionStateManager
 
 logger = logging.getLogger(__name__)
@@ -194,10 +198,10 @@ class MissionTools:
                 status = status_artifacts[0]  # Most recent status
 
                 output.append("\n## Mission Status\n")
-                output.append(f"**Current Status**: {status.status}")
+                output.append(f"**Current Status**: {status.state.value}")
 
-                if status.progress is not None:
-                    output.append(f"**Overall Progress**: {status.progress}%")
+                if status.progress_percentage is not None:
+                    output.append(f"**Overall Progress**: {status.progress_percentage}%")
 
                 if status.status_message:
                     output.append(f"**Status Message**: {status.status_message}")
@@ -347,7 +351,7 @@ class MissionTools:
         )
 
         try:
-            await process_add_goal_command(self.context, temp_message)
+            await handle_add_goal_command(self.context, temp_message, [])
             return f"Goal '{goal_name}' added to mission briefing successfully."
         except Exception as e:
             logger.exception(f"Error adding goal: {e}")
@@ -386,7 +390,7 @@ class MissionTools:
         )
 
         try:
-            await process_add_kb_section_command(self.context, temp_message)
+            await handle_add_kb_section_command(self.context, temp_message, [])
             return f"Knowledge base section '{title}' added successfully."
         except Exception as e:
             logger.exception(f"Error adding KB section: {e}")
@@ -618,7 +622,7 @@ class MissionTools:
 
             # Calculate progress percentage
             if total_criteria > 0:
-                status.progress = int((completed_criteria / total_criteria) * 100)
+                status.progress_percentage = int((completed_criteria / total_criteria) * 100)
 
             # Update metadata
             status.updated_at = datetime.utcnow()
@@ -732,7 +736,7 @@ class MissionTools:
             mission_status.total_criteria = total_criteria
 
         # Update status to in_progress
-        mission_status.status = "in_progress"
+        mission_status.state = MissionState.IN_PROGRESS
         mission_status.status_message = "Mission is now ready for field operations"
 
         # Add lifecycle metadata
@@ -837,8 +841,8 @@ class MissionTools:
             return "Could not identify current user."
 
         # Update status to completed
-        mission_status.status = "completed"
-        mission_status.progress = 100
+        mission_status.state = MissionState.COMPLETED
+        mission_status.progress_percentage = 100
         mission_status.status_message = "Mission is now complete"
 
         # Add lifecycle metadata

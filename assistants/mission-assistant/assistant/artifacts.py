@@ -22,9 +22,20 @@ class ArtifactType(str, Enum):
 
     MISSION_BRIEFING = "mission_briefing"
     MISSION_KB = "mission_kb"
+    KNOWLEDGE_BASE = "mission_kb"  # Alias for MISSION_KB
     MISSION_STATUS = "mission_status"
     FIELD_REQUEST = "field_request"
     MISSION_LOG = "mission_log"
+
+
+class MissionState(str, Enum):
+    """States for mission progression."""
+    
+    PLANNING = "planning"
+    READY_FOR_FIELD = "ready_for_field"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ABORTED = "aborted"
 
 
 class BaseArtifact(BaseModel):
@@ -47,7 +58,7 @@ class SuccessCriterion(BaseModel):
     description: str
     completed: bool = False
     completed_at: Optional[datetime] = None
-    completed_by: Optional[str] = None  # User ID
+    completed_by: Optional[str] = None  # User ID who completed the criterion
 
 
 class MissionGoal(BaseModel):
@@ -112,11 +123,11 @@ class MissionStatus(BaseArtifact):
 
     artifact_type: ArtifactType = ArtifactType.MISSION_STATUS
 
-    # Status can be one of: planning, in_progress, blocked, completed, aborted
-    status: str = "planning"
+    # State of the mission
+    state: MissionState = MissionState.PLANNING
 
     # Overall progress percentage (0-100)
-    progress: int = 0
+    progress_percentage: int = 0
 
     # Copy of all goals with their current status
     goals: List[MissionGoal] = Field(default_factory=list)
@@ -203,6 +214,7 @@ class LogEntryType(str, Enum):
     GATE_PASSED = "gate_passed"
     INFORMATION_UPDATE = "information_update"
     FILE_SHARED = "file_shared"
+    KB_UPDATE = "kb_update"  # For knowledge base updates
     CUSTOM = "custom"
 
 

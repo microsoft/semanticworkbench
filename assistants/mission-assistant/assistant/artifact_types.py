@@ -109,7 +109,7 @@ def get_lifecycle(artifact: BaseArtifact) -> Dict[str, Any]:
 def get_status(artifact: BaseArtifact) -> str:
     """Safely access the status attribute from a MissionStatus or FieldRequest."""
     if artifact.artifact_type == ArtifactType.MISSION_STATUS:
-        return cast_to_mission_status(artifact).status
+        return cast_to_mission_status(artifact).state.value
     elif artifact.artifact_type == ArtifactType.FIELD_REQUEST:
         return cast_to_field_request(artifact).status.value
     raise AttributeError(f"Artifact of type {artifact.artifact_type} has no 'status' attribute")

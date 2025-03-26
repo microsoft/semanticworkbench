@@ -1,45 +1,48 @@
-import json
 import shutil
 import pathlib
 import unittest
 import unittest.mock
 import uuid
-from datetime import datetime
-from typing import Any, TYPE_CHECKING, TypeVar, cast
-
-# Import only the type
-if TYPE_CHECKING:
-    pass
+from typing import Any, TypeVar, cast
 
 from assistant.artifacts import MissionBriefing, ArtifactType
 from assistant.artifact_messaging import ArtifactMessenger
+from assistant.mission_storage import (
+    ConversationMissionManager,
+    MissionRole,
+    MissionStorageManager,
+    MissionStorageWriter,
+)
+from semantic_workbench_assistant import settings
 
 # Type variable for better type annotations
 T = TypeVar('T')
 
 
 class TestArtifactLoading(unittest.IsolatedAsyncioTestCase):
-    """Test the artifact loading functionality"""
+    """Test the artifact loading functionality with the new storage architecture"""
     
     async def asyncSetUp(self):
         # Create a test storage path
-        self.test_dir = pathlib.Path(__file__).parent.parent / '.data' / 'test_dir'
+        self.test_dir = pathlib.Path(__file__).parent.parent / '.data' / 'test_artifact_loading'
         self.test_dir.mkdir(exist_ok=True, parents=True)
         
-        # Create artifacts directory
-        self.artifacts_dir = self.test_dir / 'artifacts'
-        self.artifacts_dir.mkdir(exist_ok=True)
+        # Mock settings to use our test directory
+        self.original_storage_root = settings.storage.root
+        settings.storage.root = str(self.test_dir)
+        
+        # Create test mission and conversation IDs
+        self.mission_id = str(uuid.uuid4())
+        self.conversation_id = str(uuid.uuid4())
         
         # Create a test briefing artifact
         self.briefing_artifact_id = str(uuid.uuid4())
         self.mission_name = "Test Mission"
         
-        # Create the mission briefing in both formats
-        self.enum_value_dir = self.artifacts_dir / ArtifactType.MISSION_BRIEFING.value
-        self.enum_value_dir.mkdir(exist_ok=True)
-        
-        self.class_name_dir = self.artifacts_dir / str(MissionBriefing)
-        self.class_name_dir.mkdir(exist_ok=True)
+        # Create mission directory structure
+        self.mission_dir = MissionStorageManager.get_mission_dir(self.mission_id)
+        self.shared_dir = MissionStorageManager.get_shared_dir(self.mission_id)
+        self.briefing_dir = MissionStorageManager.get_artifact_dir(self.mission_id, ArtifactType.MISSION_BRIEFING.value)
         
         # Create the test artifact
         self.create_test_artifact()
@@ -47,56 +50,84 @@ class TestArtifactLoading(unittest.IsolatedAsyncioTestCase):
         # Set up patching
         self.patches = []
         
-        # Patch MissionStateManager.get_state_file_path
-        from assistant.mission import MissionStateManager
-        patch1 = unittest.mock.patch.object(
-            MissionStateManager, 
-            'get_state_file_path',
-            return_value=self.test_dir / "mission_links.json"
-        )
-        self.mock_get_state_file_path = patch1.start()
-        self.patches.append(patch1)
-        
         # Create a mock context that will be recognized as ConversationContext
         self.context = unittest.mock.MagicMock()
-        self.context.id = "test-conversation-id"
+        self.context.id = self.conversation_id
         
         # Mock assistant
         mock_assistant = unittest.mock.MagicMock()
         mock_assistant.id = "test-assistant-id"
         self.context.assistant = mock_assistant
         
+        # Patch storage_directory_for_context
+        def mock_storage_directory_for_context(context, *args, **kwargs):
+            return self.test_dir / f"context_{context.id}"
+                
+        patch1 = unittest.mock.patch(
+            "assistant.mission_storage.storage_directory_for_context",
+            side_effect=mock_storage_directory_for_context
+        )
+        self.mock_storage_directory = patch1.start()
+        self.patches.append(patch1)
+        
+        # Patch get_conversation_mission
+        async def mock_get_conversation_mission(context):
+            return self.mission_id
+            
+        patch2 = unittest.mock.patch.object(
+            ConversationMissionManager, 
+            'get_conversation_mission',
+            side_effect=mock_get_conversation_mission
+        )
+        self.mock_get_mission = patch2.start()
+        self.patches.append(patch2)
+        
+        # Patch get_conversation_role
+        async def mock_get_conversation_role(context):
+            return MissionRole.HQ
+            
+        patch3 = unittest.mock.patch.object(
+            ConversationMissionManager, 
+            'get_conversation_role',
+            side_effect=mock_get_conversation_role
+        )
+        self.mock_get_role = patch3.start()
+        self.patches.append(patch3)
+        
     async def asyncTearDown(self):
         # Clean up the test directory
         if self.test_dir.exists():
             shutil.rmtree(self.test_dir)
+        
+        # Restore settings
+        settings.storage.root = self.original_storage_root
         
         # Stop all patches
         for patch in self.patches:
             patch.stop()
     
     def create_test_artifact(self):
-        """Create a test artifact in both directory formats"""
-        artifact_data = {
-            "artifact_id": self.briefing_artifact_id,
-            "artifact_type": ArtifactType.MISSION_BRIEFING.value,
-            "version": 1,
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
-            "created_by": "test-user",
-            "updated_by": "test-user",
-            "conversation_id": "test-conversation-id",
-            "mission_name": self.mission_name,
-            "mission_description": "Test mission description",
-            "goals": []
-        }
+        """Create a test artifact in the mission's shared directory"""
+        # Create the mission briefing
+        briefing = MissionBriefing(
+            artifact_id=self.briefing_artifact_id,
+            mission_name=self.mission_name,
+            mission_description="Test mission description",
+            created_by="test-user",
+            updated_by="test-user",
+            conversation_id=self.conversation_id,
+        )
         
-        # Write to enum value directory
-        with open(self.enum_value_dir / f"{self.briefing_artifact_id}.json", "w") as f:
-            json.dump(artifact_data, f, indent=2)
+        # Write to the mission's shared briefing directory
+        MissionStorageWriter.write_artifact(
+            self.mission_id,
+            ArtifactType.MISSION_BRIEFING.value,
+            self.briefing_artifact_id,
+            briefing
+        )
     
     async def test_get_artifacts_by_type(self) -> None:
-        """Test that get_artifacts_by_type correctly loads artifacts from the enum value directory"""
+        """Test that get_artifacts_by_type correctly loads artifacts from the mission storage"""
         # Using Any here to satisfy type checker with our mock
         context: Any = self.context
         
@@ -113,7 +144,7 @@ class TestArtifactLoading(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first_briefing.mission_name, self.mission_name)
     
     async def test_load_artifact(self) -> None:
-        """Test that load_artifact correctly loads an artifact from the enum value directory"""
+        """Test that load_artifact correctly loads an artifact from the mission storage"""
         # Using Any here to satisfy type checker with our mock
         context: Any = self.context
         
@@ -121,10 +152,11 @@ class TestArtifactLoading(unittest.IsolatedAsyncioTestCase):
         
         self.assertIsNotNone(briefing_result, "Should load the briefing")
         
-        # Safe access with cast
-        briefing = cast(MissionBriefing, briefing_result)
-        self.assertEqual(briefing.artifact_id, self.briefing_artifact_id)
-        self.assertEqual(briefing.mission_name, self.mission_name)
+        if briefing_result:  # Type guard for static analysis
+            # Safe access with cast
+            briefing = cast(MissionBriefing, briefing_result)
+            self.assertEqual(briefing.artifact_id, self.briefing_artifact_id)
+            self.assertEqual(briefing.mission_name, self.mission_name)
 
 
 if __name__ == "__main__":
