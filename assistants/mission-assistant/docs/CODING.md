@@ -181,4 +181,15 @@ python -m pytest tests/test_file.py -v
 2. When modifying model attributes, update all references across the codebase
 3. Use Optional typing for parameters that might be None
 4. Follow existing patterns when implementing new features
-5. Update tests when changing functionality
+5. Import Management:
+   - Always place imports at the top of the file, organized by stdlib, third-party, and local imports
+   - Handle circular dependencies with TYPE_CHECKING from typing module:
+   ```python
+   from typing import TYPE_CHECKING
+   
+   if TYPE_CHECKING:
+       from .module import Class  # Import only used for type hints
+   ```
+   - Never use imports inside functions - if a circular dependency exists, use TYPE_CHECKING
+   - Keep import statements clean and well-organized to improve code readability
+6. Update tests when changing functionality

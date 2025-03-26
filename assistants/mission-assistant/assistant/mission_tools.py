@@ -37,6 +37,7 @@ from .command_processor import (
     handle_add_kb_section_command,
 )
 from .mission import ConversationClientManager, MissionStateManager
+from .mission_manager import MissionManager, MissionRole
 
 logger = logging.getLogger(__name__)
 
@@ -101,13 +102,13 @@ class MissionTools:
             self.tool_functions.add_function(
                 self.report_mission_completion, "report_mission_completion", "Report that the mission is complete"
             )
-
-        # Common detection tools for both roles
-        self.tool_functions.add_function(
-            self.detect_field_request_needs,
-            "detect_field_request_needs",
-            "Analyze user message to detect potential field request needs",
-        )
+            self.tool_functions.add_function(
+                self.detect_field_request_needs,
+                "detect_field_request_needs",
+                "Analyze user message to detect potential field request needs",
+            )
+        
+        # Common detection tool for both roles
         self.tool_functions.add_function(
             self.suggest_next_action,
             "suggest_next_action",
@@ -285,9 +286,16 @@ class MissionTools:
         if self.role != "hq":
             return "Only HQ can create mission briefings."
 
+        # First, make sure we have a mission associated with this conversation
+        mission_id = await MissionManager.get_or_create_mission(
+            self.context, mission_name, MissionRole.HQ
+        )
+
+        if not mission_id:
+            return "Failed to create or retrieve mission. Please try again."
+
         # Create a new mission briefing artifact using ArtifactManager
         # This will be visible to both HQ and Field conversations
-
         success, briefing = await ArtifactManager.create_mission_briefing(
             self.context, mission_name, mission_description
         )
