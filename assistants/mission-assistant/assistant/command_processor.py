@@ -192,9 +192,27 @@ async def handle_help_command(
 ) -> None:
     """Handle the help command."""
     # Get the conversation's role
+    from .mission_manager import MissionManager
+    
+    # First check conversation metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
-    role = metadata.get("mission_role", "hq")  # Default to HQ if not set
+    metadata_role = metadata.get("mission_role")
+    
+    # Then check the stored role from mission storage - this is the authoritative source
+    stored_role = await MissionManager.get_conversation_role(context)
+    stored_role_value = stored_role.value if stored_role else None
+    
+    # Log the roles for debugging
+    logger.debug(f"Role detection in help command - Metadata role: {metadata_role}, Stored role: {stored_role_value}")
+    
+    # If we have a stored role but metadata is different, use stored role (more reliable)
+    if stored_role_value and metadata_role != stored_role_value:
+        logger.warning(f"Role mismatch in help command! Metadata: {metadata_role}, Storage: {stored_role_value}")
+        role = stored_role_value
+    else:
+        # Otherwise use metadata or default to HQ
+        role = metadata_role or "hq"  # Default to HQ if not set
     
     # If a specific command is specified, show detailed help for that command
     if args:
@@ -1232,9 +1250,27 @@ async def process_command(context: ConversationContext, message: ConversationMes
         True if command was processed, False otherwise
     """
     # Get the conversation's role
+    from .mission_manager import MissionManager
+    
+    # First check conversation metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
-    role = metadata.get("mission_role", "hq")  # Default to HQ if not set
+    metadata_role = metadata.get("mission_role")
+    
+    # Then check the stored role from mission storage - this is the authoritative source
+    stored_role = await MissionManager.get_conversation_role(context)
+    stored_role_value = stored_role.value if stored_role else None
+    
+    # Log the roles for debugging
+    logger.debug(f"Role detection in process_command - Metadata role: {metadata_role}, Stored role: {stored_role_value}")
+    
+    # If we have a stored role but metadata is different, use stored role (more reliable)
+    if stored_role_value and metadata_role != stored_role_value:
+        logger.warning(f"Role mismatch in process_command! Metadata: {metadata_role}, Storage: {stored_role_value}")
+        role = stored_role_value
+    else:
+        # Otherwise use metadata or default to HQ
+        role = metadata_role or "hq"  # Default to HQ if not set
     
     # Process the command through the registry
     return await command_registry.process_command(context, message, role)

@@ -407,6 +407,8 @@ class MissionTools:
     async def resolve_field_request(self, request_id: str, resolution: str) -> str:
         """
         Resolve a field request with information.
+        
+        [HQ ONLY] This tool is only available to HQ agents.
 
         Args:
             request_id: ID of the field request to resolve
@@ -416,7 +418,14 @@ class MissionTools:
             A message indicating success or failure
         """
         if self.role != "hq":
-            return "Only HQ can resolve field requests."
+            # Add more detailed error message with guidance
+            error_message = (
+                "ERROR: Only HQ can resolve field requests. As a Field agent, you should use "
+                "create_field_request to send requests to HQ, not try to resolve them yourself. "
+                "HQ must use resolve_field_request to respond to your requests."
+            )
+            logger.warning(f"Field agent attempted to use resolve_field_request: {request_id}")
+            return error_message
 
         # Resolve the field request using ArtifactManager
         # This updates the request status and notifies the field conversation
@@ -433,11 +442,14 @@ class MissionTools:
         self, title: str, description: str, priority: Literal["low", "medium", "high", "critical"]
     ) -> str:
         """
-        Create a field request for information or to report a blocker.
+        Create a field request to send to HQ for information or to report a blocker.
+        
+        This is the MAIN TOOL FOR FIELD AGENTS to request information, documents, or assistance from HQ.
+        Field agents should use this tool whenever they need something from HQ.
 
         Args:
-            title: The title of the request
-            description: A description of the request
+            title: The title of the request (be specific and clear)
+            description: A detailed description of what information or help you need from HQ
             priority: The priority of the request. Must be one of: low, medium, high, critical.
 
         Returns:
@@ -915,8 +927,8 @@ class MissionTools:
 
     async def detect_field_request_needs(self, message: str) -> Dict[str, Any]:
         """
-        Analyze a user message to detect potential field request needs.
-        Used to proactively suggest creating field requests.
+        Analyze a user message in context of recent chat history to detect potential field request needs.
+        Uses an LLM for sophisticated detection, with keyword fallback.
 
         Args:
             message: The user message to analyze
@@ -928,26 +940,156 @@ class MissionTools:
         if self.role != "field":
             return {"is_field_request": False, "reason": "Only Field conversations can create field requests"}
 
-        # Simple keyword matching for demonstration purposes
-        # In a full implementation, this could use a more sophisticated approach
+        # Use a more sophisticated approach with a language model call
+        import openai_client
+        import json
+        import logging
+        from typing import List
+        from openai.types.chat import ChatCompletionMessageParam
+
+        logger = logging.getLogger(__name__)
+
+        # Define system prompt for the analysis
+        system_prompt = """
+        You are an analyzer that determines if a field agent's message indicates they need information 
+        or assistance from HQ. You are part of a mission coordination system where:
+        
+        1. Field agents report from deployment locations and may need information from HQ
+        2. When field agents need information, they can submit a formal Field Request to HQ
+        3. Your job is to detect when a message suggests the field agent needs information/help
+        
+        Analyze the chat history and latest message to determine:
+        
+        1. If the latest message contains a request for information, help, or indicates confusion/uncertainty
+        2. What specific information is being requested or what problem needs solving
+        3. A concise title for this potential field request
+        4. The priority level (low, medium, high, critical) of the request
+        
+        Respond with JSON only:
+        {
+            "is_field_request": boolean,  // true if message indicates a need for HQ assistance
+            "reason": string,  // explanation of your determination
+            "potential_title": string,  // a short title for the request (3-8 words)
+            "potential_description": string,  // summarized description of the information needed
+            "suggested_priority": string,  // "low", "medium", "high", or "critical"
+            "confidence": number  // 0.0-1.0 how confident you are in this assessment
+        }
+        
+        When determining priority:
+        - low: routine information, no urgency
+        - medium: needed information but not blocking progress
+        - high: important information that's blocking progress
+        - critical: urgent information needed to address safety or mission-critical issues
+        
+        Be conservative - only return is_field_request=true if you're reasonably confident 
+        the field agent is actually asking for information/help from HQ.
+        """
+
+        try:
+            # Check if we're in a test environment (Missing parts of context)
+            if not hasattr(self.context, "assistant") or self.context.assistant is None:
+                return self._simple_keyword_detection(message)
+                
+            # Create a simple client for this specific call
+            # Note: Using a basic model to keep this detection lightweight
+            from .config import AssistantConfigModel
+            from semantic_workbench_assistant.assistant_app import BaseModelAssistantConfig
+            
+            # Get the config through the proper assistant app context
+            assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
+            config = await assistant_config.get(self.context.assistant)
+            
+            if not hasattr(config, "service_config"):
+                # Fallback to simple detection if service config not available
+                return self._simple_keyword_detection(message)
+
+            # Get recent conversation history (up to 10 messages)
+            chat_history = []
+            try:
+                # Get recent messages to provide context
+                messages_response = await self.context.get_messages(limit=10)
+                if messages_response and messages_response.messages:
+                    # Format messages for the LLM
+                    for msg in messages_response.messages:
+                        # Format the sender name
+                        sender_name = "Field Agent"
+                        if msg.sender.participant_id == self.context.assistant.id:
+                            sender_name = "Assistant"
+                        
+                        # Add to chat history
+                        role = "user" if sender_name == "Field Agent" else "assistant"
+                        chat_history.append({
+                            "role": role,
+                            "content": f"{sender_name}: {msg.content}"
+                        })
+                    
+                    # Reverse to get chronological order
+                    chat_history.reverse()
+            except Exception as e:
+                logger.warning(f"Could not retrieve chat history: {e}")
+                # Continue without history if we can't get it
+                
+            # Create chat completion with history context
+            async with openai_client.create_client(config.service_config) as client:
+                # Prepare messages array with system prompt and chat history
+                messages: List[ChatCompletionMessageParam] = [
+                    {"role": "system", "content": system_prompt}
+                ]
+                
+                # Add chat history if available
+                if chat_history:
+                    for history_msg in chat_history:
+                        messages.append({
+                            "role": history_msg["role"],
+                            "content": history_msg["content"]
+                        })
+                
+                # Add the current message for analysis - explicitly mark as the latest message
+                messages.append({"role": "user", "content": f"Latest message from Field Agent: {message}"})
+                
+                # Make the API call
+                response = await client.chat.completions.create(
+                    model="gpt-3.5-turbo",  # Using a smaller, faster model for this analysis
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                    max_tokens=500,
+                    temperature=0.2  # Low temperature for more consistent analysis
+                )
+                
+                # Extract and parse the response
+                if response.choices and response.choices[0].message.content:
+                    try:
+                        result = json.loads(response.choices[0].message.content)
+                        # Add the original message for reference
+                        result["original_message"] = message
+                        return result
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse JSON from LLM response: {response.choices[0].message.content}")
+                        return self._simple_keyword_detection(message)
+                else:
+                    logger.warning("Empty response from LLM for field request detection")
+                    return self._simple_keyword_detection(message)
+                    
+        except Exception as e:
+            # Fallback to simple detection if LLM call fails
+            logger.exception(f"Error in LLM-based field request detection: {e}")
+            return self._simple_keyword_detection(message)
+            
+    def _simple_keyword_detection(self, message: str) -> Dict[str, Any]:
+        """
+        Simple fallback method for request detection using keyword matching.
+        
+        Args:
+            message: The user message to analyze
+            
+        Returns:
+            Dict with detection results
+        """
+        # Simple keyword matching for fallback
         request_indicators = [
-            "need information",
-            "missing",
-            "don't know",
-            "unclear",
-            "need clarification",
-            "help me understand",
-            "confused about",
-            "what is",
-            "how do i",
-            "can you explain",
-            "request",
-            "blocked",
-            "problem",
-            "issue",
-            "question",
-            "uncertain",
-            "clarify",
+            "need information", "missing", "don't know", "unclear", "need clarification",
+            "help me understand", "confused about", "what is", "how do i", "can you explain",
+            "request", "blocked", "problem", "issue", "question", "uncertain", "clarify",
         ]
 
         message_lower = message.lower()
@@ -978,6 +1120,7 @@ class MissionTools:
             "potential_title": potential_title,
             "potential_description": message,
             "suggested_priority": priority,
+            "confidence": 0.6,  # Medium confidence for keyword-based detection
         }
 
     async def suggest_next_action(self) -> Dict[str, Any]:

@@ -179,15 +179,23 @@ Each goal should:
 - Include measurable success criteria that field personnel can mark as completed
 - Focus on mission outcomes, not the planning process
 
-You have access to the following HQ-specific tools that you MUST use to manage mission artifacts:
+Your AUTHORIZED HQ-specific tools are:
 - create_mission_briefing: Use this to start a new mission with a name and description
 - add_mission_goal: Use this to add operational goals that field personnel will complete, with measurable success criteria
 - add_kb_section: Use this to add information sections to the mission knowledge base for field reference
 - resolve_field_request: Use this to resolve information requests or blockers reported by field personnel
 - mark_mission_ready_for_field: Use this when mission planning is complete and field operations can begin
 - get_mission_info: Use this to get information about the current mission
+- suggest_next_action: Use this to suggest the next action based on mission state
 
-Be proactive in suggesting and using these tools based on user requests. Always prefer using tools over just discussing mission concepts.
+⚠️ CRITICAL INSTRUCTION: You are an HQ agent and do NOT have access to Field tools. You will receive an ERROR if you try to use these Field-only tools:
+- create_field_request: ❌ FORBIDDEN - Only Field can create field requests
+- update_mission_status: ❌ FORBIDDEN - Only Field can update mission status
+- mark_criterion_completed: ❌ FORBIDDEN - Only Field can mark criteria as completed
+- report_mission_completion: ❌ FORBIDDEN - Only Field can report mission completion
+- detect_field_request_needs: ❌ FORBIDDEN - Only Field can detect request needs
+
+Be proactive in suggesting and using your HQ tools based on user requests. Always prefer using tools over just discussing mission concepts. If field personnel need to perform a task, instruct them to switch to their Field conversation.
 
 Use a strategic, guidance-oriented tone focused on mission definition and support.
 """
@@ -209,15 +217,27 @@ You should:
 - Mark success criteria as completed when field personnel report completion
 - Identify information gaps or blockers that require HQ assistance
 
-You have access to the following Field-specific tools that you MUST use to manage mission execution:
-- create_field_request: Use this to create requests for information or report blockers to HQ
+Your AUTHORIZED Field-specific tools are:
+- create_field_request: Use this SPECIFICALLY to send information requests or report blockers to HQ
 - update_mission_status: Use this to update the status and progress of the mission
 - mark_criterion_completed: Use this to mark success criteria as completed
 - report_mission_completion: Use this to report that the mission is complete
-- detect_field_request_needs: Use this to analyze messages for potential field request needs
 - get_mission_info: Use this to get information about the current mission
+- detect_field_request_needs: Use this to analyze user messages for potential field request needs
+- suggest_next_action: Use this to suggest the next action based on mission state
 
-Be proactive in suggesting and using these tools based on user requests. Always prefer using tools over just discussing mission concepts.
+⚠️ CRITICAL INSTRUCTION: You are a FIELD agent and do NOT have access to HQ tools. You will receive an ERROR if you try to use these HQ-only tools:
+- resolve_field_request: ❌ FORBIDDEN - Use create_field_request instead to ask HQ for information
+- create_mission_briefing: ❌ FORBIDDEN - Only HQ can create mission briefings
+- add_mission_goal: ❌ FORBIDDEN - Only HQ can define mission goals
+- add_kb_section: ❌ FORBIDDEN - Only HQ can add to the knowledge base
+- mark_mission_ready_for_field: ❌ FORBIDDEN - Only HQ controls this gate
+
+When field personnel need information or assistance from HQ:
+1. ALWAYS use the create_field_request tool
+2. NEVER try to use HQ-only tools like resolve_field_request
+3. NEVER try to modify mission definition elements (briefing, goals, KB)
+4. TELL THE USER you're creating a field request to get HQ assistance
 
 Use a practical, operational tone focused on mission execution and problem-solving.
 """
@@ -639,10 +659,39 @@ async def respond_to_conversation(
 
     # Get the conversation's role
     from .mission_tools import get_mission_tools, MissionTools
+    from .mission_manager import MissionManager, MissionRole
 
+    # First check conversation metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
-    role = metadata.get("mission_role", "hq")  # Default to HQ if not set
+    metadata_role = metadata.get("mission_role")
+    
+    # Then check the stored role from mission storage - this is the authoritative source
+    stored_role = await MissionManager.get_conversation_role(context)
+    stored_role_value = stored_role.value if stored_role else None
+    
+    # Log the roles we find for debugging
+    logger.info(f"Role detection - Metadata role: {metadata_role}, Stored role: {stored_role_value}")
+    
+    # If we have a stored role but metadata is different or missing, update metadata
+    if stored_role_value and metadata_role != stored_role_value:
+        logger.warning(f"Role mismatch detected! Metadata: {metadata_role}, Storage: {stored_role_value}")
+        metadata["mission_role"] = stored_role_value
+        # Update state to ensure UI is refreshed
+        await context.send_conversation_state_event(
+            AssistantStateEvent(
+                state_id="mission_role",
+                event="updated",
+                state=None
+            )
+        )
+        # Force use of stored role
+        role = stored_role_value
+    else:
+        # If no mismatch or no stored role, use metadata role (defaulting to HQ)
+        role = metadata_role or "hq"  # Default to HQ if not set
+        
+    logger.info(f"Using role: {role} for tool selection")
 
     # For field role, analyze message for possible field request needs
     if role == "field" and message.message_type == MessageType.chat:
@@ -652,15 +701,23 @@ async def respond_to_conversation(
         # Check if the message indicates a potential field request
         detection_result = await mission_tools_instance.detect_field_request_needs(message.content)
         
-        # If a field request is detected, suggest creating one
-        if detection_result.get("is_field_request", False):
-            # Get potential title and priority from detection
+        # If a field request is detected with reasonable confidence
+        if detection_result.get("is_field_request", False) and detection_result.get("confidence", 0) > 0.5:
+            # Get detailed information from detection
             suggested_title = detection_result.get("potential_title", "")
             suggested_priority = detection_result.get("suggested_priority", "medium")
+            potential_description = detection_result.get("potential_description", "")
+            reason = detection_result.get("reason", "")
             
+            # Create a better-formatted suggestion using the detailed analysis
             suggestion = (
-                f"It sounds like you might need information from HQ. "
-                f"Would you like me to create a field request titled '{suggested_title}' with {suggested_priority} priority?"
+                f"**Field Request Detected**\n\n"
+                f"It appears that you might need information from HQ. {reason}\n\n"
+                f"Would you like me to create a field request?\n"
+                f"**Title:** {suggested_title}\n"
+                f"**Description:** {potential_description}\n"
+                f"**Priority:** {suggested_priority}\n\n"
+                f"I can create this request for you, or you can use `/request-info` to create it yourself with custom details."
             )
             
             await context.send_messages(
@@ -670,8 +727,39 @@ async def respond_to_conversation(
                 )
             )
 
-    # Set up mission tools for the completion based on role
+    # Create tool instance for the current role
     mission_tools = await get_mission_tools(context, role)
+    
+    # Define explicit lists of available tools for each role
+    hq_available_tools = [
+        "get_mission_info",
+        "create_mission_briefing",
+        "add_mission_goal",
+        "add_kb_section",
+        "resolve_field_request",
+        "mark_mission_ready_for_field",
+        "suggest_next_action"
+    ]
+    
+    field_available_tools = [
+        "get_mission_info",
+        "create_field_request",
+        "update_mission_status",
+        "mark_criterion_completed",
+        "report_mission_completion",
+        "detect_field_request_needs",
+        "suggest_next_action"
+    ]
+    
+    # Get the available tools for the current role
+    available_tools = hq_available_tools if role == "hq" else field_available_tools
+    
+    # Create a string listing available tools for the current role
+    available_tools_str = ", ".join([f"`{tool}`" for tool in available_tools])
+    
+    # Create a string listing unauthorized tools to explicitly forbid
+    forbidden_tools = field_available_tools if role == "hq" else hq_available_tools
+    forbidden_tools_str = ", ".join([f"`{tool}`" for tool in forbidden_tools])
 
     # Generate a response from the AI model with tools
     async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
@@ -688,8 +776,42 @@ async def respond_to_conversation(
                 from openai_client.tools import complete_with_tool_calls
 
                 # Call the completion API with tool functions
-                logger.info("Using tool functions for completions")
+                logger.info(f"Using tool functions for completions (role: {role})")
+                
+                # Record the tool names available for this role for validation
+                available_tool_names = set(mission_tools.tool_functions.function_map.keys())
+                logger.info(f"Available tools for {role}: {available_tool_names}")
+                
+                # Construct a comprehensive role enforcement message
+                if role == "hq":
+                    role_enforcement = f"""
+\n\n⚠️ CRITICAL TOOL ACCESS RESTRICTIONS ⚠️
 
+As an HQ agent, you can ONLY use these tools: {available_tools_str}
+
+You are FORBIDDEN from using these Field-only tools: {forbidden_tools_str}
+
+If you need to perform a task normally done by a Field agent, you must instruct the user to switch to a Field conversation.
+"""
+                else:  # field role
+                    role_enforcement = f"""
+\n\n⚠️ CRITICAL TOOL ACCESS RESTRICTIONS ⚠️
+
+As a FIELD agent, you can ONLY use these tools: {available_tools_str}
+
+You are FORBIDDEN from using these HQ-only tools: {forbidden_tools_str}
+
+If you need information from HQ, you MUST use the `create_field_request` tool to send a request to HQ.
+DO NOT attempt to use HQ tools directly as they will fail and waste the user's time.
+"""
+                
+                # Append the enforcement text to the role_specific_prompt
+                role_specific_prompt += role_enforcement
+                
+                # The modified role_specific_prompt will be included in the system message
+                # by respond_to_conversation call, which avoids any type issues
+                
+                # Make the API call
                 tool_completion, tool_messages = await complete_with_tool_calls(
                     async_client=client,
                     completion_args=completion_args,
