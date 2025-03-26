@@ -112,7 +112,7 @@ class MissionManager:
         context: ConversationContext, mission_id: str, mission_name: str
     ) -> None:
         """
-        Initializes the mission status artifact.
+        Initializes the mission status artifact and creates a permanent mission invitation.
         
         Args:
             context: The conversation context
@@ -176,7 +176,50 @@ class MissionManager:
             artifact=log
         )
         
-        logger.info(f"Initialized status and log for mission {mission_id}")
+        # Create a permanent mission invitation
+        # Set expiration far in the future (10 years)
+        long_expiration = datetime.utcnow() + timedelta(days=3650)
+        invitation_token = secrets.token_urlsafe(16)  # Shorter token for easier sharing
+        
+        # Create invitation
+        invitation = MissionInvitation(
+            mission_id=mission_id,
+            creator_id=user_id,
+            creator_name=user_name,
+            invitation_token=invitation_token,
+            target_username=None,  # No username restriction
+            shared_file_ids=[],
+            expires=long_expiration,
+        )
+        
+        # Save invitation to mission storage
+        invitation_dir = MissionStorageManager.get_mission_dir(mission_id) / "invitations"
+        invitation_dir.mkdir(exist_ok=True)
+        
+        invitation_path = invitation_dir / f"{invitation.invitation_id}.json"
+        write_model(invitation_path, invitation)
+        
+        # Log invitation creation
+        log.entries.append(
+            LogEntry(
+                entry_type=LogEntryType.MISSION_STARTED,
+                timestamp=datetime.utcnow(),
+                user_id=user_id,
+                user_name=user_name,
+                message="Permanent mission invitation created",
+            )
+        )
+        log.updated_at = datetime.utcnow()
+        
+        # Update the log
+        MissionStorageWriter.write_artifact(
+            mission_id=mission_id,
+            artifact_type=ArtifactType.MISSION_LOG.value,
+            artifact_id=log.artifact_id,
+            artifact=log
+        )
+        
+        logger.info(f"Initialized status, log, and permanent invitation for mission {mission_id}")
     
     @staticmethod
     async def get_conversation_role(context: ConversationContext) -> Optional[MissionRole]:
@@ -576,7 +619,7 @@ class MissionManager:
         context: ConversationContext, message: ConversationMessage, invite_command: str
     ) -> bool:
         """
-        Processes an invite command.
+        Processes an invite command - shows the permanent mission invitation.
         
         Args:
             context: The conversation context
@@ -590,16 +633,23 @@ class MissionManager:
         if not content.startswith(f"/{invite_command}"):
             return False
             
-        parts = content.split(maxsplit=1)
+        # Get existing invitations
+        invitations = await MissionManager.list_active_invitations(context)
         
-        if len(parts) < 2:
-            # Create invitation without username restriction
-            success, result_message, _ = await MissionManager.create_invitation(context)
+        if invitations:
+            # Use the first invitation - single permanent invitation per mission
+            invitation = invitations[0]
+            invitation_code = f"{invitation.invitation_id}:{invitation.invitation_token}"
+            result_message = (
+                "Mission invitation code to share with field operatives:\n\n"
+                f"`{invitation_code}`\n\n"
+                f"Field operatives can join by using: `/join {invitation_code}`"
+            )
+            success = True
         else:
-            # Create invitation for specific username
-            username = parts[1].strip()
+            # No invitation found, create a new permanent one
             success, result_message, _ = await MissionManager.create_invitation(
-                context, target_username=username
+                context, expiration_hours=24*365*10  # ~10 years
             )
             
         # Send response

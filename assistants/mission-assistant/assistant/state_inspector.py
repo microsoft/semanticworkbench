@@ -134,27 +134,28 @@ class MissionInspectorStateProvider:
             lines.append("No open field requests.")
             lines.append("")
         
-        # Add active invitation links section
+        # Show the single permanent mission invitation
         invitations = await MissionManager.list_active_invitations(context)
+        lines.append("## Mission Invitation")
+        
         if invitations:
-            lines.append("## Active Invitations")
-            lines.append("Use these invitation links to add field operatives to this mission:")
-            lines.append("")
+            # Use the first invitation as the permanent one
+            invitation = invitations[0]
+            invitation_code = f"{invitation.invitation_id}:{invitation.invitation_token}"
             
-            for invitation in invitations:
-                invitation_code = f"{invitation.invitation_id}:{invitation.invitation_token}"
-                target_info = f" for {invitation.target_username}" if invitation.target_username else ""
-                expiry_date = invitation.expires.strftime("%Y-%m-%d %H:%M UTC")
-                
-                lines.append(f"- Invitation{target_info}")
-                lines.append(f"  **Code:** `{invitation_code}`")
-                lines.append(f"  **Expires:** {expiry_date}")
-                lines.append(f"  Field operatives can join using: `/join {invitation_code}`")
-                lines.append("")
-        else:
-            lines.append("## Invitations")
-            lines.append("No active invitations. Use `/invite [username]` to create an invitation link.")
+            lines.append("Share this code with all field operatives who need to join this mission:")
             lines.append("")
+            lines.append(f"**Invitation Code:** `{invitation_code}`")
+            lines.append("")
+            lines.append("Field operatives can join using:")
+            lines.append("```")
+            lines.append(f"/join {invitation_code}")
+            lines.append("```")
+        else:
+            # Fallback in case there's no invitation yet
+            lines.append("No invitation link available. Use `/invite` to create a permanent invitation link.")
+        
+        lines.append("")
         
         return "\n".join(lines)
         
