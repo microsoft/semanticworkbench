@@ -25,7 +25,7 @@
   "python.analysis.fixAll": ["source.unusedImports"],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.typeCheckingMode": "standard",
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
   "python.testing.pytestEnabled": false,
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
