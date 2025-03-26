@@ -370,7 +370,7 @@ class ArtifactMessenger:
     @staticmethod
     async def save_artifact(context: ConversationContext, artifact: BaseArtifact) -> bool:
         """
-        Saves an artifact to mission storage.
+        Saves an artifact to mission storage and notifies the workbench to refresh the inspector.
 
         Args:
             context: Current conversation context
@@ -381,6 +381,7 @@ class ArtifactMessenger:
         """
         try:
             from .mission_storage import MissionStorageWriter, ConversationMissionManager
+            from semantic_workbench_api_model.workbench_model import AssistantStateEvent
             
             # Get the mission ID associated with this conversation
             mission_id = await ConversationMissionManager.get_conversation_mission(context)
@@ -397,7 +398,16 @@ class ArtifactMessenger:
                 artifact=artifact
             )
             
-            logger.info(f"Saved artifact {artifact.artifact_id} to {artifact_path}")
+            # Notify the workbench UI to refresh the mission inspector state
+            await context.send_conversation_state_event(
+                AssistantStateEvent(
+                    state_id="mission_status",  # Must match the inspector_state_providers key in chat.py
+                    event="updated",
+                    state=None,
+                )
+            )
+            
+            logger.info(f"Saved artifact {artifact.artifact_id} to {artifact_path} and notified workbench")
             return True
 
         except Exception as e:
