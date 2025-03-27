@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import types
+import urllib.parse
 import uuid
 from contextlib import asynccontextmanager
 from typing import IO, Any, AsyncGenerator, AsyncIterator, Callable, Mapping, Self
@@ -34,7 +35,7 @@ class AuthParams(BaseModel):
     api_key: str
 
     def to_request_headers(self) -> Mapping[str, str]:
-        return {HEADER_API_KEY: self.api_key}
+        return {HEADER_API_KEY: urllib.parse.quote(self.api_key)}
 
     @staticmethod
     def from_request_headers(headers: Mapping[str, str]) -> AuthParams:
@@ -324,7 +325,9 @@ class AssistantServiceClientBuilder:
             timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
             headers={
                 **AuthParams(api_key=self._api_key).to_request_headers(),
-                asgi_correlation_id.CorrelationIdMiddleware.header_name: asgi_correlation_id.correlation_id.get() or "",
+                asgi_correlation_id.CorrelationIdMiddleware.header_name: urllib.parse.quote(
+                    asgi_correlation_id.correlation_id.get() or ""
+                ),
             },
         )
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import types
+import urllib.parse
 import uuid
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -517,7 +518,9 @@ class WorkbenchServiceClientBuilder:
             base_url=self._base_url,
             timeout=httpx.Timeout(5.0, connect=10.0, read=60.0),
             headers={
-                asgi_correlation_id.CorrelationIdMiddleware.header_name: asgi_correlation_id.correlation_id.get() or "",
+                asgi_correlation_id.CorrelationIdMiddleware.header_name: urllib.parse.quote(
+                    asgi_correlation_id.correlation_id.get() or ""
+                ),
             },
         )
         for header in headers:
