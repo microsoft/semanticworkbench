@@ -311,6 +311,8 @@ class FileController:
                     yield chunk
 
         filename = file_record.filename.split("/")[-1]
+        # ensure the filename is safe for latin-1 encoding
+        filename = filename.encode("utf-8").decode("latin-1")
 
         return DownloadFileResult(
             filename=filename,
