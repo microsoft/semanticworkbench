@@ -12,10 +12,12 @@ from assistant_extensions.mcp import (
     get_mcp_server_prompts,
     refresh_mcp_sessions,
 )
+from mcp import ServerNotification
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
     NewConversationMessage,
+    UpdateParticipant,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -62,6 +64,10 @@ async def respond_to_conversation(
             ]
         )
 
+        async def message_handler(message) -> None:
+            if isinstance(message, ServerNotification) and message.root.method == "notifications/message":
+                await context.update_participant_me(UpdateParticipant(status=f"{message.root.params.data}"))
+
         client_resource_handler = WorkbenchFileClientResourceHandler(
             context=context,
         )
@@ -75,6 +81,7 @@ async def respond_to_conversation(
                 mcp_server_configs=enabled_servers,
                 stack=stack,
                 sampling_handler=sampling_handler.handle_message,
+                message_handler=message_handler,
                 experimental_resource_callbacks=(
                     client_resource_handler.handle_list_resources,
                     client_resource_handler.handle_read_resource,

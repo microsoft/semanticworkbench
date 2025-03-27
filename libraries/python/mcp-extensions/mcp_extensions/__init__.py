@@ -15,7 +15,6 @@ from ._server_extensions import (
 )
 from ._tool_utils import (
     convert_tools_to_openai_tools,
-    execute_tool_with_notifications,
     execute_tool_with_retries,
     send_tool_call_progress,
 )
@@ -25,7 +24,6 @@ from ._tool_utils import (
 # progress updates, and tool conversion specific to the MCP ecosystem.
 __all__ = [
     "convert_tools_to_openai_tools",
-    "execute_tool_with_notifications",
     "execute_tool_with_retries",
     "list_client_resources",
     "read_client_resource",

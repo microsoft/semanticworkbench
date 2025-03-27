@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Any, Awaitable, Callable, List
+from typing import Annotated, Any, Callable, List
 
 from mcp import Tool
 from mcp.client.session import SamplingFnT
@@ -165,5 +165,4 @@ class ExtendedCallToolResult(CallToolResult):
 
 # define types for callback functions
 MCPErrorHandler = Callable[[MCPServerConfig, Exception], Any]
-MCPLoggingMessageHandler = Callable[[str], Awaitable[None]]
 MCPSamplingMessageHandler = SamplingFnT

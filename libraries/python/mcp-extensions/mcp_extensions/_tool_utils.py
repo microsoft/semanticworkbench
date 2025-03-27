@@ -4,7 +4,7 @@ import logging
 from typing import Any, List
 
 import deepmerge
-from mcp import ClientSession, ServerNotification, ServerSession, Tool
+from mcp import ServerSession, Tool
 from mcp.server.fastmcp import Context
 from mcp.types import CallToolResult
 from openai.types.chat import (
@@ -12,7 +12,7 @@ from openai.types.chat import (
 )
 from openai.types.shared_params import FunctionDefinition
 
-from ._model import ServerNotificationHandler, ToolCallFunction
+from ._model import ToolCallFunction
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +46,11 @@ async def send_tool_call_progress(
     # await session._write_stream.send(JSONRPCMessage(jsonrpc_notification))
 
 
-async def execute_tool_with_retries(mcp_session, tool_call_function, notification_handler, tool_name) -> CallToolResult:
+async def execute_tool_with_retries(tool_call_function, tool_name) -> CallToolResult:
     retries = 0
     while True:
         try:
-            return await execute_tool_with_notifications(
-                mcp_session.client_session, tool_call_function, notification_handler
-            )
+            return await execute_tool(tool_call_function)
         except (TimeoutError, ConnectionError):
             if retries < MAX_RETRIES:
                 logger.warning(f"Transient error in tool '{tool_name}', retrying... ({retries + 1}/{MAX_RETRIES})")
@@ -62,46 +60,22 @@ async def execute_tool_with_retries(mcp_session, tool_call_function, notificatio
                 raise
 
 
-async def execute_tool_with_notifications(
-    session: ClientSession,
+async def execute_tool(
     tool_call_function: ToolCallFunction,
-    notification_handler: ServerNotificationHandler,
 ) -> CallToolResult:
     """
-    Executes a tool call while concurrently processing incoming notifications from the MCP server. This ensures
-    smooth handling of asynchronous updates during execution.
+    Executes a tool call.
 
     Args:
         session: The MCP client session facilitating communication with the server.
         tool_call_function: The asynchronous tool call function to execute.
-        notification_handler: Asynchronous callback to process server notifications during execution.
 
     Returns:
         The result of the tool call, typically wrapped as a protocol-compliant response.
     """
 
-    # Create a task for listening to incoming messages
-    async def message_listener() -> None:
-        async for message in session.incoming_messages:
-            if isinstance(message, Exception):
-                raise message
-            if isinstance(message, ServerNotification):
-                await notification_handler(message)
-            else:
-                logger.warning(f"Received unknown message: {message}")
-
-    # Create a task group to run both the tool call and message listener
-    async with asyncio.TaskGroup() as task_group:
-        # Start the message listener
-        listener_task = task_group.create_task(message_listener())
-
-        try:
-            # Execute the tool call
-            result = await tool_call_function()
-            return result
-        finally:
-            # Cancel the listener task when we're done
-            listener_task.cancel()
+    result = await tool_call_function()
+    return result
 
 
 def convert_tools_to_openai_tools(

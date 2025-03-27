@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import pydantic
 from mcp import ClientSession, types
-from mcp.client.session import SamplingFnT
+from mcp.client.session import MessageHandlerFnT, SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.shared.context import RequestContext
@@ -35,6 +35,7 @@ def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
 async def connect_to_mcp_server(
     server_config: MCPServerConfig,
     sampling_callback: SamplingFnT | None = None,
+    message_handler: MessageHandlerFnT | None = None,
     experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> AsyncIterator[ExtendedClientSession]:
     """Connect to a single MCP server defined in the config."""
@@ -43,13 +44,13 @@ async def connect_to_mcp_server(
     match transport:
         case "sse":
             async with connect_to_mcp_server_sse(
-                server_config, sampling_callback, experimental_resource_callbacks
+                server_config, sampling_callback, message_handler, experimental_resource_callbacks
             ) as client_session:
                 yield client_session
 
         case "stdio":
             async with connect_to_mcp_server_stdio(
-                server_config, sampling_callback, experimental_resource_callbacks
+                server_config, sampling_callback, message_handler, experimental_resource_callbacks
             ) as client_session:
                 yield client_session
 
@@ -92,6 +93,7 @@ def list_roots_callback_for(server_config: MCPServerConfig):
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
     sampling_callback: SamplingFnT | None = None,
+    message_handler: MessageHandlerFnT | None = None,
     experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> AsyncIterator[ExtendedClientSession]:
     """Connect to a single MCP server defined in the config."""
@@ -111,6 +113,7 @@ async def connect_to_mcp_server_stdio(
                 write_stream,
                 list_roots_callback=list_roots_callback_for(server_config),
                 sampling_callback=sampling_callback,
+                message_handler=message_handler,
                 experimental_resource_callbacks=experimental_resource_callbacks,
             ) as client_session:
                 await client_session.initialize()
@@ -139,6 +142,7 @@ def add_params_to_url(url: str, params: dict[str, str]) -> str:
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
     sampling_callback: SamplingFnT | None = None,
+    message_handler: MessageHandlerFnT | None = None,
     experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> AsyncIterator[ExtendedClientSession]:
     """Connect to a single MCP server defined in the config using SSE transport."""
@@ -163,6 +167,7 @@ async def connect_to_mcp_server_sse(
                 write_stream,
                 list_roots_callback=list_roots_callback_for(server_config),
                 sampling_callback=sampling_callback,
+                message_handler=message_handler,
                 experimental_resource_callbacks=experimental_resource_callbacks,
             ) as client_session:
                 await client_session.initialize()
@@ -191,6 +196,7 @@ async def connect_to_mcp_server_sse(
 async def refresh_mcp_sessions(
     mcp_sessions: list[MCPSession],
     sampling_handler: Optional[MCPSamplingMessageHandler] = None,
+    message_handler: MessageHandlerFnT | None = None,
     experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> list[MCPSession]:
     """
@@ -201,7 +207,9 @@ async def refresh_mcp_sessions(
     for session in mcp_sessions:
         if not session.is_connected:
             logger.info(f"Session {session.config.key} is disconnected. Attempting to reconnect...")
-            new_session = await reconnect_mcp_session(session.config, sampling_handler, experimental_resource_callbacks)
+            new_session = await reconnect_mcp_session(
+                session.config, sampling_handler, message_handler, experimental_resource_callbacks
+            )
             if new_session:
                 active_sessions.append(new_session)
             else:
@@ -213,7 +221,8 @@ async def refresh_mcp_sessions(
 
 async def reconnect_mcp_session(
     server_config: MCPServerConfig,
-    sampling_handler: Optional[MCPSamplingMessageHandler] = None,
+    sampling_handler: MCPSamplingMessageHandler | None = None,
+    message_handler: MessageHandlerFnT | None = None,
     experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> MCPSession | None:
     """
@@ -224,7 +233,7 @@ async def reconnect_mcp_session(
     """
     try:
         async with connect_to_mcp_server(
-            server_config, sampling_handler, experimental_resource_callbacks
+            server_config, sampling_handler, message_handler, experimental_resource_callbacks
         ) as client_session:
             if client_session is None:
                 logger.error(f"Reconnection returned no client session for {server_config.key}")
@@ -253,6 +262,7 @@ async def establish_mcp_sessions(
     mcp_server_configs: list[MCPServerConfig],
     stack: AsyncExitStack,
     sampling_handler: Optional[MCPSamplingMessageHandler] = None,
+    message_handler: MessageHandlerFnT | None = None,
     experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> list[MCPSession]:
     """
@@ -270,6 +280,7 @@ async def establish_mcp_sessions(
                 connect_to_mcp_server(
                     server_config,
                     sampling_callback=sampling_handler,
+                    message_handler=message_handler,
                     experimental_resource_callbacks=experimental_resource_callbacks,
                 )
             )
