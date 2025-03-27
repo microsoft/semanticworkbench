@@ -1,15 +1,23 @@
-from ._client_session import ExtendedClientSession, ListResourcesFnT, ReadResourceFnT
+from ._client_session import (
+    ExtendedClientSession,
+    ListResourcesFnT,
+    ReadResourceFnT,
+    WriteResourceFnT,
+    WriteResourceRequest,
+    WriteResourceRequestParams,
+    WriteResourceResult,
+)
 from ._model import ServerNotificationHandler, ToolCallFunction, ToolCallProgressMessage
 from ._sampling import send_sampling_request
+from ._server_extensions import (
+    list_client_resources,
+    read_client_resource,
+)
 from ._tool_utils import (
     convert_tools_to_openai_tools,
     execute_tool_with_notifications,
     execute_tool_with_retries,
     send_tool_call_progress,
-)
-from ._server_extensions import (
-    list_client_resources,
-    read_client_resource,
 )
 
 # Exported utilities and models for external use.
@@ -29,4 +37,8 @@ __all__ = [
     "ExtendedClientSession",
     "ListResourcesFnT",
     "ReadResourceFnT",
+    "WriteResourceFnT",
+    "WriteResourceRequest",
+    "WriteResourceRequestParams",
+    "WriteResourceResult",
 ]

@@ -78,6 +78,7 @@ async def respond_to_conversation(
                 experimental_resource_callbacks=(
                     client_resource_handler.handle_list_resources,
                     client_resource_handler.handle_read_resource,
+                    client_resource_handler.handle_write_resource,
                 ),
             )
 
@@ -124,6 +125,7 @@ async def respond_to_conversation(
                 experimental_resource_callbacks=(
                     client_resource_handler.handle_list_resources,
                     client_resource_handler.handle_read_resource,
+                    client_resource_handler.handle_write_resource,
                 ),
             )
 

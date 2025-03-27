@@ -11,7 +11,7 @@ from mcp.client.session import SamplingFnT
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.shared.context import RequestContext
-from mcp_extensions import ExtendedClientSession, ListResourcesFnT, ReadResourceFnT
+from mcp_extensions import ExtendedClientSession, ListResourcesFnT, ReadResourceFnT, WriteResourceFnT
 
 from . import _devtunnel
 from ._model import (
@@ -35,7 +35,7 @@ def get_env_dict(server_config: MCPServerConfig) -> dict[str, str] | None:
 async def connect_to_mcp_server(
     server_config: MCPServerConfig,
     sampling_callback: SamplingFnT | None = None,
-    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT] | None = None,
+    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> AsyncIterator[ExtendedClientSession]:
     """Connect to a single MCP server defined in the config."""
     transport = "sse" if server_config.command.startswith("http") else "stdio"
@@ -92,7 +92,7 @@ def list_roots_callback_for(server_config: MCPServerConfig):
 async def connect_to_mcp_server_stdio(
     server_config: MCPServerConfig,
     sampling_callback: SamplingFnT | None = None,
-    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT] | None = None,
+    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> AsyncIterator[ExtendedClientSession]:
     """Connect to a single MCP server defined in the config."""
 
@@ -139,7 +139,7 @@ def add_params_to_url(url: str, params: dict[str, str]) -> str:
 async def connect_to_mcp_server_sse(
     server_config: MCPServerConfig,
     sampling_callback: SamplingFnT | None = None,
-    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT] | None = None,
+    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> AsyncIterator[ExtendedClientSession]:
     """Connect to a single MCP server defined in the config using SSE transport."""
 
@@ -191,7 +191,7 @@ async def connect_to_mcp_server_sse(
 async def refresh_mcp_sessions(
     mcp_sessions: list[MCPSession],
     sampling_handler: Optional[MCPSamplingMessageHandler] = None,
-    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT] | None = None,
+    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> list[MCPSession]:
     """
     Check each MCP session for connectivity. If a session is marked as disconnected,
@@ -214,7 +214,7 @@ async def refresh_mcp_sessions(
 async def reconnect_mcp_session(
     server_config: MCPServerConfig,
     sampling_handler: Optional[MCPSamplingMessageHandler] = None,
-    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT] | None = None,
+    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> MCPSession | None:
     """
     Attempt to reconnect to the MCP server using the provided configuration.
@@ -253,7 +253,7 @@ async def establish_mcp_sessions(
     mcp_server_configs: list[MCPServerConfig],
     stack: AsyncExitStack,
     sampling_handler: Optional[MCPSamplingMessageHandler] = None,
-    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT] | None = None,
+    experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
 ) -> list[MCPSession]:
     """
     Establish connections to multiple MCP servers and return their sessions.

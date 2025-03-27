@@ -6,6 +6,7 @@ from typing import Any
 from mcp import ClientSession, ErrorData, ListResourcesResult, ReadResourceResult, Resource
 from mcp.shared.context import RequestContext
 from mcp.types import BlobResourceContents, ReadResourceRequestParams, TextResourceContents
+from mcp_extensions import WriteResourceRequestParams, WriteResourceResult
 from pydantic import AnyUrl
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -89,3 +90,24 @@ class WorkbenchFileClientResourceHandler:
                 )
             ]
         )
+
+    async def handle_write_resource(
+        self,
+        context: RequestContext[ClientSession, Any],
+        params: WriteResourceRequestParams,
+    ) -> WriteResourceResult | ErrorData:
+        uri = params.uri
+        filename = urllib.parse.unquote(str(uri).replace(uri.scheme + "://", ""))
+
+        if isinstance(params.contents, TextResourceContents):
+            content_bytes = params.contents.text.encode("utf-8")
+        else:
+            content_bytes = base64.b64decode(params.contents.blob)
+
+        await self.context.write_file(
+            filename=filename,
+            content_type=params.contents.mimeType or "application/octet-stream",
+            file_content=io.BytesIO(content_bytes),
+        )
+
+        return WriteResourceResult()

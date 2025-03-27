@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Any, Protocol
+from typing import Annotated, Any, Literal, Protocol
 
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp import types
@@ -14,7 +14,7 @@ from mcp.client.session import (
 from mcp.shared.context import RequestContext
 from mcp.shared.session import BaseSession, RequestResponder
 from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
-from pydantic import AnyUrl
+from pydantic import AnyUrl, ConfigDict, UrlConstraints
 
 
 class ListResourcesFnT(Protocol):
@@ -47,6 +47,49 @@ async def _default_read_resource_callback(
     )
 
 
+class WriteResourceRequestParams(types.RequestParams):
+    """Parameters for reading a resource."""
+
+    uri: Annotated[AnyUrl, UrlConstraints(host_required=False)]
+    """
+    The URI of the resource to write. The URI can use any protocol; it is up to the
+    client how to interpret it.
+    """
+    contents: types.BlobResourceContents | types.TextResourceContents
+    """
+    The contents of the resource to write. This can be either a blob or text resource.
+    """
+    model_config = ConfigDict(extra="allow")
+
+
+class WriteResourceRequest(types.Request):
+    """Sent from the server to the client, to write a specific resource URI."""
+
+    method: Literal["resources/write"]
+    params: WriteResourceRequestParams
+
+
+class WriteResourceResult(types.Result):
+    """Result of a write resource request."""
+
+    pass
+
+
+class WriteResourceFnT(Protocol):
+    async def __call__(
+        self, context: RequestContext[ClientSession, Any], params: types.WriteResourceRequestParams
+    ) -> types.WriteResourceResult | types.ErrorData: ...
+
+
+async def _default_write_resource_callback(
+    context: RequestContext[ClientSession, Any], params: types.WriteResourceRequestParams
+) -> types.WriteResourceResult | types.ErrorData:
+    return types.ErrorData(
+        code=types.INVALID_REQUEST,
+        message="Write resource not supported",
+    )
+
+
 class ExtendedServerRequest(
     types.RootModel[
         types.PingRequest
@@ -54,6 +97,7 @@ class ExtendedServerRequest(
         | types.ListRootsRequest
         | types.ListResourcesRequest
         | types.ReadResourceRequest
+        | WriteResourceRequest
     ]
 ):
     pass
@@ -66,6 +110,7 @@ class ExtendedClientResult(
         | types.ListRootsResult
         | types.ListResourcesResult
         | types.ReadResourceResult
+        | WriteResourceResult
     ]
 ):
     pass
@@ -87,7 +132,7 @@ class ExtendedClientSession(
         read_timeout_seconds: timedelta | None = None,
         sampling_callback: SamplingFnT | None = None,
         list_roots_callback: ListRootsFnT | None = None,
-        experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT] | None = None,
+        experimental_resource_callbacks: tuple[ListResourcesFnT, ReadResourceFnT, WriteResourceFnT] | None = None,
     ) -> None:
         super().__init__(
             read_stream,
@@ -98,9 +143,13 @@ class ExtendedClientSession(
         )
         self._sampling_callback = sampling_callback or _default_sampling_callback
         self._list_roots_callback = list_roots_callback or _default_list_roots_callback
-        self._list_resources_callback, self._read_resource_callback = experimental_resource_callbacks or (
-            _default_list_resources_callback,
-            _default_read_resource_callback,
+        self._list_resources_callback, self._read_resource_callback, self._write_resource_callback = (
+            experimental_resource_callbacks
+            or (
+                _default_list_resources_callback,
+                _default_read_resource_callback,
+                _default_write_resource_callback,
+            )
         )
 
     async def initialize(self) -> types.InitializeResult:
@@ -354,6 +403,12 @@ class ExtendedClientSession(
                 with responder:
                     response = await self._read_resource_callback(ctx, params)
                     client_response = types.ReadResourceResult.model_validate(response)
+                    await responder.respond(client_response)
+
+            case WriteResourceRequest(params=params):
+                with responder:
+                    response = await self._write_resource_callback(ctx, params)
+                    client_response = WriteResourceResult.model_validate(response)
                     await responder.respond(client_response)
 
     async def _received_notification(self, notification: types.ServerNotification) -> None:
