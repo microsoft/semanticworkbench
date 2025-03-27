@@ -238,7 +238,7 @@ async def _get_attachments(
     """
 
     # get all files in the conversation
-    files_response = await context.get_files()
+    files_response = await context.list_files()
 
     attachments = []
     # for all files, get the attachment

@@ -4,9 +4,8 @@ version = "0.1.0"
 description = "Allows for robust editing of files like Markdown and LaTeX"
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
-    "mcp>=1.3.0,<2.0",
     "mcp-extensions[llm,openai]>=0.1.0",
     "pendulum>=3.0,<4.0",
     "pydantic>=2.10,<3.0",

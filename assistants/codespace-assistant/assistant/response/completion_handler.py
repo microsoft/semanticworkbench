@@ -20,7 +20,6 @@ from openai_client import OpenAIRequestConfig, num_tokens_from_messages
 from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
-    UpdateParticipant,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -171,17 +170,12 @@ async def handle_completion(
             tool_call_count += 1
             tool_call_status = f"using tool `{tool_call.name}`"
             async with context.set_status(f"{tool_call_status}..."):
-
-                async def on_logging_message(msg: str) -> None:
-                    await context.update_participant_me(UpdateParticipant(status=f"{tool_call_status}: {msg}"))
-
                 try:
                     tool_call_result = await handle_mcp_tool_call(
                         sampling_handler,
                         mcp_sessions,
                         tool_call,
                         f"{metadata_key}:request:tool_call_{tool_call_count}",
-                        on_logging_message,
                     )
                 except Exception as e:
                     logger.exception(f"Error handling tool call '{tool_call.name}': {e}")

@@ -124,7 +124,7 @@ class ConversationContext:
     async def get_file(self, filename: str) -> workbench_model.File | None:
         return await self._workbench_client.get_file(filename=filename)
 
-    async def get_files(self, prefix: str | None = None) -> workbench_model.FileList:
+    async def list_files(self, prefix: str | None = None) -> workbench_model.FileList:
         return await self._workbench_client.get_files(prefix=prefix)
 
     async def file_exists(self, filename: str) -> bool:

@@ -5,14 +5,13 @@ from textwrap import dedent
 from typing import AsyncGenerator, List
 
 import deepmerge
-from mcp import ServerNotification, Tool
+from mcp import Tool
 from mcp.types import CallToolResult, EmbeddedResource, ImageContent, TextContent
 from mcp_extensions import execute_tool_with_retries
 
 from ._model import (
     ExtendedCallToolRequestParams,
     ExtendedCallToolResult,
-    MCPLoggingMessageHandler,
     MCPSession,
 )
 from ._openai_utils import OpenAISamplingHandler
@@ -64,7 +63,6 @@ async def handle_mcp_tool_call(
     mcp_sessions: List[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
-    on_logging_message: MCPLoggingMessageHandler,
 ) -> ExtendedCallToolResult:
     # Find the tool and session by tool name.
     mcp_session, tool = get_mcp_session_and_tool_by_tool_name(mcp_sessions, tool_call.name)
@@ -83,14 +81,13 @@ async def handle_mcp_tool_call(
         )
 
     # Execute the tool call using our robust error-handling function.
-    return await execute_tool(mcp_session, tool_call, method_metadata_key, on_logging_message)
+    return await execute_tool(mcp_session, tool_call, method_metadata_key)
 
 
 async def handle_long_running_tool_call(
     mcp_sessions: List[MCPSession],
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
-    on_logging_message: MCPLoggingMessageHandler,
 ) -> AsyncGenerator[ExtendedCallToolResult, None]:
     """
     Handle the streaming tool call by invoking the appropriate tool and returning a ToolCallResult.
@@ -130,7 +127,7 @@ async def handle_long_running_tool_call(
     )
 
     # Perform the tool call
-    tool_call_result = await execute_tool(mcp_session, tool_call, method_metadata_key, on_logging_message)
+    tool_call_result = await execute_tool(mcp_session, tool_call, method_metadata_key)
     yield tool_call_result
 
 
@@ -138,7 +135,6 @@ async def execute_tool(
     mcp_session: MCPSession,
     tool_call: ExtendedCallToolRequestParams,
     method_metadata_key: str,
-    on_logging_message: MCPLoggingMessageHandler,
 ) -> ExtendedCallToolResult:
     # Initialize metadata
     metadata = {}
@@ -151,18 +147,10 @@ async def execute_tool(
     async def tool_call_function() -> CallToolResult:
         return await mcp_session.client_session.call_tool(tool_call.name, tool_call.arguments)
 
-    async def notification_handler(message: ServerNotification) -> None:
-        if message.root.method == "notifications/message":
-            await on_logging_message(message.root.params.data)
-        else:
-            logger.warning(f"Received unknown notification: {message}")
-
     logger.debug(f"Invoking '{mcp_session.config.key}.{tool_call.name}' with arguments: {tool_call.arguments}")
 
     try:
-        tool_result = await execute_tool_with_retries(
-            mcp_session, tool_call_function, notification_handler, tool_call.name
-        )
+        tool_result = await execute_tool_with_retries(tool_call_function, tool_call.name)
     except asyncio.CancelledError:
         raise
     except Exception as e:
