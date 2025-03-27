@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A python Semantic Workbench OpenAI assistant for assisting with development in codespaces."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "assistant-drive>=0.1.0",
     "assistant-extensions[attachments, mcp]>=0.1.0",

@@ -6,6 +6,7 @@ from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.mcp import (
     MCPServerConnectionError,
     OpenAISamplingHandler,
+    WorkbenchFileClientResourceHandler,
     establish_mcp_sessions,
     get_enabled_mcp_server_configs,
     get_mcp_server_prompts,
@@ -61,6 +62,10 @@ async def respond_to_conversation(
             ]
         )
 
+        client_resource_handler = WorkbenchFileClientResourceHandler(
+            context=context,
+        )
+
         enabled_servers = []
         if config.tools.enabled:
             enabled_servers = get_enabled_mcp_server_configs(config.tools.mcp_servers)
@@ -70,6 +75,10 @@ async def respond_to_conversation(
                 mcp_server_configs=enabled_servers,
                 stack=stack,
                 sampling_handler=sampling_handler.handle_message,
+                experimental_resource_callbacks=(
+                    client_resource_handler.handle_list_resources,
+                    client_resource_handler.handle_read_resource,
+                ),
             )
 
         except MCPServerConnectionError as e:
@@ -109,7 +118,14 @@ async def respond_to_conversation(
                 break
 
             # Reconnect to the MCP servers if they were disconnected
-            mcp_sessions = await refresh_mcp_sessions(mcp_sessions)
+            mcp_sessions = await refresh_mcp_sessions(
+                mcp_sessions,
+                sampling_handler=sampling_handler.handle_message,
+                experimental_resource_callbacks=(
+                    client_resource_handler.handle_list_resources,
+                    client_resource_handler.handle_read_resource,
+                ),
+            )
 
             step_result = await next_step(
                 sampling_handler=sampling_handler,

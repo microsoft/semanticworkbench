@@ -1,3 +1,4 @@
+from ._client_session import ExtendedClientSession, ListResourcesFnT, ReadResourceFnT
 from ._model import ServerNotificationHandler, ToolCallFunction, ToolCallProgressMessage
 from ._sampling import send_sampling_request
 from ._tool_utils import (
@@ -5,6 +6,10 @@ from ._tool_utils import (
     execute_tool_with_notifications,
     execute_tool_with_retries,
     send_tool_call_progress,
+)
+from ._server_extensions import (
+    list_client_resources,
+    read_client_resource,
 )
 
 # Exported utilities and models for external use.
@@ -14,9 +19,14 @@ __all__ = [
     "convert_tools_to_openai_tools",
     "execute_tool_with_notifications",
     "execute_tool_with_retries",
+    "list_client_resources",
+    "read_client_resource",
     "send_sampling_request",
     "send_tool_call_progress",
     "ServerNotificationHandler",
     "ToolCallFunction",
     "ToolCallProgressMessage",
+    "ExtendedClientSession",
+    "ListResourcesFnT",
+    "ReadResourceFnT",
 ]

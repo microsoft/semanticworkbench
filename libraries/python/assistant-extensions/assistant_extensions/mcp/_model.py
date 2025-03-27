@@ -1,12 +1,13 @@
 import logging
 from typing import Annotated, Any, Awaitable, Callable, List
 
-from mcp import ClientSession, Tool
+from mcp import Tool
 from mcp.client.session import SamplingFnT
 from mcp.types import (
     CallToolRequestParams,
     CallToolResult,
 )
+from mcp_extensions import ExtendedClientSession
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
@@ -137,11 +138,11 @@ class HostedMCPServerConfig(MCPServerConfig):
 
 class MCPSession:
     config: MCPServerConfig
-    client_session: ClientSession
+    client_session: ExtendedClientSession
     tools: List[Tool] = []
     is_connected: bool = True
 
-    def __init__(self, config: MCPServerConfig, client_session: ClientSession) -> None:
+    def __init__(self, config: MCPServerConfig, client_session: ExtendedClientSession) -> None:
         self.config = config
         self.client_session = client_session
 
