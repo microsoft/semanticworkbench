@@ -3,6 +3,7 @@ import contextlib
 import datetime
 import json
 import logging
+import urllib.parse
 import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -1003,13 +1004,10 @@ def init(
             version=version,
         )
 
-        # ensure the filename is safe for latin-1 encoding
-        filename = result.filename.encode("utf-8").decode("latin-1")
-
         return StreamingResponse(
             result.stream,
             media_type=result.content_type,
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={"Content-Disposition": f'attachment; filename="{urllib.parse.quote(result.filename)}"'},
         )
 
     @app.patch("/conversations/{conversation_id}/files/{filename:path}")
