@@ -1003,10 +1003,13 @@ def init(
             version=version,
         )
 
+        # ensure the filename is safe for latin-1 encoding
+        filename = result.filename.encode("utf-8").decode("latin-1")
+
         return StreamingResponse(
             result.stream,
             media_type=result.content_type,
-            headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     @app.patch("/conversations/{conversation_id}/files/{filename:path}")
