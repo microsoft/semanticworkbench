@@ -1,10 +1,7 @@
 from textwrap import dedent
 from typing import Annotated
 
-from assistant_extensions.ai_clients.config import (
-    AzureOpenAIClientConfigModel,
-    OpenAIClientConfigModel,
-)
+from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
 from assistant_extensions.mcp import HostedMCPServerConfig, MCPClientRoot, MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
@@ -523,6 +520,23 @@ class WorkspacePromptsConfigModel(PromptsConfigModel):
         ),
         UISchema(widget="textarea"),
     ] = helpers.load_text_include("guardrails_prompt_workspace.txt")
+
+
+class WorkspaceResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
+    welcome_message: Annotated[
+        str,
+        Field(
+            title="Welcome Message",
+            description="The message to display when the conversation starts.",
+        ),
+        UISchema(widget="textarea"),
+    ] = (
+        "Hello! I am an assistant that can help you with projects within the context of the Semantic Workbench, "
+        "your files, and applications. Let's get started by having a conversation about your project. "
+        "You can ask me questions, request code snippets, or ask for help with debugging. I can also help you "
+        "with markdown, code snippets, and other types of content. You can also attach .docx, text, and image files "
+        " to your chat messages to help me better understand the context of our conversation. Where would you like to start?"
+    )
 
 
 class WorkspaceAssistantConfigModel(AssistantConfigModel):
