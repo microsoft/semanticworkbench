@@ -37,7 +37,7 @@ class ExtensionsConfigModel(BaseModel):
     attachments: Annotated[
         AttachmentsConfigModel,
         Field(
-            title="Attachments Extension Configuration",
+            title="Attachments Extension",
             description="Configuration for the attachments extension.",
         ),
     ] = AttachmentsConfigModel()
@@ -110,15 +110,11 @@ class ResponseBehaviorConfigModel(BaseModel):
 
 
 class HostedMCPServersConfigModel(BaseModel):
-    """
-    Configuration model for hosted MCP servers.
-    """
-
     web_research: Annotated[
         HostedMCPServerConfig,
         Field(
             title="Web Research",
-            description="This tool performs web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
+            description="Enable your assistant to perform web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
         ),
         UISchema(collapsible=False),
     ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
@@ -127,7 +123,7 @@ class HostedMCPServersConfigModel(BaseModel):
         HostedMCPServerConfig,
         Field(
             title="Open Deep Research Clone",
-            description="This is a web research tool that was created to be as similar to the Open Deep Research project as a demonstration of writing routines using our Skills library.",
+            description="Enable a web research tool that is modeled after the Open Deep Research project as a demonstration of writing routines using our Skills library.",
         ),
         UISchema(collapsible=False),
     ] = HostedMCPServerConfig.from_env("open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", False)
@@ -136,7 +132,7 @@ class HostedMCPServersConfigModel(BaseModel):
         HostedMCPServerConfig,
         Field(
             title="Giphy",
-            description="Configuration for the Giphy server.",
+            description="Enable your assistant to search for and share GIFs from Giphy.",
         ),
         UISchema(collapsible=False),
     ] = HostedMCPServerConfig.from_env("giphy", "MCP_SERVER_GIPHY_URL")
@@ -144,8 +140,15 @@ class HostedMCPServersConfigModel(BaseModel):
     memory_user_bio: Annotated[
         HostedMCPServerConfig,
         Field(
-            title="User Bio Memories",
-            description="Enable an MCP server for user-bio memories, similar to ChatGPT.",
+            title="User-Bio Memories",
+            description=dedent("""
+                Enable this assistant to store long-term memories about you, the user (\"user-bio\" memories).
+                This implementation is modeled after ChatGPT's memory system.
+                These memories are available to the assistant in all conversations, much like ChatGPT memories are available
+                to ChatGPT in all chats.
+                To determine what memories are saved, you can ask the assistant what memories it has of you.
+                To forget a memory, you can ask the assistant to forget it.
+                """).strip(),
         ),
         UISchema(collapsible=False),
     ] = HostedMCPServerConfig.from_env(
@@ -228,10 +231,7 @@ class AdvancedToolConfigModel(BaseModel):
 class MCPToolsConfigModel(BaseModel):
     enabled: Annotated[
         bool,
-        Field(
-            title="Enabled",
-            description="Enable experimental use of tools.",
-        ),
+        Field(title="Enable experimental use of tools"),
     ] = True
 
     hosted_mcp_servers: Annotated[
@@ -366,8 +366,7 @@ class MCPToolsConfigModel(BaseModel):
     advanced: Annotated[
         AdvancedToolConfigModel,
         Field(
-            title="Additional Tool Configuration",
-            description="Configuration for advanced tool settings.",
+            title="Advanced Tool Settings",
         ),
     ] = AdvancedToolConfigModel()
 
@@ -384,8 +383,7 @@ class AssistantConfigModel(BaseModel):
     tools: Annotated[
         MCPToolsConfigModel,
         Field(
-            title="Tools Configuration",
-            description="Configuration for the tools.",
+            title="Tools",
         ),
         UISchema(collapsed=False, items=UISchema(schema={"hosted_mcp_servers": {"ui:options": {"collapsed": False}}})),
     ] = MCPToolsConfigModel()
@@ -393,15 +391,14 @@ class AssistantConfigModel(BaseModel):
     extensions_config: Annotated[
         ExtensionsConfigModel,
         Field(
-            title="Extensions Configuration",
-            description="Configuration for the assistant extensions.",
+            title="Assistant Extensions",
         ),
     ] = ExtensionsConfigModel()
 
     prompts: Annotated[
         PromptsConfigModel,
         Field(
-            title="Prompts Configuration",
+            title="Prompts",
             description="Configuration for various prompts used by the assistant.",
         ),
     ] = PromptsConfigModel()
@@ -409,7 +406,7 @@ class AssistantConfigModel(BaseModel):
     response_behavior: Annotated[
         ResponseBehaviorConfigModel,
         Field(
-            title="Response Behavior Configuration",
+            title="Response Behavior",
             description="Configuration for the response behavior of the assistant.",
         ),
     ] = ResponseBehaviorConfigModel()
@@ -417,7 +414,7 @@ class AssistantConfigModel(BaseModel):
     generative_ai_client_config: Annotated[
         AzureOpenAIClientConfigModel | OpenAIClientConfigModel,
         Field(
-            title="OpenAI Generative Model Configuration",
+            title="OpenAI Generative Model",
             description="Configuration for the generative model, such as gpt-4o.",
             discriminator="ai_service_type",
             default=AzureOpenAIClientConfigModel.model_construct(),
@@ -436,7 +433,7 @@ class AssistantConfigModel(BaseModel):
     reasoning_ai_client_config: Annotated[
         AzureOpenAIClientConfigModel | OpenAIClientConfigModel,
         Field(
-            title="OpenAI Reasoning Model Configuration",
+            title="OpenAI Reasoning Model",
             description="Configuration for the reasoning model, such as o1, o1-preview, o1-mini, etc.",
             discriminator="ai_service_type",
             default=AzureOpenAIClientConfigModel.model_construct(),
@@ -462,7 +459,7 @@ class AssistantConfigModel(BaseModel):
     content_safety_config: Annotated[
         CombinedContentSafetyEvaluatorConfig,
         Field(
-            title="Content Safety Configuration",
+            title="Content Safety",
         ),
         UISchema(widget="radio"),
     ] = CombinedContentSafetyEvaluatorConfig()
@@ -471,10 +468,6 @@ class AssistantConfigModel(BaseModel):
 
 
 class WorkspaceMCPToolsConfigModel(MCPToolsConfigModel):
-    """
-    Configuration model for the workspace MCP tools.
-    """
-
     personal_mcp_servers: Annotated[
         list[MCPServerConfig],
         Field(
@@ -486,10 +479,6 @@ class WorkspaceMCPToolsConfigModel(MCPToolsConfigModel):
 
 
 class WorkspacePromptsConfigModel(PromptsConfigModel):
-    """
-    Configuration model for the workspace prompts.
-    """
-
     instruction_prompt: Annotated[
         str,
         Field(
@@ -519,15 +508,10 @@ class WorkspacePromptsConfigModel(PromptsConfigModel):
 
 
 class WorkspaceAssistantConfigModel(AssistantConfigModel):
-    """
-    Configuration model for the workspace assistant.
-    """
-
     tools: Annotated[
         MCPToolsConfigModel,
         Field(
-            title="Tools Configuration",
-            description="Configuration for the tools.",
+            title="Tools",
         ),
         UISchema(collapsed=False, items=UISchema(schema={"hosted_mcp_servers": {"ui:options": {"collapsed": False}}})),
     ] = WorkspaceMCPToolsConfigModel()
@@ -535,17 +519,12 @@ class WorkspaceAssistantConfigModel(AssistantConfigModel):
     prompts: Annotated[
         PromptsConfigModel,
         Field(
-            title="Prompts Configuration",
-            description="Configuration for various prompts used by the assistant.",
+            title="Prompts",
         ),
     ] = WorkspacePromptsConfigModel()
 
 
 class ContextTransferPromptsConfigModel(PromptsConfigModel):
-    """
-    Configuration model for the context transfer prompts.
-    """
-
     instruction_prompt: Annotated[
         str,
         Field(
@@ -578,8 +557,7 @@ class ContextTransferConfigModel(WorkspaceAssistantConfigModel):
     prompts: Annotated[
         PromptsConfigModel,
         Field(
-            title="Prompts Configuration",
-            description="Configuration for various prompts used by the assistant.",
+            title="Prompts",
         ),
     ] = ContextTransferPromptsConfigModel()
 
