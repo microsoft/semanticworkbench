@@ -161,6 +161,23 @@ class HostedMCPServersConfigModel(BaseModel):
         enabled=False,
     )
 
+    filesystem_edit: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Document Editor",
+            description=dedent("""
+                Enable this to create, edit, and refine markdown (*.md) documents, all through chat
+                """).strip(),
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "filesystem-edit",
+        "MCP_SERVER_FILESYSTEM_EDIT_URL",
+        # configures the filesystem edit server to use the client-side storage (using the magic hostname of "workspace")
+        roots=[MCPClientRoot(name="root", uri="file://workspace/")],
+        enabled=False,
+    )
+
     @property
     def mcp_servers(self) -> list[HostedMCPServerConfig]:
         """
