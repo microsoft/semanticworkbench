@@ -1,73 +1,51 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from typing import Any, Callable
-
-from mcp.server.fastmcp import Context
+import asyncio
+import logging
+import time
 
 from mcp_server_bing_search import settings
 from mcp_server_bing_search.types import Link, WebResult
-from mcp_server_bing_search.utils import embarrassingly_parallel_async, format_web_results, lookup_url
+from mcp_server_bing_search.utils import format_web_results, lookup_url
 from mcp_server_bing_search.web.process_website import process_website
 from mcp_server_bing_search.web.search_bing import search_bing
 
+logger = logging.getLogger(__name__)
 
-async def _process_websites(
+
+def sync_process_website(
+    website: Link,
+    apply_post_processing: bool = True,
+) -> WebResult:
+    return asyncio.run(process_website(website, apply_post_processing))
+
+
+async def _process_websites_parallel(
     urls: list[str],
-    context: Context | None = None,
-    chat_completion_client: Callable[..., Any] | None = None,
 ) -> str:
-    """
-    Process a list of URLs to extract and format web content.
+    tasks = []
+    for url in urls:
+        tasks.append(asyncio.to_thread(sync_process_website, Link(url=url), settings.improve_with_sampling))
 
-    Returns:
-        A formatted string containing web content suitable for LLM consumption.
-    """
-    if not urls:
-        return "No results found."
-
-    processed_web_results: list[WebResult] = []
-    if settings.concurrency_limit > 1:
-        processed_web_results = await embarrassingly_parallel_async(
-            func=process_website,
-            args_list=[
-                (
-                    Link(url=url),
-                    context,
-                    chat_completion_client,
-                    settings.improve_with_sampling,
-                )
-                for url in urls
-            ],  # type: ignore
-            concurrency_limit=settings.concurrency_limit,
-        )
-    else:
-        for url in urls:
-            processed_result = await process_website(
-                website=Link(url=url),
-                context=context,
-                chat_completion_client=chat_completion_client,
-                apply_post_processing=settings.improve_with_sampling,
-            )
-            processed_web_results.append(processed_result)
+    start_time = time.time()
+    results = await asyncio.gather(*tasks)
+    end_time = time.time()
+    response_duration = round(end_time - start_time, 4)
+    logger.info(f"Processed {len(urls)} URLs in {response_duration} seconds.")
 
     # Filter out any None or empty results
-    web_results = [result for result in processed_web_results if result and result.content]
+    web_results = [result for result in results if result and result.content]
 
     if not web_results:
         return "No content could be extracted from the provided URLs."
 
-    # TODO: Deduplicating links across all results
-
-    # Format the results into an LLM-friendly string
-    formatted_results = format_web_results(web_results)
-    return formatted_results
+    web_results = format_web_results(web_results)
+    return web_results
 
 
-async def search(
-    query: str, context: Context | None = None, chat_completion_client: Callable[..., Any] | None = None
-) -> str:
+async def search(query: str) -> str:
     """
-    Search for web results using the provided query and token limit.
+    Searches for web results using the provided query.
 
     Returns:
         A formatted string containing web search results suitable for LLM consumption.
@@ -78,12 +56,11 @@ async def search(
         return "No results found."
 
     urls = [result.url for result in search_results]
-    return await _process_websites(urls, context, chat_completion_client)
+    results = await _process_websites_parallel(urls)
+    return results
 
 
-async def click(
-    hashes: list[str], context: Context | None = None, chat_completion_client: Callable[..., Any] | None = None
-) -> str:
+async def click(hashes: list[str]) -> str:
     """
     Looks up each of the hashes to get the associated URLs and then processes the URLs.
 
@@ -103,4 +80,5 @@ async def click(
     if not urls:
         return "No results found."
 
-    return await _process_websites(urls, context, chat_completion_client)
+    results = await _process_websites_parallel(urls)
+    return results

@@ -1,15 +1,13 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-import asyncio
-import concurrent.futures
 import json
-from collections.abc import Awaitable, Callable, Collection, Set
-from typing import Any, Literal
+from collections.abc import Collection, Set
+from typing import Literal
 
 import tiktoken
 
 from mcp_server_bing_search import settings
-from mcp_server_bing_search.types import WebResult
+from mcp_server_bing_search.types import Link, WebResult
 
 
 def lookup_url(url_hash: str) -> str | None:
@@ -35,10 +33,31 @@ def lookup_url(url_hash: str) -> str | None:
         return None
 
 
+def consolidate_links(web_results: list[WebResult]) -> list[Link]:
+    """
+    Extracts and deduplicates links from a list of web results.
+
+    Args:
+        web_results: List of WebResult objects containing links
+
+    Returns:
+        A list of unique Link objects across all web results
+    """
+    unique_links = {}
+
+    for result in web_results:
+        for link in result.links:
+            if link.unique_id not in unique_links:
+                unique_links[link.unique_id] = link
+
+    return list(unique_links.values())
+
+
 def format_web_results(web_results: list[WebResult]) -> str:
     """
     Creates an LLM friendly representation of the web results.
     """
+    unique_links = consolidate_links(web_results)
 
     formatted_results = ""
     for result in web_results:
@@ -47,13 +66,14 @@ def format_web_results(web_results: list[WebResult]) -> str:
         formatted_result += f"<url>{result.url}</url>\n"
         formatted_result += f"<title>{result.title}</title>\n"
         formatted_result += f"<content>{result.content}\n</content>\n"
-        formatted_result += "<links>\n"
-        for link in result.links:
-            formatted_result += f"<link id={link.unique_id}>{link}</link>\n"
-
-        formatted_result += "</links>\n"
         formatted_result += "</website>\n"
         formatted_results += formatted_result
+
+    if unique_links:
+        formatted_results += "<links>\n"
+        for link in unique_links:
+            formatted_results += f"<link id={link.unique_id}>{link}</link>\n"
+        formatted_results += "</links>\n"
 
     return formatted_results.strip()
 
@@ -64,7 +84,7 @@ class TokenizerOpenAI:
         model: str,
         allowed_special: Literal["all"] | Set[str] | None = None,
         disallowed_special: Literal["all"] | Collection[str] | None = None,
-    ):
+    ) -> None:
         self.model = model
         self.allowed_special = allowed_special
         self.disallowed_special = disallowed_special
@@ -109,66 +129,3 @@ class TokenizerOpenAI:
                 disallowed_special=self.disallowed_special if self.disallowed_special is not None else (),
             )
         )
-
-
-async def embarrassingly_parallel_async(
-    func: Callable[..., Awaitable[Any]],
-    args_list: tuple[tuple[Any, ...], ...] | None = None,
-    kwargs_list: list[dict[str, Any]] | None = None,
-    concurrency_limit: int = 10,
-) -> list[Any]:
-    """Execute multiple async functions independently in separate threads.
-
-    Each async function runs in its own thread with its own event loop,
-    providing true isolation between tasks.
-
-    Args:
-        func: An async function that returns an awaitable
-        args_list: A tuple of tuples each containing positional arguments
-        kwargs_list: A list of dictionaries containing keyword arguments
-        concurrency_limit: Maximum number of threads to use (None means ThreadPoolExecutor default)
-
-    Raises:
-        ValueError: If neither args_list nor kwargs_list is provided
-        ValueError: If both are provided but have different lengths
-
-    Returns:
-        list[Any]: Results from each function call in the order tasks were submitted
-    """
-    if not args_list and not kwargs_list:
-        raise ValueError("Either args_list or kwargs_list must be provided")
-
-    if args_list and kwargs_list and len(args_list) != len(kwargs_list):
-        raise ValueError("args_list and kwargs_list must be of the same length")
-
-    def run_async_in_thread(idx: int) -> Any:
-        """Run an async function in a new event loop in the current thread."""
-        args = args_list[idx] if args_list else ()
-        kwargs = kwargs_list[idx] if kwargs_list else {}
-
-        # Create a new event loop for this thread
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            # Run the async function to completion and return the result
-            return loop.run_until_complete(func(*args, **kwargs))
-        finally:
-            # Clean up
-            loop.close()
-
-    task_count = len(args_list) if args_list else len(kwargs_list or [])
-    results = []
-
-    # Use ThreadPoolExecutor to run each task in a separate thread
-    with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency_limit) as executor:
-        # Submit all tasks and collect their futures
-        futures = [executor.submit(run_async_in_thread, i) for i in range(task_count)]
-
-        # Retrieve results in the order they were submitted
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                results.append(future.result())
-            except Exception as exc:
-                results.append(exc)
-
-    return results

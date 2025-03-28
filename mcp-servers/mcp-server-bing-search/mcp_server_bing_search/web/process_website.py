@@ -1,13 +1,12 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import asyncio
+import io
+import logging
 import re
-import uuid
-from pathlib import Path
-from typing import Any, Callable
 from urllib.parse import urljoin, urlparse
 
 from markitdown import MarkItDown
-from mcp.server.fastmcp import Context
 
 from mcp_server_bing_search import settings
 from mcp_server_bing_search.types import Link, WebResult
@@ -15,11 +14,35 @@ from mcp_server_bing_search.utils import TokenizerOpenAI
 from mcp_server_bing_search.web.get_content import get_raw_web_content
 from mcp_server_bing_search.web.llm_processing import clean_content, filter_links
 
+logger = logging.getLogger(__name__)
+
+
+def sync_filter_links(
+    content: str,
+    links: list[Link],
+    max_links: int,
+) -> list[Link]:
+    return asyncio.run(
+        filter_links(
+            content=content,
+            links=links,
+            max_links=max_links,
+        )
+    )
+
+
+def sync_clean_content(
+    content: str,
+) -> str:
+    return asyncio.run(
+        clean_content(
+            content=content,
+        )
+    )
+
 
 async def process_website(
     website: Link,
-    context: Context | None = None,
-    chat_completion_client: Callable[..., Any] | None = None,
     apply_post_processing: bool = True,
 ) -> WebResult:
     raw_content = await get_raw_web_content(url=website.url)
@@ -27,20 +50,14 @@ async def process_website(
     if not raw_content:
         return WebResult(url=website.url, title="", content="", links=[])
 
-    # Save raw content to HTML file, overwriting if it exists
-    # Not optimal, but Markitdown seems to require doing this.
-    save_dir = Path(settings.mkitdown_temp)
-    save_dir.mkdir(parents=True, exist_ok=True)
-    file_path = save_dir / f"web_content_{uuid.uuid4()}.html"
-    file_path.write_text(raw_content, encoding="utf-8")
-
     # Convert the raw HTML to Markdown
-    md = MarkItDown()
-    result = md.convert(str(file_path))
-
-    # Cleanup the temporary HTML file
-    if file_path.exists():
-        file_path.unlink()
+    md = MarkItDown(enable_plugins=False)
+    buffer = io.BytesIO(raw_content.encode("utf-8"))
+    result = md.convert_stream(
+        buffer,
+        mimetype="text/html",
+        charset="utf-8",
+    )
 
     tokenizer = TokenizerOpenAI(model="gpt-4o")
 
@@ -71,26 +88,37 @@ async def process_website(
 
     # Apply post-processing if enabled
     if apply_post_processing and settings.improve_with_sampling:
+        tasks = []
+        task_types = []
         # Filter links with LLM if content and links exist
         if content and links:
-            filtered_links = await filter_links(
-                content=content,
-                links=links,
-                max_links=settings.max_links,
-                context=context,
-                chat_completion_client=chat_completion_client,
+            tasks.append(
+                asyncio.to_thread(
+                    sync_filter_links,
+                    content=content,
+                    links=links,
+                    max_links=settings.max_links,
+                )
             )
-            web_result.links = filtered_links
+            task_types.append("filter_links")
 
         # Clean content using LLM if content exists
         if content:
-            cleaned_content = await clean_content(
-                content=content,
-                context=context,
-                chat_completion_client=chat_completion_client,
+            tasks.append(
+                asyncio.to_thread(
+                    sync_clean_content,
+                    content=content,
+                )
             )
-            web_result.content = cleaned_content
+            task_types.append("clean_content")
 
+        if tasks:
+            results = await asyncio.gather(*tasks)
+            for task_type, result in zip(task_types, results):
+                if task_type == "filter_links" and result is not None:
+                    web_result.links = result
+                elif task_type == "clean_content" and result is not None:
+                    web_result.content = result
     return web_result
 
 

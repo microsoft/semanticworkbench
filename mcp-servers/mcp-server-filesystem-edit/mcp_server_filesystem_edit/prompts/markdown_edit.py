@@ -3,6 +3,8 @@
 from mcp_extensions.llm.llm_types import DeveloperMessage, SystemMessage, UserMessage
 
 MARKDOWN_EDIT_FORMAT_INSTRUCTIONS = """- Your focus is on writing documents, but you can use standard Markdown syntax for the content. You should use it sparingly.
+- Use headings (levels 1-4) to structure the content.
+- Include relevant dates in the content.
 - Do not insert extra newlines, such as after list items, unless it is already the existing style of the document."""
 
 WORD_EDIT_FORMAT_INSTRUCTIONS = """- Your focus is on writing documents, but you can use a subset of Markdown syntax for the content. You should use it sparingly.

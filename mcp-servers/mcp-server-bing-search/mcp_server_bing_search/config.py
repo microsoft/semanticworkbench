@@ -22,9 +22,8 @@ class Settings(BaseSettings):
     dev: bool = True
     bing_search_api_key: Annotated[str, Field(validation_alias="BING_SEARCH_API_KEY")] = ""
     azure_endpoint: Annotated[str | None, Field(validation_alias="ASSISTANT__AZURE_OPENAI_ENDPOINT")] = None
-    concurrency_limit: int = 1
     mkitdown_temp: Path = MKITDOWN_TEMP
     url_cache_file: Path = URL_CACHE_FILE
-    num_search_results: int = 5
+    num_search_results: int = 4
     max_links: int = 25
     improve_with_sampling: bool = True
