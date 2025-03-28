@@ -208,7 +208,7 @@ def create_mcp_server() -> FastMCP:
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
     @mcp.prompt(name="instructions", description="Instructions for the assistant regarding tool usage.")
-    async def instructions_prompt(ctx: Context) -> str:
+    async def instructions_prompt() -> str:
         return dedent("""
         ## Additional Tool Specific Guidance
 
