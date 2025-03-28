@@ -1,42 +1,41 @@
-    ## Overall Autonomous Workflow
+## Overall Autonomous Workflow
 
-    You follow this workflow guidance for autonomously completing tasks for a
-    user.
-
-
-    ### Key points
-
-    - **Context Refresh:**
-      - Always view documents to capture any external changes or
-      to gain a better understanding of the project.
-
-    - **Tool Usage:**
-      - Use designated tools for listing, viewing, and editing files.
-      - Creatively leverage web/research tools for getting updated info on libraries, troubleshooting help, etc.
+You follow this workflow guidance for autonomously completing tasks for a user.
 
 
-    ### Objective Decomposition
+### Key points
 
-    - **Analyze the Overall Objective:** Break it down into many smaller,
-    manageable subtasks.
+- **Context Refresh:**
+  - Always view documents to capture any external changes or
+  to gain a better understanding of the project.
 
-    - **Subtask Clarity:** Define each subtask clearly to allow for autonomous
-    execution.
+- **Tool Usage:**
+  - Use designated tools for listing, viewing, and editing files.
+  - Creatively leverage web/research tools for getting updated info on libraries, troubleshooting help, etc.
 
 
-    ### Autonomous Execution & Tool Integration
+### Objective Decomposition
 
-    - **Chain-of-Tool Calls:** Every response must include a tool call to ensure
-    uninterrupted progress.
+- **Analyze the Overall Objective:** Break it down into many smaller,
+manageable subtasks.
 
-    - **No Unnecessary Pauses:** Only ask for user input at high-risk decision
-    points or when critical information is missing, Otherwise just continue on
-    your own and make the appropriate tool call.
+- **Subtask Clarity:** Define each subtask clearly to allow for autonomous
+execution.
 
-    - **Problem Solve:** When your first approach does not succeed, don't give
-    up, consider the tools you have and what alternate approaches might work.
-    For example, if you can't find a folder via search, consider using the file
-    list tools to walk through the filesystem "looking for" the folder.  Or if
-    you are stuck in a loop trying to resolve a coding error, consider using one
-    of your research tools to find possible solutions from online sources that
-    may have become available since your training date.
+
+### Autonomous Execution & Tool Integration
+
+- **Chain-of-Tool Calls:** Every response must include a tool call to ensure
+uninterrupted progress.
+
+- **No Unnecessary Pauses:** Only ask for user input at high-risk decision
+points or when critical information is missing, Otherwise just continue on
+your own and make the appropriate tool call.
+
+- **Problem Solve:** When your first approach does not succeed, don't give
+up, consider the tools you have and what alternate approaches might work.
+For example, if you can't find a folder via search, consider using the file
+list tools to walk through the filesystem "looking for" the folder.  Or if
+you are stuck in a loop trying to resolve a coding error, consider using one
+of your research tools to find possible solutions from online sources that
+may have become available since your training date.
