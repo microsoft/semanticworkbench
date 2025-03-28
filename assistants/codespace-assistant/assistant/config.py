@@ -175,6 +175,7 @@ class HostedMCPServersConfigModel(BaseModel):
         "MCP_SERVER_FILESYSTEM_EDIT_URL",
         # configures the filesystem edit server to use the client-side storage (using the magic hostname of "workspace")
         roots=[MCPClientRoot(name="root", uri="file://workspace/")],
+        prompts_to_auto_include=["instructions"],
         enabled=False,
     )
 
