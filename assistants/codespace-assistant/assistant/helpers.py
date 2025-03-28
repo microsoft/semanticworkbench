@@ -10,7 +10,7 @@ def load_text_include(filename) -> str:
     file_path = directory / "text_includes" / filename
 
     # read the prompt from the file
-    return file_path.read_text()
+    return file_path.read_text(encoding="utf-8")
 
 
 __all__ = ["load_text_include"]

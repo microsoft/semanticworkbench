@@ -541,4 +541,47 @@ class WorkspaceAssistantConfigModel(AssistantConfigModel):
     ] = WorkspacePromptsConfigModel()
 
 
+class ContextTransferPromptsConfigModel(PromptsConfigModel):
+    """
+    Configuration model for the context transfer prompts.
+    """
+
+    instruction_prompt: Annotated[
+        str,
+        Field(
+            title="Instruction Prompt",
+            description="The prompt used to instruct the behavior and capabilities of the AI assistant and any preferences.",
+        ),
+        UISchema(widget="textarea"),
+    ] = helpers.load_text_include("instruction_prompt_context_transfer.txt")
+
+    guidance_prompt: Annotated[
+        str,
+        Field(
+            title="Guidance Prompt",
+            description="The prompt used to provide a structured set of instructions to carry out a specific workflow from start to finish.",
+        ),
+        UISchema(widget="textarea"),
+    ] = helpers.load_text_include("guidance_prompt_context_transfer.txt")
+
+    guardrails_prompt: Annotated[
+        str,
+        Field(
+            title="Guardrails Prompt",
+            description="The prompt used to inform the AI assistant about the guardrails to follow.",
+        ),
+        UISchema(widget="textarea"),
+    ] = helpers.load_text_include("guardrails_prompt_workspace.txt")
+
+
+class ContextTransferConfigModel(WorkspaceAssistantConfigModel):
+    prompts: Annotated[
+        PromptsConfigModel,
+        Field(
+            title="Prompts Configuration",
+            description="Configuration for various prompts used by the assistant.",
+        ),
+    ] = ContextTransferPromptsConfigModel()
+
+
 # endregion

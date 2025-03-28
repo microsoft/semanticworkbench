@@ -27,7 +27,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, MCPToolsConfigModel, WorkspaceAssistantConfigModel
+from .config import AssistantConfigModel, ContextTransferConfigModel, MCPToolsConfigModel, WorkspaceAssistantConfigModel
 from .response import respond_to_conversation
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,11 @@ service_description = "An assistant for developing in the Codespaces."
 # create the configuration provider, using the extended configuration model
 #
 assistant_config = BaseModelAssistantConfig(
-    AssistantConfigModel, additional_templates={"workspace": WorkspaceAssistantConfigModel}
+    AssistantConfigModel,
+    additional_templates={
+        "workspace": WorkspaceAssistantConfigModel,
+        "context_transfer": ContextTransferConfigModel,
+    },
 )
 
 
@@ -71,6 +75,11 @@ assistant = AssistantApp(
             id="workspace",
             name="Workspace Assistant",
             description="An assistant for workspaces.",
+        ),
+        AssistantTemplate(
+            id="context_transfer",
+            name="Context Transfer Assistant",
+            description="An assistant for transferring context.",
         ),
     ],
 )
