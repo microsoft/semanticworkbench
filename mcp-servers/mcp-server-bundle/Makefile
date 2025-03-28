@@ -15,9 +15,8 @@ endif
 
 package: install
 ifeq ($(DETECTED_OS),Windows)
-	$(MAKE) -C ../mcp-server-office package
+	$(MAKE) -C ../mcp-server-filesystem-edit package
 endif
-	$(MAKE) -C ../mcp-server-filesystem package
 	uv run pyinstaller pyinstaller.spec
 
 .PHONY: clean-package
