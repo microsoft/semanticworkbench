@@ -166,7 +166,7 @@ class HostedMCPServersConfigModel(BaseModel):
         Field(
             title="Document Editor",
             description=dedent("""
-                Enable this to create, edit, and refine documents, all through chat.
+                Enable this to create, edit, and refine markdown (*.md) documents, all through chat
                 """).strip(),
         ),
         UISchema(collapsible=False),
