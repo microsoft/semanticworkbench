@@ -1,8 +1,19 @@
 # Copyright (c) Microsoft. All rights reserved.
+import pytest
 
 import time
 
 from mcp_server_bing_search.tools import click, search
+from mcp_server_bing_search import settings
+
+
+@pytest.fixture(autouse=True)
+def check_config_fixture() -> None:
+    if not settings.azure_endpoint:
+        pytest.skip("Azure endpoint not set in settings.")
+
+    if not settings.bing_search_api_key:
+        pytest.skip("Bing Search API key not set in settings.")
 
 
 async def test_search() -> None:

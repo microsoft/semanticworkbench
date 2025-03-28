@@ -1,4 +1,3 @@
-import os
 from textwrap import dedent
 from typing import Annotated
 
@@ -7,7 +6,7 @@ from assistant_extensions.ai_clients.config import (
     OpenAIClientConfigModel,
 )
 from assistant_extensions.attachments import AttachmentsConfigModel
-from assistant_extensions.mcp import HostedMCPServerConfig, MCPServerConfig
+from assistant_extensions.mcp import HostedMCPServerConfig, MCPClientRoot, MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import (
     OpenAIRequestConfig,
@@ -110,16 +109,6 @@ class ResponseBehaviorConfigModel(BaseModel):
     ] = False
 
 
-def _mcp_server_config_from_env(key: str, url_env_var: str, enabled: bool = True) -> HostedMCPServerConfig:
-    """Returns a HostedMCPServerConfig object with the command (URL) set from the environment variable."""
-    env_value = os.getenv(url_env_var.upper()) or os.getenv(url_env_var.lower()) or ""
-
-    if not env_value:
-        enabled = False
-
-    return HostedMCPServerConfig(key=key, command=env_value, enabled=enabled)
-
-
 class HostedMCPServersConfigModel(BaseModel):
     """
     Configuration model for hosted MCP servers.
@@ -132,7 +121,7 @@ class HostedMCPServersConfigModel(BaseModel):
             description="This tool performs web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
         ),
         UISchema(collapsible=False),
-    ] = _mcp_server_config_from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
+    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
 
     open_deep_research_clone: Annotated[
         HostedMCPServerConfig,
@@ -141,7 +130,7 @@ class HostedMCPServersConfigModel(BaseModel):
             description="This is a web research tool that was created to be as similar to the Open Deep Research project as a demonstration of writing routines using our Skills library.",
         ),
         UISchema(collapsible=False),
-    ] = _mcp_server_config_from_env("open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", False)
+    ] = HostedMCPServerConfig.from_env("open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", False)
 
     giphy: Annotated[
         HostedMCPServerConfig,
@@ -150,7 +139,24 @@ class HostedMCPServersConfigModel(BaseModel):
             description="Configuration for the Giphy server.",
         ),
         UISchema(collapsible=False),
-    ] = _mcp_server_config_from_env("giphy", "MCP_SERVER_GIPHY_URL")
+    ] = HostedMCPServerConfig.from_env("giphy", "MCP_SERVER_GIPHY_URL")
+
+    memory_user_bio: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="User Bio Memories",
+            description="Enable an MCP server for user-bio memories, similar to ChatGPT.",
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "memory-user-bio",
+        "MCP_SERVER_MEMORY_USER_BIO_URL",
+        # scopes the memories to the assistant instance
+        roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
+        # auto-include the user-bio memory prompt
+        prompts_to_auto_include=["user-bio"],
+        enabled=False,
+    )
 
     @property
     def mcp_servers(self) -> list[HostedMCPServerConfig]:

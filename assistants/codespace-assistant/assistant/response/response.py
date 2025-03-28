@@ -4,12 +4,14 @@ from typing import Any
 
 from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.mcp import (
+    MCPClientSettings,
     MCPServerConnectionError,
     OpenAISamplingHandler,
     WorkbenchFileClientResourceHandler,
     establish_mcp_sessions,
     get_enabled_mcp_server_configs,
     get_mcp_server_prompts,
+    list_roots_callback_for,
     refresh_mcp_sessions,
 )
 from mcp import ServerNotification
@@ -68,9 +70,7 @@ async def respond_to_conversation(
             if isinstance(message, ServerNotification) and message.root.method == "notifications/message":
                 await context.update_participant_me(UpdateParticipant(status=f"{message.root.params.data}"))
 
-        client_resource_handler = WorkbenchFileClientResourceHandler(
-            context=context,
-        )
+        client_resource_handler = WorkbenchFileClientResourceHandler(context=context)
 
         enabled_servers = []
         if config.tools.enabled:
@@ -78,15 +78,21 @@ async def respond_to_conversation(
 
         try:
             mcp_sessions = await establish_mcp_sessions(
-                mcp_server_configs=enabled_servers,
+                client_settings=[
+                    MCPClientSettings(
+                        server_config=server_config,
+                        sampling_callback=sampling_handler.handle_message,
+                        message_handler=message_handler,
+                        list_roots_callback=list_roots_callback_for(context=context, server_config=server_config),
+                        experimental_resource_callbacks=(
+                            client_resource_handler.handle_list_resources,
+                            client_resource_handler.handle_read_resource,
+                            client_resource_handler.handle_write_resource,
+                        ),
+                    )
+                    for server_config in enabled_servers
+                ],
                 stack=stack,
-                sampling_handler=sampling_handler.handle_message,
-                message_handler=message_handler,
-                experimental_resource_callbacks=(
-                    client_resource_handler.handle_list_resources,
-                    client_resource_handler.handle_read_resource,
-                    client_resource_handler.handle_write_resource,
-                ),
             )
 
         except MCPServerConnectionError as e:
@@ -100,7 +106,7 @@ async def respond_to_conversation(
             return
 
         # Retrieve prompts from the MCP servers
-        mcp_prompts = get_mcp_server_prompts(enabled_servers)
+        mcp_prompts = await get_mcp_server_prompts(mcp_sessions)
 
         # Initialize a loop control variable
         max_steps = config.tools.advanced.max_steps
@@ -126,15 +132,7 @@ async def respond_to_conversation(
                 break
 
             # Reconnect to the MCP servers if they were disconnected
-            mcp_sessions = await refresh_mcp_sessions(
-                mcp_sessions,
-                sampling_handler=sampling_handler.handle_message,
-                experimental_resource_callbacks=(
-                    client_resource_handler.handle_list_resources,
-                    client_resource_handler.handle_read_resource,
-                    client_resource_handler.handle_write_resource,
-                ),
-            )
+            mcp_sessions = await refresh_mcp_sessions(mcp_sessions)
 
             step_result = await next_step(
                 sampling_handler=sampling_handler,

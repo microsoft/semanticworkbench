@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
 
+import sys
 import time
 
 import pytest
@@ -17,6 +18,8 @@ from mcp_server.app_interaction.word_editor import (
 @pytest.fixture
 def word_document():
     """Fixture that provides an active Word document."""
+    if not sys.platform.startswith("win"):
+        pytest.skip("This test is only for Windows.")
     word_app = get_word_app()
     doc = get_active_document(word_app)
     yield doc
