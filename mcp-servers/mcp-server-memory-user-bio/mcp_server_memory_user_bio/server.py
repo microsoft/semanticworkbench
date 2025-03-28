@@ -1,14 +1,14 @@
 import datetime
+import logging
+import zoneinfo
 from collections import defaultdict
 from dataclasses import dataclass
-import logging
-from mcp import ClientCapabilities, RootsCapability, ServerSession
-import zoneinfo
 
+from mcp import ClientCapabilities, RootsCapability, ServerSession
 from mcp.server.fastmcp import Context, FastMCP
 from pydantic import AnyUrl
 
-from . import settings
+from .config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +40,7 @@ def create_mcp_server() -> FastMCP:
     # Initialize FastMCP with debug logging.
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
 
-    memories: dict[str, list[UserBioMemory]] = defaultdict(
-        lambda: [UserBioMemory(date=datetime.date.today(), memory="Mark likes python")]
-    )
+    memories: dict[str, list[UserBioMemory]] = defaultdict(lambda: [])
 
     @mcp.tool()
     async def bio(memory: str) -> str:
@@ -95,12 +93,9 @@ def create_mcp_server() -> FastMCP:
 
         return "Memory forgotten successfully."
 
-    @mcp.resource(uri=memory_uri, name="User Bio Memory", description="Long-term memory about the user.")
-    async def get_bio() -> str:
-        """
-        The long-term memories about the user.
-        """
-
+    @mcp.resource(uri=memory_uri, name="user-bio", description="Long-term memories about the user.")
+    @mcp.prompt(name="user-bio", description="Long-term memories about the user.")
+    async def get_bio_prompt() -> str:
         ctx = mcp.get_context()
         client_roots = await get_session_config(ctx)
 
@@ -122,6 +117,9 @@ async def get_session_config(ctx: Context[ServerSession, object]) -> SessionConf
     """
     Get the session configuration from the client.
     """
+    if not settings.enable_client_roots:
+        return SessionConfig(user_timezone=None, session_id="")
+
     if not ctx.session.check_client_capability(ClientCapabilities(roots=RootsCapability())):
         logger.debug("Client does not support roots capability.")
         return SessionConfig(user_timezone=None, session_id="")
@@ -141,7 +139,7 @@ async def get_session_config(ctx: Context[ServerSession, object]) -> SessionConf
                     logger.exception("invalid timezone in user-timezone root received from client: %s", root.uri)
 
             case "session-id":
-                session_id = str(root.uri).replace(root.uri.scheme, "")
+                session_id = (root.uri.host or root.uri.path or "").strip("/")
 
     return SessionConfig(user_timezone=user_timezone, session_id=session_id)
 

@@ -1,15 +1,12 @@
-import os
+from typing import Annotated
+
+from pydantic import Field
 from pydantic_settings import BaseSettings
-
-log_level = os.environ.get("LOG_LEVEL", "INFO")
-
-
-def load_required_env_var(env_var_name: str) -> str:
-    value = os.environ.get(env_var_name, "")
-    if not value:
-        raise ValueError(f"Missing required environment variable: {env_var_name}")
-    return value
 
 
 class Settings(BaseSettings):
-    log_level: str = log_level
+    log_level: Annotated[str, Field(validation_alias="log_level")] = "INFO"
+    enable_client_roots: Annotated[bool, Field(validation_alias="enable_client_roots")] = False
+
+
+settings = Settings()

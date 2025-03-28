@@ -1,27 +1,27 @@
+import sys
 from pathlib import Path
 
+import pytest
 from mcp_server_filesystem_edit.app_handling.office_common import (
     OfficeAppType,
     open_document_in_office,
 )
 
-TEMP_FILES_PATH = Path(__file__).parents[2] / "temp" / "tests"
-TEMP_FILES_PATH.mkdir(exist_ok=True)
-WORD_FILE = TEMP_FILES_PATH / "test_document.docx"
-EXCEL_FILE = TEMP_FILES_PATH / "test_book.xlsx"
-PPT_FILE = TEMP_FILES_PATH / "test_presentation.pptx"
+
+@pytest.fixture(autouse=True)
+def check_for_win():
+    if sys.platform != "win32":
+        pytest.skip("This test is only applicable on Windows.")
 
 
-def test_open_word() -> None:
-    _, doc = open_document_in_office(WORD_FILE, OfficeAppType.WORD)
+def test_open_word(word_file_path: Path) -> None:
+    _, doc = open_document_in_office(word_file_path, OfficeAppType.WORD)
+    assert doc is not None
+
+    _, doc = open_document_in_office(word_file_path, OfficeAppType.WORD)
     assert doc is not None
 
 
-def test_open_excel() -> None:
-    _, doc = open_document_in_office(EXCEL_FILE, OfficeAppType.EXCEL)
-    assert doc is not None
-
-
-def test_open_powerpoint() -> None:
-    _, doc = open_document_in_office(PPT_FILE, OfficeAppType.POWERPOINT)
+def test_open_powerpoint(ppt_file_path: Path) -> None:
+    _, doc = open_document_in_office(ppt_file_path, OfficeAppType.POWERPOINT)
     assert doc is not None

@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Iterator
 
 import pytest
-from mcp_server_filesystem import settings
 from mcp.server.fastmcp import Context
+from mcp_server_filesystem import settings
 from mcp_server_filesystem.server import (
     create_directory,
     edit_file,
@@ -31,7 +31,6 @@ def test_dir(monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 def test_context() -> Context:
     """Fixture to create and provide a mock context for tests."""
     return Context()
-
 
 
 async def test_read_file(test_dir, test_context):
@@ -61,8 +60,8 @@ async def test_list_directory(test_dir, test_context):
     result = await list_directory(ctx=test_context, path=str(test_dir))
 
     assert len(result) == 2
-    assert "[F] file1.txt" in result
-    assert "[F] file2.txt" in result
+    assert "[FILE] file1.txt" in result
+    assert "[FILE] file2.txt" in result
 
 
 async def test_create_directory(test_dir, test_context):

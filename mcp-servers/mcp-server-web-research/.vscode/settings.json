@@ -37,6 +37,7 @@
       "source.formatDocument": "explicit"
     }
   },
+  "python.testing.pytestEnabled": true,
   "ruff.nativeServer": "on",
   "search.exclude": {
     "**/.venv": true,

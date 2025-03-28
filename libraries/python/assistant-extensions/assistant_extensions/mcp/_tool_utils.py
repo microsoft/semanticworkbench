@@ -30,7 +30,9 @@ def retrieve_mcp_tools_from_sessions(mcp_sessions: List[MCPSession], exclude_too
         for tool in mcp_session.tools:
             if tool.name in tool_names:
                 logger.warning(
-                    "Duplicate tool name '%s' found in session %s; skipping", tool.name, mcp_session.config.key
+                    "Duplicate tool name '%s' found in session %s; skipping",
+                    tool.name,
+                    mcp_session.config.server_config.key,
                 )
                 # Skip duplicate tools
                 continue
@@ -119,7 +121,7 @@ async def handle_long_running_tool_call(
                 type="text",
                 text=dedent(f"""
                 Processing tool call '{tool_call.name}'.
-                Estimated time to completion: {mcp_session.config.task_completion_estimate}
+                Estimated time to completion: {mcp_session.config.server_config.task_completion_estimate}
             """).strip(),
             ),
         ],
@@ -147,7 +149,9 @@ async def execute_tool(
     async def tool_call_function() -> CallToolResult:
         return await mcp_session.client_session.call_tool(tool_call.name, tool_call.arguments)
 
-    logger.debug(f"Invoking '{mcp_session.config.key}.{tool_call.name}' with arguments: {tool_call.arguments}")
+    logger.debug(
+        f"Invoking '{mcp_session.config.server_config.key}.{tool_call.name}' with arguments: {tool_call.arguments}"
+    )
 
     try:
         tool_result = await execute_tool_with_retries(tool_call_function, tool_call.name)

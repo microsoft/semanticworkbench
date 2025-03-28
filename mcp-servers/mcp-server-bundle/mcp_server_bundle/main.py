@@ -110,7 +110,10 @@ def start_mcp_server_filesystem() -> MCPServerProcess | None:
             MCP_SERVER_FILE_SYSTEM_PORT,
             extra_assistant_config={
                 "roots": [
-                    "PUT VALID PATH HERE; ex: c:\\Users\\me\\dir (Windows), /home/me/dir (Linux) or /Users/me/dir (Mac)"
+                    {
+                        "name": "filesystem-root",
+                        "uri": "PUT VALID PATH HERE; ex: c:\\Users\\me\\dir (Windows), /home/me/dir (Linux) or /Users/me/dir (Mac)",
+                    }
                 ]
             },
         ),

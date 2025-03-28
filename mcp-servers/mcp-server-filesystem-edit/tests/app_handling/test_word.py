@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import pytest
@@ -7,15 +8,17 @@ from mcp_server_filesystem_edit.app_handling.word import (
     write_markdown,
 )
 
-TEMP_FILES_PATH = Path(__file__).parents[2] / "temp" / "tests"
-TEMP_FILES_PATH.mkdir(exist_ok=True)
-TEST_FILE = TEMP_FILES_PATH / "test_document.docx"
+
+@pytest.fixture(autouse=True)
+def check_for_win():
+    if sys.platform != "win32":
+        pytest.skip("This test is only applicable on Windows.")
 
 
 @pytest.fixture
-def word_document():
+def word_document(word_file_path: Path):
     """Fixture that provides an active Word document."""
-    _, doc = open_document_in_office(TEMP_FILES_PATH / "test_document.docx", OfficeAppType.WORD)
+    _, doc = open_document_in_office(word_file_path, OfficeAppType.WORD)
     # Make sure the document is empty before each test
     doc.Content.Delete()  # type: ignore
     yield doc

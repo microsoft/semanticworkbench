@@ -7,7 +7,13 @@
       "name": "mcp-servers: mcp-server-memory-user-bio",
       "cwd": "${workspaceFolder}",
       "module": "mcp_server_memory_user_bio.start",
-      "args": ["--transport", "sse", "--port", "34737"],
+      "args": [
+        "--transport",
+        "sse",
+        "--port",
+        "34737",
+        "--enable-client-roots"
+      ],
       "consoleTitle": "mcp-server-memory-user-bio"
       // "justMyCode": false // Set to false to debug external libraries
     }
