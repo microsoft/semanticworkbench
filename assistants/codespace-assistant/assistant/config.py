@@ -155,6 +155,7 @@ class HostedMCPServersConfigModel(BaseModel):
         roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
         # auto-include the user-bio memory prompt
         prompts_to_auto_include=["user-bio"],
+        enabled=False,
     )
 
     @property
