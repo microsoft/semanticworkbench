@@ -5,6 +5,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import IO, Any, NoReturn
 
 import yaml
@@ -229,30 +230,34 @@ def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
             task_completion_estimate: 30
     """
 
-    config = {
-        "tools": {
+    personal_mcp_servers = []
+    for server, port in zip(servers, tunnel.ports):
+        server_config = {
+            "key": server.name,
             "enabled": True,
-            "personal_mcp_servers": [
-                {
-                    "key": server.name,
-                    "enabled": True,
-                    "command": port.sse_url,
-                    "args": [
-                        json.dumps({
-                            "tunnel_id": port.tunnel_id,
-                            "port": port.port,
-                            "access_token": tunnel.access_token,
-                        })
-                    ],
-                    "prompt": "",
-                    "long_running": False,
-                    "task_completion_estimate": 30,
-                    **server.extra_assistant_config,
-                }
-                for server, port in zip(servers, tunnel.ports)
+            "command": port.sse_url,
+            "args": [
+                json.dumps({
+                    "tunnel_id": port.tunnel_id,
+                    "port": port.port,
+                    "access_token": tunnel.access_token,
+                })
             ],
+            "prompt": "",
+            "long_running": False,
+            "task_completion_estimate": 30,
+            **server.extra_assistant_config,
         }
-    }
+
+        # Special handling for the filesystem-edit server
+        if server.name == "mcp-server-filesystem-edit" and sys.platform.startswith("win32"):
+            temp_root = Path("C:/ProgramData/SemanticWorkbench/OfficeWorkingDirectory")
+            server_config["roots"] = [{"name": "working_directory", "uri": str(temp_root)}]
+            cprint(f"Configured filesystem-edit root directory: {temp_root}", "cyan")
+
+        personal_mcp_servers.append(server_config)
+
+    config = {"tools": {"enabled": True, "personal_mcp_servers": personal_mcp_servers}}
 
     config_path = get_mcp_tunnel_dir() / "assistant-config.yaml"
     config_path.write_text(yaml.dump(config, sort_keys=False))

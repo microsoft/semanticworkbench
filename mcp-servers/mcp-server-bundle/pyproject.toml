@@ -7,17 +7,15 @@ name = "mcp-server-bundle"
 version = "0.1.0"
 description = "Bundle for mcp-server-office and mcp-tunnel"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 authors = [{ name = "Semantic Workbench Team" }]
 dependencies = [
-    "mcp-server-office; platform_system == 'Windows'",
-    "mcp-server-filesystem",
+    "mcp-server-filesystem-edit",
     "mcp-tunnel",
 ]
 
 [tool.uv.sources]
-mcp-server-office = { path = "../mcp-server-office", editable = true }
-mcp-server-filesystem= { path = "../mcp-server-filesystem", editable = true }
+mcp-server-filesystem-edit = { path = "../mcp-server-filesystem-edit", editable = true }
 mcp-tunnel = { path = "../../libraries/python/mcp-tunnel", editable = true }
 
 [project.scripts]
