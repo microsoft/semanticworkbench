@@ -3,6 +3,7 @@
 import logging
 import sys
 from pathlib import Path
+from textwrap import dedent
 from urllib.parse import quote, unquote, urlparse
 
 from mcp.server.fastmcp import Context, FastMCP
@@ -205,6 +206,48 @@ async def write_file(ctx: Context, path: Path, content: str) -> None:
 
 def create_mcp_server() -> FastMCP:
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
+
+    @mcp.prompt(name="instructions", description="Instructions for the assistant regarding tool usage.")
+    async def instructions_prompt(ctx: Context) -> str:
+        return dedent("""
+        ## Additional Tool Specific Guidance
+
+        ### File Editing (Markdown) via `edit_file`
+
+        - Assume that you should always be creating ".md" files, unless the user specifies otherwise.
+
+        - Provide this tool specific instructions for what you want changed on this
+        current step.
+
+        - The editor may however make more changes than you expect. So after each
+        step, be sure to check the document again. Based on the latest state of the
+        document, come up with the next step.
+
+        - This will also let you review the changes to make sure they would fully
+        satisfy the user's ask.
+
+        - Provide this tool specific instructions for what you want changed on this
+        current step.
+
+        - Do not try to use this to address comments that are not actionable.
+
+        ### Feedback via `add_comments`
+
+        - If you are working on writing documents for the user, call this tool to
+        get another perspective on the document.
+
+        - Whenever you think you are done, always then use this  tool get some more
+        suggestions on how to improve.
+
+        - If the user explicitly asks you to address comments call `add_comments`
+        with `only_analyze=True` to first get suggestions on how to address the
+        comments before editing.
+
+        - If the feedback tool returns with comments that are not actionable,  DO
+        NOT try to call the edit_file tool to address them. Instead either call
+        other tools to try to get what is needed to address the comments, or ask the
+        user.
+        """).strip()
 
     @mcp.tool()
     async def list_working_directory(ctx: Context) -> str:
