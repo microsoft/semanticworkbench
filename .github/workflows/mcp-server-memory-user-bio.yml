@@ -1,4 +1,4 @@
-name: mcp-server-memory-use-bio continuous integration
+name: mcp-server-memory-user-bio continuous integration
 
 on:
   pull_request:
