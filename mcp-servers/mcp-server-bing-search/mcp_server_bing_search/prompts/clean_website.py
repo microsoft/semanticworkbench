@@ -9,7 +9,7 @@ It is your job to do a cleaning pass on the content to remove any unneeded conte
 You should remove aspects that are artifacts of the HTML to markdown conversion and do not help with the understanding of the content \
 such as navigation, extraneous links, dropdowns, images, etc.
 - You should preserve things like formatting of content itself.
-- If the content is long, you should only include the most important 4000 tokens of text
+- If the content is long, you should only include the most important 4000 tokens of text.
 - If the content is documentation, an article, blog, etc you absolutely must return the content in its entirety.
 - Be sure to include authors and dates. Also preserve important data, if it exists, like GitHub stars, viewership, things that hint at recency, etc.
 - It is critical that the content you wish to keep, you copy WORD FOR WORD.

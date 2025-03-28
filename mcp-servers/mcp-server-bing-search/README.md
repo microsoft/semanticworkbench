@@ -7,6 +7,7 @@ This is a [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP
 ## Tools
 
 ### `search(query: str) -> str`
+
 - Calls the Bing Search API with the provided query.
 - Processes each URL from the search results:
   - Gets the content of the page
@@ -17,6 +18,7 @@ This is a [Model Context Protocol](https://github.com/modelcontextprotocol) (MCP
 - Returns the processed content and links as a LLM-friendly string.
 
 ### `click(hashes: list[str]) -> str`
+
 - Takes a list of hashes (which originate from the `search` tool).
 - For each hash gets the corresponding URL from the local cache.
 - Then does the same processing as `search` for each URL and returns a similar LLM-friendly string.
@@ -30,6 +32,13 @@ make
 ```
 
 To create the virtual environment and install dependencies.
+
+### Setup Environment Variables
+
+Create a `.env` file based on `.env.sample` and populate it with:
+
+- `BING_SEARCH_API_KEY`
+- `ASSISTANT__AZURE_OPENAI_ENDPOINT` - This is necessary if you want to post process web content.
 
 ### Running the Server
 

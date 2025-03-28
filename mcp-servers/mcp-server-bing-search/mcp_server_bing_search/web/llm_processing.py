@@ -1,33 +1,36 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-from typing import Any, Callable
 
-from mcp.server.fastmcp import Context
 from mcp_extensions.llm.chat_completion import chat_completion
 from mcp_extensions.llm.helpers import compile_messages
 from mcp_extensions.llm.llm_types import ChatCompletionRequest
+from mcp_extensions.llm.openai_chat_completion import openai_client
 
+from mcp_server_bing_search import settings
 from mcp_server_bing_search.prompts.clean_website import CLEAN_WEBSITE_MESSAGES
 from mcp_server_bing_search.prompts.filter_links import FILTER_LINKS_MESSAGES, LINKS_SCHEMA
 from mcp_server_bing_search.types import Link
 
 
-async def clean_content(
-    content: str, context: Context | None, chat_completion_client: Callable[..., Any] | None
-) -> str:
+async def clean_content(content: str) -> str:
     """
     Uses an LLM to return a cleaned and shorter version of the provided content
     """
     messages = compile_messages(CLEAN_WEBSITE_MESSAGES, variables={"content": content})
+    client = openai_client(
+        api_type="azure_openai",
+        azure_endpoint=settings.azure_endpoint,
+        aoai_api_version="2025-01-01-preview",
+    )
     response = await chat_completion(
         request=ChatCompletionRequest(
             messages=messages,
-            model="gpt-4o",
+            model="gpt-4o-mini",
             max_completion_tokens=4000,
             temperature=0,
         ),
-        provider="azure_openai" if context is None else "mcp",
-        client=chat_completion_client if context is None else context,  # type: ignore
+        provider="azure_openai",
+        client=client,  # type: ignore
     )
     cleaned_content = response.choices[0].message.content
     return cleaned_content
@@ -37,8 +40,6 @@ async def filter_links(
     content: str,
     links: list[Link],
     max_links: int,
-    context: Context | None = None,
-    chat_completion_client: Callable[..., Any] | None = None,
 ) -> list[Link]:
     """
     Uses an LLM with structured outputs to choose the most important links
@@ -54,16 +55,21 @@ async def filter_links(
         FILTER_LINKS_MESSAGES,
         variables={"content": content, "max_links": str(max_links), "links": links_str},
     )
+    client = openai_client(
+        api_type="azure_openai",
+        azure_endpoint=settings.azure_endpoint,
+        aoai_api_version="2025-01-01-preview",
+    )
     response = await chat_completion(
         request=ChatCompletionRequest(
             messages=messages,
             model="gpt-4o",
-            max_completion_tokens=1000,
+            max_completion_tokens=500,
             structured_outputs=LINKS_SCHEMA,
             temperature=0.4,
         ),
-        provider="azure_openai" if context is None else "mcp",
-        client=chat_completion_client if context is None else context,  # type: ignore
+        provider="azure_openai",
+        client=client,  # type: ignore
     )
     chosen_links = response.choices[0].json_message
     if chosen_links:
