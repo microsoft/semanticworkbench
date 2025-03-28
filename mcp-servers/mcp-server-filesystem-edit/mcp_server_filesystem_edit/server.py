@@ -3,8 +3,12 @@
 import logging
 import sys
 from pathlib import Path
+from urllib.parse import quote, unquote, urlparse
 
 from mcp.server.fastmcp import Context, FastMCP
+from mcp_extensions import list_client_resources, read_client_resource, write_client_resource
+from mcp_extensions._server_extensions import ListResourcesResult, ReadResourceResult, TextResourceContents
+from pydantic import AnyUrl
 
 from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.app_handling.excel import get_worksheet_content_as_md_table
@@ -29,6 +33,18 @@ VIEW_CUSTOM_EXTENSIONS = [".docx", ".xlsx", ".csv"]
 
 EDIT_BY_FILE_EXTENSIONS = [".md", ".tex"]
 EDIT_BY_APP_EXTENSIONS = [".docx"]
+
+
+async def check_for_client_working_dir(ctx: Context) -> bool:
+    """
+    Returns True if the client has a root of "" set
+    """
+    list_roots_result = await ctx.session.list_roots()
+    # Check if any of the roots match the client resource URI
+    for root in list_roots_result.roots:
+        if root.uri.host == "workspace":
+            return True
+    return False
 
 
 async def get_allowed_directory(ctx: Context) -> Path:
@@ -105,6 +121,16 @@ async def validate_path(ctx: Context, requested_path: str) -> Path:
     Returns:
         The absolute path of the file.
     """
+    is_client_resource = await check_for_client_working_dir(ctx)
+    if is_client_resource:
+        # Handle the path as a URI using urllib.parse
+        try:
+            uri = "file://workspace/" + requested_path
+            uri = urlparse(requested_path)
+            return Path(uri.path)
+        except ValueError:
+            raise ValueError(f"Invalid path: {requested_path}")
+
     allowed_dir = await get_allowed_directory(ctx)
     requested_path_obj = Path(requested_path)
 
@@ -119,7 +145,7 @@ async def validate_path(ctx: Context, requested_path: str) -> Path:
         return (allowed_dir / requested_path_obj).resolve()
 
 
-async def read_file(ctx: Context, path: str) -> str:
+async def read_file(ctx: Context, path: Path) -> str:
     """
     Reads the content of a file specified by the path.
 
@@ -129,15 +155,52 @@ async def read_file(ctx: Context, path: str) -> str:
     Returns:
         The content of the file as a string.
     """
-    file = await validate_path(ctx, path)
+    is_client_resource = await check_for_client_working_dir(ctx)
+    if is_client_resource:
+        try:
+            uri = "client-resource:///" + quote(str(path))
+            uri = AnyUrl(uri)
+            read_result = await read_client_resource(ctx, uri)
+            content = ""
+            if isinstance(read_result, ReadResourceResult):
+                for c in read_result.contents:
+                    if isinstance(c, TextResourceContents):
+                        content = c.text
+            return content
+        except Exception:
+            return ""
 
-    if not file.exists() or not file.is_file():
+    if not path.exists() or not path.is_file():
         raise FileNotFoundError(f"File does not exist at path: {path}")
 
     try:
-        return file.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
     except Exception as e:
         raise RuntimeError(f"Failed to read the file at {path}: {str(e)}")
+
+
+async def write_file(ctx: Context, path: Path, content: str) -> None:
+    """
+    Writes the content to a file specified by the path.
+
+    Args:
+        path: The absolute or relative path to the file.
+        content: The content to write to the file.
+    """
+    is_client_resource = await check_for_client_working_dir(ctx)
+    if is_client_resource:
+        try:
+            uri = "client-resource:///" + quote(str(path))
+            uri = AnyUrl(uri)
+            write_result = await write_client_resource(ctx, uri, "text/plain", content.encode("utf-8"))
+            logger.info(f"Write result: {write_result}")
+        except Exception:
+            return None
+    else:
+        try:
+            path.write_text(content, encoding="utf-8")
+        except Exception as e:
+            raise RuntimeError(f"Failed to write to the file at {path}: {str(e)}")
 
 
 def create_mcp_server() -> FastMCP:
@@ -152,17 +215,31 @@ def create_mcp_server() -> FastMCP:
         Returns:
             Recursively returns all files in the working directory as relative paths.
         """
-        allowed_dir = await get_allowed_directory(ctx)
-        all_files = [f for f in allowed_dir.glob("**/*") if f.is_file()]
 
-        file_string = ""
-        for file in all_files:
-            # Skip files in hidden directories unless include_hidden_paths is enabled
-            if not settings.include_hidden_paths and any(part.startswith(".") for part in file.parts):
-                continue
+        # First check if we should take the assistant managed working directory path
+        is_client_resource = await check_for_client_working_dir(ctx)
+        if is_client_resource:
+            client_resources = await list_client_resources(ctx)
+            # Parse resources into a string that will let the model reference them correctly.
+            if isinstance(client_resources, ListResourcesResult):
+                file_string = ""
+                for resource in client_resources.resources:
+                    file_path = unquote(str(resource.uri).replace(resource.uri.scheme + "://", ""))
+                    file_string += f"{file_path}\n"  # TODO:
+            else:
+                return f"Some error occurred while listing client resources:\n{client_resources}"
+        else:
+            allowed_dir = await get_allowed_directory(ctx)
+            all_files = [f for f in allowed_dir.glob("**/*") if f.is_file()]
 
-            relative_path = file.relative_to(allowed_dir)
-            file_string += f"{relative_path}\n"
+            file_string = ""
+            for file in all_files:
+                # Skip files in hidden directories unless include_hidden_paths is enabled
+                if not settings.include_hidden_paths and any(part.startswith(".") for part in file.parts):
+                    continue
+
+                relative_path = file.relative_to(allowed_dir)
+                file_string += f"{relative_path}\n"
 
         return (
             file_string.strip()
@@ -189,7 +266,7 @@ def create_mcp_server() -> FastMCP:
         file_extension = validated_path.suffix.lower()
         # Handle file types where we read them directly
         if file_extension in VIEW_BY_FILE_EXTENSIONS:
-            file_content = await read_file(ctx, path)
+            file_content = await read_file(ctx, validated_path)
             if not file_content:
                 return empty_file_string
             return file_content
@@ -214,6 +291,7 @@ def create_mcp_server() -> FastMCP:
         The user has a file editor corresponding to the file type, open like VSCode, Word, PowerPoint, TeXworks (+ MiKTeX), open side by side with this chat.
         Use this tool to create new files or edit existing ones.
         If you provide a new file path, it will be created for you and then the editor will start to edit it (from scratch).
+        Name the file with capital letters and spacing like "Weekly AI Report.md" or "Email to Boss.md" since it will be directly shown to the user in that way.
         Provide a task that you want it to do in the document. For example, if you want to have it expand on one section,
         you can say "expand on the section about <topic x>". The task should be at most a few sentences.
         Do not provide it any additional context outside of the task parameter. It will automatically be fetched as needed by this tool.
@@ -222,9 +300,10 @@ def create_mcp_server() -> FastMCP:
             path: The relative path to the file.
             task: The specific task that you want the document editor to do.
         """
+        is_client_resource = await check_for_client_working_dir(ctx)
         validated_path = await validate_path(ctx, path)
 
-        if not validated_path.exists():
+        if not validated_path.exists() and not is_client_resource:
             try:
                 validated_path.parent.mkdir(parents=True, exist_ok=True)
                 validated_path.touch()
@@ -233,7 +312,7 @@ def create_mcp_server() -> FastMCP:
 
         file_extension = validated_path.suffix.lower()
         if file_extension in EDIT_BY_FILE_EXTENSIONS:
-            file_content = await read_file(ctx, path)
+            file_content = await read_file(ctx, validated_path)
             match file_extension:
                 case ".md":
                     file_type = "markdown"
@@ -251,7 +330,7 @@ def create_mcp_server() -> FastMCP:
             editor = CommonEdit()
             output = await editor.run(request)
             tool_output: str = output.change_summary + "\n" + output.output_message
-            validated_path.write_text(output.new_content, encoding="utf-8")
+            await write_file(ctx, validated_path, output.new_content)
             # If this is a tex file, auto compile it to PDF
             if file_type == "latex" and settings.pdflatex_enabled:
                 success, error_msg = compile_tex_to_pdf(validated_path)
@@ -293,14 +372,17 @@ def create_mcp_server() -> FastMCP:
         Returns:
             A summary of the comments added and suggestions for how to address them.
         """
+        is_client_resource = await check_for_client_working_dir(ctx)
         validated_path = await validate_path(ctx, path)
         # Error if the file does not exist
-        if not validated_path.exists():
+        if not validated_path.exists() and not is_client_resource:
             return "File does not exist at path: `{path}`"
 
         file_extension = validated_path.suffix.lower()
         if file_extension in EDIT_BY_FILE_EXTENSIONS:
-            file_content = await read_file(ctx, path)
+            file_content = await read_file(ctx, validated_path)
+            if not file_content:
+                return f"{settings.file_tool_prefix}This file is empty so I am not adding any comments."
             match file_extension:
                 case ".md":
                     file_type = "markdown"
@@ -316,7 +398,7 @@ def create_mcp_server() -> FastMCP:
                 file_type=file_type,
             )
             output = await commenter.run(request, only_analyze=only_analyze)
-            validated_path.write_text(output.new_content, encoding="utf-8")
+            await write_file(ctx, validated_path, output.new_content)
             tool_output = output.comment_instructions
         elif file_extension in EDIT_BY_APP_EXTENSIONS and settings.office_support_enabled:
             # Word (.docx) is currently the only supported app for commenting
@@ -345,6 +427,7 @@ def create_mcp_server() -> FastMCP:
     )
     async def file_context() -> str:
         """
+        # TODO: BROKEN DONT USE
         Looks at the context files, and formats then into a string for the assistant to place in its context window.
         # TODO: Eventually this should take a similar path as the view tool to read files.
         """
