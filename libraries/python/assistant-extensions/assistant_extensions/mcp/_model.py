@@ -30,7 +30,7 @@ class MCPClientRoot(BaseModel):
 
 
 class MCPServerConfig(BaseModel):
-    enabled: Annotated[bool, Field(title="Enabled", description="Enable the server.")] = True
+    enabled: Annotated[bool, Field(title="Enable this server")] = True
 
     key: Annotated[str, Field(title="Key", description="Unique key for the server configuration.")]
 
@@ -92,8 +92,6 @@ class HostedMCPServerConfig(MCPServerConfig):
     """
     For hosted MCP servers all fields except 'Enabled' are hidden. We only want users to toggle the 'Enabled' field.
     """
-
-    enabled: Annotated[bool, Field(title="Enabled", description="Enable the server.")] = True
 
     key: Annotated[
         str,
