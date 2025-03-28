@@ -1,27 +1,27 @@
-name: prospector-assistant continuous integration
+name: mcp-server-filesystem-edit continuous integration
 
 on:
   pull_request:
     branches: ["main"]
     paths:
-      - "assistants/prospector-assistant/**"
+      - "mcp-servers/mcp-server-filesystem-edit/**"
       - "libraries/python/**"
       - "tools/docker/**"
-      - ".github/workflows/assistants-prospector-assistant.yml"
+      - ".github/workflows/mcp-server-filesystem-edit.yml"
 
   push:
     branches: ["main"]
     paths:
-      - "assistants/prospector-assistant/**"
+      - "mcp-servers/mcp-server-filesystem-edit/**"
       - "libraries/python/**"
       - "tools/docker/**"
-      - ".github/workflows/assistants-prospector-assistant.yml"
+      - ".github/workflows/mcp-server-filesystem-edit.yml"
 
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: assistants/prospector-assistant
+    working-directory: mcp-servers/mcp-server-filesystem-edit
 
 jobs:
   test:
