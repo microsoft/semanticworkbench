@@ -1,5 +1,6 @@
 import base64
 import io
+import logging
 import urllib.parse
 from typing import Any
 
@@ -10,104 +11,144 @@ from mcp_extensions import WriteResourceRequestParams, WriteResourceResult
 from pydantic import AnyUrl
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+logger = logging.getLogger(__name__)
+
+CLIENT_RESOURCE_SCHEME = "client-resource"
+
 
 class WorkbenchFileClientResourceHandler:
     """
-    Handles the `resources/list` and `resources/read` methods for an MCP client that
-    wants to implement our experimental client-resources capability.
+    Handles the `resources/list`, `resources/read` and `resources/write` methods for an MCP client that
+    implements our experimental client-resources capability, backed by the files in a workbench
+    conversation.
     """
 
     def __init__(self, context: ConversationContext) -> None:
         self.context = context
 
+    @staticmethod
+    def _filename_to_resource_uri(filename: str) -> AnyUrl:
+        path = "/".join([urllib.parse.quote(part) for part in filename.split("/")])
+        return AnyUrl(f"{CLIENT_RESOURCE_SCHEME}:///{path}")
+
+    @staticmethod
+    def _resource_uri_to_filename(uri: AnyUrl) -> str:
+        if uri.scheme != CLIENT_RESOURCE_SCHEME:
+            raise ValueError(f"Invalid resource URI scheme: {uri.scheme}")
+        return urllib.parse.unquote((uri.path or "").lstrip("/"))
+
     async def handle_list_resources(
         self,
         context: RequestContext[ClientSession, Any],
     ) -> ListResourcesResult | ErrorData:
-        files_response = await self.context.list_files()
+        try:
+            files_response = await self.context.list_files()
 
-        def filename_to_resource_url(filename: str) -> AnyUrl:
-            parts = [urllib.parse.quote(part) for part in filename.split("/")]
-            return AnyUrl("client-resource://" + "/".join(parts))
-
-        return ListResourcesResult(
-            resources=[
-                Resource(
-                    uri=filename_to_resource_url(file.filename),
-                    name=file.filename.split("/")[-1],
-                    size=file.file_size,
-                    mimeType=file.content_type,
-                )
-                for file in files_response.files
-            ]
-        )
+            return ListResourcesResult(
+                resources=[
+                    Resource(
+                        uri=self._filename_to_resource_uri(file.filename),
+                        name=file.filename.split("/")[-1],
+                        size=file.file_size,
+                        mimeType=file.content_type,
+                    )
+                    for file in files_response.files
+                ]
+            )
+        except Exception as e:
+            logger.exception("error listing resources")
+            return ErrorData(
+                code=500,
+                message=f"Error listing resources: {str(e)}",
+            )
 
     async def handle_read_resource(
         self,
         context: RequestContext[ClientSession, Any],
         params: ReadResourceRequestParams,
     ) -> ReadResourceResult | ErrorData:
-        uri = params.uri
-        filename = urllib.parse.unquote(str(uri).replace(uri.scheme + "://", ""))
-
-        file_response = await self.context.get_file(filename)
-        if file_response is None:
-            return ErrorData(
-                code=404,
-                message=f"Resource {uri} not found.",
-            )
-
-        buffer = io.BytesIO()
-
         try:
+            filename = self._resource_uri_to_filename(params.uri)
+            if not filename:
+                return ErrorData(
+                    code=400,
+                    message=f"Invalid resource URI: {params.uri}",
+                )
+
+            file_response = await self.context.get_file(filename)
+            if file_response is None:
+                return ErrorData(
+                    code=404,
+                    message=f"Resource {params.uri} not found.",
+                )
+
+            buffer = io.BytesIO()
+
             async with self.context.read_file(filename) as reader:
                 async for chunk in reader:
                     buffer.write(chunk)
 
-        except Exception as e:
-            return ErrorData(
-                code=500,
-                message=f"Error reading resource {uri}: {str(e)}",
-            )
+            if file_response.content_type.startswith("text/"):
+                return ReadResourceResult(
+                    contents=[
+                        TextResourceContents(
+                            uri=params.uri,
+                            mimeType=file_response.content_type,
+                            text=buffer.getvalue().decode("utf-8"),
+                        )
+                    ]
+                )
 
-        if file_response.content_type.startswith("text/"):
             return ReadResourceResult(
                 contents=[
-                    TextResourceContents(
-                        uri=uri,
+                    BlobResourceContents(
+                        uri=self._filename_to_resource_uri(filename),
                         mimeType=file_response.content_type,
-                        text=buffer.getvalue().decode("utf-8"),
+                        blob=base64.b64encode(buffer.getvalue()).decode(),
                     )
                 ]
             )
 
-        return ReadResourceResult(
-            contents=[
-                BlobResourceContents(
-                    uri=uri,
-                    mimeType=file_response.content_type,
-                    blob=base64.b64encode(buffer.getvalue()).decode(),
-                )
-            ]
-        )
+        except Exception as e:
+            logger.exception("error reading resource; uri: %s", params.uri)
+            return ErrorData(
+                code=500,
+                message=f"Error reading resource {params.uri}: {str(e)}",
+            )
 
     async def handle_write_resource(
         self,
         context: RequestContext[ClientSession, Any],
         params: WriteResourceRequestParams,
     ) -> WriteResourceResult | ErrorData:
-        uri = params.uri
-        filename = urllib.parse.unquote(str(uri).replace(uri.scheme + "://", ""))
+        try:
+            filename = self._resource_uri_to_filename(params.uri)
+            if not filename:
+                return ErrorData(
+                    code=400,
+                    message=f"Invalid resource URI: {params.uri}",
+                )
 
-        if isinstance(params.contents, TextResourceContents):
-            content_bytes = params.contents.text.encode("utf-8")
-        else:
-            content_bytes = base64.b64decode(params.contents.blob)
+            match params.contents:
+                case BlobResourceContents():
+                    content_bytes = base64.b64decode(params.contents.blob)
+                    content_type = params.contents.mimeType or "application/octet-stream"
 
-        await self.context.write_file(
-            filename=filename,
-            content_type=params.contents.mimeType or "application/octet-stream",
-            file_content=io.BytesIO(content_bytes),
-        )
+                case TextResourceContents():
+                    content_bytes = params.contents.text.encode("utf-8")
+                    content_type = params.contents.mimeType or "text/plain"
 
-        return WriteResourceResult()
+            await self.context.write_file(
+                filename=filename,
+                content_type=content_type,
+                file_content=io.BytesIO(content_bytes),
+            )
+
+            return WriteResourceResult()
+
+        except Exception as e:
+            logger.exception("error writing resource; uri: %s", params.uri)
+            return ErrorData(
+                code=500,
+                message=f"Error writing resource {params.uri}: {str(e)}",
+            )

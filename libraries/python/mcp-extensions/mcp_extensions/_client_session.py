@@ -13,7 +13,7 @@ from mcp.client.session import (
 from mcp.shared.context import RequestContext
 from mcp.shared.session import RequestResponder
 from mcp.shared.version import SUPPORTED_PROTOCOL_VERSIONS
-from pydantic import AnyUrl, ConfigDict, RootModel, UrlConstraints
+from pydantic import AnyUrl, ConfigDict, RootModel, TypeAdapter, UrlConstraints
 
 
 class ListResourcesFnT(Protocol):
@@ -183,25 +183,25 @@ class ExtendedClientSession(ClientSession):
         )
 
         match responder.request.root:
-            # experimental requests
+            # "experimental" (non-standard) requests are handled by this class
             case types.ListResourcesRequest():
                 with responder:
                     response = await self._list_resources_callback(ctx)
-                    client_response = types.ListResourcesResult.model_validate(response)
+                    client_response = TypeAdapter(types.ListResourcesResult | types.ErrorData).validate_python(response)
                     await responder.respond(client_response)
 
             case types.ReadResourceRequest(params=params):
                 with responder:
                     response = await self._read_resource_callback(ctx, params)
-                    client_response = types.ReadResourceResult.model_validate(response)
+                    client_response = TypeAdapter(types.ReadResourceResult | types.ErrorData).validate_python(response)
                     await responder.respond(client_response)
 
             case WriteResourceRequest(params=params):
                 with responder:
                     response = await self._write_resource_callback(ctx, params)
-                    client_response = WriteResourceResult.model_validate(response)
+                    client_response = TypeAdapter(WriteResourceResult | types.ErrorData).validate_python(response)
                     await responder.respond(client_response)
 
-            # standard requests
+            # standard requests go to ClientSession
             case _:
                 return await super()._received_request(responder)
