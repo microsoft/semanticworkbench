@@ -6,8 +6,6 @@ This section outlines the core implementation philosophy and guidelines for the 
 
 ### Core Philosophy
 
-Embodies a Zen-like minimalism that values simplicity and clarity above all. This approach reflects:
-
 - **Wabi-sabi philosophy**: Embracing simplicity and the essential. Each line serves a clear purpose without unnecessary embellishment.
 - **Occam's Razor thinking**: The solution should be as simple as possible, but no simpler.
 - **Trust in emergence**: Complex systems work best when built from simple, well-defined components that do one thing well.
@@ -69,7 +67,7 @@ This developer likely values clear documentation, readable code, and believes go
 class ConnectionManager:
     def __init__(self):
         self.connections = {}
-        
+
     async def add_connection(self, resource_id, user_id):
         """Add a new SSE connection"""
         connection_id = str(uuid.uuid4())
@@ -151,7 +149,7 @@ Run the linter to check for code quality issues:
 make lint
 ```
 
-#### Type Checking 
+#### Type Checking
 To check for type issues, use the following command:
 ```bash
 make type-check
@@ -186,7 +184,7 @@ python -m pytest tests/test_file.py -v
    - Handle circular dependencies with TYPE_CHECKING from typing module:
    ```python
    from typing import TYPE_CHECKING
-   
+
    if TYPE_CHECKING:
        from .module import Class  # Import only used for type hints
    ```
