@@ -75,7 +75,22 @@ class MissionInspectorStateProvider:
         lines: List[str] = []
         lines.append(f"# Mission: {mission_name}")
         lines.append("")
-        lines.append("**Role:** HQ (Definition Stage)")
+        
+        # Determine stage based on mission status
+        stage_label = "Definition Stage"
+        if status and status.state:
+            if status.state.value == "planning":
+                stage_label = "Definition Stage"
+            elif status.state.value == "ready_for_field":
+                stage_label = "Working Stage" 
+            elif status.state.value == "in_progress":
+                stage_label = "Working Stage"
+            elif status.state.value == "completed":
+                stage_label = "Completed Stage"
+            elif status.state.value == "aborted":
+                stage_label = "Aborted Stage"
+                
+        lines.append(f"**Role:** HQ ({stage_label})")
         lines.append(f"**Status:** {mission_status}")
         lines.append(f"**Progress:** {progress}%")
         lines.append("")
@@ -157,7 +172,22 @@ class MissionInspectorStateProvider:
         lines: List[str] = []
         lines.append(f"# Mission: {mission_name}")
         lines.append("")
-        lines.append("**Role:** Field (Working Stage)")
+        
+        # Determine stage based on mission status
+        stage_label = "Working Stage"
+        if status and status.state:
+            if status.state.value == "planning":
+                stage_label = "Definition Stage"
+            elif status.state.value == "ready_for_field":
+                stage_label = "Working Stage" 
+            elif status.state.value == "in_progress":
+                stage_label = "Working Stage"
+            elif status.state.value == "completed":
+                stage_label = "Completed Stage"
+            elif status.state.value == "aborted":
+                stage_label = "Aborted Stage"
+                
+        lines.append(f"**Role:** Field ({stage_label})")
         lines.append(f"**Status:** {mission_status}")
         lines.append(f"**Progress:** {progress}%")
         lines.append("")

@@ -793,8 +793,8 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
 
             status.total_criteria = total_criteria
 
-        # Update status to in_progress
-        status.state = MissionState.IN_PROGRESS
+        # Update status to ready_for_field
+        status.state = MissionState.READY_FOR_FIELD
         status.status_message = "Mission is now ready for field operations"
 
         # Add lifecycle metadata
