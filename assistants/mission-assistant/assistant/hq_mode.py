@@ -29,6 +29,7 @@ from .mission_storage import (
     MissionRole,
     MissionStorage,
 )
+from .mission_common import log_mission_action
 
 logger = logging.getLogger(__name__)
 
@@ -479,16 +480,10 @@ class HQConversationHandler:
             related_entity_id: Optional ID of related entity
             additional_metadata: Optional additional metadata
         """
-        mission_id = await ConversationMissionManager.get_conversation_mission(self.context)
-        if not mission_id:
-            return
-
-        # Use the simpler MissionStorage.log_mission_event instead of manually creating entries
-        await MissionStorage.log_mission_event(
+        await log_mission_action(
             context=self.context,
-            mission_id=mission_id,
-            entry_type=entry_type.value,
+            entry_type=entry_type,
             message=message,
             related_entity_id=related_entity_id,
-            metadata=additional_metadata,
+            additional_metadata=additional_metadata,
         )

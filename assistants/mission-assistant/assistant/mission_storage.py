@@ -15,6 +15,8 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
 
+from .utils import get_current_user
+
 from .mission_data import (
     FieldRequest,
     LogEntry,
@@ -311,18 +313,13 @@ class MissionStorage:
             True if the log entry was added successfully, False otherwise
         """
         # Get user information
-        participants = await context.get_participants()
-        user_id = None
-        user_name = "Unknown User"
-
-        for participant in participants.participants:
-            if participant.role == "user":
-                user_id = participant.id
-                user_name = participant.name
-                break
-
+        user_id, user_name = await get_current_user(context)
+        
         if not user_id:
             return False
+            
+        # Default user name if none found
+        user_name = user_name or "Unknown User"
 
         # Create a log entry
         entry = LogEntry(
@@ -533,20 +530,20 @@ class ConversationMissionManager:
         return None
 
     @staticmethod
-    async def set_conversation_mission(context: ConversationContext, mission_id: str) -> None:
+    async def associate_conversation_with_mission(context: ConversationContext, mission_id: str) -> None:
         """
         Associates a conversation with a mission.
 
         Args:
             context: Conversation context
-            mission_id: ID of the mission
+            mission_id: ID of the mission to associate with
         """
         mission_data = ConversationMissionManager.MissionAssociation(mission_id=mission_id)
         mission_path = MissionStorageManager.get_conversation_mission_file_path(context)
         write_model(mission_path, mission_data)
 
     @staticmethod
-    async def get_conversation_mission(context: ConversationContext) -> Optional[str]:
+    async def get_associated_mission_id(context: ConversationContext) -> Optional[str]:
         """
         Gets the mission ID associated with a conversation.
 
@@ -563,3 +560,23 @@ class ConversationMissionManager:
             return mission_data.mission_id
 
         return None
+        
+    # Maintain backwards compatibility with existing code
+    # These methods are deprecated and should be removed in a future update
+    @staticmethod
+    async def set_conversation_mission(context: ConversationContext, mission_id: str) -> None:
+        """
+        DEPRECATED: Use associate_conversation_with_mission instead.
+        
+        Associates a conversation with a mission.
+        """
+        await ConversationMissionManager.associate_conversation_with_mission(context, mission_id)
+        
+    @staticmethod
+    async def get_conversation_mission(context: ConversationContext) -> Optional[str]:
+        """
+        DEPRECATED: Use get_associated_mission_id instead.
+        
+        Gets the mission ID associated with a conversation.
+        """
+        return await ConversationMissionManager.get_associated_mission_id(context)

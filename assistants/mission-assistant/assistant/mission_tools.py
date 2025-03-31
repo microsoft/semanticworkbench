@@ -7,7 +7,7 @@ by the LLM during chat completions to proactively assist users.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 from uuid import UUID
 
 from openai_client.tools import ToolFunctions
@@ -39,6 +39,50 @@ from .mission_storage import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def invoke_command_handler(
+    context: ConversationContext,
+    command_content: str,
+    handler_func: Callable,
+    success_message: str,
+    error_prefix: str
+) -> str:
+    """
+    Create a system message and invoke a command handler function.
+    
+    This helper centralizes the pattern of creating a temporary system message
+    to reuse command handlers from the chat module.
+    
+    Args:
+        context: The conversation context
+        command_content: The formatted command content
+        handler_func: The command handler function to call
+        success_message: Message to return on success
+        error_prefix: Prefix for error messages
+        
+    Returns:
+        A string with success or error message
+    """
+    # Create a temporary system message to invoke the command handler
+    temp_message = ConversationMessage(
+        id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
+        content=command_content,
+        timestamp=datetime.utcnow(),
+        message_type=MessageType.command,
+        sender=MessageSender(participant_role=ParticipantRole.assistant, participant_id="system"),
+        content_type="text/plain",
+        filenames=[],
+        metadata={},
+        has_debug_data=False,
+    )
+
+    try:
+        await handler_func(context, temp_message, [])
+        return success_message
+    except Exception as e:
+        logger.exception(f"{error_prefix}: {e}")
+        return f"{error_prefix}: {str(e)}"
 
 
 class MissionTools:
@@ -347,26 +391,13 @@ class MissionTools:
 
         command_content = f"/add-goal {goal_name}|{goal_description}{criteria_str}"
 
-        # Create a temporary system message to invoke the command processor
-        # This reuses the existing command handling logic from chat.py
-        temp_message = ConversationMessage(
-            id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
-            content=command_content,
-            timestamp=datetime.utcnow(),
-            message_type=MessageType.command,
-            sender=MessageSender(participant_role=ParticipantRole.assistant, participant_id="system"),
-            content_type="text/plain",
-            filenames=[],
-            metadata={},
-            has_debug_data=False,
+        return await invoke_command_handler(
+            context=self.context,
+            command_content=command_content,
+            handler_func=handle_add_goal_command,
+            success_message=f"Goal '{goal_name}' added to mission briefing successfully.",
+            error_prefix="Error adding goal"
         )
-
-        try:
-            await handle_add_goal_command(self.context, temp_message, [])
-            return f"Goal '{goal_name}' added to mission briefing successfully."
-        except Exception as e:
-            logger.exception(f"Error adding goal: {e}")
-            return f"Error adding goal: {str(e)}"
 
     async def add_kb_section(self, title: str, content: str) -> str:
         """
@@ -390,26 +421,13 @@ class MissionTools:
         # Use the formatted command processor from chat.py to leverage existing functionality
         command_content = f"/add-kb-section {title}|{content}"
 
-        # Create a temporary system message to invoke the KB section command processor
-        # This approach maintains consistency with command handling in the chat interface
-        temp_message = ConversationMessage(
-            id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
-            content=command_content,
-            timestamp=datetime.utcnow(),
-            message_type=MessageType.command,
-            sender=MessageSender(participant_role=ParticipantRole.assistant, participant_id="system"),
-            content_type="text/plain",
-            filenames=[],
-            metadata={},
-            has_debug_data=False,
+        return await invoke_command_handler(
+            context=self.context,
+            command_content=command_content,
+            handler_func=handle_add_kb_section_command,
+            success_message=f"Knowledge base section '{title}' added successfully.",
+            error_prefix="Error adding knowledge base section"
         )
-
-        try:
-            await handle_add_kb_section_command(self.context, temp_message, [])
-            return f"Knowledge base section '{title}' added successfully."
-        except Exception as e:
-            logger.exception(f"Error adding KB section: {e}")
-            return f"Error adding knowledge base section: {str(e)}"
 
     async def resolve_field_request(self, request_id: str, resolution: str) -> str:
         """

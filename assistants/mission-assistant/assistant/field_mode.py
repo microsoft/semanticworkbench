@@ -25,6 +25,7 @@ from .mission_storage import (
     MissionRole,
     MissionStorage,
 )
+from .mission_common import log_mission_action
 
 logger = logging.getLogger(__name__)
 
@@ -118,13 +119,13 @@ class FieldConversationHandler:
         return True, f"Created field request: {title}", request
 
     async def update_mission_status(
-        self, progress_percentage: int, status_message: Optional[str] = None
+        self, completion_percentage: int, status_message: Optional[str] = None
     ) -> Tuple[bool, str, Optional[MissionStatus]]:
         """
         Updates the mission status with progress information from the field.
 
         Args:
-            progress_percentage: Current mission progress percentage (0-100)
+            completion_percentage: Current mission completion percentage (0-100)
             status_message: Optional status message or update from field
 
         Returns:
@@ -166,7 +167,7 @@ class FieldConversationHandler:
 
         # Update status
         previous_progress = status.progress_percentage
-        status.progress_percentage = max(0, min(100, progress_percentage))  # Clamp between 0-100
+        status.progress_percentage = max(0, min(100, completion_percentage))  # Clamp between 0-100
         if status_message:
             status.status_message = status_message
 
@@ -196,11 +197,11 @@ class FieldConversationHandler:
         # Log update
         await self.log_action(
             LogEntryType.STATUS_CHANGED,
-            f"Updated mission progress to {progress_percentage}%",
+            f"Updated mission progress to {completion_percentage}%",
             related_entity_id=None,  # No specific entity ID needed
             additional_metadata={
                 "previous_progress": previous_progress,
-                "new_progress": progress_percentage,
+                "new_progress": completion_percentage,
                 "status_message": status_message,
             },
         )
@@ -208,12 +209,12 @@ class FieldConversationHandler:
         # Send notification
         await self.context.send_messages(
             NewConversationMessage(
-                content=f"Updated mission progress to {progress_percentage}%",
+                content=f"Updated mission progress to {completion_percentage}%",
                 message_type=MessageType.notice,
             )
         )
 
-        return True, f"Updated mission progress to {progress_percentage}%", status
+        return True, f"Updated mission progress to {completion_percentage}%", status
 
     async def mark_criterion_completed(
         self, goal_id: str, criterion_id: str
@@ -594,18 +595,10 @@ class FieldConversationHandler:
             related_entity_id: Optional ID of related entity
             additional_metadata: Optional additional metadata
         """
-        mission_id = await ConversationMissionManager.get_conversation_mission(self.context)
-        if not mission_id:
-            return
-
-        # Use the simpler MissionStorage.log_mission_event instead of manually creating entries
-        await MissionStorage.log_mission_event(
+        await log_mission_action(
             context=self.context,
-            mission_id=mission_id,
-            entry_type=entry_type.value,
+            entry_type=entry_type,
             message=message,
             related_entity_id=related_entity_id,
-            metadata=additional_metadata,
+            additional_metadata=additional_metadata,
         )
-
-        # The MissionStorage.log_mission_event method handles all the log entry management

@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .utils import get_current_user, require_current_user
+
 from .mission_data import (
     FieldRequest,
     KBSection,
@@ -40,20 +42,42 @@ logger = logging.getLogger(__name__)
 
 class MissionManager:
     """
-    Simplified mission manager that works directly with mission data
-    instead of treating everything as generic artifacts.
+    Manages the creation, modification, and lifecycle of missions.
+    
+    The MissionManager provides a centralized set of operations for working with mission data.
+    It handles all the core business logic for interacting with missions, ensuring that
+    operations are performed consistently and following the proper rules and constraints.
+    
+    This class implements the primary interface for both HQ and field agents to interact
+    with mission entities like briefings, field requests, and knowledge bases. It abstracts
+    away the storage details and provides a clean API for mission operations.
+    
+    All methods are implemented as static methods to facilitate easy calling from
+    different parts of the codebase without requiring instance creation.
     """
 
     @staticmethod
     async def create_mission(context: ConversationContext) -> Tuple[bool, str]:
         """
         Creates a new mission and associates the current conversation with it.
+        
+        This is the initial step in mission creation. It:
+        1. Generates a unique mission ID
+        2. Associates the current conversation with that mission
+        3. Sets the current conversation as HQ for the mission
+        4. Creates empty mission data structures (briefing, KB, etc.)
+        5. Logs the mission creation event
+        
+        After creating a mission, the HQ should proceed to create a mission briefing
+        with specific goals and success criteria.
 
         Args:
-            context: Current conversation context
+            context: Current conversation context containing user/assistant information
 
         Returns:
-            Tuple of (success, mission_id)
+            Tuple of (success, mission_id) where:
+            - success: Boolean indicating if the creation was successful
+            - mission_id: If successful, the UUID of the newly created mission
         """
         try:
             # Generate a unique mission ID
@@ -108,17 +132,55 @@ class MissionManager:
 
     @staticmethod
     async def get_mission_id(context: ConversationContext) -> Optional[str]:
-        """Gets the mission ID associated with the current conversation."""
-        return await ConversationMissionManager.get_conversation_mission(context)
+        """
+        Gets the mission ID associated with the current conversation.
+        
+        Every conversation that's part of a mission has an associated mission ID.
+        This method retrieves that ID, which is used for accessing mission-related
+        data structures.
+        
+        Args:
+            context: Current conversation context
+            
+        Returns:
+            The mission ID string if the conversation is part of a mission, None otherwise
+        """
+        return await ConversationMissionManager.get_associated_mission_id(context)
 
     @staticmethod
     async def get_mission_role(context: ConversationContext) -> Optional[MissionRole]:
-        """Gets the role of the current conversation in its mission."""
+        """
+        Gets the role of the current conversation in its mission.
+        
+        Each conversation participating in a mission has a specific role:
+        - HQ (headquarters): The primary conversation that created and manages the mission
+        - FIELD: Conversations where field agents are carrying out the mission tasks
+        
+        Args:
+            context: Current conversation context
+            
+        Returns:
+            The role (MissionRole.HQ or MissionRole.FIELD) if the conversation
+            is part of a mission, None otherwise
+        """
         return await ConversationMissionManager.get_conversation_role(context)
 
     @staticmethod
     async def get_mission_briefing(context: ConversationContext) -> Optional[MissionBriefing]:
-        """Gets the mission briefing for the current conversation's mission."""
+        """
+        Gets the mission briefing for the current conversation's mission.
+        
+        The mission briefing contains the core information about the mission:
+        name, description, goals, and success criteria. This is the central
+        document that defines what the mission is trying to accomplish.
+        
+        Args:
+            context: Current conversation context
+            
+        Returns:
+            The MissionBriefing object if found, None if the conversation is not
+            part of a mission or if no briefing has been created yet
+        """
         mission_id = await MissionManager.get_mission_id(context)
         if not mission_id:
             return None
@@ -135,18 +197,38 @@ class MissionManager:
         additional_context: Optional[str] = None,
     ) -> Tuple[bool, Optional[MissionBriefing]]:
         """
-        Creates a new mission briefing.
+        Creates a new mission briefing for the current mission.
+        
+        The mission briefing is the primary document that defines the mission's
+        purpose, goals, and success criteria. Creating a briefing is typically
+        done by HQ during the planning phase, and it should be completed before
+        field agents are invited to join the mission.
+        
+        If goals are provided, they should be a list of dictionaries with the format:
+        [
+            {
+                "name": "Goal name",
+                "description": "Detailed description of the goal",
+                "success_criteria": [
+                    "First criterion to meet for this goal",
+                    "Second criterion to meet for this goal"
+                ]
+            },
+            ...
+        ]
 
         Args:
             context: Current conversation context
-            mission_name: Name of the mission
-            mission_description: Description of the mission
-            goals: Optional list of goals with success criteria
-            timeline: Optional timeline for the mission
-            additional_context: Optional additional context
+            mission_name: Short, descriptive name for the mission
+            mission_description: Comprehensive description of the mission's purpose
+            goals: Optional list of goals with success criteria (see format above)
+            timeline: Optional information about mission timeline/deadlines
+            additional_context: Optional additional information relevant to the mission
 
         Returns:
-            Tuple of (success, mission_briefing)
+            Tuple of (success, mission_briefing) where:
+            - success: Boolean indicating if briefing creation was successful
+            - mission_briefing: The created MissionBriefing object if successful, None otherwise
         """
         try:
             # Get mission ID
@@ -156,16 +238,8 @@ class MissionManager:
                 return False, None
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    break
-
+            current_user_id = await require_current_user(context, "create briefing")
             if not current_user_id:
-                logger.error("Cannot create briefing: no user found in conversation")
                 return False, None
 
             # Create mission goals
@@ -246,16 +320,8 @@ class MissionManager:
                 return False
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    break
-
+            current_user_id = await require_current_user(context, "update briefing")
             if not current_user_id:
-                logger.error("Cannot update briefing: no user found in conversation")
                 return False
 
             # Load existing briefing
@@ -264,16 +330,16 @@ class MissionManager:
                 logger.error(f"Cannot update briefing: no briefing found for mission {mission_id}")
                 return False
 
-            # Apply updates, skipping protected fields
-            updated = False
-            protected_fields = ["created_by", "conversation_id", "created_at", "version"]
+            # Apply updates, skipping immutable fields
+            any_fields_updated = False
+            immutable_fields = ["created_by", "conversation_id", "created_at", "version"]
 
             for field, value in updates.items():
-                if hasattr(briefing, field) and field not in protected_fields:
+                if hasattr(briefing, field) and field not in immutable_fields:
                     setattr(briefing, field, value)
-                    updated = True
+                    any_fields_updated = True
 
-            if not updated:
+            if not any_fields_updated:
                 logger.info("No updates applied to briefing")
                 return True
 
@@ -345,16 +411,8 @@ class MissionManager:
                 return False, None
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    break
-
+            current_user_id = await require_current_user(context, "update status")
             if not current_user_id:
-                logger.error("Cannot update status: no user found in conversation")
                 return False, None
 
             # Get existing status or create new
@@ -473,16 +531,8 @@ class MissionManager:
                 return False, None
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    break
-
+            current_user_id = await require_current_user(context, "create field request")
             if not current_user_id:
-                logger.error("Cannot create field request: no user found in conversation")
                 return False, None
 
             # Create the field request
@@ -558,16 +608,8 @@ class MissionManager:
                 return False, None
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    break
-
+            current_user_id = await require_current_user(context, "update field request")
             if not current_user_id:
-                logger.error("Cannot update field request: no user found in conversation")
                 return False, None
 
             # Get the field request
@@ -655,16 +697,8 @@ class MissionManager:
                 return False, None
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    break
-
+            current_user_id = await require_current_user(context, "resolve field request")
             if not current_user_id:
-                logger.error("Cannot resolve field request: no user found in conversation")
                 return False, None
 
             # Get the field request
@@ -805,19 +839,13 @@ class MissionManager:
                 return False, None
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-            user_name = "Unknown User"
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    user_name = participant.name
-                    break
-
+            current_user_id, user_name = await get_current_user(context)
             if not current_user_id:
                 logger.error("Cannot add log entry: no user found in conversation")
                 return False, None
+                
+            # Default user name if none found
+            user_name = user_name or "Unknown User"
 
             # Create the log entry
             entry = LogEntry(
@@ -911,16 +939,8 @@ class MissionManager:
                 return False, None
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    break
-
+            current_user_id = await require_current_user(context, "add KB section")
             if not current_user_id:
-                logger.error("Cannot add KB section: no user found in conversation")
                 return False, None
 
             # Get existing KB or create new one
@@ -1007,16 +1027,8 @@ class MissionManager:
                 return False, None
 
             # Get user information
-            participants = await context.get_participants()
-            current_user_id = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    break
-
+            current_user_id = await require_current_user(context, "update KB section")
             if not current_user_id:
-                logger.error("Cannot update KB section: no user found in conversation")
                 return False, None
 
             # Get existing KB

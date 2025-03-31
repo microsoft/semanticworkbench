@@ -13,6 +13,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from semantic_workbench_api_model.workbench_model import ConversationMessage, MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+
 from .mission_data import (
     KBSection,
     LogEntryType,
