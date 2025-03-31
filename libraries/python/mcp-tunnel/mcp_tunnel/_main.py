@@ -267,8 +267,7 @@ def write_assistant_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
     cprint(f"\tDirectory: {config_path.parent}", "green")
     cprint(f"\tFile: {config_path}", "green")
     cprint("\nNext steps:", "green")
-    cprint("1. Review the file and replace any placeholder values, if there are any", "green")
-    cprint("2. Import the file into an assistant to give it access to the MCP servers", "green")
+    cprint("  Import the assistant-config.yaml file into an assistant to give it access to the MCP servers", "green")
 
 
 def write_mcp_client_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None:
@@ -290,25 +289,6 @@ def write_mcp_client_config(servers: list[MCPServer], tunnel: MCPTunnel) -> None
     # Write mcp-client.json
     mcp_client_path = get_mcp_tunnel_dir() / "mcp-client.json"
     mcp_client_path.write_text(json.dumps(mcp_client_config, indent=2))
-
-    cprint("\n\nMCP client config", "green")
-    cprint(f"{'-' * 80}\n", "green")
-    cprint(f"\tDirectory: {mcp_client_path.parent}", "green")
-    cprint(f"\tFile: {mcp_client_path}", "green")
-    cprint("\nNext steps:", "green")
-    cprint("1. Review the file and replace any placeholder values, if there are any", "green")
-    cprint("\nOn your MCP client machine:", "green")
-    cprint(
-        "1. Install devtunnel https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started?#install",
-        "green",
-    )
-    cprint("2. Login with the same Microsoft account:", "green")
-    cprint("        devtunnel user login")
-    cprint("3. Start port forwarding:", "green")
-    cprint(f"        devtunnel connect {tunnel.tunnel_id}")
-    cprint("4. Install mcp-proxy https://github.com/sparfenyuk/mcp-proxy?tab=readme-ov-file#installation", "green")
-    cprint("5. Update your MCP client config according to the instructions for your MCP client", "green")
-    cprint("6. Restart your MCP client", "green")
 
 
 def tunnel_servers(servers: list[MCPServer]) -> None:
