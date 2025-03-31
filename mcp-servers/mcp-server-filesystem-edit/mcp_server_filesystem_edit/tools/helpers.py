@@ -4,7 +4,9 @@ from collections.abc import Collection
 from typing import AbstractSet, Literal
 
 import tiktoken
+import tiktoken_ext  # Importing explicitly to get around pyinstaller issue
 from mcp_extensions.llm.llm_types import MessageT
+from tiktoken_ext import openai_public  # Importing explicitly to get around pyinstaller issue
 
 
 def format_chat_history(chat_history: list[MessageT]) -> str:
@@ -26,6 +28,10 @@ class TokenizerOpenAI:
         self.disallowed_special = disallowed_special
 
         self.init_tokenizer(model, allowed_special, disallowed_special)
+
+        # Hack to prevent imports from getting auto-deleted
+        tiktoken_ext  # type: ignore
+        openai_public  # type: ignore
 
     def init_tokenizer(
         self,

@@ -70,7 +70,7 @@ When you run MCP Tunnel, it will:
 4. Start tunnel processes and display their output with color-coding
 5. Generate an assistant configuration file at `~/.mcp-tunnel/assistant-config.yaml`, for use with the Codespace assistant
 6. Generate an MCP client configuration file at `~/.mcp-tunnel/mcp-client.json`, for use with MCP clients such as Claude desktop
-6. Keep tunnels running until you press Ctrl+C
+7. Keep tunnels running until you press Ctrl+C
 
 ## Assistant Configuration
 
@@ -83,6 +83,30 @@ You can use this configuration with the Codespace assistant by importing it from
 MCP Tunnel generates a configuration file at `~/.mcp-tunnel/mcp-client.json` that can be used to connect your MCP clients to the tunnels.
 
 Read the documentation for your specific MCP client to learn how to apply this configuration.
+
+### Setting Up Your MCP Client Machine
+
+After running `mcp-tunnel`, you'll need to set up your MCP client machine to connect to the tunnels:
+
+1. **Install DevTunnel**: Follow the [installation instructions](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started?#install)
+
+2. **Log in with your Microsoft account**:
+
+   ```bash
+   devtunnel user login
+   ```
+
+3. **Start port forwarding** (use the tunnel ID from your `mcp-client.json` output):
+
+   ```bash
+   devtunnel connect <TUNNEL_ID>
+   ```
+
+4. **Install MCP Proxy**: Follow the [installation instructions](https://github.com/sparfenyuk/mcp-proxy?tab=readme-ov-file#installation)
+
+5. **Update your MCP client configuration** according to the instructions for your specific MCP client
+
+6. **Restart your MCP client** to apply the changes
 
 ## Troubleshooting
 

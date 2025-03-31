@@ -6,12 +6,10 @@ block_cipher = None
 
 is_windows = sys.platform.startswith('win')
 
-executable_packages = [
-    'mcp-server-filesystem',
-]
+executable_packages = []
 if is_windows:
     executable_packages += [
-        'mcp-server-office',
+        'mcp-server-filesystem-edit',
     ]
 
 executable_paths = [
