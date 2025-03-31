@@ -142,7 +142,10 @@ async def on_message_created(
         return
 
     # update the participant status to indicate the assistant is thinking
-    async with context.set_status("thinking..."):
+    async with (
+        context.set_status("thinking..."),
+        document_inspector.sideband_event_for_document_lock(assistant, context),
+    ):
         config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
