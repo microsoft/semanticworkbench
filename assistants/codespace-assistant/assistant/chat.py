@@ -27,6 +27,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from . import document_inspector
 from .config import AssistantConfigModel, ContextTransferConfigModel, MCPToolsConfigModel, WorkspaceAssistantConfigModel
 from .response import respond_to_conversation
 
@@ -87,6 +88,9 @@ assistant = AssistantApp(
 
 async def tools_config_provider(context: AssistantContext) -> MCPToolsConfigModel:
     return (await assistant_config.get(context)).tools
+
+
+document_inspectors = document_inspector.DocumentInspectors(config=assistant_config, app=assistant)
 
 
 attachments_extension = AttachmentsExtension(assistant)
