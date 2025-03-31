@@ -6,6 +6,7 @@ import uuid
 
 from assistant.artifacts import (
     ArtifactType,
+    FieldRequest,
     MissionBriefing,
     RequestPriority,
 )
@@ -146,29 +147,49 @@ class TestArtifactMessaging(unittest.IsolatedAsyncioTestCase):
     
     async def test_get_artifacts_by_type(self):
         """Test retrieving all artifacts of a specific type."""
-        # Create multiple briefings
-        briefing_ids = []
+        # First, test with a non-predefined artifact type (FieldRequest)
+        # Create multiple field requests
+        request_ids = []
         for i in range(3):
-            briefing = MissionBriefing(
+            field_request = FieldRequest(
                 artifact_id=str(uuid.uuid4()),
-                mission_name=f"Test Mission {i}",
-                mission_description=f"Description {i}",
+                title=f"Test Request {i}",
+                description=f"Description {i}",
                 created_by="test-user-id",
                 updated_by="test-user-id",
                 conversation_id=self.hq_conversation_id,
             )
-            briefing_ids.append(briefing.artifact_id)
-            # Save each briefing
-            await ArtifactMessenger.save_artifact(self.hq_context, briefing)
+            request_ids.append(field_request.artifact_id)
+            # Save each field request
+            await ArtifactMessenger.save_artifact(self.hq_context, field_request)
         
-        # Retrieve all briefings
+        # Retrieve all field requests
+        field_requests = await ArtifactMessenger.get_artifacts_by_type(self.hq_context, FieldRequest)
+        
+        # Verify we got all field requests
+        self.assertEqual(len(field_requests), 3, "Should retrieve all three field requests")
+        retrieved_ids = [r.artifact_id for r in field_requests]
+        for request_id in request_ids:
+            self.assertIn(request_id, retrieved_ids, f"Field request {request_id} should be in results")
+            
+        # Now, test with a predefined artifact type (MissionBriefing)
+        # With our refactored implementation, predefined artifacts should only have one instance
+        briefing = MissionBriefing(
+            mission_name="Test Mission",
+            mission_description="Description",
+            created_by="test-user-id",
+            updated_by="test-user-id",
+            conversation_id=self.hq_conversation_id,
+        )
+        # Save the briefing
+        await ArtifactMessenger.save_artifact(self.hq_context, briefing)
+        
+        # Retrieve the briefing
         briefings = await ArtifactMessenger.get_artifacts_by_type(self.hq_context, MissionBriefing)
         
-        # Verify we got all briefings
-        self.assertEqual(len(briefings), 3, "Should retrieve all three briefings")
-        retrieved_ids = [b.artifact_id for b in briefings]
-        for briefing_id in briefing_ids:
-            self.assertIn(briefing_id, retrieved_ids, f"Briefing {briefing_id} should be in results")
+        # Verify we got exactly one briefing since it's now a predefined artifact type
+        self.assertEqual(len(briefings), 1, "Should retrieve only one briefing (predefined artifact)")
+        self.assertEqual(briefings[0].mission_name, "Test Mission")
     
     async def test_artifact_manager_create_mission_briefing(self):
         """Test creating a mission briefing via ArtifactManager."""

@@ -2,6 +2,14 @@
 
 This document tracks items that are actively being worked on in the Mission Assistant project.
 
+## Completed
+
+- **Storage Refactoring**: Eliminated unnecessary artifact_id usage for predefined types
+  - Made artifact_id optional for mission_briefing, mission_log, and mission_status
+  - Updated storage to use predefined filenames instead of IDs for these artifacts
+  - Maintained backward compatibility with ID-based artifact types like field_request
+  - Modified tests to reflect the new storage approach
+
 ## In Progress
 
 - **Field Request Resolution**: Bug in the HQ resolve_field_request tool usage

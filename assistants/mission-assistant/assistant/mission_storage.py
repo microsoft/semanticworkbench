@@ -118,22 +118,37 @@ class MissionStorageManager:
 class MissionStorageReader:
     """Provides read operations for mission storage."""
     
+    # Predefined artifact types that have a single instance per mission
+    PREDEFINED_ARTIFACTS = {
+        "mission_briefing": "briefing.json",
+        "mission_log": "log.json", 
+        "mission_status": "status.json"
+    }
+    
     @staticmethod
-    def read_artifact(mission_id: str, artifact_type: str, artifact_id: str, model_class):
+    def read_artifact(mission_id: str, artifact_type: str, artifact_id: Optional[str], model_class):
         """
         Reads an artifact from the mission storage.
         
         Args:
             mission_id: ID of the mission
             artifact_type: Type of artifact (e.g., 'briefing', 'kb', 'requests', 'log')
-            artifact_id: ID of the specific artifact
+            artifact_id: ID of the specific artifact or None for predefined artifacts
             model_class: Pydantic model class for the artifact
             
         Returns:
             The artifact as a Pydantic model, or None if not found
         """
         artifact_dir = MissionStorageManager.get_artifact_dir(mission_id, artifact_type)
-        artifact_path = artifact_dir / f"{artifact_id}.json"
+        
+        # Check if this is a predefined artifact type (single instance per mission)
+        if artifact_type in MissionStorageReader.PREDEFINED_ARTIFACTS:
+            filename = MissionStorageReader.PREDEFINED_ARTIFACTS[artifact_type]
+            artifact_path = artifact_dir / filename
+        else:
+            # For field requests and other multi-instance artifacts, use the ID-based filename
+            artifact_path = artifact_dir / f"{artifact_id}.json"
+            
         return read_model(artifact_path, model_class)
     
     @staticmethod
@@ -154,7 +169,18 @@ class MissionStorageReader:
         
         if not artifact_dir.exists():
             return artifacts
+        
+        # For predefined artifacts, only return the specific file if it exists
+        if artifact_type in MissionStorageReader.PREDEFINED_ARTIFACTS:
+            filename = MissionStorageReader.PREDEFINED_ARTIFACTS[artifact_type]
+            file_path = artifact_dir / filename
+            if file_path.exists():
+                artifact = read_model(file_path, model_class)
+                if artifact:
+                    artifacts.append(artifact)
+            return artifacts
             
+        # For other types, read all JSON files in the directory
         for file_path in artifact_dir.glob("*.json"):
             artifact = read_model(file_path, model_class)
             if artifact:
@@ -167,39 +193,53 @@ class MissionStorageWriter:
     """Provides write operations for mission storage."""
     
     @staticmethod
-    def write_artifact(mission_id: str, artifact_type: str, artifact_id: str, artifact):
+    def write_artifact(mission_id: str, artifact_type: str, artifact_id: Optional[str], artifact):
         """
         Writes an artifact to the mission storage.
         
         Args:
             mission_id: ID of the mission
             artifact_type: Type of artifact (e.g., 'briefing', 'kb', 'requests', 'log')
-            artifact_id: ID of the specific artifact
+            artifact_id: ID of the specific artifact (can be None for predefined artifacts)
             artifact: Pydantic model instance to write
             
         Returns:
             Path to the written artifact
         """
         artifact_dir = MissionStorageManager.get_artifact_dir(mission_id, artifact_type)
-        artifact_path = artifact_dir / f"{artifact_id}.json"
+        
+        # Check if this is a predefined artifact type (single instance per mission)
+        if artifact_type in MissionStorageReader.PREDEFINED_ARTIFACTS:
+            filename = MissionStorageReader.PREDEFINED_ARTIFACTS[artifact_type]
+            artifact_path = artifact_dir / filename
+        else:
+            # For field requests and other multi-instance artifacts, use the ID-based filename
+            artifact_path = artifact_dir / f"{artifact_id}.json"
+            
         write_model(artifact_path, artifact)
         return artifact_path
     
     @staticmethod
-    def delete_artifact(mission_id: str, artifact_type: str, artifact_id: str) -> bool:
+    def delete_artifact(mission_id: str, artifact_type: str, artifact_id: Optional[str]) -> bool:
         """
         Deletes an artifact from the mission storage.
         
         Args:
             mission_id: ID of the mission
             artifact_type: Type of artifact
-            artifact_id: ID of the specific artifact
+            artifact_id: ID of the specific artifact (can be None for predefined artifacts)
             
         Returns:
             True if the artifact was deleted, False otherwise
         """
         artifact_dir = MissionStorageManager.get_artifact_dir(mission_id, artifact_type)
-        artifact_path = artifact_dir / f"{artifact_id}.json"
+        
+        # Check if this is a predefined artifact type
+        if artifact_type in MissionStorageReader.PREDEFINED_ARTIFACTS:
+            filename = MissionStorageReader.PREDEFINED_ARTIFACTS[artifact_type]
+            artifact_path = artifact_dir / filename
+        else:
+            artifact_path = artifact_dir / f"{artifact_id}.json"
         
         if artifact_path.exists():
             artifact_path.unlink()

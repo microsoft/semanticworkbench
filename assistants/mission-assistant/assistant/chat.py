@@ -659,7 +659,7 @@ async def respond_to_conversation(
 
     # Get the conversation's role
     from .mission_tools import get_mission_tools, MissionTools
-    from .mission_manager import MissionManager, MissionRole
+    from .mission_manager import MissionManager
 
     # First check conversation metadata
     conversation = await context.get_conversation()

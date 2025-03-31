@@ -16,7 +16,7 @@ from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     ConversationMessage,
     ConversationPermission,
-    ConversationShare, 
+    ConversationShare,
     MessageType,
     NewConversationMessage,
     ParticipantRole,
@@ -138,7 +138,7 @@ class FileSynchronizer:
             file_content.seek(0)
 
             # Get metadata about the file
-            file_response = await context.get_files()
+            file_response = await context.list_files()
             source_file = next((f for f in file_response.files if f.filename == filename), None)
 
             if not source_file:
@@ -189,7 +189,7 @@ class FileSynchronizer:
 
         # If no specific files are listed, all files should be synced
         if not linked_conv.files:
-            files_response = await context.get_files()
+            files_response = await context.list_files()
             return {file.filename for file in files_response.files}
 
         # Otherwise, return only the specific files
@@ -203,7 +203,7 @@ class FileVersionManager:
     async def get_file_version_info(context: ConversationContext, filename: str) -> dict:
         """Gets version information for a file in the current conversation."""
         try:
-            files_response = await context.get_files()
+            files_response = await context.list_files()
             file_info = next((f for f in files_response.files if f.filename == filename), None)
 
             if not file_info:
@@ -310,7 +310,7 @@ class MissionInvitation:
             # Get files information if needed
             files_metadata = []
             if files_to_share:
-                files_response = await context.get_files()
+                files_response = await context.list_files()
                 for filename in files_to_share:
                     file_info = next((f for f in files_response.files if f.filename == filename), None)
                     if file_info:
@@ -323,7 +323,7 @@ class MissionInvitation:
             # Create an entry in our local state since we can't directly create a share via API
             # (The user would normally create it through the UI)
             share_id = uuid.uuid4()
-            
+
             # Store the invitation in our local state
             links = await MissionStateManager.get_links(context)
 
@@ -342,11 +342,11 @@ class MissionInvitation:
                 "expires": expiration.isoformat(),
                 "files_to_share": files_to_share or [],
             }
-            
+
             # Only add username if provided
             if target_username:
                 invitation_data["target_username"] = target_username
-                
+
             linked_conversation.pending_invitations.append(invitation_data)
 
             await MissionStateManager.save_links(context, links)
@@ -356,7 +356,9 @@ class MissionInvitation:
 
             # Format the notification message based on whether a username was provided
             if target_username:
-                notification_message = f"Mission invitation created for {target_username}. This is a locally managed invitation."
+                notification_message = (
+                    f"Mission invitation created for {target_username}. This is a locally managed invitation."
+                )
                 success_message = f"Invitation created for {target_username}. They can join by using the /join {invitation_code} command in their conversation."
             else:
                 notification_message = "Mission invitation created. Anyone with this code can join the mission."
@@ -407,16 +409,16 @@ class MissionInvitation:
 
             # Look for the invitation in all mission state files
             all_files = pathlib.Path(settings.storage.root).glob("**/mission_links.json")
-            
+
             invitation_data = None
             source_conversation_id = None
-            
+
             for state_file in all_files:
                 try:
                     links = read_model(state_file, ConversationLinks)
                     if not links:
                         continue
-                        
+
                     # Check each linked conversation's pending invitations
                     for conv_id, linked_conv in links.linked_conversations.items():
                         for invitation in linked_conv.pending_invitations:
@@ -424,13 +426,13 @@ class MissionInvitation:
                                 invitation_data = invitation
                                 source_conversation_id = conv_id
                                 break
-                        
+
                         if invitation_data:
                             break
                 except Exception:
                     # Skip any problematic files
                     continue
-                    
+
                 if invitation_data:
                     break
 
@@ -454,11 +456,11 @@ class MissionInvitation:
                     current_username = participant.name
                     current_user_id = participant.id
                     break
-            
+
             # Make sure we found a user
             if not current_user_id:
                 return False, "Could not identify current user", None
-                
+
             # Verify username matches the target (if specified)
             target_username = invitation_data.get("target_username")
             if target_username and current_username and target_username.lower() != current_username.lower():
@@ -475,14 +477,16 @@ class MissionInvitation:
                     name=invitation_data.get("invitation_creator_name", "Mission Creator"),
                     image=None,
                     service_user=False,
-                    created_datetime=datetime.utcnow()
+                    created_datetime=datetime.utcnow(),
                 ),
-                conversation_id=uuid.UUID(source_conversation_id) if source_conversation_id else uuid.UUID(invitation_data.get("conversation_id", "00000000-0000-0000-0000-000000000000")),
+                conversation_id=uuid.UUID(source_conversation_id)
+                if source_conversation_id
+                else uuid.UUID(invitation_data.get("conversation_id", "00000000-0000-0000-0000-000000000000")),
                 conversation_title="Mission Conversation",
                 conversation_permission=ConversationPermission(invitation_data.get("permission", "read_write")),
                 is_redeemable=True,
                 created_datetime=datetime.utcnow(),
-                metadata=invitation_data
+                metadata=invitation_data,
             )
 
             # Invitation is valid, return the share data
@@ -551,7 +555,7 @@ class MissionInvitation:
                 # Add the appropriate files to track
                 if share_all_files:
                     # Track all files from source
-                    files_response = await context.get_files()
+                    files_response = await context.list_files()
                     file_list = [LinkedFile(filename=file.filename) for file in files_response.files]
                 else:
                     # Track only specified files
@@ -685,11 +689,7 @@ class MissionManager:
         metadata = conversation.metadata or {}
         metadata["linked_conversations"] = linked_conversations
         await context.send_conversation_state_event(
-            AssistantStateEvent(
-                state_id="linked_conversations",
-                event="updated",
-                state=None
-            )
+            AssistantStateEvent(state_id="linked_conversations", event="updated", state=None)
         )
 
     @staticmethod
@@ -790,7 +790,7 @@ class MissionManager:
             return
 
         parts = content.split(maxsplit=1)
-        
+
         # If no username specified, create a universal invitation
         if len(parts) < 2:
             # Create a secure invitation without username restriction
@@ -809,7 +809,9 @@ class MissionManager:
 
         # Send the message to the user
         await context.send_messages(
-            NewConversationMessage(content=result_message, message_type=MessageType.chat if success else MessageType.notice)
+            NewConversationMessage(
+                content=result_message, message_type=MessageType.chat if success else MessageType.notice
+            )
         )
 
         username_info = parts[1].strip() if len(parts) > 1 else "anyone"
@@ -841,11 +843,15 @@ class MissionManager:
         invitation_code = parts[1].strip()
 
         # Redeem the invitation
-        success, result_message = await MissionInvitation.redeem_invitation(context=context, invitation_code=invitation_code)
+        success, result_message = await MissionInvitation.redeem_invitation(
+            context=context, invitation_code=invitation_code
+        )
 
         # Send the message to the user
         await context.send_messages(
-            NewConversationMessage(content=result_message, message_type=MessageType.chat if success else MessageType.notice)
+            NewConversationMessage(
+                content=result_message, message_type=MessageType.chat if success else MessageType.notice
+            )
         )
 
         logger.info(f"Join command processed with code {invitation_code}: {success}")

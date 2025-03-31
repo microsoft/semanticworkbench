@@ -113,12 +113,15 @@ class ArtifactMessenger:
         if is_notification_only:
             # Keep only essential identification fields
             notification_data = {
-                "artifact_id": artifact.artifact_id,
                 "artifact_type": artifact.artifact_type,
                 "version": artifact.version,
                 "updated_at": artifact.updated_at.isoformat(),
                 "updated_by": artifact.updated_by,
             }
+            # Include artifact_id only if it's present
+            if artifact.artifact_id:
+                notification_data["artifact_id"] = artifact.artifact_id
+                
             artifact_data = notification_data
 
         # Create the message
@@ -341,13 +344,15 @@ class ArtifactMessenger:
                 return False
 
             # Get artifact details
-            artifact_id = request_data.get("artifact_id")
+            artifact_id = request_data.get("artifact_id")  # May be None for predefined types
             artifact_type_str = request_data.get("artifact_type")
             requesting_conversation_id = request_data.get("requesting_conversation_id")
 
-            if not all([artifact_id, artifact_type_str, requesting_conversation_id]):
+            if not all([artifact_type_str, requesting_conversation_id]):
                 logger.warning("Incomplete artifact request, missing required fields")
                 return False
+                
+            # For predefined artifacts, artifact_id can be None
 
             # Convert string to enum
             artifact_type = get_artifact_type(ArtifactType(artifact_type_str))
@@ -394,7 +399,7 @@ class ArtifactMessenger:
             artifact_path = MissionStorageWriter.write_artifact(
                 mission_id=mission_id,
                 artifact_type=artifact.artifact_type.value,
-                artifact_id=artifact.artifact_id,
+                artifact_id=artifact.artifact_id,  # May be None for predefined types
                 artifact=artifact
             )
             
@@ -407,7 +412,9 @@ class ArtifactMessenger:
                 )
             )
             
-            logger.info(f"Saved artifact {artifact.artifact_id} to {artifact_path} and notified workbench")
+            # Log using either artifact_id or artifact_type for identification
+            artifact_identifier = artifact.artifact_id or artifact.artifact_type.value
+            logger.info(f"Saved artifact {artifact_identifier} to {artifact_path} and notified workbench")
             return True
 
         except Exception as e:
@@ -417,13 +424,13 @@ class ArtifactMessenger:
     T = TypeVar("T")
 
     @staticmethod
-    async def load_artifact(context: ConversationContext, artifact_id: str, artifact_type: Type[T]) -> Optional[T]:
+    async def load_artifact(context: ConversationContext, artifact_id: Optional[str], artifact_type: Type[T]) -> Optional[T]:
         """
         Loads an artifact from mission storage.
 
         Args:
             context: Current conversation context
-            artifact_id: ID of the artifact to load
+            artifact_id: ID of the artifact to load (can be None for predefined artifacts)
             artifact_type: Type of the artifact
 
         Returns:
@@ -464,21 +471,44 @@ class ArtifactMessenger:
             if not artifact_class:
                 logger.warning(f"Could not determine artifact class for type: {artifact_type}")
                 return None
-
-            # Read the artifact from mission storage
-            artifact = MissionStorageReader.read_artifact(
-                mission_id=mission_id,
-                artifact_type=enum_value,
-                artifact_id=artifact_id,
-                model_class=artifact_class
-            )
             
-            if not artifact:
-                logger.warning(f"Artifact {artifact_id} not found in mission {mission_id}")
-                return None
+            # For predefined artifacts, artifact_id can be None
+            is_predefined = enum_value in MissionStorageReader.PREDEFINED_ARTIFACTS
+            
+            # If this is a predefined artifact and no ID was provided, try to load the predefined one
+            if is_predefined and artifact_id is None:
+                # For predefined types, use the latest artifact of that type
+                artifacts = MissionStorageReader.read_all_artifacts(
+                    mission_id=mission_id,
+                    artifact_type=enum_value,
+                    model_class=artifact_class
+                )
                 
-            # Return with proper typing
-            return cast(T, artifact)
+                if artifacts:
+                    # Get the most recent one based on updated_at
+                    artifact = sorted(artifacts, key=lambda a: a.updated_at, reverse=True)[0]
+                    return cast(T, artifact)
+                else:
+                    logger.warning(f"No {enum_value} artifacts found in mission {mission_id}")
+                    return None
+            else:
+                # For non-predefined types or when an ID is explicitly provided
+                artifact = MissionStorageReader.read_artifact(
+                    mission_id=mission_id,
+                    artifact_type=enum_value,
+                    artifact_id=artifact_id,
+                    model_class=artifact_class
+                )
+                
+                if not artifact:
+                    if artifact_id:
+                        logger.warning(f"Artifact {artifact_id} not found in mission {mission_id}")
+                    else:
+                        logger.warning(f"Artifact of type {enum_value} not found in mission {mission_id}")
+                    return None
+                    
+                # Return with proper typing
+                return cast(T, artifact)
 
         except Exception as e:
             logger.exception(f"Error loading artifact: {e}")
@@ -495,6 +525,7 @@ class ArtifactMessenger:
 
         Returns:
             List of artifacts of the specified type (properly typed as their specific subclasses)
+            For predefined artifacts, this will return at most one item
         """
         try:
             from .mission_storage import MissionStorageReader, ConversationMissionManager
@@ -533,13 +564,14 @@ class ArtifactMessenger:
                 return []
 
             # Read all artifacts of this type from mission storage
+            # For predefined types, this will return at most one item
             artifacts = MissionStorageReader.read_all_artifacts(
                 mission_id=mission_id,
                 artifact_type=enum_value,
                 model_class=artifact_class
             )
             
-            # Sort by updated_at, newest first
+            # Sort by updated_at, newest first (mostly relevant for non-predefined types)
             artifacts.sort(key=lambda a: a.updated_at, reverse=True)
             
             return cast(List[T], artifacts)
@@ -551,7 +583,7 @@ class ArtifactMessenger:
     @staticmethod
     async def log_artifact_update(
         context: ConversationContext,
-        artifact_id: str,
+        artifact_id: Optional[str],
         artifact_type: ArtifactType,
         user_id: str,
         version: int,
@@ -564,7 +596,7 @@ class ArtifactMessenger:
 
         Args:
             context: Current conversation context
-            artifact_id: ID of the updated artifact
+            artifact_id: ID of the updated artifact (can be None for predefined artifacts)
             artifact_type: Type of the artifact
             user_id: ID of the user who updated the artifact
             version: Version number of the update
@@ -979,7 +1011,7 @@ class ArtifactManager:
 
     @staticmethod
     async def resolve_field_request(
-        context: ConversationContext, request_id: str, resolution: str
+        context: ConversationContext, request_id: Optional[str], resolution: str
     ) -> Tuple[bool, Optional[FieldRequest]]:
         """
         Resolves a field request by updating its status and adding resolution info.
@@ -1002,6 +1034,11 @@ class ArtifactManager:
                     break
 
             if not current_user_id:
+                return False, None
+                
+            # If request_id is None, we can't resolve any request
+            if request_id is None:
+                logger.warning("Cannot resolve field request: request_id is None")
                 return False, None
 
             # Load the field request

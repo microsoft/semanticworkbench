@@ -41,7 +41,9 @@ class MissionState(str, Enum):
 class BaseArtifact(BaseModel):
     """Base class for all mission artifacts."""
 
-    artifact_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # artifact_id is optional for predefined artifacts like mission_briefing, mission_log, and mission_status
+    # For non-predefined types like field_request, it will be auto-generated
+    artifact_id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
     artifact_type: ArtifactType
     version: int = 1
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -49,6 +51,23 @@ class BaseArtifact(BaseModel):
     created_by: str  # User ID
     updated_by: str  # User ID
     conversation_id: str  # Source conversation ID
+    
+    @model_validator(mode="after")
+    def ensure_artifact_id(self):
+        """Ensure artifact_id is set appropriately based on artifact type."""
+        # Single-instance artifacts (predefined) don't need unique IDs
+        # Other artifacts like field_request should have unique IDs
+        predefined_types = [
+            ArtifactType.MISSION_BRIEFING,
+            ArtifactType.MISSION_LOG,
+            ArtifactType.MISSION_STATUS
+        ]
+        
+        if self.artifact_type not in predefined_types and not self.artifact_id:
+            # Generate ID for non-predefined artifacts if missing
+            self.artifact_id = str(uuid.uuid4())
+            
+        return self
 
 
 class SuccessCriterion(BaseModel):
@@ -229,7 +248,7 @@ class LogEntry(BaseModel):
     user_name: str
 
     # Optional additional context for the entry
-    artifact_id: Optional[str] = None
+    artifact_id: Optional[str] = None  # Can be None for predefined artifacts 
     artifact_type: Optional[ArtifactType] = None
     metadata: Optional[Dict] = None
 
@@ -247,7 +266,7 @@ class MissionLog(BaseArtifact):
 class ArtifactVersion(BaseModel):
     """Version information for tracking artifact updates."""
 
-    artifact_id: str
+    artifact_id: Optional[str] = None  # Optional for predefined artifacts
     artifact_type: ArtifactType
     version: int
     timestamp: datetime

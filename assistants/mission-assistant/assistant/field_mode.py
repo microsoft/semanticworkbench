@@ -108,7 +108,7 @@ class FieldConversationHandler:
         
         # Update mission status to include this request as a potential blocker
         status = await MissionManager.get_mission_status(self.context)
-        if status and priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]:
+        if status and priority in [RequestPriority.HIGH, RequestPriority.CRITICAL] and request.artifact_id:
             status.active_blockers.append(request.artifact_id)
             status.updated_at = datetime.utcnow()
             status.updated_by = user_id
