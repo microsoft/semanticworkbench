@@ -465,7 +465,7 @@ class ConversationController:
                 if update_participant.metadata is not None:
                     event_type = event_type or ConversationEventType.participant_updated
                     participant.meta_data = deepmerge.always_merger.merge(
-                        participant.meta_data or {}, update_participant.metadata
+                        {**participant.meta_data}, update_participant.metadata
                     )
 
                 if event_type is not None:
@@ -524,7 +524,7 @@ class ConversationController:
                 if update_participant.metadata is not None:
                     event_type = event_type or ConversationEventType.participant_updated
                     participant.meta_data = deepmerge.always_merger.merge(
-                        participant.meta_data or {}, update_participant.metadata
+                        {**participant.meta_data}, update_participant.metadata
                     )
 
                 if event_type is not None:
