@@ -22,9 +22,9 @@ The Mission Assistant is built as a dual-mode context transfer assistant:
 
 The system supports an iterative and asynchronous workflow where the Field's operations and the HQ's support activities can occur concurrently, with a dynamic information radiator to display the current mission status.
 
-## Artifacts and State
+## Data
 
-The Mission Assistant manages several key artifacts:
+The Mission Assistant manages several key entities:
 
 1. **Mission Briefing**: A clear, concise statement of the mission, including goals, success criteria, and high-level context necessary for the Field to start. Owned by HQ.
 
@@ -88,9 +88,9 @@ The mission assistant provides a customized experience based on whether the user
 - Sees real-time updates to the Mission KB
 - Has mission-specific commands for operational tasks
 
-## Artifact Data Models
+## Data Models
 
-Five key artifact types provide the foundation for mission communication:
+Five key entity types provide the foundation for mission communication:
 
 1. **Mission Briefing**:
    - Mission name and description

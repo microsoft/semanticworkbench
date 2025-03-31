@@ -47,9 +47,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .artifact_messaging import ArtifactMessenger
 from .config import AssistantConfigModel
-from .mission import FileSynchronizer, MissionManager, MissionStateManager
+from .mission import MissionManager
+from .mission_storage import MissionStorage, ConversationMissionManager
 from .state_inspector import MissionInspectorStateProvider
 
 logger = logging.getLogger(__name__)
@@ -150,11 +150,7 @@ async def on_message_created(
             metadata["mission_role"] = role
             # Update conversation metadata through appropriate method
             await context.send_conversation_state_event(
-                AssistantStateEvent(
-                    state_id="mission_role",
-                    event="updated",
-                    state=None
-                )
+                AssistantStateEvent(state_id="mission_role", event="updated", state=None)
             )
 
         # Prepare custom system message based on role
@@ -173,7 +169,7 @@ You are operating in HQ Mode (Definition Stage). Your responsibilities include:
 - Controlling the "Ready for Field" gate when mission definition is complete
 - Maintaining an overview of mission progress
 
-IMPORTANT: Mission goals are operational objectives for field personnel to complete, not goals for HQ. 
+IMPORTANT: Mission goals are operational objectives for field personnel to complete, not goals for HQ.
 Each goal should:
 - Be clear and specific tasks that field personnel need to accomplish
 - Include measurable success criteria that field personnel can mark as completed
@@ -211,7 +207,7 @@ You are operating in Field Mode (Working Stage). Your responsibilities include:
 - Updating Mission Status with progress on operational tasks
 - Tracking progress toward the "Mission Completion" gate
 
-IMPORTANT: Your role is to help field personnel accomplish the mission goals that were defined by HQ. 
+IMPORTANT: Your role is to help field personnel accomplish the mission goals that were defined by HQ.
 You should:
 - Focus on executing the goals, not redefining them
 - Mark success criteria as completed when field personnel report completion
@@ -278,17 +274,14 @@ async def on_command_created(
             role = await detect_assistant_role(context)
             metadata["mission_role"] = role
             await context.send_conversation_state_event(
-                AssistantStateEvent(
-                    state_id="mission_role",
-                    event="updated",
-                    state=None
-                )
+                AssistantStateEvent(state_id="mission_role", event="updated", state=None)
             )
-        
+
         # Process the command using the command processor
         from .command_processor import process_command
+
         command_processed = await process_command(context, message)
-        
+
         # If the command wasn't recognized or processed, respond normally
         if not command_processed:
             await respond_to_conversation(
@@ -302,101 +295,67 @@ async def on_command_created(
 
 
 @assistant.events.conversation.file.on_created
-async def on_file_created(context: ConversationContext, event: workbench_model.ConversationEvent, file: workbench_model.File) -> None:
+async def on_file_created(
+    context: ConversationContext, event: workbench_model.ConversationEvent, file: workbench_model.File
+) -> None:
     """
-    Handle when a file is created in the conversation, sync to linked conversations if needed.
+    Handle when a file is created in the conversation.
+    Files are stored in the shared mission directory and don't need explicit syncing.
     """
     try:
-        # Get config to check if auto-sync is enabled
-        config = await assistant_config.get(context.assistant)
-        if not config.mission_config.auto_sync_files:
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(context)
+        if not mission_id or not file.filename:
             return
-
-        # Get the file name from the File object
-        filename = file.filename
-        if not filename:
-            return
-
-        # Check if file should be synced to other conversations
-        target_conversations = await MissionManager.should_sync_file(context, filename)
-        if not target_conversations:
-            return
-
-        # Notify about file synchronization
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"File '{filename}' has been synchronized with {len(target_conversations)} linked conversation(s).",
-                message_type=MessageType.notice,
-            )
+            
+        # Log file creation to mission log
+        await MissionStorage.log_mission_event(
+            context=context,
+            mission_id=mission_id,
+            entry_type="file_shared",
+            message=f"File shared: {file.filename}",
         )
-
-        # In a real implementation, synchronize files to target conversations
-        for target_id in target_conversations:
-            await FileSynchronizer.sync_file(context, target_id, filename)
 
     except Exception as e:
         logger.exception(f"Error handling file creation: {e}")
 
 
 @assistant.events.conversation.file.on_updated
-async def on_file_updated(context: ConversationContext, event: workbench_model.ConversationEvent, file: workbench_model.File) -> None:
+async def on_file_updated(
+    context: ConversationContext, event: workbench_model.ConversationEvent, file: workbench_model.File
+) -> None:
     """
-    Handle when a file is updated in the conversation, sync updates to linked conversations.
+    Handle when a file is updated in the conversation.
+    Files are stored in the shared mission directory and don't need explicit syncing.
     """
     try:
-        # Identical logic to on_file_created, could be refactored to a common method
-        # Get config to check if auto-sync is enabled
-        config = await assistant_config.get(context.assistant)
-        if not config.mission_config.auto_sync_files:
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(context)
+        if not mission_id or not file.filename:
             return
-
-        # Get the file name from the File object
-        filename = file.filename
-        if not filename:
-            return
-
-        # Check if file should be synced to other conversations
-        target_conversations = await MissionManager.should_sync_file(context, filename)
-        if not target_conversations:
-            return
-
-        # Notify about file synchronization
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"Updated file '{filename}' has been synchronized with {len(target_conversations)} linked conversation(s).",
-                message_type=MessageType.notice,
-            )
+            
+        # Log file update to mission log
+        await MissionStorage.log_mission_event(
+            context=context,
+            mission_id=mission_id,
+            entry_type="file_shared",
+            message=f"File updated: {file.filename}",
         )
-
-        # In a real implementation, synchronize files to target conversations
-        for target_id in target_conversations:
-            await FileSynchronizer.sync_file(context, target_id, filename)
 
     except Exception as e:
         logger.exception(f"Error handling file update: {e}")
 
 
-# Handle artifact messages (sent between conversations)
+# Notice messages are now simpler without artifact abstraction
 @assistant.events.conversation.message.notice.on_created
 async def on_notice_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     """
-    Handle notice messages, which may contain artifact data.
+    Handle notice messages.
     """
-    metadata = message.metadata or {}
-
-    # Check if this is an artifact message
-    if "artifact_message" in metadata:
-        # Process the artifact message
-        await ArtifactMessenger.process_artifact_message(context, message)
-        return
-
-    # Check if this is an artifact request
-    if "artifact_request" in metadata:
-        # Process the artifact request
-        await ArtifactMessenger.process_artifact_request(context, message)
-        return
+    # No special handling needed now that we've removed artifact messaging
+    pass
 
 
 # Role detection for the mission assistant
@@ -408,29 +367,27 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         "hq" if in HQ Mode, "field" if in Field Mode
     """
     try:
-        # Check if this conversation has an active invitation from another conversation
-        links = await MissionStateManager.get_links(context)
-
-        # If we have linked to conversations but didn't create a briefing,
+        # First check if there's already a role set in mission storage
+        role = await ConversationMissionManager.get_conversation_role(context)
+        if role:
+            return role.value
+            
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(context)
+        if not mission_id:
+            # No mission association yet, default to HQ
+            return "hq"
+            
+        # Check if this conversation created a mission briefing
+        briefing = MissionStorage.read_mission_briefing(mission_id)
+        
+        # If the briefing was created by this conversation, we're in HQ Mode
+        if briefing and briefing.conversation_id == str(context.id):
+            return "hq"
+            
+        # Otherwise, if we have a mission association but didn't create the briefing,
         # we're likely in Field Mode
-        if links.linked_conversations:
-            # Check if this conversation created a mission briefing
-            from .artifacts import MissionBriefing
-            briefings = await ArtifactMessenger.get_artifacts_by_type(context, MissionBriefing)
-
-            # If we have briefings that were created by this conversation, we're in HQ Mode
-            for briefing in briefings:
-                if briefing.conversation_id == str(context.id):
-                    return "hq"
-
-            # If we have links to other conversations and didn't create the briefing,
-            # we're in Field Mode
-            for conv_id, linked_conv in links.linked_conversations.items():
-                if conv_id != str(context.id):
-                    return "field"
-
-        # Default to HQ Mode for new conversations
-        return "hq"
+        return "field"
 
     except Exception as e:
         logger.exception(f"Error detecting assistant role: {e}")
@@ -455,11 +412,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
     metadata = conversation.metadata or {}
     metadata["mission_role"] = role
     await context.send_conversation_state_event(
-        AssistantStateEvent(
-            state_id="mission_role",
-            event="updated",
-            state=None
-        )
+        AssistantStateEvent(state_id="mission_role", event="updated", state=None)
     )
 
     # Select the appropriate welcome message based on role
@@ -658,49 +611,45 @@ async def respond_to_conversation(
     #     return
 
     # Get the conversation's role
-    from .mission_tools import get_mission_tools, MissionTools
-    from .mission_manager import MissionManager
+    from .mission_storage import ConversationMissionManager
+    from .mission_tools import MissionTools, get_mission_tools
 
     # First check conversation metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
     metadata_role = metadata.get("mission_role")
-    
+
     # Then check the stored role from mission storage - this is the authoritative source
-    stored_role = await MissionManager.get_conversation_role(context)
+    stored_role = await ConversationMissionManager.get_conversation_role(context)
     stored_role_value = stored_role.value if stored_role else None
-    
+
     # Log the roles we find for debugging
     logger.info(f"Role detection - Metadata role: {metadata_role}, Stored role: {stored_role_value}")
-    
+
     # If we have a stored role but metadata is different or missing, update metadata
     if stored_role_value and metadata_role != stored_role_value:
         logger.warning(f"Role mismatch detected! Metadata: {metadata_role}, Storage: {stored_role_value}")
         metadata["mission_role"] = stored_role_value
         # Update state to ensure UI is refreshed
         await context.send_conversation_state_event(
-            AssistantStateEvent(
-                state_id="mission_role",
-                event="updated",
-                state=None
-            )
+            AssistantStateEvent(state_id="mission_role", event="updated", state=None)
         )
         # Force use of stored role
         role = stored_role_value
     else:
         # If no mismatch or no stored role, use metadata role (defaulting to HQ)
         role = metadata_role or "hq"  # Default to HQ if not set
-        
+
     logger.info(f"Using role: {role} for tool selection")
 
     # For field role, analyze message for possible field request needs
     if role == "field" and message.message_type == MessageType.chat:
         # Create a mission tools instance for field role
         mission_tools_instance = MissionTools(context, role)
-        
+
         # Check if the message indicates a potential field request
         detection_result = await mission_tools_instance.detect_field_request_needs(message.content)
-        
+
         # If a field request is detected with reasonable confidence
         if detection_result.get("is_field_request", False) and detection_result.get("confidence", 0) > 0.5:
             # Get detailed information from detection
@@ -708,7 +657,7 @@ async def respond_to_conversation(
             suggested_priority = detection_result.get("suggested_priority", "medium")
             potential_description = detection_result.get("potential_description", "")
             reason = detection_result.get("reason", "")
-            
+
             # Create a better-formatted suggestion using the detailed analysis
             suggestion = (
                 f"**Field Request Detected**\n\n"
@@ -719,7 +668,7 @@ async def respond_to_conversation(
                 f"**Priority:** {suggested_priority}\n\n"
                 f"I can create this request for you, or you can use `/request-info` to create it yourself with custom details."
             )
-            
+
             await context.send_messages(
                 NewConversationMessage(
                     content=suggestion,
@@ -729,7 +678,7 @@ async def respond_to_conversation(
 
     # Create tool instance for the current role
     mission_tools = await get_mission_tools(context, role)
-    
+
     # Define explicit lists of available tools for each role
     hq_available_tools = [
         "get_mission_info",
@@ -738,9 +687,9 @@ async def respond_to_conversation(
         "add_kb_section",
         "resolve_field_request",
         "mark_mission_ready_for_field",
-        "suggest_next_action"
+        "suggest_next_action",
     ]
-    
+
     field_available_tools = [
         "get_mission_info",
         "create_field_request",
@@ -748,15 +697,15 @@ async def respond_to_conversation(
         "mark_criterion_completed",
         "report_mission_completion",
         "detect_field_request_needs",
-        "suggest_next_action"
+        "suggest_next_action",
     ]
-    
+
     # Get the available tools for the current role
     available_tools = hq_available_tools if role == "hq" else field_available_tools
-    
+
     # Create a string listing available tools for the current role
     available_tools_str = ", ".join([f"`{tool}`" for tool in available_tools])
-    
+
     # Create a string listing unauthorized tools to explicitly forbid
     forbidden_tools = field_available_tools if role == "hq" else hq_available_tools
     forbidden_tools_str = ", ".join([f"`{tool}`" for tool in forbidden_tools])
@@ -777,11 +726,11 @@ async def respond_to_conversation(
 
                 # Call the completion API with tool functions
                 logger.info(f"Using tool functions for completions (role: {role})")
-                
+
                 # Record the tool names available for this role for validation
                 available_tool_names = set(mission_tools.tool_functions.function_map.keys())
                 logger.info(f"Available tools for {role}: {available_tool_names}")
-                
+
                 # Construct a comprehensive role enforcement message
                 if role == "hq":
                     role_enforcement = f"""
@@ -809,13 +758,13 @@ You are FORBIDDEN from using these HQ-only tools: {forbidden_tools_str}
 If you need information from HQ, you MUST use the `create_field_request` tool to send a request to HQ.
 DO NOT attempt to use HQ tools directly as they will fail and waste the user's time.
 """
-                
+
                 # Append the enforcement text to the role_specific_prompt
                 role_specific_prompt += role_enforcement
-                
+
                 # The modified role_specific_prompt will be included in the system message
                 # by respond_to_conversation call, which avoids any type issues
-                
+
                 # Make the API call
                 tool_completion, tool_messages = await complete_with_tool_calls(
                     async_client=client,

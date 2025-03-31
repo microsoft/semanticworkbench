@@ -12,8 +12,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .mission_manager import MissionManager, MissionRole
-from .mission_storage import ConversationMissionManager
+from .mission_data import RequestStatus
+from .mission_manager import MissionManager
+from .mission_storage import ConversationMissionManager, MissionRole
 
 
 class MissionInspectorStateProvider:
@@ -44,7 +45,7 @@ class MissionInspectorStateProvider:
                 data={"content": "No active mission. Start a conversation to create one."}
             )
 
-        role = await MissionManager.get_conversation_role(context)
+        role = await ConversationMissionManager.get_conversation_role(context)
         if not role:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "Role not assigned. Please restart the conversation."}
@@ -104,7 +105,9 @@ class MissionInspectorStateProvider:
                 lines.append("")
         
         # Add field requests section
-        requests = await MissionManager.get_field_requests(context, include_resolved=False)
+        requests = await MissionManager.get_field_requests(context)
+        # Filter out resolved requests
+        requests = [req for req in requests if req.status != RequestStatus.RESOLVED]
         if requests:
             lines.append("## Field Requests")
             lines.append(f"**Open requests:** {len(requests)}")
@@ -127,33 +130,18 @@ class MissionInspectorStateProvider:
                     priority_emoji = "⚠️"
                 
                 lines.append(f"{priority_emoji} **{request.title}** ({request.status})")
-                lines.append(f"  **Request ID for resolution:** `{request.artifact_id}`")
+                lines.append(f"  **Request ID for resolution:** `{request.request_id}`")
                 lines.append("")
         else:
             lines.append("## Field Requests")
             lines.append("No open field requests.")
             lines.append("")
         
-        # Show the single permanent mission invitation
-        invitations = await MissionManager.list_active_invitations(context)
+        # Note: Invitations functionality has been simplified in this refactor
         lines.append("## Mission Invitation")
-        
-        if invitations:
-            # Use the first invitation as the permanent one
-            invitation = invitations[0]
-            invitation_code = f"{invitation.invitation_id}:{invitation.invitation_token}"
-            
-            lines.append("Share this code with all field operatives who need to join this mission:")
-            lines.append("")
-            lines.append(f"**Invitation Code:** `{invitation_code}`")
-            lines.append("")
-            lines.append("Field operatives can join using:")
-            lines.append("```")
-            lines.append(f"/join {invitation_code}")
-            lines.append("```")
-        else:
-            # Fallback in case there's no invitation yet
-            lines.append("No invitation link available. Use `/invite` to create a permanent invitation link.")
+        lines.append("Use `/invite` to generate a mission invitation code.")
+        lines.append("")
+        lines.append("Field personnel can join using the `/join` command with the invitation code.")
         
         lines.append("")
         

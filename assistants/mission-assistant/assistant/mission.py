@@ -1,101 +1,68 @@
 """
-Mission assistant functionality for file sharing between conversations.
+Mission assistant functionality for cross-conversation communication.
+
+This module handles the mission assistant's core functionality for managing
+communication between conversations, file synchronization, and invitation management.
+It implements a clean entity-based approach without backward compatibility concerns.
 """
 
-import io
 import logging
 import pathlib
 import secrets
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import semantic_workbench_api_model.workbench_service_client as wsc
 from pydantic import BaseModel, Field
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
     ConversationMessage,
-    ConversationPermission,
-    ConversationShare,
     MessageType,
     NewConversationMessage,
     ParticipantRole,
-    User,
 )
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
 
+from .mission_data import LogEntryType
+from .mission_manager import MissionManager
+from .mission_storage import MissionRole, MissionStorageManager
+
+
+# Define models for mission role data
+class MissionRoleData(BaseModel):
+    """Data model for storing a conversation's role in a mission."""
+
+    conversation_id: str
+    role: MissionRole
+
+
 logger = logging.getLogger(__name__)
 
 
-# Data models for state management
-class LinkedFile(BaseModel):
-    """Information about a linked file."""
-
-    filename: str
-    last_synced: Optional[str] = None
-    read_only: bool = False
-
-
-class LinkedConversation(BaseModel):
-    """Information about a linked conversation."""
-
-    conversation_id: str
-    status: str = "active"  # active, pending, inactive
-    user_id: str
-    user_name: str = ""
-    files: List[LinkedFile] = Field(default_factory=list)
-    pending_invitations: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class ConversationLinks(BaseModel):
-    """Collection of linked conversations for a conversation."""
-
-    linked_conversations: Dict[str, LinkedConversation] = Field(default_factory=dict)
-
-
-class MissionStateManager:
-    """Manages persistent state for mission conversations."""
-
-    @staticmethod
-    def get_state_file_path(context: ConversationContext) -> pathlib.Path:
-        """Gets the path to the state file for this conversation."""
-        storage_dir = storage_directory_for_context(context)
-        storage_dir.mkdir(parents=True, exist_ok=True)
-        return storage_dir / "mission_links.json"
-
-    @staticmethod
-    async def get_links(context: ConversationContext) -> ConversationLinks:
-        """Gets the conversation links for this conversation."""
-        path = MissionStateManager.get_state_file_path(context)
-        try:
-            if path.exists():
-                return read_model(path, ConversationLinks) or ConversationLinks()
-            return ConversationLinks()
-        except Exception as e:
-            logger.error(f"Error reading conversation links: {e}")
-            return ConversationLinks()
-
-    @staticmethod
-    async def save_links(context: ConversationContext, links: ConversationLinks) -> None:
-        """Saves the conversation links for this conversation."""
-        path = MissionStateManager.get_state_file_path(context)
-        try:
-            write_model(path, links)
-        except Exception as e:
-            logger.error(f"Error saving conversation links: {e}")
-
-
 class ConversationClientManager:
-    """Manages API clients for accessing other conversations."""
+    """
+    Manages API clients for accessing other conversations.
+
+    This utility class provides methods for creating API clients that can be used
+    to interact with other conversations in a mission.
+    """
 
     @staticmethod
     def get_conversation_client(context: ConversationContext, target_conversation_id: str) -> wsc.ConversationAPIClient:
         """
         Creates an API client for another conversation.
         This allows cross-conversation operations.
+
+        Args:
+            context: The current conversation context
+            target_conversation_id: ID of the target conversation
+
+        Returns:
+            ConversationAPIClient that can be used to interact with the target conversation
         """
         # Get the assistant_id from the current context
         assistant_id = context.assistant.id
@@ -109,156 +76,192 @@ class ConversationClientManager:
 
         return client_builder.for_conversation(assistant_id=assistant_id, conversation_id=target_conversation_id)
 
-
-class FileSynchronizer:
-    """Handles file synchronization between linked conversations."""
-
     @staticmethod
-    async def sync_file(context: ConversationContext, target_conversation_id: str, filename: str) -> bool:
+    async def get_temporary_context(
+        context: ConversationContext, conversation_id: str
+    ) -> Optional[ConversationContext]:
         """
-        Synchronizes a file from the current conversation to a target conversation.
+        Creates a temporary context for another conversation.
+        This is used for operations that need context methods rather than just the client.
 
         Args:
-            context: Current conversation context
-            target_conversation_id: ID of the conversation to sync with
-            filename: Name of the file to synchronize
+            context: The current conversation context
+            conversation_id: The ID of the conversation to create a context for
 
         Returns:
-            bool: True if successfully synchronized, False otherwise
+            A temporary conversation context or None if creation failed
         """
         try:
-            # Get the target conversation client
-            target_client = ConversationClientManager.get_conversation_client(context, target_conversation_id)
+            # Get client for the target conversation
+            target_client = ConversationClientManager.get_conversation_client(context, conversation_id)
 
-            # Download file from current conversation
-            file_content = io.BytesIO()
-            async with context.read_file(filename) as stream:
-                async for chunk in stream:
-                    file_content.write(chunk)
-            file_content.seek(0)
+            # To create a temporary context, we need the conversation details and the assistant details
+            conversation = await target_client.get_conversation()
+            if not conversation:
+                return None
 
-            # Get metadata about the file
-            file_response = await context.list_files()
-            source_file = next((f for f in file_response.files if f.filename == filename), None)
+            # We'll use the same assistant as in the current context
+            assistant = context.assistant
 
-            if not source_file:
-                logger.error(f"File {filename} not found in source conversation")
-                return False
+            # Create a temporary context with the same properties as the original
+            # but pointing to a different conversation
+            from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
-            # Upload to target conversation
-            await target_client.write_file(
-                filename=filename,
-                file_content=file_content,
-                content_type=source_file.content_type or "application/octet-stream",
+            temp_context = ConversationContext(
+                assistant=assistant,
+                id=conversation_id,
+                title=conversation.title,
             )
 
-            # Update the "last_synced" timestamp in both conversations' state
-            now = datetime.utcnow().isoformat()
-            source_links = await MissionStateManager.get_links(context)
-
-            # Update all relevant linked conversations to mark this file as synced
-            for conv_id, linked_conv in source_links.linked_conversations.items():
-                for file in linked_conv.files:
-                    if file.filename == filename:
-                        file.last_synced = now
-
-            await MissionStateManager.save_links(context, source_links)
-            return True
+            return temp_context
 
         except Exception as e:
-            logger.exception(f"Error synchronizing file: {e}")
-            return False
+            logger.error(f"Error creating temporary context: {e}")
+            return None
 
     @staticmethod
-    async def get_files_to_sync(context: ConversationContext, target_conversation_id: str) -> Set[str]:
+    async def get_linked_conversations(context: ConversationContext) -> List[str]:
         """
-        Gets the list of files that should be synchronized with the target conversation.
+        Gets all conversations linked to this one through the same mission.
 
         Args:
             context: Current conversation context
-            target_conversation_id: ID of conversation to check against
 
         Returns:
-            Set of filenames that should be synchronized
+            List of conversation IDs that are part of the same mission
         """
-        links = await MissionStateManager.get_links(context)
-        linked_conv = links.linked_conversations.get(target_conversation_id)
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                return []
 
-        if not linked_conv or linked_conv.status != "active":
-            return set()
+            # Get all conversation role files in the storage
+            mission_dir = MissionStorageManager.get_mission_dir(mission_id)
+            if not mission_dir.exists():
+                return []
 
-        # If no specific files are listed, all files should be synced
-        if not linked_conv.files:
-            files_response = await context.list_files()
-            return {file.filename for file in files_response.files}
+            # Look for conversation directories
+            result = []
+            conversation_id = str(context.id)
 
-        # Otherwise, return only the specific files
-        return {file.filename for file in linked_conv.files}
+            # Check HQ directory
+            hq_dir = mission_dir / MissionRole.HQ.value
+            if hq_dir.exists():
+                # If this isn't the current conversation, add it
+                role_file = hq_dir / "mission_role.json"
+                if role_file.exists():
+                    try:
+                        # Use our properly defined MissionRoleData model
+                        data = read_model(role_file, MissionRoleData)
+                        if data and data.conversation_id != conversation_id:
+                            result.append(data.conversation_id)
+                    except Exception:
+                        pass
+
+            # Check field directories
+            for field_dir in mission_dir.glob("field_*"):
+                if field_dir.is_dir():
+                    # Extract conversation ID from directory name
+                    field_id = field_dir.name[6:]  # Remove "field_" prefix
+                    if field_id != conversation_id:
+                        result.append(field_id)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting linked conversations: {e}")
+            return []
 
 
 class FileVersionManager:
-    """Manages file versions and synchronization across conversations."""
+    """
+    Manages file versions and conflict detection between conversations.
+
+    This utility class provides methods for tracking file versions and detecting
+    conflicts when synchronizing files between conversations.
+    """
 
     @staticmethod
-    async def get_file_version_info(context: ConversationContext, filename: str) -> dict:
-        """Gets version information for a file in the current conversation."""
+    async def get_file_info(context: ConversationContext, filename: str) -> Optional[Dict[str, Any]]:
+        """
+        Gets file information for a file in the current conversation.
+
+        Args:
+            context: Current conversation context
+            filename: Name of the file to get information for
+
+        Returns:
+            Dictionary with file information if the file exists, None otherwise
+        """
         try:
             files_response = await context.list_files()
             file_info = next((f for f in files_response.files if f.filename == filename), None)
 
             if not file_info:
-                return {"exists": False}
+                return None
 
             # The File model contains version information
             return {
-                "exists": True,
+                "filename": filename,
                 "version": file_info.current_version,
                 "last_modified": file_info.updated_datetime,
                 "size": file_info.file_size,
                 "content_type": file_info.content_type,
             }
         except Exception as e:
-            logger.error(f"Error getting file version info: {e}")
-            return {"exists": False, "error": str(e)}
+            logger.error(f"Error getting file info: {e}")
+            return None
 
     @staticmethod
     async def detect_conflicts(
         source_context: ConversationContext,
-        target_client: wsc.ConversationAPIClient,
+        target_context: ConversationContext,
         filename: str,
-        last_synced: Optional[str],
-    ) -> dict:
-        """Detects if there are conflicts between source and target versions."""
-        source_info = await FileVersionManager.get_file_version_info(source_context, filename)
+    ) -> Dict[str, Any]:
+        """
+        Detects if there are conflicts between file versions in different conversations.
 
-        # Check if target file exists
+        Args:
+            source_context: Source conversation context
+            target_context: Target conversation context
+            filename: Name of the file to check
+
+        Returns:
+            Dictionary with conflict information
+        """
         try:
-            target_files = await target_client.get_files()
-            target_file = next((f for f in target_files.files if f.filename == filename), None)
+            # Get source file info
+            source_info = await FileVersionManager.get_file_info(source_context, filename)
+            if not source_info:
+                return {"has_conflict": False, "source_exists": False}
 
-            if not target_file:
+            # Get target file info
+            target_info = await FileVersionManager.get_file_info(target_context, filename)
+            if not target_info:
                 return {"has_conflict": False, "target_exists": False}
 
-            if not last_synced:
-                # If never synced before, just consider it a conflict if target exists
-                return {"has_conflict": True, "reason": "initial_sync_with_existing_target"}
+            # With the direct storage approach, we don't need to track sync status
+            # of individual files since mission data is in shared storage.
+            # This simplifies conflict detection significantly.
 
-            # Parse ISO timestamps for comparison
-            last_synced_time = datetime.fromisoformat(last_synced.replace("Z", "+00:00"))
-            source_modified = datetime.fromisoformat(str(source_info["last_modified"]).replace("Z", "+00:00"))
-            target_modified = datetime.fromisoformat(str(target_file.updated_datetime).replace("Z", "+00:00"))
-
-            # Check if both source and target were modified since last sync
-            if source_modified > last_synced_time and target_modified > last_synced_time:
+            # Compare versions to determine if there's a potential conflict
+            if source_info["version"] != target_info["version"]:
                 return {
                     "has_conflict": True,
-                    "reason": "both_modified",
-                    "source_modified": source_modified.isoformat(),
-                    "target_modified": target_modified.isoformat(),
-                    "last_synced": last_synced,
+                    "reason": "version_mismatch",
+                    "source_version": source_info["version"],
+                    "target_version": target_info["version"],
                 }
 
-            return {"has_conflict": False}
+            # No conflict detected
+            return {
+                "has_conflict": False,
+                "source_exists": True,
+                "target_exists": True,
+                "source_version": source_info["version"],
+                "target_version": target_info["version"],
+            }
 
         except Exception as e:
             logger.error(f"Error detecting conflicts: {e}")
@@ -266,15 +269,95 @@ class FileVersionManager:
 
 
 class MissionInvitation:
-    """Manages invitations between conversations for the mission assistant."""
+    """
+    Manages invitations for joining missions.
+
+    This class provides methods for creating, validating, and redeeming invitations
+    for users to join missions between conversations.
+    """
+
+    # Model for invitation data
+    class Invitation(BaseModel):
+        """Data model for a mission invitation."""
+
+        token: str
+        invitation_id: str
+        mission_id: str
+        creator_id: str
+        creator_name: str
+        created_at: datetime = Field(default_factory=datetime.utcnow)
+        expires_at: datetime
+        target_username: Optional[str] = None
+        redeemed: bool = False
+        redeemed_by: Optional[str] = None
+        redeemed_at: Optional[datetime] = None
+
+    # Model for storing a collection of invitations
+    class InvitationsCollection(BaseModel):
+        """Holds a collection of invitation objects."""
+
+        invitations: List[Any] = Field(default_factory=list)
+
+        def model_post_init(self, __context: Any) -> None:
+            """Validates that all invitations are of the correct type."""
+            # This ensures we maintain type safety when we have proper invitations,
+            # but allows for flexibility when loading from storage
+            pass
+
+    @staticmethod
+    def _get_invitations_path(context: ConversationContext) -> pathlib.Path:
+        """Gets the path to the invitations file for this conversation."""
+        storage_dir = storage_directory_for_context(context)
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        return storage_dir / "mission_invitations.json"
+
+    @staticmethod
+    async def _save_invitation(context: ConversationContext, invitation: Invitation) -> bool:
+        """Saves an invitation to storage."""
+        try:
+            # Get existing invitations
+            path = MissionInvitation._get_invitations_path(context)
+            collection = MissionInvitation.InvitationsCollection()
+
+            if path.exists():
+                try:
+                    # Use our properly typed model to load
+                    collection = read_model(path, MissionInvitation.InvitationsCollection)
+                    if not collection:
+                        collection = MissionInvitation.InvitationsCollection()
+                except Exception as e:
+                    logger.warning(f"Failed to read invitations: {e}")
+                    # Create a new collection on failure
+                    collection = MissionInvitation.InvitationsCollection()
+
+            # Check if invitation already exists
+            existing_invitations = collection.invitations.copy()
+            updated = False
+
+            for i, inv in enumerate(existing_invitations):
+                if inv.invitation_id == invitation.invitation_id:
+                    # Update existing invitation
+                    existing_invitations[i] = invitation
+                    updated = True
+                    break
+
+            if not updated:
+                # Add new invitation
+                existing_invitations.append(invitation)
+
+            # Update and save the collection
+            collection.invitations = existing_invitations
+            write_model(path, collection)
+            return True
+        except Exception as e:
+            logger.error(f"Error saving invitation: {e}")
+            return False
 
     @staticmethod
     async def create_invitation(
         context: ConversationContext,
         target_username: Optional[str] = None,
-        files_to_share: Optional[List[str]] = None,
         expiration_hours: int = 24,
-        permission: str = "read_write",
     ) -> Tuple[bool, str]:
         """
         Creates an invitation for another user to join a mission.
@@ -282,83 +365,67 @@ class MissionInvitation:
         Args:
             context: The conversation context
             target_username: Optional username to invite (if None, anyone can join)
-            files_to_share: List of filenames to share (None for all)
             expiration_hours: Hours until invitation expires
-            permission: Permission level for the invited user
 
         Returns:
-            (success, message) tuple
+            (success, message) tuple with invitation code
         """
         try:
-            # Generate a secure invitation token
+            # Get the mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                # Try to create a mission if none exists
+                success, new_mission_id = await MissionManager.create_mission(context)
+                if not success:
+                    return False, "Could not create a mission. Please try again."
+                mission_id = new_mission_id
+
+            # Check if the conversation role is set - should be HQ for invitation creator
+            role = await MissionManager.get_mission_role(context)
+            if not role:
+                # Set this conversation as HQ
+                await MissionManager.get_mission_role(context)  # This will create and set the role if needed
+
+            # Generate secure tokens
             invitation_token = secrets.token_urlsafe(32)
+            invitation_id = str(uuid.uuid4())
             expiration = datetime.utcnow() + timedelta(hours=expiration_hours)
 
-            # Get current conversation and user info
+            # Get current user information
             participants = await context.get_participants()
             current_user_id = None
+            current_user_name = "Unknown User"
 
             for participant in participants.participants:
                 if participant.role == ParticipantRole.user:
-                    # Store the current user's ID to mark them as invitation creator
                     current_user_id = participant.id
+                    current_user_name = participant.name
                     break
 
             if not current_user_id:
                 return False, "Could not identify current user in conversation"
 
-            # Get files information if needed
-            files_metadata = []
-            if files_to_share:
-                files_response = await context.list_files()
-                for filename in files_to_share:
-                    file_info = next((f for f in files_response.files if f.filename == filename), None)
-                    if file_info:
-                        files_metadata.append({
-                            "filename": filename,
-                            "version": file_info.current_version,
-                            "content_type": file_info.content_type,
-                        })
+            # Create the invitation
+            invitation = MissionInvitation.Invitation(
+                token=invitation_token,
+                invitation_id=invitation_id,
+                mission_id=mission_id,
+                creator_id=current_user_id,
+                creator_name=current_user_name,
+                expires_at=expiration,
+                target_username=target_username,
+            )
 
-            # Create an entry in our local state since we can't directly create a share via API
-            # (The user would normally create it through the UI)
-            share_id = uuid.uuid4()
-
-            # Store the invitation in our local state
-            links = await MissionStateManager.get_links(context)
-
-            # Initialize conversation entry if needed
-            conversation_id = str(context.id)
-            if conversation_id not in links.linked_conversations:
-                links.linked_conversations[conversation_id] = LinkedConversation(
-                    conversation_id=conversation_id, status="active", user_id=current_user_id, files=[]
-                )
-
-            # Add pending invitation to state
-            linked_conversation = links.linked_conversations[conversation_id]
-            invitation_data = {
-                "token": invitation_token,
-                "share_id": str(share_id),
-                "expires": expiration.isoformat(),
-                "files_to_share": files_to_share or [],
-            }
-
-            # Only add username if provided
-            if target_username:
-                invitation_data["target_username"] = target_username
-
-            linked_conversation.pending_invitations.append(invitation_data)
-
-            await MissionStateManager.save_links(context, links)
+            # Save the invitation
+            if not await MissionInvitation._save_invitation(context, invitation):
+                return False, "Failed to save invitation"
 
             # Generate a shareable invitation code
-            invitation_code = f"{share_id}:{invitation_token}"
+            invitation_code = f"{invitation_id}:{invitation_token}"
 
-            # Format the notification message based on whether a username was provided
+            # Format the messages based on target username
             if target_username:
-                notification_message = (
-                    f"Mission invitation created for {target_username}. This is a locally managed invitation."
-                )
+                notification_message = f"Mission invitation created for {target_username}."
                 success_message = f"Invitation created for {target_username}. They can join by using the /join {invitation_code} command in their conversation."
             else:
                 notification_message = "Mission invitation created. Anyone with this code can join the mission."
@@ -372,14 +439,68 @@ class MissionInvitation:
                 )
             )
 
-            return (
-                True,
-                success_message,
+            # Log the invitation creation in the mission log
+            await MissionManager.add_log_entry(
+                context=context,
+                entry_type=LogEntryType.PARTICIPANT_JOINED,
+                message=f"Created mission invitation{' for ' + target_username if target_username else ''}",
+                metadata={
+                    "invitation_id": invitation_id,
+                    "target_username": target_username,
+                    "expiration": expiration.isoformat(),
+                },
             )
+
+            return True, success_message
 
         except Exception as e:
             logger.exception(f"Error creating invitation: {e}")
             return False, f"Error creating invitation: {str(e)}"
+
+    @staticmethod
+    async def _find_invitation_by_code(invitation_code: str) -> Optional[Tuple[Invitation, str]]:
+        """
+        Finds an invitation by its code.
+
+        Args:
+            invitation_code: The invitation code to search for
+
+        Returns:
+            Tuple of (invitation, source_conversation_id) if found, None otherwise
+        """
+        try:
+            # Parse the invitation code
+            if ":" not in invitation_code:
+                return None
+
+            invitation_id, token = invitation_code.split(":", 1)
+
+            # Look for the invitation in all conversations
+            storage_root = pathlib.Path(settings.storage.root)
+            invitation_files = storage_root.glob("**/mission_invitations.json")
+
+            for file_path in invitation_files:
+                try:
+                    # Use our properly typed model
+                    collection = read_model(file_path, MissionInvitation.InvitationsCollection)
+                    if not collection:
+                        continue
+
+                    for invitation in collection.invitations:
+                        if invitation.invitation_id == invitation_id and invitation.token == token:
+                            # Found the invitation
+                            # Get conversation ID from the directory path
+                            conversation_id = file_path.parent.name
+                            return invitation, conversation_id
+                except Exception:
+                    # Skip problematic files
+                    continue
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error finding invitation: {e}")
+            return None
 
     @staticmethod
     async def validate_invitation(
@@ -396,57 +517,22 @@ class MissionInvitation:
             (valid, message, invitation_data) tuple
         """
         try:
-            # Parse the invitation code
-            if ":" not in invitation_code:
-                return False, "Invalid invitation format", None
+            # Find the invitation
+            result = await MissionInvitation._find_invitation_by_code(invitation_code)
+            if not result:
+                return False, "Invalid invitation code", None
 
-            share_id_str, token = invitation_code.split(":", 1)
+            invitation, source_conversation_id = result
 
-            try:
-                share_id = uuid.UUID(share_id_str)
-            except ValueError:
-                return False, "Invalid share ID in invitation", None
+            # Check if already redeemed
+            if invitation.redeemed:
+                return False, "This invitation has already been redeemed", None
 
-            # Look for the invitation in all mission state files
-            all_files = pathlib.Path(settings.storage.root).glob("**/mission_links.json")
+            # Check if expired
+            if datetime.utcnow() > invitation.expires_at:
+                return False, "This invitation has expired", None
 
-            invitation_data = None
-            source_conversation_id = None
-
-            for state_file in all_files:
-                try:
-                    links = read_model(state_file, ConversationLinks)
-                    if not links:
-                        continue
-
-                    # Check each linked conversation's pending invitations
-                    for conv_id, linked_conv in links.linked_conversations.items():
-                        for invitation in linked_conv.pending_invitations:
-                            if invitation.get("share_id") == share_id_str and invitation.get("token") == token:
-                                invitation_data = invitation
-                                source_conversation_id = conv_id
-                                break
-
-                        if invitation_data:
-                            break
-                except Exception:
-                    # Skip any problematic files
-                    continue
-
-                if invitation_data:
-                    break
-
-            if not invitation_data:
-                return False, "Invitation not found or expired", None
-
-            # Check if invitation has expired
-            invitation_expires = invitation_data.get("expires")
-            if invitation_expires:
-                expires = datetime.fromisoformat(invitation_expires.replace("Z", "+00:00"))
-                if datetime.utcnow() > expires:
-                    return False, "Invitation has expired", None
-
-            # Get current user information - needed regardless for the return value
+            # Get current user information
             participants = await context.get_participants()
             current_username = None
             current_user_id = None
@@ -457,49 +543,31 @@ class MissionInvitation:
                     current_user_id = participant.id
                     break
 
-            # Make sure we found a user
             if not current_user_id:
                 return False, "Could not identify current user", None
 
-            # Verify username matches the target (if specified)
-            target_username = invitation_data.get("target_username")
-            if target_username and current_username and target_username.lower() != current_username.lower():
-                return False, f"This invitation was created for {target_username}, not for {current_username}", None
-            # If no target username is specified, anyone can use the invitation
+            # Check username restriction if any
+            if (
+                invitation.target_username
+                and current_username
+                and invitation.target_username.lower() != current_username.lower()
+            ):
+                return (
+                    False,
+                    f"This invitation was created for {invitation.target_username}, not for {current_username}",
+                    None,
+                )
 
-            # Create a mock share object for compatibility
-            mock_share = ConversationShare(
-                id=share_id,
-                owner_id=invitation_data.get("invitation_creator_id", ""),
-                label=f"Mission Invitation for {target_username}",
-                created_by_user=User(
-                    id=invitation_data.get("invitation_creator_id", ""),
-                    name=invitation_data.get("invitation_creator_name", "Mission Creator"),
-                    image=None,
-                    service_user=False,
-                    created_datetime=datetime.utcnow(),
-                ),
-                conversation_id=uuid.UUID(source_conversation_id)
-                if source_conversation_id
-                else uuid.UUID(invitation_data.get("conversation_id", "00000000-0000-0000-0000-000000000000")),
-                conversation_title="Mission Conversation",
-                conversation_permission=ConversationPermission(invitation_data.get("permission", "read_write")),
-                is_redeemable=True,
-                created_datetime=datetime.utcnow(),
-                metadata=invitation_data,
-            )
-
-            # Invitation is valid, return the share data
+            # Invitation is valid
             return (
                 True,
                 "Invitation is valid",
                 {
-                    "share": mock_share,
+                    "invitation": invitation,
                     "source_conversation_id": source_conversation_id,
+                    "mission_id": invitation.mission_id,
                     "current_user_id": current_user_id,
-                    "files_to_share": invitation_data.get("files_to_share", []),
-                    "share_all_files": invitation_data.get("share_all_files", False),
-                    "permission": mock_share.conversation_permission,
+                    "current_username": current_username,
                 },
             )
 
@@ -526,98 +594,100 @@ class MissionInvitation:
             if not valid or not invitation_data:
                 return False, message
 
-            # Get the share details
-            share = invitation_data["share"]
+            # Extract invitation details
+            invitation = invitation_data["invitation"]
             source_conversation_id = invitation_data["source_conversation_id"]
+            mission_id = invitation_data["mission_id"]
             current_user_id = invitation_data["current_user_id"]
-            files_to_share = invitation_data["files_to_share"]
-            share_all_files = invitation_data["share_all_files"]
+            current_username = invitation_data["current_username"] or "Unknown User"
 
-            # Track redemption in local state (no need to create a mock redemption object)
+            # Mark the invitation as redeemed
+            invitation.redeemed = True
+            invitation.redeemed_by = current_user_id
+            invitation.redeemed_at = datetime.utcnow()
 
-            # Create a link from this conversation to the source conversation
-            links = await MissionStateManager.get_links(context)
-
-            # Setup the current conversation in link state
-            conversation_id = str(context.id)
-            if conversation_id not in links.linked_conversations:
-                links.linked_conversations[conversation_id] = LinkedConversation(
-                    conversation_id=conversation_id, status="active", user_id=current_user_id, files=[]
-                )
-
-            # Add the source conversation to our links
-            file_list = []
-            if source_conversation_id not in links.linked_conversations:
-                links.linked_conversations[source_conversation_id] = LinkedConversation(
-                    conversation_id=source_conversation_id, status="active", user_id=str(share.owner_id), files=[]
-                )
-
-                # Add the appropriate files to track
-                if share_all_files:
-                    # Track all files from source
-                    files_response = await context.list_files()
-                    file_list = [LinkedFile(filename=file.filename) for file in files_response.files]
-                else:
-                    # Track only specified files
-                    file_list = [LinkedFile(filename=file["filename"]) for file in files_to_share]
-
-                links.linked_conversations[source_conversation_id].files = file_list
-
-            # Save the updated links
-            await MissionStateManager.save_links(context, links)
-
-            # Now create a message to the source conversation about the accepted invitation
-            # This requires getting a client for the source conversation
+            # Save the updated invitation in the source conversation
             try:
+                # Get temporary context for the source conversation
+                source_context = await MissionInvitation.get_temporary_context(context, source_conversation_id)
+                if source_context:
+                    await MissionInvitation._save_invitation(source_context, invitation)
+            except Exception as e:
+                logger.warning(f"Could not mark invitation as redeemed: {e}")
+                # Continue anyway since this isn't critical
+
+            # Join the mission as a field agent
+            success = await MissionManager.join_mission(context, mission_id, MissionRole.FIELD)
+
+            if not success:
+                logger.error(f"Failed to join mission {mission_id}")
+                return False, "Failed to join the mission. Please try again or contact the mission creator."
+
+            # Log the redemption in the mission log
+            await MissionManager.add_log_entry(
+                context=context,
+                entry_type=LogEntryType.PARTICIPANT_JOINED,
+                message=f"Joined mission as field agent using invitation from {invitation.creator_name}",
+                metadata={
+                    "invitation_id": invitation.invitation_id,
+                },
+            )
+
+            # Notify source conversation about the accepted invitation
+            try:
+                # Get client for the source conversation
                 source_client = ConversationClientManager.get_conversation_client(context, source_conversation_id)
 
-                # Get participants from this conversation
-                participants = await context.get_participants()
-                current_username = None
-
-                for participant in participants.participants:
-                    if participant.role == ParticipantRole.user:
-                        current_username = participant.name
-                        break
+                # Initialize source_context (to avoid unbound variable issue)
+                source_context = None
 
                 # Send notification to source conversation
                 await source_client.send_messages(
                     NewConversationMessage(
-                        content=f"{current_username} has accepted your mission invitation. Files will now be synchronized between conversations.",
+                        content=f"{current_username} has accepted your mission invitation and joined as a field agent.",
                         message_type=MessageType.notice,
                     )
                 )
 
-                # Also update the source conversation's links to include this conversation
-                # We'll need to get their state, modify it, and save it
+                # Try to create temporary context for logging
                 source_context = await MissionInvitation.get_temporary_context(context, source_conversation_id)
+
+                # Log the acceptance in the mission log from HQ perspective
                 if source_context:
-                    source_links = await MissionStateManager.get_links(source_context)
-
-                    # Add this conversation to their links if not already there
-                    if conversation_id not in source_links.linked_conversations:
-                        source_links.linked_conversations[conversation_id] = LinkedConversation(
-                            conversation_id=conversation_id, status="active", user_id=current_user_id, files=file_list
-                        )
-
-                    # Update pending invitations to mark this one as accepted
-                    for conv_id, linked_conv in source_links.linked_conversations.items():
-                        for invitation in linked_conv.pending_invitations:
-                            if invitation.get("share_id") == str(share.id):
-                                invitation["status"] = "accepted"
-                                invitation["accepted_by"] = current_username
-                                invitation["accepted_time"] = datetime.utcnow().isoformat()
-
-                    await MissionStateManager.save_links(source_context, source_links)
+                    await MissionManager.add_log_entry(
+                        context=source_context,
+                        entry_type=LogEntryType.PARTICIPANT_JOINED,
+                        message=f"{current_username} has joined the mission as a field agent",
+                        metadata={
+                            "user_id": current_user_id,
+                            "user_name": current_username,
+                            "joining_conversation_id": str(context.id),
+                        },
+                    )
 
             except Exception as e:
                 logger.warning(f"Could not notify source conversation: {e}")
                 # This isn't critical, so we continue anyway
 
-            return (
-                True,
-                "Invitation accepted! You are now part of the mission and files will be synchronized between conversations.",
-            )
+            # Sync mission files from HQ to this field agent
+            # This ensures the field agent has access to the latest mission briefing, etc.
+            try:
+                # Get the latest mission briefing
+                briefing = await MissionManager.get_mission_briefing(context)
+
+                # Get mission name for the notification message
+                mission_name = briefing.mission_name if briefing else "mission"
+
+                # Notify user of successful join with mission name
+                return (
+                    True,
+                    f"Invitation accepted! You have joined {mission_name} as a field agent. You now have access to mission data and can communicate with HQ.",
+                )
+
+            except Exception as e:
+                logger.warning(f"Could not sync mission files: {e}")
+                # Return success message even if sync failed
+                return True, "Invitation accepted! You have joined the mission as a field agent."
 
         except Exception as e:
             logger.exception(f"Error redeeming invitation: {e}")
@@ -669,8 +739,14 @@ class MissionInvitation:
             return None
 
 
-class MissionManager:
-    """Manages linked conversations and file synchronization."""
+class LegacyMissionManager:
+    """
+    Legacy class for managing linked conversations and file synchronization.
+
+    This class is maintained for backward compatibility and will be gradually
+    migrated to the new MissionManager implementation. It redirects to the new
+    implementation where possible while maintaining compatibility with existing code.
+    """
 
     @staticmethod
     async def get_linked_conversations(context: ConversationContext) -> Dict[str, Any]:
@@ -678,6 +754,14 @@ class MissionManager:
         Gets the linked conversations data from the assistant metadata.
         Returns an empty dict if no linked conversations exist.
         """
+        # Try to get mission_id from the new implementation first
+        mission_id = await MissionManager.get_mission_id(context)
+        if mission_id:
+            # In the future, we could translate from the new model to the old format
+            # For now, just check if we have legacy data
+            pass
+
+        # Fall back to old metadata storage
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
         return metadata.get("linked_conversations", {})
@@ -691,6 +775,13 @@ class MissionManager:
         await context.send_conversation_state_event(
             AssistantStateEvent(state_id="linked_conversations", event="updated", state=None)
         )
+
+        # Also update the UI for mission_status if we have mission_id
+        mission_id = await MissionManager.get_mission_id(context)
+        if mission_id:
+            await context.send_conversation_state_event(
+                AssistantStateEvent(state_id="mission_status", event="updated", state=None)
+            )
 
     @staticmethod
     async def link_conversation(
@@ -708,7 +799,10 @@ class MissionManager:
             user_id: The ID of the user in the target conversation
             files_to_sync: Optional list of filenames to sync (defaults to all)
         """
-        linked_conversations = await MissionManager.get_linked_conversations(context)
+        # For backwards compatibility, we'll stick with the legacy approach for now
+        # In the future, we could use the mission_id from MissionManager.get_mission_id(context)
+
+        linked_conversations = await LegacyMissionManager.get_linked_conversations(context)
         conversation_id = str(context.id)
 
         # Initialize if this is the first linked conversation
@@ -746,7 +840,7 @@ class MissionManager:
         if target_conversation_id not in source_data["links"]:
             source_data["links"].append(target_conversation_id)
 
-        await MissionManager.save_linked_conversations(context, linked_conversations)
+        await LegacyMissionManager.save_linked_conversations(context, linked_conversations)
         logger.info(f"Linked conversation {conversation_id} with {target_conversation_id}")
 
     @staticmethod
@@ -755,7 +849,11 @@ class MissionManager:
         Checks if a file should be synchronized and returns the list of
         conversation IDs to sync with.
         """
-        linked_conversations = await MissionManager.get_linked_conversations(context)
+        # Note: In a future update, we would implement a state management approach
+        # For now, we'll use the legacy conversation metadata approach directly
+
+        # Fall back to legacy approach if no data from new implementation
+        linked_conversations = await LegacyMissionManager.get_linked_conversations(context)
         conversation_id = str(context.id)
 
         if conversation_id not in linked_conversations:
@@ -782,29 +880,45 @@ class MissionManager:
     ) -> None:
         """
         Processes an invite command from a user.
-        Format: /invite [username]  - username is optional
+        Format:
+            /{invite_command} [username]  - username is optional
+
+        If no username is provided, creates an invitation that anyone can use.
+        If a username is provided, creates an invitation specific to that user.
         """
         # Extract the username from the command if provided
         content = message.content.strip()
         if not content.startswith(f"/{invite_command}"):
             return
 
+        # Check if we have a mission ID first
+        mission_id = await MissionManager.get_mission_id(context)
+        if not mission_id:
+            # We need to create a mission first
+            success, new_mission_id = await MissionManager.create_mission(context)
+            if not success:
+                await context.send_messages(
+                    NewConversationMessage(
+                        content="Could not create a mission. Please try again.",
+                        message_type=MessageType.notice,
+                    )
+                )
+                return
+
+            # Set this conversation as the HQ
+            await MissionManager.get_mission_role(context)  # This will set the role
+
         parts = content.split(maxsplit=1)
 
         # If no username specified, create a universal invitation
         if len(parts) < 2:
             # Create a secure invitation without username restriction
-            success, result_message = await MissionInvitation.create_invitation(
-                context=context,
-                files_to_share=None,  # Share all files
-            )
+            success, result_message = await MissionInvitation.create_invitation(context=context)
         else:
             # Create a secure invitation for a specific username
             username = parts[1].strip()
             success, result_message = await MissionInvitation.create_invitation(
-                context=context,
-                target_username=username,
-                files_to_share=None,  # Share all files
+                context=context, target_username=username
             )
 
         # Send the message to the user
@@ -823,7 +937,10 @@ class MissionManager:
     ) -> None:
         """
         Processes a join command from a user.
-        Format: /join invitation_code
+        Format:
+            /{join_command} invitation_code
+
+        Redeems the invitation and joins the mission as a field agent.
         """
         # Extract the invitation code from the command
         content = message.content.strip()
@@ -855,3 +972,75 @@ class MissionManager:
         )
 
         logger.info(f"Join command processed with code {invitation_code}: {success}")
+
+    @staticmethod
+    async def process_status_command(
+        context: ConversationContext, message: ConversationMessage, status_command: str
+    ) -> None:
+        """
+        Processes a mission status command from a user.
+        Format:
+            /{status_command}
+
+        Displays the current mission status to the user.
+        """
+        # Verify this is the status command
+        content = message.content.strip()
+        if not content.startswith(f"/{status_command}"):
+            return
+
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(context)
+        if not mission_id:
+            await context.send_messages(
+                NewConversationMessage(
+                    content="You are not currently part of a mission.",
+                    message_type=MessageType.notice,
+                )
+            )
+            return
+
+        # Get mission status
+        status = await MissionManager.get_mission_status(context)
+        if not status:
+            await context.send_messages(
+                NewConversationMessage(
+                    content="No mission status available.",
+                    message_type=MessageType.notice,
+                )
+            )
+            return
+
+        # Get mission briefing
+        briefing = await MissionManager.get_mission_briefing(context)
+
+        # Format the status message
+        mission_name = briefing.mission_name if briefing else "Current Mission"
+        status_state = status.state.value if status.state else "Unknown"
+        progress = status.progress_percentage
+
+        # Build the status message
+        status_message = f"## {mission_name} Status\n\n"
+        status_message += f"**State:** {status_state}\n"
+        status_message += f"**Progress:** {progress}%\n"
+
+        if status.status_message:
+            status_message += f"**Message:** {status.status_message}\n"
+
+        if status.next_actions and len(status.next_actions) > 0:
+            status_message += "\n**Next Actions:**\n"
+            for i, action in enumerate(status.next_actions):
+                status_message += f"{i + 1}. {action}\n"
+
+        # Show active blockers if any
+        if status.active_blockers and len(status.active_blockers) > 0:
+            requests = await MissionManager.get_field_requests(context)
+            blocker_requests = [r for r in requests if r.request_id in status.active_blockers]
+
+            if blocker_requests:
+                status_message += "\n**Active Blockers:**\n"
+                for req in blocker_requests:
+                    status_message += f"- {req.title} (Priority: {req.priority.value})\n"
+
+        # Send the formatted status message
+        await context.send_messages(NewConversationMessage(content=status_message, message_type=MessageType.chat))

@@ -20,24 +20,23 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .artifact_messaging import ArtifactManager, ArtifactMessenger
-from .artifacts import (
-    ArtifactType,
-    FieldRequest,
-    LogEntryType, 
-    MissionBriefing,
-    MissionKB,
+from .command_processor import (
+    handle_add_goal_command,
+    handle_add_kb_section_command,
+)
+from .mission_data import (
+    LogEntryType,
     MissionState,
     MissionStatus,
     RequestPriority,
     RequestStatus,
 )
-from .command_processor import (
-    handle_add_goal_command,
-    handle_add_kb_section_command,
-)
-from .mission import ConversationClientManager, MissionStateManager
 from .mission_manager import MissionManager, MissionRole
+from .mission_storage import (
+    MissionStorage,
+    ConversationMissionManager,
+    MissionNotifier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +106,7 @@ class MissionTools:
                 "detect_field_request_needs",
                 "Analyze user message to detect potential field request needs",
             )
-        
+
         # Common detection tool for both roles
         self.tool_functions.add_function(
             self.suggest_next_action,
@@ -128,18 +127,18 @@ class MissionTools:
         if info_type not in ["all", "briefing", "kb", "status", "requests"]:
             return f"Invalid info_type: {info_type}. Must be one of: all, briefing, kb, status, requests. Use 'all' to get all information types."
 
-        # Fetch mission artifacts from the shared artifact storage system
-        # ArtifactMessenger provides access to artifacts across linked conversations
+        # Get the mission ID for the current conversation
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Start by creating a mission briefing."
 
         output = []
 
         # Get mission briefing if requested
         if info_type in ["all", "briefing"]:
-            briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
+            briefing = await MissionManager.get_mission_briefing(self.context)
 
-            if briefings:
-                briefing = briefings[0]  # Most recent briefing
-
+            if briefing:
                 # Format briefing information
                 output.append(f"## Mission Briefing: {briefing.mission_name}")
                 output.append(f"\n{briefing.mission_description}\n")
@@ -168,11 +167,9 @@ class MissionTools:
 
         # Get mission KB if requested
         if info_type in ["all", "kb"]:
-            kb_artifacts = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionKB)
+            kb = MissionStorage.read_mission_kb(mission_id)
 
-            if kb_artifacts and kb_artifacts[0].sections:
-                kb = kb_artifacts[0]  # Most recent KB
-
+            if kb and kb.sections:
                 output.append("\n## Mission Knowledge Base\n")
 
                 # Sort sections by order
@@ -193,11 +190,9 @@ class MissionTools:
 
         # Get mission status if requested
         if info_type in ["all", "status"]:
-            status_artifacts = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionStatus)
+            status = MissionStorage.read_mission_status(mission_id)
 
-            if status_artifacts:
-                status = status_artifacts[0]  # Most recent status
-
+            if status:
                 output.append("\n## Mission Status\n")
                 output.append(f"**Current Status**: {status.state.value}")
 
@@ -220,30 +215,32 @@ class MissionTools:
 
         # Get field requests if requested
         if info_type in ["all", "requests"]:
-            requests = await ArtifactMessenger.get_artifacts_by_type(self.context, FieldRequest)
+            requests = MissionStorage.get_all_field_requests(mission_id)
 
             if requests:
                 output.append("\n## Field Requests\n")
 
                 # Group requests by status
-                active_requests = [r for r in requests if r.status not in ["resolved", "cancelled"]]
-                resolved_requests = [r for r in requests if r.status in ["resolved", "cancelled"]]
+                active_requests = [r for r in requests if r.status not in [RequestStatus.RESOLVED, RequestStatus.CANCELLED]]
+                resolved_requests = [r for r in requests if r.status in [RequestStatus.RESOLVED, RequestStatus.CANCELLED]]
 
                 if active_requests:
                     output.append("### Active Requests")
-                    output.append("\n> 📋 **FOR HQ AGENTS:** To resolve a request, first get the Request ID below, then use `resolve_field_request(request_id=\"exact-id-here\", resolution=\"your solution\")`. Do NOT use the request title as the ID.\n")
+                    output.append(
+                        '\n> 📋 **FOR HQ AGENTS:** To resolve a request, first get the Request ID below, then use `resolve_field_request(request_id="exact-id-here", resolution="your solution")`. Do NOT use the request title as the ID.\n'
+                    )
 
                     for request in active_requests:
                         priority_marker = {
-                            "low": "🔹",
-                            "medium": "🔶",
-                            "high": "🔴",
-                            "critical": "⚠️",
+                            RequestPriority.LOW: "🔹",
+                            RequestPriority.MEDIUM: "🔶",
+                            RequestPriority.HIGH: "🔴",
+                            RequestPriority.CRITICAL: "⚠️",
                         }.get(request.priority, "🔹")
 
                         # Make the request ID super obvious for resolving requests
-                        output.append(f"{priority_marker} **{request.title}** ({request.status})")
-                        output.append(f"  **Request ID for resolution:** `{request.artifact_id}`")
+                        output.append(f"{priority_marker} **{request.title}** ({request.status.value})")
+                        output.append(f"  **Request ID for resolution:** `{request.request_id}`")
                         output.append(f"  Description: {request.description}")
 
                         if request.updates:
@@ -256,8 +253,8 @@ class MissionTools:
                     output.append("### Resolved Requests\n")
 
                     for request in resolved_requests[:5]:  # Show only the 5 most recent
-                        output.append(f"✅ **{request.title}** ({request.status})")
-                        output.append(f"  **Request ID:** `{request.artifact_id}`")
+                        output.append(f"✅ **{request.title}** ({request.status.value})")
+                        output.append(f"  **Request ID:** `{request.request_id}`")
 
                         if request.resolution:
                             output.append(f"  Resolution: {request.resolution}")
@@ -288,17 +285,22 @@ class MissionTools:
             return "Only HQ can create mission briefings."
 
         # First, make sure we have a mission associated with this conversation
-        mission_id = await MissionManager.get_or_create_mission(
-            self.context, mission_name, MissionRole.HQ
-        )
-
+        mission_id = await MissionManager.get_mission_id(self.context)
         if not mission_id:
-            return "Failed to create or retrieve mission. Please try again."
+            # Create a new mission if one doesn't exist
+            success, new_mission_id = await MissionManager.create_mission(self.context)
+            if not success or not new_mission_id:
+                return "Failed to create mission. Please try again."
+            mission_id = new_mission_id
+            
+            # Set the conversation role as HQ
+            await ConversationMissionManager.set_conversation_role(self.context, mission_id, MissionRole.HQ)
 
-        # Create a new mission briefing artifact using ArtifactManager
-        # This will be visible to both HQ and Field conversations
-        success, briefing = await ArtifactManager.create_mission_briefing(
-            self.context, mission_name, mission_description
+        # Create a new mission briefing using MissionManager
+        success, briefing = await MissionManager.create_mission_briefing(
+            context=self.context,
+            mission_name=mission_name,
+            mission_description=mission_description
         )
 
         if success and briefing:
@@ -328,13 +330,14 @@ class MissionTools:
         if self.role != "hq":
             return "Only HQ can add mission goals."
 
-        # Retrieve the existing mission briefing to add goals to it
-        # MissionBriefing is the primary artifact that defines mission objectives
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Please create a mission briefing first."
 
         # Get existing mission briefing
-        briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
-
-        if not briefings:
+        briefing = await MissionManager.get_mission_briefing(self.context)
+        if not briefing:
             return "No mission briefing found. Please create one first with create_mission_briefing."
 
         # Use the formatted command processor from chat.py to leverage existing functionality
@@ -346,7 +349,6 @@ class MissionTools:
 
         # Create a temporary system message to invoke the command processor
         # This reuses the existing command handling logic from chat.py
-
         temp_message = ConversationMessage(
             id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
             content=command_content,
@@ -379,13 +381,17 @@ class MissionTools:
         """
         if self.role != "hq":
             return "Only HQ can add knowledge base sections."
+            
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Please create a mission briefing first."
 
         # Use the formatted command processor from chat.py to leverage existing functionality
         command_content = f"/add-kb-section {title}|{content}"
 
         # Create a temporary system message to invoke the KB section command processor
         # This approach maintains consistency with command handling in the chat interface
-
         temp_message = ConversationMessage(
             id=UUID("00000000-0000-0000-0000-000000000000"),  # Using a placeholder UUID
             content=command_content,
@@ -408,11 +414,11 @@ class MissionTools:
     async def resolve_field_request(self, request_id: str, resolution: str) -> str:
         """
         Resolve a field request with information.
-        
+
         [HQ ONLY] This tool is only available to HQ agents.
 
         Args:
-            request_id: IMPORTANT! Use the exact Request ID value from get_mission_info output 
+            request_id: IMPORTANT! Use the exact Request ID value from get_mission_info output
                        (looks like "012345-abcd-67890"), NOT the title of the request
             resolution: Resolution information to add to the request
 
@@ -429,13 +435,20 @@ class MissionTools:
             logger.warning(f"Field agent attempted to use resolve_field_request: {request_id}")
             return error_message
 
-        # Resolve the field request using ArtifactManager
-        # This updates the request status and notifies the field conversation
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Unable to resolve field request."
 
-        success, field_request = await ArtifactManager.resolve_field_request(self.context, request_id, resolution)
+        # Resolve the field request using MissionManager
+        success, field_request = await MissionManager.resolve_field_request(
+            context=self.context,
+            request_id=request_id,
+            resolution=resolution
+        )
 
         if success and field_request:
-            # This notification is sent to Field by the resolve_field_request method
+            # Notification is handled by MissionManager.resolve_field_request
             return f"Field request '{field_request.title}' has been resolved."
         else:
             logger.warning(f"Failed to resolve field request. Invalid ID provided: '{request_id}'")
@@ -453,7 +466,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
     ) -> str:
         """
         Create a field request to send to HQ for information or to report a blocker.
-        
+
         This is the MAIN TOOL FOR FIELD AGENTS to request information, documents, or assistance from HQ.
         Field agents should use this tool whenever they need something from HQ.
 
@@ -468,8 +481,10 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         if self.role != "field":
             return "Only Field can create field requests."
 
-        # Create a field request with specified priority level
-        # RequestPriority helps HQ understand urgency (LOW, MEDIUM, HIGH, CRITICAL)
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Unable to create field request."
 
         # Set default priority if not provided
         if priority is None:
@@ -484,8 +499,13 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         }
         priority_enum = priority_map.get(priority.lower(), RequestPriority.MEDIUM)
 
-        # Create the field request
-        success, request = await ArtifactManager.create_field_request(self.context, title, description, priority_enum)
+        # Create the field request using MissionManager
+        success, request = await MissionManager.create_field_request(
+            context=self.context,
+            title=title,
+            description=description,
+            priority=priority_enum
+        )
 
         if success and request:
             await self.context.send_messages(
@@ -521,13 +541,18 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         if self.role != "field":
             return "Only Field can update mission status."
 
-        # Handle optional parameters for status update
-        # Only specified parameters will be updated in the mission status artifact
-        # The mission status is shared between HQ and field to maintain synchronization
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Unable to update mission status."
 
-        # Update the mission status
-        success, status_obj = await ArtifactManager.update_mission_status(
-            self.context, status=status, progress=progress, status_message=status_message, next_actions=next_actions
+        # Update the mission status using MissionManager
+        success, status_obj = await MissionManager.update_mission_status(
+            context=self.context,
+            state=status,
+            progress=progress,
+            status_message=status_message,
+            next_actions=next_actions
         )
 
         if success and status_obj:
@@ -559,17 +584,15 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         if self.role != "field":
             return "Only Field can mark criteria as completed."
 
-        # Access mission briefing and track criterion completion
-        # Updates are logged with ArtifactType.MISSION_BRIEFING and LogEntryType.CRITERION_COMPLETED
-        # for audit trail and notification purposes
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Unable to mark criterion as completed."
 
         # Get existing mission briefing
-        briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
-
-        if not briefings:
+        briefing = await MissionManager.get_mission_briefing(self.context)
+        if not briefing:
             return "No mission briefing found."
-
-        briefing = briefings[0]
 
         # Adjust indices to be 0-based
         goal_index = goal_index - 1
@@ -593,12 +616,10 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         # Get current user information
         participants = await self.context.get_participants()
         current_user_id = None
-        # Explicitly not using current_user_name for now to avoid F841 lint error
 
         for participant in participants.participants:
             if participant.role == "user":
                 current_user_id = participant.id
-                # Store name if needed later
                 break
 
         if not current_user_id:
@@ -615,29 +636,22 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         briefing.version += 1
 
         # Save the updated briefing
-        success = await ArtifactMessenger.save_artifact(self.context, briefing)
-
-        if not success:
-            return "Failed to update mission briefing with completed criterion. Please try again."
+        MissionStorage.write_mission_briefing(mission_id, briefing)
 
         # Log the criterion completion
-        await ArtifactMessenger.log_artifact_update(
-            self.context,
-            briefing.artifact_id,
-            ArtifactType.MISSION_BRIEFING,
-            current_user_id,
-            briefing.version,
-            LogEntryType.CRITERION_COMPLETED,
-            f"Success criterion completed: {criterion.description}",
-            {"goal_name": goal.name, "criterion_description": criterion.description},
+        await MissionStorage.log_mission_event(
+            context=self.context,
+            mission_id=mission_id,
+            entry_type=LogEntryType.CRITERION_COMPLETED.value,
+            message=f"Success criterion completed: {criterion.description}",
+            related_entity_id=None,
+            metadata={"goal_name": goal.name, "criterion_description": criterion.description},
         )
 
         # Update mission status
-        statuses = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionStatus)
+        status = MissionStorage.read_mission_status(mission_id)
 
-        if statuses:
-            status = statuses[0]
-
+        if status:
             # Count all completed criteria
             completed_criteria = 0
             total_criteria = 0
@@ -660,14 +674,15 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             status.version += 1
 
             # Save the updated status
-            await ArtifactMessenger.save_artifact(self.context, status)
+            MissionStorage.write_mission_status(mission_id, status)
 
-            # Share with linked conversations
-            links = await MissionStateManager.get_links(self.context)
-            for conv_id in links.linked_conversations:
-                if conv_id != str(self.context.id):
-                    await ArtifactMessenger.send_artifact(self.context, briefing, conv_id)
-                    await ArtifactMessenger.send_artifact(self.context, status, conv_id)
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=self.context,
+                mission_id=mission_id,
+                update_type="mission_status",
+                message=f"Success criterion '{criterion.description}' for goal '{goal.name}' has been marked as completed."
+            )
 
             # Check if all criteria are completed for mission completion
             if completed_criteria == total_criteria and total_criteria > 0:
@@ -698,19 +713,17 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         if self.role != "hq":
             return "Only HQ can mark a mission as ready for field."
 
-        # Verify mission readiness requirements before marking as ready for field
-        # This is a critical gate transition that moves the mission from planning to operational phase
-        # Updates MissionStatus and notifies linked conversations via MissionStateManager
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Unable to mark mission as ready for field."
 
         # Get existing mission briefing and KB
-        briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
+        briefing = MissionStorage.read_mission_briefing(mission_id)
+        kb = MissionStorage.read_mission_kb(mission_id)
 
-        kb_artifacts = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionKB)
-
-        if not briefings:
+        if not briefing:
             return "No mission briefing found. Please create one before marking as ready for field."
-
-        briefing = briefings[0]
 
         if not briefing.goals:
             return "Mission briefing has no goals. Please add at least one goal before marking as ready for field."
@@ -726,13 +739,13 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             return "No success criteria defined. Please add at least one success criterion to a goal before marking as ready for field."
 
         # Check if KB has content
-        if not kb_artifacts or not kb_artifacts[0].sections:
+        if not kb or not kb.sections:
             return (
                 "Mission Knowledge Base is empty. Please add at least one KB section before marking as ready for field."
             )
 
         # Get or create mission status
-        statuses = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionStatus)
+        status = MissionStorage.read_mission_status(mission_id)
 
         # Get current user information
         participants = await self.context.get_participants()
@@ -746,12 +759,9 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         if not current_user_id:
             return "Could not identify current user."
 
-        mission_status = None
-        if statuses:
-            mission_status = statuses[0]
-        else:
+        if not status:
             # Create new status if not found
-            mission_status = MissionStatus(
+            status = MissionStatus(
                 created_by=current_user_id,
                 updated_by=current_user_id,
                 conversation_id=str(self.context.id),
@@ -763,62 +773,44 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             for goal in briefing.goals:
                 total_criteria += len(goal.success_criteria)
 
-            mission_status.total_criteria = total_criteria
+            status.total_criteria = total_criteria
 
         # Update status to in_progress
-        mission_status.state = MissionState.IN_PROGRESS
-        mission_status.status_message = "Mission is now ready for field operations"
+        status.state = MissionState.IN_PROGRESS
+        status.status_message = "Mission is now ready for field operations"
 
         # Add lifecycle metadata
-        if not hasattr(mission_status, "lifecycle") or not mission_status.lifecycle:
-            mission_status.lifecycle = {}
+        if not hasattr(status, "lifecycle") or not status.lifecycle:
+            status.lifecycle = {}
 
-        mission_status.lifecycle["ready_for_field"] = True
-        mission_status.lifecycle["ready_for_field_time"] = datetime.utcnow().isoformat()
-        mission_status.lifecycle["ready_for_field_by"] = current_user_id
+        status.lifecycle["ready_for_field"] = True
+        status.lifecycle["ready_for_field_time"] = datetime.utcnow().isoformat()
+        status.lifecycle["ready_for_field_by"] = current_user_id
 
         # Update metadata
-        mission_status.updated_at = datetime.utcnow()
-        mission_status.updated_by = current_user_id
-        mission_status.version += 1
+        status.updated_at = datetime.utcnow()
+        status.updated_by = current_user_id
+        status.version += 1
 
         # Save the updated status
-        success = await ArtifactMessenger.save_artifact(self.context, mission_status)
-
-        if not success:
-            return "Failed to update mission status. Please try again."
+        MissionStorage.write_mission_status(mission_id, status)
 
         # Log the gate transition
-        await ArtifactMessenger.log_artifact_update(
-            self.context,
-            mission_status.artifact_id,
-            ArtifactType.MISSION_STATUS,
-            current_user_id,
-            mission_status.version,
-            LogEntryType.GATE_PASSED,
-            "Mission marked as READY FOR FIELD",
-            {"gate": "ready_for_field"},
+        await MissionStorage.log_mission_event(
+            context=self.context,
+            mission_id=mission_id,
+            entry_type=LogEntryType.GATE_PASSED.value,
+            message="Mission marked as READY FOR FIELD",
+            metadata={"gate": "ready_for_field"},
         )
 
-        # Share with linked conversations
-        links = await MissionStateManager.get_links(self.context)
-
-        # Prepare notification for field conversations
-        for conv_id in links.linked_conversations:
-            if conv_id != str(self.context.id):
-                # Send status update
-                await ArtifactMessenger.send_artifact(self.context, mission_status, conv_id)
-
-                # Send notification to field conversation
-                target_client = ConversationClientManager.get_conversation_client(self.context, conv_id)
-
-                if target_client:
-                    await target_client.send_messages(
-                        NewConversationMessage(
-                            content="🔔 **Mission Gate Passed**: HQ has marked the mission as READY FOR FIELD. All mission information is now available and you can begin field operations.",
-                            message_type=MessageType.notice,
-                        )
-                    )
+        # Notify linked conversations
+        await MissionNotifier.notify_mission_update(
+            context=self.context,
+            mission_id=mission_id,
+            update_type="mission_status",
+            message="🔔 **Mission Gate Passed**: HQ has marked the mission as READY FOR FIELD. All mission information is now available and you can begin field operations.",
+        )
 
         await self.context.send_messages(
             NewConversationMessage(
@@ -840,22 +832,19 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         if self.role != "field":
             return "Only Field can report mission completion."
 
-        # Import here to avoid circular dependencies
-        from .artifact_messaging import ArtifactMessenger
-        from .artifacts import ArtifactType, LogEntryType
-        from .mission import MissionStateManager
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            return "No mission associated with this conversation. Unable to report mission completion."
 
         # Get existing mission status
-        statuses = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionStatus)
-
-        if not statuses:
+        status = MissionStorage.read_mission_status(mission_id)
+        if not status:
             return "No mission status found. Cannot complete mission without a status."
 
-        mission_status = statuses[0]
-
         # Check if all criteria are completed
-        if mission_status.completed_criteria < mission_status.total_criteria:
-            remaining = mission_status.total_criteria - mission_status.completed_criteria
+        if status.completed_criteria < status.total_criteria:
+            remaining = status.total_criteria - status.completed_criteria
             return f"Cannot complete mission - {remaining} success criteria are still pending completion."
 
         # Get current user information
@@ -871,60 +860,42 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             return "Could not identify current user."
 
         # Update status to completed
-        mission_status.state = MissionState.COMPLETED
-        mission_status.progress_percentage = 100
-        mission_status.status_message = "Mission is now complete"
+        status.state = MissionState.COMPLETED
+        status.progress_percentage = 100
+        status.status_message = "Mission is now complete"
 
         # Add lifecycle metadata
-        if not hasattr(mission_status, "lifecycle") or not mission_status.lifecycle:
-            mission_status.lifecycle = {}
+        if not hasattr(status, "lifecycle") or not status.lifecycle:
+            status.lifecycle = {}
 
-        mission_status.lifecycle["mission_completed"] = True
-        mission_status.lifecycle["mission_completed_time"] = datetime.utcnow().isoformat()
-        mission_status.lifecycle["mission_completed_by"] = current_user_id
+        status.lifecycle["mission_completed"] = True
+        status.lifecycle["mission_completed_time"] = datetime.utcnow().isoformat()
+        status.lifecycle["mission_completed_by"] = current_user_id
 
         # Update metadata
-        mission_status.updated_at = datetime.utcnow()
-        mission_status.updated_by = current_user_id
-        mission_status.version += 1
+        status.updated_at = datetime.utcnow()
+        status.updated_by = current_user_id
+        status.version += 1
 
         # Save the updated status
-        success = await ArtifactMessenger.save_artifact(self.context, mission_status)
-
-        if not success:
-            return "Failed to update mission status. Please try again."
+        MissionStorage.write_mission_status(mission_id, status)
 
         # Log the gate transition
-        await ArtifactMessenger.log_artifact_update(
-            self.context,
-            mission_status.artifact_id,
-            ArtifactType.MISSION_STATUS,
-            current_user_id,
-            mission_status.version,
-            LogEntryType.MISSION_COMPLETED,
-            "Mission marked as COMPLETED",
-            {"gate": "mission_completed"},
+        await MissionStorage.log_mission_event(
+            context=self.context,
+            mission_id=mission_id,
+            entry_type=LogEntryType.MISSION_COMPLETED.value,
+            message="Mission marked as COMPLETED",
+            metadata={"gate": "mission_completed"},
         )
 
-        # Share with linked conversations
-        links = await MissionStateManager.get_links(self.context)
-
-        # Prepare notification for HQ conversations
-        for conv_id in links.linked_conversations:
-            if conv_id != str(self.context.id):
-                # Send status update
-                await ArtifactMessenger.send_artifact(self.context, mission_status, conv_id)
-
-                # Send notification to HQ conversation
-                target_client = ConversationClientManager.get_conversation_client(self.context, conv_id)
-
-                if target_client:
-                    await target_client.send_messages(
-                        NewConversationMessage(
-                            content="🎉 **Mission Complete**: Field has reported that all mission objectives have been achieved. The mission is now complete.",
-                            message_type=MessageType.notice,
-                        )
-                    )
+        # Notify linked conversations
+        await MissionNotifier.notify_mission_update(
+            context=self.context,
+            mission_id=mission_id,
+            update_type="mission_completed",
+            message="🎉 **Mission Complete**: Field has reported that all mission objectives have been achieved. The mission is now complete.",
+        )
 
         await self.context.send_messages(
             NewConversationMessage(
@@ -951,30 +922,31 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             return {"is_field_request": False, "reason": "Only Field conversations can create field requests"}
 
         # Use a more sophisticated approach with a language model call
-        import openai_client
         import json
         import logging
         from typing import List
+
+        import openai_client
         from openai.types.chat import ChatCompletionMessageParam
 
         logger = logging.getLogger(__name__)
 
         # Define system prompt for the analysis
         system_prompt = """
-        You are an analyzer that determines if a field agent's message indicates they need information 
+        You are an analyzer that determines if a field agent's message indicates they need information
         or assistance from HQ. You are part of a mission coordination system where:
-        
+
         1. Field agents report from deployment locations and may need information from HQ
         2. When field agents need information, they can submit a formal Field Request to HQ
         3. Your job is to detect when a message suggests the field agent needs information/help
-        
+
         Analyze the chat history and latest message to determine:
-        
+
         1. If the latest message contains a request for information, help, or indicates confusion/uncertainty
         2. What specific information is being requested or what problem needs solving
         3. A concise title for this potential field request
         4. The priority level (low, medium, high, critical) of the request
-        
+
         Respond with JSON only:
         {
             "is_field_request": boolean,  // true if message indicates a need for HQ assistance
@@ -984,14 +956,14 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             "suggested_priority": string,  // "low", "medium", "high", or "critical"
             "confidence": number  // 0.0-1.0 how confident you are in this assessment
         }
-        
+
         When determining priority:
         - low: routine information, no urgency
         - medium: needed information but not blocking progress
         - high: important information that's blocking progress
         - critical: urgent information needed to address safety or mission-critical issues
-        
-        Be conservative - only return is_field_request=true if you're reasonably confident 
+
+        Be conservative - only return is_field_request=true if you're reasonably confident
         the field agent is actually asking for information/help from HQ.
         """
 
@@ -999,16 +971,17 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             # Check if we're in a test environment (Missing parts of context)
             if not hasattr(self.context, "assistant") or self.context.assistant is None:
                 return self._simple_keyword_detection(message)
-                
+
             # Create a simple client for this specific call
             # Note: Using a basic model to keep this detection lightweight
-            from .config import AssistantConfigModel
             from semantic_workbench_assistant.assistant_app import BaseModelAssistantConfig
-            
+
+            from .config import AssistantConfigModel
+
             # Get the config through the proper assistant app context
             assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
             config = await assistant_config.get(self.context.assistant)
-            
+
             if not hasattr(config, "service_config"):
                 # Fallback to simple detection if service config not available
                 return self._simple_keyword_detection(message)
@@ -1025,47 +998,39 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                         sender_name = "Field Agent"
                         if msg.sender.participant_id == self.context.assistant.id:
                             sender_name = "Assistant"
-                        
+
                         # Add to chat history
                         role = "user" if sender_name == "Field Agent" else "assistant"
-                        chat_history.append({
-                            "role": role,
-                            "content": f"{sender_name}: {msg.content}"
-                        })
-                    
+                        chat_history.append({"role": role, "content": f"{sender_name}: {msg.content}"})
+
                     # Reverse to get chronological order
                     chat_history.reverse()
             except Exception as e:
                 logger.warning(f"Could not retrieve chat history: {e}")
                 # Continue without history if we can't get it
-                
+
             # Create chat completion with history context
             async with openai_client.create_client(config.service_config) as client:
                 # Prepare messages array with system prompt and chat history
-                messages: List[ChatCompletionMessageParam] = [
-                    {"role": "system", "content": system_prompt}
-                ]
-                
+                messages: List[ChatCompletionMessageParam] = [{"role": "system", "content": system_prompt}]
+
                 # Add chat history if available
                 if chat_history:
                     for history_msg in chat_history:
-                        messages.append({
-                            "role": history_msg["role"],
-                            "content": history_msg["content"]
-                        })
-                
+                        messages.append({"role": history_msg["role"], "content": history_msg["content"]})
+
                 # Add the current message for analysis - explicitly mark as the latest message
                 messages.append({"role": "user", "content": f"Latest message from Field Agent: {message}"})
-                
+
                 # Make the API call
                 response = await client.chat.completions.create(
                     model="gpt-3.5-turbo",  # Using a smaller, faster model for this analysis
                     messages=messages,
                     response_format={"type": "json_object"},
                     max_tokens=500,
-                    temperature=0.2  # Low temperature for more consistent analysis
+                    temperature=0.2,  # Low temperature for more consistent analysis
                 )
-                
+
                 # Extract and parse the response
                 if response.choices and response.choices[0].message.content:
                     try:
@@ -1079,27 +1044,41 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                 else:
                     logger.warning("Empty response from LLM for field request detection")
                     return self._simple_keyword_detection(message)
-                    
+
         except Exception as e:
             # Fallback to simple detection if LLM call fails
             logger.exception(f"Error in LLM-based field request detection: {e}")
             return self._simple_keyword_detection(message)
-            
+
     def _simple_keyword_detection(self, message: str) -> Dict[str, Any]:
         """
         Simple fallback method for request detection using keyword matching.
-        
+
         Args:
             message: The user message to analyze
-            
+
         Returns:
             Dict with detection results
         """
         # Simple keyword matching for fallback
         request_indicators = [
-            "need information", "missing", "don't know", "unclear", "need clarification",
-            "help me understand", "confused about", "what is", "how do i", "can you explain",
-            "request", "blocked", "problem", "issue", "question", "uncertain", "clarify",
+            "need information",
+            "missing",
+            "don't know",
+            "unclear",
+            "need clarification",
+            "help me understand",
+            "confused about",
+            "what is",
+            "how do i",
+            "can you explain",
+            "request",
+            "blocked",
+            "problem",
+            "issue",
+            "question",
+            "uncertain",
+            "clarify",
         ]
 
         message_lower = message.lower()
@@ -1140,21 +1119,34 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         Returns:
             Dict with suggestion details
         """
-        # Analyze mission state to determine appropriate next actions
-        # Based on current briefing, KB, status, and pending field requests
-        # Uses RequestPriority and RequestStatus to prioritize suggestions
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            # No mission associated with this conversation
+            if self.role == "hq":
+                return {
+                    "suggestion": "create_mission_briefing",
+                    "reason": "No mission associated with this conversation. Start by creating a mission briefing.",
+                    "priority": "high",
+                    "function": "create_mission_briefing",
+                    "parameters": {"mission_name": "", "mission_description": ""},
+                }
+            else:
+                return {
+                    "suggestion": "wait_for_invitation",
+                    "reason": "No mission associated with this conversation. Wait for an invitation from HQ.",
+                    "priority": "medium",
+                    "function": None,
+                }
 
         # Get mission state information
-        briefings = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionBriefing)
-
-        kb_artifacts = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionKB)
-
-        statuses = await ArtifactMessenger.get_artifacts_by_type(self.context, MissionStatus)
-
-        requests = await ArtifactMessenger.get_artifacts_by_type(self.context, FieldRequest)
+        briefing = MissionStorage.read_mission_briefing(mission_id)
+        kb = MissionStorage.read_mission_kb(mission_id)
+        status = MissionStorage.read_mission_status(mission_id)
+        requests = MissionStorage.get_all_field_requests(mission_id)
 
         # Check if mission briefing exists
-        if not briefings:
+        if not briefing:
             if self.role == "hq":
                 return {
                     "suggestion": "create_mission_briefing",
@@ -1170,8 +1162,6 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                     "priority": "medium",
                     "function": None,
                 }
-
-        briefing = briefings[0]
 
         # Check if goals exist
         if not briefing.goals:
@@ -1192,7 +1182,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                 }
 
         # Check if KB exists
-        if not kb_artifacts or not kb_artifacts[0].sections:
+        if not kb or not kb.sections:
             if self.role == "hq":
                 return {
                     "suggestion": "add_kb_section",
@@ -1210,7 +1200,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                 }
 
         # Check mission status
-        if not statuses:
+        if not status:
             if self.role == "field":
                 return {
                     "suggestion": "update_mission_status",
@@ -1224,8 +1214,6 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                     },
                 }
         else:
-            status = statuses[0]
-
             # Check if mission is ready for field
             ready_for_field = (
                 hasattr(status, "lifecycle") and status.lifecycle and status.lifecycle.get("ready_for_field", False)
@@ -1235,7 +1223,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                 # Check if it's ready to mark as ready for field
                 has_goals = bool(briefing.goals)
                 has_criteria = any(bool(goal.success_criteria) for goal in briefing.goals)
-                has_kb = bool(kb_artifacts and kb_artifacts[0].sections)
+                has_kb = bool(kb and kb.sections)
 
                 if has_goals and has_criteria and has_kb:
                     return {
@@ -1258,7 +1246,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                         if request.priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]
                         else "medium",
                         "function": "resolve_field_request",
-                        "parameters": {"request_id": request.artifact_id, "resolution": ""},
+                        "parameters": {"request_id": request.request_id, "resolution": ""},
                     }
 
             # For field, check if all criteria are completed for mission completion

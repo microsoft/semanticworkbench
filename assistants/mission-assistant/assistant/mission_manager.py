@@ -1,744 +1,1144 @@
 """
-Mission manager for the mission assistant.
+Mission management logic for working with mission data.
 
-This module provides the high-level mission management functionality 
-that builds on the mission storage architecture.
+This module provides the core business logic for working with mission data
+without relying on the artifact abstraction.
 """
 
 import logging
-import secrets
 import uuid
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
-import semantic_workbench_api_model.workbench_service_client as wsc
-from pydantic import BaseModel, Field
-from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage,
-    MessageType,
-    NewConversationMessage,
-    ParticipantRole,
-)
-from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
-from semantic_workbench_assistant.storage import read_model, write_model
 
-from .artifacts import (
-    ArtifactType,
+from .mission_data import (
     FieldRequest,
+    KBSection,
     LogEntry,
     LogEntryType,
     MissionBriefing,
+    MissionGoal,
+    MissionKB,
     MissionLog,
     MissionState,
     MissionStatus,
+    RequestPriority,
+    RequestStatus,
+    SuccessCriterion,
 )
 from .mission_storage import (
     ConversationMissionManager,
+    MissionNotifier,
     MissionRole,
+    MissionStorage,
     MissionStorageManager,
-    MissionStorageReader,
-    MissionStorageWriter,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class MissionInvitation(BaseModel):
-    """Invitation to join a mission."""
-    
-    invitation_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    mission_id: str
-    creator_id: str
-    creator_name: str
-    invitation_token: str
-    target_username: Optional[str] = None
-    shared_file_ids: List[str] = Field(default_factory=list)
-    expires: datetime
-    status: str = "pending"  # pending, accepted, expired, revoked
-    accepted_by: Optional[str] = None
-    accepted_at: Optional[datetime] = None
-
-
 class MissionManager:
-    """High-level manager for mission operations."""
-    
+    """
+    Simplified mission manager that works directly with mission data
+    instead of treating everything as generic artifacts.
+    """
+
     @staticmethod
-    async def get_or_create_mission(
-        context: ConversationContext, mission_name: str, role: MissionRole
-    ) -> str:
+    async def create_mission(context: ConversationContext) -> Tuple[bool, str]:
         """
-        Gets or creates a mission for the conversation.
-        
+        Creates a new mission and associates the current conversation with it.
+
         Args:
-            context: The conversation context
-            mission_name: Name of the mission
-            role: Role of this conversation in the mission
-            
+            context: Current conversation context
+
         Returns:
-            The mission ID
+            Tuple of (success, mission_id)
         """
-        # Check if conversation is already associated with a mission
-        mission_id = await ConversationMissionManager.get_conversation_mission(context)
-        
-        if mission_id:
-            logger.info(f"Conversation {context.id} already associated with mission {mission_id}")
-            return mission_id
-            
-        # Create a new mission ID
-        mission_id = str(uuid.uuid4())
-        
-        # Create mission directory structure
-        MissionStorageManager.get_mission_dir(mission_id)
-        MissionStorageManager.get_conversation_dir(mission_id, str(context.id), role)
-        MissionStorageManager.get_shared_dir(mission_id)
-        
-        # Create artifact directories
-        for artifact_type in ArtifactType:
-            MissionStorageManager.get_artifact_dir(mission_id, artifact_type.value)
-        
-        # Set conversation role and mission association
-        await ConversationMissionManager.set_conversation_role(context, mission_id, role)
-        await ConversationMissionManager.set_conversation_mission(context, mission_id)
-        
-        # Initialize mission status
-        await MissionManager.initialize_mission_status(context, mission_id, mission_name)
-        
-        logger.info(f"Created new mission {mission_id} for conversation {context.id} with role {role}")
-        return mission_id
-    
+        try:
+            # Generate a unique mission ID
+            mission_id = str(uuid.uuid4())
+
+            # Associate the conversation with the mission
+            await ConversationMissionManager.set_conversation_mission(context, mission_id)
+
+            # Set this conversation as the HQ
+            await ConversationMissionManager.set_conversation_role(context, mission_id, MissionRole.HQ)
+
+            logger.info(f"Created new mission {mission_id} for conversation {context.id}")
+            return True, mission_id
+
+        except Exception as e:
+            logger.exception(f"Error creating mission: {e}")
+            return False, ""
+
     @staticmethod
-    async def initialize_mission_status(
-        context: ConversationContext, mission_id: str, mission_name: str
-    ) -> None:
+    async def join_mission(
+        context: ConversationContext, mission_id: str, role: MissionRole = MissionRole.FIELD
+    ) -> bool:
         """
-        Initializes the mission status artifact and creates a permanent mission invitation.
-        
+        Joins an existing mission.
+
         Args:
-            context: The conversation context
-            mission_id: ID of the mission
-            mission_name: Name of the mission
-        """
-        # Get current user information
-        participants = await context.get_participants()
-        user_id = None
-        user_name = "Mission Creator"
-        
-        for participant in participants.participants:
-            if participant.role == ParticipantRole.user:
-                user_id = participant.id
-                user_name = participant.name
-                break
-        
-        if not user_id:
-            user_id = "system"
-            
-        # Create mission status
-        status = MissionStatus(
-            artifact_type=ArtifactType.MISSION_STATUS,
-            state=MissionState.PLANNING,
-            progress_percentage=0,
-            created_by=user_id,
-            updated_by=user_id,
-            conversation_id=str(context.id)
-        )
-        
-        # Save the status
-        MissionStorageWriter.write_artifact(
-            mission_id=mission_id,
-            artifact_type=ArtifactType.MISSION_STATUS.value,
-            artifact_id=status.artifact_id,
-            artifact=status
-        )
-        
-        # Create initial mission log
-        log = MissionLog(
-            artifact_type=ArtifactType.MISSION_LOG,
-            created_by=user_id,
-            updated_by=user_id,
-            conversation_id=str(context.id),
-            entries=[
-                LogEntry(
-                    entry_type=LogEntryType.MISSION_STARTED,
-                    timestamp=datetime.utcnow(),
-                    user_id=user_id,
-                    user_name=user_name,
-                    message=f"Mission '{mission_name}' created",
-                )
-            ]
-        )
-        
-        # Save the log
-        MissionStorageWriter.write_artifact(
-            mission_id=mission_id,
-            artifact_type=ArtifactType.MISSION_LOG.value,
-            artifact_id=log.artifact_id,
-            artifact=log
-        )
-        
-        # Create a permanent mission invitation
-        # Set expiration far in the future (10 years)
-        long_expiration = datetime.utcnow() + timedelta(days=3650)
-        invitation_token = secrets.token_urlsafe(16)  # Shorter token for easier sharing
-        
-        # Create invitation
-        invitation = MissionInvitation(
-            mission_id=mission_id,
-            creator_id=user_id,
-            creator_name=user_name,
-            invitation_token=invitation_token,
-            target_username=None,  # No username restriction
-            shared_file_ids=[],
-            expires=long_expiration,
-        )
-        
-        # Save invitation to mission storage
-        invitation_dir = MissionStorageManager.get_mission_dir(mission_id) / "invitations"
-        invitation_dir.mkdir(exist_ok=True)
-        
-        invitation_path = invitation_dir / f"{invitation.invitation_id}.json"
-        write_model(invitation_path, invitation)
-        
-        # Log invitation creation
-        log.entries.append(
-            LogEntry(
-                entry_type=LogEntryType.MISSION_STARTED,
-                timestamp=datetime.utcnow(),
-                user_id=user_id,
-                user_name=user_name,
-                message="Permanent mission invitation created",
-            )
-        )
-        log.updated_at = datetime.utcnow()
-        
-        # Update the log
-        MissionStorageWriter.write_artifact(
-            mission_id=mission_id,
-            artifact_type=ArtifactType.MISSION_LOG.value,
-            artifact_id=log.artifact_id,
-            artifact=log
-        )
-        
-        logger.info(f"Initialized status, log, and permanent invitation for mission {mission_id}")
-    
-    @staticmethod
-    async def get_conversation_role(context: ConversationContext) -> Optional[MissionRole]:
-        """
-        Gets the role of a conversation in a mission.
-        
-        Args:
-            context: The conversation context
-            
+            context: Current conversation context
+            mission_id: ID of the mission to join
+            role: Role for this conversation (HQ or FIELD)
+
         Returns:
-            The role, or None if the conversation is not associated with a mission
+            True if joined successfully, False otherwise
         """
+        try:
+            # Check if mission exists
+            if not MissionStorageManager.mission_exists(mission_id):
+                logger.error(f"Cannot join mission: mission {mission_id} does not exist")
+                return False
+
+            # Associate the conversation with the mission
+            await ConversationMissionManager.set_conversation_mission(context, mission_id)
+
+            # Set the conversation role
+            await ConversationMissionManager.set_conversation_role(context, mission_id, role)
+
+            logger.info(f"Joined mission {mission_id} as {role.value}")
+            return True
+
+        except Exception as e:
+            logger.exception(f"Error joining mission: {e}")
+            return False
+
+    @staticmethod
+    async def get_mission_id(context: ConversationContext) -> Optional[str]:
+        """Gets the mission ID associated with the current conversation."""
+        return await ConversationMissionManager.get_conversation_mission(context)
+
+    @staticmethod
+    async def get_mission_role(context: ConversationContext) -> Optional[MissionRole]:
+        """Gets the role of the current conversation in its mission."""
         return await ConversationMissionManager.get_conversation_role(context)
-    
+
     @staticmethod
     async def get_mission_briefing(context: ConversationContext) -> Optional[MissionBriefing]:
-        """
-        Gets the mission briefing for the mission associated with the conversation.
-        
-        Args:
-            context: The conversation context
-            
-        Returns:
-            The mission briefing, or None if not found
-        """
-        mission_id = await ConversationMissionManager.get_conversation_mission(context)
-        
+        """Gets the mission briefing for the current conversation's mission."""
+        mission_id = await MissionManager.get_mission_id(context)
         if not mission_id:
             return None
-            
-        # Get all briefings for this mission
-        briefings = MissionStorageReader.read_all_artifacts(
-            mission_id=mission_id,
-            artifact_type=ArtifactType.MISSION_BRIEFING.value,
-            model_class=MissionBriefing
-        )
-        
-        if not briefings:
-            return None
-            
-        # Sort by updated_at, newest first
-        briefings.sort(key=lambda b: b.updated_at, reverse=True)
-        return briefings[0]
-    
+
+        return MissionStorage.read_mission_briefing(mission_id)
+
+    @staticmethod
+    async def create_mission_briefing(
+        context: ConversationContext,
+        mission_name: str,
+        mission_description: str,
+        goals: Optional[List[Dict]] = None,
+        timeline: Optional[str] = None,
+        additional_context: Optional[str] = None,
+    ) -> Tuple[bool, Optional[MissionBriefing]]:
+        """
+        Creates a new mission briefing.
+
+        Args:
+            context: Current conversation context
+            mission_name: Name of the mission
+            mission_description: Description of the mission
+            goals: Optional list of goals with success criteria
+            timeline: Optional timeline for the mission
+            additional_context: Optional additional context
+
+        Returns:
+            Tuple of (success, mission_briefing)
+        """
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot create briefing: no mission associated with this conversation")
+                return False, None
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot create briefing: no user found in conversation")
+                return False, None
+
+            # Create mission goals
+            mission_goals = []
+            if goals:
+                for i, goal_data in enumerate(goals):
+                    goal = MissionGoal(
+                        name=goal_data.get("name", f"Goal {i + 1}"),
+                        description=goal_data.get("description", ""),
+                        priority=goal_data.get("priority", i + 1),
+                        success_criteria=[],
+                    )
+
+                    # Add success criteria
+                    criteria = goal_data.get("success_criteria", [])
+                    for criterion in criteria:
+                        goal.success_criteria.append(SuccessCriterion(description=criterion))
+
+                    mission_goals.append(goal)
+
+            # Create the mission briefing
+            briefing = MissionBriefing(
+                mission_name=mission_name,
+                mission_description=mission_description,
+                goals=mission_goals,
+                timeline=timeline,
+                additional_context=additional_context,
+                created_by=current_user_id,
+                updated_by=current_user_id,
+                conversation_id=str(context.id),
+            )
+
+            # Save the briefing
+            MissionStorage.write_mission_briefing(mission_id, briefing)
+
+            # Log the creation
+            await MissionStorage.log_mission_event(
+                context=context,
+                mission_id=mission_id,
+                entry_type=LogEntryType.BRIEFING_CREATED.value,
+                message=f"Created mission briefing: {mission_name}",
+            )
+
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="briefing",
+                message=f"Mission briefing updated: {mission_name}",
+            )
+
+            return True, briefing
+
+        except Exception as e:
+            logger.exception(f"Error creating mission briefing: {e}")
+            return False, None
+
+    @staticmethod
+    async def update_mission_briefing(
+        context: ConversationContext,
+        updates: Dict[str, Any],
+    ) -> bool:
+        """
+        Updates an existing mission briefing.
+
+        Args:
+            context: Current conversation context
+            updates: Dictionary of fields to update
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot update briefing: no mission associated with this conversation")
+                return False
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot update briefing: no user found in conversation")
+                return False
+
+            # Load existing briefing
+            briefing = MissionStorage.read_mission_briefing(mission_id)
+            if not briefing:
+                logger.error(f"Cannot update briefing: no briefing found for mission {mission_id}")
+                return False
+
+            # Apply updates, skipping protected fields
+            updated = False
+            protected_fields = ["created_by", "conversation_id", "created_at", "version"]
+
+            for field, value in updates.items():
+                if hasattr(briefing, field) and field not in protected_fields:
+                    setattr(briefing, field, value)
+                    updated = True
+
+            if not updated:
+                logger.info("No updates applied to briefing")
+                return True
+
+            # Update metadata
+            briefing.updated_at = datetime.utcnow()
+            briefing.updated_by = current_user_id
+            briefing.version += 1
+
+            # Save the updated briefing
+            MissionStorage.write_mission_briefing(mission_id, briefing)
+
+            # Log the update
+            await MissionStorage.log_mission_event(
+                context=context,
+                mission_id=mission_id,
+                entry_type=LogEntryType.BRIEFING_UPDATED.value,
+                message=f"Updated mission briefing: {briefing.mission_name}",
+            )
+
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="briefing",
+                message=f"Mission briefing updated: {briefing.mission_name}",
+            )
+
+            return True
+
+        except Exception as e:
+            logger.exception(f"Error updating mission briefing: {e}")
+            return False
+
     @staticmethod
     async def get_mission_status(context: ConversationContext) -> Optional[MissionStatus]:
-        """
-        Gets the mission status for the mission associated with the conversation.
-        
-        Args:
-            context: The conversation context
-            
-        Returns:
-            The mission status, or None if not found
-        """
-        mission_id = await ConversationMissionManager.get_conversation_mission(context)
-        
+        """Gets the mission status for the current conversation's mission."""
+        mission_id = await MissionManager.get_mission_id(context)
         if not mission_id:
             return None
-            
-        # Get all statuses for this mission
-        statuses = MissionStorageReader.read_all_artifacts(
-            mission_id=mission_id,
-            artifact_type=ArtifactType.MISSION_STATUS.value,
-            model_class=MissionStatus
-        )
-        
-        if not statuses:
-            return None
-            
-        # Sort by updated_at, newest first
-        statuses.sort(key=lambda s: s.updated_at, reverse=True)
-        return statuses[0]
-    
+
+        return MissionStorage.read_mission_status(mission_id)
+
     @staticmethod
-    async def get_field_requests(
-        context: ConversationContext, include_resolved: bool = False
-    ) -> List[FieldRequest]:
-        """
-        Gets field requests for the mission associated with the conversation.
-        
-        Args:
-            context: The conversation context
-            include_resolved: Whether to include resolved requests
-            
-        Returns:
-            List of field requests
-        """
-        mission_id = await ConversationMissionManager.get_conversation_mission(context)
-        
-        if not mission_id:
-            return []
-            
-        # Get all requests for this mission
-        requests = MissionStorageReader.read_all_artifacts(
-            mission_id=mission_id,
-            artifact_type=ArtifactType.FIELD_REQUEST.value,
-            model_class=FieldRequest
-        )
-        
-        if not include_resolved:
-            requests = [r for r in requests if r.status != "resolved"]
-            
-        # Sort by updated_at, newest first
-        requests.sort(key=lambda r: r.updated_at, reverse=True)
-        return requests
-    
-    @staticmethod
-    async def create_invitation(
+    async def update_mission_status(
         context: ConversationContext,
-        target_username: Optional[str] = None,
-        files_to_share: Optional[List[str]] = None,
-        expiration_hours: int = 24,
-    ) -> Tuple[bool, str, Optional[MissionInvitation]]:
+        state: Optional[str] = None,
+        progress: Optional[int] = None,
+        status_message: Optional[str] = None,
+        next_actions: Optional[List[str]] = None,
+    ) -> Tuple[bool, Optional[MissionStatus]]:
         """
-        Creates an invitation for another user to join a mission.
-        
+        Updates the mission status.
+
         Args:
-            context: The conversation context
-            target_username: Optional username to invite
-            files_to_share: Optional list of file IDs to share
-            expiration_hours: Hours until invitation expires
-            
+            context: Current conversation context
+            state: Optional mission state
+            progress: Optional progress percentage (0-100)
+            status_message: Optional status message
+            next_actions: Optional list of next actions
+
         Returns:
-            Tuple of (success, message, invitation)
+            Tuple of (success, mission_status)
         """
-        mission_id = await ConversationMissionManager.get_conversation_mission(context)
-        
-        if not mission_id:
-            return False, "Conversation is not associated with a mission", None
-            
-        # Get current user information
-        participants = await context.get_participants()
-        user_id = None
-        user_name = "Mission Creator"
-        
-        for participant in participants.participants:
-            if participant.role == ParticipantRole.user:
-                user_id = participant.id
-                user_name = participant.name
-                break
-        
-        if not user_id:
-            return False, "Could not identify current user", None
-            
-        # Generate invitation token
-        invitation_token = secrets.token_urlsafe(32)
-        expiration = datetime.utcnow() + timedelta(hours=expiration_hours)
-        
-        # Create invitation
-        invitation = MissionInvitation(
-            mission_id=mission_id,
-            creator_id=user_id,
-            creator_name=user_name,
-            invitation_token=invitation_token,
-            target_username=target_username,
-            shared_file_ids=files_to_share or [],
-            expires=expiration,
-        )
-        
-        # Save invitation to mission storage
-        invitation_dir = MissionStorageManager.get_mission_dir(mission_id) / "invitations"
-        invitation_dir.mkdir(exist_ok=True)
-        
-        invitation_path = invitation_dir / f"{invitation.invitation_id}.json"
-        write_model(invitation_path, invitation)
-        
-        # Generate invitation code
-        invitation_code = f"{invitation.invitation_id}:{invitation_token}"
-        
-        # Format success message
-        if target_username:
-            message = f"Invitation created for {target_username}. They can join by using the /join {invitation_code} command in their conversation."
-        else:
-            message = f"Invitation created. Anyone with this code can join by using the /join {invitation_code} command in their conversation."
-        
-        # Send notification message about the invitation
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"Mission invitation {invitation.invitation_id} created. Use this code to invite others: {invitation_code}",
-                message_type=MessageType.notice,
-            )
-        )
-        
-        return True, message, invitation
-    
-    @staticmethod
-    async def validate_invitation(
-        context: ConversationContext, invitation_code: str
-    ) -> Tuple[bool, str, Optional[Dict]]:
-        """
-        Validates an invitation code.
-        
-        Args:
-            context: The conversation context
-            invitation_code: The invitation code
-            
-        Returns:
-            Tuple of (valid, message, invitation_data)
-        """
-        if ":" not in invitation_code:
-            return False, "Invalid invitation format", None
-            
-        invitation_id, token = invitation_code.split(":", 1)
-        
-        # Search for the invitation in all missions
-        missions_root = MissionStorageManager.get_missions_root()
-        
-        for mission_dir in missions_root.iterdir():
-            if not mission_dir.is_dir():
-                continue
-                
-            invitation_dir = mission_dir / "invitations"
-            if not invitation_dir.exists():
-                continue
-                
-            invitation_path = invitation_dir / f"{invitation_id}.json"
-            if not invitation_path.exists():
-                continue
-                
-            # Found the invitation file, now validate the token
-            invitation = read_model(invitation_path, MissionInvitation)
-            
-            if not invitation:
-                continue
-                
-            if invitation.invitation_token != token:
-                return False, "Invalid invitation token", None
-                
-            # Check if expired
-            if datetime.utcnow() > invitation.expires:
-                return False, "Invitation has expired", None
-                
-            # Check if already accepted
-            if invitation.status == "accepted":
-                return False, "Invitation has already been accepted", None
-                
-            # Check if target username matches
-            if invitation.target_username:
-                # Get current user information
-                participants = await context.get_participants()
-                current_username = None
-                
-                for participant in participants.participants:
-                    if participant.role == ParticipantRole.user:
-                        current_username = participant.name
-                        break
-                
-                if current_username and invitation.target_username.lower() != current_username.lower():
-                    return False, f"This invitation was created for {invitation.target_username}", None
-                    
-            # Return invitation data
-            return True, "Invitation is valid", {
-                "invitation": invitation.model_dump(),
-                "mission_id": invitation.mission_id,
-            }
-            
-        return False, "Invitation not found", None
-    
-    @staticmethod
-    async def redeem_invitation(
-        context: ConversationContext, invitation_code: str
-    ) -> Tuple[bool, str, Optional[Dict]]:
-        """
-        Redeems an invitation code to join a mission.
-        
-        Args:
-            context: The conversation context
-            invitation_code: The invitation code
-            
-        Returns:
-            Tuple of (success, message, mission_data)
-        """
-        valid, message, invitation_data = await MissionManager.validate_invitation(context, invitation_code)
-        
-        if not valid or not invitation_data:
-            return False, message, None
-            
-        invitation = invitation_data["invitation"]
-        mission_id = invitation_data["mission_id"]
-        
-        # Check if conversation already associated with a mission
-        existing_mission = await ConversationMissionManager.get_conversation_mission(context)
-        
-        if existing_mission:
-            if existing_mission == mission_id:
-                return True, "You are already part of this mission", {"mission_id": mission_id}
-            else:
-                return False, "This conversation is already part of another mission", None
-                
-        # Get current user information
-        participants = await context.get_participants()
-        user_id = None
-        user_name = "Field User"
-        
-        for participant in participants.participants:
-            if participant.role == ParticipantRole.user:
-                user_id = participant.id
-                user_name = participant.name
-                break
-        
-        if not user_id:
-            return False, "Could not identify current user", None
-            
-        # Set up this conversation in the mission
-        MissionStorageManager.get_conversation_dir(mission_id, str(context.id), MissionRole.FIELD)
-        
-        # Set conversation role and mission association
-        await ConversationMissionManager.set_conversation_role(context, mission_id, MissionRole.FIELD)
-        await ConversationMissionManager.set_conversation_mission(context, mission_id)
-        
-        # Update conversation metadata to indicate this is a field role
-        conversation = await context.get_conversation()
-        metadata = conversation.metadata or {}
-        metadata["mission_role"] = "field"  # Explicitly set the role in metadata
-        
-        # Notify workbench UI to refresh role display
-        from semantic_workbench_api_model.workbench_model import AssistantStateEvent
-        await context.send_conversation_state_event(
-            AssistantStateEvent(
-                state_id="mission_role",
-                event="updated",
-                state=None
-            )
-        )
-        
-        # Update the invitation status
-        invitation_dir = MissionStorageManager.get_mission_dir(mission_id) / "invitations"
-        invitation_path = invitation_dir / f"{invitation['invitation_id']}.json"
-        
-        invitation_obj = read_model(invitation_path, MissionInvitation)
-        if invitation_obj:
-            invitation_obj.status = "accepted"
-            invitation_obj.accepted_by = user_name
-            invitation_obj.accepted_at = datetime.utcnow()
-            write_model(invitation_path, invitation_obj)
-        
-        # Add an entry to the mission log
-        mission_logs = MissionStorageReader.read_all_artifacts(
-            mission_id=mission_id,
-            artifact_type=ArtifactType.MISSION_LOG.value,
-            model_class=MissionLog
-        )
-        
-        if mission_logs:
-            mission_log = mission_logs[0]  # Use the most recent log
-            mission_log.entries.append(
-                LogEntry(
-                    entry_type=LogEntryType.PARTICIPANT_JOINED,
-                    timestamp=datetime.utcnow(),
-                    user_id=user_id,
-                    user_name=user_name,
-                    message=f"{user_name} joined the mission as a field operative",
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot update status: no mission associated with this conversation")
+                return False, None
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot update status: no user found in conversation")
+                return False, None
+
+            # Get existing status or create new
+            status = MissionStorage.read_mission_status(mission_id)
+            is_new = False
+
+            if not status:
+                # Create new status
+                status = MissionStatus(
+                    created_by=current_user_id,
+                    updated_by=current_user_id,
+                    conversation_id=str(context.id),
+                    active_blockers=[],
+                    next_actions=[],
                 )
-            )
-            mission_log.updated_at = datetime.utcnow()
-            mission_log.updated_by = user_id
-            
-            MissionStorageWriter.write_artifact(
+
+                # Copy goals from briefing if available
+                briefing = MissionStorage.read_mission_briefing(mission_id)
+                if briefing:
+                    status.goals = briefing.goals
+
+                    # Calculate total criteria
+                    total_criteria = 0
+                    for goal in briefing.goals:
+                        total_criteria += len(goal.success_criteria)
+
+                    status.total_criteria = total_criteria
+
+                is_new = True
+
+            # Apply updates
+            if state:
+                status.state = MissionState(state)
+
+            if progress is not None:
+                status.progress_percentage = min(max(progress, 0), 100)
+
+            if status_message:
+                status.status_message = status_message
+
+            if next_actions:
+                status.next_actions = next_actions
+
+            # Update metadata
+            status.updated_at = datetime.utcnow()
+            status.updated_by = current_user_id
+            status.version += 1
+
+            # Save the status
+            MissionStorage.write_mission_status(mission_id, status)
+
+            # Log the update
+            event_type = LogEntryType.STATUS_CHANGED
+            message = "Created mission status" if is_new else "Updated mission status"
+
+            await MissionStorage.log_mission_event(
+                context=context,
                 mission_id=mission_id,
-                artifact_type=ArtifactType.MISSION_LOG.value,
-                artifact_id=mission_log.artifact_id,
-                artifact=mission_log
+                entry_type=event_type.value,
+                message=message,
+                metadata={
+                    "state": status.state.value if status.state else None,
+                    "progress": status.progress_percentage,
+                },
             )
-        
-        return True, "You have successfully joined the mission", {"mission_id": mission_id}
-        
+
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="status",
+                message=f"Mission status updated: {status.state.value if status.state else 'Unknown'}",
+            )
+
+            return True, status
+
+        except Exception as e:
+            logger.exception(f"Error updating mission status: {e}")
+            return False, None
+
     @staticmethod
-    async def list_active_invitations(
-        context: ConversationContext,
-        include_expired: bool = False
-    ) -> List[MissionInvitation]:
-        """
-        Lists all active invitations for the mission associated with the conversation.
-        
-        Args:
-            context: The conversation context
-            include_expired: Whether to include expired invitations (defaults to False)
-            
-        Returns:
-            List of active invitations
-        """
-        mission_id = await ConversationMissionManager.get_conversation_mission(context)
-        
+    async def get_field_requests(context: ConversationContext) -> List[FieldRequest]:
+        """Gets all field requests for the current conversation's mission."""
+        mission_id = await MissionManager.get_mission_id(context)
         if not mission_id:
             return []
-            
-        # Get the invitations directory for this mission
-        invitation_dir = MissionStorageManager.get_mission_dir(mission_id) / "invitations"
-        
-        if not invitation_dir.exists():
-            return []
-        
-        # Read all invitation files
-        invitations = []
-        for file_path in invitation_dir.glob("*.json"):
-            invitation = read_model(file_path, MissionInvitation)
-            if invitation:
-                # Filter by status (only include pending invitations)
-                if invitation.status == "pending":
-                    # Check expiration if we're not including expired invitations
-                    if include_expired or datetime.utcnow() <= invitation.expires:
-                        invitations.append(invitation)
-        
-        # Sort by creation time (using invitation_id which contains a UUID)
-        invitations.sort(key=lambda inv: inv.invitation_id)
-        
-        return invitations
-    
+
+        return MissionStorage.get_all_field_requests(mission_id)
+
     @staticmethod
-    async def process_invite_command(
-        context: ConversationContext, message: ConversationMessage, invite_command: str
-    ) -> bool:
+    async def create_field_request(
+        context: ConversationContext,
+        title: str,
+        description: str,
+        priority: RequestPriority = RequestPriority.MEDIUM,
+        related_goal_ids: Optional[List[str]] = None,
+    ) -> Tuple[bool, Optional[FieldRequest]]:
         """
-        Processes an invite command - shows the permanent mission invitation.
-        
+        Creates a new field request.
+
         Args:
-            context: The conversation context
-            message: The message containing the command
-            invite_command: The command name (e.g., "invite")
-            
+            context: Current conversation context
+            title: Title of the request
+            description: Description of the request
+            priority: Priority level
+            related_goal_ids: Optional list of related goal IDs
+
         Returns:
-            True if command was processed, False otherwise
+            Tuple of (success, field_request)
         """
-        content = message.content.strip()
-        if not content.startswith(f"/{invite_command}"):
-            return False
-            
-        # Get existing invitations
-        invitations = await MissionManager.list_active_invitations(context)
-        
-        if invitations:
-            # Use the first invitation - single permanent invitation per mission
-            invitation = invitations[0]
-            invitation_code = f"{invitation.invitation_id}:{invitation.invitation_token}"
-            result_message = (
-                "Mission invitation code to share with field operatives:\n\n"
-                f"`{invitation_code}`\n\n"
-                f"Field operatives can join by using: `/join {invitation_code}`"
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot create field request: no mission associated with this conversation")
+                return False, None
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot create field request: no user found in conversation")
+                return False, None
+
+            # Create the field request
+            field_request = FieldRequest(
+                title=title,
+                description=description,
+                priority=priority,
+                related_goal_ids=related_goal_ids or [],
+                created_by=current_user_id,
+                updated_by=current_user_id,
+                conversation_id=str(context.id),
             )
-            success = True
-        else:
-            # No invitation found, create a new permanent one
-            success, result_message, _ = await MissionManager.create_invitation(
-                context, expiration_hours=24*365*10  # ~10 years
+
+            # Save the request
+            MissionStorage.write_field_request(mission_id, field_request)
+
+            # Log the creation
+            await MissionStorage.log_mission_event(
+                context=context,
+                mission_id=mission_id,
+                entry_type=LogEntryType.REQUEST_CREATED.value,
+                message=f"Created field request: {title}",
+                related_entity_id=field_request.request_id,
+                metadata={"priority": priority.value, "request_id": field_request.request_id},
             )
-            
-        # Send response
-        await context.send_messages(
-            NewConversationMessage(
-                content=result_message,
-                message_type=MessageType.chat if success else MessageType.notice,
+
+            # Update mission status to add this request as a blocker if high priority
+            if priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]:
+                status = MissionStorage.read_mission_status(mission_id)
+                if status and field_request.request_id:
+                    status.active_blockers.append(field_request.request_id)
+                    status.updated_at = datetime.utcnow()
+                    status.updated_by = current_user_id
+                    status.version += 1
+                    MissionStorage.write_mission_status(mission_id, status)
+
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="field_request",
+                message=f"New field request: {title} (Priority: {priority.value})",
             )
-        )
-        
-        return True
-    
+
+            return True, field_request
+
+        except Exception as e:
+            logger.exception(f"Error creating field request: {e}")
+            return False, None
+
     @staticmethod
-    async def process_join_command(
-        context: ConversationContext, message: ConversationMessage, join_command: str
-    ) -> bool:
+    async def update_field_request(
+        context: ConversationContext,
+        request_id: str,
+        updates: Dict[str, Any],
+    ) -> Tuple[bool, Optional[FieldRequest]]:
         """
-        Processes a join command.
-        
+        Updates an existing field request.
+
         Args:
-            context: The conversation context
-            message: The message containing the command
-            join_command: The command name (e.g., "join")
-            
+            context: Current conversation context
+            request_id: ID of the request to update
+            updates: Dictionary of fields to update
+
         Returns:
-            True if command was processed, False otherwise
+            Tuple of (success, field_request)
         """
-        content = message.content.strip()
-        if not content.startswith(f"/{join_command}"):
-            return False
-            
-        parts = content.split(maxsplit=1)
-        
-        if len(parts) < 2:
-            await context.send_messages(
-                NewConversationMessage(
-                    content=f"Please provide an invitation code. Format: /{join_command} invitation_code",
-                    message_type=MessageType.notice,
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot update field request: no mission associated with this conversation")
+                return False, None
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot update field request: no user found in conversation")
+                return False, None
+
+            # Get the field request
+            field_request = MissionStorage.read_field_request(mission_id, request_id)
+            if not field_request:
+                logger.error(f"Field request {request_id} not found")
+                return False, None
+
+            # Apply updates, skipping protected fields
+            updated = False
+            protected_fields = ["request_id", "created_by", "created_at", "conversation_id", "version"]
+
+            for field, value in updates.items():
+                if hasattr(field_request, field) and field not in protected_fields:
+                    # Special handling for status changes
+                    if field == "status" and field_request.status != value:
+                        # Add an update to the history
+                        field_request.updates.append({
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "user_id": current_user_id,
+                            "message": f"Status changed from {field_request.status.value} to {value.value}",
+                            "status": value.value,
+                        })
+
+                    setattr(field_request, field, value)
+                    updated = True
+
+            if not updated:
+                logger.info(f"No updates applied to field request {request_id}")
+                return True, field_request
+
+            # Update metadata
+            field_request.updated_at = datetime.utcnow()
+            field_request.updated_by = current_user_id
+            field_request.version += 1
+
+            # Save the updated request
+            MissionStorage.write_field_request(mission_id, field_request)
+
+            # Log the update
+            await MissionStorage.log_mission_event(
+                context=context,
+                mission_id=mission_id,
+                entry_type=LogEntryType.REQUEST_UPDATED.value,
+                message=f"Updated field request: {field_request.title}",
+                related_entity_id=field_request.request_id,
+            )
+
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="field_request_updated",
+                message=f"Field request updated: {field_request.title}",
+            )
+
+            return True, field_request
+
+        except Exception as e:
+            logger.exception(f"Error updating field request: {e}")
+            return False, None
+
+    @staticmethod
+    async def resolve_field_request(
+        context: ConversationContext,
+        request_id: str,
+        resolution: str,
+    ) -> Tuple[bool, Optional[FieldRequest]]:
+        """
+        Resolves a field request.
+
+        Args:
+            context: Current conversation context
+            request_id: ID of the request to resolve
+            resolution: Resolution information
+
+        Returns:
+            Tuple of (success, field_request)
+        """
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot resolve field request: no mission associated with this conversation")
+                return False, None
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot resolve field request: no user found in conversation")
+                return False, None
+
+            # Get the field request
+            field_request = MissionStorage.read_field_request(mission_id, request_id)
+            if not field_request:
+                # Try to find it in all requests
+                all_requests = MissionStorage.get_all_field_requests(mission_id)
+                for request in all_requests:
+                    if request.request_id == request_id:
+                        field_request = request
+                        break
+
+                if not field_request:
+                    logger.error(f"Field request {request_id} not found")
+                    return False, None
+
+            # Check if already resolved
+            if field_request.status == RequestStatus.RESOLVED:
+                logger.info(f"Field request {request_id} is already resolved")
+                return True, field_request
+
+            # Update the request
+            field_request.status = RequestStatus.RESOLVED
+            field_request.resolution = resolution
+            field_request.resolved_at = datetime.utcnow()
+            field_request.resolved_by = current_user_id
+
+            # Add to history
+            field_request.updates.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "user_id": current_user_id,
+                "message": f"Request resolved: {resolution}",
+                "status": RequestStatus.RESOLVED.value,
+            })
+
+            # Update metadata
+            field_request.updated_at = datetime.utcnow()
+            field_request.updated_by = current_user_id
+            field_request.version += 1
+
+            # Save the updated request
+            MissionStorage.write_field_request(mission_id, field_request)
+
+            # Log the resolution
+            await MissionStorage.log_mission_event(
+                context=context,
+                mission_id=mission_id,
+                entry_type=LogEntryType.REQUEST_RESOLVED.value,
+                message=f"Resolved field request: {field_request.title}",
+                related_entity_id=field_request.request_id,
+                metadata={
+                    "resolution": resolution,
+                    "request_title": field_request.title,
+                    "request_priority": field_request.priority.value
+                    if hasattr(field_request.priority, "value")
+                    else field_request.priority,
+                },
+            )
+
+            # Update mission status if this was a blocker
+            status = MissionStorage.read_mission_status(mission_id)
+            if status and field_request.request_id in status.active_blockers:
+                status.active_blockers.remove(field_request.request_id)
+                status.updated_at = datetime.utcnow()
+                status.updated_by = current_user_id
+                status.version += 1
+                MissionStorage.write_mission_status(mission_id, status)
+
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="field_request_resolved",
+                message=f"Field request resolved: {field_request.title}",
+            )
+
+            # Also send direct notification to requestor's conversation
+            if field_request.conversation_id != str(context.id):
+                from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
+
+                from .mission import ConversationClientManager
+
+                try:
+                    # Get client for requestor's conversation
+                    client = ConversationClientManager.get_conversation_client(context, field_request.conversation_id)
+
+                    # Send notification
+                    await client.send_messages(
+                        NewConversationMessage(
+                            content=f"HQ has resolved your request '{field_request.title}': {resolution}",
+                            message_type=MessageType.notice,
+                        )
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not send direct notification to requestor: {e}")
+
+            return True, field_request
+
+        except Exception as e:
+            logger.exception(f"Error resolving field request: {e}")
+            return False, None
+
+    @staticmethod
+    async def get_mission_log(context: ConversationContext) -> Optional[MissionLog]:
+        """Gets the mission log for the current conversation's mission."""
+        mission_id = await MissionManager.get_mission_id(context)
+        if not mission_id:
+            return None
+
+        return MissionStorage.read_mission_log(mission_id)
+
+    @staticmethod
+    async def add_log_entry(
+        context: ConversationContext,
+        entry_type: LogEntryType,
+        message: str,
+        related_entity_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[bool, Optional[MissionLog]]:
+        """
+        Adds an entry to the mission log.
+
+        Args:
+            context: Current conversation context
+            entry_type: Type of log entry
+            message: Log message
+            related_entity_id: Optional ID of a related entity
+            metadata: Optional additional metadata
+
+        Returns:
+            Tuple of (success, mission_log)
+        """
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot add log entry: no mission associated with this conversation")
+                return False, None
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+            user_name = "Unknown User"
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    user_name = participant.name
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot add log entry: no user found in conversation")
+                return False, None
+
+            # Create the log entry
+            entry = LogEntry(
+                entry_type=entry_type,
+                message=message,
+                user_id=current_user_id,
+                user_name=user_name,
+                related_entity_id=related_entity_id,
+                metadata=metadata or {},
+            )
+
+            # Get existing log or create new one
+            mission_log = MissionStorage.read_mission_log(mission_id)
+            if not mission_log:
+                mission_log = MissionLog(
+                    created_by=current_user_id,
+                    updated_by=current_user_id,
+                    conversation_id=str(context.id),
+                    entries=[],
                 )
-            )
-            return True
-            
-        invitation_code = parts[1].strip()
-        
-        success, result_message, _ = await MissionManager.redeem_invitation(context, invitation_code)
-        
-        # Send response
-        await context.send_messages(
-            NewConversationMessage(
-                content=result_message,
-                message_type=MessageType.chat if success else MessageType.notice,
-            )
-        )
-        
-        return True
 
+            # Add the entry
+            mission_log.entries.append(entry)
 
-class ConversationClientManager:
-    """Manages API clients for accessing other conversations."""
+            # Update metadata
+            mission_log.updated_at = datetime.utcnow()
+            mission_log.updated_by = current_user_id
+            mission_log.version += 1
+
+            # Save the log
+            MissionStorage.write_mission_log(mission_id, mission_log)
+
+            # Notify linked conversations for significant events
+            significant_types = [
+                LogEntryType.MISSION_STARTED,
+                LogEntryType.MISSION_COMPLETED,
+                LogEntryType.MISSION_ABORTED,
+                LogEntryType.GOAL_COMPLETED,
+                LogEntryType.GATE_PASSED,
+            ]
+
+            if entry_type in significant_types:
+                await MissionNotifier.notify_mission_update(
+                    context=context,
+                    mission_id=mission_id,
+                    update_type="mission_log",
+                    message=f"Mission update: {message}",
+                )
+
+            return True, mission_log
+
+        except Exception as e:
+            logger.exception(f"Error adding log entry: {e}")
+            return False, None
 
     @staticmethod
-    def get_conversation_client(context: ConversationContext, target_conversation_id: str) -> wsc.ConversationAPIClient:
-        """
-        Creates an API client for another conversation.
-        This allows cross-conversation operations.
-        """
-        # Get the assistant_id from the current context
-        assistant_id = context.assistant.id
+    async def get_mission_kb(context: ConversationContext) -> Optional[MissionKB]:
+        """Gets the mission knowledge base for the current conversation's mission."""
+        mission_id = await MissionManager.get_mission_id(context)
+        if not mission_id:
+            return None
 
-        # Create a new client using the same builder but for a different conversation
-        client_builder = wsc.WorkbenchServiceClientBuilder(
-            base_url=str(settings.workbench_service_url),
-            assistant_service_id=context.assistant._assistant_service_id,
-            api_key=settings.workbench_service_api_key,
-        )
+        return MissionStorage.read_mission_kb(mission_id)
 
-        return client_builder.for_conversation(assistant_id=assistant_id, conversation_id=target_conversation_id)
+    @staticmethod
+    async def add_kb_section(
+        context: ConversationContext,
+        title: str,
+        content: str,
+        order: int = 0,
+        tags: Optional[List[str]] = None,
+    ) -> Tuple[bool, Optional[MissionKB]]:
+        """
+        Adds a section to the mission knowledge base.
+
+        Args:
+            context: Current conversation context
+            title: Section title
+            content: Section content
+            order: Optional display order
+            tags: Optional tags for categorization
+
+        Returns:
+            Tuple of (success, mission_kb)
+        """
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot add KB section: no mission associated with this conversation")
+                return False, None
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot add KB section: no user found in conversation")
+                return False, None
+
+            # Get existing KB or create new one
+            kb = MissionStorage.read_mission_kb(mission_id)
+            is_new = False
+
+            if not kb:
+                kb = MissionKB(
+                    created_by=current_user_id,
+                    updated_by=current_user_id,
+                    conversation_id=str(context.id),
+                    sections={},
+                )
+                is_new = True
+
+            # Create the section
+            section = KBSection(
+                title=title,
+                content=content,
+                order=order,
+                tags=tags or [],
+                updated_by=current_user_id,
+            )
+
+            # Add to KB
+            kb.sections[section.id] = section
+
+            # Update metadata
+            kb.updated_at = datetime.utcnow()
+            kb.updated_by = current_user_id
+            kb.version += 1
+
+            # Save the KB
+            MissionStorage.write_mission_kb(mission_id, kb)
+
+            # Log the update
+            event_type = LogEntryType.KB_UPDATE
+            message = f"{'Created' if is_new else 'Updated'} mission knowledge base: added section '{title}'"
+
+            await MissionStorage.log_mission_event(
+                context=context,
+                mission_id=mission_id,
+                entry_type=event_type.value,
+                message=message,
+                metadata={"section_id": section.id, "section_title": title},
+            )
+
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="mission_kb",
+                message=f"Mission knowledge base updated: added section '{title}'",
+            )
+
+            return True, kb
+
+        except Exception as e:
+            logger.exception(f"Error adding KB section: {e}")
+            return False, None
+
+    @staticmethod
+    async def update_kb_section(
+        context: ConversationContext,
+        section_id: str,
+        updates: Dict[str, Any],
+    ) -> Tuple[bool, Optional[MissionKB]]:
+        """
+        Updates a section in the mission knowledge base.
+
+        Args:
+            context: Current conversation context
+            section_id: ID of the section to update
+            updates: Dictionary of fields to update
+
+        Returns:
+            Tuple of (success, mission_kb)
+        """
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot update KB section: no mission associated with this conversation")
+                return False, None
+
+            # Get user information
+            participants = await context.get_participants()
+            current_user_id = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    break
+
+            if not current_user_id:
+                logger.error("Cannot update KB section: no user found in conversation")
+                return False, None
+
+            # Get existing KB
+            kb = MissionStorage.read_mission_kb(mission_id)
+            if not kb:
+                logger.error(f"Cannot update KB section: no KB found for mission {mission_id}")
+                return False, None
+
+            # Check if section exists
+            if section_id not in kb.sections:
+                logger.error(f"Cannot update KB section: section {section_id} not found")
+                return False, None
+
+            # Get the section
+            section = kb.sections[section_id]
+
+            # Apply updates, skipping protected fields
+            updated = False
+            protected_fields = ["id"]
+
+            for field, value in updates.items():
+                if hasattr(section, field) and field not in protected_fields:
+                    setattr(section, field, value)
+                    updated = True
+
+            if not updated:
+                logger.info(f"No updates applied to KB section {section_id}")
+                return True, kb
+
+            # Update section metadata
+            section.last_updated = datetime.utcnow()
+            section.updated_by = current_user_id
+
+            # Update KB metadata
+            kb.updated_at = datetime.utcnow()
+            kb.updated_by = current_user_id
+            kb.version += 1
+
+            # Save the KB
+            MissionStorage.write_mission_kb(mission_id, kb)
+
+            # Log the update
+            await MissionStorage.log_mission_event(
+                context=context,
+                mission_id=mission_id,
+                entry_type=LogEntryType.KB_UPDATE.value,
+                message=f"Updated knowledge base section: '{section.title}'",
+                metadata={"section_id": section_id, "section_title": section.title},
+            )
+
+            # Notify linked conversations
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="mission_kb",
+                message=f"Mission knowledge base updated: section '{section.title}' modified",
+            )
+
+            return True, kb
+
+        except Exception as e:
+            logger.exception(f"Error updating KB section: {e}")
+            return False, None
+
+    @staticmethod
+    async def complete_mission(
+        context: ConversationContext,
+        summary: Optional[str] = None,
+    ) -> Tuple[bool, Optional[MissionStatus]]:
+        """
+        Completes a mission and updates the status.
+
+        Args:
+            context: Current conversation context
+            summary: Optional summary of mission results
+
+        Returns:
+            Tuple of (success, mission_status)
+        """
+        try:
+            # Get mission ID
+            mission_id = await MissionManager.get_mission_id(context)
+            if not mission_id:
+                logger.error("Cannot complete mission: no mission associated with this conversation")
+                return False, None
+
+            # Get role - only HQ can complete a mission
+            role = await MissionManager.get_mission_role(context)
+            if role != MissionRole.HQ:
+                logger.error("Only HQ can complete a mission")
+                return False, None
+
+            # Update mission status to completed
+            status_message = summary if summary else "Mission completed successfully"
+            success, status = await MissionManager.update_mission_status(
+                context=context,
+                state=MissionState.COMPLETED.value,
+                progress=100,
+                status_message=status_message,
+            )
+
+            if not success or not status:
+                return False, None
+
+            # Add completion entry to the log
+            await MissionStorage.log_mission_event(
+                context=context,
+                mission_id=mission_id,
+                entry_type=LogEntryType.MISSION_COMPLETED.value,
+                message=f"Mission completed: {status_message}",
+            )
+
+            # Notify linked conversations with emphasis
+            await MissionNotifier.notify_mission_update(
+                context=context,
+                mission_id=mission_id,
+                update_type="mission_completed",
+                message=f"🎉 MISSION COMPLETED: {status_message}",
+            )
+
+            return True, status
+
+        except Exception as e:
+            logger.exception(f"Error completing mission: {e}")
+            return False, None
