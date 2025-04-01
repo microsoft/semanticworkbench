@@ -1,3 +1,4 @@
+from ._assistant_file_resource_handler import AssistantFileResourceHandler
 from ._client_utils import (
     MCPServerConnectionError,
     establish_mcp_sessions,
@@ -46,5 +47,6 @@ __all__ = [
     "refresh_mcp_sessions",
     "retrieve_mcp_tools_from_sessions",
     "sampling_message_to_chat_completion_message",
+    "AssistantFileResourceHandler",
     "WorkbenchFileClientResourceHandler",
 ]

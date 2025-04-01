@@ -152,6 +152,7 @@ class Drive:
         filename: str,
         dir: str | None = None,
         if_exists: IfDriveFileExistsBehavior | None = None,
+        content_type: str | None = None,
     ) -> FileMetadata:
         """Write a file and its metadata."""
         if if_exists is None:
@@ -175,7 +176,10 @@ class Drive:
         size = content.tell()
         content.seek(0)  # Reset to beginning
 
-        metadata = FileMetadata(filename=filename, dir=dir, content_type=self._guess_content_type(filename), size=size)
+        if content_type is None:
+            content_type = self._guess_content_type(filename)
+
+        metadata = FileMetadata(filename=filename, dir=dir, content_type=content_type, size=size)
 
         # Write the file
         file_path = self._path_for(filename, dir)
