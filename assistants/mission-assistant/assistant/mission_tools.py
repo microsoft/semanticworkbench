@@ -694,13 +694,16 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             # Save the updated status
             MissionStorage.write_mission_status(mission_id, status)
 
-            # Notify linked conversations
+            # Notify linked conversations with a message
             await MissionNotifier.notify_mission_update(
                 context=self.context,
                 mission_id=mission_id,
                 update_type="mission_status",
                 message=f"Success criterion '{criterion.description}' for goal '{goal.name}' has been marked as completed."
             )
+            
+            # Update all mission UI inspectors
+            await MissionStorage.refresh_all_mission_uis(self.context, mission_id)
 
             # Check if all criteria are completed for mission completion
             if completed_criteria == total_criteria and total_criteria > 0:
@@ -822,13 +825,16 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             metadata={"gate": "ready_for_field"},
         )
 
-        # Notify linked conversations
+        # Notify linked conversations with a message
         await MissionNotifier.notify_mission_update(
             context=self.context,
             mission_id=mission_id,
             update_type="mission_status",
             message="🔔 **Mission Gate Passed**: HQ has marked the mission as READY FOR FIELD. All mission information is now available and you can begin field operations.",
         )
+        
+        # Update all mission UI inspectors
+        await MissionStorage.refresh_all_mission_uis(self.context, mission_id)
 
         await self.context.send_messages(
             NewConversationMessage(
@@ -907,13 +913,16 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             metadata={"gate": "mission_completed"},
         )
 
-        # Notify linked conversations
+        # Notify linked conversations with a message
         await MissionNotifier.notify_mission_update(
             context=self.context,
             mission_id=mission_id,
             update_type="mission_completed",
             message="🎉 **Mission Complete**: Field has reported that all mission objectives have been achieved. The mission is now complete.",
         )
+        
+        # Update all mission UI inspectors
+        await MissionStorage.refresh_all_mission_uis(self.context, mission_id)
 
         await self.context.send_messages(
             NewConversationMessage(

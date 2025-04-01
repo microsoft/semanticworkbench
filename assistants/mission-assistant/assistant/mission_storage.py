@@ -258,8 +258,13 @@ class MissionStorage:
         return requests
 
     @staticmethod
-    async def notify_ui_update(context: ConversationContext) -> None:
-        """Notifies the UI to refresh the mission state."""
+    async def refresh_current_ui(context: ConversationContext) -> None:
+        """
+        Refreshes only the current conversation's UI inspector panel.
+        
+        Use this when a change only affects the local conversation's view
+        and doesn't need to be synchronized with other conversations.
+        """
         from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 
         await context.send_conversation_state_event(
@@ -269,6 +274,62 @@ class MissionStorage:
                 state=None,
             )
         )
+        
+    @staticmethod
+    async def refresh_all_mission_uis(context: ConversationContext, mission_id: str) -> None:
+        """
+        Refreshes the UI inspector panels of all conversations in a mission.
+        
+        This sends a state event to all conversations (current, HQ, and all field agents)
+        involved in the mission to refresh their inspector panels, ensuring all
+        participants have the latest information without sending any text notifications.
+        
+        Use this when mission data has changed and all UIs need to be updated,
+        but you don't want to send notification messages to users.
+        
+        Args:
+            context: Current conversation context
+            mission_id: The mission ID
+        """
+        from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+        from .mission import ConversationClientManager
+        
+        try:
+            # First update the current conversation's UI
+            await MissionStorage.refresh_current_ui(context)
+            
+            # Get HQ client and update HQ if not the current conversation
+            hq_client, hq_conversation_id = await ConversationClientManager.get_hq_client_for_mission(context, mission_id)
+            if hq_client and hq_conversation_id:
+                try:
+                    await hq_client.send_conversation_state_event(
+                        AssistantStateEvent(state_id="mission_status", event="updated", state=None)
+                    )
+                    logger.info(f"Sent state event to HQ conversation {hq_conversation_id} to refresh inspector")
+                except Exception as e:
+                    logger.warning(f"Error sending state event to HQ: {e}")
+            
+            # Get all field conversation clients and update them
+            linked_conversations = await ConversationMissionManager.get_linked_conversations(context)
+            current_id = str(context.id)
+            
+            for conv_id in linked_conversations:
+                if conv_id != current_id and (not hq_conversation_id or conv_id != hq_conversation_id):
+                    try:
+                        # Get client for the conversation
+                        client = ConversationClientManager.get_conversation_client(context, conv_id)
+                        
+                        # Send state event to refresh the inspector panel
+                        await client.send_conversation_state_event(
+                            AssistantStateEvent(state_id="mission_status", event="updated", state=None)
+                        )
+                        logger.info(f"Sent state event to conversation {conv_id} to refresh inspector")
+                    except Exception as e:
+                        logger.warning(f"Error sending state event to conversation {conv_id}: {e}")
+                        continue
+                        
+        except Exception as e:
+            logger.warning(f"Error notifying all mission UIs: {e}")
         
     @staticmethod
     async def get_linked_conversations(context: ConversationContext) -> List[str]:
@@ -357,17 +418,17 @@ class MissionNotifier:
     """Handles notifications between conversations for mission updates."""
 
     @staticmethod
-    async def notify_linked_conversations(context: ConversationContext, mission_id: str, message: str) -> None:
+    async def send_notice_to_linked_conversations(context: ConversationContext, mission_id: str, message: str) -> None:
         """
-        Notifies all linked conversations about an update.
-
+        Sends a notice message to all linked conversations except the current one.
+        Does NOT refresh any UI inspector panels.
+        
         Args:
             context: Current conversation context
             mission_id: ID of the mission
             message: Notification message to send
         """
         from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
-
         from .mission import ConversationClientManager
 
         # Get conversation IDs in the same mission
@@ -396,18 +457,24 @@ class MissionNotifier:
         context: ConversationContext, mission_id: str, update_type: str, message: str
     ) -> None:
         """
-        Notifies the current conversation and all linked conversations about a mission update.
-        Also updates the UI state.
+        Complete mission update: sends notices to all conversations and refreshes all UI inspector panels.
+        
+        This method:
+        1. Sends a notice message to the current conversation
+        2. Sends the same notice message to all linked conversations
+        3. Refreshes UI inspector panels for all conversations in the mission
+        
+        Use this for important mission updates that need both user notification AND UI refresh.
 
         Args:
             context: Current conversation context
             mission_id: ID of the mission
             update_type: Type of update (e.g., 'briefing', 'status', 'field_request', etc.)
-            message: Notification message
+            message: Notification message to display to users
         """
         from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 
-        # Notify the current conversation
+        # Notify the current conversation with a message
         await context.send_messages(
             NewConversationMessage(
                 content=message,
@@ -415,11 +482,11 @@ class MissionNotifier:
             )
         )
 
-        # Notify linked conversations
-        await MissionNotifier.notify_linked_conversations(context, mission_id, message)
+        # Notify all linked conversations with the same message
+        await MissionNotifier.send_notice_to_linked_conversations(context, mission_id, message)
 
-        # Update the UI
-        await MissionStorage.notify_ui_update(context)
+        # Refresh all mission UI inspector panels 
+        await MissionStorage.refresh_all_mission_uis(context, mission_id)
 
 
 class ConversationMissionManager:

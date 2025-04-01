@@ -77,6 +77,50 @@ class ConversationClientManager:
             conversation_id=conversation_id,
         )
         return client
+        
+    @staticmethod
+    async def get_hq_client_for_mission(
+        context: ConversationContext, mission_id: str
+    ) -> Tuple[Optional[Any], Optional[str]]:
+        """
+        Gets a client for accessing the HQ conversation for a mission.
+        
+        Args:
+            context: Source conversation context
+            mission_id: ID of the mission
+            
+        Returns:
+            Tuple of (client, hq_conversation_id) or (None, None) if not found
+        """
+        from .mission_storage import MissionStorageManager, MissionRole
+        from semantic_workbench_assistant.storage import read_model
+        from .mission_storage import ConversationMissionManager
+        
+        # Look for the HQ conversation directory
+        hq_dir = MissionStorageManager.get_mission_dir(mission_id) / MissionRole.HQ.value
+        if not hq_dir.exists():
+            return None, None
+            
+        # Find the role file that contains the conversation ID
+        role_file = hq_dir / "mission_role.json"
+        if not role_file.exists():
+            return None, None
+            
+        # Read the role information to get the HQ conversation ID
+        role_data = read_model(role_file, ConversationMissionManager.ConversationRoleInfo)
+        if not role_data or not role_data.conversation_id:
+            return None, None
+            
+        # Get the HQ conversation ID
+        hq_conversation_id = role_data.conversation_id
+        
+        # Don't create a client if the HQ is the current conversation
+        if hq_conversation_id == str(context.id):
+            return None, hq_conversation_id
+            
+        # Create a client for the HQ conversation
+        client = ConversationClientManager.get_conversation_client(context, hq_conversation_id)
+        return client, hq_conversation_id
 
 
 class MissionInvitation:

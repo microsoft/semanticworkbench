@@ -576,6 +576,9 @@ class MissionManager:
                 update_type="field_request",
                 message=f"New field request: {title} (Priority: {priority.value})",
             )
+            
+            # Update all mission UI inspectors
+            await MissionStorage.refresh_all_mission_uis(context, mission_id)
 
             return True, field_request
 
@@ -775,17 +778,16 @@ class MissionManager:
                 message=f"Field request resolved: {field_request.title}",
             )
 
-            # Also send direct notification to requestor's conversation
+            # Send direct notification to requestor's conversation
             if field_request.conversation_id != str(context.id):
                 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
-
                 from .mission import ConversationClientManager
 
                 try:
                     # Get client for requestor's conversation
                     client = ConversationClientManager.get_conversation_client(context, field_request.conversation_id)
 
-                    # Send notification
+                    # Send notification message
                     await client.send_messages(
                         NewConversationMessage(
                             content=f"HQ has resolved your request '{field_request.title}': {resolution}",
@@ -793,7 +795,10 @@ class MissionManager:
                         )
                     )
                 except Exception as e:
-                    logger.warning(f"Could not send direct notification to requestor: {e}")
+                    logger.warning(f"Could not send notification to requestor: {e}")
+            
+            # Update all mission UI inspectors
+            await MissionStorage.refresh_all_mission_uis(context, mission_id)
 
             return True, field_request
 

@@ -246,10 +246,10 @@ class TestMissionNotification(unittest.IsolatedAsyncioTestCase):
         self.mock_linked_conversations = patch_linked_conversations.start()
         self.patches.append(patch_linked_conversations)
         
-        # Mock the notify_linked_conversations method to avoid actual client calls
+        # Mock the send_notice_to_linked_conversations method to avoid actual client calls
         patch_notify = unittest.mock.patch.object(
             MissionNotifier,
-            "notify_linked_conversations",
+            "send_notice_to_linked_conversations",
             side_effect=self._mock_notify_linked_conversations
         )
         self.mock_notify = patch_notify.start()
@@ -293,7 +293,7 @@ class TestMissionNotification(unittest.IsolatedAsyncioTestCase):
             # Verify the message was sent to the current context
             self.hq_context.send_messages.assert_called_once()
             
-            # Verify notify_linked_conversations was called
+            # Verify send_notice_to_linked_conversations was called
             self.mock_notify.assert_called_once()
             
             # Reset mocks for next test
@@ -311,7 +311,7 @@ class TestMissionNotification(unittest.IsolatedAsyncioTestCase):
             # Verify the message was sent to the current context
             self.field_context.send_messages.assert_called_once()
             
-            # Verify notify_linked_conversations was called
+            # Verify send_notice_to_linked_conversations was called
             self.mock_notify.assert_called_once()
     
     async def test_create_field_request(self):

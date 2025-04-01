@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from semantic_workbench_api_model.workbench_model import (
-    AssistantStateEvent,
     ConversationMessage, 
     MessageType, 
     NewConversationMessage
@@ -904,11 +903,10 @@ async def handle_invite_command(context: ConversationContext, message: Conversat
                 )
             )
             
-        # Update the conversation state to trigger inspector refresh
-        # IMPORTANT: Must use "mission_status" to match the ID registered in chat.py
-        await context.send_conversation_state_event(
-            AssistantStateEvent(state_id="mission_status", event="updated", state=None)
-        )
+        # Update all mission UI inspectors
+        mission_id = await ConversationMissionManager.get_conversation_mission(context)
+        if mission_id:
+            await MissionStorage.refresh_all_mission_uis(context, mission_id)
         
     except Exception as e:
         logger.exception(f"Error creating invitation: {e}")
@@ -949,9 +947,11 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
             )
         )
         
-        # Update the inspector panel to reflect the change
+        # Update all mission UI inspectors to reflect the change
         if success:
-            await MissionStorage.notify_ui_update(context)
+            mission_id = await ConversationMissionManager.get_conversation_mission(context)
+            if mission_id:
+                await MissionStorage.refresh_all_mission_uis(context, mission_id)
             
     except Exception as e:
         logger.exception(f"Error joining mission: {e}")
