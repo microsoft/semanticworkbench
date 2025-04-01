@@ -346,9 +346,9 @@ class MissionStorage:
         if not mission_id:
             return []
             
-        # For now, a simplified implementation that just returns the conversation itself
-        # In a real implementation, you would query all conversations associated with this mission
-        return [str(context.id)]
+        # Use the ConversationMissionManager's implementation which properly searches for all
+        # conversations in the mission
+        return await ConversationMissionManager.get_linked_conversations(context)
 
     @staticmethod
     async def log_mission_event(
