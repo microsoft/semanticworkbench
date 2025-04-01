@@ -43,15 +43,15 @@ logger = logging.getLogger(__name__)
 class MissionManager:
     """
     Manages the creation, modification, and lifecycle of missions.
-    
+
     The MissionManager provides a centralized set of operations for working with mission data.
     It handles all the core business logic for interacting with missions, ensuring that
     operations are performed consistently and following the proper rules and constraints.
-    
+
     This class implements the primary interface for both HQ and field agents to interact
     with mission entities like briefings, field requests, and knowledge bases. It abstracts
     away the storage details and provides a clean API for mission operations.
-    
+
     All methods are implemented as static methods to facilitate easy calling from
     different parts of the codebase without requiring instance creation.
     """
@@ -60,14 +60,14 @@ class MissionManager:
     async def create_mission(context: ConversationContext) -> Tuple[bool, str]:
         """
         Creates a new mission and associates the current conversation with it.
-        
+
         This is the initial step in mission creation. It:
         1. Generates a unique mission ID
         2. Associates the current conversation with that mission
         3. Sets the current conversation as HQ for the mission
         4. Creates empty mission data structures (briefing, KB, etc.)
         5. Logs the mission creation event
-        
+
         After creating a mission, the HQ should proceed to create a mission briefing
         with specific goals and success criteria.
 
@@ -134,14 +134,14 @@ class MissionManager:
     async def get_mission_id(context: ConversationContext) -> Optional[str]:
         """
         Gets the mission ID associated with the current conversation.
-        
+
         Every conversation that's part of a mission has an associated mission ID.
         This method retrieves that ID, which is used for accessing mission-related
         data structures.
-        
+
         Args:
             context: Current conversation context
-            
+
         Returns:
             The mission ID string if the conversation is part of a mission, None otherwise
         """
@@ -151,14 +151,14 @@ class MissionManager:
     async def get_mission_role(context: ConversationContext) -> Optional[MissionRole]:
         """
         Gets the role of the current conversation in its mission.
-        
+
         Each conversation participating in a mission has a specific role:
         - HQ (headquarters): The primary conversation that created and manages the mission
         - FIELD: Conversations where field agents are carrying out the mission tasks
-        
+
         Args:
             context: Current conversation context
-            
+
         Returns:
             The role (MissionRole.HQ or MissionRole.FIELD) if the conversation
             is part of a mission, None otherwise
@@ -169,14 +169,14 @@ class MissionManager:
     async def get_mission_briefing(context: ConversationContext) -> Optional[MissionBriefing]:
         """
         Gets the mission briefing for the current conversation's mission.
-        
+
         The mission briefing contains the core information about the mission:
         name, description, goals, and success criteria. This is the central
         document that defines what the mission is trying to accomplish.
-        
+
         Args:
             context: Current conversation context
-            
+
         Returns:
             The MissionBriefing object if found, None if the conversation is not
             part of a mission or if no briefing has been created yet
@@ -198,12 +198,12 @@ class MissionManager:
     ) -> Tuple[bool, Optional[MissionBriefing]]:
         """
         Creates a new mission briefing for the current mission.
-        
+
         The mission briefing is the primary document that defines the mission's
         purpose, goals, and success criteria. Creating a briefing is typically
         done by HQ during the planning phase, and it should be completed before
         field agents are invited to join the mission.
-        
+
         If goals are provided, they should be a list of dictionaries with the format:
         [
             {
@@ -576,7 +576,7 @@ class MissionManager:
                 update_type="field_request",
                 message=f"New field request: {title} (Priority: {priority.value})",
             )
-            
+
             # Update all mission UI inspectors
             await MissionStorage.refresh_all_mission_uis(context, mission_id)
 
@@ -796,7 +796,7 @@ class MissionManager:
                     )
                 except Exception as e:
                     logger.warning(f"Could not send notification to requestor: {e}")
-            
+
             # Update all mission UI inspectors
             await MissionStorage.refresh_all_mission_uis(context, mission_id)
 
@@ -848,7 +848,7 @@ class MissionManager:
             if not current_user_id:
                 logger.error("Cannot add log entry: no user found in conversation")
                 return False, None
-                
+
             # Default user name if none found
             user_name = user_name or "Unknown User"
 

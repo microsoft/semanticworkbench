@@ -20,6 +20,7 @@ from semantic_workbench_api_model.workbench_model import (
     MessageType,
     NewConversationMessage,
 )
+from semantic_workbench_api_model.workbench_service_client import ConversationAPIClient
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
@@ -51,9 +52,7 @@ class ConversationClientManager:
     """
 
     @staticmethod
-    def get_conversation_client(
-        context: ConversationContext, conversation_id: str
-    ) -> Any:
+    def get_conversation_client(context: ConversationContext, conversation_id: str) -> ConversationAPIClient:
         """
         Gets a client for accessing another conversation.
 
@@ -66,7 +65,7 @@ class ConversationClientManager:
         """
         # Create a client for the target conversation
         from semantic_workbench_assistant import settings
-        
+
         builder = wsc.WorkbenchServiceClientBuilder(
             base_url=str(settings.workbench_service_url),
             assistant_service_id=context.assistant._assistant_service_id,
@@ -77,47 +76,50 @@ class ConversationClientManager:
             conversation_id=conversation_id,
         )
         return client
-        
+
     @staticmethod
     async def get_hq_client_for_mission(
         context: ConversationContext, mission_id: str
     ) -> Tuple[Optional[Any], Optional[str]]:
         """
         Gets a client for accessing the HQ conversation for a mission.
-        
+
         Args:
             context: Source conversation context
             mission_id: ID of the mission
-            
+
         Returns:
             Tuple of (client, hq_conversation_id) or (None, None) if not found
         """
-        from .mission_storage import MissionStorageManager, MissionRole
         from semantic_workbench_assistant.storage import read_model
-        from .mission_storage import ConversationMissionManager
-        
+
+        from .mission_storage import ConversationMissionManager, MissionRole, MissionStorageManager
+
         # Look for the HQ conversation directory
         hq_dir = MissionStorageManager.get_mission_dir(mission_id) / MissionRole.HQ.value
         if not hq_dir.exists():
             return None, None
-            
+
         # Find the role file that contains the conversation ID
-        role_file = hq_dir / "mission_role.json"
+        role_file = hq_dir / "conversation_role.json"
+        # Try "mission_role.json" as a fallback (old name)
         if not role_file.exists():
-            return None, None
-            
+            role_file = hq_dir / "mission_role.json"
+            if not role_file.exists():
+                return None, None
+
         # Read the role information to get the HQ conversation ID
         role_data = read_model(role_file, ConversationMissionManager.ConversationRoleInfo)
         if not role_data or not role_data.conversation_id:
             return None, None
-            
+
         # Get the HQ conversation ID
         hq_conversation_id = role_data.conversation_id
-        
+
         # Don't create a client if the HQ is the current conversation
         if hq_conversation_id == str(context.id):
             return None, hq_conversation_id
-            
+
         # Create a client for the HQ conversation
         client = ConversationClientManager.get_conversation_client(context, hq_conversation_id)
         return client, hq_conversation_id
@@ -248,10 +250,10 @@ class MissionInvitation:
 
             # Get current user information
             current_user_id, current_user_name = await get_current_user(context)
-            
+
             if not current_user_id:
                 return False, "Could not identify current user in conversation"
-                
+
             # Default user name if none found
             current_user_name = current_user_name or "Unknown User"
 
@@ -340,7 +342,7 @@ class MissionInvitation:
                         # Handle both object and dictionary formats
                         if isinstance(invitation, dict):
                             # Convert dictionary to proper Invitation object
-                            if invitation.get('invitation_id') == invitation_id and invitation.get('token') == token:
+                            if invitation.get("invitation_id") == invitation_id and invitation.get("token") == token:
                                 # Create proper Invitation object from dict
                                 proper_invitation = MissionInvitation.Invitation(**invitation)
                                 # Get conversation ID from the directory path
@@ -396,7 +398,7 @@ class MissionInvitation:
 
             # Get current user information
             current_user_id, current_username = await get_current_user(context)
-            
+
             if not current_user_id:
                 return False, "Could not identify current user", None
 
@@ -463,7 +465,9 @@ class MissionInvitation:
             # Save the updated invitation in the source conversation
             try:
                 # Get temporary context for the source conversation
-                source_context = await MissionInvitation.create_temporary_context_for_conversation(context, source_conversation_id)
+                source_context = await MissionInvitation.create_temporary_context_for_conversation(
+                    context, source_conversation_id
+                )
                 if source_context:
                     await MissionInvitation._save_invitation(source_context, invitation)
             except Exception as e:
@@ -504,7 +508,9 @@ class MissionInvitation:
                 )
 
                 # Try to create temporary context for logging
-                source_context = await MissionInvitation.create_temporary_context_for_conversation(context, source_conversation_id)
+                source_context = await MissionInvitation.create_temporary_context_for_conversation(
+                    context, source_conversation_id
+                )
 
                 # Log the acceptance in the mission log from HQ perspective
                 if source_context:
@@ -590,18 +596,17 @@ class MissionInvitation:
         except Exception as e:
             logger.error(f"Error creating temporary context: {e}")
             return None
-            
+
     @staticmethod
     async def get_temporary_context(
         context: ConversationContext, conversation_id: str
     ) -> Optional[ConversationContext]:
         """
         DEPRECATED: Use create_temporary_context_for_conversation instead.
-        
+
         Creates a temporary context for the given conversation ID.
         """
         return await MissionInvitation.create_temporary_context_for_conversation(context, conversation_id)
-
 
     @staticmethod
     async def process_invite_command(
@@ -824,9 +829,7 @@ class MissionInvitation:
                                 current_username = current_username or "Field agent"
 
                                 # Notify HQ about the user leaving
-                                client = ConversationClientManager.get_conversation_client(
-                                    context, hq_conversation_id
-                                )
+                                client = ConversationClientManager.get_conversation_client(context, hq_conversation_id)
                                 await client.send_messages(
                                     NewConversationMessage(
                                         content=f"{current_username} has left the mission.",

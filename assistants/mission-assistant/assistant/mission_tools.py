@@ -42,25 +42,21 @@ logger = logging.getLogger(__name__)
 
 
 async def invoke_command_handler(
-    context: ConversationContext,
-    command_content: str,
-    handler_func: Callable,
-    success_message: str,
-    error_prefix: str
+    context: ConversationContext, command_content: str, handler_func: Callable, success_message: str, error_prefix: str
 ) -> str:
     """
     Create a system message and invoke a command handler function.
-    
+
     This helper centralizes the pattern of creating a temporary system message
     to reuse command handlers from the chat module.
-    
+
     Args:
         context: The conversation context
         command_content: The formatted command content
         handler_func: The command handler function to call
         success_message: Message to return on success
         error_prefix: Prefix for error messages
-        
+
     Returns:
         A string with success or error message
     """
@@ -149,6 +145,11 @@ class MissionTools:
                 self.detect_field_request_needs,
                 "detect_field_request_needs",
                 "Analyze user message to detect potential field request needs",
+            )
+            self.tool_functions.add_function(
+                self.view_hq_conversation,
+                "view_hq_conversation",
+                "View the HQ conversation messages to understand the mission context and planning discussions",
             )
 
         # Common detection tool for both roles
@@ -265,8 +266,12 @@ class MissionTools:
                 output.append("\n## Field Requests\n")
 
                 # Group requests by status
-                active_requests = [r for r in requests if r.status not in [RequestStatus.RESOLVED, RequestStatus.CANCELLED]]
-                resolved_requests = [r for r in requests if r.status in [RequestStatus.RESOLVED, RequestStatus.CANCELLED]]
+                active_requests = [
+                    r for r in requests if r.status not in [RequestStatus.RESOLVED, RequestStatus.CANCELLED]
+                ]
+                resolved_requests = [
+                    r for r in requests if r.status in [RequestStatus.RESOLVED, RequestStatus.CANCELLED]
+                ]
 
                 if active_requests:
                     output.append("### Active Requests")
@@ -336,15 +341,13 @@ class MissionTools:
             if not success or not new_mission_id:
                 return "Failed to create mission. Please try again."
             mission_id = new_mission_id
-            
+
             # Set the conversation role as HQ
             await ConversationMissionManager.set_conversation_role(self.context, mission_id, MissionRole.HQ)
 
         # Create a new mission briefing using MissionManager
         success, briefing = await MissionManager.create_mission_briefing(
-            context=self.context,
-            mission_name=mission_name,
-            mission_description=mission_description
+            context=self.context, mission_name=mission_name, mission_description=mission_description
         )
 
         if success and briefing:
@@ -396,7 +399,7 @@ class MissionTools:
             command_content=command_content,
             handler_func=handle_add_goal_command,
             success_message=f"Goal '{goal_name}' added to mission briefing successfully.",
-            error_prefix="Error adding goal"
+            error_prefix="Error adding goal",
         )
 
     async def add_kb_section(self, title: str, content: str) -> str:
@@ -412,7 +415,7 @@ class MissionTools:
         """
         if self.role != "hq":
             return "Only HQ can add knowledge base sections."
-            
+
         # Get mission ID
         mission_id = await MissionManager.get_mission_id(self.context)
         if not mission_id:
@@ -426,7 +429,7 @@ class MissionTools:
             command_content=command_content,
             handler_func=handle_add_kb_section_command,
             success_message=f"Knowledge base section '{title}' added successfully.",
-            error_prefix="Error adding knowledge base section"
+            error_prefix="Error adding knowledge base section",
         )
 
     async def resolve_field_request(self, request_id: str, resolution: str) -> str:
@@ -460,9 +463,7 @@ class MissionTools:
 
         # Resolve the field request using MissionManager
         success, field_request = await MissionManager.resolve_field_request(
-            context=self.context,
-            request_id=request_id,
-            resolution=resolution
+            context=self.context, request_id=request_id, resolution=resolution
         )
 
         if success and field_request:
@@ -519,10 +520,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
 
         # Create the field request using MissionManager
         success, request = await MissionManager.create_field_request(
-            context=self.context,
-            title=title,
-            description=description,
-            priority=priority_enum
+            context=self.context, title=title, description=description, priority=priority_enum
         )
 
         if success and request:
@@ -570,7 +568,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             state=status,
             progress=progress,
             status_message=status_message,
-            next_actions=next_actions
+            next_actions=next_actions,
         )
 
         if success and status_obj:
@@ -697,9 +695,9 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                 context=self.context,
                 mission_id=mission_id,
                 update_type="mission_status",
-                message=f"Success criterion '{criterion.description}' for goal '{goal.name}' has been marked as completed."
+                message=f"Success criterion '{criterion.description}' for goal '{goal.name}' has been marked as completed.",
             )
-            
+
             # Update all mission UI inspectors
             await MissionStorage.refresh_all_mission_uis(self.context, mission_id)
 
@@ -830,7 +828,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             update_type="mission_status",
             message="🔔 **Mission Gate Passed**: HQ has marked the mission as READY FOR FIELD. All mission information is now available and you can begin field operations.",
         )
-        
+
         # Update all mission UI inspectors
         await MissionStorage.refresh_all_mission_uis(self.context, mission_id)
 
@@ -918,7 +916,7 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             update_type="mission_completed",
             message="🎉 **Mission Complete**: Field has reported that all mission objectives have been achieved. The mission is now complete.",
         )
-        
+
         # Update all mission UI inspectors
         await MissionStorage.refresh_all_mission_uis(self.context, mission_id)
 
@@ -930,6 +928,70 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         )
 
         return "Mission successfully marked as complete. All participants have been notified."
+
+    async def view_hq_conversation(self, message_count: int) -> str:
+        """
+        View the HQ conversation messages for the mission.
+        This allows Field personnel to see the context and planning discussions from HQ.
+
+        Args:
+            message_count: Number of recent messages to return (between 1-50). Recommend using 20 for a reasonable amount.
+
+        Returns:
+            Formatted string containing HQ conversation messages
+        """
+        if self.role != "field":
+            return "This tool is only available to Field personnel."
+
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            logger.warning("No mission ID found for this conversation")
+            return "No mission associated with this conversation. Unable to view HQ conversation."
+
+        # Limit message count to reasonable value
+        message_count = min(max(1, message_count), 50)  # Between 1 and 50
+
+        # Get mission briefing for context
+        briefing = await MissionManager.get_mission_briefing(self.context)
+        mission_name = briefing.mission_name if briefing else "Mission"
+
+        try:
+            # Read from shared storage instead of trying cross-conversation API access
+            from .mission_storage import MissionStorage
+
+            # Read HQ conversation messages from shared storage
+            hq_conversation = MissionStorage.read_hq_conversation(mission_id)
+
+            if not hq_conversation or not hq_conversation.messages:
+                logger.warning(f"No HQ conversation data found for mission {mission_id}")
+                return f"No HQ conversation messages available for {mission_name}. Check back later when HQ has sent messages."
+
+            # Format the messages for display
+            output = []
+            output.append(f"# HQ Conversation for {mission_name}\n")
+            output.append("Here are the recent messages from HQ to help you understand the mission context:\n")
+
+            # Sort messages by timestamp and limit to the requested count
+            messages = sorted(hq_conversation.messages, key=lambda m: m.timestamp)
+            messages = messages[-message_count:]  # Get the most recent messages
+
+            for msg in messages:
+                # Format timestamp
+                timestamp = msg.timestamp.strftime("%Y-%m-%d %H:%M")
+
+                # Add formatted message
+                output.append(f"### {msg.sender_name} - {timestamp}")
+                output.append(f"{msg.content}\n")
+
+            if len(output) <= 3:  # Just the header and note, no actual messages
+                return f"No chat messages found in the HQ conversation for {mission_name}."
+
+            return "\n".join(output)
+
+        except Exception as e:
+            logger.exception(f"Error retrieving HQ conversation from shared storage: {e}")
+            return f"Error retrieving HQ conversation: {str(e)}. Please try again later."
 
     async def detect_field_request_needs(self, message: str) -> Dict[str, Any]:
         """

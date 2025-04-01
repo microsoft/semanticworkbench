@@ -41,6 +41,62 @@ class MissionInspectorStateProvider:
 
         Returns different information based on the conversation's role (HQ or Field).
         """
+        # First check conversation metadata for setup status
+        conversation = await context.get_conversation()
+        metadata = conversation.metadata or {}
+        
+        # Check if metadata has setup info
+        setup_complete = metadata.get("setup_complete", False)
+        assistant_mode = metadata.get("assistant_mode", "setup")
+        
+        # Double-check with mission storage/manager state
+        if not setup_complete:
+            # Check if we have a mission role in storage
+            role = await ConversationMissionManager.get_conversation_role(context)
+            if role:
+                # If we have a role in storage, consider setup complete
+                setup_complete = True
+                assistant_mode = role.value
+                
+                # Update local metadata too
+                metadata["setup_complete"] = True
+                metadata["assistant_mode"] = role.value
+                metadata["mission_role"] = role.value
+                
+                # Send conversation state event to save the metadata - using None for state values
+                try:
+                    from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+                    await context.send_conversation_state_event(
+                        AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
+                    )
+                    await context.send_conversation_state_event(
+                        AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
+                    )
+                    await context.send_conversation_state_event(
+                        AssistantStateEvent(state_id="mission_role", event="updated", state=None)
+                    )
+                    logger.info(f"Updated metadata based on mission role detection: {role.value}")
+                except Exception as e:
+                    logger.exception(f"Failed to update metadata: {e}")
+
+        # If setup isn't complete, show setup instructions
+        if not setup_complete and assistant_mode == "setup":
+            setup_markdown = """# Mission Assistant Setup
+
+**Role Selection Required**
+
+Before you can access mission features, please specify your role:
+
+- Use `/start-hq` to create a new mission as HQ
+- Use `/join <code>` to join an existing mission as Field personnel
+
+Type `/help` for more information on available commands.
+
+⚠️ **Note:** Setup is required before you can access any mission features.
+"""
+            return AssistantConversationInspectorStateDataModel(data={"content": setup_markdown})
+
+        # Continue with normal inspector display for already set up conversations
         # Determine the conversation's role and mission
         mission_id = await ConversationMissionManager.get_conversation_mission(context)
         if not mission_id:
@@ -158,22 +214,25 @@ class MissionInspectorStateProvider:
 
         # Display invitation information
         lines.append("## Mission Invitation")
-        
+
         # Try to get the latest invitation
         from .mission import MissionInvitation
+
         latest_invitation = None
         invitations_path = MissionInvitation._get_invitations_path(context)
-        
+
         if invitations_path.exists():
             try:
                 # Use the proper storage method from the library
                 from semantic_workbench_assistant.storage import read_model
+
                 invitations = read_model(invitations_path, MissionInvitation.InvitationsCollection)
                 if invitations:
                     # Convert dictionary invitations to proper Invitation objects
                     from .mission import MissionInvitation
+
                     proper_invitations = []
-                    
+
                     for inv in invitations.invitations:
                         # If it's a dict, convert to proper Invitation object
                         if isinstance(inv, dict):
@@ -183,35 +242,33 @@ class MissionInspectorStateProvider:
                         else:
                             # Already an Invitation object
                             proper_invitations.append(inv)
-                    
+
                     # Now filter for non-redeemed invitations
                     active_invitations = [inv for inv in proper_invitations if not inv.redeemed]
                 else:
                     active_invitations = []
-                    
+
                 if active_invitations:
                     # Sort by creation time (newest first)
                     sorted_invitations = sorted(active_invitations, key=lambda x: x.created_at, reverse=True)
                     latest_invitation = sorted_invitations[0]
             except Exception as e:
                 logger.warning(f"Failed to read invitation data: {e}")
-                
+
         if latest_invitation:
             # Format the code
             invitation_code = f"{latest_invitation.invitation_id}:{latest_invitation.token}"
-            
+
             # Show invitation details
             if latest_invitation.target_username:
                 lines.append(f"Active invitation for: **{latest_invitation.target_username}**")
             else:
-                lines.append("Active invitation (anyone can use):")
-            
+                lines.append("Active invitation (anyone can use):\n")
+
             lines.append(f"**Invitation Code:** `{invitation_code}`")
-            lines.append(f"**Created:** {latest_invitation.created_at.strftime('%Y-%m-%d %H:%M')}")
-            lines.append(f"**Expires:** {latest_invitation.expires_at.strftime('%Y-%m-%d %H:%M')}")
         else:
             lines.append("No active invitations. Use `/invite` to generate a mission invitation code.")
-            
+
         lines.append("")
         lines.append("Field personnel can join using the `/join <code>` command with the invitation code.")
 
@@ -317,5 +374,12 @@ class MissionInspectorStateProvider:
         else:
             lines.append("## Field Requests")
             lines.append("You haven't created any field requests yet.")
+
+        # Add section for viewing HQ conversation
+        lines.append("\n## HQ Communication")
+        lines.append("Use the `view_hq_conversation` tool to see messages from HQ. Example:")
+        lines.append("```")
+        lines.append("view_hq_conversation(message_count=20)  # Shows last 20 messages")
+        lines.append("```")
 
         return "\n".join(lines)

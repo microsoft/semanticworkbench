@@ -64,10 +64,10 @@ class HQConversationHandler:
         success, mission_id = await MissionManager.create_mission(self.context)
         if not success or not mission_id:
             return False, "Failed to create mission"
-            
+
         # Set this conversation as HQ
         await ConversationMissionManager.set_conversation_role(self.context, mission_id, MissionRole.HQ)
-            
+
         # Create initial mission briefing
         success, briefing = await MissionManager.create_mission_briefing(
             self.context, mission_name, mission_description

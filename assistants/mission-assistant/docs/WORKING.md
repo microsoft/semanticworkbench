@@ -1,8 +1,3 @@
-Bugs:
+- An invite link should be created as soon as hq mode is identified.
+- Simplify the invitation system so there is only one invitation. Could just use the hq conversation id for it if we wanted.
 
-- None
-
-Features:
-
-- Let's make the HQ conversation available to the Field assistant.
-- Need to rename all the things away from a "mission" analogy.

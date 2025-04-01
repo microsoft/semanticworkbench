@@ -62,13 +62,13 @@ class TestMissionTools:
         # Verify common functions are registered for both roles
         assert "get_mission_info" in hq_tools.tool_functions.function_map
         assert "suggest_next_action" in hq_tools.tool_functions.function_map
-        
+
         # Verify field detection tool is not in HQ tools
         assert "detect_field_request_needs" not in hq_tools.tool_functions.function_map
 
         assert "get_mission_info" in field_tools.tool_functions.function_map
         assert "suggest_next_action" in field_tools.tool_functions.function_map
-        
+
         # Verify field-specific detection tool
         assert "detect_field_request_needs" in field_tools.tool_functions.function_map
 

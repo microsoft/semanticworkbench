@@ -11,9 +11,10 @@ from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from semantic_workbench_api_model.workbench_model import (
-    ConversationMessage, 
-    MessageType, 
-    NewConversationMessage
+    AssistantStateEvent,
+    ConversationMessage,
+    MessageType,
+    NewConversationMessage,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -190,6 +191,213 @@ command_registry = CommandRegistry()
 # Command handler implementations
 
 
+async def handle_start_hq_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
+    """
+    Handle the start-hq command to create a new mission with this conversation as HQ.
+
+    This is a setup mode command that creates a mission and sets the current conversation as HQ.
+    """
+    # Get conversation to access metadata
+    conversation = await context.get_conversation()
+    metadata = conversation.metadata or {}
+
+    # Check if already in a mission
+    mission_id = await MissionManager.get_mission_id(context)
+    if mission_id:
+        # Already in a mission, show error
+        await context.send_messages(
+            NewConversationMessage(
+                content="This conversation is already part of a mission. You can use existing commands instead of setup.",
+                message_type=MessageType.notice,
+            )
+        )
+        return
+
+    # First parse the content for mission name and description
+    content = message.content.strip()[len("/start-hq") :].strip()
+    mission_name = "New Mission"
+    mission_description = "A new mission has been created."
+
+    # If content provided, parse it
+    if content:
+        if "|" in content:
+            parts = content.split("|", 1)
+            mission_name = parts[0].strip()
+            mission_description = parts[1].strip() if len(parts) > 1 else ""
+        else:
+            # Just a name provided
+            mission_name = content.strip()
+
+    # Create a new mission
+    success, new_mission_id = await MissionManager.create_mission(context)
+    if not success or not new_mission_id:
+        await context.send_messages(
+            NewConversationMessage(
+                content="Failed to create mission. Please try again.",
+                message_type=MessageType.notice,
+            )
+        )
+        return
+
+    # Create mission briefing
+    success, briefing = await MissionManager.create_mission_briefing(
+        context=context, mission_name=mission_name, mission_description=mission_description
+    )
+
+    if not success:
+        await context.send_messages(
+            NewConversationMessage(
+                content="Failed to create mission briefing. Please try again.",
+                message_type=MessageType.notice,
+            )
+        )
+        return
+
+    # Update metadata to mark setup complete and set mode to HQ
+    metadata["mission_role"] = "hq"
+    metadata["assistant_mode"] = "hq"
+    metadata["setup_complete"] = True
+
+    # Update conversation metadata - using None for state as the string/bool values are not allowed by the type system
+    await context.send_conversation_state_event(
+        AssistantStateEvent(state_id="mission_role", event="updated", state=None)
+    )
+    await context.send_conversation_state_event(
+        AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
+    )
+    await context.send_conversation_state_event(
+        AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
+    )
+
+    # Send confirmation
+    await context.send_messages(
+        NewConversationMessage(
+            content=f"""# Mission Created Successfully
+            
+**Mission Name:** {mission_name}
+**Role:** HQ
+
+You can now use HQ commands to:
+- Define mission goals with `/add-goal`
+- Add information to the knowledge base with `/add-kb-section`
+- Invite field personnel with `/invite`
+- Get help with other commands using `/help`
+
+Good luck with your mission!
+            """,
+            message_type=MessageType.chat,
+        )
+    )
+
+    # Also refresh the UI inspector
+    from .mission_storage import MissionStorage
+
+    await MissionStorage.refresh_current_ui(context)
+
+
+async def handle_join_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
+    """
+    Handle the join command to join an existing mission as a field agent.
+
+    This is a setup mode command that joins an existing mission as a field agent using an invite code.
+    """
+    # Check if already in a mission
+    mission_id = await MissionManager.get_mission_id(context)
+    if mission_id:
+        # Already in a mission, show error
+        await context.send_messages(
+            NewConversationMessage(
+                content="This conversation is already part of a mission. You can use existing commands instead of setup.",
+                message_type=MessageType.notice,
+            )
+        )
+        return
+
+    # Get invitation code from arguments
+    invitation_code = None
+
+    # If passed directly in command args
+    if args:
+        invitation_code = args[0]
+    else:
+        # Try to parse from message
+        content = message.content.strip()[len("/join") :].strip()
+        if content:
+            invitation_code = content
+
+    if not invitation_code:
+        await context.send_messages(
+            NewConversationMessage(
+                content="Please provide an invitation code. Usage: `/join code`",
+                message_type=MessageType.notice,
+            )
+        )
+        return
+
+    # Try to join the mission
+    from .mission import MissionInvitation
+
+    success, mission_id = await MissionInvitation.redeem_invitation(context, invitation_code)
+
+    if not success or not mission_id:
+        await context.send_messages(
+            NewConversationMessage(
+                content="Failed to join mission. The invitation code may be invalid or expired.",
+                message_type=MessageType.notice,
+            )
+        )
+        return
+
+    # Get conversation to access metadata
+    conversation = await context.get_conversation()
+    metadata = conversation.metadata or {}
+
+    # Update metadata to mark setup complete and set mode to field
+    metadata["mission_role"] = "field"
+    metadata["assistant_mode"] = "field"
+    metadata["setup_complete"] = True
+
+    # Update conversation metadata - using None for state as the string/bool values are not allowed by the type system
+    await context.send_conversation_state_event(
+        AssistantStateEvent(state_id="mission_role", event="updated", state=None)
+    )
+    await context.send_conversation_state_event(
+        AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
+    )
+    await context.send_conversation_state_event(
+        AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
+    )
+
+    # Get mission name for the welcome message
+    briefing = await MissionManager.get_mission_briefing(context)
+    mission_name = briefing.mission_name if briefing else "Mission"
+
+    # Send confirmation
+    await context.send_messages(
+        NewConversationMessage(
+            content=f"""# Joined Mission Successfully
+            
+**Mission Name:** {mission_name}
+**Role:** Field
+
+You can now use Field commands to:
+- Get mission information with `/get-mission-info`
+- Request information from HQ with `/request-info`
+- Update mission status with `/update-status`
+- Get help with other commands using `/help`
+
+Welcome to the mission!
+            """,
+            message_type=MessageType.chat,
+        )
+    )
+
+    # Also refresh the UI inspector
+    from .mission_storage import MissionStorage
+
+    await MissionStorage.refresh_current_ui(context)
+
+
 async def handle_help_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
     """Handle the help command."""
     # Get the conversation's role
@@ -198,8 +406,77 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
     # First check conversation metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
+    setup_complete = metadata.get("setup_complete", False)
+    assistant_mode = metadata.get("assistant_mode", "setup")
     metadata_role = metadata.get("mission_role")
 
+    # Special handling for setup mode
+    if not setup_complete and assistant_mode == "setup":
+        # If a specific command is specified, show detailed help for that command
+        if args:
+            command_name = args[0]
+            if command_name.startswith("/"):
+                command_name = command_name[1:]  # Remove the '/' prefix
+
+            # For setup mode, only show help for setup commands
+            setup_commands = ["start-hq", "join", "help"]
+
+            if command_name in setup_commands:
+                help_info = command_registry.get_command_help(command_name)
+                if help_info:
+                    await context.send_messages(
+                        NewConversationMessage(
+                            content=f"""## Help: /{command_name}
+
+{help_info["description"]}
+
+**Usage:** {help_info["usage"]}
+
+**Example:** {help_info["example"]}
+""",
+                            message_type=MessageType.chat,
+                        )
+                    )
+                    return
+
+            # If not a setup command, show generic message
+            await context.send_messages(
+                NewConversationMessage(
+                    content=f"The /{command_name} command is not available in setup mode. Please first use `/start-hq` or `/join` to establish your role.",
+                    message_type=MessageType.notice,
+                )
+            )
+            return
+
+        # Show setup-specific help
+        help_text = """## Mission Assistant Setup
+
+This assistant is in setup mode. You need to establish your role before proceeding:
+
+### Available Commands
+
+- `/start-hq [Mission Name|Mission description]`: Create a new mission with this conversation as HQ
+- `/join invitation_code`: Join an existing mission as a Field agent
+- `/help [command]`: Show help for a specific command
+
+Please use one of these commands to get started. The recommended workflow is:
+
+1. One conversation uses `/start-hq` to create the mission and become HQ
+2. HQ then uses `/invite` to generate invitation codes
+3. Field personnel use `/join` with the invitation code in new conversations
+
+Once setup is complete, you will have access to all mission commands appropriate for your role.
+"""
+
+        await context.send_messages(
+            NewConversationMessage(
+                content=help_text,
+                message_type=MessageType.chat,
+            )
+        )
+        return
+
+    # Normal (non-setup) help processing
     # Then check the stored role from mission storage - this is the authoritative source
     stored_role = await ConversationMissionManager.get_conversation_role(context)
     stored_role_value = stored_role.value if stored_role else None
@@ -341,14 +618,10 @@ async def handle_create_briefing_command(
         success, mission_id = await MissionManager.create_mission(context)
         if not success:
             raise ValueError("Failed to create mission")
-            
+
         # Create the mission briefing
-        success, briefing = await MissionManager.create_mission_briefing(
-            context,
-            mission_name,
-            mission_description
-        )
-        
+        success, briefing = await MissionManager.create_mission_briefing(context, mission_name, mission_description)
+
         if success and briefing:
             await context.send_messages(
                 NewConversationMessage(
@@ -416,7 +689,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
                 )
             )
             return
-            
+
         # Get existing mission briefing
         briefing = await MissionManager.get_mission_briefing(context)
         if not briefing:
@@ -476,7 +749,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
                 context=context,
                 mission_id=mission_id,
                 update_type="briefing",
-                message=f"Goal added to mission: {goal_name}"
+                message=f"Goal added to mission: {goal_name}",
             )
 
             # Build success criteria message
@@ -543,7 +816,7 @@ async def handle_add_kb_section_command(
                 )
             )
             return
-            
+
         # Get user info
         participants = await context.get_participants()
         current_user_id = None
@@ -551,13 +824,13 @@ async def handle_add_kb_section_command(
             if participant.role == "user":
                 current_user_id = participant.id
                 break
-                
+
         if not current_user_id:
             current_user_id = "kb-creator"
-            
+
         # Get existing KB or create new one
         kb = MissionStorage.read_mission_kb(mission_id)
-        
+
         # If no KB exists, create a new one
         if not kb:
             kb = MissionKB(
@@ -566,7 +839,7 @@ async def handle_add_kb_section_command(
                 conversation_id=str(context.id),
                 sections={},
             )
-            
+
         # Create the new section
         section = KBSection(
             title=title,
@@ -574,15 +847,15 @@ async def handle_add_kb_section_command(
             order=len(kb.sections) + 1,
             updated_by=current_user_id,
         )
-        
+
         # Add section to KB
         kb.sections[section.id] = section
-        
+
         # Update KB metadata
         kb.updated_at = datetime.utcnow()
         kb.updated_by = current_user_id
         kb.version += 1
-        
+
         # Save KB
         MissionStorage.write_mission_kb(mission_id, kb)
         success = True
@@ -596,7 +869,7 @@ async def handle_add_kb_section_command(
                 message=f"Added KB section: {title}",
                 related_entity_id=section.id,
             )
-            
+
             # Notify linked conversations
             await MissionNotifier.notify_mission_update(
                 context=context,
@@ -604,7 +877,7 @@ async def handle_add_kb_section_command(
                 update_type="kb_update",
                 message=f"Knowledge base updated: added section '{title}'",
             )
-        
+
             await context.send_messages(
                 NewConversationMessage(
                     content=f"Knowledge base section '{title}' added successfully. This information is now available to all mission participants.",
@@ -666,10 +939,7 @@ async def handle_request_info_command(
 
         # Create the field request
         success, request = await MissionManager.create_field_request(
-            context=context,
-            title=title,
-            description=description,
-            priority=priority
+            context=context, title=title, description=description, priority=priority
         )
 
         if success and request:
@@ -732,10 +1002,7 @@ async def handle_update_status_command(
 
         # Update the mission status
         success, status_obj = await MissionManager.update_mission_status(
-            context=context, 
-            state=status, 
-            progress=progress, 
-            status_message=status_message
+            context=context, state=status, progress=progress, status_message=status_message
         )
 
         if success and status_obj:
@@ -832,9 +1099,7 @@ async def handle_resolve_request_command(
 
         # Resolve the field request
         success, field_request = await MissionManager.resolve_field_request(
-            context=context, 
-            request_id=request_id, 
-            resolution=resolution
+            context=context, request_id=request_id, resolution=resolution
         )
 
         if success and field_request:
@@ -882,18 +1147,18 @@ async def handle_invite_command(context: ConversationContext, message: Conversat
                 )
             )
             return
-        
+
         # Use the proper MissionInvitation implementation from mission.py
         from .mission import MissionInvitation
-        
+
         # Parse any username if provided
         username = None
         if len(args) > 0:
             username = args[0]
-            
+
         # Create an invitation using the real implementation
         success, result_message = await MissionInvitation.create_invitation(context, username)
-        
+
         # The method sends a notification, but we need to also send the result message with the code
         if success:
             await context.send_messages(
@@ -902,12 +1167,12 @@ async def handle_invite_command(context: ConversationContext, message: Conversat
                     message_type=MessageType.chat,
                 )
             )
-            
+
         # Update all mission UI inspectors
         mission_id = await ConversationMissionManager.get_conversation_mission(context)
         if mission_id:
             await MissionStorage.refresh_all_mission_uis(context, mission_id)
-        
+
     except Exception as e:
         logger.exception(f"Error creating invitation: {e}")
         await context.send_messages(
@@ -918,8 +1183,10 @@ async def handle_invite_command(context: ConversationContext, message: Conversat
         )
 
 
-async def handle_join_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
-    """Handle the join command."""
+async def handle_join_legacy_command(
+    context: ConversationContext, message: ConversationMessage, args: List[str]
+) -> None:
+    """Handle the join command for legacy operation (non-setup mode)."""
     # Parse the command
     if not args:
         await context.send_messages(
@@ -931,14 +1198,14 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
         return
 
     invitation_code = args[0]
-    
+
     try:
         # Use the proper MissionInvitation implementation from mission.py
         from .mission import MissionInvitation
-        
+
         # Validate and redeem the invitation
         success, result_message = await MissionInvitation.redeem_invitation(context, invitation_code)
-        
+
         # The redeem_invitation method handles all the operations, so we just need to send the result message
         await context.send_messages(
             NewConversationMessage(
@@ -946,13 +1213,13 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
                 message_type=MessageType.chat if success else MessageType.notice,
             )
         )
-        
+
         # Update all mission UI inspectors to reflect the change
         if success:
             mission_id = await ConversationMissionManager.get_conversation_mission(context)
             if mission_id:
                 await MissionStorage.refresh_all_mission_uis(context, mission_id)
-            
+
     except Exception as e:
         logger.exception(f"Error joining mission: {e}")
         await context.send_messages(
@@ -1073,8 +1340,12 @@ async def handle_mission_info_command(
                 output.append("\n## Field Requests\n")
 
                 # Group requests by status
-                active_requests = [r for r in requests if r.status != RequestStatus.RESOLVED and r.status != RequestStatus.CANCELLED]
-                resolved_requests = [r for r in requests if r.status == RequestStatus.RESOLVED or r.status == RequestStatus.CANCELLED]
+                active_requests = [
+                    r for r in requests if r.status != RequestStatus.RESOLVED and r.status != RequestStatus.CANCELLED
+                ]
+                resolved_requests = [
+                    r for r in requests if r.status == RequestStatus.RESOLVED or r.status == RequestStatus.CANCELLED
+                ]
 
                 if active_requests:
                     output.append("### Active Requests\n")
@@ -1150,10 +1421,10 @@ async def handle_list_participants_command(
                 )
             )
             return
-            
+
         # Get all linked conversations
         linked_conversation_ids = await ConversationMissionManager.get_linked_conversations(context)
-        
+
         if not linked_conversation_ids:
             await context.send_messages(
                 NewConversationMessage(
@@ -1177,7 +1448,7 @@ async def handle_list_participants_command(
         # In the simplified implementation, we don't have detail about the linked conversations
         # For a more complete implementation, we would need to get information
         # about each linked conversation
-        
+
         # For now, just report that we have no other field personnel
         output.append("\n*No field personnel yet. Invite team members with the `/invite` command.*")
 
@@ -1226,10 +1497,10 @@ async def handle_revoke_access_command(
                 )
             )
             return
-            
+
         # Get all linked conversations
         linked_conversation_ids = await ConversationMissionManager.get_linked_conversations(context)
-        
+
         if not linked_conversation_ids:
             await context.send_messages(
                 NewConversationMessage(
@@ -1258,6 +1529,25 @@ async def handle_revoke_access_command(
 
 
 # Register commands in the registry
+
+# Setup mode commands
+command_registry.register_command(
+    "start-hq",
+    handle_start_hq_command,
+    "Create a new mission with this conversation as HQ",
+    "/start-hq [Mission Name|Mission description]",
+    "/start-hq Operation Firewall|Investigate and mitigate the recent network breach",
+    None,  # Available to all roles during setup
+)
+
+command_registry.register_command(
+    "join",
+    handle_join_command,
+    "Join an existing mission with an invitation code",
+    "/join invitation_code",
+    "/join abc123:xyz456",
+    None,  # Available to all roles
+)
 
 # General commands (available to all)
 command_registry.register_command(
@@ -1390,6 +1680,77 @@ async def process_command(context: ConversationContext, message: ConversationMes
     # First check conversation metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
+
+    # Check if setup is complete
+    setup_complete = metadata.get("setup_complete", False)
+    
+    # If not set in local metadata, try to get it from the state API via the state events
+    if not setup_complete:
+        try:
+            # Get state directly from conversation state
+            from .state_inspector import MissionInspectorStateProvider
+            inspector = MissionInspectorStateProvider(None)
+            state_data = await inspector.get(context)
+            
+            if state_data and state_data.data and state_data.data.get("content"):
+                content = state_data.data.get("content", "")
+                # Check if content indicates we're in HQ or Field mode (not in setup mode)
+                if "Role: HQ" in content or "Role: Field" in content:
+                    setup_complete = True
+                    # Extract role from content
+                    if "Role: HQ" in content:
+                        metadata["mission_role"] = "hq"
+                        metadata["assistant_mode"] = "hq"
+                    else:
+                        metadata["mission_role"] = "field"
+                        metadata["assistant_mode"] = "field"
+                    metadata["setup_complete"] = True
+                    
+                    logger.info(f"Found role in state inspector: {metadata['mission_role']}")
+        except Exception as e:
+            logger.exception(f"Error getting role from state inspector: {e}")
+            
+    assistant_mode = metadata.get("assistant_mode", "setup")
+
+    # Get the command name and arguments
+    if message.message_type != MessageType.command:
+        return False
+
+    command_name = message.command_name
+    if command_name.startswith("/"):
+        command_name = command_name[1:]  # Remove the '/' prefix
+    args = message.command_args.split() if message.command_args else []
+
+    # Special handling for setup mode
+    if not setup_complete and assistant_mode == "setup":
+        # Always allow these commands in setup mode
+        setup_commands = ["start-hq", "join", "help"]
+
+        if command_name in setup_commands:
+            # If the command is a setup command, process it
+            if command_name == "help":
+                await handle_help_command(context, message, args)
+                return True
+            elif command_name in command_registry.commands:
+                await command_registry.commands[command_name]["handler"](context, message, args)
+                return True
+        else:
+            # Show setup required message for non-setup commands
+            await context.send_messages(
+                NewConversationMessage(
+                    content=(
+                        "**Setup Required**\n\n"
+                        "You need to set up the assistant before using other commands. Please use one of these commands:\n\n"
+                        "- `/start-hq` - Create a new mission as HQ\n"
+                        "- `/join <code>` - Join an existing mission as a Field agent\n"
+                        "- `/help` - Get help with available commands"
+                    ),
+                    message_type=MessageType.notice,
+                )
+            )
+            return True
+
+    # Standard command processing for non-setup mode
     metadata_role = metadata.get("mission_role")
 
     # Then check the stored role from mission storage - this is the authoritative source

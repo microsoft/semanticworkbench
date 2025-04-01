@@ -14,6 +14,7 @@ from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
+from pydantic import BaseModel, Field
 
 from .utils import get_current_user
 
@@ -37,6 +38,24 @@ class MissionRole(str, Enum):
     FIELD = "field"
 
 
+class HQConversationMessage(BaseModel):
+    """Model for storing a message from HQ conversation for Field access."""
+
+    message_id: str
+    content: str
+    sender_name: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    is_assistant: bool = False
+
+
+class HQConversationStorage(BaseModel):
+    """Model for storing a collection of HQ conversation messages."""
+
+    mission_id: str
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    messages: List[HQConversationMessage] = Field(default_factory=list)
+
+
 class MissionStorageManager:
     """Manages storage paths and access for mission data."""
 
@@ -48,6 +67,7 @@ class MissionStorageManager:
     MISSION_STATUS = "mission_status"
     MISSION_KB = "mission_kb"
     FIELD_REQUEST = "field_request"
+    HQ_CONVERSATION = "hq_conversation"
 
     # Predefined entity types that have a single instance per mission
     PREDEFINED_ENTITIES = {
@@ -55,6 +75,7 @@ class MissionStorageManager:
         MISSION_LOG: "log.json",
         MISSION_STATUS: "status.json",
         MISSION_KB: "kb.json",
+        HQ_CONVERSATION: "hq_conversation.json",
     }
 
     @staticmethod
@@ -134,6 +155,12 @@ class MissionStorageManager:
         """Gets the path to the mission knowledge base file."""
         entity_dir = MissionStorageManager.get_entity_dir(mission_id, MissionStorageManager.MISSION_KB)
         return entity_dir / MissionStorageManager.PREDEFINED_ENTITIES[MissionStorageManager.MISSION_KB]
+
+    @staticmethod
+    def get_hq_conversation_path(mission_id: str) -> pathlib.Path:
+        """Gets the path to the HQ conversation file."""
+        entity_dir = MissionStorageManager.get_entity_dir(mission_id, MissionStorageManager.HQ_CONVERSATION)
+        return entity_dir / MissionStorageManager.PREDEFINED_ENTITIES[MissionStorageManager.HQ_CONVERSATION]
 
     @staticmethod
     def get_field_request_path(mission_id: str, request_id: str) -> pathlib.Path:
@@ -216,6 +243,63 @@ class MissionStorage:
         return read_model(path, MissionKB)
 
     @staticmethod
+    def read_hq_conversation(mission_id: str) -> Optional[HQConversationStorage]:
+        """Reads the HQ conversation messages for a mission."""
+        path = MissionStorageManager.get_hq_conversation_path(mission_id)
+        return read_model(path, HQConversationStorage)
+
+    @staticmethod
+    def write_hq_conversation(mission_id: str, conversation: HQConversationStorage) -> pathlib.Path:
+        """Writes the HQ conversation messages to storage."""
+        path = MissionStorageManager.get_hq_conversation_path(mission_id)
+        write_model(path, conversation)
+        return path
+
+    @staticmethod
+    def append_hq_message(
+        mission_id: str,
+        message_id: str,
+        content: str,
+        sender_name: str,
+        is_assistant: bool = False,
+        timestamp: Optional[datetime] = None,
+    ) -> None:
+        """
+        Appends a message to the HQ conversation storage.
+
+        Args:
+            mission_id: The ID of the mission
+            message_id: The ID of the message
+            content: The message content
+            sender_name: The name of the sender
+            is_assistant: Whether the message is from the assistant
+            timestamp: The timestamp of the message (defaults to now)
+        """
+        # Get existing conversation or create new one
+        conversation = MissionStorage.read_hq_conversation(mission_id)
+        if not conversation:
+            conversation = HQConversationStorage(mission_id=mission_id)
+
+        # Create new message
+        new_message = HQConversationMessage(
+            message_id=message_id,
+            content=content,
+            sender_name=sender_name,
+            timestamp=timestamp or datetime.utcnow(),
+            is_assistant=is_assistant,
+        )
+
+        # Add to conversation (only keep most recent 50 messages)
+        conversation.messages.append(new_message)
+        if len(conversation.messages) > 50:
+            conversation.messages = conversation.messages[-50:]
+
+        conversation.last_updated = datetime.utcnow()
+
+        # Save the updated conversation
+        MissionStorage.write_hq_conversation(mission_id, conversation)
+
+    @staticmethod
     def write_mission_kb(mission_id: str, kb: MissionKB) -> pathlib.Path:
         """Writes the mission knowledge base."""
         path = MissionStorageManager.get_mission_kb_path(mission_id)
@@ -261,76 +345,82 @@ class MissionStorage:
     async def refresh_current_ui(context: ConversationContext) -> None:
         """
         Refreshes only the current conversation's UI inspector panel.
-        
+
         Use this when a change only affects the local conversation's view
         and doesn't need to be synchronized with other conversations.
         """
         from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 
-        await context.send_conversation_state_event(
-            AssistantStateEvent(
-                state_id="mission_status",  # Must match the inspector_state_providers key in chat.py
-                event="updated",
-                state=None,
-            )
+        # Create the state event
+        state_event = AssistantStateEvent(
+            state_id="mission_status",  # Must match the inspector_state_providers key in chat.py
+            event="updated",
+            state=None,
         )
-        
+
+        # Send the event to the current context
+        await context.send_conversation_state_event(state_event)
+
     @staticmethod
     async def refresh_all_mission_uis(context: ConversationContext, mission_id: str) -> None:
         """
         Refreshes the UI inspector panels of all conversations in a mission.
-        
+
         This sends a state event to all conversations (current, HQ, and all field agents)
         involved in the mission to refresh their inspector panels, ensuring all
         participants have the latest information without sending any text notifications.
-        
+
         Use this when mission data has changed and all UIs need to be updated,
         but you don't want to send notification messages to users.
-        
+
         Args:
             context: Current conversation context
             mission_id: The mission ID
         """
         from semantic_workbench_api_model.workbench_model import AssistantStateEvent
         from .mission import ConversationClientManager
-        
+
         try:
             # First update the current conversation's UI
             await MissionStorage.refresh_current_ui(context)
-            
+
             # Get HQ client and update HQ if not the current conversation
-            hq_client, hq_conversation_id = await ConversationClientManager.get_hq_client_for_mission(context, mission_id)
+            hq_client, hq_conversation_id = await ConversationClientManager.get_hq_client_for_mission(
+                context, mission_id
+            )
             if hq_client and hq_conversation_id:
                 try:
-                    await hq_client.send_conversation_state_event(
-                        AssistantStateEvent(state_id="mission_status", event="updated", state=None)
-                    )
+                    state_event = AssistantStateEvent(state_id="mission_status", event="updated", state=None)
+                    # Get assistant ID from context
+                    assistant_id = context.assistant.id
+                    await hq_client.send_conversation_state_event(assistant_id, state_event)
                     logger.info(f"Sent state event to HQ conversation {hq_conversation_id} to refresh inspector")
                 except Exception as e:
                     logger.warning(f"Error sending state event to HQ: {e}")
-            
+
             # Get all field conversation clients and update them
             linked_conversations = await ConversationMissionManager.get_linked_conversations(context)
             current_id = str(context.id)
-            
+
             for conv_id in linked_conversations:
                 if conv_id != current_id and (not hq_conversation_id or conv_id != hq_conversation_id):
                     try:
                         # Get client for the conversation
                         client = ConversationClientManager.get_conversation_client(context, conv_id)
-                        
+
                         # Send state event to refresh the inspector panel
-                        await client.send_conversation_state_event(
-                            AssistantStateEvent(state_id="mission_status", event="updated", state=None)
-                        )
+                        state_event = AssistantStateEvent(state_id="mission_status", event="updated", state=None)
+                        # Get assistant ID from context
+                        assistant_id = context.assistant.id
+                        await client.send_conversation_state_event(assistant_id, state_event)
                         logger.info(f"Sent state event to conversation {conv_id} to refresh inspector")
                     except Exception as e:
                         logger.warning(f"Error sending state event to conversation {conv_id}: {e}")
                         continue
-                        
+
         except Exception as e:
             logger.warning(f"Error notifying all mission UIs: {e}")
-        
+
     # The get_linked_conversations method is now in ConversationMissionManager
 
     @staticmethod
@@ -358,10 +448,10 @@ class MissionStorage:
         """
         # Get user information
         user_id, user_name = await get_current_user(context)
-        
+
         if not user_id:
             return False
-            
+
         # Default user name if none found
         user_name = user_name or "Unknown User"
 
@@ -405,7 +495,7 @@ class MissionNotifier:
         """
         Sends a notice message to all linked conversations except the current one.
         Does NOT refresh any UI inspector panels.
-        
+
         Args:
             context: Current conversation context
             mission_id: ID of the mission
@@ -441,12 +531,12 @@ class MissionNotifier:
     ) -> None:
         """
         Complete mission update: sends notices to all conversations and refreshes all UI inspector panels.
-        
+
         This method:
         1. Sends a notice message to the current conversation
         2. Sends the same notice message to all linked conversations
         3. Refreshes UI inspector panels for all conversations in the mission
-        
+
         Use this for important mission updates that need both user notification AND UI refresh.
 
         Args:
@@ -468,7 +558,7 @@ class MissionNotifier:
         # Notify all linked conversations with the same message
         await MissionNotifier.send_notice_to_linked_conversations(context, mission_id, message)
 
-        # Refresh all mission UI inspector panels 
+        # Refresh all mission UI inspector panels
         await MissionStorage.refresh_all_mission_uis(context, mission_id)
 
 
@@ -488,7 +578,7 @@ class ConversationMissionManager:
         """Stores a conversation's mission association."""
 
         mission_id: str
-        
+
     @staticmethod
     async def get_linked_conversations(context: ConversationContext) -> List[str]:
         """
@@ -553,9 +643,7 @@ class ConversationMissionManager:
             role: Role of the conversation (HQ or FIELD)
         """
         role_data = ConversationMissionManager.ConversationRoleInfo(
-            mission_id=mission_id, 
-            role=role,
-            conversation_id=str(context.id)
+            mission_id=mission_id, role=role, conversation_id=str(context.id)
         )
         role_path = MissionStorageManager.get_conversation_role_file_path(context)
         write_model(role_path, role_data)
@@ -610,23 +698,23 @@ class ConversationMissionManager:
             return mission_data.mission_id
 
         return None
-        
+
     # Maintain backwards compatibility with existing code
     # These methods are deprecated and should be removed in a future update
     @staticmethod
     async def set_conversation_mission(context: ConversationContext, mission_id: str) -> None:
         """
         DEPRECATED: Use associate_conversation_with_mission instead.
-        
+
         Associates a conversation with a mission.
         """
         await ConversationMissionManager.associate_conversation_with_mission(context, mission_id)
-        
+
     @staticmethod
     async def get_conversation_mission(context: ConversationContext) -> Optional[str]:
         """
         DEPRECATED: Use get_associated_mission_id instead.
-        
+
         Gets the mission ID associated with a conversation.
         """
         return await ConversationMissionManager.get_associated_mission_id(context)

@@ -25,11 +25,11 @@ async def log_mission_action(
 ) -> None:
     """
     Log an action to the mission log.
-    
+
     This utility function handles retrieving the mission ID and logging the event
     using the appropriate storage mechanism. It's used by both HQ and Field mode
     handlers to maintain consistent logging.
-    
+
     Args:
         context: The conversation context
         entry_type: Type of log entry

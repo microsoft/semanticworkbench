@@ -95,7 +95,7 @@ class FieldConversationHandler:
             mission_id=mission_id,
             entry_type=LogEntryType.REQUEST_CREATED.value,
             message=f"Created field request: {title}",
-            related_entity_id=request.request_id
+            related_entity_id=request.request_id,
         )
 
         # Update mission status to include this request as a potential blocker

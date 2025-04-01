@@ -37,6 +37,7 @@ from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
     MessageType,
     NewConversationMessage,
+    ParticipantRole,
     UpdateParticipant,
 )
 from semantic_workbench_assistant.assistant_app import (
@@ -138,10 +139,50 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
     try:
-        # Get the conversation's role (HQ or Field)
         # Get conversation to access metadata
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
+        
+        # Check if setup is complete - check both local metadata and the state API
+        setup_complete = metadata.get("setup_complete", False)
+        
+        # If not set in local metadata, try to get it from the mission storage directly
+        if not setup_complete:
+            try:
+                from .mission_storage import ConversationMissionManager
+                
+                # Check if we have a mission role in storage
+                role = await ConversationMissionManager.get_conversation_role(context)
+                if role:
+                    # If we have a role in storage, consider setup complete
+                    setup_complete = True
+                    metadata["setup_complete"] = True
+                    metadata["mission_role"] = role.value
+                    metadata["assistant_mode"] = role.value
+                    logger.info(f"Found mission role in storage: {role.value}")
+            except Exception as e:
+                logger.exception(f"Error getting role from mission storage: {e}")
+                
+        assistant_mode = metadata.get("assistant_mode", "setup")
+        
+        # If setup isn't complete, show setup required message
+        if not setup_complete and assistant_mode == "setup":
+            # Show setup required message for regular chat messages
+            await context.send_messages(
+                NewConversationMessage(
+                    content=(
+                        "**Setup Required**\n\n"
+                        "You need to set up the assistant before proceeding. Please use one of these commands:\n\n"
+                        "- `/start-hq` - Create a new mission as HQ\n"
+                        "- `/join <code>` - Join an existing mission as a Field agent\n"
+                        "- `/help` - Get help with available commands"
+                    ),
+                    message_type=MessageType.notice,
+                )
+            )
+            return
+            
+        # Get the conversation's role (HQ or Field)
         role = metadata.get("mission_role")
 
         # If role isn't set yet, detect it now
@@ -152,6 +193,40 @@ async def on_message_created(
             await context.send_conversation_state_event(
                 AssistantStateEvent(state_id="mission_role", event="updated", state=None)
             )
+
+        # If this is an HQ conversation, store the message for Field access
+        if role == "hq" and message.message_type == MessageType.chat:
+            try:
+                # Get the mission ID
+                from .mission_manager import MissionManager
+
+                mission_id = await MissionManager.get_mission_id(context)
+
+                if mission_id:
+                    # Get the sender's name
+                    sender_name = "HQ"
+                    if message.sender:
+                        participants = await context.get_participants()
+                        for participant in participants.participants:
+                            if participant.id == message.sender.participant_id:
+                                sender_name = participant.name
+                                break
+
+                    # Store the message for Field access
+                    from .mission_storage import MissionStorage
+
+                    MissionStorage.append_hq_message(
+                        mission_id=mission_id,
+                        message_id=str(message.id),
+                        content=message.content,
+                        sender_name=sender_name,
+                        is_assistant=message.sender.participant_role == ParticipantRole.assistant,
+                        timestamp=message.timestamp,
+                    )
+                    logger.info(f"Stored HQ message for Field access: {message.id}")
+            except Exception as e:
+                # Don't fail message handling if storage fails
+                logger.exception(f"Error storing HQ message for Field access: {e}")
 
         # Prepare custom system message based on role
         role_specific_prompt = ""
@@ -307,7 +382,7 @@ async def on_file_created(
         mission_id = await MissionManager.get_mission_id(context)
         if not mission_id or not file.filename:
             return
-            
+
         # Log file creation to mission log
         await MissionStorage.log_mission_event(
             context=context,
@@ -333,7 +408,7 @@ async def on_file_updated(
         mission_id = await MissionManager.get_mission_id(context)
         if not mission_id or not file.filename:
             return
-            
+
         # Log file update to mission log
         await MissionStorage.log_mission_event(
             context=context,
@@ -371,20 +446,20 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         role = await ConversationMissionManager.get_conversation_role(context)
         if role:
             return role.value
-            
+
         # Get mission ID
         mission_id = await MissionManager.get_mission_id(context)
         if not mission_id:
             # No mission association yet, default to HQ
             return "hq"
-            
+
         # Check if this conversation created a mission briefing
         briefing = MissionStorage.read_mission_briefing(mission_id)
-        
+
         # If the briefing was created by this conversation, we're in HQ Mode
         if briefing and briefing.conversation_id == str(context.id):
             return "hq"
-            
+
         # Otherwise, if we have a mission association but didn't create the briefing,
         # we're likely in Field Mode
         return "field"
@@ -401,44 +476,47 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
     """
-    # get the assistant's configuration
-    config = await assistant_config.get(context.assistant)
-
-    # Detect whether this is an HQ or Field conversation
-    role = await detect_assistant_role(context)
-
-    # Store the role in conversation metadata for future reference
+    # Get conversation to access metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
+
+    # Set initial setup mode for new conversations
+    metadata["setup_complete"] = False
+    metadata["assistant_mode"] = "setup"
+
+    # Detect whether this is an HQ or Field conversation based on existing data
+    # but don't commit to a role yet - that will happen during setup
+    role = await detect_assistant_role(context)
+
+    # Store the preliminary role in conversation metadata, but setup is not complete
     metadata["mission_role"] = role
+
+    # Update conversation metadata
     await context.send_conversation_state_event(
         AssistantStateEvent(state_id="mission_role", event="updated", state=None)
     )
 
-    # Select the appropriate welcome message based on role
-    if role == "hq":
-        welcome_message = config.mission_config.sender_config.welcome_message
-    else:
-        welcome_message = config.mission_config.receiver_config.welcome_message
+    # Welcome message for setup mode
+    setup_welcome = """# Welcome to the Mission Assistant
 
-    # send the welcome message to the conversation
+This assistant helps coordinate mission activities between HQ and Field personnel.
+
+**Setup Required**: To begin, please specify your role:
+
+- Use `/start-hq` to create a new mission as HQ
+- Use `/join <code>` to join an existing mission as Field personnel
+
+Type `/help` for more information on available commands.
+"""
+
+    # send the setup welcome message to the conversation
     await context.send_messages(
         NewConversationMessage(
-            content=welcome_message,
+            content=setup_welcome,
             message_type=MessageType.chat,
             metadata={"generated_content": False},
         )
     )
-
-    # If this is an HQ conversation and proactive guidance is enabled,
-    # provide guidance on getting started
-    if role == "hq" and config.mission_config.proactive_guidance:
-        await context.send_messages(
-            NewConversationMessage(
-                content=config.mission_config.sender_config.prompt_for_files,
-                message_type=MessageType.chat,
-            )
-        )
 
 
 # The command handling functions have been moved to command_processor.py
@@ -886,13 +964,43 @@ DO NOT attempt to use HQ tools directly as they will fail and waste the user's t
             message_type = MessageType.command_response
 
     # send the response to the conversation
-    await context.send_messages(
+    response_message = await context.send_messages(
         NewConversationMessage(
             content=str(content) if content is not None else "[no response from openai]",
             message_type=message_type,
             metadata=metadata,
         )
     )
+    
+    # Manually capture assistant's message for HQ conversation storage
+    # This ensures that both user and assistant messages are stored
+    conversation = await context.get_conversation()
+    metadata = conversation.metadata or {}
+    role = metadata.get("mission_role")
+    
+    if role == "hq" and message_type == MessageType.chat and response_message and response_message.messages:
+        try:
+            # Get the mission ID
+            from .mission_manager import MissionManager
+            mission_id = await MissionManager.get_mission_id(context)
+            
+            if mission_id:
+                for msg in response_message.messages:
+                    # Store the assistant's message for Field access
+                    from .mission_storage import MissionStorage
+                    
+                    MissionStorage.append_hq_message(
+                        mission_id=mission_id,
+                        message_id=str(msg.id),
+                        content=msg.content,
+                        sender_name=context.assistant.name,
+                        is_assistant=True,
+                        timestamp=msg.timestamp,
+                    )
+                    logger.info(f"Stored HQ assistant message for Field access: {msg.id}")
+        except Exception as e:
+            # Don't fail message handling if storage fails
+            logger.exception(f"Error storing HQ assistant message for Field access: {e}")
 
 
 # this method is used to get the token count of a string.

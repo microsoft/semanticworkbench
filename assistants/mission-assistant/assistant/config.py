@@ -85,7 +85,7 @@ class SenderConfig(BaseModel):
             "required": ["welcome_message", "prompt_for_files", "context_building_prompt"],
         },
     )
-    
+
     welcome_message: Annotated[
         str,
         Field(
@@ -94,7 +94,7 @@ class SenderConfig(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = "Welcome to your mission control! As the mission owner, I'll help you build context by organizing files and information to share with your team. You can upload files, invite team members with the /invite command, and I'll help synchronize everything between conversations."
-    
+
     prompt_for_files: Annotated[
         str,
         Field(
@@ -103,7 +103,7 @@ class SenderConfig(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = "To begin building your mission context, would you like to upload any relevant files like documents, images, or data that your team will need? You can drag and drop files directly into this conversation."
-    
+
     context_building_prompt: Annotated[
         str,
         Field(
@@ -112,7 +112,7 @@ class SenderConfig(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = "Let's organize your mission context. Here are some ways to structure your information:\n\n- Key documents: What reference materials does your team need?\n- Mission objectives: What are the specific goals and deliverables?\n- Timeline: What are the key milestones and deadlines?\n- Team roles: Who should do what?\n\nWould you like me to help you document any of these aspects?"
-    
+
     list_participants_command: Annotated[
         str,
         Field(
@@ -120,7 +120,7 @@ class SenderConfig(BaseModel):
             description="The command mission owners can use to list all participants (without the slash).",
         ),
     ] = "list-participants"
-    
+
     revoke_access_command: Annotated[
         str,
         Field(
@@ -137,7 +137,7 @@ class ReceiverConfig(BaseModel):
             "required": ["welcome_message", "status_command"],
         },
     )
-    
+
     welcome_message: Annotated[
         str,
         Field(
@@ -146,7 +146,7 @@ class ReceiverConfig(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = "Welcome to the mission! You've been added as a collaborator, and any files shared by the mission owner will appear in this conversation. You can also contribute by uploading your own files, which will be shared with the team."
-    
+
     status_command: Annotated[
         str,
         Field(
@@ -154,7 +154,7 @@ class ReceiverConfig(BaseModel):
             description="The command mission participants can use to check mission status (without the slash).",
         ),
     ] = "mission-status"
-    
+
     upload_notification: Annotated[
         str,
         Field(
@@ -205,7 +205,7 @@ class MissionConfig(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = "You've been invited to collaborate on a mission. Type /join to accept the invitation."
-    
+
     proactive_guidance: Annotated[
         bool,
         Field(
@@ -213,7 +213,7 @@ class MissionConfig(BaseModel):
             description="Proactively guide mission owners through context building.",
         ),
     ] = True
-    
+
     sender_config: Annotated[
         SenderConfig,
         Field(
@@ -221,7 +221,7 @@ class MissionConfig(BaseModel):
             description="Configuration for mission owners (senders).",
         ),
     ] = SenderConfig()
-    
+
     receiver_config: Annotated[
         ReceiverConfig,
         Field(

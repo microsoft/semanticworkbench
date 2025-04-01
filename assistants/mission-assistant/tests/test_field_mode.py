@@ -64,8 +64,16 @@ class NewConversationMessage:
 
 
 class BaseArtifact:
-    def __init__(self, artifact_id=None, artifact_type=None, created_by=None, updated_by=None, 
-                 conversation_id=None, mission_id=None, **kwargs):
+    def __init__(
+        self,
+        artifact_id=None,
+        artifact_type=None,
+        created_by=None,
+        updated_by=None,
+        conversation_id=None,
+        mission_id=None,
+        **kwargs,
+    ):
         self.artifact_id = artifact_id or "test-artifact-id"
         self.artifact_type = artifact_type
         self.created_by = created_by
@@ -93,8 +101,9 @@ class FieldRequest(BaseArtifact):
 
 
 class MissionStatus(BaseArtifact):
-    def __init__(self, state=None, progress_percentage=0, active_blockers=None, 
-                 completed_criteria=0, total_criteria=0, **kwargs):
+    def __init__(
+        self, state=None, progress_percentage=0, active_blockers=None, completed_criteria=0, total_criteria=0, **kwargs
+    ):
         super().__init__(artifact_type=ArtifactType.MISSION_STATUS, **kwargs)
         self.state = state or MissionState.PLANNING
         self.progress_percentage = progress_percentage
@@ -130,12 +139,12 @@ class MissionBriefing(BaseArtifact):
         self.goals = goals or []
 
 
-# Create a mock for the FieldConversationHandler 
+# Create a mock for the FieldConversationHandler
 class MockFieldConversationHandler:
     def __init__(self, context):
         self.context = context
         self.log_action = AsyncMock()
-    
+
     async def create_field_request(self, title, description, priority=RequestPriority.MEDIUM):
         # Mock implementation
         request = FieldRequest(
@@ -147,15 +156,15 @@ class MockFieldConversationHandler:
             conversation_id=str(self.context.id),
             mission_id="test-mission-id",
         )
-        
+
         # Call mocked log_action
         await self.log_action(
             LogEntryType.REQUEST_CREATED,
             f"Created field request: {title}",
             related_artifact_id=request.artifact_id,
-            related_artifact_type=ArtifactType.FIELD_REQUEST
+            related_artifact_type=ArtifactType.FIELD_REQUEST,
         )
-        
+
         # Send notification
         await self.context.send_messages(
             NewConversationMessage(
@@ -163,9 +172,9 @@ class MockFieldConversationHandler:
                 message_type=MessageType.notice,
             )
         )
-        
+
         return True, f"Created field request: {title}", request
-    
+
     async def update_mission_status(self, progress_percentage, status_message=None):
         # Mock implementation
         status = MissionStatus(
@@ -177,18 +186,12 @@ class MockFieldConversationHandler:
             mission_id="test-mission-id",
         )
         status.status_message = status_message
-        
+
         # Call mocked log_action for state change and progress update
-        await self.log_action(
-            LogEntryType.GATE_PASSED,
-            "Mission is now in progress"
-        )
-        
-        await self.log_action(
-            LogEntryType.STATUS_CHANGED,
-            f"Updated mission progress to {progress_percentage}%"
-        )
-        
+        await self.log_action(LogEntryType.GATE_PASSED, "Mission is now in progress")
+
+        await self.log_action(LogEntryType.STATUS_CHANGED, f"Updated mission progress to {progress_percentage}%")
+
         # Send notification
         await self.context.send_messages(
             NewConversationMessage(
@@ -196,16 +199,16 @@ class MockFieldConversationHandler:
                 message_type=MessageType.notice,
             )
         )
-        
+
         return True, f"Updated mission progress to {progress_percentage}%", status
-    
+
     async def mark_criterion_completed(self, goal_id, criterion_id):
         # Mock implementation
         criterion = SuccessCriterion(id=criterion_id, description="Test criterion")
         criterion.completed = True
         criterion.completed_at = datetime.utcnow()
         criterion.completed_by = "test-user-id"
-        
+
         status = MissionStatus(
             state=MissionState.IN_PROGRESS,
             progress_percentage=100,
@@ -216,13 +219,10 @@ class MockFieldConversationHandler:
             conversation_id=str(self.context.id),
             mission_id="test-mission-id",
         )
-        
+
         # Call mocked log_action
-        await self.log_action(
-            LogEntryType.CRITERION_COMPLETED,
-            f"Completed criterion: {criterion.description}"
-        )
-        
+        await self.log_action(LogEntryType.CRITERION_COMPLETED, f"Completed criterion: {criterion.description}")
+
         # Send notification
         await self.context.send_messages(
             NewConversationMessage(
@@ -230,9 +230,9 @@ class MockFieldConversationHandler:
                 message_type=MessageType.notice,
             )
         )
-        
+
         return True, f"Marked criterion '{criterion.description}' as completed.", status
-    
+
     async def report_mission_completed(self, completion_summary):
         # Mock implementation
         status = MissionStatus(
@@ -244,13 +244,10 @@ class MockFieldConversationHandler:
             mission_id="test-mission-id",
         )
         status.status_message = completion_summary
-        
+
         # Call mocked log_action
-        await self.log_action(
-            LogEntryType.MISSION_COMPLETED,
-            "Mission marked as completed"
-        )
-        
+        await self.log_action(LogEntryType.MISSION_COMPLETED, "Mission marked as completed")
+
         # Send notification
         await self.context.send_messages(
             NewConversationMessage(
@@ -258,9 +255,9 @@ class MockFieldConversationHandler:
                 message_type=MessageType.notice,
             )
         )
-        
+
         return True, "Mission has been marked as completed", status
-    
+
     async def get_mission_info(self):
         # Mock implementation
         return {
@@ -287,24 +284,24 @@ class TestFieldConversationHandler:
         context.assistant = MagicMock()
         context.assistant.id = "test-assistant-id"
         context.get_participants = AsyncMock()
-        
+
         participants = MagicMock()
         participant = MagicMock()
         participant.id = "test-user-id"
         participant.name = "Test User"
         participant.role = "user"
         participants.participants = [participant]
-        
+
         context.get_participants.return_value = participants
         context.send_messages = AsyncMock()
-        
+
         return context
-    
+
     @pytest.fixture
     def field_handler(self, mock_context):
         """Create a MockFieldConversationHandler instance with a mock context."""
         return MockFieldConversationHandler(mock_context)
-    
+
     @pytest.mark.asyncio
     async def test_create_field_request(self, field_handler, mock_context):
         """Test creating a field request."""
@@ -312,7 +309,7 @@ class TestFieldConversationHandler:
         success, message, request = await field_handler.create_field_request(
             "Test Request", "This is a test request", RequestPriority.HIGH
         )
-        
+
         # Assertions
         assert success is True
         assert "Created field request: Test Request" in message
@@ -321,21 +318,19 @@ class TestFieldConversationHandler:
         assert request.description == "This is a test request"
         assert request.priority == RequestPriority.HIGH
         assert request.created_by == "test-user-id"
-        
+
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
-        
+
         # Verify log_action was called
         field_handler.log_action.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_update_mission_status(self, field_handler, mock_context):
         """Test updating the mission status."""
         # Call the method
-        success, message, status = await field_handler.update_mission_status(
-            50, "Making progress in the field"
-        )
-        
+        success, message, status = await field_handler.update_mission_status(50, "Making progress in the field")
+
         # Assertions
         assert success is True
         assert "Updated mission progress to 50%" in message
@@ -343,13 +338,13 @@ class TestFieldConversationHandler:
         assert status.progress_percentage == 50
         assert status.status_message == "Making progress in the field"
         assert status.state == MissionState.IN_PROGRESS
-        
+
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
-        
+
         # Verify log_action was called twice (once for state change, once for progress update)
         assert field_handler.log_action.call_count == 2
-    
+
     @pytest.mark.asyncio
     async def test_mark_criterion_completed(self, field_handler, mock_context):
         """Test marking a success criterion as completed."""
@@ -357,7 +352,7 @@ class TestFieldConversationHandler:
         success, message, updated_status = await field_handler.mark_criterion_completed(
             "test-goal-id", "test-criterion-id"
         )
-        
+
         # Assertions
         assert success is True
         assert "Marked criterion" in message
@@ -365,13 +360,13 @@ class TestFieldConversationHandler:
         assert updated_status.completed_criteria == 1
         assert updated_status.total_criteria == 1
         assert updated_status.progress_percentage == 100  # 1/1 = 100%
-        
+
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
-        
+
         # Verify log_action was called
         field_handler.log_action.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_report_mission_completed(self, field_handler, mock_context):
         """Test reporting mission completion."""
@@ -379,7 +374,7 @@ class TestFieldConversationHandler:
         success, message, status = await field_handler.report_mission_completed(
             "Mission has been successfully completed with all objectives achieved."
         )
-        
+
         # Assertions
         assert success is True
         assert "Mission has been marked as completed" in message
@@ -387,19 +382,19 @@ class TestFieldConversationHandler:
         assert status.state == MissionState.COMPLETED
         assert status.progress_percentage == 100
         assert status.status_message == "Mission has been successfully completed with all objectives achieved."
-        
+
         # Verify that a notification was sent
         mock_context.send_messages.assert_called_once()
-        
+
         # Verify log_action was called
         field_handler.log_action.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_get_mission_info(self, field_handler, mock_context):
         """Test getting mission info."""
         # Call the method
         mission_info = await field_handler.get_mission_info()
-        
+
         # Assertions
         assert mission_info["has_mission"] is True
         assert mission_info["mission_id"] == "test-mission-id"
