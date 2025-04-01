@@ -158,8 +158,10 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
                         ...state.uiSchema,
                         'ui:submitButtonOptions': {
                             submitText: 'Save',
+                            ...state.uiSchema?.['ui:submitButtonOptions'],
                             props: {
                                 disabled: JSON.stringify(formData) === JSON.stringify(state.data),
+                                ...state.uiSchema?.['ui:submitButtonOptions']?.['props'],
                             },
                         },
                     }}
