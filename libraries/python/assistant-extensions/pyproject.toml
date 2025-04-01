@@ -43,5 +43,5 @@ build-backend = "hatchling.build"
 
 
 [tool.pytest.ini_options]
-asyncio_default_fixture_loop_scope = "fixture"
+asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"

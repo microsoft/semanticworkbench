@@ -12,6 +12,7 @@ from openai_client import (
 )
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema, first_env_var
+from assistant_extensions.document_editor import DocumentEditorConfigModel
 
 from . import helpers
 
@@ -38,6 +39,14 @@ class ExtensionsConfigModel(BaseModel):
             description="Configuration for the attachments extension.",
         ),
     ] = AttachmentsConfigModel()
+
+    document_editor: Annotated[
+        DocumentEditorConfigModel,
+        Field(
+            title="Document Editor Extension",
+            description="Configuration for the document editor extension.",
+        ),
+    ] = DocumentEditorConfigModel()
 
 
 class PromptsConfigModel(BaseModel):

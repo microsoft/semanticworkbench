@@ -4,19 +4,19 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from hashlib import md5
-from typing import Annotated, Any, AsyncGenerator, Protocol
+from typing import Annotated, Any, AsyncGenerator, Callable, Protocol
 
+from assistant_drive import Drive, IfDriveFileExistsBehavior
 from pydantic import BaseModel, ValidationError
 from semantic_workbench_api_model import workbench_model
 from semantic_workbench_assistant.assistant_app import (
     AssistantAppProtocol,
     AssistantConversationInspectorStateDataModel,
-    BaseModelAssistantConfig,
     ConversationContext,
 )
 from semantic_workbench_assistant.config import UISchema, get_ui_schema
 
-from .config import AssistantConfigModel
+from ._model import DocumentEditorConfigProvider
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +40,12 @@ def _get_ui_schema(readonly: bool) -> dict[str, Any]:
 class InspectorController(Protocol):
     async def is_enabled(self, context: ConversationContext) -> bool: ...
     async def is_read_only(self, context: ConversationContext) -> bool: ...
-
-    async def get_current_document(self, context: ConversationContext) -> DocumentFileStateModel | None: ...
+    async def get_current_document(
+        self, context: ConversationContext
+    ) -> DocumentFileStateModel | None: ...
+    async def update_current_document(
+        self, context: ConversationContext, content: str
+    ) -> None: ...
 
 
 class EditableDocumentFileStateInspector:
@@ -52,7 +56,8 @@ class EditableDocumentFileStateInspector:
         description: str = "",
     ) -> None:
         self._state_id = md5(
-            (type(self).__name__ + "_" + display_name).encode("utf-8"), usedforsecurity=False
+            (type(self).__name__ + "_" + display_name).encode("utf-8"),
+            usedforsecurity=False,
         ).hexdigest()
         self._display_name = display_name
         self._description = description
@@ -70,15 +75,19 @@ class EditableDocumentFileStateInspector:
     def description(self) -> str:
         return self._description
 
-    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
+    async def get(
+        self, context: ConversationContext
+    ) -> AssistantConversationInspectorStateDataModel:
         if not self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
-                data={"content": "The Document Editor MCP server is not enabled."}
+                data={"content": "The Document Editor extension is not enabled."}
             )
 
         document = await self._controller.get_current_document(context)
         if not document:
-            return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
+            return AssistantConversationInspectorStateDataModel(
+                data={"content": "No current document."}
+            )
 
         return AssistantConversationInspectorStateDataModel(
             data=document.model_dump(mode="json"),
@@ -91,12 +100,9 @@ class EditableDocumentFileStateInspector:
         context: ConversationContext,
         data: dict[str, Any],
     ) -> None:
-        if not self._controller.is_enabled(context) or self._controller.is_read_only(context):
-            return
-
-        document = await self._controller.get_current_document(context)
-        if document is None:
-            logger.warning("No file selected for context %s. Cannot set content.", context.id)
+        if not self._controller.is_enabled(context) or self._controller.is_read_only(
+            context
+        ):
             return
 
         try:
@@ -105,11 +111,7 @@ class EditableDocumentFileStateInspector:
             logger.exception("invalid data for DocumentFileStateModel")
             return
 
-        await context.write_file(
-            filename=document.filename,
-            file_content=io.BytesIO(model.content.encode("utf-8")),
-            content_type="text/markdown",
-        )
+        await self._controller.update_current_document(context, model.content)
 
 
 class ReadonlyDocumentFileStateInspector:
@@ -120,7 +122,8 @@ class ReadonlyDocumentFileStateInspector:
         description: str = "",
     ) -> None:
         self._state_id = md5(
-            (type(self).__name__ + "_" + display_name).encode("utf-8"), usedforsecurity=False
+            (type(self).__name__ + "_" + display_name).encode("utf-8"),
+            usedforsecurity=False,
         ).hexdigest()
         self._display_name = display_name
         self._description = description
@@ -138,7 +141,9 @@ class ReadonlyDocumentFileStateInspector:
     def description(self) -> str:
         return self._description
 
-    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
+    async def get(
+        self, context: ConversationContext
+    ) -> AssistantConversationInspectorStateDataModel:
         if not self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "The Document Editor MCP server is not enabled."}
@@ -146,10 +151,14 @@ class ReadonlyDocumentFileStateInspector:
 
         document = await self._controller.get_current_document(context)
         if not document:
-            return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
+            return AssistantConversationInspectorStateDataModel(
+                data={"content": "No current document."}
+            )
 
         return AssistantConversationInspectorStateDataModel(
-            data={"content": f"```markdown\n_Filename: {document.filename}_\n\n{document.content}\n```"}
+            data={
+                "content": f"```markdown\n_Filename: {document.filename}_\n\n{document.content}\n```"
+            }
         )
 
 
@@ -157,11 +166,13 @@ class DocumentInspectors:
     def __init__(
         self,
         app: AssistantAppProtocol,
-        config: BaseModelAssistantConfig[AssistantConfigModel],
+        config_provider: DocumentEditorConfigProvider,
+        drive_provider: Callable[[ConversationContext], Drive],
     ) -> None:
+        self._config_provider = config_provider
+        self._drive_provider = drive_provider
         self._selected_file: dict[str, str] = {}
         self._readonly: set[str] = set()
-        self._config = config
 
         viewer = ReadonlyDocumentFileStateInspector(
             controller=self,
@@ -226,44 +237,57 @@ class DocumentInspectors:
                     await emit_state_change_event(ctx)
 
     async def is_enabled(self, context: ConversationContext) -> bool:
-        config = await self._config.get(context.assistant)
-
-        return config.tools.hosted_mcp_servers.filesystem_edit.enabled or any([
-            server
-            for server in config.tools.personal_mcp_servers
-            if server.key == config.tools.hosted_mcp_servers.filesystem_edit.key and server.enabled
-        ])
+        config = await self._config_provider(context)
+        return config.enabled
 
     async def is_read_only(self, context: ConversationContext) -> bool:
         return context.id in self._readonly
 
-    async def get_current_document(self, context: ConversationContext) -> DocumentFileStateModel | None:
-        files_response = await context.list_files()
-        markdown_files = [file for file in files_response.files if file.filename.endswith(".md")]
+    async def get_current_document(
+        self, context: ConversationContext
+    ) -> DocumentFileStateModel | None:
+        drive = self._drive_provider(context)
+        markdown_files = [
+            filename for filename in drive.list() if filename.endswith(".md")
+        ]
         if not markdown_files:
             self._selected_file.pop(context.id, None)
             return None
 
         if context.id not in self._selected_file:
-            self._selected_file[context.id] = markdown_files[0].filename
+            self._selected_file[context.id] = markdown_files[0]
 
         selected_file_name = self._selected_file[context.id]
-        selected_file = next((file for file in markdown_files if file.filename == selected_file_name), None)
-        if not selected_file:
-            return None
 
         buffer = io.BytesIO()
-        async with context.read_file(selected_file.filename) as reader:
-            async for chunk in reader:
-                buffer.write(chunk)
+        try:
+            with drive.open_file(selected_file_name) as file:
+                buffer.write(file.read())
+        except FileNotFoundError:
+            return None
 
         file_content = buffer.getvalue().decode("utf-8")
 
-        return DocumentFileStateModel(content=file_content, filename=selected_file.filename)
+        return DocumentFileStateModel(content=file_content, filename=selected_file_name)
+
+    async def update_current_document(
+        self, context: ConversationContext, content: str
+    ) -> None:
+        drive = self._drive_provider(context)
+        filename = self._selected_file.get(context.id)
+        if not filename:
+            raise ValueError("No file selected")
+
+        drive.write(
+            content=io.BytesIO(content.encode("utf-8")),
+            filename=filename,
+            if_exists=IfDriveFileExistsBehavior.OVERWRITE,
+            content_type="text/markdown",
+        )
 
 
 @asynccontextmanager
-async def sideband_event_for_document_lock(
+async def lock_document_edits(
     app: AssistantAppProtocol, context: ConversationContext
 ) -> AsyncGenerator[None, None]:
     """

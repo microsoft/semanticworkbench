@@ -10,6 +10,7 @@ from typing import Any
 
 import deepmerge
 from assistant_extensions.attachments import AttachmentsExtension
+from assistant_extensions.document_editor import DocumentEditorConfigModel, DocumentEditorExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -27,7 +28,6 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from . import document_inspector
 from .config import AssistantConfigModel, ContextTransferConfigModel, MCPToolsConfigModel, WorkspaceAssistantConfigModel
 from .response import respond_to_conversation
 
@@ -90,7 +90,16 @@ async def tools_config_provider(context: AssistantContext) -> MCPToolsConfigMode
     return (await assistant_config.get(context)).tools
 
 
-document_inspectors = document_inspector.DocumentInspectors(config=assistant_config, app=assistant)
+async def document_editor_config_provider(ctx: ConversationContext) -> DocumentEditorConfigModel:
+    config = await assistant_config.get(ctx.assistant)
+    return config.extensions_config.document_editor
+
+
+document_editor_extension = DocumentEditorExtension(
+    app=assistant,
+    config_provider=document_editor_config_provider,
+    storage_directory="documents",
+)
 
 
 attachments_extension = AttachmentsExtension(assistant)
@@ -144,7 +153,7 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     async with (
         context.set_status("thinking..."),
-        document_inspector.sideband_event_for_document_lock(assistant, context),
+        document_editor_extension.lock_document_edits(context),
     ):
         config = await assistant_config.get(context.assistant)
         metadata: dict[str, Any] = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
@@ -153,6 +162,7 @@ async def on_message_created(
             await respond_to_conversation(
                 message=message,
                 attachments_extension=attachments_extension,
+                document_editor_extension=document_editor_extension,
                 context=context,
                 config=config,
                 metadata=metadata,

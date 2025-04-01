@@ -4,6 +4,7 @@ import logging
 import urllib.parse
 from typing import Any
 
+from assistant_drive import Drive, IfDriveFileExistsBehavior
 from mcp import (
     ClientSession,
     ErrorData,
@@ -19,22 +20,20 @@ from mcp.types import (
 )
 from mcp_extensions import WriteResourceRequestParams, WriteResourceResult
 from pydantic import AnyUrl
-from semantic_workbench_assistant.assistant_app import ConversationContext
 
 logger = logging.getLogger(__name__)
 
 CLIENT_RESOURCE_SCHEME = "client-resource"
 
 
-class WorkbenchFileClientResourceHandler:
+class AssistantFileResourceHandler:
     """
     Handles the `resources/list`, `resources/read` and `resources/write` methods for an MCP client that
-    implements our experimental client-resources capability, backed by the files in a workbench
-    conversation.
+    implements our experimental client-resources capability, backed by the files in assistant storage.
     """
 
-    def __init__(self, context: ConversationContext) -> None:
-        self.context = context
+    def __init__(self, drive: Drive) -> None:
+        self.drive = drive
 
     @staticmethod
     def _filename_to_resource_uri(filename: str) -> AnyUrl:
@@ -52,19 +51,20 @@ class WorkbenchFileClientResourceHandler:
         context: RequestContext[ClientSession, Any],
     ) -> ListResourcesResult | ErrorData:
         try:
-            files_response = await self.context.list_files()
+            resources: list[Resource] = []
 
-            return ListResourcesResult(
-                resources=[
+            for filename in self.drive.list():
+                metadata = self.drive.get_metadata(filename)
+                resources.append(
                     Resource(
-                        uri=self._filename_to_resource_uri(file.filename),
-                        name=file.filename.split("/")[-1],
-                        size=file.file_size,
-                        mimeType=file.content_type,
+                        uri=self._filename_to_resource_uri(filename),
+                        name=filename,
+                        size=metadata.size,
+                        mimeType=metadata.content_type,
                     )
-                    for file in files_response.files
-                ]
-            )
+                )
+
+            return ListResourcesResult(resources=resources)
         except Exception as e:
             logger.exception("error listing resources")
             return ErrorData(
@@ -85,25 +85,30 @@ class WorkbenchFileClientResourceHandler:
                     message=f"Invalid resource URI: {params.uri}",
                 )
 
-            file_response = await self.context.get_file(filename)
-            if file_response is None:
+            try:
+                metadata = self.drive.get_metadata(filename)
+            except FileNotFoundError:
                 return ErrorData(
                     code=404,
                     message=f"Resource {params.uri} not found.",
                 )
 
             buffer = io.BytesIO()
+            try:
+                with self.drive.open_file(filename) as file:
+                    buffer.write(file.read())
+            except FileNotFoundError:
+                return ErrorData(
+                    code=404,
+                    message=f"Resource {params.uri} not found.",
+                )
 
-            async with self.context.read_file(filename) as reader:
-                async for chunk in reader:
-                    buffer.write(chunk)
-
-            if file_response.content_type.startswith("text/"):
+            if metadata.content_type.startswith("text/"):
                 return ReadResourceResult(
                     contents=[
                         TextResourceContents(
-                            uri=params.uri,
-                            mimeType=file_response.content_type,
+                            uri=self._filename_to_resource_uri(filename),
+                            mimeType=metadata.content_type,
                             text=buffer.getvalue().decode("utf-8"),
                         )
                     ]
@@ -113,7 +118,7 @@ class WorkbenchFileClientResourceHandler:
                 contents=[
                     BlobResourceContents(
                         uri=self._filename_to_resource_uri(filename),
-                        mimeType=file_response.content_type,
+                        mimeType=metadata.content_type,
                         blob=base64.b64encode(buffer.getvalue()).decode(),
                     )
                 ]
@@ -150,10 +155,11 @@ class WorkbenchFileClientResourceHandler:
                     content_bytes = params.contents.text.encode("utf-8")
                     content_type = params.contents.mimeType or "text/plain"
 
-            await self.context.write_file(
+            self.drive.write(
                 filename=filename,
                 content_type=content_type,
-                file_content=io.BytesIO(content_bytes),
+                content=io.BytesIO(content_bytes),
+                if_exists=IfDriveFileExistsBehavior.OVERWRITE,
             )
 
             return WriteResourceResult()
