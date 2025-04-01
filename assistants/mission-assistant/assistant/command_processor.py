@@ -1152,7 +1152,7 @@ async def handle_list_participants_command(
             return
             
         # Get all linked conversations
-        linked_conversation_ids = await MissionStorage.get_linked_conversations(context)
+        linked_conversation_ids = await ConversationMissionManager.get_linked_conversations(context)
         
         if not linked_conversation_ids:
             await context.send_messages(
@@ -1228,7 +1228,7 @@ async def handle_revoke_access_command(
             return
             
         # Get all linked conversations
-        linked_conversation_ids = await MissionStorage.get_linked_conversations(context)
+        linked_conversation_ids = await ConversationMissionManager.get_linked_conversations(context)
         
         if not linked_conversation_ids:
             await context.send_messages(

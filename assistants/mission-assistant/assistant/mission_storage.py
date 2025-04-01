@@ -331,24 +331,7 @@ class MissionStorage:
         except Exception as e:
             logger.warning(f"Error notifying all mission UIs: {e}")
         
-    @staticmethod
-    async def get_linked_conversations(context: ConversationContext) -> List[str]:
-        """
-        Gets all conversation IDs linked to the same mission as the current conversation.
-        
-        Args:
-            context: Current conversation context
-            
-        Returns:
-            List of conversation IDs
-        """
-        mission_id = await ConversationMissionManager.get_conversation_mission(context)
-        if not mission_id:
-            return []
-            
-        # Use the ConversationMissionManager's implementation which properly searches for all
-        # conversations in the mission
-        return await ConversationMissionManager.get_linked_conversations(context)
+    # The get_linked_conversations method is now in ConversationMissionManager
 
     @staticmethod
     async def log_mission_event(
@@ -432,7 +415,7 @@ class MissionNotifier:
         from .mission import ConversationClientManager
 
         # Get conversation IDs in the same mission
-        linked_conversations = await MissionStorage.get_linked_conversations(context)
+        linked_conversations = await ConversationMissionManager.get_linked_conversations(context)
         current_conversation_id = str(context.id)
 
         # Send notification to each linked conversation
@@ -536,7 +519,7 @@ class ConversationMissionManager:
             hq_dir = mission_dir / MissionRole.HQ.value
             if hq_dir.exists():
                 # If this isn't the current conversation, add it
-                role_file = hq_dir / "mission_role.json"
+                role_file = hq_dir / "conversation_role.json"
                 if role_file.exists():
                     try:
                         role_data = read_model(role_file, ConversationMissionManager.ConversationRoleInfo)
