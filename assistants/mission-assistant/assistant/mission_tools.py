@@ -593,8 +593,8 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         Mark a success criterion as completed.
 
         Args:
-            goal_index: The index of the goal (1-based)
-            criterion_index: The index of the criterion within the goal (1-based)
+            goal_index: The index of the goal (0-based)
+            criterion_index: The index of the criterion within the goal (0-based)
 
         Returns:
             A message indicating success or failure
@@ -612,18 +612,16 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
         if not briefing:
             return "No mission briefing found."
 
-        # Adjust indices to be 0-based
-        goal_index = goal_index - 1
-        criterion_index = criterion_index - 1
+        # Using 0-based indexing directly, no adjustment needed
 
         # Validate indices
         if goal_index < 0 or goal_index >= len(briefing.goals):
-            return f"Invalid goal index {goal_index + 1}. There are {len(briefing.goals)} goals."
+            return f"Invalid goal index {goal_index}. Valid indexes are 0 to {len(briefing.goals) - 1}. There are {len(briefing.goals)} goals."
 
         goal = briefing.goals[goal_index]
 
         if criterion_index < 0 or criterion_index >= len(goal.success_criteria):
-            return f"Invalid criterion index {criterion_index + 1}. Goal '{goal.name}' has {len(goal.success_criteria)} criteria."
+            return f"Invalid criterion index {criterion_index}. Valid indexes for goal '{goal.name}' are 0 to {len(goal.success_criteria) - 1}. Goal '{goal.name}' has {len(goal.success_criteria)} criteria."
 
         # Update the criterion
         criterion = goal.success_criteria[criterion_index]
@@ -1302,8 +1300,8 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
                                 "priority": "low",
                                 "function": "mark_criterion_completed",
                                 "parameters": {
-                                    "goal_index": goal_index + 1,  # 1-based indexing
-                                    "criterion_index": criterion_index + 1,  # 1-based indexing
+                                    "goal_index": goal_index,  # 0-based indexing
+                                    "criterion_index": criterion_index,  # 0-based indexing
                                 },
                             }
 
