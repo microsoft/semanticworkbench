@@ -1,4 +1,5 @@
 from io import BytesIO
+from tempfile import TemporaryDirectory
 
 import pytest
 from assistant_drive import Drive
@@ -8,14 +9,11 @@ from pydantic import BaseModel
 file_content = BytesIO(b"Hello, World!")  # Convert byte string to BytesIO
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def drive():
-    drive = Drive(DriveConfig(root="./data/drive/test"))
-    drive.delete_drive()
-
-    yield drive
-
-    drive.delete_drive()
+    with TemporaryDirectory() as temp_dir:
+        drive = Drive(DriveConfig(root=temp_dir))
+        yield drive
 
 
 def test_write_to_root(drive):
@@ -187,7 +185,7 @@ def test_read_model_non_existent_file(drive) -> None:
 
 def test_subdrive(drive) -> None:
     subdrive = drive.subdrive("summaries")
-    assert str(subdrive.root_path) == "data/drive/test/summaries"
+    assert subdrive.root_path == drive.root_path / "summaries"
     assert list(subdrive.list()) == []
 
     subdrive.write(file_content, "test.txt")

@@ -150,9 +150,9 @@ class Drive:
         self,
         content: BinaryIO,
         filename: str,
-        content_type: str | None = None,
         dir: str | None = None,
         if_exists: IfDriveFileExistsBehavior | None = None,
+        content_type: str | None = None,
     ) -> FileMetadata:
         """Write a file and its metadata."""
         if if_exists is None:

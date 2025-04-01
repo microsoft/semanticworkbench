@@ -78,7 +78,7 @@ class EditableDocumentFileStateInspector:
     async def get(
         self, context: ConversationContext
     ) -> AssistantConversationInspectorStateDataModel:
-        if not self._controller.is_enabled(context):
+        if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "The Document Editor extension is not enabled."}
             )
@@ -100,9 +100,9 @@ class EditableDocumentFileStateInspector:
         context: ConversationContext,
         data: dict[str, Any],
     ) -> None:
-        if not self._controller.is_enabled(context) or self._controller.is_read_only(
-            context
-        ):
+        if not await self._controller.is_enabled(context):
+            return
+        if await self._controller.is_read_only(context):
             return
 
         try:
@@ -144,7 +144,7 @@ class ReadonlyDocumentFileStateInspector:
     async def get(
         self, context: ConversationContext
     ) -> AssistantConversationInspectorStateDataModel:
-        if not self._controller.is_enabled(context):
+        if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "The Document Editor MCP server is not enabled."}
             )
