@@ -293,13 +293,25 @@ class MissionInvitation:
                         continue
 
                     for invitation in collection.invitations:
-                        if invitation.invitation_id == invitation_id and invitation.token == token:
-                            # Found the invitation
-                            # Get conversation ID from the directory path
-                            conversation_id = file_path.parent.name
-                            return invitation, conversation_id
-                except Exception:
+                        # Handle both object and dictionary formats
+                        if isinstance(invitation, dict):
+                            # Convert dictionary to proper Invitation object
+                            if invitation.get('invitation_id') == invitation_id and invitation.get('token') == token:
+                                # Create proper Invitation object from dict
+                                proper_invitation = MissionInvitation.Invitation(**invitation)
+                                # Get conversation ID from the directory path
+                                conversation_id = file_path.parent.name
+                                return proper_invitation, conversation_id
+                        else:
+                            # Handle as object
+                            if invitation.invitation_id == invitation_id and invitation.token == token:
+                                # Found the invitation
+                                # Get conversation ID from the directory path
+                                conversation_id = file_path.parent.name
+                                return invitation, conversation_id
+                except Exception as e:
                     # Skip problematic files
+                    logger.warning(f"Error processing invitation file {file_path}: {e}")
                     continue
 
             return None

@@ -10,7 +10,12 @@ import logging
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from semantic_workbench_api_model.workbench_model import ConversationMessage, MessageType, NewConversationMessage
+from semantic_workbench_api_model.workbench_model import (
+    AssistantStateEvent,
+    ConversationMessage, 
+    MessageType, 
+    NewConversationMessage
+)
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
@@ -27,7 +32,6 @@ from .mission_manager import MissionManager
 from .mission_storage import (
     ConversationMissionManager,
     MissionNotifier,
-    MissionRole,
     MissionStorage,
 )
 
@@ -880,19 +884,32 @@ async def handle_invite_command(context: ConversationContext, message: Conversat
             )
             return
         
-        # Generate an invitation code (first 8 chars of mission ID plus random suffix)
-        import uuid
-        invitation_code = f"{mission_id[:8]}:{str(uuid.uuid4())[:8]}"
+        # Use the proper MissionInvitation implementation from mission.py
+        from .mission import MissionInvitation
         
-        # Store the invitation in the mission data
-        # Note: In a real implementation, we would store this in MissionStorage
+        # Parse any username if provided
+        username = None
+        if len(args) > 0:
+            username = args[0]
+            
+        # Create an invitation using the real implementation
+        success, result_message = await MissionInvitation.create_invitation(context, username)
         
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"Invitation created. Share this code with field personnel: `{invitation_code}`",
-                message_type=MessageType.chat,
+        # The method sends a notification, but we need to also send the result message with the code
+        if success:
+            await context.send_messages(
+                NewConversationMessage(
+                    content=result_message,
+                    message_type=MessageType.chat,
+                )
             )
+            
+        # Update the conversation state to trigger inspector refresh
+        # IMPORTANT: Must use "mission_status" to match the ID registered in chat.py
+        await context.send_conversation_state_event(
+            AssistantStateEvent(state_id="mission_status", event="updated", state=None)
         )
+        
     except Exception as e:
         logger.exception(f"Error creating invitation: {e}")
         await context.send_messages(
@@ -918,48 +935,24 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
     invitation_code = args[0]
     
     try:
-        # Parse the invitation code to get the mission ID
-        parts = invitation_code.split(":")
-        if len(parts) != 2:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="Invalid invitation code format. The code should be in the format `mission_id:token`",
-                    message_type=MessageType.notice,
-                )
+        # Use the proper MissionInvitation implementation from mission.py
+        from .mission import MissionInvitation
+        
+        # Validate and redeem the invitation
+        success, result_message = await MissionInvitation.redeem_invitation(context, invitation_code)
+        
+        # The redeem_invitation method handles all the operations, so we just need to send the result message
+        await context.send_messages(
+            NewConversationMessage(
+                content=result_message,
+                message_type=MessageType.chat if success else MessageType.notice,
             )
-            return
-            
-        mission_id_prefix = parts[0]
-        
-        # In a real implementation, we would validate against stored invitations
-        # For now, just attempt to join with the mission ID prefix
-        # This is just a stub implementation
-        
-        # Generate a fake full mission ID from the prefix (in a real implementation, we'd look this up)
-        import uuid
-        mission_id = mission_id_prefix + str(uuid.uuid4())[8:]
-        
-        # Join the mission as a field agent
-        success = await MissionManager.join_mission(
-            context=context,
-            mission_id=mission_id,
-            role=MissionRole.FIELD
         )
         
+        # Update the inspector panel to reflect the change
         if success:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="You have joined the mission as a field agent. Use `/help` to see available commands.",
-                    message_type=MessageType.chat,
-                )
-            )
-        else:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="Failed to join the mission. The invitation may be invalid or expired.",
-                    message_type=MessageType.notice,
-                )
-            )
+            await MissionStorage.notify_ui_update(context)
+            
     except Exception as e:
         logger.exception(f"Error joining mission: {e}")
         await context.send_messages(
