@@ -43,7 +43,11 @@ class DocumentEditorExtension:
     def client_resource_handler_for(
         self, ctx: ConversationContext
     ) -> AssistantFileResourceHandler:
-        return AssistantFileResourceHandler(drive=self._drive_for(ctx))
+        return AssistantFileResourceHandler(
+            context=ctx,
+            drive=self._drive_for(ctx),
+            onwrite=self._inspectors.on_external_write,
+        )
 
     @asynccontextmanager
     async def lock_document_edits(

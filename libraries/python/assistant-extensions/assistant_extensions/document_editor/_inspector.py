@@ -4,10 +4,11 @@ import logging
 import uuid
 from contextlib import asynccontextmanager
 from hashlib import md5
-from typing import Annotated, Any, AsyncGenerator, Callable, Protocol
+from typing import Annotated, Any, AsyncGenerator, Callable, Literal, Protocol
 
+import deepmerge
 from assistant_drive import Drive, IfDriveFileExistsBehavior
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError, create_model
 from semantic_workbench_api_model import workbench_model
 from semantic_workbench_assistant.assistant_app import (
     AssistantAppProtocol,
@@ -26,26 +27,79 @@ class DocumentFileStateModel(BaseModel):
     content: Annotated[str, UISchema(widget="textarea", rows=800, hide_label=True)]
 
 
-def _get_ui_schema(readonly: bool) -> dict[str, Any]:
+def document_list_model(documents: list[DocumentFileStateModel]) -> type[BaseModel]:
+    filenames = [document.filename for document in documents]
+
+    return create_model(
+        "DocumentListModel",
+        active_document=Annotated[
+            Literal[tuple(filenames)],
+            Field(
+                title="Edit a document:",
+                description="Select a document and click Edit .",
+            ),
+        ],
+    )
+
+
+def _get_document_editor_ui_schema(
+    readonly: bool, documents: list[DocumentFileStateModel]
+) -> dict[str, Any]:
     schema = get_ui_schema(DocumentFileStateModel)
-    schema["ui:options"] = {
-        **schema.get("ui:options", {}),
-        "collapsible": False,
-        "title": "Document Editor",
-        "readonly": readonly,
-    }
+    multiple_files_message = (
+        "To edit another document, switch to the Documents tab."
+        if len(documents) > 1
+        else ""
+    )
+    schema = deepmerge.always_merger.merge(
+        schema.copy(),
+        {
+            "ui:options": {
+                "collapsible": False,
+                "title": "Document Editor",
+                "description": multiple_files_message,
+                "readonly": readonly,
+            },
+        },
+    )
     return schema
+
+
+def _get_document_list_ui_schema(
+    model: type[BaseModel], filenames: list[str]
+) -> dict[str, Any]:
+    return {
+        "ui:options": {
+            "collapsible": False,
+            "hideTitle": True,
+        },
+        "ui:submitButtonOptions": {
+            "submitText": "Edit",
+            "norender": len(filenames) <= 1,
+        },
+        "active_document": {
+            "ui:options": {
+                "widget": "radio" if len(filenames) > 1 else "hidden",
+            },
+        },
+    }
 
 
 class InspectorController(Protocol):
     async def is_enabled(self, context: ConversationContext) -> bool: ...
     async def is_read_only(self, context: ConversationContext) -> bool: ...
-    async def get_current_document(
+    async def read_active_document(
         self, context: ConversationContext
     ) -> DocumentFileStateModel | None: ...
-    async def update_current_document(
+    async def write_active_document(
         self, context: ConversationContext, content: str
     ) -> None: ...
+    async def set_active_filename(
+        self, context: ConversationContext, filename: str
+    ) -> None: ...
+    async def list_documents(
+        self, context: ConversationContext
+    ) -> list[DocumentFileStateModel]: ...
 
 
 class EditableDocumentFileStateInspector:
@@ -83,7 +137,7 @@ class EditableDocumentFileStateInspector:
                 data={"content": "The Document Editor extension is not enabled."}
             )
 
-        document = await self._controller.get_current_document(context)
+        document = await self._controller.read_active_document(context)
         if not document:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No current document."}
@@ -92,7 +146,10 @@ class EditableDocumentFileStateInspector:
         return AssistantConversationInspectorStateDataModel(
             data=document.model_dump(mode="json"),
             json_schema=document.model_json_schema(),
-            ui_schema=_get_ui_schema(await self._controller.is_read_only(context)),
+            ui_schema=_get_document_editor_ui_schema(
+                await self._controller.is_read_only(context),
+                await self._controller.list_documents(context),
+            ),
         )
 
     async def set(
@@ -111,7 +168,7 @@ class EditableDocumentFileStateInspector:
             logger.exception("invalid data for DocumentFileStateModel")
             return
 
-        await self._controller.update_current_document(context, model.content)
+        await self._controller.write_active_document(context, model.content)
 
 
 class ReadonlyDocumentFileStateInspector:
@@ -146,10 +203,10 @@ class ReadonlyDocumentFileStateInspector:
     ) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
-                data={"content": "The Document Editor MCP server is not enabled."}
+                data={"content": "The Document Editor extension is not enabled."}
             )
 
-        document = await self._controller.get_current_document(context)
+        document = await self._controller.read_active_document(context)
         if not document:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No current document."}
@@ -160,6 +217,84 @@ class ReadonlyDocumentFileStateInspector:
                 "content": f"```markdown\n_Filename: {document.filename}_\n\n{document.content}\n```"
             }
         )
+
+
+class DocumentListInspector:
+    def __init__(
+        self,
+        controller: InspectorController,
+        display_name: str,
+        description: str = "",
+    ) -> None:
+        self._state_id = md5(
+            (type(self).__name__ + "_" + display_name).encode("utf-8"),
+            usedforsecurity=False,
+        ).hexdigest()
+        self._display_name = display_name
+        self._description = description
+        self._controller = controller
+
+    @property
+    def state_id(self) -> str:
+        return self._state_id
+
+    @property
+    def display_name(self) -> str:
+        return self._display_name
+
+    @property
+    def description(self) -> str:
+        return self._description
+
+    async def get(
+        self, context: ConversationContext
+    ) -> AssistantConversationInspectorStateDataModel:
+        if not await self._controller.is_enabled(context):
+            return AssistantConversationInspectorStateDataModel(
+                data={"content": "The Document Editor extension is not enabled."}
+            )
+
+        documents = await self._controller.list_documents(context)
+        if not documents:
+            return AssistantConversationInspectorStateDataModel(
+                data={"content": "No documents available."}
+            )
+
+        filenames = [document.filename for document in documents]
+        model = document_list_model(documents)
+
+        current_document = await self._controller.read_active_document(context)
+        selected_filename = (
+            current_document.filename if current_document else filenames[0]
+        )
+
+        return AssistantConversationInspectorStateDataModel(
+            data={
+                "attachments": [
+                    DocumentFileStateModel.model_validate(document).model_dump(
+                        mode="json"
+                    )
+                    for document in documents
+                ],
+                "active_document": selected_filename,
+            },
+            json_schema=model.model_json_schema(),
+            ui_schema=_get_document_list_ui_schema(model, filenames),
+        )
+
+    async def set(
+        self,
+        context: ConversationContext,
+        data: dict[str, Any],
+    ) -> None:
+        if not await self._controller.is_enabled(context):
+            return
+
+        active_document = data.get("active_document")
+        if not active_document:
+            return
+
+        await self._controller.set_active_filename(context, active_document)
 
 
 class DocumentInspectors:
@@ -174,44 +309,30 @@ class DocumentInspectors:
         self._selected_file: dict[str, str] = {}
         self._readonly: set[str] = set()
 
-        viewer = ReadonlyDocumentFileStateInspector(
+        self._file_list = DocumentListInspector(
+            controller=self,
+            display_name="Documents",
+            description="Download a document:",
+        )
+        app.add_inspector_state_provider(
+            state_id=self._file_list.state_id, provider=self._file_list
+        )
+
+        self._viewer = ReadonlyDocumentFileStateInspector(
             controller=self,
             display_name="Document Viewer",
         )
-        app.add_inspector_state_provider(state_id=viewer.state_id, provider=viewer)
+        # app.add_inspector_state_provider(
+        #     state_id=self._viewer.state_id, provider=self._viewer
+        # )
 
-        editor = EditableDocumentFileStateInspector(
+        self._editor = EditableDocumentFileStateInspector(
             controller=self,
             display_name="Document Editor",
         )
-        app.add_inspector_state_provider(state_id=editor.state_id, provider=editor)
-
-        async def emit_state_change_event(ctx: ConversationContext) -> None:
-            for state_id in (editor.state_id, viewer.state_id):
-                await ctx.send_conversation_state_event(
-                    workbench_model.AssistantStateEvent(
-                        state_id=state_id,
-                        event="updated",
-                        state=None,
-                    )
-                )
-
-        @app.events.conversation.file.on_created_including_mine
-        @app.events.conversation.file.on_updated_including_mine
-        @app.events.conversation.file.on_deleted_including_mine
-        async def on_file_change(
-            ctx: ConversationContext,
-            event: workbench_model.ConversationEvent,
-            file: workbench_model.File,
-        ) -> None:
-            if not file.filename.endswith(".md"):
-                return
-
-            self._selected_file[ctx.id] = file.filename
-            if event.event == workbench_model.ConversationEventType.file_deleted:
-                self._selected_file.pop(ctx.id, None)
-
-            await emit_state_change_event(ctx)
+        app.add_inspector_state_provider(
+            state_id=self._editor.state_id, provider=self._editor
+        )
 
         @app.events.conversation.participant.on_updated_including_mine
         async def on_participant_update(
@@ -228,13 +349,39 @@ class DocumentInspectors:
                     if ctx.id in self._readonly:
                         return
                     self._readonly.add(ctx.id)
-                    await emit_state_change_event(ctx)
+                    await self._emit_state_change_event(ctx)
 
                 case False:
                     if ctx.id not in self._readonly:
                         return
                     self._readonly.remove(ctx.id)
-                    await emit_state_change_event(ctx)
+                    await self._emit_state_change_event(ctx)
+
+    async def _emit_state_change_event(self, ctx: ConversationContext) -> None:
+        for state_id in (
+            self._editor.state_id,
+            # self._viewer.state_id,
+            self._file_list.state_id,
+        ):
+            await ctx.send_conversation_state_event(
+                workbench_model.AssistantStateEvent(
+                    state_id=state_id,
+                    event="updated",
+                    state=None,
+                )
+            )
+
+    async def on_external_write(
+        self, context: ConversationContext, filename: str
+    ) -> None:
+        self._selected_file[context.id] = filename
+        await context.send_conversation_state_event(
+            workbench_model.AssistantStateEvent(
+                state_id=self._editor.state_id,
+                event="focus",
+                state=None,
+            )
+        )
 
     async def is_enabled(self, context: ConversationContext) -> bool:
         config = await self._config_provider(context)
@@ -243,7 +390,7 @@ class DocumentInspectors:
     async def is_read_only(self, context: ConversationContext) -> bool:
         return context.id in self._readonly
 
-    async def get_current_document(
+    async def read_active_document(
         self, context: ConversationContext
     ) -> DocumentFileStateModel | None:
         drive = self._drive_provider(context)
@@ -270,7 +417,7 @@ class DocumentInspectors:
 
         return DocumentFileStateModel(content=file_content, filename=selected_file_name)
 
-    async def update_current_document(
+    async def write_active_document(
         self, context: ConversationContext, content: str
     ) -> None:
         drive = self._drive_provider(context)
@@ -283,6 +430,43 @@ class DocumentInspectors:
             filename=filename,
             if_exists=IfDriveFileExistsBehavior.OVERWRITE,
             content_type="text/markdown",
+        )
+
+    async def list_documents(
+        self, context: ConversationContext
+    ) -> list[DocumentFileStateModel]:
+        drive = self._drive_provider(context)
+        markdown_files = [
+            filename for filename in drive.list() if filename.endswith(".md")
+        ]
+
+        documents = []
+        for filename in markdown_files:
+            buffer = io.BytesIO()
+            try:
+                with drive.open_file(filename) as file:
+                    buffer.write(file.read())
+            except FileNotFoundError:
+                continue
+
+            file_content = buffer.getvalue().decode("utf-8")
+            documents.append(
+                DocumentFileStateModel(content=file_content, filename=filename)
+            )
+
+        return sorted(documents, key=lambda x: x.filename)
+
+    async def set_active_filename(
+        self, context: ConversationContext, filename: str
+    ) -> None:
+        self._selected_file[context.id] = filename
+
+        await context.send_conversation_state_event(
+            workbench_model.AssistantStateEvent(
+                state_id=self._editor.state_id,
+                event="focus",
+                state=None,
+            )
         )
 
 

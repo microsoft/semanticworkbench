@@ -2,7 +2,7 @@ import base64
 import io
 import logging
 import urllib.parse
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from assistant_drive import Drive, IfDriveFileExistsBehavior
 from mcp import (
@@ -20,6 +20,7 @@ from mcp.types import (
 )
 from mcp_extensions import WriteResourceRequestParams, WriteResourceResult
 from pydantic import AnyUrl
+from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,15 @@ class AssistantFileResourceHandler:
     implements our experimental client-resources capability, backed by the files in assistant storage.
     """
 
-    def __init__(self, drive: Drive) -> None:
-        self.drive = drive
+    def __init__(
+        self,
+        context: ConversationContext,
+        drive: Drive,
+        onwrite: Callable[[ConversationContext, str], Awaitable] | None = None,
+    ) -> None:
+        self._context = context
+        self._drive = drive
+        self._onwrite = onwrite
 
     @staticmethod
     def _filename_to_resource_uri(filename: str) -> AnyUrl:
@@ -53,8 +61,8 @@ class AssistantFileResourceHandler:
         try:
             resources: list[Resource] = []
 
-            for filename in self.drive.list():
-                metadata = self.drive.get_metadata(filename)
+            for filename in self._drive.list():
+                metadata = self._drive.get_metadata(filename)
                 resources.append(
                     Resource(
                         uri=self._filename_to_resource_uri(filename),
@@ -86,7 +94,7 @@ class AssistantFileResourceHandler:
                 )
 
             try:
-                metadata = self.drive.get_metadata(filename)
+                metadata = self._drive.get_metadata(filename)
             except FileNotFoundError:
                 return ErrorData(
                     code=404,
@@ -95,7 +103,7 @@ class AssistantFileResourceHandler:
 
             buffer = io.BytesIO()
             try:
-                with self.drive.open_file(filename) as file:
+                with self._drive.open_file(filename) as file:
                     buffer.write(file.read())
             except FileNotFoundError:
                 return ErrorData(
@@ -155,12 +163,15 @@ class AssistantFileResourceHandler:
                     content_bytes = params.contents.text.encode("utf-8")
                     content_type = params.contents.mimeType or "text/plain"
 
-            self.drive.write(
+            self._drive.write(
                 filename=filename,
                 content_type=content_type,
                 content=io.BytesIO(content_bytes),
                 if_exists=IfDriveFileExistsBehavior.OVERWRITE,
             )
+
+            if self._onwrite:
+                await self._onwrite(self._context, filename)
 
             return WriteResourceResult()
 
