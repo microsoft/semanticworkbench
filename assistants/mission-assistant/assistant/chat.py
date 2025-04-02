@@ -802,49 +802,198 @@ async def respond_to_conversation(
                 available_tool_names = set(mission_tools.tool_functions.function_map.keys())
                 logger.info(f"Available tools for {role}: {available_tool_names}")
 
-                # Construct a comprehensive role enforcement message
+                # Import required modules at the beginning to avoid scope issues
+                from .mission_manager import MissionManager
+                from .mission_data import RequestStatus
+                from .mission_storage import MissionStorage
+
+                # Get the mission ID and data for both role types
+                mission_id = None
+                mission_data = {}
+                all_requests = []  # Initialize empty list to avoid "possibly unbound" errors
+                
+                try:
+                    # Get mission ID
+                    mission_id = await MissionManager.get_mission_id(context)
+                    if mission_id:
+                        # Get comprehensive mission data for prompt
+                        briefing = MissionStorage.read_mission_briefing(mission_id)
+                        status = MissionStorage.read_mission_status(mission_id)
+                        kb = MissionStorage.read_mission_kb(mission_id)
+                        all_requests = MissionStorage.get_all_field_requests(mission_id)
+                        
+                        # Format mission briefing
+                        mission_briefing_text = ""
+                        if briefing:
+                            mission_briefing_text = f"""
+### MISSION BRIEFING
+**Name:** {briefing.mission_name}
+**Description:** {briefing.mission_description}
+
+#### MISSION GOALS:
+"""
+                            for i, goal in enumerate(briefing.goals):
+                                # Count completed criteria
+                                completed = sum(1 for c in goal.success_criteria if c.completed)
+                                total = len(goal.success_criteria)
+                                
+                                mission_briefing_text += f"{i+1}. **{goal.name}** - {goal.description}\n"
+                                if goal.success_criteria:
+                                    mission_briefing_text += f"   Progress: {completed}/{total} criteria complete\n"
+                                    for j, criterion in enumerate(goal.success_criteria):
+                                        check = "✅" if criterion.completed else "⬜"
+                                        mission_briefing_text += f"   {check} {criterion.description}\n"
+                                mission_briefing_text += "\n"
+                        
+                        # Format mission status
+                        mission_status_text = ""
+                        if status:
+                            mission_status_text = f"""
+### MISSION STATUS
+**Current State:** {status.state.value}
+"""
+                            if status.progress_percentage is not None:
+                                mission_status_text += f"**Overall Progress:** {status.progress_percentage}%\n"
+                            if status.status_message:
+                                mission_status_text += f"**Status Message:** {status.status_message}\n"
+                            if status.next_actions:
+                                mission_status_text += "\n**Next Actions:**\n"
+                                for action in status.next_actions:
+                                    mission_status_text += f"- {action}\n"
+                        
+                        # Format knowledge base
+                        kb_text = ""
+                        if kb and kb.sections:
+                            kb_text = "\n### MISSION KNOWLEDGE BASE\n"
+                            # Sort sections by order
+                            sorted_sections = sorted(kb.sections.values(), key=lambda s: s.order)
+                            
+                            # Limit the KB sections to avoid excessive context length
+                            max_sections = 5
+                            section_count = min(len(sorted_sections), max_sections)
+                            
+                            for i, section in enumerate(sorted_sections[:section_count]):
+                                kb_text += f"#### {section.title}\n"
+                                # Truncate content if too long
+                                content = section.content
+                                if len(content) > 500:  # Arbitrary limit to prevent extremely long KB entries
+                                    content = content[:500] + "... (content truncated for brevity)"
+                                kb_text += f"{content}\n\n"
+                            
+                            if len(sorted_sections) > max_sections:
+                                kb_text += f"*...and {len(sorted_sections) - max_sections} more sections. Use get_mission_info(info_type=\"kb\") to see all.*\n"
+                        
+                        # Store the formatted data
+                        mission_data = {
+                            "briefing": mission_briefing_text,
+                            "status": mission_status_text,
+                            "kb": kb_text
+                        }
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to fetch mission data for prompt: {e}")
+                    
+                # Construct role-specific messages with comprehensive mission data
                 if role == "hq":
+                    # Format requests for HQ view
+                    field_requests_text = ""
+                    if mission_id and all_requests:
+                        active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
+                        
+                        if active_requests:
+                            field_requests_text = "\n\n### ACTIVE FIELD REQUESTS\n"
+                            field_requests_text += "> 📋 **Use the request ID (not the title) with resolve_field_request()**\n\n"
+                            
+                            for req in active_requests[:10]:  # Limit to 10 for brevity
+                                priority_marker = {
+                                    "low": "🔹",
+                                    "medium": "🔶", 
+                                    "high": "🔴",
+                                    "critical": "⚠️"
+                                }.get(req.priority.value, "🔹")
+                                
+                                field_requests_text += f"{priority_marker} **{req.title}** ({req.status.value})\n"
+                                field_requests_text += f"   **Request ID:** `{req.request_id}`\n"
+                                field_requests_text += f"   **Description:** {req.description}\n\n"
+                            
+                            if len(active_requests) > 10:
+                                field_requests_text += f"*...and {len(active_requests) - 10} more requests. Use get_mission_info(info_type=\"requests\") to see all.*\n"
+
+                    # Combine all mission data for HQ
+                    mission_data_text = ""
+                    if mission_data:
+                        mission_data_text = f"""
+\n\n## CURRENT MISSION INFORMATION
+{mission_data.get('briefing', '')}
+{mission_data.get('status', '')}
+{field_requests_text}
+{mission_data.get('kb', '')}
+"""
+                        
                     role_enforcement = f"""
 \n\n⚠️ TOOL ACCESS ⚠️
 
 As an HQ agent, you can use these tools: {available_tools_str}
+{mission_data_text}
 """
                 else:  # field role
-                    # Fetch current field requests to include in the prompt
+                    # Fetch current field requests for this conversation
                     field_requests_info = ""
-                    try:
-                        # Create a mission tools instance to access requests
-                        from .mission_tools import MissionTools
-
-                        mission_tools_instance = MissionTools(context, "field")
-
-                        # Get mission ID
-                        from .mission_manager import MissionManager
-
-                        mission_id = await MissionManager.get_mission_id(context)
-
-                        if mission_id:
-                            # Get requests for this conversation only
-                            from .mission_data import RequestStatus
-                            from .mission_storage import MissionStorage
-
-                            all_requests = MissionStorage.get_all_field_requests(mission_id)
-                            # Filter for requests from this conversation that aren't resolved
-                            my_requests = [
-                                r
-                                for r in all_requests
-                                if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
-                            ]
-
-                            if my_requests:
-                                field_requests_info = "\n\n### YOUR CURRENT FIELD REQUESTS:\n"
-                                for req in my_requests:
-                                    field_requests_info += (
-                                        f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
-                                    )
-                                field_requests_info += '\nYou can delete any of these requests using `delete_field_request(request_id="the_id")`\n'
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch field requests for prompt: {e}")
+                    my_requests = []
+                    
+                    if mission_id and all_requests:
+                        # Filter for requests from this conversation that aren't resolved
+                        my_requests = [
+                            r for r in all_requests 
+                            if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
+                        ]
+                        
+                        if my_requests:
+                            field_requests_info = "\n\n### YOUR CURRENT FIELD REQUESTS:\n"
+                            for req in my_requests:
+                                field_requests_info += (
+                                    f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
+                                )
+                            field_requests_info += '\nYou can delete any of these requests using `delete_field_request(request_id="the_id")`\n'
+                    
+                    # Format requests from all conversations for field view
+                    all_field_requests_text = ""
+                    if mission_id and all_requests:
+                        # Show all active requests including those from other field agents
+                        other_active_requests = [
+                            r for r in all_requests 
+                            if r.conversation_id != str(context.id) and r.status != RequestStatus.RESOLVED
+                        ]
+                        
+                        if other_active_requests:
+                            all_field_requests_text = "\n\n### OTHER ACTIVE FIELD REQUESTS:\n"
+                            all_field_requests_text += "> These are requests from other field agents\n\n"
+                            
+                            for req in other_active_requests[:5]:  # Limit to 5 for brevity
+                                status_marker = {
+                                    "new": "🆕",
+                                    "acknowledged": "👁️",
+                                    "in_progress": "⏳",
+                                    "deferred": "⏱️"
+                                }.get(req.status.value, "📋")
+                                
+                                all_field_requests_text += f"{status_marker} **{req.title}** (Status: {req.status.value})\n"
+                                all_field_requests_text += f"   **Description:** {req.description}\n\n"
+                            
+                            if len(other_active_requests) > 5:
+                                all_field_requests_text += f"*...and {len(other_active_requests) - 5} more requests. Use get_mission_info(info_type=\"requests\") to see all.*\n"
+                    
+                    # Combine all mission data for field
+                    mission_data_text = ""
+                    if mission_data:
+                        mission_data_text = f"""
+\n\n## CURRENT MISSION INFORMATION
+{mission_data.get('briefing', '')}
+{mission_data.get('status', '')}
+{field_requests_info}
+{all_field_requests_text}
+{mission_data.get('kb', '')}
+"""
 
                     role_enforcement = f"""
 \n\n⚠️ TOOL ACCESS ⚠️
@@ -856,7 +1005,8 @@ When working with field requests:
 2. Use the `delete_field_request` tool if you need to remove a request you created
 3. Always note request IDs when creating requests - you'll need them for deletion
 
-If you need information from HQ, first try viewing recent HQ messages with the `view_hq_conversation` tool.{field_requests_info}
+If you need information from HQ, first try viewing recent HQ messages with the `view_hq_conversation` tool.
+{mission_data_text}
 """
 
                 # Append the enforcement text to the role_specific_prompt
