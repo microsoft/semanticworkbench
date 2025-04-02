@@ -33,6 +33,11 @@ For more details on using GitHub Codespaces in VS Code, see the [documentation](
 
 ## How to use
 
+IMPORTANT: Make sure to open the main workspace file: `semantic-workbench.code-workspace` and not just open the root folder in VSCode: 
+
+`File` -> `Open Workspace from File...` -> Choose the `semantic-workbench.code-workspace` file from the list.
+
+
 ### Connecting to the Codespace in the future
 
 - Launch VS Code and open the command palette with the `F1` key or `Ctrl/Cmd+Shift+P`
