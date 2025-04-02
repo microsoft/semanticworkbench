@@ -1,0 +1,21 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.11, pytest-8.3.5, pluggy-1.5.0 -- /data/repos/semanticworkbench/assistants/project-assistant/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /data/repos/semanticworkbench/assistants/project-assistant
+configfile: pyproject.toml
+plugins: asyncio-0.25.3, repeat-0.9.3, anyio-4.8.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=function
+collecting ... collected 10 items
+
+tests/test_setup_mode.py::TestSetupMode::test_chat_message_setup_mode PASSED [ 10%]
+tests/test_setup_mode.py::TestSetupMode::test_chat_message_after_setup PASSED [ 20%]
+tests/test_setup_mode.py::TestSetupMode::test_command_processor_setup_mode PASSED [ 30%]
+tests/test_setup_mode.py::TestSetupMode::test_command_processor_blocks_non_setup_commands PASSED [ 40%]
+tests/test_setup_mode.py::TestSetupMode::test_start_coordinator_command PASSED [ 50%]
+tests/test_setup_mode.py::TestSetupMode::test_join_command PASSED        [ 60%]
+tests/test_setup_mode.py::TestSetupMode::test_state_inspector_setup_mode PASSED [ 70%]
+tests/test_setup_mode.py::TestSetupMode::test_state_inspector_detects_role PASSED [ 80%]
+tests/test_setup_mode.py::TestSetupModeHelp::test_help_command_setup_mode PASSED [ 90%]
+tests/test_setup_mode.py::TestSetupModeHelp::test_help_command_after_setup SKIPPED [100%]
+
+========================= 9 passed, 1 skipped in 0.56s =========================
