@@ -1,0 +1,46 @@
+[project]
+name = "assistant"
+version = "0.1.0"
+description = "A file-sharing mediator assistant for collaborative projects."
+authors = [{ name = "Semantic Workbench Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.61.0",
+    "tiktoken>=0.8.0",
+    "semantic-workbench-assistant>=0.1.0",
+    "content-safety>=0.1.0",
+    "openai-client>=0.1.0",
+    "deepmerge>=2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.1",
+    "pytest-asyncio>=0.23.8",
+    "pytest-repeat>=0.9.3",
+    "pyright>=1.1.389",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+semantic-workbench-assistant = { path = "../../libraries/python/semantic-workbench-assistant", editable = true }
+content-safety = { path = "../../libraries/python/content-safety/", editable = true }
+openai-client = { path = "../../libraries/python/openai-client", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pyright]
+exclude = ["venv", ".venv"]
+
+[tool.pytest.ini_options]
+addopts = "-vv"
+log_cli = true
+log_cli_level = "WARNING"
+log_cli_format = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

@@ -1,0 +1,59 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.11, pytest-8.3.5, pluggy-1.5.0 -- /data/repos/semanticworkbench/assistants/project-assistant/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /data/repos/semanticworkbench/assistants/project-assistant
+configfile: pyproject.toml
+plugins: asyncio-0.25.3, repeat-0.9.3, anyio-4.8.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=function
+collecting ... collected 34 items
+
+tests/test_artifact_loading.py::TestProjectStorage::test_direct_storage_access PASSED [  2%]
+tests/test_artifact_loading.py::TestProjectStorage::test_get_project_brief PASSED [  5%]
+tests/test_artifact_messaging.py::TestProjectNotification::test_create_information_request <- ../mission-assistant/tests/test_artifact_messaging.py 
+-------------------------------- live log call ---------------------------------
+15:07:48 | WARNING | assistant.project_storage | Error sending state event to conversation 03852674-387e-474c-ba48-6a8b858ee939: object MagicMock can't be used in 'await' expression
+15:07:48 | WARNING | assistant.project_storage | Error sending state event to conversation 03852674-387e-474c-ba48-6a8b858ee939: object MagicMock can't be used in 'await' expression
+PASSED                                                                   [  8%]
+tests/test_artifact_messaging.py::TestProjectNotification::test_get_information_requests <- ../mission-assistant/tests/test_artifact_messaging.py PASSED [ 11%]
+tests/test_artifact_messaging.py::TestProjectNotification::test_project_notifier <- ../mission-assistant/tests/test_artifact_messaging.py 
+-------------------------------- live log call ---------------------------------
+15:07:48 | WARNING | assistant.project_storage | Error sending state event to conversation ca87ba7f-41c9-42e0-bf3c-6a96eb53eec7: object MagicMock can't be used in 'await' expression
+15:07:48 | WARNING | assistant.project_storage | Error sending state event to conversation 8332ec0e-2348-4b81-81d7-5b11dfd8afee: object MagicMock can't be used in 'await' expression
+PASSED                                                                   [ 14%]
+tests/test_artifact_messaging.py::TestProjectNotification::test_update_information_request <- ../mission-assistant/tests/test_artifact_messaging.py 
+-------------------------------- live log call ---------------------------------
+15:07:48 | WARNING | assistant.project_storage | Error sending state event to conversation 6cf02590-1698-4312-bb19-7ced93eeae9e: object MagicMock can't be used in 'await' expression
+PASSED                                                                   [ 17%]
+tests/test_artifact_messaging.py::TestProjectNotification::test_update_project_brief <- ../mission-assistant/tests/test_artifact_messaging.py 
+-------------------------------- live log call ---------------------------------
+15:07:48 | WARNING | assistant.project_storage | Error sending state event to conversation 0c8fa06e-f278-492a-92c2-49d7a8674d0b: object MagicMock can't be used in 'await' expression
+PASSED                                                                   [ 20%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_start_coordinator_displays_project_id SKIPPED [ 23%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_join_uses_project_id_directly SKIPPED [ 26%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_redeem_invitation_with_project_id SKIPPED [ 29%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_redeem_invitation_nonexistent_project PASSED [ 32%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_join_nonexistent_project PASSED [ 35%]
+tests/test_project_storage.py::TestProjectStorage::test_project_directory_structure PASSED [ 38%]
+tests/test_project_storage.py::TestProjectStorage::test_read_information_request PASSED [ 41%]
+tests/test_project_storage.py::TestProjectStorage::test_read_project_brief PASSED [ 44%]
+tests/test_project_storage.py::TestProjectStorage::test_write_project_log PASSED [ 47%]
+tests/test_project_tools.py::TestProjectTools::test_initialization PASSED [ 50%]
+tests/test_project_tools.py::TestProjectTools::test_get_project_tools PASSED [ 52%]
+tests/test_project_tools.py::TestProjectTools::test_detect_information_request_needs PASSED [ 55%]
+tests/test_setup_mode.py::TestSetupMode::test_chat_message_setup_mode PASSED [ 58%]
+tests/test_setup_mode.py::TestSetupMode::test_chat_message_after_setup PASSED [ 61%]
+tests/test_setup_mode.py::TestSetupMode::test_command_processor_setup_mode PASSED [ 64%]
+tests/test_setup_mode.py::TestSetupMode::test_command_processor_blocks_non_setup_commands PASSED [ 67%]
+tests/test_setup_mode.py::TestSetupMode::test_start_coordinator_command PASSED [ 70%]
+tests/test_setup_mode.py::TestSetupMode::test_join_command PASSED        [ 73%]
+tests/test_setup_mode.py::TestSetupMode::test_state_inspector_setup_mode PASSED [ 76%]
+tests/test_setup_mode.py::TestSetupMode::test_state_inspector_detects_role PASSED [ 79%]
+tests/test_setup_mode.py::TestSetupModeHelp::test_help_command_setup_mode PASSED [ 82%]
+tests/test_setup_mode.py::TestSetupModeHelp::test_help_command_after_setup SKIPPED [ 85%]
+tests/test_team_mode.py::TestTeamConversationHandler::test_create_information_request PASSED [ 88%]
+tests/test_team_mode.py::TestTeamConversationHandler::test_update_project_dashboard PASSED [ 91%]
+tests/test_team_mode.py::TestTeamConversationHandler::test_mark_criterion_completed PASSED [ 94%]
+tests/test_team_mode.py::TestTeamConversationHandler::test_report_project_completion PASSED [ 97%]
+tests/test_team_mode.py::TestTeamConversationHandler::test_get_project_info PASSED [100%]
+
+======================== 30 passed, 4 skipped in 0.69s =========================

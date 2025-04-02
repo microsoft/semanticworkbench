@@ -1,0 +1,16 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.11, pytest-8.3.5, pluggy-1.5.0 -- /data/repos/semanticworkbench/assistants/project-assistant/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /data/repos/semanticworkbench/assistants/project-assistant
+configfile: pyproject.toml
+plugins: asyncio-0.25.3, repeat-0.9.3, anyio-4.8.0
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=function
+collecting ... collected 5 items
+
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_start_coordinator_displays_project_id SKIPPED [ 20%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_join_uses_project_id_directly SKIPPED [ 40%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_redeem_invitation_with_project_id SKIPPED [ 60%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_redeem_invitation_nonexistent_project PASSED [ 80%]
+tests/test_invitation_system.py::TestSimplifiedInvitationSystem::test_join_nonexistent_project PASSED [100%]
+
+========================= 2 passed, 3 skipped in 0.52s =========================
