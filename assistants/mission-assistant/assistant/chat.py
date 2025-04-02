@@ -50,7 +50,7 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .config import AssistantConfigModel
 from .mission import MissionManager
-from .mission_storage import MissionStorage, ConversationMissionManager
+from .mission_storage import ConversationMissionManager, MissionStorage
 from .state_inspector import MissionInspectorStateProvider
 
 logger = logging.getLogger(__name__)
@@ -142,15 +142,15 @@ async def on_message_created(
         # Get conversation to access metadata
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
-        
+
         # Check if setup is complete - check both local metadata and the state API
         setup_complete = metadata.get("setup_complete", False)
-        
+
         # If not set in local metadata, try to get it from the mission storage directly
         if not setup_complete:
             try:
                 from .mission_storage import ConversationMissionManager
-                
+
                 # Check if we have a mission role in storage
                 role = await ConversationMissionManager.get_conversation_role(context)
                 if role:
@@ -162,9 +162,9 @@ async def on_message_created(
                     logger.info(f"Found mission role in storage: {role.value}")
             except Exception as e:
                 logger.exception(f"Error getting role from mission storage: {e}")
-                
+
         assistant_mode = metadata.get("assistant_mode", "setup")
-        
+
         # If setup isn't complete, show setup required message
         if not setup_complete and assistant_mode == "setup":
             # Show setup required message for regular chat messages
@@ -181,7 +181,7 @@ async def on_message_created(
                 )
             )
             return
-            
+
         # Get the conversation's role (HQ or Field)
         role = metadata.get("mission_role")
 
@@ -259,13 +259,6 @@ Your AUTHORIZED HQ-specific tools are:
 - get_mission_info: Use this to get information about the current mission
 - suggest_next_action: Use this to suggest the next action based on mission state
 
-⚠️ CRITICAL INSTRUCTION: You are an HQ agent and do NOT have access to Field tools. You will receive an ERROR if you try to use these Field-only tools:
-- create_field_request: ❌ FORBIDDEN - Only Field can create field requests
-- update_mission_status: ❌ FORBIDDEN - Only Field can update mission status
-- mark_criterion_completed: ❌ FORBIDDEN - Only Field can mark criteria as completed
-- report_mission_completion: ❌ FORBIDDEN - Only Field can report mission completion
-- detect_field_request_needs: ❌ FORBIDDEN - Only Field can detect request needs
-
 Be proactive in suggesting and using your HQ tools based on user requests. Always prefer using tools over just discussing mission concepts. If field personnel need to perform a task, instruct them to switch to their Field conversation.
 
 Use a strategic, guidance-oriented tone focused on mission definition and support.
@@ -296,19 +289,12 @@ Your AUTHORIZED Field-specific tools are:
 - get_mission_info: Use this to get information about the current mission
 - detect_field_request_needs: Use this to analyze user messages for potential field request needs
 - suggest_next_action: Use this to suggest the next action based on mission state
-
-⚠️ CRITICAL INSTRUCTION: You are a FIELD agent and do NOT have access to HQ tools. You will receive an ERROR if you try to use these HQ-only tools:
-- resolve_field_request: ❌ FORBIDDEN - Use create_field_request instead to ask HQ for information
-- create_mission_briefing: ❌ FORBIDDEN - Only HQ can create mission briefings
-- add_mission_goal: ❌ FORBIDDEN - Only HQ can define mission goals
-- add_kb_section: ❌ FORBIDDEN - Only HQ can add to the knowledge base
-- mark_mission_ready_for_field: ❌ FORBIDDEN - Only HQ controls this gate
+- view_hq_conversation: Use this to view the HQ conversation for context and information
 
 When field personnel need information or assistance from HQ:
-1. ALWAYS use the create_field_request tool
-2. NEVER try to use HQ-only tools like resolve_field_request
+1. Use the view_hq_conversation tool to check if HQ has already provided the information
+2. If not, use the create_field_request tool
 3. NEVER try to modify mission definition elements (briefing, goals, KB)
-4. TELL THE USER you're creating a field request to get HQ assistance
 
 Use a practical, operational tone focused on mission execution and problem-solving.
 """
@@ -776,6 +762,7 @@ async def respond_to_conversation(
         "report_mission_completion",
         "detect_field_request_needs",
         "suggest_next_action",
+        "view_hq_conversation",
     ]
 
     # Get the available tools for the current role
@@ -812,29 +799,17 @@ async def respond_to_conversation(
                 # Construct a comprehensive role enforcement message
                 if role == "hq":
                     role_enforcement = f"""
-\n\n⚠️ CRITICAL TOOL ACCESS RESTRICTIONS ⚠️
+\n\n⚠️ TOOL ACCESS ⚠️
 
-As an HQ agent, you can ONLY use these tools: {available_tools_str}
-
-You are FORBIDDEN from using these Field-only tools: {forbidden_tools_str}
-
-If you need to perform a task normally done by a Field agent, you must instruct the user to switch to a Field conversation.
-
-IMPORTANT PROCEDURE FOR RESOLVING FIELD REQUESTS:
-1. FIRST run: get_mission_info(info_type="requests")
-2. From the output, copy the exact Request ID (NOT the title)
-3. THEN run: resolve_field_request(request_id="exact-id-from-step-1", resolution="your detailed response")
+As an HQ agent, you can use these tools: {available_tools_str}
 """
                 else:  # field role
                     role_enforcement = f"""
-\n\n⚠️ CRITICAL TOOL ACCESS RESTRICTIONS ⚠️
+\n\n⚠️ TOOL ACCESS ⚠️
 
-As a FIELD agent, you can ONLY use these tools: {available_tools_str}
+As a FIELD agent, you can use these tools: {available_tools_str}
 
-You are FORBIDDEN from using these HQ-only tools: {forbidden_tools_str}
-
-If you need information from HQ, you MUST use the `create_field_request` tool to send a request to HQ.
-DO NOT attempt to use HQ tools directly as they will fail and waste the user's time.
+If you need information from HQ, you should use your view_hq_conversation tool. If you still need information, you MUST use the `create_field_request` tool to send a request to HQ.
 """
 
                 # Append the enforcement text to the role_specific_prompt
@@ -971,24 +946,25 @@ DO NOT attempt to use HQ tools directly as they will fail and waste the user's t
             metadata=metadata,
         )
     )
-    
+
     # Manually capture assistant's message for HQ conversation storage
     # This ensures that both user and assistant messages are stored
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
     role = metadata.get("mission_role")
-    
+
     if role == "hq" and message_type == MessageType.chat and response_message and response_message.messages:
         try:
             # Get the mission ID
             from .mission_manager import MissionManager
+
             mission_id = await MissionManager.get_mission_id(context)
-            
+
             if mission_id:
                 for msg in response_message.messages:
                     # Store the assistant's message for Field access
                     from .mission_storage import MissionStorage
-                    
+
                     MissionStorage.append_hq_message(
                         mission_id=mission_id,
                         message_id=str(msg.id),
