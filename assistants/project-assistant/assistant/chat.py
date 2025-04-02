@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 #
 
 # the service id to be registered in the workbench to identify the assistant
-service_id = "project-assistant.workbench-explorer"
+service_id = "project-assistant.made-exploration"
 # the name of the assistant service, as it will appear in the workbench UI
 service_name = "Project Assistant"
 # a description of the assistant service, as it will appear in the workbench UI
@@ -811,7 +811,7 @@ async def respond_to_conversation(
                 project_id = None
                 project_data = {}
                 all_requests = []  # Initialize empty list to avoid "possibly unbound" errors
-                
+
                 try:
                     # Get project ID
                     project_id = await ProjectManager.get_project_id(context)
@@ -821,7 +821,7 @@ async def respond_to_conversation(
                         status = ProjectStorage.read_project_dashboard(project_id)
                         kb = ProjectStorage.read_project_kb(project_id)
                         all_requests = ProjectStorage.get_all_information_requests(project_id)
-                        
+
                         # Format project brief
                         project_brief_text = ""
                         if briefing:
@@ -836,7 +836,7 @@ async def respond_to_conversation(
                                 # Count completed criteria
                                 completed = sum(1 for c in goal.success_criteria if c.completed)
                                 total = len(goal.success_criteria)
-                                
+
                                 project_brief_text += f"{i+1}. **{goal.name}** - {goal.description}\n"
                                 if goal.success_criteria:
                                     project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
@@ -844,7 +844,7 @@ async def respond_to_conversation(
                                         check = "✅" if criterion.completed else "⬜"
                                         project_brief_text += f"   {check} {criterion.description}\n"
                                 project_brief_text += "\n"
-                        
+
                         # Format project dashboard
                         project_dashboard_text = ""
                         if status:
@@ -860,18 +860,18 @@ async def respond_to_conversation(
                                 project_dashboard_text += "\n**Next Actions:**\n"
                                 for action in status.next_actions:
                                     project_dashboard_text += f"- {action}\n"
-                        
+
                         # Format knowledge base
                         kb_text = ""
                         if kb and kb.sections:
                             kb_text = "\n### KNOWLEDGE BASE\n"
                             # Sort sections by order
                             sorted_sections = sorted(kb.sections.values(), key=lambda s: s.order)
-                            
+
                             # Limit the KB sections to avoid excessive context length
                             max_sections = 5
                             section_count = min(len(sorted_sections), max_sections)
-                            
+
                             for i, section in enumerate(sorted_sections[:section_count]):
                                 kb_text += f"#### {section.title}\n"
                                 # Truncate content if too long
@@ -879,43 +879,43 @@ async def respond_to_conversation(
                                 if len(content) > 500:  # Arbitrary limit to prevent extremely long KB entries
                                     content = content[:500] + "... (content truncated for brevity)"
                                 kb_text += f"{content}\n\n"
-                            
+
                             if len(sorted_sections) > max_sections:
                                 kb_text += f"*...and {len(sorted_sections) - max_sections} more sections. Use get_project_info(info_type=\"kb\") to see all.*\n"
-                        
+
                         # Store the formatted data
                         project_data = {
                             "briefing": project_brief_text,
                             "status": project_dashboard_text,
                             "kb": kb_text
                         }
-                        
+
                 except Exception as e:
                     logger.warning(f"Failed to fetch project data for prompt: {e}")
-                    
+
                 # Construct role-specific messages with comprehensive project data
                 if role == "coordinator":
                     # Format requests for Coordinator view
                     information_requests_text = ""
                     if project_id and all_requests:
                         active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
-                        
+
                         if active_requests:
                             information_requests_text = "\n\n### ACTIVE INFORMATION REQUESTS\n"
                             information_requests_text += "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
-                            
+
                             for req in active_requests[:10]:  # Limit to 10 for brevity
                                 priority_marker = {
                                     "low": "🔹",
-                                    "medium": "🔶", 
+                                    "medium": "🔶",
                                     "high": "🔴",
                                     "critical": "⚠️"
                                 }.get(req.priority.value, "🔹")
-                                
+
                                 information_requests_text += f"{priority_marker} **{req.title}** ({req.status.value})\n"
                                 information_requests_text += f"   **Request ID:** `{req.request_id}`\n"
                                 information_requests_text += f"   **Description:** {req.description}\n\n"
-                            
+
                             if len(active_requests) > 10:
                                 information_requests_text += f"*...and {len(active_requests) - 10} more requests. Use get_project_info(info_type=\"requests\") to see all.*\n"
 
@@ -929,7 +929,7 @@ async def respond_to_conversation(
 {information_requests_text}
 {project_data.get('kb', '')}
 """
-                        
+
                     role_enforcement = f"""
 \n\n⚠️ TOOL ACCESS ⚠️
 
@@ -940,14 +940,14 @@ As a Coordinator, you can use these tools: {available_tools_str}
                     # Fetch current information requests for this conversation
                     information_requests_info = ""
                     my_requests = []
-                    
+
                     if project_id and all_requests:
                         # Filter for requests from this conversation that aren't resolved
                         my_requests = [
-                            r for r in all_requests 
+                            r for r in all_requests
                             if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
                         ]
-                        
+
                         if my_requests:
                             information_requests_info = "\n\n### YOUR CURRENT INFORMATION REQUESTS:\n"
                             for req in my_requests:
@@ -955,20 +955,20 @@ As a Coordinator, you can use these tools: {available_tools_str}
                                     f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
                                 )
                             information_requests_info += '\nYou can delete any of these requests using `delete_information_request(request_id="the_id")`\n'
-                    
+
                     # Format requests from all conversations for team view
                     all_information_requests_text = ""
                     if project_id and all_requests:
                         # Show all active requests including those from other team members
                         other_active_requests = [
-                            r for r in all_requests 
+                            r for r in all_requests
                             if r.conversation_id != str(context.id) and r.status != RequestStatus.RESOLVED
                         ]
-                        
+
                         if other_active_requests:
                             all_information_requests_text = "\n\n### OTHER ACTIVE INFORMATION REQUESTS:\n"
                             all_information_requests_text += "> These are requests from other team members\n\n"
-                            
+
                             for req in other_active_requests[:5]:  # Limit to 5 for brevity
                                 status_marker = {
                                     "new": "🆕",
@@ -976,13 +976,13 @@ As a Coordinator, you can use these tools: {available_tools_str}
                                     "in_progress": "⏳",
                                     "deferred": "⏱️"
                                 }.get(req.status.value, "📋")
-                                
+
                                 all_information_requests_text += f"{status_marker} **{req.title}** (Status: {req.status.value})\n"
                                 all_information_requests_text += f"   **Description:** {req.description}\n\n"
-                            
+
                             if len(other_active_requests) > 5:
                                 all_information_requests_text += f"*...and {len(other_active_requests) - 5} more requests. Use get_project_info(info_type=\"requests\") to see all.*\n"
-                    
+
                     # Combine all project data for team
                     project_data_text = ""
                     if project_data:
@@ -1014,7 +1014,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
                 # Update the system message to include the enhanced role_specific_prompt
                 system_message_content += f"\n\n{role_enforcement}"
-                
+
                 # Update the system message in completion_args with the new content
                 completion_args["messages"][0]["content"] = system_message_content
 
