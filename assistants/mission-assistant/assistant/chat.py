@@ -73,7 +73,9 @@ assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
 
 
 # define the content safety evaluator factory
-async def content_evaluator_factory(context: ConversationContext) -> ContentSafetyEvaluator:
+async def content_evaluator_factory(
+    context: ConversationContext,
+) -> ContentSafetyEvaluator:
     config = await assistant_config.get(context.assistant)
     return CombinedContentSafetyEvaluator(config.content_safety_config)
 
@@ -308,7 +310,10 @@ Use a practical, operational tone focused on mission execution and problem-solvi
 
         # respond to the message with role-specific context
         await respond_to_conversation(
-            context, message=message, metadata=role_metadata, role_specific_prompt=role_specific_prompt
+            context,
+            message=message,
+            metadata=role_metadata,
+            role_specific_prompt=role_specific_prompt,
         )
     finally:
         # update the participant status to indicate the assistant is done thinking
@@ -357,7 +362,9 @@ async def on_command_created(
 
 @assistant.events.conversation.file.on_created
 async def on_file_created(
-    context: ConversationContext, event: workbench_model.ConversationEvent, file: workbench_model.File
+    context: ConversationContext,
+    event: workbench_model.ConversationEvent,
+    file: workbench_model.File,
 ) -> None:
     """
     Handle when a file is created in the conversation.
@@ -383,7 +390,9 @@ async def on_file_created(
 
 @assistant.events.conversation.file.on_updated
 async def on_file_updated(
-    context: ConversationContext, event: workbench_model.ConversationEvent, file: workbench_model.File
+    context: ConversationContext,
+    event: workbench_model.ConversationEvent,
+    file: workbench_model.File,
 ) -> None:
     """
     Handle when a file is updated in the conversation.
@@ -757,6 +766,7 @@ async def respond_to_conversation(
     field_available_tools = [
         "get_mission_info",
         "create_field_request",
+        "delete_field_request",
         "update_mission_status",
         "mark_criterion_completed",
         "report_mission_completion",
@@ -770,10 +780,6 @@ async def respond_to_conversation(
 
     # Create a string listing available tools for the current role
     available_tools_str = ", ".join([f"`{tool}`" for tool in available_tools])
-
-    # Create a string listing unauthorized tools to explicitly forbid
-    forbidden_tools = field_available_tools if role == "hq" else hq_available_tools
-    forbidden_tools_str = ", ".join([f"`{tool}`" for tool in forbidden_tools])
 
     # Generate a response from the AI model with tools
     async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
@@ -804,19 +810,63 @@ async def respond_to_conversation(
 As an HQ agent, you can use these tools: {available_tools_str}
 """
                 else:  # field role
+                    # Fetch current field requests to include in the prompt
+                    field_requests_info = ""
+                    try:
+                        # Create a mission tools instance to access requests
+                        from .mission_tools import MissionTools
+
+                        mission_tools_instance = MissionTools(context, "field")
+
+                        # Get mission ID
+                        from .mission_manager import MissionManager
+
+                        mission_id = await MissionManager.get_mission_id(context)
+
+                        if mission_id:
+                            # Get requests for this conversation only
+                            from .mission_data import RequestStatus
+                            from .mission_storage import MissionStorage
+
+                            all_requests = MissionStorage.get_all_field_requests(mission_id)
+                            # Filter for requests from this conversation that aren't resolved
+                            my_requests = [
+                                r
+                                for r in all_requests
+                                if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
+                            ]
+
+                            if my_requests:
+                                field_requests_info = "\n\n### YOUR CURRENT FIELD REQUESTS:\n"
+                                for req in my_requests:
+                                    field_requests_info += (
+                                        f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
+                                    )
+                                field_requests_info += '\nYou can delete any of these requests using `delete_field_request(request_id="the_id")`\n'
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch field requests for prompt: {e}")
+
                     role_enforcement = f"""
 \n\n⚠️ TOOL ACCESS ⚠️
 
 As a FIELD agent, you can use these tools: {available_tools_str}
 
-If you need information from HQ, you should use your view_hq_conversation tool. If you still need information, you MUST use the `create_field_request` tool to send a request to HQ.
+When working with field requests:
+1. Use the `create_field_request` tool to send requests for information to HQ
+2. Use the `delete_field_request` tool if you need to remove a request you created
+3. Always note request IDs when creating requests - you'll need them for deletion
+
+If you need information from HQ, first try viewing recent HQ messages with the `view_hq_conversation` tool.{field_requests_info}
 """
 
                 # Append the enforcement text to the role_specific_prompt
                 role_specific_prompt += role_enforcement
 
-                # The modified role_specific_prompt will be included in the system message
-                # by respond_to_conversation call, which avoids any type issues
+                # Update the system message to include the enhanced role_specific_prompt
+                system_message_content += f"\n\n{role_enforcement}"
+                
+                # Update the system message in completion_args with the new content
+                completion_args["messages"][0]["content"] = system_message_content
 
                 # Make the API call
                 tool_completion, tool_messages = await complete_with_tool_calls(
@@ -842,6 +892,7 @@ If you need information from HQ, you should use your view_hq_conversation tool. 
                     {
                         "debug": {
                             f"{method_metadata_key}": {
+                                "request": completion_args,
                                 "tool_messages": str(tool_messages),
                                 "response": tool_completion.model_dump()
                                 if tool_completion

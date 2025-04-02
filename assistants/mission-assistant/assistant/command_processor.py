@@ -1367,10 +1367,10 @@ async def handle_mission_info_command(
 
                 # Group requests by status
                 active_requests = [
-                    r for r in requests if r.status != RequestStatus.RESOLVED and r.status != RequestStatus.CANCELLED
+                    r for r in requests if r.status != RequestStatus.RESOLVED
                 ]
                 resolved_requests = [
-                    r for r in requests if r.status == RequestStatus.RESOLVED or r.status == RequestStatus.CANCELLED
+                    r for r in requests if r.status == RequestStatus.RESOLVED
                 ]
 
                 if active_requests:

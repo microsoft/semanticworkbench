@@ -142,6 +142,9 @@ class MissionTools:
                 self.report_mission_completion, "report_mission_completion", "Report that the mission is complete"
             )
             self.tool_functions.add_function(
+                self.delete_field_request, "delete_field_request", "Delete a field request that is no longer needed"
+            )
+            self.tool_functions.add_function(
                 self.detect_field_request_needs,
                 "detect_field_request_needs",
                 "Analyze user message to detect potential field request needs",
@@ -267,10 +270,10 @@ class MissionTools:
 
                 # Group requests by status
                 active_requests = [
-                    r for r in requests if r.status not in [RequestStatus.RESOLVED, RequestStatus.CANCELLED]
+                    r for r in requests if r.status != RequestStatus.RESOLVED
                 ]
                 resolved_requests = [
-                    r for r in requests if r.status in [RequestStatus.RESOLVED, RequestStatus.CANCELLED]
+                    r for r in requests if r.status == RequestStatus.RESOLVED
                 ]
 
                 if active_requests:
@@ -993,6 +996,202 @@ Example: resolve_field_request(request_id="abc123-def-456", resolution="Your sol
             logger.exception(f"Error retrieving HQ conversation from shared storage: {e}")
             return f"Error retrieving HQ conversation: {str(e)}. Please try again later."
 
+    async def delete_field_request(self, request_id: str) -> str:
+        """
+        Delete a field request that is no longer needed.
+        This completely removes the request from the system.
+
+        Args:
+            request_id: ID of the request to delete
+
+        Returns:
+            Message indicating success or failure
+        """
+        if self.role != "field":
+            return "This tool is only available to Field personnel."
+
+        # Get mission ID
+        mission_id = await MissionManager.get_mission_id(self.context)
+        if not mission_id:
+            logger.warning("No mission ID found for this conversation")
+            return "No mission associated with this conversation. Unable to delete field request."
+
+        try:
+            # Clean the request_id to handle common formatting issues
+            cleaned_request_id = request_id.strip().lower()
+            # Remove any quotes that might have been added
+            cleaned_request_id = cleaned_request_id.replace('"', '').replace("'", "")
+            
+            logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
+            
+            # Read the field request
+            from .mission_storage import MissionStorage
+            field_request = MissionStorage.read_field_request(mission_id, cleaned_request_id)
+            
+            if not field_request:
+                # Try to find it in all requests with improved matching algorithm
+                all_requests = MissionStorage.get_all_field_requests(mission_id)
+                matching_request = None
+                
+                # Log available request IDs for debug purposes
+                available_ids = [req.request_id for req in all_requests if req.conversation_id == str(self.context.id)]
+                logger.info(f"Available request IDs for this conversation: {available_ids}")
+                logger.info(f"Looking for request ID: '{cleaned_request_id}'")
+                
+                # Try to normalize the request ID to a UUID format
+                normalized_id = cleaned_request_id
+                # Remove any "uuid:" prefix if present
+                if normalized_id.startswith("uuid:"):
+                    normalized_id = normalized_id[5:]
+                
+                # Check if the ID contains hyphens already, if not try to format it
+                if "-" not in normalized_id and len(normalized_id) >= 32:
+                    # Try to format in standard UUID format (8-4-4-4-12)
+                    try:
+                        formatted_id = f"{normalized_id[0:8]}-{normalized_id[8:12]}-{normalized_id[12:16]}-{normalized_id[16:20]}-{normalized_id[20:32]}"
+                        logger.info(f"Reformatted ID without hyphens to: {formatted_id}")
+                        normalized_id = formatted_id
+                    except Exception as e:
+                        logger.warning(f"Failed to reformat ID: {e}")
+                
+                # For each request, try multiple matching strategies
+                for req in all_requests:
+                    # Only consider requests from this conversation
+                    if req.conversation_id != str(self.context.id):
+                        continue
+                        
+                    # Get string representations of request_id to compare
+                    req_id_str = str(req.request_id).lower()
+                    req_id_clean = req_id_str.replace('-', '')
+                    normalized_id_clean = normalized_id.replace('-', '')
+                    
+                    logger.debug(f"Comparing against request: {req_id_str}")
+                    
+                    # Multiple matching strategies, from most specific to least
+                    if any([
+                        # Exact match
+                        req_id_str == normalized_id,
+                        # Match ignoring hyphens
+                        req_id_clean == normalized_id_clean,
+                        # Check for UUID format variations
+                        req_id_str == normalized_id.lower(),
+                        # Partial match (if one is substring of the other)
+                        len(normalized_id) >= 6 and normalized_id in req_id_str,
+                        len(req_id_str) >= 6 and req_id_str in normalized_id,
+                        # Match on first part of UUID (at least 8 chars)
+                        len(normalized_id) >= 8 and normalized_id[:8] == req_id_str[:8] and len(req_id_clean) >= 30,
+                    ]):
+                        matching_request = req
+                        logger.info(f"Found matching request: {req.request_id}, title: {req.title}")
+                        break
+                
+                if matching_request:
+                    field_request = matching_request
+                    # Use the actual request_id for future operations
+                    request_id = matching_request.request_id
+                    logger.info(f"Using matched request ID: {request_id}")
+                else:
+                    # Log the attempted deletion for debugging
+                    logger.warning(f"Failed deletion attempt - request ID '{request_id}' not found in mission {mission_id}")
+                    # Provide a more helpful error message with available IDs
+                    if available_ids:
+                        id_examples = ", ".join([f"`{id[:8]}...`" for id in available_ids[:3]])
+                        return f"Field request with ID '{request_id}' not found. Your available requests have IDs like: {id_examples}. Please check and try again with the exact ID."
+                    else:
+                        return f"Field request with ID '{request_id}' not found. You don't have any active requests to delete."
+            
+            # Verify ownership - field agent can only delete their own requests
+            if field_request.conversation_id != str(self.context.id):
+                return "You can only delete field requests that you created. This request was created by another conversation."
+            
+            # Get current user info for logging
+            participants = await self.context.get_participants()
+            current_user_id = None
+            current_username = None
+            
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    current_username = participant.name
+                    break
+            
+            if not current_user_id:
+                current_user_id = "field-system"
+                current_username = "Field Agent"
+                
+            # Log the deletion before removing the request
+            request_title = field_request.title
+            
+            # Store the actual request ID from the field_request object for reliable operations
+            actual_request_id = field_request.request_id
+            
+            # Log the deletion in the mission log
+            await MissionStorage.log_mission_event(
+                context=self.context,
+                mission_id=mission_id,
+                entry_type=LogEntryType.REQUEST_DELETED.value,
+                message=f"Field request '{request_title}' was deleted by {current_username}",
+                related_entity_id=actual_request_id,
+                metadata={
+                    "request_title": request_title,
+                    "deleted_by": current_user_id,
+                    "deleted_by_name": current_username
+                }
+            )
+            
+            # Update mission status if this was a blocker
+            status = MissionStorage.read_mission_status(mission_id)
+            if status and actual_request_id in status.active_blockers:
+                status.active_blockers.remove(actual_request_id)
+                status.updated_at = datetime.utcnow()
+                status.updated_by = current_user_id
+                status.version += 1
+                MissionStorage.write_mission_status(mission_id, status)
+            
+            # Delete the field request - implementing deletion logic by removing the file
+            # Using MissionStorage instead of direct path access
+            # Create field requests directory path and remove the specific file
+            from .mission_storage import MissionStorageManager
+            request_path = MissionStorageManager.get_field_request_path(mission_id, actual_request_id)
+            if request_path.exists():
+                request_path.unlink()  # Delete the file
+            
+            # Notify HQ about the deletion
+            try:
+                # Get HQ conversation ID
+                from .mission_storage import MissionRole, MissionStorageManager, ConversationMissionManager
+                from semantic_workbench_assistant.storage import read_model
+                
+                hq_dir = MissionStorageManager.get_mission_dir(mission_id) / MissionRole.HQ.value
+                if hq_dir.exists():
+                    role_file = hq_dir / "conversation_role.json"
+                    if role_file.exists():
+                        role_data = read_model(role_file, ConversationMissionManager.ConversationRoleInfo)
+                        if role_data:
+                            hq_conversation_id = role_data.conversation_id
+                            
+                            # Notify HQ
+                            from .mission import ConversationClientManager
+                            client = ConversationClientManager.get_conversation_client(self.context, hq_conversation_id)
+                            await client.send_messages(
+                                NewConversationMessage(
+                                    content=f"Field agent ({current_username}) has deleted their request: '{request_title}'",
+                                    message_type=MessageType.notice,
+                                )
+                            )
+            except Exception as e:
+                logger.warning(f"Could not notify HQ about deleted request: {e}")
+                # Not critical, so we continue
+            
+            # Update all mission UI inspectors
+            await MissionStorage.refresh_all_mission_uis(self.context, mission_id)
+            
+            return f"Field request '{request_title}' has been successfully deleted."
+            
+        except Exception as e:
+            logger.exception(f"Error deleting field request: {e}")
+            return f"Error deleting field request: {str(e)}. Please try again later."
+            
     async def detect_field_request_needs(self, message: str) -> Dict[str, Any]:
         """
         Analyze a user message in context of recent chat history to detect potential field request needs.

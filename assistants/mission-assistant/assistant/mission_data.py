@@ -51,7 +51,6 @@ class RequestStatus(str, Enum):
     Represents the lifecycle of a field request from creation to resolution.
     Requests typically progress from NEW -> ACKNOWLEDGED -> IN_PROGRESS -> RESOLVED.
     DEFERRED indicates requests that will be addressed later.
-    CANCELLED is a terminal state for requests that are no longer relevant.
     """
 
     NEW = "new"  # Request has been created but not yet acknowledged by HQ
@@ -59,7 +58,6 @@ class RequestStatus(str, Enum):
     IN_PROGRESS = "in_progress"  # HQ is actively working on the request
     RESOLVED = "resolved"  # HQ has provided a resolution to the request
     DEFERRED = "deferred"  # Request handling has been postponed to a later time
-    CANCELLED = "cancelled"  # Request is no longer relevant or was canceled without resolution
 
 
 class LogEntryType(str, Enum):
@@ -74,6 +72,9 @@ class LogEntryType(str, Enum):
     # Briefing-related events
     BRIEFING_CREATED = "briefing_created"  # Initial creation of mission briefing
     BRIEFING_UPDATED = "briefing_updated"  # Any update to mission briefing content
+
+    # Field request deletion event
+    REQUEST_DELETED = "request_deleted"  # Field request was deleted by its creator
 
     # Field request lifecycle events
     REQUEST_CREATED = "request_created"  # New field request submitted
