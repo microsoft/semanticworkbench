@@ -223,12 +223,10 @@ class MissionInvitation:
 
             # Get mission name for the success message
             try:
-                # Get the latest mission briefing
-                briefing = await MissionManager.get_mission_briefing(context)
+                # Try to get the mission briefing just to verify it exists
+                await MissionManager.get_mission_briefing(context)
                 
-                # Get mission name for the notification message
-                mission_name = briefing.mission_name if briefing else "Mission"
-                
+                # Return success with mission ID
                 return (
                     True, 
                     mission_id

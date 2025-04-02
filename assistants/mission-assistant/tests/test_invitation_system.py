@@ -9,10 +9,8 @@ import pytest
 from assistant.command_processor import (
     handle_join_command,
     handle_start_hq_command,
-    process_command,
 )
 from assistant.mission import MissionInvitation
-from assistant.mission_storage import MissionStorageManager
 
 
 class MessageType:
@@ -71,9 +69,7 @@ class TestSimplifiedInvitationSystem:
                 mock_read_model.return_value = None
                 
                 # Also patch write_model
-                with patch("assistant.mission_storage.write_model") as mock_write_model:
-                    pass
-                    
+                with patch("assistant.mission_storage.write_model"):
                     # We'll have this fixture yield in a with-context so the patches remain active
                     yield context
     
@@ -171,13 +167,13 @@ class TestSimplifiedInvitationSystem:
 
     @pytest.mark.asyncio
     @patch("assistant.mission_storage.MissionStorageManager")
-    async def test_redeem_invitation_with_mission_id(self, mock_storage_manager):
+    async def test_redeem_invitation_with_mission_id(self, mock_storage_manager, context):
         """Test that redeem_invitation uses mission ID directly."""
         # Setup mission existence check
         mock_storage_manager.mission_exists.return_value = True
         
         # Call redeem_invitation directly
-        result = await MissionInvitation.redeem_invitation("test-mission-id", "test-user-id", "Test User")
+        result, message = await MissionInvitation.redeem_invitation(context, "test-mission-id")
         
         # Check result indicates success
         assert result is True
@@ -187,13 +183,13 @@ class TestSimplifiedInvitationSystem:
 
     @pytest.mark.asyncio
     @patch("assistant.mission_storage.MissionStorageManager")
-    async def test_redeem_invitation_nonexistent_mission(self, mock_storage_manager):
+    async def test_redeem_invitation_nonexistent_mission(self, mock_storage_manager, context):
         """Test that redeem_invitation fails with nonexistent mission ID."""
         # Setup mission existence check to fail
         mock_storage_manager.mission_exists.return_value = False
         
         # Call redeem_invitation directly
-        result = await MissionInvitation.redeem_invitation("nonexistent-mission-id", "test-user-id", "Test User")
+        result, message = await MissionInvitation.redeem_invitation(context, "nonexistent-mission-id")
         
         # Check result indicates failure
         assert result is False

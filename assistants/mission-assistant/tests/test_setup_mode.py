@@ -83,10 +83,7 @@ class TestSetupMode:
                 mock_read_model.return_value = None
                 
                 # Also patch write_model
-                with patch("assistant.mission_storage.write_model") as mock_write_model:
-                    # For type-checking, we shouldn't set return_value for functions that return None
-                    pass
-                    
+                with patch("assistant.mission_storage.write_model"):
                     # We'll have this fixture yield in a with-context so the patches remain active
                     yield context
     
