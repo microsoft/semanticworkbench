@@ -12,7 +12,6 @@ from assistant.command_processor import (
     handle_help_command,
     process_command,
 )
-from assistant.chat import on_message_created
 from assistant.state_inspector import MissionInspectorStateProvider
 
 

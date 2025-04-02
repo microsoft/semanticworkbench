@@ -33,6 +33,8 @@ from .mission_storage import (
     ConversationMissionManager,
     MissionNotifier,
     MissionStorage,
+    MissionStorageManager,
+    MissionRole,
 )
 
 logger = logging.getLogger(__name__)
@@ -269,18 +271,20 @@ async def handle_start_hq_command(context: ConversationContext, message: Convers
         AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
     )
 
-    # Send confirmation
+    # Send confirmation with mission ID as the invitation code
     await context.send_messages(
         NewConversationMessage(
             content=f"""# Mission Created Successfully
             
 **Mission Name:** {mission_name}
 **Role:** HQ
+**Mission ID:** `{new_mission_id}`
+
+**IMPORTANT:** Share this Mission ID with field personnel so they can join using `/join {new_mission_id}` in their conversations.
 
 You can now use HQ commands to:
 - Define mission goals with `/add-goal`
 - Add information to the knowledge base with `/add-kb-section`
-- Invite field personnel with `/invite`
 - Get help with other commands using `/help`
 
 Good luck with your mission!
@@ -299,11 +303,11 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
     """
     Handle the join command to join an existing mission as a field agent.
 
-    This is a setup mode command that joins an existing mission as a field agent using an invite code.
+    This is a setup mode command that joins an existing mission as a field agent using the mission ID.
     """
     # Check if already in a mission
-    mission_id = await MissionManager.get_mission_id(context)
-    if mission_id:
+    current_mission_id = await MissionManager.get_mission_id(context)
+    if current_mission_id:
         # Already in a mission, show error
         await context.send_messages(
             NewConversationMessage(
@@ -313,36 +317,44 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
         )
         return
 
-    # Get invitation code from arguments
-    invitation_code = None
+    # Get mission ID from arguments
+    mission_id = None
 
     # If passed directly in command args
     if args:
-        invitation_code = args[0]
+        mission_id = args[0]
     else:
         # Try to parse from message
         content = message.content.strip()[len("/join") :].strip()
         if content:
-            invitation_code = content
+            mission_id = content
 
-    if not invitation_code:
+    if not mission_id:
         await context.send_messages(
             NewConversationMessage(
-                content="Please provide an invitation code. Usage: `/join code`",
+                content="Please provide a mission ID. Usage: `/join mission_id`",
                 message_type=MessageType.notice,
             )
         )
         return
 
-    # Try to join the mission
-    from .mission import MissionInvitation
-
-    success, mission_id = await MissionInvitation.redeem_invitation(context, invitation_code)
-
-    if not success or not mission_id:
+    # Verify the mission exists
+    if not MissionStorageManager.mission_exists(mission_id):
         await context.send_messages(
             NewConversationMessage(
-                content="Failed to join mission. The invitation code may be invalid or expired.",
+                content=f"Mission with ID '{mission_id}' not found. Please check the ID and try again.",
+                message_type=MessageType.notice,
+            )
+        )
+        return
+        
+    # Join the mission directly (simplified approach)
+    success = await MissionManager.join_mission(context, mission_id, MissionRole.FIELD)
+
+    if not success:
+        await context.send_messages(
+            NewConversationMessage(
+                content="Failed to join mission. Please try again.",
                 message_type=MessageType.notice,
             )
         )
@@ -368,9 +380,10 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
         AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
     )
 
-    # Get mission name for the welcome message
+    # Get mission name and ID for the welcome message
     briefing = await MissionManager.get_mission_briefing(context)
     mission_name = briefing.mission_name if briefing else "Mission"
+    mission_id = await MissionManager.get_mission_id(context)
 
     # Send confirmation
     await context.send_messages(
@@ -378,9 +391,10 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
             content=f"""# Joined Mission Successfully
             
 **Mission Name:** {mission_name}
+**Mission ID:** `{mission_id}`
 **Role:** Field
 
-You can now use Field commands to:
+You are now connected to HQ and can see all mission information. You can use Field commands to:
 - Get mission information with `/get-mission-info`
 - Request information from HQ with `/request-info`
 - Update mission status with `/update-status`
@@ -456,14 +470,14 @@ This assistant is in setup mode. You need to establish your role before proceedi
 ### Available Commands
 
 - `/start-hq [Mission Name|Mission description]`: Create a new mission with this conversation as HQ
-- `/join invitation_code`: Join an existing mission as a Field agent
+- `/join mission_id`: Join an existing mission as a Field agent
 - `/help [command]`: Show help for a specific command
 
 Please use one of these commands to get started. The recommended workflow is:
 
 1. One conversation uses `/start-hq` to create the mission and become HQ
-2. HQ then uses `/invite` to generate invitation codes
-3. Field personnel use `/join` with the invitation code in new conversations
+2. HQ shares the mission ID (automatically displayed after creation)
+3. Field personnel use `/join` with the mission ID in their conversations
 
 Once setup is complete, you will have access to all mission commands appropriate for your role.
 """
@@ -1135,7 +1149,12 @@ async def handle_resolve_request_command(
 
 
 async def handle_invite_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
-    """Handle the invite command."""
+    """
+    Legacy invite command handler - simplified to just show mission ID.
+    
+    With the simplified invitation system, we don't need to generate invitations.
+    This function now just displays the mission ID as the invitation code.
+    """
     try:
         # Get mission ID
         mission_id = await ConversationMissionManager.get_conversation_mission(context)
@@ -1147,37 +1166,31 @@ async def handle_invite_command(context: ConversationContext, message: Conversat
                 )
             )
             return
-
-        # Use the proper MissionInvitation implementation from mission.py
-        from .mission import MissionInvitation
-
-        # Parse any username if provided
-        username = None
-        if len(args) > 0:
-            username = args[0]
-
-        # Create an invitation using the real implementation
-        success, result_message = await MissionInvitation.create_invitation(context, username)
-
-        # The method sends a notification, but we need to also send the result message with the code
-        if success:
-            await context.send_messages(
-                NewConversationMessage(
-                    content=result_message,
-                    message_type=MessageType.chat,
-                )
-            )
-
-        # Update all mission UI inspectors
-        mission_id = await ConversationMissionManager.get_conversation_mission(context)
-        if mission_id:
-            await MissionStorage.refresh_all_mission_uis(context, mission_id)
-
-    except Exception as e:
-        logger.exception(f"Error creating invitation: {e}")
+            
+        # Instead of creating a complex invitation, just display the mission ID
         await context.send_messages(
             NewConversationMessage(
-                content=f"Error creating invitation: {str(e)}",
+                content=f"""## Mission Invitation
+                
+**Mission ID:** `{mission_id}`
+
+Share this Mission ID with field personnel. They can join using:
+`/join {mission_id}`
+
+This Mission ID never expires and can be used by multiple field agents.
+""",
+                message_type=MessageType.chat,
+            )
+        )
+
+        # Update all mission UI inspectors
+        await MissionStorage.refresh_all_mission_uis(context, mission_id)
+
+    except Exception as e:
+        logger.exception(f"Error displaying mission ID: {e}")
+        await context.send_messages(
+            NewConversationMessage(
+                content=f"Error displaying mission ID: {str(e)}",
                 message_type=MessageType.notice,
             )
         )
@@ -1252,6 +1265,19 @@ async def handle_mission_info_command(
 
         # Get the requested information
         output = []
+        
+        # Always show mission ID at the top for easy access
+        mission_id = await MissionManager.get_mission_id(context)
+        if mission_id:
+            # Check if HQ or Field
+            role = await MissionManager.get_mission_role(context)
+            if role == MissionRole.HQ:
+                # For HQ, make it prominent with instructions
+                output.append(f"## Mission ID: `{mission_id}`")
+                output.append(f"_Share this ID with field agents so they can join using_ `/join {mission_id}`\n")
+            else:
+                # For Field, just show the ID
+                output.append(f"## Mission ID: `{mission_id}`\n")
 
         # Get mission briefing if requested
         if info_type in ["all", "briefing"]:
@@ -1569,22 +1595,15 @@ command_registry.register_command(
 )
 
 # Team management commands
-command_registry.register_command(
-    "invite",
-    handle_invite_command,
-    "Invite a user to join this mission",
-    "/invite [username]",
-    "/invite john.doe",
-    ["hq"],  # Only HQ can invite
-)
+# "invite" command removed - mission ID is now used directly for invitations
 
 command_registry.register_command(
     "join",
     handle_join_command,
-    "Join a mission with an invitation code",
-    "/join invitation_code",
-    "/join abc123:xyz456",
-    None,  # Available to all roles (anyone can join if they have a code)
+    "Join a mission using its mission ID",
+    "/join mission_id",
+    "/join abc123-def-456",
+    None,  # Available to all roles (anyone can join if they have the mission ID)
 )
 
 command_registry.register_command(

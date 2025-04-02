@@ -88,7 +88,7 @@ class MissionInspectorStateProvider:
 Before you can access mission features, please specify your role:
 
 - Use `/start-hq` to create a new mission as HQ
-- Use `/join <code>` to join an existing mission as Field personnel
+- Use `/join <mission_id>` to join an existing mission as Field personnel
 
 Type `/help` for more information on available commands.
 
@@ -212,65 +212,17 @@ Type `/help` for more information on available commands.
             lines.append("No open field requests.")
             lines.append("")
 
-        # Display invitation information
+        # Display mission ID as invitation information (simplified approach)
         lines.append("## Mission Invitation")
-
-        # Try to get the latest invitation
-        from .mission import MissionInvitation
-
-        latest_invitation = None
-        invitations_path = MissionInvitation._get_invitations_path(context)
-
-        if invitations_path.exists():
-            try:
-                # Use the proper storage method from the library
-                from semantic_workbench_assistant.storage import read_model
-
-                invitations = read_model(invitations_path, MissionInvitation.InvitationsCollection)
-                if invitations:
-                    # Convert dictionary invitations to proper Invitation objects
-                    from .mission import MissionInvitation
-
-                    proper_invitations = []
-
-                    for inv in invitations.invitations:
-                        # If it's a dict, convert to proper Invitation object
-                        if isinstance(inv, dict):
-                            # Create a proper Invitation instance
-                            proper_inv = MissionInvitation.Invitation(**inv)
-                            proper_invitations.append(proper_inv)
-                        else:
-                            # Already an Invitation object
-                            proper_invitations.append(inv)
-
-                    # Now filter for non-redeemed invitations
-                    active_invitations = [inv for inv in proper_invitations if not inv.redeemed]
-                else:
-                    active_invitations = []
-
-                if active_invitations:
-                    # Sort by creation time (newest first)
-                    sorted_invitations = sorted(active_invitations, key=lambda x: x.created_at, reverse=True)
-                    latest_invitation = sorted_invitations[0]
-            except Exception as e:
-                logger.warning(f"Failed to read invitation data: {e}")
-
-        if latest_invitation:
-            # Format the code
-            invitation_code = f"{latest_invitation.invitation_id}:{latest_invitation.token}"
-
-            # Show invitation details
-            if latest_invitation.target_username:
-                lines.append(f"Active invitation for: **{latest_invitation.target_username}**")
-            else:
-                lines.append("Active invitation (anyone can use):\n")
-
-            lines.append(f"**Invitation Code:** `{invitation_code}`")
-        else:
-            lines.append("No active invitations. Use `/invite` to generate a mission invitation code.")
-
         lines.append("")
-        lines.append("Field personnel can join using the `/join <code>` command with the invitation code.")
+        lines.append("### Mission ID")
+        lines.append(f"**Mission ID:** `{mission_id}`")
+        lines.append("")
+        lines.append("**IMPORTANT:** Share this Mission ID with all field personnel.")
+        lines.append("Field agents can join this mission using:")
+        lines.append(f"```\n/join {mission_id}\n```")
+        lines.append("")
+        lines.append("The Mission ID never expires and can be used by multiple field agents.")
 
         lines.append("")
 
@@ -286,6 +238,7 @@ Type `/help` for more information on available commands.
         # Build the markdown content
         lines: List[str] = []
         lines.append(f"# Mission: {mission_name}")
+        lines.append(f"**Mission ID:** `{mission_id}`")
         lines.append("")
 
         # Determine stage based on mission status

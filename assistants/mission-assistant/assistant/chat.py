@@ -504,7 +504,7 @@ This assistant helps coordinate mission activities between HQ and Field personne
 **Setup Required**: To begin, please specify your role:
 
 - Use `/start-hq` to create a new mission as HQ
-- Use `/join <code>` to join an existing mission as Field personnel
+- Use `/join <mission_id>` to join an existing mission as Field personnel
 
 Type `/help` for more information on available commands.
 """
