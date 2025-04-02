@@ -21,7 +21,7 @@
           "assistants: guided-conversation-assistant",
           "assistants: prospector-assistant",
           "assistants: skill-assistant",
-          "assistants: mission-assistant"
+          "assistants: project-assistant"
         ]
       }
     ]
@@ -73,8 +73,8 @@
       "path": "assistants/skill-assistant"
     },
     {
-      "name": "assistants:mission-assistant",
-      "path": "assistants/mission-assistant"
+      "name": "assistants:project-assistant",
+      "path": "assistants/project-assistant"
     },
     {
       "name": "libraries:assistant-drive",
@@ -204,7 +204,9 @@
   "settings": {
     "markdown.validate.enabled": true,
     "ruff.configuration": "${workspaceFolder:.multi-root-tools}/../ruff.toml",
-    "ruff.interpreter": ["${workspaceFolder:.multi-root-tools}/.venv"],
+    "ruff.interpreter": [
+      "${workspaceFolder:.multi-root-tools}/.venv"
+    ],
     "ruff.importStrategy": "useBundled",
     "ruff.nativeServer": "on",
     "[python]": {
