@@ -18,12 +18,14 @@ import { Loading } from '../../App/Loading';
 import { CodeContentRenderer } from '../ContentRenderers/CodeContentRenderer';
 import { ContentListRenderer } from '../ContentRenderers/ContentListRenderer';
 import { ContentRenderer } from '../ContentRenderers/ContentRenderer';
+import { MilkdownEditorWrapper } from '../ContentRenderers/MarkdownEditorRenderer';
 import { DebugInspector } from '../DebugInspector';
 
 const useClasses = makeStyles({
     root: {
         display: 'flex',
         flexDirection: 'column',
+        height: '100%',
     },
     header: {
         flexShrink: 0,
@@ -177,11 +179,17 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
                 />
             );
         },
+        markdownEditor: () => {
+            const markdownContent = (state.data?.markdown_content as string | undefined) ?? '';
+            return <MilkdownEditorWrapper content={markdownContent}></MilkdownEditorWrapper>;
+        },
     };
 
     const getRender = () => {
         if (state.jsonSchema) {
             return renderers.jsonSchema;
+        } else if (state.data && 'markdown_content' in state.data) {
+            return renderers.markdownEditor;
         }
         return renderers.default;
     };
