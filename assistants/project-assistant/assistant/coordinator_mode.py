@@ -13,7 +13,6 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .project_data import (
     InformationRequest,
-    KBSection,
     LogEntryType,
     ProjectBrief,
     ProjectGoal,
@@ -198,7 +197,7 @@ class CoordinatorConversationHandler:
         self, title: str, content: str, order: int = 0, tags: Optional[List[str]] = None
     ) -> Tuple[bool, str, Optional[ProjectKB]]:
         """
-        Adds a section to the project knowledge base.
+        Adds a section to the project whiteboard.
 
         Args:
             title: Title of the section
@@ -212,7 +211,7 @@ class CoordinatorConversationHandler:
         # Check role
         role = await ConversationProjectManager.get_conversation_role(self.context)
         if role != ProjectRole.COORDINATOR:
-            return False, "Only Coordinator conversations can add KB sections", None
+            return False, "Only Coordinator conversations can add whiteboard sections", None
 
         # Get project ID
         project_id = await ConversationProjectManager.get_conversation_project(self.context)
@@ -242,19 +241,19 @@ class CoordinatorConversationHandler:
         )
         
         if not success or not kb:
-            return False, "Failed to add knowledge base section", None
+            return False, "Failed to add whiteboard section", None
             
         # Log is already done by the ProjectManager
 
         # Send notification
         await self.context.send_messages(
             NewConversationMessage(
-                content=f"Added knowledge base section: {title}",
+                content=f"Added whiteboard section: {title}",
                 message_type=MessageType.notice,
             )
         )
 
-        return True, f"Added knowledge base section: {title}", kb
+        return True, f"Added whiteboard section: {title}", kb
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> Tuple[bool, str, Optional[InformationRequest]]:
         """

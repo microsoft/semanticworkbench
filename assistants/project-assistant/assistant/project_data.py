@@ -99,7 +99,7 @@ class LogEntryType(str, Enum):
     MILESTONE_PASSED = "milestone_passed"  # A milestone or checkpoint was passed
     INFORMATION_UPDATE = "information_update"  # General information or status update
     FILE_SHARED = "file_shared"  # A file was shared between participants
-    KB_UPDATE = "kb_update"  # Knowledge base was updated
+    KB_UPDATE = "kb_update"  # Whiteboard was updated
     CUSTOM = "custom"  # Custom log entry for specialized events
 
 
@@ -184,21 +184,21 @@ class ProjectBrief(BaseEntity):
 
 class KBSection(BaseModel):
     """
-    A section of the project knowledge base with specific content.
+    A section of the project whiteboard with specific content.
 
-    Knowledge base sections allow the Coordinator to organize and share important
+    Whiteboard sections allow the Coordinator to organize and share important
     information with team members. Each section focuses on a specific
     topic or area relevant to the project.
 
     Sections can be added, updated, or removed as the project progresses,
-    allowing the knowledge base to evolve as new information becomes available.
-    Tags help with categorization and searching within larger knowledge bases.
+    allowing the whiteboard to evolve as new information becomes available.
+    Tags help with categorization and searching within larger whiteboards.
     """
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # Unique identifier for the section
     title: str  # Section title
     content: str  # Markdown content of the section
-    order: int  # Display order within the KB (lower numbers appear first)
+    order: int  # Display order within the whiteboard (lower numbers appear first)
     tags: List[str] = Field(default_factory=list)  # Categorization tags for searching and filtering
     last_updated: datetime = Field(default_factory=datetime.utcnow)  # When the section was last modified
     updated_by: str  # User ID of the person who last updated this section

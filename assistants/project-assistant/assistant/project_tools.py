@@ -22,7 +22,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .command_processor import (
     handle_add_goal_command,
-    handle_add_kb_section_command,
+    handle_add_whiteboard_section_command,
 )
 from .project_data import (
     LogEntryType,
@@ -115,7 +115,7 @@ class ProjectTools:
                 "Add a goal to the project brief with optional success criteria",
             )
             self.tool_functions.add_function(
-                self.add_kb_section, "add_kb_section", "Add a section to the project knowledge base"
+                self.add_kb_section, "add_kb_section", "Add a section to the project whiteboard"
             )
             self.tool_functions.add_function(
                 self.resolve_information_request, "resolve_information_request", "Resolve an information request with information"
@@ -214,8 +214,8 @@ class ProjectTools:
                     output.append("\n*No goals defined yet.*")
 
         # Get project whiteboard if requested
-        if info_type in ["all", "kb"]:
-            kb = ProjectStorage.read_project_kb(project_id)
+        if info_type in ["all", "whiteboard"]:
+            kb = ProjectStorage.read_project_whiteboard(project_id)
 
             if kb and kb.content:
                 output.append("\n## Project Whiteboard\n")
@@ -228,9 +228,9 @@ class ProjectTools:
                     output.append("*This whiteboard content has been manually edited.*")
                     
                 output.append("")
-            elif info_type == "kb":
-                output.append("\n## Project Knowledge Base\n")
-                output.append("*No knowledge base sections defined yet.*")
+            elif info_type == "whiteboard":
+                output.append("\n## Project Whiteboard\n")
+                output.append("*No whiteboard content available yet.*")
 
         # Get project dashboard if requested
         if info_type in ["all", "dashboard"]:
@@ -403,7 +403,7 @@ class ProjectTools:
 
     async def add_kb_section(self, title: str, content: str) -> str:
         """
-        Add a section to the project knowledge base.
+        Add a section to the project whiteboard.
 
         Args:
             title: The title of the section
@@ -413,7 +413,7 @@ class ProjectTools:
             A message indicating success or failure
         """
         if self.role != "coordinator":
-            return "Only Coordinator can add knowledge base sections."
+            return "Only Coordinator can add whiteboard sections."
 
         # Get project ID
         project_id = await ProjectManager.get_project_id(self.context)
@@ -426,9 +426,9 @@ class ProjectTools:
         return await invoke_command_handler(
             context=self.context,
             command_content=command_content,
-            handler_func=handle_add_kb_section_command,
-            success_message=f"Knowledge base section '{title}' added successfully.",
-            error_prefix="Error adding knowledge base section",
+            handler_func=handle_add_whiteboard_section_command,
+            success_message=f"Whiteboard section '{title}' added successfully.",
+            error_prefix="Error adding whiteboard section",
         )
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
@@ -734,9 +734,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not project_id:
             return "No project associated with this conversation. Unable to mark project as ready for working."
 
-        # Get existing project brief and KB
+        # Get existing project brief and whiteboard
         brief = ProjectStorage.read_project_brief(project_id)
-        kb = ProjectStorage.read_project_kb(project_id)
+        kb = ProjectStorage.read_project_whiteboard(project_id)
 
         if not brief:
             return "No project brief found. Please create one before marking as ready for working."
@@ -757,7 +757,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Check if whiteboard has content
         if not kb or not kb.content:
             return (
-                "Project Whiteboard is empty. Content will be automatically generated as the project progresses."
+                "Project whiteboard is empty. Content will be automatically generated as the project progresses."
             )
 
         # Get or create project dashboard
@@ -1423,7 +1423,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Get project state information
         brief = ProjectStorage.read_project_brief(project_id)
-        kb = ProjectStorage.read_project_kb(project_id)
+        kb = ProjectStorage.read_project_whiteboard(project_id)
         dashboard = ProjectStorage.read_project_dashboard(project_id)
         requests = ProjectStorage.get_all_information_requests(project_id)
 

@@ -906,13 +906,13 @@ class ProjectManager:
             return False, None
 
     @staticmethod
-    async def get_project_kb(context: ConversationContext) -> Optional[ProjectKB]:
-        """Gets the project knowledge base for the current conversation's project."""
+    async def get_project_whiteboard(context: ConversationContext) -> Optional[ProjectKB]:
+        """Gets the project whiteboard for the current conversation's project."""
         project_id = await ProjectManager.get_project_id(context)
         if not project_id:
             return None
 
-        return ProjectStorage.read_project_kb(project_id)
+        return ProjectStorage.read_project_whiteboard(project_id)
 
     @staticmethod
     async def update_whiteboard(
@@ -945,12 +945,12 @@ class ProjectManager:
             if not current_user_id:
                 return False, None
 
-            # Get existing KB or create new one
-            kb = ProjectStorage.read_project_kb(project_id)
+            # Get existing whiteboard or create new one
+            whiteboard = ProjectStorage.read_project_whiteboard(project_id)
             is_new = False
 
-            if not kb:
-                kb = ProjectKB(
+            if not whiteboard:
+                whiteboard = ProjectKB(
                     created_by=current_user_id,
                     updated_by=current_user_id,
                     conversation_id=str(context.id),
@@ -959,16 +959,16 @@ class ProjectManager:
                 is_new = True
 
             # Update the content
-            kb.content = content
-            kb.is_auto_generated = is_auto_generated
+            whiteboard.content = content
+            whiteboard.is_auto_generated = is_auto_generated
 
             # Update metadata
-            kb.updated_at = datetime.utcnow()
-            kb.updated_by = current_user_id
-            kb.version += 1
+            whiteboard.updated_at = datetime.utcnow()
+            whiteboard.updated_by = current_user_id
+            whiteboard.version += 1
 
-            # Save the KB
-            ProjectStorage.write_project_kb(project_id, kb)
+            # Save the whiteboard
+            ProjectStorage.write_project_whiteboard(project_id, whiteboard)
 
             # Log the update
             event_type = LogEntryType.KB_UPDATE
@@ -990,7 +990,7 @@ class ProjectManager:
                 message="Project whiteboard updated",
             )
 
-            return True, kb
+            return True, whiteboard
 
         except Exception as e:
             logger.exception(f"Error updating whiteboard: {e}")
@@ -1030,12 +1030,12 @@ class ProjectManager:
             if not current_user_id:
                 return False, None
 
-            # Get existing KB or create new one
-            kb = ProjectStorage.read_project_kb(project_id)
+            # Get existing whiteboard or create new one
+            whiteboard = ProjectStorage.read_project_whiteboard(project_id)
             is_new = False
 
-            if not kb:
-                kb = ProjectKB(
+            if not whiteboard:
+                whiteboard = ProjectKB(
                     created_by=current_user_id,
                     updated_by=current_user_id,
                     conversation_id=str(context.id),
@@ -1047,21 +1047,21 @@ class ProjectManager:
             formatted_content = f"## {title}\n\n{content}"
             
             # Append to existing content or create new
-            if kb.content:
-                kb.content = f"{kb.content}\n\n{formatted_content}"
+            if whiteboard.content:
+                whiteboard.content = f"{whiteboard.content}\n\n{formatted_content}"
             else:
-                kb.content = formatted_content
+                whiteboard.content = formatted_content
 
             # Mark as manually edited
-            kb.is_auto_generated = False
+            whiteboard.is_auto_generated = False
 
             # Update metadata
-            kb.updated_at = datetime.utcnow()
-            kb.updated_by = current_user_id
-            kb.version += 1
+            whiteboard.updated_at = datetime.utcnow()
+            whiteboard.updated_by = current_user_id
+            whiteboard.version += 1
 
-            # Save the KB
-            ProjectStorage.write_project_kb(project_id, kb)
+            # Save the whiteboard
+            ProjectStorage.write_project_whiteboard(project_id, whiteboard)
 
             # Log the update
             event_type = LogEntryType.KB_UPDATE
@@ -1083,16 +1083,16 @@ class ProjectManager:
                 message=f"Project whiteboard updated: added section '{title}'",
             )
 
-            return True, kb
+            return True, whiteboard
 
         except Exception as e:
             logger.exception(f"Error updating whiteboard: {e}")
             return False, None
 
     @staticmethod
-    async def update_kb_section(
+    async def update_whiteboard_content(
         context: ConversationContext,
-        section_id: str,
+        section_id: str,  # Kept for backwards compatibility
         updates: Dict[str, Any],
     ) -> Tuple[bool, Optional[ProjectKB]]:
         """
@@ -1119,9 +1119,9 @@ class ProjectManager:
             if not current_user_id:
                 return False, None
 
-            # Get existing KB
-            kb = ProjectStorage.read_project_kb(project_id)
-            if not kb:
+            # Get existing whiteboard
+            whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+            if not whiteboard:
                 logger.error(f"Cannot update whiteboard: no whiteboard found for project {project_id}")
                 return False, None
 
@@ -1129,19 +1129,19 @@ class ProjectManager:
             content = updates.get("content")
             if not content:
                 logger.info("No content provided for whiteboard update")
-                return True, kb
+                return True, whiteboard
 
             # Update the whiteboard content
-            kb.content = content
-            kb.is_auto_generated = False  # Mark as manually edited
+            whiteboard.content = content
+            whiteboard.is_auto_generated = False  # Mark as manually edited
 
-            # Update KB metadata
-            kb.updated_at = datetime.utcnow()
-            kb.updated_by = current_user_id
-            kb.version += 1
+            # Update whiteboard metadata
+            whiteboard.updated_at = datetime.utcnow()
+            whiteboard.updated_by = current_user_id
+            whiteboard.version += 1
 
-            # Save the KB
-            ProjectStorage.write_project_kb(project_id, kb)
+            # Save the whiteboard
+            ProjectStorage.write_project_whiteboard(project_id, whiteboard)
 
             # Log the update
             await ProjectStorage.log_project_event(
@@ -1159,7 +1159,7 @@ class ProjectManager:
                 message="Project whiteboard updated manually",
             )
 
-            return True, kb
+            return True, whiteboard
 
         except Exception as e:
             logger.exception(f"Error updating whiteboard: {e}")
@@ -1225,15 +1225,21 @@ class ProjectManager:
             The assistant has access to look up information in the rest of the chat history, but this is based upon semantic similarity to current user request, so the
             whiteboard content is for information that should always be available to the bot, even if it is not directly semantically related to the current user request.
 
-            The whiteboard is limited in size, so it is important to keep it up to date with the most important information and it is ok to remove information that is no
-            longer relevant. It is also ok to leave the whiteboard blank if there is no information important enough be added to the whiteboard.
+            IMPORTANT: The whiteboard must be CONCISE and LIMITED in size. Focus only on the MOST CRITICAL information:
+            - Keep project goals, decisions, and key context
+            - Use brief bullet points and short sections
+            - Limit to 2000 tokens maximum (about 1500 words)
+            - Remove information that is no longer relevant
+            - It's OK to leave the whiteboard blank if there's nothing important
 
-            Think of the whiteboard as the type of content that might be written down on a whiteboard during a meeting. It is not a transcript of the conversation, but
-            rather only the most important information that is relevant to the current task at hand.
+            Think of the whiteboard as the type of content that might be written down on a whiteboard during a meeting - just the essential facts and decisions, not a transcript.
 
-            Use markdown to format the whiteboard content. For example, you can use headings, lists, and links to other resources: <WHITEBOARD>{{content}}</WHITEBOARD>
+            Use markdown for formatting:
+            - Use ## for main headings and ### for subheadings
+            - Use bullet lists for sets of related items
+            - Bold key terms with **bold**
 
-            Just return the <WHITEBOARD/> content. The assistant will automatically update the whiteboard content in the context.
+            Your output format should be: <WHITEBOARD>{{content}}</WHITEBOARD>
 
             <CHAT_HISTORY>
             {chat_history_text}
@@ -1248,7 +1254,7 @@ class ProjectManager:
                 completion = await client.chat.completions.create(
                     model=config.request_config.openai_model,
                     messages=[{"role": "user", "content": whiteboard_prompt}],
-                    max_tokens=2000,
+                    max_tokens=2500,  # Limiting to 2500 tokens to keep whiteboard content manageable
                 )
                 
                 # Extract the content from the completion

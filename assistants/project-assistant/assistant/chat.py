@@ -819,7 +819,7 @@ async def respond_to_conversation(
                         # Get comprehensive project data for prompt
                         briefing = ProjectStorage.read_project_brief(project_id)
                         status = ProjectStorage.read_project_dashboard(project_id)
-                        kb = ProjectStorage.read_project_kb(project_id)
+                        kb = ProjectStorage.read_project_whiteboard(project_id)
                         all_requests = ProjectStorage.get_all_information_requests(project_id)
 
                         # Format project brief

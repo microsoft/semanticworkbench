@@ -20,10 +20,8 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
 from .project_data import (
-    KBSection,
     LogEntryType,
     ProjectGoal,
-    ProjectKB,
     RequestPriority,
     RequestStatus,
     SuccessCriterion,
@@ -545,7 +543,7 @@ Once setup is complete, you will have access to all project commands appropriate
 
     # Group commands by category
     project_commands = []
-    kb_commands = []
+    whiteboard_commands = []
     request_commands = []
     team_commands = []
     status_commands = []
@@ -557,7 +555,7 @@ Once setup is complete, you will have access to all project commands appropriate
         if "create-brief" in name or "add-goal" in name:
             project_commands.append(command_entry)
         elif "kb" in name:
-            kb_commands.append(command_entry)
+            whiteboard_commands.append(command_entry)
         elif "request" in name:
             request_commands.append(command_entry)
         elif "invite" in name or "join" in name or "list-participants" in name or "revoke" in name:
@@ -571,8 +569,8 @@ Once setup is complete, you will have access to all project commands appropriate
     if project_commands:
         help_text += "### Project Configuration\n" + "\n".join(project_commands) + "\n\n"
 
-    if kb_commands:
-        help_text += "### Knowledge Base Management\n" + "\n".join(kb_commands) + "\n\n"
+    if whiteboard_commands:
+        help_text += "### Whiteboard Management\n" + "\n".join(whiteboard_commands) + "\n\n"
 
     if team_commands:
         help_text += "### Team Management\n" + "\n".join(team_commands) + "\n\n"
@@ -588,9 +586,9 @@ Once setup is complete, you will have access to all project commands appropriate
 
     # Add role-specific guidance
     if role == "coordinator":
-        help_text += "As a Coordinator, you are responsible for defining the project, creating the knowledge base, and coordinating team members."
+        help_text += "As a Coordinator, you are responsible for defining the project, maintaining the project whiteboard, and coordinating team members."
     else:
-        help_text += "As a Team member, you can access project knowledge, request information, and report progress on project goals."
+        help_text += "As a Team member, you can access project information, request information, and report progress on project goals."
 
     await context.send_messages(
         NewConversationMessage(
@@ -792,10 +790,10 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
         )
 
 
-async def handle_add_kb_section_command(
+async def handle_add_whiteboard_section_command(
     context: ConversationContext, message: ConversationMessage, args: List[str]
 ) -> None:
-    """Handle the add-kb-section command."""
+    """Handle the add-whiteboard-section command (previously add-kb-section)."""
     # Parse the command
     content = message.content.strip()[len("/add-kb-section") :].strip()
 
@@ -1222,10 +1220,10 @@ async def handle_project_info_command(
         # Determine which information to show
         info_type = content if content else "all"
 
-        if info_type not in ["all", "brief", "kb", "status", "requests"]:
+        if info_type not in ["all", "brief", "whiteboard", "status", "requests"]:
             await context.send_messages(
                 NewConversationMessage(
-                    content="Please specify what information you want to see: `/project-info [brief|kb|status|requests]`",
+                    content="Please specify what information you want to see: `/project-info [brief|whiteboard|status|requests]`",
                     message_type=MessageType.notice,
                 )
             )
@@ -1279,8 +1277,8 @@ async def handle_project_info_command(
                     output.append("\n*No goals defined yet. Add goals with `/add-goal`.*")
 
         # Get project whiteboard if requested
-        if info_type in ["all", "kb"]:
-            kb = await ProjectManager.get_project_kb(context)
+        if info_type in ["all", "whiteboard"]:
+            kb = await ProjectManager.get_project_whiteboard(context)
 
             if kb and kb.content:
                 output.append("\n## Project Whiteboard\n")
@@ -1293,7 +1291,7 @@ async def handle_project_info_command(
                     output.append("*This whiteboard content has been manually edited.*")
                     
                 output.append("")
-            elif info_type == "kb":
+            elif info_type == "whiteboard":
                 output.append("\n## Project Whiteboard\n")
                 output.append("*No whiteboard content available yet. Content will be automatically generated as the project progresses.*")
 
@@ -1608,12 +1606,12 @@ command_registry.register_command(
 )
 
 command_registry.register_command(
-    "add-kb-section",
-    handle_add_kb_section_command,
-    "Add a section to the project knowledge base",
+    "add-kb-section",  # Keep the command name for backwards compatibility
+    handle_add_whiteboard_section_command,
+    "Add a section to the project whiteboard",
     "/add-kb-section Section Title|Section content",
     "/add-kb-section Brand Guidelines|Our brand uses the following color palette: [details]",
-    ["coordinator"],  # Only Coordinator can add KB sections
+    ["coordinator"],  # Only Coordinator can add whiteboard sections
 )
 
 command_registry.register_command(

@@ -65,7 +65,7 @@ class ProjectStorageManager:
     PROJECT_BRIEF = "project_brief"
     PROJECT_LOG = "project_log"
     PROJECT_DASHBOARD = "project_dashboard"
-    PROJECT_KB = "project_kb"
+    PROJECT_WHITEBOARD = "project_whiteboard"  # Changed from PROJECT_KB
     INFORMATION_REQUEST = "information_request"
     COORDINATOR_CONVERSATION = "coordinator_conversation"
 
@@ -74,7 +74,7 @@ class ProjectStorageManager:
         PROJECT_BRIEF: "brief.json",
         PROJECT_LOG: "log.json",
         PROJECT_DASHBOARD: "dashboard.json",
-        PROJECT_KB: "kb.json",
+        PROJECT_WHITEBOARD: "whiteboard.json",  # Changed from kb.json
         COORDINATOR_CONVERSATION: "coordinator_conversation.json",
     }
 
@@ -151,10 +151,10 @@ class ProjectStorageManager:
         return entity_dir / ProjectStorageManager.PREDEFINED_ENTITIES[ProjectStorageManager.PROJECT_DASHBOARD]
 
     @staticmethod
-    def get_project_kb_path(project_id: str) -> pathlib.Path:
-        """Gets the path to the project knowledge base file."""
-        entity_dir = ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.PROJECT_KB)
-        return entity_dir / ProjectStorageManager.PREDEFINED_ENTITIES[ProjectStorageManager.PROJECT_KB]
+    def get_project_whiteboard_path(project_id: str) -> pathlib.Path:
+        """Gets the path to the project whiteboard file."""
+        entity_dir = ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.PROJECT_WHITEBOARD)
+        return entity_dir / ProjectStorageManager.PREDEFINED_ENTITIES[ProjectStorageManager.PROJECT_WHITEBOARD]
 
     @staticmethod
     def get_coordinator_conversation_path(project_id: str) -> pathlib.Path:
@@ -237,9 +237,9 @@ class ProjectStorage:
         return path
 
     @staticmethod
-    def read_project_kb(project_id: str) -> Optional[ProjectKB]:
-        """Reads the project knowledge base."""
-        path = ProjectStorageManager.get_project_kb_path(project_id)
+    def read_project_whiteboard(project_id: str) -> Optional[ProjectKB]:
+        """Reads the project whiteboard."""
+        path = ProjectStorageManager.get_project_whiteboard_path(project_id)
         return read_model(path, ProjectKB)
 
     @staticmethod
@@ -300,9 +300,9 @@ class ProjectStorage:
         ProjectStorage.write_coordinator_conversation(project_id, conversation)
 
     @staticmethod
-    def write_project_kb(project_id: str, kb: ProjectKB) -> pathlib.Path:
-        """Writes the project knowledge base."""
-        path = ProjectStorageManager.get_project_kb_path(project_id)
+    def write_project_whiteboard(project_id: str, kb: ProjectKB) -> pathlib.Path:
+        """Writes the project whiteboard."""
+        path = ProjectStorageManager.get_project_whiteboard_path(project_id)
         write_model(path, kb)
         return path
 
