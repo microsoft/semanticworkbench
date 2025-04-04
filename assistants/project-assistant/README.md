@@ -140,7 +140,3 @@ The Project Assistant leverages the Semantic Workbench Assistant library for cor
 5. **Role-Specific Experiences**: Tailored interfaces for Coordinator and Team roles
 
 The system follows a centralized artifact storage model with event-driven updates to keep all conversations synchronized.
-
-## License
-
-Copyright (c) Microsoft. All rights reserved.

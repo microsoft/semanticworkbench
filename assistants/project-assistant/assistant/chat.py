@@ -175,7 +175,7 @@ async def on_message_created(
                     content=(
                         "**Setup Required**\n\n"
                         "You need to set up the assistant before proceeding. Please use one of these commands:\n\n"
-                        "- `/start-coordinator` - Create a new project as Coordinator\n"
+                        "- `/start` - Create a new project as Coordinator\n"
                         "- `/join <code>` - Join an existing project as a Team member\n"
                         "- `/help` - Get help with available commands"
                     ),
@@ -498,7 +498,7 @@ This assistant helps coordinate project activities between Coordinators and Team
 
 **Setup Required**: To begin, please specify your role:
 
-- Use `/start-coordinator` to create a new project as Coordinator
+- Use `/start` to create a new project as Coordinator
 - Use `/join <project_id>` to join an existing project as a Team member
 
 Type `/help` for more information on available commands.

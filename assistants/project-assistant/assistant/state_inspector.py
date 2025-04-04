@@ -87,7 +87,7 @@ class ProjectInspectorStateProvider:
 
 Before you can access project features, please specify your role:
 
-- Use `/start-coordinator` to create a new project as Coordinator
+- Use `/start` to create a new project as Coordinator
 - Use `/join <project_id>` to join an existing project as Team member
 
 Type `/help` for more information on available commands.
@@ -134,6 +134,7 @@ Type `/help` for more information on available commands.
         # Build the markdown content
         lines: List[str] = []
         lines.append(f"# Project: {project_name}")
+        lines.append(f"**Project ID:** `{project_id}`")
         lines.append("")
 
         # Determine stage based on project status

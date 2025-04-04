@@ -113,9 +113,9 @@ class TestSetupMode:
         message.conversation_id = "test-conversation-id"
         message.created_at = datetime.now()
         message.timestamp = datetime.now()
-        message.content = "/start-coordinator Test Project|This is a test project"
+        message.content = "/start Test Project|This is a test project"
         message.message_type = MessageType.command
-        message.command_name = "/start-coordinator"
+        message.command_name = "/start"
         message.command_args = "Test Project|This is a test project"
         
         sender = MagicMock()
@@ -219,7 +219,7 @@ You are operating in Coordinator Mode (Planning Stage). Your responsibilities in
                         
                         # Mock that the command exists in the registry
                         mock_registry.commands = {
-                            "start-coordinator": {
+                            "start": {
                                 "handler": mock_handler,
                                 "description": "Create a new project with this conversation as Coordinator",
                             }
@@ -404,7 +404,7 @@ You are operating in Coordinator Mode (Planning Stage). Your responsibilities in
 
 Before you can access project features, please specify your role:
 
-- Use `/start-coordinator` to create a new project as Coordinator
+- Use `/start` to create a new project as Coordinator
 - Use `/join <code>` to join an existing project as Team member
 
 Type `/help` for more information on available commands.
@@ -423,7 +423,7 @@ Type `/help` for more information on available commands.
         # Verify result has setup instructions
         assert "Project Assistant Setup" in result.data["content"]
         assert "Role Selection Required" in result.data["content"]
-        assert "/start-coordinator" in result.data["content"]  # Should mention the start-coordinator command
+        assert "/start" in result.data["content"]  # Should mention the start command
         assert "/join" in result.data["content"]  # Should mention the join command
     
     @pytest.mark.asyncio

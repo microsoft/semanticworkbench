@@ -195,7 +195,7 @@ command_registry = CommandRegistry()
 
 async def handle_start_coordinator_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
     """
-    Handle the start-coordinator command to create a new project with this conversation as Coordinator.
+    Handle the start command to create a new project with this conversation as Coordinator.
 
     This is a setup mode command that creates a project and sets the current conversation as Coordinator.
     """
@@ -216,7 +216,7 @@ async def handle_start_coordinator_command(context: ConversationContext, message
         return
 
     # First parse the content for project name and description
-    content = message.content.strip()[len("/start-coordinator") :].strip()
+    content = message.content.strip()[len("/start") :].strip()
     project_name = "New Project"
     project_description = "A new project has been created."
 
@@ -282,10 +282,7 @@ async def handle_start_coordinator_command(context: ConversationContext, message
 
 **IMPORTANT:** Share this Project ID with team members so they can join using `/join {new_project_id}` in their conversations.
 
-You can now use Coordinator commands to:
-- Define project goals with `/add-goal`
-- Add information to the knowledge base with `/add-kb-section`
-- Get help with other commands using `/help`
+I'm here to help you create and coordinate your project. Just tell me what you'd like to do next, or use `/help` to see available commands.
 
 Good luck with your project!
             """,
@@ -469,13 +466,13 @@ This assistant is in setup mode. You need to establish your role before proceedi
 
 ### Available Commands
 
-- `/start-coordinator [Project Name|Project description]`: Create a new project with this conversation as Coordinator
+- `/start [Project Name|Project description]`: Create a new project with this conversation as Coordinator
 - `/join project_id`: Join an existing project as a Team member
 - `/help [command]`: Show help for a specific command
 
 Please use one of these commands to get started. The recommended workflow is:
 
-1. One conversation uses `/start-coordinator` to create the project and become the Coordinator
+1. One conversation uses `/start` to create the project and become the Coordinator
 2. The Coordinator shares the project ID (automatically displayed after creation)
 3. Team members use `/join` with the project ID in their conversations
 
@@ -1558,11 +1555,11 @@ async def handle_revoke_access_command(
 
 # Setup mode commands
 command_registry.register_command(
-    "start-coordinator",
+    "start",
     handle_start_coordinator_command,
     "Create a new project with this conversation as Coordinator",
-    "/start-coordinator [Project Name|Project description]",
-    "/start-coordinator Website Redesign|Redesign the company website with modern look and features",
+    "/start [Project Name|Project description]",
+    "/start Website Redesign|Redesign the company website with modern look and features",
     None,  # Available to all roles during setup
 )
 
@@ -1743,7 +1740,7 @@ async def process_command(context: ConversationContext, message: ConversationMes
     # Special handling for setup mode
     if not setup_complete and assistant_mode == "setup":
         # Always allow these commands in setup mode
-        setup_commands = ["start-coordinator", "join", "help"]
+        setup_commands = ["start", "join", "help"]
 
         if command_name in setup_commands:
             # If the command is a setup command, process it
@@ -1760,7 +1757,7 @@ async def process_command(context: ConversationContext, message: ConversationMes
                     content=(
                         "**Setup Required**\n\n"
                         "You need to set up the assistant before using other commands. Please use one of these commands:\n\n"
-                        "- `/start-coordinator` - Create a new project as Coordinator\n"
+                        "- `/start` - Create a new project as Coordinator\n"
                         "- `/join <code>` - Join an existing project as a Team member\n"
                         "- `/help` - Get help with available commands"
                     ),
