@@ -213,25 +213,21 @@ class ProjectTools:
                 else:
                     output.append("\n*No goals defined yet.*")
 
-        # Get project KB if requested
+        # Get project whiteboard if requested
         if info_type in ["all", "kb"]:
             kb = ProjectStorage.read_project_kb(project_id)
 
-            if kb and kb.sections:
-                output.append("\n## Project Knowledge Base\n")
-
-                # Sort sections by order
-                sorted_sections = sorted(kb.sections.values(), key=lambda s: s.order)
-
-                for section in sorted_sections:
-                    output.append(f"### {section.title}")
-                    output.append(f"{section.content}")
-
-                    if section.tags:
-                        tags = ", ".join(section.tags)
-                        output.append(f"\n*Tags: {tags}*")
-
-                    output.append("")
+            if kb and kb.content:
+                output.append("\n## Project Whiteboard\n")
+                output.append(kb.content)
+                output.append("")
+                
+                if kb.is_auto_generated:
+                    output.append("*This whiteboard content is automatically updated by the assistant.*")
+                else:
+                    output.append("*This whiteboard content has been manually edited.*")
+                    
+                output.append("")
             elif info_type == "kb":
                 output.append("\n## Project Knowledge Base\n")
                 output.append("*No knowledge base sections defined yet.*")
@@ -758,10 +754,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not has_criteria:
             return "No success criteria defined. Please add at least one success criterion to a goal before marking as ready for working."
 
-        # Check if KB has content
-        if not kb or not kb.sections:
+        # Check if whiteboard has content
+        if not kb or not kb.content:
             return (
-                "Project Knowledge Base is empty. Please add at least one KB section before marking as ready for working."
+                "Project Whiteboard is empty. Content will be automatically generated as the project progresses."
             )
 
         # Get or create project dashboard
@@ -1467,23 +1463,21 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     "function": None,
                 }
 
-        # Check if KB exists
-        if not kb or not kb.sections:
+        # No need to check for whiteboard content as it's automatically generated
+        # Keeping this section as a fallback for manual whiteboard content
+        if not kb or not kb.content:
             if self.role == "coordinator":
+                # The whiteboard will be auto-generated, so this is less urgent
                 return {
                     "suggestion": "add_kb_section",
-                    "reason": "Project Knowledge Base is empty. Add at least one section with important information.",
-                    "priority": "high",
+                    "reason": "You can add content to the project whiteboard, which is helpful for keeping track of important information.",
+                    "priority": "low",
                     "function": "add_kb_section",
                     "parameters": {"title": "", "content": ""},
                 }
             else:
-                return {
-                    "suggestion": "wait_for_kb",
-                    "reason": "Project Knowledge Base is empty. The Coordinator needs to add information before you can proceed.",
-                    "priority": "medium",
-                    "function": None,
-                }
+                # No particular action needed for team members as whiteboard updates automatically
+                pass
 
         # Check project dashboard
         if not dashboard:
@@ -1510,7 +1504,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 # Check if it's ready to mark as ready for working
                 has_goals = bool(brief.goals)
                 has_criteria = any(bool(goal.success_criteria) for goal in brief.goals)
-                has_kb = bool(kb and kb.sections)
+                has_kb = bool(kb and kb.content)
 
                 if has_goals and has_criteria and has_kb:
                     return {

@@ -839,66 +839,37 @@ async def handle_add_kb_section_command(
         if not current_user_id:
             current_user_id = "kb-creator"
 
-        # Get existing KB or create new one
-        kb = ProjectStorage.read_project_kb(project_id)
-
-        # If no KB exists, create a new one
-        if not kb:
-            kb = ProjectKB(
-                created_by=current_user_id,
-                updated_by=current_user_id,
-                conversation_id=str(context.id),
-                sections={},
-            )
-
-        # Create the new section
-        section = KBSection(
+        # This now uses the whiteboard implementation behind the scenes
+        # Call the ProjectManager.add_kb_section method which is already updated
+        success, kb = await ProjectManager.add_kb_section(
+            context=context,
             title=title,
             content=section_content,
-            order=len(kb.sections) + 1,
-            updated_by=current_user_id,
         )
-
-        # Add section to KB
-        kb.sections[section.id] = section
-
-        # Update KB metadata
-        kb.updated_at = datetime.utcnow()
-        kb.updated_by = current_user_id
-        kb.version += 1
-
-        # Save KB
-        ProjectStorage.write_project_kb(project_id, kb)
-        success = True
-
-        if success and kb:
-            # Log the update
-            await ProjectStorage.log_project_event(
-                context=context,
-                project_id=project_id,
-                entry_type=LogEntryType.KB_UPDATE.value,
-                message=f"Added KB section: {title}",
-                related_entity_id=section.id,
-            )
-
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="kb_update",
-                message=f"Knowledge base updated: added section '{title}'",
-            )
-
+        
+        if not success:
             await context.send_messages(
                 NewConversationMessage(
-                    content=f"Knowledge base section '{title}' added successfully. This information is now available to all project participants.",
+                    content="Failed to add section to the whiteboard. Please try again.",
+                    message_type=MessageType.notice,
+                )
+            )
+            return
+
+        # KB metadata is already updated by the ProjectManager.add_kb_section method
+
+        # Send message to user about successful addition
+        if success and kb:
+            await context.send_messages(
+                NewConversationMessage(
+                    content=f"Whiteboard section '{title}' added successfully. This information is now available to all project participants.",
                     message_type=MessageType.chat,
                 )
             )
         else:
             await context.send_messages(
                 NewConversationMessage(
-                    content="Failed to add knowledge base section. Please try again.",
+                    content="Failed to add whiteboard section. Please try again.",
                     message_type=MessageType.notice,
                 )
             )
@@ -1307,28 +1278,24 @@ async def handle_project_info_command(
                 else:
                     output.append("\n*No goals defined yet. Add goals with `/add-goal`.*")
 
-        # Get project KB if requested
+        # Get project whiteboard if requested
         if info_type in ["all", "kb"]:
             kb = await ProjectManager.get_project_kb(context)
 
-            if kb and kb.sections:
-                output.append("\n## Knowledge Base\n")
-
-                # Sort sections by order
-                sorted_sections = sorted(kb.sections.values(), key=lambda s: s.order)
-
-                for section in sorted_sections:
-                    output.append(f"### {section.title}")
-                    output.append(f"{section.content}")
-
-                    if section.tags:
-                        tags = ", ".join(section.tags)
-                        output.append(f"\n*Tags: {tags}*")
-
-                    output.append("")
+            if kb and kb.content:
+                output.append("\n## Project Whiteboard\n")
+                output.append(kb.content)
+                output.append("")
+                
+                if kb.is_auto_generated:
+                    output.append("*This whiteboard content is automatically updated by the assistant.*")
+                else:
+                    output.append("*This whiteboard content has been manually edited.*")
+                    
+                output.append("")
             elif info_type == "kb":
-                output.append("\n## Knowledge Base\n")
-                output.append("*No knowledge base sections defined yet. Add sections with `/add-kb-section`.*")
+                output.append("\n## Project Whiteboard\n")
+                output.append("*No whiteboard content available yet. Content will be automatically generated as the project progresses.*")
 
         # Get project status if requested
         if info_type in ["all", "status"]:

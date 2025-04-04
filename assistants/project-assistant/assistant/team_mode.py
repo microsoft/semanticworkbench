@@ -461,36 +461,13 @@ class TeamConversationHandler:
                 "message": "No knowledge base found for this project",
             }
 
-        # If section ID provided, return just that section
-        if section_id and section_id in kb.sections:
-            section = kb.sections[section_id]
-            return {
-                "has_kb": True,
-                "sections": [
-                    {
-                        "id": section.id,
-                        "title": section.title,
-                        "content": section.content,
-                        "tags": section.tags,
-                        "last_updated": section.last_updated.isoformat(),
-                    }
-                ],
-            }
-
-        # Otherwise return all sections, sorted by order
-        sorted_sections = sorted(kb.sections.values(), key=lambda s: s.order)
+        # With the whiteboard structure, we now return the entire content
         return {
             "has_kb": True,
-            "sections": [
-                {
-                    "id": section.id,
-                    "title": section.title,
-                    "content": section.content,
-                    "tags": section.tags,
-                    "last_updated": section.last_updated.isoformat(),
-                }
-                for section in sorted_sections
-            ],
+            "is_whiteboard": True,
+            "whiteboard_content": kb.content,
+            "is_auto_generated": kb.is_auto_generated,
+            "last_updated": kb.updated_at.isoformat(),
         }
 
     async def get_project_brief_info(self) -> Dict:

@@ -206,20 +206,19 @@ class KBSection(BaseModel):
 
 class ProjectKB(BaseEntity):
     """
-    The curated information necessary for the Team to carry out
-    the project, kept up-to-date by the Coordinator.
+    A dynamic whiteboard that gets automatically updated as the coordinator assembles their project.
 
-    The project knowledge base (KB) is a collection of organized information
-    that team members can reference while carrying out the project. It complements
-    the project brief by providing more detailed reference material.
+    The project whiteboard captures and maintains important project context that emerges during
+    conversations. It is automatically updated after each assistant message by analyzing
+    the conversation history and extracting key information.
 
-    The KB is typically created by the Coordinator during project planning and can be
-    continuously updated throughout the project as new information becomes
-    available or circumstances change. It serves as a single source of truth
-    for project-relevant information.
+    Unlike a traditional knowledge base with separate sections, the whiteboard is a single
+    consolidated view that shows the most relevant information for the project. It serves as
+    a dynamic, evolving source of truth that all team members can reference.
     """
 
-    sections: Dict[str, KBSection] = Field(default_factory=dict)  # Dictionary mapping section_id to KBSection objects
+    content: str = ""  # Markdown content for the whiteboard
+    is_auto_generated: bool = True  # Whether the content was auto-generated or manually edited
 
 
 class ProjectDashboard(BaseEntity):

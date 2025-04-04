@@ -230,42 +230,21 @@ class CoordinatorConversationHandler:
         if not user_id:
             user_id = "coordinator-system"
 
-        # Get existing KB or create new one
-        kb = ProjectStorage.read_project_kb(project_id)
-
-        if not kb:
-            # Create new KB
-            kb = ProjectKB(
-                created_by=user_id,
-                updated_by=user_id,
-                conversation_id=str(self.context.id),
-                sections={},
-            )
-
-        # Create section
-        section = KBSection(
+        # Use ProjectManager to add KB section which handles whiteboard structure
+        from .project_manager import ProjectManager
+        
+        success, kb = await ProjectManager.add_kb_section(
+            context=self.context,
             title=title,
             content=content,
             order=order,
             tags=tags or [],
-            updated_by=user_id,
         )
-
-        # Add to KB
-        kb.sections[section.id] = section
-        kb.updated_at = datetime.utcnow()
-        kb.updated_by = user_id
-        kb.version += 1
-
-        # Save KB
-        ProjectStorage.write_project_kb(project_id, kb)
-
-        # Log update
-        await self.log_action(
-            LogEntryType.KB_UPDATE,
-            f"Added KB section: {title}",
-            related_entity_id=section.id,  # Use the section ID directly
-        )
+        
+        if not success or not kb:
+            return False, "Failed to add knowledge base section", None
+            
+        # Log is already done by the ProjectManager
 
         # Send notification
         await self.context.send_messages(

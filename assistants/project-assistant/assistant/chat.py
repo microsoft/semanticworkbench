@@ -861,27 +861,19 @@ async def respond_to_conversation(
                                 for action in status.next_actions:
                                     project_dashboard_text += f"- {action}\n"
 
-                        # Format knowledge base
+                        # Format whiteboard content
                         kb_text = ""
-                        if kb and kb.sections:
-                            kb_text = "\n### KNOWLEDGE BASE\n"
-                            # Sort sections by order
-                            sorted_sections = sorted(kb.sections.values(), key=lambda s: s.order)
-
-                            # Limit the KB sections to avoid excessive context length
-                            max_sections = 5
-                            section_count = min(len(sorted_sections), max_sections)
-
-                            for i, section in enumerate(sorted_sections[:section_count]):
-                                kb_text += f"#### {section.title}\n"
-                                # Truncate content if too long
-                                content = section.content
-                                if len(content) > 500:  # Arbitrary limit to prevent extremely long KB entries
-                                    content = content[:500] + "... (content truncated for brevity)"
-                                kb_text += f"{content}\n\n"
-
-                            if len(sorted_sections) > max_sections:
-                                kb_text += f"*...and {len(sorted_sections) - max_sections} more sections. Use get_project_info(info_type=\"kb\") to see all.*\n"
+                        if kb and kb.content:
+                            kb_text = "\n### PROJECT WHITEBOARD\n"
+                            
+                            # Truncate content if too long
+                            content = kb.content
+                            max_length = 1500  # Arbitrary limit for context
+                            if len(content) > max_length:
+                                content = content[:max_length] + "... (content truncated for brevity)"
+                            kb_text += f"{content}\n\n"
+                            
+                            kb_text += "*Use get_project_info(info_type=\"kb\") to see the full whiteboard content.*\n"
 
                         # Store the formatted data
                         project_data = {
@@ -1150,9 +1142,11 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
     # Manually capture assistant's message for Coordinator conversation storage
     # This ensures that both user and assistant messages are stored
-    conversation = await context.get_conversation()
-    metadata = conversation.metadata or {}
-    role = metadata.get("project_role")
+    from .project_storage import ConversationProjectManager
+    
+    # Get the authoritative role directly from storage, not from metadata
+    stored_role = await ConversationProjectManager.get_conversation_role(context)
+    role = stored_role.value if stored_role else None
 
     if role == "coordinator" and message_type == MessageType.chat and response_message and response_message.messages:
         try:
@@ -1175,6 +1169,25 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                         timestamp=msg.timestamp,
                     )
                     logger.info(f"Stored Coordinator assistant message for Team access: {msg.id}")
+                    
+                    # Automatically update the whiteboard after assistant messages
+                    try:
+                        # Get recent messages for analysis
+                        recent_messages = await context.get_messages(limit=10)  # Adjust limit as needed
+                        
+                        # Call the whiteboard update method
+                        whiteboard_success, whiteboard = await ProjectManager.auto_update_whiteboard(
+                            context=context,
+                            chat_history=recent_messages.messages,
+                        )
+                        
+                        if whiteboard_success:
+                            logger.info(f"Auto-updated whiteboard for project {project_id}")
+                        else:
+                            logger.info("Whiteboard auto-update did not apply any changes")
+                    except Exception as e:
+                        # Don't fail message handling if whiteboard update fails
+                        logger.exception(f"Error auto-updating whiteboard: {e}")
         except Exception as e:
             # Don't fail message handling if storage fails
             logger.exception(f"Error storing Coordinator assistant message for Team access: {e}")
