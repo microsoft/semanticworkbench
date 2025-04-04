@@ -18,12 +18,14 @@ import { Loading } from '../../App/Loading';
 import { CodeContentRenderer } from '../ContentRenderers/CodeContentRenderer';
 import { ContentListRenderer } from '../ContentRenderers/ContentListRenderer';
 import { ContentRenderer } from '../ContentRenderers/ContentRenderer';
+import { MilkdownEditorWrapper } from '../ContentRenderers/MarkdownEditorRenderer';
 import { DebugInspector } from '../DebugInspector';
 
 const useClasses = makeStyles({
     root: {
         display: 'flex',
         flexDirection: 'column',
+        height: '100%',
     },
     header: {
         flexShrink: 0,
@@ -177,11 +179,43 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
                 />
             );
         },
+        markdownEditor: () => {
+            // Check if the data contains markdown_content, if not assume its empty.
+            const markdownContent = 'markdown_content' in state.data ? String(state.data.markdown_content ?? '') : '';
+            const filename = 'filename' in state.data ? String(state.data.filename) : undefined;
+
+            return (
+                <MilkdownEditorWrapper
+                    content={markdownContent}
+                    filename={filename}
+                    onSubmit={async (updatedContent: string) => {
+                        if (!state || isSubmitting) return;
+                        setIsSubmitting(true);
+                        try {
+                            const updatedState = {
+                                ...state.data,
+                                markdown_content: updatedContent,
+                            };
+                            setFormData(updatedState);
+                            await updateConversationState({
+                                assistantId,
+                                conversationId,
+                                state: { ...state, data: updatedState },
+                            });
+                        } finally {
+                            setIsSubmitting(false);
+                        }
+                    }}
+                />
+            );
+        },
     };
 
     const getRender = () => {
         if (state.jsonSchema) {
             return renderers.jsonSchema;
+        } else if (state.data && 'markdown_content' in state.data) {
+            return renderers.markdownEditor;
         }
         return renderers.default;
     };
