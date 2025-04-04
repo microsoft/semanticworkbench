@@ -182,7 +182,32 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
         markdownEditor: () => {
             // Check if the data contains markdown_content, if not assume its empty.
             const markdownContent = 'markdown_content' in state.data ? String(state.data.markdown_content ?? '') : '';
-            return <MilkdownEditorWrapper content={markdownContent}></MilkdownEditorWrapper>;
+            const filename = 'filename' in state.data ? String(state.data.filename) : undefined;
+
+            return (
+                <MilkdownEditorWrapper
+                    content={markdownContent}
+                    filename={filename}
+                    onSubmit={async (updatedContent: string) => {
+                        if (!state || isSubmitting) return;
+                        setIsSubmitting(true);
+                        try {
+                            const updatedState = {
+                                ...state.data,
+                                markdown_content: updatedContent,
+                            };
+                            setFormData(updatedState);
+                            await updateConversationState({
+                                assistantId,
+                                conversationId,
+                                state: { ...state, data: updatedState },
+                            });
+                        } finally {
+                            setIsSubmitting(false);
+                        }
+                    }}
+                />
+            );
         },
     };
 

@@ -123,7 +123,12 @@ class EditableDocumentFileStateInspector:
         if not document:
             return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
-        return AssistantConversationInspectorStateDataModel(data={"markdown_content": document.content})
+        return AssistantConversationInspectorStateDataModel(
+            data={
+                "markdown_content": document.content,
+                "filename": document.filename,
+            }
+        )
 
     async def set(
         self,
@@ -135,13 +140,18 @@ class EditableDocumentFileStateInspector:
         if await self._controller.is_read_only(context):
             return
 
-        try:
-            model = DocumentFileStateModel.model_validate(data)
-        except ValidationError:
-            logger.exception("invalid data for DocumentFileStateModel")
-            return
-
-        await self._controller.write_active_document(context, model.content)
+        # The data comes in with 'markdown_content' but our model expects 'content'
+        if "markdown_content" in data:
+            content = data["markdown_content"]
+            # If filename is present but we don't need to modify it, we can just get the content
+            await self._controller.write_active_document(context, content)
+        else:
+            try:
+                model = DocumentFileStateModel.model_validate(data)
+                await self._controller.write_active_document(context, model.content)
+            except ValidationError:
+                logger.exception("invalid data for DocumentFileStateModel")
+                return
 
 
 class ReadonlyDocumentFileStateInspector:
@@ -182,7 +192,10 @@ class ReadonlyDocumentFileStateInspector:
             return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
         return AssistantConversationInspectorStateDataModel(
-            data={"markdown_content": document.content},
+            data={
+                "markdown_content": document.content,
+                "filename": document.filename,
+            },
         )
 
 
