@@ -3,6 +3,7 @@ from typing import Annotated
 
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
+from assistant_extensions.document_editor import DocumentEditorConfigModel
 from assistant_extensions.mcp import HostedMCPServerConfig, MCPClientRoot, MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import (
@@ -12,7 +13,6 @@ from openai_client import (
 )
 from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema, first_env_var
-from assistant_extensions.document_editor import DocumentEditorConfigModel
 
 from . import helpers
 
@@ -27,7 +27,7 @@ from . import helpers
 
 
 #
-# region Assistant Configuration
+# region Codespace Assistant Default Configuration
 #
 
 
@@ -491,7 +491,138 @@ class AssistantConfigModel(BaseModel):
     # add any additional configuration fields
 
 
+# endregion
+
+
+# region: New Workspace Assistant Default Configuration
+
+
+class WorkspaceHostedMCPServersConfigModel(HostedMCPServersConfigModel):
+    web_research: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Web Research",
+            description="Enable your assistant to perform web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
+
+    open_deep_research_clone: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Open Deep Research Clone",
+            description="Enable a web research tool that is modeled after the Open Deep Research project as a demonstration of writing routines using our Skills library.",
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", enabled=False
+    )
+
+    giphy: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Giphy",
+            description="Enable your assistant to search for and share GIFs from Giphy.",
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env("giphy", "MCP_SERVER_GIPHY_URL", enabled=False)
+
+    memory_user_bio: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="User-Bio Memories",
+            description=dedent("""
+                Enable this assistant to store long-term memories about you, the user (\"user-bio\" memories).
+                This implementation is modeled after ChatGPT's memory system.
+                These memories are available to the assistant in all conversations, much like ChatGPT memories are available
+                to ChatGPT in all chats.
+                To determine what memories are saved, you can ask the assistant what memories it has of you.
+                To forget a memory, you can ask the assistant to forget it.
+                """).strip(),
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "memory-user-bio",
+        "MCP_SERVER_MEMORY_USER_BIO_URL",
+        # scopes the memories to the assistant instance
+        roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
+        # auto-include the user-bio memory prompt
+        prompts_to_auto_include=["user-bio"],
+        enabled=True,
+    )
+
+    filesystem_edit: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Document Editor",
+            description=dedent("""
+                Enable this to create, edit, and refine documents, all through chat.
+                """).strip(),
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "filesystem-edit",
+        "MCP_SERVER_FILESYSTEM_EDIT_URL",
+        # configures the filesystem edit server to use the client-side storage (using the magic hostname of "workspace")
+        roots=[MCPClientRoot(name="root", uri="file://workspace/")],
+        prompts_to_auto_include=["instructions"],
+        enabled=True,
+    )
+
+    @property
+    def mcp_servers(self) -> list[HostedMCPServerConfig]:
+        """
+        Returns a list of all hosted MCP servers that are configured.
+        """
+        # Get all fields that are of type HostedMCPServerConfig
+        configs = [
+            getattr(self, field)
+            for field in self.model_fields
+            if isinstance(getattr(self, field), HostedMCPServerConfig)
+        ]
+        # Filter out any configs that are missing command (URL)
+        return [config for config in configs if config.command]
+
+
+class WorkspaceAdvancedToolConfigModel(AdvancedToolConfigModel):
+    max_steps: Annotated[
+        int,
+        Field(
+            title="Maximum Steps",
+            description="The maximum number of steps to take when using tools, to avoid infinite loops.",
+        ),
+    ] = 15
+
+    additional_instructions: Annotated[
+        str,
+        Field(
+            title="Tools Instructions",
+            description=dedent("""
+                General instructions for using tools.  No need to include a list of tools or instruction
+                on how to use them in general, that will be handled automatically.  Instead, use this
+                space to provide any additional instructions for using specific tools, such folders to
+                exclude in file searches, or instruction to always re-read a file before using it.
+            """).strip(),
+        ),
+        UISchema(widget="textarea", enable_markdown_in_description=True),
+    ] = ""
+
+
 class WorkspaceMCPToolsConfigModel(MCPToolsConfigModel):
+    enabled: Annotated[
+        bool,
+        Field(title="Enable experimental use of tools"),
+    ] = True
+
+    hosted_mcp_servers: Annotated[
+        HostedMCPServersConfigModel,
+        Field(
+            title="Hosted MCP Servers",
+            description="Configuration for hosted MCP servers that provide tools to the assistant.",
+        ),
+        UISchema(collapsed=False, items=UISchema(title_fields=["key", "enabled"])),
+    ] = WorkspaceHostedMCPServersConfigModel()
+
     personal_mcp_servers: Annotated[
         list[MCPServerConfig],
         Field(
@@ -501,13 +632,39 @@ class WorkspaceMCPToolsConfigModel(MCPToolsConfigModel):
         UISchema(items=UISchema(collapsible=False, hide_title=True, title_fields=["key", "enabled"])),
     ] = []
 
+    advanced: Annotated[
+        AdvancedToolConfigModel,
+        Field(
+            title="Advanced Tool Settings",
+        ),
+    ] = WorkspaceAdvancedToolConfigModel()
+
+
+class WorkspaceExtensionsConfigModel(ExtensionsConfigModel):
+    attachments: Annotated[
+        AttachmentsConfigModel,
+        Field(
+            title="Attachments Extension",
+            description="Configuration for the attachments extension.",
+        ),
+    ] = AttachmentsConfigModel(
+        context_description=dedent("""
+            These attachments were provided for additional context to accompany the
+            conversation. Consider any rationale provided for why they were included.
+            Always reference them factually and accurately in your responses.
+            """).strip(),
+        preferred_message_role="system",
+    )
+
 
 class WorkspacePromptsConfigModel(PromptsConfigModel):
     instruction_prompt: Annotated[
         str,
         Field(
             title="Instruction Prompt",
-            description="The prompt used to instruct the behavior and capabilities of the AI assistant and any preferences.",
+            description=dedent("""
+                The prompt used to instruct the behavior and capabilities of the AI assistant and any preferences.
+            """).strip(),
         ),
         UISchema(widget="textarea"),
     ] = helpers.load_text_include("instruction_prompt_workspace.txt")
@@ -516,7 +673,12 @@ class WorkspacePromptsConfigModel(PromptsConfigModel):
         str,
         Field(
             title="Guidance Prompt",
-            description="The prompt used to provide a structured set of instructions to carry out a specific workflow from start to finish.",
+            description=dedent("""
+                The prompt used to provide a structured set of instructions to carry out a specific workflow
+                from start to finish. It should outline a clear, step-by-step process for gathering necessary
+                context, breaking down the objective into manageable components, executing the defined steps,
+                and validating the results.
+            """).strip(),
         ),
         UISchema(widget="textarea"),
     ] = helpers.load_text_include("guidance_prompt_workspace.txt")
@@ -525,9 +687,14 @@ class WorkspacePromptsConfigModel(PromptsConfigModel):
         str,
         Field(
             title="Guardrails Prompt",
-            description="The prompt used to inform the AI assistant about the guardrails to follow.",
+            description=(
+                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
+                " recommendations from: [Microsoft OpenAI Service: System message templates]"
+                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
+                "#define-additional-safety-and-behavioral-guardrails)"
+            ),
         ),
-        UISchema(widget="textarea"),
+        UISchema(widget="textarea", enable_markdown_in_description=True),
     ] = helpers.load_text_include("guardrails_prompt_workspace.txt")
 
 
@@ -539,13 +706,13 @@ class WorkspaceResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
             description="The message to display when the conversation starts.",
         ),
         UISchema(widget="textarea"),
-    ] = (
-        "Hello! I am an assistant that can help you with projects within the context of the Semantic Workbench, "
-        "your files, and applications. Let's get started by having a conversation about your project. "
-        "You can ask me questions, request code snippets, or ask for help with debugging. I can also help you "
-        "with markdown, code snippets, and other types of content. You can also attach .docx, text, and image files "
-        " to your chat messages to help me better understand the context of our conversation. Where would you like to start?"
-    )
+    ] = dedent("""
+               Welcome to your new Workspace! Here are ideas for how to get started:
+                - ⚙️ Tell me what you are working on, such as *I'm working on creating a new budget process*
+                - 🗃️ Upload files you are working with and I'll take it from there
+                - 📝 I can make you an initial draft like *Write a proposal for new project management software in our department*
+                - 🧪 Ask me to conduct research for example, *Find me the latest competitors in the wearables market*
+               """)
 
 
 class WorkspaceAssistantConfigModel(AssistantConfigModel):
@@ -557,12 +724,34 @@ class WorkspaceAssistantConfigModel(AssistantConfigModel):
         UISchema(collapsed=False, items=UISchema(schema={"hosted_mcp_servers": {"ui:options": {"collapsed": False}}})),
     ] = WorkspaceMCPToolsConfigModel()
 
+    extensions_config: Annotated[
+        ExtensionsConfigModel,
+        Field(
+            title="Assistant Extensions",
+        ),
+    ] = WorkspaceExtensionsConfigModel()
+
     prompts: Annotated[
         PromptsConfigModel,
         Field(
             title="Prompts",
+            description="Configuration for various prompts used by the assistant.",
         ),
     ] = WorkspacePromptsConfigModel()
+
+    response_behavior: Annotated[
+        ResponseBehaviorConfigModel,
+        Field(
+            title="Response Behavior",
+            description="Configuration for the response behavior of the assistant.",
+        ),
+    ] = WorkspaceResponseBehaviorConfigModel()
+
+
+# endregion
+
+
+# region: Context Transfer Assistant Configuration
 
 
 class ContextTransferPromptsConfigModel(PromptsConfigModel):

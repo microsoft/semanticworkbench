@@ -210,10 +210,7 @@ def create_mcp_server() -> FastMCP:
     @mcp.prompt(name="instructions", description="Instructions for the assistant regarding tool usage.")
     async def instructions_prompt() -> str:
         return dedent("""
-        ## Additional Tool Specific Guidance
-
-        ### File Editing (Markdown) via `edit_file`
-
+        ## File Editing (Markdown) via `edit_file`
         - Assume that you should always be creating ".md" files, unless the user specifies otherwise.
 
         - Provide this tool specific instructions for what you want changed on this
@@ -231,22 +228,25 @@ def create_mcp_server() -> FastMCP:
 
         - Do not try to use this to address comments that are not actionable.
 
-        ### Feedback via `add_comments`
+        - In each turn, always re-read a file before using it to ensure you have the
+        most up-to-date information, especially after editing files.
+
+        ## Feedback via `add_comments`
 
         - If you are working on writing documents for the user, call this tool to
         get another perspective on the document.
 
-        - Whenever you think you are done, always then use this  tool get some more
+        - Whenever you think you are done, always use this tool get some more
         suggestions on how to improve.
 
         - If the user explicitly asks you to address comments call `add_comments`
         with `only_analyze=True` to first get suggestions on how to address the
         comments before editing.
 
-        - If the feedback tool returns with comments that are not actionable,  DO
-        NOT try to call the edit_file tool to address them. Instead either call
-        other tools to try to get what is needed to address the comments, or ask the
-        user.
+        - If the feedback tool returns with comments that are not actionable,
+        DO NOT try to call the edit_file tool to address them.
+        Instead either call other tools to try to get what is needed to address the comments,
+        or ask the user.
         """).strip()
 
     @mcp.tool()
