@@ -116,18 +116,14 @@ class EditableDocumentFileStateInspector:
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
-                data={"markdown_content": "## Hello World\nThis is some Markdown content."},
+                data={"content": "The Document Editor MCP server is not enabled."}
             )
 
         document = await self._controller.read_active_document(context)
         if not document:
-            return AssistantConversationInspectorStateDataModel(
-                data={"markdown_content": "## Hello World\nThis is some Markdown content."},
-            )
+            return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
-        return AssistantConversationInspectorStateDataModel(
-            data={"markdown_content": "## Hello World\nThis is some Markdown content."},
-        )
+        return AssistantConversationInspectorStateDataModel(data={"markdown_content": document.content})
 
     async def set(
         self,
@@ -178,17 +174,15 @@ class ReadonlyDocumentFileStateInspector:
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
-                data={"markdown_content": "## Hello World\nThis is some Markdown content."}
+                data={"content": "The Document Editor extension is not enabled."}
             )
 
         document = await self._controller.read_active_document(context)
         if not document:
-            return AssistantConversationInspectorStateDataModel(
-                data={"markdown_content": "## Hello World\nThis is some Markdown content."}
-            )
+            return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
         return AssistantConversationInspectorStateDataModel(
-            data={"markdown_content": "## Hello World\nThis is some Markdown content."}
+            data={"markdown_content": document.content},
         )
 
 

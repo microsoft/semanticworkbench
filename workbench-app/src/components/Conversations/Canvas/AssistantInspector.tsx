@@ -180,7 +180,8 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
             );
         },
         markdownEditor: () => {
-            const markdownContent = (state.data?.markdown_content as string | undefined) ?? '';
+            // Check if the data contains markdown_content, if not assume its empty.
+            const markdownContent = 'markdown_content' in state.data ? String(state.data.markdown_content ?? '') : '';
             return <MilkdownEditorWrapper content={markdownContent}></MilkdownEditorWrapper>;
         },
     };
