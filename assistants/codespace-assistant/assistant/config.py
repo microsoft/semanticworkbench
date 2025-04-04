@@ -98,13 +98,17 @@ class ResponseBehaviorConfigModel(BaseModel):
             description="The message to display when the conversation starts.",
         ),
         UISchema(widget="textarea"),
-    ] = (
-        "Hello! I am an assistant that can help you with coding projects within the context of the Semantic Workbench."
-        "Let's get started by having a conversation about your project. You can ask me questions, request code"
-        " snippets, or ask for help with debugging. I can also help you with markdown, code snippets, and other types"
-        " of content. You can also attach .docx, text, and image files to your chat messages to help me better"
-        " understand the context of our conversation. Where would you like to start?"
-    )
+    ] = dedent("""
+               Welcome! I'm here to help you with your coding and development projects. Here's how we can work together:
+               - 💻 Explore your code - share files, snippets, or describe what you're working on
+               - 🔧 Debug and refine - I can help troubleshoot issues and suggest improvements
+               - 📋 Generate solutions - ask for code snippets, algorithms, or implementation ideas
+               - 📚 Learn and understand - I can explain concepts, patterns, and approaches
+
+               Simply upload your code files, describe your project, or ask technical questions. I'm ready to assist with languages, frameworks, debugging, and development best practices.
+
+               What coding project can I help you with today?
+               """).strip()
 
     only_respond_to_mentions: Annotated[
         bool,
@@ -712,7 +716,7 @@ class WorkspaceResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
                 - 🗃️ Upload files you are working with and I'll take it from there
                 - 📝 I can make you an initial draft like *Write a proposal for new project management software in our department*
                 - 🧪 Ask me to conduct research for example, *Find me the latest competitors in the wearables market*
-               """)
+               """).strip()
 
 
 class WorkspaceAssistantConfigModel(AssistantConfigModel):
@@ -754,6 +758,118 @@ class WorkspaceAssistantConfigModel(AssistantConfigModel):
 # region: Context Transfer Assistant Configuration
 
 
+class ContextTransferHostedMCPServersConfigModel(HostedMCPServersConfigModel):
+    web_research: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Web Research",
+            description="Enable your assistant to perform web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL", enabled=True)
+
+    open_deep_research_clone: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Open Deep Research Clone",
+            description="Enable a web research tool that is modeled after the Open Deep Research project as a demonstration of writing routines using our Skills library.",
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", enabled=False
+    )
+
+    giphy: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Giphy",
+            description="Enable your assistant to search for and share GIFs from Giphy.",
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env("giphy", "MCP_SERVER_GIPHY_URL", enabled=False)
+
+    memory_user_bio: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="User-Bio Memories",
+            description=dedent("""
+                Enable this assistant to store long-term memories about you, the user (\"user-bio\" memories).
+                This implementation is modeled after ChatGPT's memory system.
+                These memories are available to the assistant in all conversations, much like ChatGPT memories are available
+                to ChatGPT in all chats.
+                To determine what memories are saved, you can ask the assistant what memories it has of you.
+                To forget a memory, you can ask the assistant to forget it.
+                """).strip(),
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "memory-user-bio",
+        "MCP_SERVER_MEMORY_USER_BIO_URL",
+        # scopes the memories to the assistant instance
+        roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
+        # auto-include the user-bio memory prompt
+        prompts_to_auto_include=["user-bio"],
+        enabled=False,
+    )
+
+    filesystem_edit: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Document Editor",
+            description=dedent("""
+                Enable this to create, edit, and refine markdown (*.md) documents, all through chat
+                """).strip(),
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "filesystem-edit",
+        "MCP_SERVER_FILESYSTEM_EDIT_URL",
+        # configures the filesystem edit server to use the client-side storage (using the magic hostname of "workspace")
+        roots=[MCPClientRoot(name="root", uri="file://workspace/")],
+        prompts_to_auto_include=["instructions"],
+        enabled=False,
+    )
+
+    @property
+    def mcp_servers(self) -> list[HostedMCPServerConfig]:
+        """
+        Returns a list of all hosted MCP servers that are configured.
+        """
+        # Get all fields that are of type HostedMCPServerConfig
+        configs = [
+            getattr(self, field)
+            for field in self.model_fields
+            if isinstance(getattr(self, field), HostedMCPServerConfig)
+        ]
+        # Filter out any configs that are missing command (URL)
+        return [config for config in configs if config.command]
+
+
+class ContextTransferMCPToolsConfigModel(MCPToolsConfigModel):
+    enabled: Annotated[
+        bool,
+        Field(title="Enable experimental use of tools"),
+    ] = True
+
+    hosted_mcp_servers: Annotated[
+        HostedMCPServersConfigModel,
+        Field(
+            title="Hosted MCP Servers",
+            description="Configuration for hosted MCP servers that provide tools to the assistant.",
+        ),
+        UISchema(collapsed=False, items=UISchema(title_fields=["key", "enabled"])),
+    ] = ContextTransferHostedMCPServersConfigModel()
+
+    personal_mcp_servers: Annotated[
+        list[MCPServerConfig],
+        Field(
+            title="Personal MCP Servers",
+            description="Configuration for personal MCP servers that provide tools to the assistant.",
+        ),
+        UISchema(items=UISchema(collapsible=False, hide_title=True, title_fields=["key", "enabled"])),
+    ] = []
+
+
 class ContextTransferPromptsConfigModel(PromptsConfigModel):
     instruction_prompt: Annotated[
         str,
@@ -783,13 +899,50 @@ class ContextTransferPromptsConfigModel(PromptsConfigModel):
     ] = helpers.load_text_include("guardrails_prompt_workspace.txt")
 
 
-class ContextTransferConfigModel(WorkspaceAssistantConfigModel):
+class ContextTransferResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
+    welcome_message: Annotated[
+        str,
+        Field(
+            title="Welcome Message",
+            description="The message to display when the conversation starts.",
+        ),
+        UISchema(widget="textarea"),
+    ] = dedent("""
+            Welcome! I'm here to help you capture and share complex information in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
+            - 📚 **Organize your thoughts** - whether from documents, code, research papers, or brainstorming sessions
+            - 🔄 **Establish shared understanding** - I'll ask questions to ensure we're aligned on what matters most
+            - 🔍 **Make your knowledge interactive** - so others can explore the "why" behind decisions, alternatives considered, and deeper context
+            - 🔗 **Create shareable experiences** - when we're done, share a link that gives others a self-service way to explore your knowledge
+
+            Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. We'll work together to create an interactive knowledge space that others can explore at their own pace.
+
+            What knowledge would you like to transfer today?
+                """).strip()
+
+
+class ContextTransferConfigModel(AssistantConfigModel):
+    tools: Annotated[
+        MCPToolsConfigModel,
+        Field(
+            title="Tools",
+        ),
+        UISchema(collapsed=False, items=UISchema(schema={"hosted_mcp_servers": {"ui:options": {"collapsed": False}}})),
+    ] = ContextTransferMCPToolsConfigModel()
+
     prompts: Annotated[
         PromptsConfigModel,
         Field(
             title="Prompts",
         ),
     ] = ContextTransferPromptsConfigModel()
+
+    response_behavior: Annotated[
+        ResponseBehaviorConfigModel,
+        Field(
+            title="Response Behavior",
+            description="Configuration for the response behavior of the assistant.",
+        ),
+    ] = ContextTransferResponseBehaviorConfigModel()
 
 
 # endregion
