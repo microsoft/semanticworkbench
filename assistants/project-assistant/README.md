@@ -45,7 +45,7 @@ The system manages several core artifacts that support project operations:
 The assistant uses a multi-layered state management approach:
 
 - **Cross-Conversation Linking**: Connects Coordinator and Team conversations
-- **File Synchronization**: Key artifacts are shared between conversations
+- **File Synchronization**: Automatic file sharing between conversations, including when files are uploaded by Coordinators or when team members return to a conversation
 - **Inspector Panel**: Real-time visual status dashboard for project progress
 - **Conversation-Specific Storage**: Each conversation maintains role-specific state
 

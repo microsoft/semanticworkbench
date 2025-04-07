@@ -52,7 +52,7 @@ from semantic_workbench_assistant.assistant_app import (
 from .config import AssistantConfigModel
 from .project import ProjectManager
 from .project_files import ProjectFileManager
-from .project_storage import ConversationProjectManager, ProjectNotifier, ProjectStorage
+from .project_storage import ConversationProjectManager, ProjectNotifier, ProjectStorage, ProjectRole
 from .state_inspector import ProjectInspectorStateProvider
 
 logger = logging.getLogger(__name__)
@@ -751,6 +751,78 @@ Type `/help` for more information on available commands.
             metadata={"generated_content": False},
         )
     )
+
+
+# Handle the event triggered when a participant joins a conversation
+@assistant.events.conversation.participant.on_created
+async def on_participant_joined(
+    context: ConversationContext, event: ConversationEvent, participant: workbench_model.ConversationParticipant
+) -> None:
+    """
+    Handle the event triggered when a participant joins or returns to a conversation.
+
+    This handler is used to detect when a team member returns to a conversation
+    and automatically synchronize project files.
+    """
+    try:
+        logger.info(f"Participant joined event: {participant.id} ({participant.name})")
+
+        # Skip the assistant's own join event
+        if participant.id == context.assistant.id:
+            logger.debug("Skipping assistant's own join event")
+            return
+
+        # Check if this is a Team conversation with a valid project
+        conversation = await context.get_conversation()
+        metadata = conversation.metadata or {}
+
+        # Skip if setup is not complete
+        if not metadata.get("setup_complete", False):
+            logger.debug("Setup not complete, skipping file sync for new participant")
+            return
+
+        # Check if this is a Team conversation 
+        role = await ConversationProjectManager.get_conversation_role(context)
+        if not role or role != ProjectRole.TEAM:
+            logger.debug(f"Not a Team conversation (role={role}), skipping file sync for participant")
+            return
+
+        # Get project ID
+        project_id = await ConversationProjectManager.get_conversation_project(context)
+        if not project_id:
+            logger.debug("No project ID found, skipping file sync for participant")
+            return
+
+        logger.info(f"Team member {participant.name} joined project {project_id}, synchronizing files")
+
+        # Automatically synchronize files from project storage to this conversation
+
+        success = await ProjectFileManager.synchronize_files_to_team_conversation(
+            context=context, project_id=project_id
+        )
+
+        if success:
+            logger.info(f"Successfully synchronized files for returning team member: {participant.name}")
+        else:
+            logger.warning(f"File synchronization failed for returning team member: {participant.name}")
+
+        # Log the participant join event in the project log
+        from .project_data import LogEntryType
+        
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type=LogEntryType.PARTICIPANT_JOINED,
+            message=f"Participant joined: {participant.name}",
+            metadata={
+                "participant_id": participant.id,
+                "participant_name": participant.name,
+                "conversation_id": str(context.id),
+            },
+        )
+
+    except Exception as e:
+        logger.exception(f"Error handling participant join event: {e}")
 
 
 # The command handling functions have been moved to command_processor.py

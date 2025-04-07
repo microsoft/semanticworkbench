@@ -43,6 +43,7 @@ def safe_extra(log_data):
 
     return safe_data
 
+
 # logger is now imported from .logging
 
 
