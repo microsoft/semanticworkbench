@@ -574,7 +574,7 @@ Once setup is complete, you will have access to all project commands appropriate
             whiteboard_commands.append(command_entry)
         elif "request" in name:
             request_commands.append(command_entry)
-        elif "invite" in name or "join" in name or "list-participants" in name or "revoke" in name:
+        elif "invite" in name or "join" in name or "list-participants" in name:
             team_commands.append(command_entry)
         elif "status" in name or "update" in name:
             status_commands.append(command_entry)
@@ -1384,62 +1384,7 @@ async def handle_list_participants_command(
         )
 
 
-async def handle_revoke_access_command(
-    context: ConversationContext, message: ConversationMessage, args: List[str]
-) -> None:
-    """Handle the revoke command."""
-    # Parse the command
-    if not args:
-        await context.send_messages(
-            NewConversationMessage(
-                content="Please specify a username to revoke access. Format: `/revoke username`",
-                message_type=MessageType.notice,
-            )
-        )
-        return
-
-    username = args[0]
-
-    try:
-        # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(context)
-        if not project_id:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="You are not associated with a project.",
-                    message_type=MessageType.notice,
-                )
-            )
-            return
-
-        # Get all linked conversations
-        linked_conversation_ids = await ConversationProjectManager.get_linked_conversations(context)
-
-        if not linked_conversation_ids:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="No linked conversations found.",
-                    message_type=MessageType.notice,
-                )
-            )
-            return
-
-        # In the simplified implementation, we just inform the user that the feature is not implemented
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"Revoking access for '{username}' is not yet implemented in this version.",
-                message_type=MessageType.notice,
-            )
-        )
-
-    except Exception as e:
-        logger.exception(f"Error revoking access: {e}")
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"Error revoking access: {str(e)}",
-                message_type=MessageType.notice,
-            )
-        )
+# Removed handle_revoke_access_command function - simplifying the assistant
 
 
 # File synchronization command handler
@@ -1693,14 +1638,7 @@ command_registry.register_command(
     ["coordinator"],  # Only Coordinator can list participants
 )
 
-command_registry.register_command(
-    "revoke",
-    handle_revoke_access_command,
-    "Revoke a participant's access to the project",
-    "/revoke username",
-    "/revoke john.doe",
-    ["coordinator"],  # Only Coordinator can revoke access
-)
+# Removed "revoke" command registration - simplifying the assistant
 
 # Coordinator commands
 command_registry.register_command(

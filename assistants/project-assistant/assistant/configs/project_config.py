@@ -83,13 +83,7 @@ class SenderConfig(BaseModel):
         ),
     ] = "list-participants"
 
-    revoke_access_command: Annotated[
-        str,
-        Field(
-            title="Revoke Access Command",
-            description="The command project coordinators can use to revoke access for a participant (without the slash).",
-        ),
-    ] = "revoke"
+    # revoke_access_command field removed - simplifying the assistant
 
 
 class ReceiverConfig(BaseModel):
