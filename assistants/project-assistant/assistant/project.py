@@ -222,6 +222,28 @@ class ProjectInvitation:
             except Exception as e:
                 logger.warning(f"Could not notify Coordinator conversation: {e}")
                 # This isn't critical, so we continue anyway
+                
+            # Synchronize project files to the Team conversation
+            try:
+                from .project_files import ProjectFileManager
+                
+                # Log the synchronization attempt
+                logger.info(f"Synchronizing project files to Team conversation {context.id}")
+                
+                # Call the synchronization method
+                sync_success = await ProjectFileManager.synchronize_files_to_team_conversation(
+                    context=context,
+                    project_id=project_id
+                )
+                
+                if sync_success:
+                    logger.info(f"Successfully synchronized project files to Team conversation {context.id}")
+                else:
+                    logger.warning(f"File synchronization completed with errors for Team conversation {context.id}")
+                    
+            except Exception as e:
+                logger.exception(f"Error synchronizing files to Team conversation: {e}")
+                # This isn't critical for joining, so we continue anyway
 
             # Get project name for the success message
             try:

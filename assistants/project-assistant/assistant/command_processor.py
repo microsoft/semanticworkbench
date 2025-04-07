@@ -1516,6 +1516,73 @@ async def handle_revoke_access_command(
         )
 
 
+# File synchronization command handler
+async def handle_sync_files_command(
+    context: ConversationContext, message: ConversationMessage, args: List[str]
+) -> None:
+    """
+    Handle the sync-files command which synchronizes shared files from Coordinator to Team.
+    
+    This is primarily for Team members to explicitly request a file sync 
+    if they suspect files are out of sync or missing.
+    """
+    try:
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            await context.send_messages(
+                NewConversationMessage(
+                    content="You are not associated with a project. Please join a project first.",
+                    message_type=MessageType.notice,
+                )
+            )
+            return
+            
+        # Get role - primarily for team members, but could be used by coordinator to test
+        _ = await ProjectManager.get_project_role(context)
+        
+        # Import the file manager
+        from .project_files import ProjectFileManager
+        
+        # Start sync
+        await context.send_messages(
+            NewConversationMessage(
+                content="Synchronizing files from project...",
+                message_type=MessageType.notice,
+            )
+        )
+        
+        # Perform synchronization
+        success = await ProjectFileManager.synchronize_files_to_team_conversation(
+            context=context,
+            project_id=project_id
+        )
+        
+        if success:
+            await context.send_messages(
+                NewConversationMessage(
+                    content="File synchronization completed successfully. All shared project files should now be available in this conversation.",
+                    message_type=MessageType.chat,
+                )
+            )
+        else:
+            await context.send_messages(
+                NewConversationMessage(
+                    content="File synchronization completed with some errors. Some files may not have been synchronized correctly.",
+                    message_type=MessageType.notice,
+                )
+            )
+            
+    except Exception as e:
+        logger.exception(f"Error synchronizing files: {e}")
+        await context.send_messages(
+            NewConversationMessage(
+                content=f"Error synchronizing files: {str(e)}",
+                message_type=MessageType.notice,
+            )
+        )
+
+
 # Register commands in the registry
 
 # Setup mode commands
@@ -1640,6 +1707,16 @@ command_registry.register_command(
     "/update-status status|progress|message",
     "/update-status in_progress|50|Completed homepage wireframes, working on mobile design",
     ["team"],  # Only team can update status
+)
+
+# File synchronization command (primarily for team members)
+command_registry.register_command(
+    "sync-files",
+    handle_sync_files_command,
+    "Synchronize shared files from the project to this conversation",
+    "/sync-files",
+    "/sync-files",
+    ["team"],  # Primarily for team members
 )
 
 

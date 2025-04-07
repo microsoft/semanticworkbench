@@ -42,6 +42,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
+    AssistantCapability,
     BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
@@ -50,7 +51,8 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .config import AssistantConfigModel
 from .project import ProjectManager
-from .project_storage import ConversationProjectManager, ProjectStorage
+from .project_storage import ConversationProjectManager, ProjectStorage, ProjectNotifier
+from .project_files import ProjectFileManager
 from .state_inspector import ProjectInspectorStateProvider
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,7 @@ assistant = AssistantApp(
     assistant_service_description=service_description,
     config_provider=assistant_config.provider,
     content_interceptor=content_safety,
+    capabilities={AssistantCapability.supports_conversation_files},
     inspector_state_providers={
         "project_status": ProjectInspectorStateProvider(assistant_config),
     },
@@ -240,7 +243,7 @@ You are operating in Coordinator Mode (Planning Stage). Your responsibilities in
 - Creating a clear Project Brief that outlines the project's purpose and objectives
 - Defining specific, actionable project goals that team members will need to complete
 - Establishing measurable success criteria for each goal to track team progress
-- Building a comprehensive Knowledge Base with project-critical information
+- Building a comprehensive Whiteboard with project-critical information
 - Providing guidance and information to team members
 - Responding to Information Requests from project participants (using get_project_info first to get the correct Request ID)
 - Controlling the "Ready for Working" milestone when project definition is complete
@@ -252,10 +255,12 @@ Each goal should:
 - Include measurable success criteria that team members can mark as completed
 - Focus on project outcomes, not the planning process
 
+IMPORTANT ABOUT FILES: When files are uploaded, they are automatically shared with all team members. You don't need to ask users what they want to do with uploaded files. Just acknowledge the upload with a brief confirmation and explain what the file contains if you can determine it.
+
 Your AUTHORIZED Coordinator-specific tools are:
 - create_project_brief: Use this to start a new project with a name and description
 - add_project_goal: Use this to add operational goals that team members will complete, with measurable success criteria
-- add_kb_section: Use this to add information sections to the project knowledge base for team reference
+- add_kb_section: Use this to add information sections to the project whiteboard for team reference (note: this adds to the whiteboard, not a knowledge base)
 - resolve_information_request: Use this to resolve information requests. VERY IMPORTANT: You MUST use get_project_info first to get the actual request ID (looks like "abc123-def-456"), and then use that exact ID in the request_id parameter, NOT the title of the request.
 - mark_project_ready_for_working: Use this when project planning is complete and work can begin
 - get_project_info: Use this to get information about the current project
@@ -270,7 +275,7 @@ Use a strategic, guidance-oriented tone focused on project definition and suppor
             role_specific_prompt = """
 You are operating in Team Mode (Working Stage). Your responsibilities include:
 - Helping team members understand and execute the project objectives defined by the Coordinator
-- Providing access to the Knowledge Base created by the Coordinator
+- Providing access to the Whiteboard created by the Coordinator
 - Guiding team members to complete the project goals established by the Coordinator
 - Tracking and marking completion of success criteria for each goal
 - Logging information gaps and blockers as Information Requests to the Coordinator
@@ -282,6 +287,8 @@ You should:
 - Focus on executing the goals, not redefining them
 - Mark success criteria as completed when team members report completion
 - Identify information gaps or blockers that require Coordinator assistance
+
+IMPORTANT ABOUT FILES: Files are automatically shared with team members. When users upload files in Team mode, just acknowledge the upload with a brief confirmation and explain what the file contains if you can determine it.
 
 Your AUTHORIZED Team-specific tools are:
 - create_information_request: Use this SPECIFICALLY to send information requests or report blockers to the Coordinator
@@ -296,7 +303,7 @@ Your AUTHORIZED Team-specific tools are:
 When team members need information or assistance from the Coordinator:
 1. Use the view_coordinator_conversation tool to check if the Coordinator has already provided the information
 2. If not, use the create_information_request tool
-3. NEVER try to modify project definition elements (brief, goals, KB)
+3. NEVER try to modify project definition elements (brief, goals, whiteboard)
 
 Use a practical, operational tone focused on project execution and problem-solving.
 """
@@ -368,7 +375,13 @@ async def on_file_created(
 ) -> None:
     """
     Handle when a file is created in the conversation.
-    Files are stored in the shared project directory and don't need explicit syncing.
+    
+    For Coordinator files:
+    1. Store a copy in project storage
+    2. Synchronize to all Team conversations
+    
+    For Team files:
+    1. Use as-is without copying to project storage
     """
     try:
         # Get project ID
@@ -376,12 +389,70 @@ async def on_file_created(
         if not project_id or not file.filename:
             return
 
-        # Log file creation to project log
+        # Get the conversation's role
+        role = await ConversationProjectManager.get_conversation_role(context)
+        
+        # If role couldn't be determined, skip processing
+        if not role:
+            logger.warning(f"Could not determine conversation role for file handling: {file.filename}")
+            return
+            
+        # Use ProjectFileManager for file operations
+        
+        # Process based on role
+        if role.value == "coordinator":
+            # For Coordinator files:
+            # 1. Store in project storage (marked as coordinator file)
+            logger.info(f"Copying Coordinator file to project storage: {file.filename}")
+            success = await ProjectFileManager.copy_file_to_project_storage(
+                context=context,
+                project_id=project_id,
+                file=file,
+                is_coordinator_file=True
+            )
+            
+            if not success:
+                logger.error(f"Failed to copy file to project storage: {file.filename}")
+                return
+                
+            # 2. Synchronize to all Team conversations
+            # Get all Team conversations
+            team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
+            
+            # Copy to each Team conversation
+            for team_conv_id in team_conversations:
+                logger.info(f"Copying file to Team conversation {team_conv_id}: {file.filename}")
+                await ProjectFileManager.copy_file_to_conversation(
+                    context=context,
+                    project_id=project_id,
+                    filename=file.filename,
+                    target_conversation_id=team_conv_id
+                )
+                
+            # 3. Notify Team conversations about the new file
+            await ProjectNotifier.notify_project_update(
+                context=context,
+                project_id=project_id,
+                update_type="file_created",
+                message=f"Coordinator shared a file: {file.filename}",
+                data={"filename": file.filename}
+            )
+        else:
+            # For Team files, no special handling needed
+            # They're already available in the conversation
+            logger.info(f"Team file created (not shared to project storage): {file.filename}")
+            
+        # Log file creation to project log for all files
         await ProjectStorage.log_project_event(
             context=context,
             project_id=project_id,
             entry_type="file_shared",
             message=f"File shared: {file.filename}",
+            metadata={
+                "file_id": getattr(file, "id", ""),
+                "filename": file.filename,
+                "is_coordinator_file": role.value == "coordinator"
+            }
         )
 
     except Exception as e:
@@ -396,7 +467,13 @@ async def on_file_updated(
 ) -> None:
     """
     Handle when a file is updated in the conversation.
-    Files are stored in the shared project directory and don't need explicit syncing.
+    
+    For Coordinator files:
+    1. Update the copy in project storage
+    2. Update copies in all Team conversations
+    
+    For Team files:
+    1. Use as-is without updating in project storage
     """
     try:
         # Get project ID
@@ -404,16 +481,150 @@ async def on_file_updated(
         if not project_id or not file.filename:
             return
 
-        # Log file update to project log
+        # Get the conversation's role
+        role = await ConversationProjectManager.get_conversation_role(context)
+        
+        # If role couldn't be determined, skip processing
+        if not role:
+            logger.warning(f"Could not determine conversation role for file update: {file.filename}")
+            return
+            
+        # Use ProjectFileManager for file operations
+        
+        # Process based on role
+        if role.value == "coordinator":
+            # For Coordinator files:
+            # 1. Update in project storage
+            logger.info(f"Updating Coordinator file in project storage: {file.filename}")
+            success = await ProjectFileManager.copy_file_to_project_storage(
+                context=context,
+                project_id=project_id,
+                file=file,
+                is_coordinator_file=True
+            )
+            
+            if not success:
+                logger.error(f"Failed to update file in project storage: {file.filename}")
+                return
+                
+            # 2. Update in all Team conversations
+            # Get all Team conversations
+            team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
+            
+            # Update in each Team conversation
+            for team_conv_id in team_conversations:
+                logger.info(f"Updating file in Team conversation {team_conv_id}: {file.filename}")
+                await ProjectFileManager.copy_file_to_conversation(
+                    context=context,
+                    project_id=project_id,
+                    filename=file.filename,
+                    target_conversation_id=team_conv_id
+                )
+                
+            # 3. Notify Team conversations about the updated file
+            await ProjectNotifier.notify_project_update(
+                context=context,
+                project_id=project_id,
+                update_type="file_updated",
+                message=f"Coordinator updated a file: {file.filename}",
+                data={"filename": file.filename}
+            )
+        else:
+            # For Team files, no special handling needed
+            # They're already available in the conversation
+            logger.info(f"Team file updated (not shared to project storage): {file.filename}")
+            
+        # Log file update to project log for all files
         await ProjectStorage.log_project_event(
             context=context,
             project_id=project_id,
             entry_type="file_shared",
             message=f"File updated: {file.filename}",
+            metadata={
+                "file_id": getattr(file, "id", ""),
+                "filename": file.filename,
+                "is_coordinator_file": role.value == "coordinator"
+            }
         )
 
     except Exception as e:
         logger.exception(f"Error handling file update: {e}")
+
+
+@assistant.events.conversation.file.on_deleted
+async def on_file_deleted(
+    context: ConversationContext,
+    event: workbench_model.ConversationEvent,
+    file: workbench_model.File,
+) -> None:
+    """
+    Handle when a file is deleted from the conversation.
+    
+    For Coordinator files:
+    1. Delete from project storage
+    2. Notify Team conversations to delete their copies
+    
+    For Team files:
+    1. Just delete locally, no need to notify others
+    """
+    try:
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id or not file.filename:
+            return
+
+        # Get the conversation's role
+        role = await ConversationProjectManager.get_conversation_role(context)
+        
+        # If role couldn't be determined, skip processing
+        if not role:
+            logger.warning(f"Could not determine conversation role for file deletion: {file.filename}")
+            return
+            
+        # Use ProjectFileManager for file operations
+        
+        # Process based on role
+        if role.value == "coordinator":
+            # For Coordinator files:
+            # 1. Delete from project storage
+            logger.info(f"Deleting Coordinator file from project storage: {file.filename}")
+            success = await ProjectFileManager.delete_file_from_project_storage(
+                context=context,
+                project_id=project_id,
+                filename=file.filename
+            )
+            
+            if not success:
+                logger.error(f"Failed to delete file from project storage: {file.filename}")
+                
+            # 2. Notify Team conversations to delete their copies
+            await ProjectNotifier.notify_project_update(
+                context=context,
+                project_id=project_id,
+                update_type="file_deleted",
+                message=f"Coordinator deleted a file: {file.filename}",
+                data={"filename": file.filename}
+            )
+        else:
+            # For Team files, no special handling needed
+            # Just delete locally
+            logger.info(f"Team file deleted (not shared with project): {file.filename}")
+            
+        # Log file deletion to project log for all files
+        await ProjectStorage.log_project_event(
+            context=context,
+            project_id=project_id,
+            entry_type="file_deleted",
+            message=f"File deleted: {file.filename}",
+            metadata={
+                "file_id": getattr(file, "id", ""),
+                "filename": file.filename,
+                "is_coordinator_file": role.value == "coordinator"
+            }
+        )
+
+    except Exception as e:
+        logger.exception(f"Error handling file deletion: {e}")
 
 
 # Notice messages are now simpler without artifact abstraction

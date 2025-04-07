@@ -6,7 +6,7 @@ This module provides conversation handling for Coordinator users in project assi
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -42,6 +42,33 @@ class CoordinatorConversationHandler:
     def __init__(self, context: ConversationContext):
         """Initialize the Coordinator conversation handler."""
         self.context = context
+        
+    async def handle_project_update(self, update_type: str, message: str, data: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Handles project update notifications in Coordinator conversations.
+        
+        Args:
+            update_type: Type of update
+            message: Notification message
+            data: Additional data about the update
+            
+        Returns:
+            True if handled successfully, False otherwise
+        """
+        # Get project ID
+        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        if not project_id:
+            return False
+            
+        # First verify this is a Coordinator conversation
+        role = await ConversationProjectManager.get_conversation_role(self.context)
+        if role != ProjectRole.COORDINATOR:
+            return False  # Not a Coordinator conversation, skip handling
+            
+        # Currently no specific handling needed for Coordinator, but this method
+        # provides a hook for future enhancements
+        
+        return False  # No update types currently handled by Coordinator
 
     async def initialize_project(self, project_name: str, project_description: str) -> Tuple[bool, str]:
         """

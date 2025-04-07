@@ -527,7 +527,8 @@ class ProjectNotifier:
 
     @staticmethod
     async def notify_project_update(
-        context: ConversationContext, project_id: str, update_type: str, message: str
+        context: ConversationContext, project_id: str, update_type: str, message: str, 
+        data: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         Complete project update: sends notices to all conversations and refreshes all UI inspector panels.

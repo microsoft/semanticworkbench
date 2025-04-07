@@ -6,7 +6,7 @@ This module provides conversation handling for Team members in project assistant
 
 import logging
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
@@ -39,6 +39,58 @@ class TeamConversationHandler:
     def __init__(self, context: ConversationContext):
         """Initialize the Team conversation handler."""
         self.context = context
+        
+    async def handle_project_update(self, update_type: str, message: str, data: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Handles project update notifications in Team conversations.
+        
+        Args:
+            update_type: Type of update (e.g., 'file_created', 'file_updated', 'file_deleted')
+            message: Notification message
+            data: Additional data about the update
+            
+        Returns:
+            True if handled successfully, False otherwise
+        """
+        # Get project ID
+        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        if not project_id:
+            return False
+            
+        # First verify this is a Team conversation
+        role = await ConversationProjectManager.get_conversation_role(self.context)
+        if role != ProjectRole.TEAM:
+            return False  # Not a Team conversation, skip handling
+            
+        # Handle file-related updates
+        if update_type in ["file_created", "file_updated", "file_deleted"]:
+            # Import the file manager
+            from .project_files import ProjectFileManager
+            
+            # Extract filename from the message if not in data
+            filename = None
+            if data and "filename" in data:
+                filename = data["filename"]
+            else:
+                # Try to extract from message
+                import re
+                match = re.search(r"file: (.+?)$", message)
+                if match:
+                    filename = match.group(1)
+                    
+            if not filename:
+                logger.warning(f"Could not extract filename from update: {update_type}, {message}")
+                return False
+                
+            # Process the file update
+            return await ProjectFileManager.process_file_update_notification(
+                context=self.context,
+                project_id=project_id,
+                update_type=update_type,
+                filename=filename
+            )
+            
+        return False  # Not a handled update type
 
     async def create_information_request(
         self, title: str, description: str, priority: RequestPriority = RequestPriority.MEDIUM
