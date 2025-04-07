@@ -4,6 +4,7 @@ import re
 
 from mcp_server_filesystem_edit.types import Block
 
+
 def find_documentclass(text: str) -> list[tuple[int, int]]:
     """Find \\documentclass commands in LaTeX text."""
     pattern = r"\\documentclass(\[.*?\])?\{.*?\}(\n)?"
@@ -25,7 +26,7 @@ def find_usepackage_blocks(text: str) -> list[tuple[int, int]]:
     for i in range(1, len(matches)):
         # If there's only whitespace/newlines between this match and the previous one,
         # extend the current block
-        gap_text = text[current_end:matches[i].start()]
+        gap_text = text[current_end : matches[i].start()]
         if re.match(r"^[\s\n]*$", gap_text):
             current_end = matches[i].end()
         else:
@@ -98,6 +99,7 @@ def find_lists(text: str) -> list[tuple[int, int]]:
     enumerate_blocks = find_environments(text, "enumerate")
     return itemize_blocks + enumerate_blocks
 
+
 def handle_overlapping_blocks(blocks: list[tuple[int, int]]) -> list[tuple[int, int]]:
     """Resolves overlapping blocks by splitting them at overlap boundaries.
 
@@ -139,6 +141,7 @@ def handle_overlapping_blocks(blocks: list[tuple[int, int]]) -> list[tuple[int, 
 
     return result
 
+
 def fill_gaps(blocks: list[tuple[int, int]], text_length: int) -> list[tuple[int, int]]:
     """Fill gaps between blocks and ensure full text coverage."""
     if not blocks:
@@ -160,8 +163,9 @@ def fill_gaps(blocks: list[tuple[int, int]], text_length: int) -> list[tuple[int
     return result
 
 
-
-def merge_small_blocks(blocks: list[tuple[int, int]], min_size: int = 50, preserve_num: int = 3) -> list[tuple[int, int]]:
+def merge_small_blocks(
+    blocks: list[tuple[int, int]], min_size: int = 50, preserve_num: int = 3
+) -> list[tuple[int, int]]:
     """Merge blocks smaller than min_size with the previous block.
 
     The first 3 blocks and last 3 blocks are preserved regardless of size to maintain
@@ -207,6 +211,7 @@ def merge_small_blocks(blocks: list[tuple[int, int]], min_size: int = 50, preser
 
     return result
 
+
 def blockify(latex_text: str) -> list[Block]:
     """
     Converts LaTeX text into an ordered list of blocks. Ensures that the entire string is covered
@@ -232,7 +237,9 @@ def blockify(latex_text: str) -> list[Block]:
     list_blocks = find_lists(latex_text)
 
     # Combine all identified blocks
-    all_blocks = documentclass_blocks + usepackage_blocks + document_blocks + section_blocks + table_blocks + list_blocks
+    all_blocks = (
+        documentclass_blocks + usepackage_blocks + document_blocks + section_blocks + table_blocks + list_blocks
+    )
 
     # Fill in the gaps to ensure complete coverage
     all_blocks = fill_gaps(all_blocks, len(latex_text))
