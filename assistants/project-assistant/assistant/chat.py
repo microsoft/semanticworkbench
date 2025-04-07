@@ -781,7 +781,7 @@ async def on_participant_joined(
             logger.debug("Setup not complete, skipping file sync for new participant")
             return
 
-        # Check if this is a Team conversation 
+        # Check if this is a Team conversation
         role = await ConversationProjectManager.get_conversation_role(context)
         if not role or role != ProjectRole.TEAM:
             logger.debug(f"Not a Team conversation (role={role}), skipping file sync for participant")
@@ -808,7 +808,7 @@ async def on_participant_joined(
 
         # Log the participant join event in the project log
         from .project_data import LogEntryType
-        
+
         await ProjectStorage.log_project_event(
             context=context,
             project_id=project_id,

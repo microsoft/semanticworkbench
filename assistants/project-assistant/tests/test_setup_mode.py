@@ -53,6 +53,11 @@ class TestSetupMode:
         context.get_conversation.return_value = conversation
         context.id = "test-conversation-id"
 
+        # Mock assistant attributes
+        assistant = MagicMock()
+        assistant.id = "test-assistant-id"
+        context.assistant = assistant
+
         # Mock send_messages method
         context.send_messages = AsyncMock()
 
@@ -235,8 +240,14 @@ You are operating in Coordinator Mode (Planning Stage). Your responsibilities in
                         # So instead check that proper message was sent indicating setup mode allowed this command
 
     @pytest.mark.asyncio
-    async def test_command_processor_blocks_non_setup_commands(self, context):
+    @patch("assistant.command_processor.ProjectManager.get_project_id")
+    @patch("assistant.project.ConversationProjectManager.get_conversation_role")
+    async def test_command_processor_blocks_non_setup_commands(self, mock_get_role, mock_get_project_id, context):
         """Test that non-setup commands are blocked in setup mode."""
+        # Set up mocks to simulate setup mode
+        mock_get_role.return_value = None  # No role in setup mode
+        mock_get_project_id.return_value = None  # No project in setup mode
+
         # Create a command that should be blocked in setup mode
         blocked_command = MagicMock()
         blocked_command.content = "/add-goal Test Goal|Test description"
@@ -249,23 +260,19 @@ You are operating in Coordinator Mode (Planning Stage). Your responsibilities in
         sender.participant_role = ParticipantRole.user
         blocked_command.sender = sender
 
-        # Patch ConversationProjectManager.get_conversation_role to return None in setup mode
-        with patch("assistant.project.ConversationProjectManager.get_conversation_role") as mock_get_role:
-            mock_get_role.return_value = None
+        # Reset the mock to clear any previous calls
+        context.send_messages.reset_mock()
 
-            # Reset the mock to clear any previous calls
-            context.send_messages.reset_mock()
+        # Call process_command
+        result = await process_command(context, blocked_command)
 
-            # Call process_command
-            result = await process_command(context, blocked_command)
+        # Verify that the command was blocked with setup required message
+        assert result is True
+        context.send_messages.assert_called_once()
 
-            # Verify that the command was blocked with setup required message
-            assert result is True
-            context.send_messages.assert_called_once()
-
-            # Verify message content indicates setup is required
-            args, kwargs = context.send_messages.call_args
-            assert "Setup Required" in args[0].content
+        # Verify message content indicates setup is required
+        args, kwargs = context.send_messages.call_args
+        assert "Setup Required" in args[0].content
 
     @pytest.mark.asyncio
     @patch("assistant.command_processor.ProjectManager")
