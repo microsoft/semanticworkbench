@@ -15,9 +15,7 @@ def main() -> None:
         choices=["stdio", "sse"],
         help="Transport protocol to use ('stdio' or 'sse'). Default is 'stdio'.",
     )
-    parse_args.add_argument(
-        "--port", type=int, default=45567, help="Port to use for SSE (default is 45567)."
-    )
+    parse_args.add_argument("--port", type=int, default=45567, help="Port to use for SSE (default is 45567).")
     args = parse_args.parse_args()
 
     mcp = create_mcp_server()
