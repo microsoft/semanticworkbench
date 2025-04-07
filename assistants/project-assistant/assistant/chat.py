@@ -1,24 +1,9 @@
 # Copyright (c) Microsoft. All rights reserved.
 
-# An example for building a simple chat assistant using the AssistantApp from
-# the semantic-workbench-assistant package.
+# Project Assistant implementation
 #
-# This example demonstrates how to use the AssistantApp to create a chat assistant,
-# to add additional configuration fields and UI schema for the configuration fields,
-# and to handle conversation events to respond to messages in the conversation.
-
-# region Required
-#
-# The code in this region demonstrates the minimal code required to create a chat assistant
-# using the AssistantApp class from the semantic-workbench-assistant package. This code
-# demonstrates how to create an AssistantApp instance, define the service ID, name, and
-# description, and create the FastAPI app instance. Start here to build your own chat
-# assistant using the AssistantApp class.
-#
-# The code that follows this region is optional and demonstrates how to add event handlers
-# to respond to conversation events. You can use this code as a starting point for building
-# your own chat assistant with additional functionality.
-#
+# This assistant provides project coordination capabilities with Coordinator and Team member roles,
+# supporting whiteboard sharing, file synchronization, and team collaboration.
 
 
 import logging
@@ -43,6 +28,7 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
     AssistantCapability,
+    AssistantTemplate,
     BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
@@ -50,28 +36,18 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from .config import AssistantConfigModel, ContextTransferConfigModel
-from semantic_workbench_assistant.assistant_app import AssistantTemplate
 from .project import ProjectManager
 from .project_files import ProjectFileManager
-from .project_storage import ConversationProjectManager, ProjectNotifier, ProjectStorage, ProjectRole
+from .project_storage import ConversationProjectManager, ProjectNotifier, ProjectRole, ProjectStorage
 from .state_inspector import ProjectInspectorStateProvider
 
 logger = logging.getLogger(__name__)
 
-#
-# define the service ID, name, and description
-#
-
-# the service id to be registered in the workbench to identify the assistant
 service_id = "project-assistant.made-exploration"
-# the name of the assistant service, as it will appear in the workbench UI
 service_name = "Project Assistant"
-# a description of the assistant service, as it will appear in the workbench UI
 service_description = "A mediator assistant that facilitates file sharing between conversations."
 
-#
-# create the configuration provider, using the extended configuration model
-#
+# Config.
 assistant_config = BaseModelAssistantConfig(
     AssistantConfigModel,
     additional_templates={
@@ -80,7 +56,7 @@ assistant_config = BaseModelAssistantConfig(
 )
 
 
-# define the content safety evaluator factory
+# Content safety.
 async def content_evaluator_factory(
     context: ConversationContext,
 ) -> ContentSafetyEvaluator:
@@ -90,8 +66,7 @@ async def content_evaluator_factory(
 
 content_safety = ContentSafety(content_evaluator_factory)
 
-
-# create the AssistantApp instance
+# Set up the app.
 assistant = AssistantApp(
     assistant_service_id=service_id,
     assistant_service_name=service_name,
@@ -111,30 +86,7 @@ assistant = AssistantApp(
     ],
 )
 
-#
-# create the FastAPI app instance
-#
 app = assistant.fastapi_app()
-
-
-# endregion
-
-
-# region Optional
-#
-# Note: The code in this region is specific to this example and is not required for a basic assistant.
-#
-# The AssistantApp class provides a set of decorators for adding event handlers to respond to conversation
-# events. In VS Code, typing "@assistant." (or the name of your AssistantApp instance) will show available
-# events and methods.
-#
-# See the semantic-workbench-assistant AssistantApp class for more information on available events and methods.
-# Examples:
-# - @assistant.events.conversation.on_created (event triggered when the assistant is added to a conversation)
-# - @assistant.events.conversation.participant.on_created (event triggered when a participant is added)
-# - @assistant.events.conversation.message.on_created (event triggered when a new message of any type is created)
-# - @assistant.events.conversation.message.chat.on_created (event triggered when a new chat message is created)
-#
 
 
 @assistant.events.conversation.message.chat.on_created
@@ -142,16 +94,10 @@ async def on_message_created(
     context: ConversationContext, event: ConversationEvent, message: ConversationMessage
 ) -> None:
     """
-    Handle the event triggered when a new chat message is created in the conversation.
+    Handle user chat messages and provide appropriate project coordination responses.
 
-    **Note**
-    - This event handler is specific to chat messages.
-    - To handle other message types, you can add additional event handlers for those message types.
-      - @assistant.events.conversation.message.log.on_created
-      - @assistant.events.conversation.message.command.on_created
-      - ...additional message types
-    - To handle all message types, you can use the root event handler for all message types:
-      - @assistant.events.conversation.message.on_created
+    This manages project setup/detection, role enforcement, and updating the whiteboard
+    for coordinator messages.
     """
 
     # update the participant status to indicate the assistant is thinking
@@ -709,7 +655,7 @@ async def on_notice_created(
     """
     Handle notice messages.
     """
-    # No special handling needed now that we've removed artifact messaging
+    # Notice messages don't require special handling
     pass
 
 
@@ -874,18 +820,10 @@ async def on_participant_joined(
 # The command handling functions have been moved to command_processor.py
 
 
-# endregion
-
-
-# region Custom
-#
-# This code was added specifically for this example to demonstrate how to respond to conversation
-# messages using the OpenAI API. For your own assistant, you could replace this code with your own
-# logic for responding to conversation messages and add any additional functionality as needed.
+# OpenAI integration for message responses
 #
 
 
-# demonstrates how to respond to a conversation message using the OpenAI API.
 async def respond_to_conversation(
     context: ConversationContext,
     message: ConversationMessage,

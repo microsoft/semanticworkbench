@@ -113,7 +113,7 @@ class ProjectTools:
                 "add_project_goal",
                 "Add a goal to the project brief with optional success criteria",
             )
-            # add_kb_section has been removed since whiteboard is auto-updated by coordinator
+            # Whiteboard content is auto-updated
             self.tool_functions.add_function(
                 self.resolve_information_request,
                 "resolve_information_request",
@@ -402,7 +402,7 @@ class ProjectTools:
             error_prefix="Error adding goal",
         )
 
-    # add_kb_section method has been removed since whiteboard is now auto-updated by coordinator
+    # Whiteboard methods removed - content is auto-generated
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """

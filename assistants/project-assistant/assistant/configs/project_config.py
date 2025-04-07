@@ -83,8 +83,6 @@ class SenderConfig(BaseModel):
         ),
     ] = "list-participants"
 
-    # revoke_access_command field removed - simplifying the assistant
-
 
 class ReceiverConfig(BaseModel):
     model_config = ConfigDict(

@@ -806,7 +806,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
         )
 
 
-# Command completely removed - whiteboard is now auto-updated by coordinator
+# Whiteboard auto-update separator
 
 
 async def handle_request_info_command(
@@ -1384,9 +1384,6 @@ async def handle_list_participants_command(
         )
 
 
-# Removed handle_revoke_access_command function - simplifying the assistant
-
-
 # File synchronization command handler
 async def handle_sync_files_command(
     context: ConversationContext, message: ConversationMessage, args: List[str]
@@ -1618,7 +1615,7 @@ command_registry.register_command(
 )
 
 # Team management commands
-# "invite" command removed - project ID is now used directly for invitations
+# Project ID is used directly as the invitation code
 
 command_registry.register_command(
     "join",
@@ -1638,7 +1635,6 @@ command_registry.register_command(
     ["coordinator"],  # Only Coordinator can list participants
 )
 
-# Removed "revoke" command registration - simplifying the assistant
 
 # Coordinator commands
 command_registry.register_command(
@@ -1659,7 +1655,6 @@ command_registry.register_command(
     ["coordinator"],  # Only Coordinator can add goals
 )
 
-# Command completely removed - whiteboard is now auto-updated by coordinator
 
 command_registry.register_command(
     "resolve-request",
