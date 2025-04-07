@@ -49,7 +49,8 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .config import AssistantConfigModel
+from .config import AssistantConfigModel, ContextTransferConfigModel
+from semantic_workbench_assistant.assistant_app import AssistantTemplate
 from .project import ProjectManager
 from .project_files import ProjectFileManager
 from .project_storage import ConversationProjectManager, ProjectNotifier, ProjectStorage, ProjectRole
@@ -71,7 +72,12 @@ service_description = "A mediator assistant that facilitates file sharing betwee
 #
 # create the configuration provider, using the extended configuration model
 #
-assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
+assistant_config = BaseModelAssistantConfig(
+    AssistantConfigModel,
+    additional_templates={
+        "context_transfer": ContextTransferConfigModel,
+    },
+)
 
 
 # define the content safety evaluator factory
@@ -96,6 +102,13 @@ assistant = AssistantApp(
     inspector_state_providers={
         "project_status": ProjectInspectorStateProvider(assistant_config),
     },
+    additional_templates=[
+        AssistantTemplate(
+            id="context_transfer",
+            name="Context Transfer Assistant",
+            description="An assistant for capturing and sharing complex information for others to explore.",
+        ),
+    ],
 )
 
 #
@@ -151,8 +164,41 @@ async def on_message_created(
         # Check if setup is complete - check both local metadata and the state API
         setup_complete = metadata.get("setup_complete", False)
 
-        # If not set in local metadata, try to get it from the project storage directly
-        if not setup_complete:
+        # First check if project ID exists - if it does, setup should always be considered complete
+        from .project_manager import ProjectManager
+        project_id = await ProjectManager.get_project_id(context)
+        if project_id:
+            # If we have a project ID, we should never show the setup instructions
+            setup_complete = True
+            
+            # If metadata doesn't reflect this, try to get actual role
+            from .project_storage import ConversationProjectManager
+            
+            role = await ConversationProjectManager.get_conversation_role(context)
+            if role:
+                metadata["project_role"] = role.value
+                metadata["assistant_mode"] = role.value
+                metadata["setup_complete"] = True
+                logger.info(f"Found project role in storage: {role.value}")
+                
+                # Update conversation metadata to fix this inconsistency
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
+                )
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(state_id="project_role", event="updated", state=None)
+                )
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
+                )
+            else:
+                # Default to team if we can't determine
+                metadata["project_role"] = "team"
+                metadata["assistant_mode"] = "team" 
+                metadata["setup_complete"] = True
+                logger.info("Could not determine role from storage, defaulting to team mode")
+        # If no project ID, check storage as a fallback
+        elif not setup_complete:
             try:
                 from .project_storage import ConversationProjectManager
 
@@ -170,8 +216,8 @@ async def on_message_created(
 
         assistant_mode = metadata.get("assistant_mode", "setup")
 
-        # If setup isn't complete, show setup required message
-        if not setup_complete and assistant_mode == "setup":
+        # If setup isn't complete, show setup required message (only if we truly have no project)
+        if not setup_complete and assistant_mode == "setup" and not project_id:
             # Show setup required message for regular chat messages
             await context.send_messages(
                 NewConversationMessage(
