@@ -9,7 +9,6 @@ from typing import (
     AsyncContextManager,
     AsyncIterator,
     Callable,
-    NoReturn,
     TypeVar,
     cast,
 )
@@ -419,7 +418,7 @@ class AssistantService(FastAPIAssistantService):
             task.add_done_callback(self._conversation_event_tasks.discard)
             return queue
 
-    async def _forward_events_from_queue(self, queue: asyncio.Queue[_Event]) -> NoReturn:
+    async def _forward_events_from_queue(self, queue: asyncio.Queue[_Event]) -> None:
         """
         De-queues events and makes the call to process_workbench_event.
         """

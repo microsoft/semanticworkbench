@@ -10,7 +10,7 @@ from typing import IO, Any, NoReturn
 
 import yaml
 from termcolor import cprint
-from termcolor._types import Color
+from termcolor._types import Color  # type: ignore
 
 from . import _devtunnel as devtunnel
 from ._dir import get_mcp_tunnel_dir
