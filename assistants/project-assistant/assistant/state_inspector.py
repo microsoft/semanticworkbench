@@ -44,11 +44,11 @@ class ProjectInspectorStateProvider:
         # First check conversation metadata for setup status
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
-        
+
         # Check if metadata has setup info
         setup_complete = metadata.get("setup_complete", False)
         assistant_mode = metadata.get("assistant_mode", "setup")
-        
+
         # Double-check with project storage/manager state
         if not setup_complete:
             # Check if we have a project role in storage
@@ -57,15 +57,16 @@ class ProjectInspectorStateProvider:
                 # If we have a role in storage, consider setup complete
                 setup_complete = True
                 assistant_mode = role.value
-                
+
                 # Update local metadata too
                 metadata["setup_complete"] = True
                 metadata["assistant_mode"] = role.value
                 metadata["project_role"] = role.value
-                
+
                 # Send conversation state event to save the metadata - using None for state values
                 try:
                     from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+
                     await context.send_conversation_state_event(
                         AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
                     )

@@ -118,7 +118,9 @@ class ProjectTools:
                 self.add_kb_section, "add_kb_section", "Add a section to the project whiteboard"
             )
             self.tool_functions.add_function(
-                self.resolve_information_request, "resolve_information_request", "Resolve an information request with information"
+                self.resolve_information_request,
+                "resolve_information_request",
+                "Resolve an information request with information",
             )
             self.tool_functions.add_function(
                 self.mark_project_ready_for_working,
@@ -133,7 +135,9 @@ class ProjectTools:
                 "Create an information request for information or to report a blocker",
             )
             self.tool_functions.add_function(
-                self.update_project_dashboard, "update_project_dashboard", "Update the status and progress of the project"
+                self.update_project_dashboard,
+                "update_project_dashboard",
+                "Update the status and progress of the project",
             )
             self.tool_functions.add_function(
                 self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
@@ -142,7 +146,9 @@ class ProjectTools:
                 self.report_project_completion, "report_project_completion", "Report that the project is complete"
             )
             self.tool_functions.add_function(
-                self.delete_information_request, "delete_information_request", "Delete an information request that is no longer needed"
+                self.delete_information_request,
+                "delete_information_request",
+                "Delete an information request that is no longer needed",
             )
             self.tool_functions.add_function(
                 self.detect_information_request_needs,
@@ -221,12 +227,12 @@ class ProjectTools:
                 output.append("\n## Project Whiteboard\n")
                 output.append(kb.content)
                 output.append("")
-                
+
                 if kb.is_auto_generated:
                     output.append("*This whiteboard content is automatically updated by the assistant.*")
                 else:
                     output.append("*This whiteboard content has been manually edited.*")
-                    
+
                 output.append("")
             elif info_type == "whiteboard":
                 output.append("\n## Project Whiteboard\n")
@@ -247,7 +253,9 @@ class ProjectTools:
                     output.append(f"**Status Message**: {dashboard.status_message}")
 
                 if dashboard.completed_criteria > 0:
-                    output.append(f"**Success Criteria**: {dashboard.completed_criteria}/{dashboard.total_criteria} complete")
+                    output.append(
+                        f"**Success Criteria**: {dashboard.completed_criteria}/{dashboard.total_criteria} complete"
+                    )
 
                 if dashboard.next_actions:
                     output.append("\n**Next Actions**:")
@@ -265,12 +273,8 @@ class ProjectTools:
                 output.append("\n## Information Requests\n")
 
                 # Group requests by status
-                active_requests = [
-                    r for r in requests if r.status != RequestStatus.RESOLVED
-                ]
-                resolved_requests = [
-                    r for r in requests if r.status == RequestStatus.RESOLVED
-                ]
+                active_requests = [r for r in requests if r.status != RequestStatus.RESOLVED]
+                resolved_requests = [r for r in requests if r.status == RequestStatus.RESOLVED]
 
                 if active_requests:
                     output.append("### Active Requests")
@@ -756,9 +760,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Check if whiteboard has content
         if not kb or not kb.content:
-            return (
-                "Project whiteboard is empty. Content will be automatically generated as the project progresses."
-            )
+            return "Project whiteboard is empty. Content will be automatically generated as the project progresses."
 
         # Get or create project dashboard
         dashboard = ProjectStorage.read_project_dashboard(project_id)
@@ -969,7 +971,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Format the messages for display
             output = []
             output.append(f"# Coordinator Conversation for {project_name}\n")
-            output.append("Here are the recent messages from the Coordinator to help you understand the project context:\n")
+            output.append(
+                "Here are the recent messages from the Coordinator to help you understand the project context:\n"
+            )
 
             # Sort messages by timestamp and limit to the requested count
             messages = sorted(coordinator_conversation.messages, key=lambda m: m.timestamp)
@@ -1016,30 +1020,31 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Clean the request_id to handle common formatting issues
             cleaned_request_id = request_id.strip().lower()
             # Remove any quotes that might have been added
-            cleaned_request_id = cleaned_request_id.replace('"', '').replace("'", "")
-            
+            cleaned_request_id = cleaned_request_id.replace('"', "").replace("'", "")
+
             logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
-            
+
             # Read the information request
             from .project_storage import ProjectStorage
+
             information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
-            
+
             if not information_request:
                 # Try to find it in all requests with improved matching algorithm
                 all_requests = ProjectStorage.get_all_information_requests(project_id)
                 matching_request = None
-                
+
                 # Log available request IDs for debug purposes
                 available_ids = [req.request_id for req in all_requests if req.conversation_id == str(self.context.id)]
                 logger.info(f"Available request IDs for this conversation: {available_ids}")
                 logger.info(f"Looking for request ID: '{cleaned_request_id}'")
-                
+
                 # Try to normalize the request ID to a UUID format
                 normalized_id = cleaned_request_id
                 # Remove any "uuid:" prefix if present
                 if normalized_id.startswith("uuid:"):
                     normalized_id = normalized_id[5:]
-                
+
                 # Check if the ID contains hyphens already, if not try to format it
                 if "-" not in normalized_id and len(normalized_id) >= 32:
                     # Try to format in standard UUID format (8-4-4-4-12)
@@ -1049,20 +1054,20 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         normalized_id = formatted_id
                     except Exception as e:
                         logger.warning(f"Failed to reformat ID: {e}")
-                
+
                 # For each request, try multiple matching strategies
                 for req in all_requests:
                     # Only consider requests from this conversation
                     if req.conversation_id != str(self.context.id):
                         continue
-                        
+
                     # Get string representations of request_id to compare
                     req_id_str = str(req.request_id).lower()
-                    req_id_clean = req_id_str.replace('-', '')
-                    normalized_id_clean = normalized_id.replace('-', '')
-                    
+                    req_id_clean = req_id_str.replace("-", "")
+                    normalized_id_clean = normalized_id.replace("-", "")
+
                     logger.debug(f"Comparing against request: {req_id_str}")
-                    
+
                     # Multiple matching strategies, from most specific to least
                     if any([
                         # Exact match
@@ -1080,7 +1085,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         matching_request = req
                         logger.info(f"Found matching request: {req.request_id}, title: {req.title}")
                         break
-                
+
                 if matching_request:
                     information_request = matching_request
                     # Use the actual request_id for future operations
@@ -1088,39 +1093,41 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     logger.info(f"Using matched request ID: {request_id}")
                 else:
                     # Log the attempted deletion for debugging
-                    logger.warning(f"Failed deletion attempt - request ID '{request_id}' not found in project {project_id}")
+                    logger.warning(
+                        f"Failed deletion attempt - request ID '{request_id}' not found in project {project_id}"
+                    )
                     # Provide a more helpful error message with available IDs
                     if available_ids:
                         id_examples = ", ".join([f"`{id[:8]}...`" for id in available_ids[:3]])
                         return f"Information request with ID '{request_id}' not found. Your available requests have IDs like: {id_examples}. Please check and try again with the exact ID."
                     else:
                         return f"Information request with ID '{request_id}' not found. You don't have any active requests to delete."
-            
+
             # Verify ownership - team member can only delete their own requests
             if information_request.conversation_id != str(self.context.id):
                 return "You can only delete information requests that you created. This request was created by another conversation."
-            
+
             # Get current user info for logging
             participants = await self.context.get_participants()
             current_user_id = None
             current_username = None
-            
+
             for participant in participants.participants:
                 if participant.role == "user":
                     current_user_id = participant.id
                     current_username = participant.name
                     break
-            
+
             if not current_user_id:
                 current_user_id = "team-system"
                 current_username = "Team Member"
-                
+
             # Log the deletion before removing the request
             request_title = information_request.title
-            
+
             # Store the actual request ID from the information_request object for reliable operations
             actual_request_id = information_request.request_id
-            
+
             # Log the deletion in the project log
             await ProjectStorage.log_project_event(
                 context=self.context,
@@ -1131,10 +1138,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 metadata={
                     "request_title": request_title,
                     "deleted_by": current_user_id,
-                    "deleted_by_name": current_username
-                }
+                    "deleted_by_name": current_username,
+                },
             )
-            
+
             # Update project dashboard if this was a blocker
             dashboard = ProjectStorage.read_project_dashboard(project_id)
             if dashboard and hasattr(dashboard, "active_blockers") and actual_request_id in dashboard.active_blockers:
@@ -1143,21 +1150,22 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 dashboard.updated_by = current_user_id
                 dashboard.version += 1
                 ProjectStorage.write_project_dashboard(project_id, dashboard)
-            
+
             # Delete the information request - implementing deletion logic by removing the file
             # Using ProjectStorage instead of direct path access
             # Create information requests directory path and remove the specific file
             from .project_storage import ProjectStorageManager
+
             request_path = ProjectStorageManager.get_information_request_path(project_id, actual_request_id)
             if request_path.exists():
                 request_path.unlink()  # Delete the file
-            
+
             # Notify Coordinator about the deletion
             try:
                 # Get Coordinator conversation ID
                 from .project_storage import ProjectRole, ProjectStorageManager, ConversationProjectManager
                 from semantic_workbench_assistant.storage import read_model
-                
+
                 coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ProjectRole.COORDINATOR.value
                 if coordinator_dir.exists():
                     role_file = coordinator_dir / "conversation_role.json"
@@ -1165,10 +1173,13 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         role_data = read_model(role_file, ConversationProjectManager.ConversationRoleInfo)
                         if role_data:
                             coordinator_conversation_id = role_data.conversation_id
-                            
+
                             # Notify Coordinator
                             from .project import ConversationClientManager
-                            client = ConversationClientManager.get_conversation_client(self.context, coordinator_conversation_id)
+
+                            client = ConversationClientManager.get_conversation_client(
+                                self.context, coordinator_conversation_id
+                            )
                             await client.send_messages(
                                 NewConversationMessage(
                                     content=f"Team member ({current_username}) has deleted their request: '{request_title}'",
@@ -1178,16 +1189,16 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             except Exception as e:
                 logger.warning(f"Could not notify Coordinator about deleted request: {e}")
                 # Not critical, so we continue
-            
+
             # Update all project UI inspectors
             await ProjectStorage.refresh_all_project_uis(self.context, project_id)
-            
+
             return f"Information request '{request_title}' has been successfully deleted."
-            
+
         except Exception as e:
             logger.exception(f"Error deleting information request: {e}")
             return f"Error deleting information request: {str(e)}. Please try again later."
-            
+
     async def detect_information_request_needs(self, message: str) -> Dict[str, Any]:
         """
         Analyze a user message in context of recent chat history to detect potential information request needs.
@@ -1201,7 +1212,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         """
         # This is Coordinator perspective - not used directly but helps model understanding
         if self.role != "team":
-            return {"is_information_request": False, "reason": "Only Team conversations can create information requests"}
+            return {
+                "is_information_request": False,
+                "reason": "Only Team conversations can create information requests",
+            }
 
         # Use a more sophisticated approach with a language model call
         import json
@@ -1491,13 +1505,15 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         "status": "in_progress",
                         "progress": 0,
                         "status_message": "Starting project operations",
-                        "next_actions": []
+                        "next_actions": [],
                     },
                 }
         else:
             # Check if project is ready for working
             ready_for_working = (
-                hasattr(dashboard, "lifecycle") and dashboard.lifecycle and dashboard.lifecycle.get("ready_for_working", False)
+                hasattr(dashboard, "lifecycle")
+                and dashboard.lifecycle
+                and dashboard.lifecycle.get("ready_for_working", False)
             )
 
             if not ready_for_working and self.role == "coordinator":

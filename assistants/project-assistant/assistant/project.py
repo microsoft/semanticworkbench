@@ -222,28 +222,102 @@ class ProjectInvitation:
             except Exception as e:
                 logger.warning(f"Could not notify Coordinator conversation: {e}")
                 # This isn't critical, so we continue anyway
-                
+
             # Synchronize project files to the Team conversation
             try:
                 from .project_files import ProjectFileManager
-                
+
                 # Log the synchronization attempt
-                logger.info(f"Synchronizing project files to Team conversation {context.id}")
-                
-                # Call the synchronization method
-                sync_success = await ProjectFileManager.synchronize_files_to_team_conversation(
-                    context=context,
-                    project_id=project_id
-                )
-                
-                if sync_success:
-                    logger.info(f"Successfully synchronized project files to Team conversation {context.id}")
+                logger.info(f"CRITICAL FIX: Synchronizing project files to Team conversation {context.id}")
+
+                # DEBUG: Check for files in project storage before syncing
+                file_metadata = ProjectFileManager.read_file_metadata(project_id)
+                if file_metadata and file_metadata.files:
+                    logger.info(
+                        f"Found {len(file_metadata.files)} files in project storage: {[f.filename for f in file_metadata.files]}"
+                    )
+
+                    # List actual files on disk
+                    project_files_dir = ProjectFileManager.get_project_files_dir(project_id)
+                    logger.info(f"Project files directory: {project_files_dir} (exists: {project_files_dir.exists()})")
+
+                    if project_files_dir.exists():
+                        file_paths = list(project_files_dir.glob("*"))
+                        file_paths = [f for f in file_paths if f.is_file() and f.name != "file_metadata.json"]
+                        logger.info(f"Found {len(file_paths)} actual files on disk: {[f.name for f in file_paths]}")
+
+                        if not file_paths:
+                            logger.warning("Metadata exists but no actual files found on disk!")
                 else:
-                    logger.warning(f"File synchronization completed with errors for Team conversation {context.id}")
-                    
+                    logger.warning(f"No files found in project storage for project {project_id}")
+
+                # Important: Try synchronization up to FIVE times with increasing delays between attempts
+                # This helps address eventual consistency issues in the backend API
+                sync_success = False
+                import asyncio
+
+                max_sync_attempts = 5
+
+                for attempt in range(max_sync_attempts):
+                    try:
+                        # Longer delay with progressive backoff
+                        if attempt > 0:
+                            # Starting with 2 seconds, then 4, 6, 8 seconds between attempts
+                            delay = 2.0 * attempt
+                            logger.info(
+                                f"Waiting {delay} seconds before file sync attempt {attempt + 1}/{max_sync_attempts}..."
+                            )
+                            await asyncio.sleep(delay)
+
+                        logger.info(f"File sync attempt {attempt + 1}/{max_sync_attempts}...")
+
+                        # Call the synchronization method
+                        sync_success = await ProjectFileManager.synchronize_files_to_team_conversation(
+                            context=context, project_id=project_id
+                        )
+
+                        if sync_success:
+                            logger.info(f"Successfully synchronized project files to Team conversation {context.id}")
+
+                            # Send explicit notice to the user about any synchronized files
+                            if file_metadata and file_metadata.files:
+                                file_list = ", ".join([f.filename for f in file_metadata.files])
+                                await context.send_messages(
+                                    NewConversationMessage(
+                                        content=f"Successfully synchronized shared files from Coordinator: {file_list}",
+                                        message_type=MessageType.notice,
+                                    )
+                                )
+                            break
+                        else:
+                            logger.warning(f"File synchronization attempt {attempt + 1}/{max_sync_attempts} failed")
+                    except Exception as e:
+                        logger.exception(f"Error in sync attempt {attempt + 1}: {e}")
+                        import asyncio
+
+                        await asyncio.sleep(0.5)  # Short delay before retry
+
+                if not sync_success:
+                    logger.error(f"All file synchronization attempts failed for Team conversation {context.id}")
+
+                    # Notify user about the failed synchronization
+                    if file_metadata and file_metadata.files:
+                        await context.send_messages(
+                            NewConversationMessage(
+                                content="Note: There are shared files from the Coordinator that couldn't be synchronized. Use `/sync-files` command to try again.",
+                                message_type=MessageType.notice,
+                            )
+                        )
+
             except Exception as e:
                 logger.exception(f"Error synchronizing files to Team conversation: {e}")
-                # This isn't critical for joining, so we continue anyway
+                # Notify user about the error
+                await context.send_messages(
+                    NewConversationMessage(
+                        content="There was an error synchronizing project files. Please use the `/sync-files` command to manually synchronize files.",
+                        message_type=MessageType.notice,
+                    )
+                )
 
             # Get project name for the success message
             try:

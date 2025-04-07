@@ -18,7 +18,6 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-
 from .project_data import (
     LogEntryType,
     ProjectGoal,
@@ -30,9 +29,9 @@ from .project_manager import ProjectManager
 from .project_storage import (
     ConversationProjectManager,
     ProjectNotifier,
+    ProjectRole,
     ProjectStorage,
     ProjectStorageManager,
-    ProjectRole,
 )
 
 logger = logging.getLogger(__name__)
@@ -191,7 +190,9 @@ command_registry = CommandRegistry()
 # Command handler implementations
 
 
-async def handle_start_coordinator_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
+async def handle_start_coordinator_command(
+    context: ConversationContext, message: ConversationMessage, args: List[str]
+) -> None:
     """
     Handle the start command to create a new project with this conversation as Coordinator.
 
@@ -273,7 +274,7 @@ async def handle_start_coordinator_command(context: ConversationContext, message
     await context.send_messages(
         NewConversationMessage(
             content=f"""# Project Created Successfully
-            
+
 **Project Name:** {project_name}
 **Role:** Coordinator
 **Project ID:** `{new_project_id}`
@@ -342,7 +343,7 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
             )
         )
         return
-        
+
     # Join the project directly (simplified approach)
     success = await ProjectManager.join_project(context, project_id, ProjectRole.TEAM)
 
@@ -384,7 +385,7 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
     await context.send_messages(
         NewConversationMessage(
             content=f"""# Joined Project Successfully
-            
+
 **Project Name:** {project_name}
 **Project ID:** `{project_id}`
 **Role:** Team
@@ -844,7 +845,7 @@ async def handle_add_whiteboard_section_command(
             title=title,
             content=section_content,
         )
-        
+
         if not success:
             await context.send_messages(
                 NewConversationMessage(
@@ -1117,7 +1118,7 @@ async def handle_resolve_request_command(
 async def handle_invite_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
     """
     Legacy invite command handler - simplified to just show project ID.
-    
+
     With the simplified invitation system, we don't need to generate invitations.
     This function now just displays the project ID as the invitation code.
     """
@@ -1132,12 +1133,12 @@ async def handle_invite_command(context: ConversationContext, message: Conversat
                 )
             )
             return
-            
+
         # Instead of creating a complex invitation, just display the project ID
         await context.send_messages(
             NewConversationMessage(
                 content=f"""## Project Invitation
-                
+
 **Project ID:** `{project_id}`
 
 Share this Project ID with team members. They can join using:
@@ -1231,7 +1232,7 @@ async def handle_project_info_command(
 
         # Get the requested information
         output = []
-        
+
         # Always show project ID at the top for easy access
         project_id = await ProjectManager.get_project_id(context)
         if project_id:
@@ -1284,16 +1285,18 @@ async def handle_project_info_command(
                 output.append("\n## Project Whiteboard\n")
                 output.append(kb.content)
                 output.append("")
-                
+
                 if kb.is_auto_generated:
                     output.append("*This whiteboard content is automatically updated by the assistant.*")
                 else:
                     output.append("*This whiteboard content has been manually edited.*")
-                    
+
                 output.append("")
             elif info_type == "whiteboard":
                 output.append("\n## Project Whiteboard\n")
-                output.append("*No whiteboard content available yet. Content will be automatically generated as the project progresses.*")
+                output.append(
+                    "*No whiteboard content available yet. Content will be automatically generated as the project progresses.*"
+                )
 
         # Get project status if requested
         if info_type in ["all", "status"]:
@@ -1328,12 +1331,8 @@ async def handle_project_info_command(
                 output.append("\n## Information Requests\n")
 
                 # Group requests by status
-                active_requests = [
-                    r for r in requests if r.status != RequestStatus.RESOLVED
-                ]
-                resolved_requests = [
-                    r for r in requests if r.status == RequestStatus.RESOLVED
-                ]
+                active_requests = [r for r in requests if r.status != RequestStatus.RESOLVED]
+                resolved_requests = [r for r in requests if r.status == RequestStatus.RESOLVED]
 
                 if active_requests:
                     output.append("### Active Requests\n")
@@ -1522,8 +1521,8 @@ async def handle_sync_files_command(
 ) -> None:
     """
     Handle the sync-files command which synchronizes shared files from Coordinator to Team.
-    
-    This is primarily for Team members to explicitly request a file sync 
+
+    This is primarily for Team members to explicitly request a file sync
     if they suspect files are out of sync or missing.
     """
     try:
@@ -1537,13 +1536,13 @@ async def handle_sync_files_command(
                 )
             )
             return
-            
+
         # Get role - primarily for team members, but could be used by coordinator to test
         _ = await ProjectManager.get_project_role(context)
-        
+
         # Import the file manager
         from .project_files import ProjectFileManager
-        
+
         # Start sync
         await context.send_messages(
             NewConversationMessage(
@@ -1551,28 +1550,151 @@ async def handle_sync_files_command(
                 message_type=MessageType.notice,
             )
         )
-        
+
         # Perform synchronization
-        success = await ProjectFileManager.synchronize_files_to_team_conversation(
-            context=context,
-            project_id=project_id
-        )
-        
-        if success:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="File synchronization completed successfully. All shared project files should now be available in this conversation.",
-                    message_type=MessageType.chat,
-                )
+        # Add detailed debugging
+        logger.info(f"Starting file synchronization for project {project_id}")
+
+        # Check if files exist in the project storage
+        # Check file metadata
+        metadata = ProjectFileManager.read_file_metadata(project_id)
+        if metadata and metadata.files:
+            logger.info(
+                f"Found {len(metadata.files)} files in project metadata: {[f.filename for f in metadata.files]}"
             )
         else:
+            logger.warning(f"No files found in project metadata for project {project_id}")
+
+        # Check project files directory
+        files_dir = ProjectFileManager.get_project_files_dir(project_id)
+        if files_dir.exists():
+            file_count = len(list(files_dir.glob("*")))
+            logger.info(f"Project files directory exists at {files_dir} with {file_count} entries")
+            for file_path in files_dir.glob("*"):
+                if file_path.is_file() and file_path.name != "file_metadata.json":
+                    logger.info(f"Found file: {file_path.name} (size: {file_path.stat().st_size} bytes)")
+        else:
+            logger.warning(f"Project files directory does not exist: {files_dir}")
+
+        # Attempt multiple synchronization with retry and improved handling
+        success = False
+        file_count = 0
+        sync_details = ""
+        import asyncio  # Import at the beginning for all retry attempts
+
+        for attempt in range(3):
+            try:
+                logger.info(f"File sync attempt {attempt + 1}/3...")
+
+                # Check if files exist in the project storage
+                metadata = ProjectFileManager.read_file_metadata(project_id)
+                if metadata and metadata.files:
+                    file_count = len(metadata.files)
+                    logger.info(f"Found {file_count} files in project metadata: {[f.filename for f in metadata.files]}")
+                    sync_details = (
+                        f"Trying to sync {file_count} files: {', '.join([f.filename for f in metadata.files])}"
+                    )
+                else:
+                    logger.warning(f"No files found in project metadata for project {project_id}")
+                    # If no files exist, we can consider this a successful sync (nothing to sync)
+                    if attempt == 0:  # Only notify on first attempt
+                        await context.send_messages(
+                            NewConversationMessage(
+                                content="No files found in the project to synchronize.",
+                                message_type=MessageType.notice,
+                            )
+                        )
+                    success = True
+                    break
+
+                # Attempt synchronization
+                sync_success = await ProjectFileManager.synchronize_files_to_team_conversation(
+                    context=context, project_id=project_id
+                )
+
+                # Verify the files were actually copied to the conversation
+                try:
+                    # Get files in the conversation after sync
+                    conversation = await context.get_conversation()
+                    conversation_files = getattr(conversation, "files", [])
+                    synced_files = [f.filename for f in conversation_files]
+
+                    # Compare with expected files from metadata
+                    expected_files = [f.filename for f in metadata.files]
+                    missing_files = [f for f in expected_files if f not in synced_files]
+
+                    if not missing_files:
+                        logger.info(f"All {len(expected_files)} files successfully verified in conversation")
+                        sync_details += (
+                            f"\nVerified {len(expected_files)} files in conversation: {', '.join(synced_files)}"
+                        )
+                        success = True
+                        break
+                    else:
+                        logger.warning(f"Files missing after sync: {missing_files}")
+                        sync_details += f"\nFiles missing after sync: {', '.join(missing_files)}"
+                        success = False
+
+                        # If it's the last attempt and we have partial success, consider it a partial success
+                        if attempt == 2 and len(missing_files) < len(expected_files):
+                            sync_details += f"\nPartial sync: {len(expected_files) - len(missing_files)}/{len(expected_files)} files synced"
+                            success = True  # Partial success
+                except Exception as e:
+                    logger.exception(f"Error verifying synced files: {e}")
+                    sync_details += f"\nError verifying files: {str(e)}"
+
+                if sync_success:
+                    logger.info(f"Synchronization attempt {attempt + 1} API call succeeded")
+                    # Need to wait a moment for file system operations to complete
+                    await asyncio.sleep(1.0)
+                else:
+                    logger.warning(f"Synchronization attempt {attempt + 1} failed")
+                    sync_details += f"\nAttempt {attempt + 1} failed, will retry"
+                    # Add longer delay before retry
+                    await asyncio.sleep(1.0)
+            except Exception as e:
+                logger.exception(f"Error in sync attempt {attempt + 1}: {e}")
+                sync_details += f"\nError in attempt {attempt + 1}: {str(e)}"
+                # Longer delay before retry
+                await asyncio.sleep(1.0)
+
+        if success:
+            if file_count > 0:
+                # Include information about which files were synced
+                success_message = f"File synchronization completed successfully. {file_count} shared project files are now available in this conversation."
+                if sync_details:
+                    # Add detailed information in a code block for technical users
+                    success_message += f"\n\n<details>\n<summary>Synchronization Details</summary>\n\n```\n{sync_details}\n```\n</details>"
+
+                await context.send_messages(
+                    NewConversationMessage(
+                        content=success_message,
+                        message_type=MessageType.chat,
+                    )
+                )
+            else:
+                # No files case (already notified above)
+                pass
+        else:
+            # Create a more detailed error message with sync details
+            error_message = (
+                "File synchronization completed with errors. Some files may not have been synchronized correctly."
+            )
+            if sync_details:
+                error_message += (
+                    f"\n\n<details>\n<summary>Error Details</summary>\n\n```\n{sync_details}\n```\n</details>"
+                )
+
+            # Also suggest possible solutions
+            error_message += "\n\nYou can try:\n- Running `/sync-files` again\n- Having the Coordinator upload the files again\n- Checking logs in the .data/logs directory for more information"
+
             await context.send_messages(
                 NewConversationMessage(
-                    content="File synchronization completed with some errors. Some files may not have been synchronized correctly.",
+                    content=error_message,
                     message_type=MessageType.notice,
                 )
             )
-            
+
     except Exception as e:
         logger.exception(f"Error synchronizing files: {e}")
         await context.send_messages(
@@ -1741,15 +1863,16 @@ async def process_command(context: ConversationContext, message: ConversationMes
 
     # Check if setup is complete
     setup_complete = metadata.get("setup_complete", False)
-    
+
     # If not set in local metadata, try to get it from the state API via the state events
     if not setup_complete:
         try:
             # Get state directly from conversation state
             from .state_inspector import ProjectInspectorStateProvider
+
             inspector = ProjectInspectorStateProvider(None)
             state_data = await inspector.get(context)
-            
+
             if state_data and state_data.data and state_data.data.get("content"):
                 content = state_data.data.get("content", "")
                 # Check if content indicates we're in Coordinator or Team mode (not in setup mode)
@@ -1763,11 +1886,11 @@ async def process_command(context: ConversationContext, message: ConversationMes
                         metadata["project_role"] = "team"
                         metadata["assistant_mode"] = "team"
                     metadata["setup_complete"] = True
-                    
+
                     logger.info(f"Found role in state inspector: {metadata['project_role']}")
         except Exception as e:
             logger.exception(f"Error getting role from state inspector: {e}")
-            
+
     assistant_mode = metadata.get("assistant_mode", "setup")
 
     # Get the command name and arguments
@@ -1781,32 +1904,66 @@ async def process_command(context: ConversationContext, message: ConversationMes
 
     # Special handling for setup mode
     if not setup_complete and assistant_mode == "setup":
-        # Always allow these commands in setup mode
-        setup_commands = ["start", "join", "help"]
+        # First check if project ID exists - if it does, setup should be complete regardless
+        project_id = await ProjectManager.get_project_id(context)
+        if project_id:
+            logger.info(f"Found project ID {project_id}, but setup_complete is False. This is inconsistent.")
+            # We have a project ID but setup_complete is False - this is inconsistent
+            # Force setup to be considered complete since we have a project
+            setup_complete = True
+            metadata["setup_complete"] = True
+            # Try to get role - default to team if we can't determine
+            role = await ConversationProjectManager.get_conversation_role(context)
+            if role:
+                metadata["project_role"] = role.value
+                metadata["assistant_mode"] = role.value
+                logger.info(f"Fixed role based on storage: {role.value}")
+            else:
+                # Default to team mode if we can't determine
+                metadata["project_role"] = "team"
+                metadata["assistant_mode"] = "team"
+                logger.info("Could not determine role, defaulting to team mode")
 
-        if command_name in setup_commands:
-            # If the command is a setup command, process it
-            if command_name == "help":
-                await handle_help_command(context, message, args)
-                return True
-            elif command_name in command_registry.commands:
-                await command_registry.commands[command_name]["handler"](context, message, args)
-                return True
-        else:
-            # Show setup required message for non-setup commands
-            await context.send_messages(
-                NewConversationMessage(
-                    content=(
-                        "**Setup Required**\n\n"
-                        "You need to set up the assistant before using other commands. Please use one of these commands:\n\n"
-                        "- `/start` - Create a new project as Coordinator\n"
-                        "- `/join <code>` - Join an existing project as a Team member\n"
-                        "- `/help` - Get help with available commands"
-                    ),
-                    message_type=MessageType.notice,
-                )
+            # Update conversation metadata to fix this inconsistency for future commands
+            await context.send_conversation_state_event(
+                AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
             )
-            return True
+            await context.send_conversation_state_event(
+                AssistantStateEvent(state_id="project_role", event="updated", state=None)
+            )
+            await context.send_conversation_state_event(
+                AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
+            )
+
+            # Continue to normal command processing below
+            logger.info(f"Fixed inconsistent state, processing command {command_name} normally")
+        else:
+            # Always allow these commands in setup mode
+            setup_commands = ["start", "join", "help"]
+
+            if command_name in setup_commands:
+                # If the command is a setup command, process it
+                if command_name == "help":
+                    await handle_help_command(context, message, args)
+                    return True
+                elif command_name in command_registry.commands:
+                    await command_registry.commands[command_name]["handler"](context, message, args)
+                    return True
+            else:
+                # Show setup required message for non-setup commands
+                await context.send_messages(
+                    NewConversationMessage(
+                        content=(
+                            "**Setup Required**\n\n"
+                            "You need to set up the assistant before using other commands. Please use one of these commands:\n\n"
+                            "- `/start` - Create a new project as Coordinator\n"
+                            "- `/join <code>` - Join an existing project as a Team member\n"
+                            "- `/help` - Get help with available commands"
+                        ),
+                        message_type=MessageType.notice,
+                    )
+                )
+                return True
 
     # Standard command processing for non-setup mode
     metadata_role = metadata.get("project_role")

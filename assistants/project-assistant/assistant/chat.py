@@ -51,8 +51,8 @@ from semantic_workbench_assistant.assistant_app import (
 
 from .config import AssistantConfigModel
 from .project import ProjectManager
-from .project_storage import ConversationProjectManager, ProjectStorage, ProjectNotifier
 from .project_files import ProjectFileManager
+from .project_storage import ConversationProjectManager, ProjectNotifier, ProjectStorage
 from .state_inspector import ProjectInspectorStateProvider
 
 logger = logging.getLogger(__name__)
@@ -311,7 +311,9 @@ Use a practical, operational tone focused on project execution and problem-solvi
         # Add role-specific metadata to pass to the LLM
         role_metadata = {
             "project_role": role,
-            "role_description": "Coordinator Mode (Planning Stage)" if role == "coordinator" else "Team Mode (Working Stage)",
+            "role_description": "Coordinator Mode (Planning Stage)"
+            if role == "coordinator"
+            else "Team Mode (Working Stage)",
             "debug": {"content_safety": event.data.get(content_safety.metadata_key, {})},
         }
 
@@ -375,73 +377,107 @@ async def on_file_created(
 ) -> None:
     """
     Handle when a file is created in the conversation.
-    
+
     For Coordinator files:
     1. Store a copy in project storage
     2. Synchronize to all Team conversations
-    
+
     For Team files:
     1. Use as-is without copying to project storage
     """
     try:
+        # Log file creation event details
+        logger.info(f"File created event: filename={file.filename}, size={file.file_size}, type={file.content_type}")
+        logger.info(f"Full file object: {file}")
+
         # Get project ID
         project_id = await ProjectManager.get_project_id(context)
         if not project_id or not file.filename:
+            logger.warning(
+                f"No project ID found or missing filename: project_id={project_id}, filename={file.filename}"
+            )
             return
 
         # Get the conversation's role
         role = await ConversationProjectManager.get_conversation_role(context)
-        
+
         # If role couldn't be determined, skip processing
         if not role:
             logger.warning(f"Could not determine conversation role for file handling: {file.filename}")
             return
-            
+
+        logger.info(f"Processing file {file.filename} with role: {role.value}, project: {project_id}")
+
         # Use ProjectFileManager for file operations
-        
+
         # Process based on role
         if role.value == "coordinator":
             # For Coordinator files:
             # 1. Store in project storage (marked as coordinator file)
             logger.info(f"Copying Coordinator file to project storage: {file.filename}")
+
+            # Check project files directory
+            from .project_files import ProjectFileManager
+
+            files_dir = ProjectFileManager.get_project_files_dir(project_id)
+            logger.info(f"Project files directory: {files_dir} (exists: {files_dir.exists()})")
+
+            # Copy file to project storage
             success = await ProjectFileManager.copy_file_to_project_storage(
-                context=context,
-                project_id=project_id,
-                file=file,
-                is_coordinator_file=True
+                context=context, project_id=project_id, file=file, is_coordinator_file=True
             )
-            
+
             if not success:
                 logger.error(f"Failed to copy file to project storage: {file.filename}")
                 return
-                
+
+            # Verify file was stored correctly
+            file_path = ProjectFileManager.get_file_path(project_id, file.filename)
+            if file_path.exists():
+                logger.info(f"File successfully stored at: {file_path} (size: {file_path.stat().st_size} bytes)")
+            else:
+                logger.error(f"File not found at expected location: {file_path}")
+
+            # Check file metadata was updated
+            metadata = ProjectFileManager.read_file_metadata(project_id)
+            if metadata and any(f.filename == file.filename for f in metadata.files):
+                logger.info(f"File metadata updated successfully for {file.filename}")
+            else:
+                logger.error(f"File metadata not updated for {file.filename}")
+
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
             team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
-            
-            # Copy to each Team conversation
-            for team_conv_id in team_conversations:
-                logger.info(f"Copying file to Team conversation {team_conv_id}: {file.filename}")
-                await ProjectFileManager.copy_file_to_conversation(
-                    context=context,
-                    project_id=project_id,
-                    filename=file.filename,
-                    target_conversation_id=team_conv_id
-                )
-                
+
+            if team_conversations:
+                logger.info(f"Found {len(team_conversations)} team conversations to update")
+
+                # Copy to each Team conversation
+                for team_conv_id in team_conversations:
+                    logger.info(f"Copying file to Team conversation {team_conv_id}: {file.filename}")
+                    copy_success = await ProjectFileManager.copy_file_to_conversation(
+                        context=context,
+                        project_id=project_id,
+                        filename=file.filename,
+                        target_conversation_id=team_conv_id,
+                    )
+                    logger.info(f"Copy to Team conversation {team_conv_id}: {'Success' if copy_success else 'Failed'}")
+            else:
+                logger.info("No team conversations found to update files")
+
             # 3. Notify Team conversations about the new file
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_created",
                 message=f"Coordinator shared a file: {file.filename}",
-                data={"filename": file.filename}
+                data={"filename": file.filename},
             )
         else:
             # For Team files, no special handling needed
             # They're already available in the conversation
             logger.info(f"Team file created (not shared to project storage): {file.filename}")
-            
+
         # Log file creation to project log for all files
         await ProjectStorage.log_project_event(
             context=context,
@@ -451,8 +487,8 @@ async def on_file_created(
             metadata={
                 "file_id": getattr(file, "id", ""),
                 "filename": file.filename,
-                "is_coordinator_file": role.value == "coordinator"
-            }
+                "is_coordinator_file": role.value == "coordinator",
+            },
         )
 
     except Exception as e:
@@ -467,11 +503,11 @@ async def on_file_updated(
 ) -> None:
     """
     Handle when a file is updated in the conversation.
-    
+
     For Coordinator files:
     1. Update the copy in project storage
     2. Update copies in all Team conversations
-    
+
     For Team files:
     1. Use as-is without updating in project storage
     """
@@ -483,57 +519,51 @@ async def on_file_updated(
 
         # Get the conversation's role
         role = await ConversationProjectManager.get_conversation_role(context)
-        
+
         # If role couldn't be determined, skip processing
         if not role:
             logger.warning(f"Could not determine conversation role for file update: {file.filename}")
             return
-            
+
         # Use ProjectFileManager for file operations
-        
+
         # Process based on role
         if role.value == "coordinator":
             # For Coordinator files:
             # 1. Update in project storage
             logger.info(f"Updating Coordinator file in project storage: {file.filename}")
             success = await ProjectFileManager.copy_file_to_project_storage(
-                context=context,
-                project_id=project_id,
-                file=file,
-                is_coordinator_file=True
+                context=context, project_id=project_id, file=file, is_coordinator_file=True
             )
-            
+
             if not success:
                 logger.error(f"Failed to update file in project storage: {file.filename}")
                 return
-                
+
             # 2. Update in all Team conversations
             # Get all Team conversations
             team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
-            
+
             # Update in each Team conversation
             for team_conv_id in team_conversations:
                 logger.info(f"Updating file in Team conversation {team_conv_id}: {file.filename}")
                 await ProjectFileManager.copy_file_to_conversation(
-                    context=context,
-                    project_id=project_id,
-                    filename=file.filename,
-                    target_conversation_id=team_conv_id
+                    context=context, project_id=project_id, filename=file.filename, target_conversation_id=team_conv_id
                 )
-                
+
             # 3. Notify Team conversations about the updated file
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_updated",
                 message=f"Coordinator updated a file: {file.filename}",
-                data={"filename": file.filename}
+                data={"filename": file.filename},
             )
         else:
             # For Team files, no special handling needed
             # They're already available in the conversation
             logger.info(f"Team file updated (not shared to project storage): {file.filename}")
-            
+
         # Log file update to project log for all files
         await ProjectStorage.log_project_event(
             context=context,
@@ -543,8 +573,8 @@ async def on_file_updated(
             metadata={
                 "file_id": getattr(file, "id", ""),
                 "filename": file.filename,
-                "is_coordinator_file": role.value == "coordinator"
-            }
+                "is_coordinator_file": role.value == "coordinator",
+            },
         )
 
     except Exception as e:
@@ -559,11 +589,11 @@ async def on_file_deleted(
 ) -> None:
     """
     Handle when a file is deleted from the conversation.
-    
+
     For Coordinator files:
     1. Delete from project storage
     2. Notify Team conversations to delete their copies
-    
+
     For Team files:
     1. Just delete locally, no need to notify others
     """
@@ -575,41 +605,39 @@ async def on_file_deleted(
 
         # Get the conversation's role
         role = await ConversationProjectManager.get_conversation_role(context)
-        
+
         # If role couldn't be determined, skip processing
         if not role:
             logger.warning(f"Could not determine conversation role for file deletion: {file.filename}")
             return
-            
+
         # Use ProjectFileManager for file operations
-        
+
         # Process based on role
         if role.value == "coordinator":
             # For Coordinator files:
             # 1. Delete from project storage
             logger.info(f"Deleting Coordinator file from project storage: {file.filename}")
             success = await ProjectFileManager.delete_file_from_project_storage(
-                context=context,
-                project_id=project_id,
-                filename=file.filename
+                context=context, project_id=project_id, filename=file.filename
             )
-            
+
             if not success:
                 logger.error(f"Failed to delete file from project storage: {file.filename}")
-                
+
             # 2. Notify Team conversations to delete their copies
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_deleted",
                 message=f"Coordinator deleted a file: {file.filename}",
-                data={"filename": file.filename}
+                data={"filename": file.filename},
             )
         else:
             # For Team files, no special handling needed
             # Just delete locally
             logger.info(f"Team file deleted (not shared with project): {file.filename}")
-            
+
         # Log file deletion to project log for all files
         await ProjectStorage.log_project_event(
             context=context,
@@ -619,8 +647,8 @@ async def on_file_deleted(
             metadata={
                 "file_id": getattr(file, "id", ""),
                 "filename": file.filename,
-                "is_coordinator_file": role.value == "coordinator"
-            }
+                "is_coordinator_file": role.value == "coordinator",
+            },
         )
 
     except Exception as e:
@@ -1014,8 +1042,8 @@ async def respond_to_conversation(
                 logger.info(f"Available tools for {role}: {available_tool_names}")
 
                 # Import required modules at the beginning to avoid scope issues
-                from .project_manager import ProjectManager
                 from .project_data import RequestStatus
+                from .project_manager import ProjectManager
                 from .project_storage import ProjectStorage
 
                 # Get the project ID and data for both role types
@@ -1048,7 +1076,7 @@ async def respond_to_conversation(
                                 completed = sum(1 for c in goal.success_criteria if c.completed)
                                 total = len(goal.success_criteria)
 
-                                project_brief_text += f"{i+1}. **{goal.name}** - {goal.description}\n"
+                                project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
                                 if goal.success_criteria:
                                     project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
                                     for j, criterion in enumerate(goal.success_criteria):
@@ -1076,22 +1104,18 @@ async def respond_to_conversation(
                         kb_text = ""
                         if kb and kb.content:
                             kb_text = "\n### PROJECT WHITEBOARD\n"
-                            
+
                             # Truncate content if too long
                             content = kb.content
                             max_length = 1500  # Arbitrary limit for context
                             if len(content) > max_length:
                                 content = content[:max_length] + "... (content truncated for brevity)"
                             kb_text += f"{content}\n\n"
-                            
-                            kb_text += "*Use get_project_info(info_type=\"kb\") to see the full whiteboard content.*\n"
+
+                            kb_text += '*Use get_project_info(info_type="kb") to see the full whiteboard content.*\n'
 
                         # Store the formatted data
-                        project_data = {
-                            "briefing": project_brief_text,
-                            "status": project_dashboard_text,
-                            "kb": kb_text
-                        }
+                        project_data = {"briefing": project_brief_text, "status": project_dashboard_text, "kb": kb_text}
 
                 except Exception as e:
                     logger.warning(f"Failed to fetch project data for prompt: {e}")
@@ -1105,32 +1129,31 @@ async def respond_to_conversation(
 
                         if active_requests:
                             information_requests_text = "\n\n### ACTIVE INFORMATION REQUESTS\n"
-                            information_requests_text += "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
+                            information_requests_text += (
+                                "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
+                            )
 
                             for req in active_requests[:10]:  # Limit to 10 for brevity
-                                priority_marker = {
-                                    "low": "🔹",
-                                    "medium": "🔶",
-                                    "high": "🔴",
-                                    "critical": "⚠️"
-                                }.get(req.priority.value, "🔹")
+                                priority_marker = {"low": "🔹", "medium": "🔶", "high": "🔴", "critical": "⚠️"}.get(
+                                    req.priority.value, "🔹"
+                                )
 
                                 information_requests_text += f"{priority_marker} **{req.title}** ({req.status.value})\n"
                                 information_requests_text += f"   **Request ID:** `{req.request_id}`\n"
                                 information_requests_text += f"   **Description:** {req.description}\n\n"
 
                             if len(active_requests) > 10:
-                                information_requests_text += f"*...and {len(active_requests) - 10} more requests. Use get_project_info(info_type=\"requests\") to see all.*\n"
+                                information_requests_text += f'*...and {len(active_requests) - 10} more requests. Use get_project_info(info_type="requests") to see all.*\n'
 
                     # Combine all project data for Coordinator
                     project_data_text = ""
                     if project_data:
                         project_data_text = f"""
 \n\n## CURRENT PROJECT INFORMATION
-{project_data.get('briefing', '')}
-{project_data.get('status', '')}
+{project_data.get("briefing", "")}
+{project_data.get("status", "")}
 {information_requests_text}
-{project_data.get('kb', '')}
+{project_data.get("kb", "")}
 """
 
                     role_enforcement = f"""
@@ -1147,7 +1170,8 @@ As a Coordinator, you can use these tools: {available_tools_str}
                     if project_id and all_requests:
                         # Filter for requests from this conversation that aren't resolved
                         my_requests = [
-                            r for r in all_requests
+                            r
+                            for r in all_requests
                             if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
                         ]
 
@@ -1164,7 +1188,8 @@ As a Coordinator, you can use these tools: {available_tools_str}
                     if project_id and all_requests:
                         # Show all active requests including those from other team members
                         other_active_requests = [
-                            r for r in all_requests
+                            r
+                            for r in all_requests
                             if r.conversation_id != str(context.id) and r.status != RequestStatus.RESOLVED
                         ]
 
@@ -1177,25 +1202,27 @@ As a Coordinator, you can use these tools: {available_tools_str}
                                     "new": "🆕",
                                     "acknowledged": "👁️",
                                     "in_progress": "⏳",
-                                    "deferred": "⏱️"
+                                    "deferred": "⏱️",
                                 }.get(req.status.value, "📋")
 
-                                all_information_requests_text += f"{status_marker} **{req.title}** (Status: {req.status.value})\n"
+                                all_information_requests_text += (
+                                    f"{status_marker} **{req.title}** (Status: {req.status.value})\n"
+                                )
                                 all_information_requests_text += f"   **Description:** {req.description}\n\n"
 
                             if len(other_active_requests) > 5:
-                                all_information_requests_text += f"*...and {len(other_active_requests) - 5} more requests. Use get_project_info(info_type=\"requests\") to see all.*\n"
+                                all_information_requests_text += f'*...and {len(other_active_requests) - 5} more requests. Use get_project_info(info_type="requests") to see all.*\n'
 
                     # Combine all project data for team
                     project_data_text = ""
                     if project_data:
                         project_data_text = f"""
 \n\n## CURRENT PROJECT INFORMATION
-{project_data.get('briefing', '')}
-{project_data.get('status', '')}
+{project_data.get("briefing", "")}
+{project_data.get("status", "")}
 {information_requests_info}
 {all_information_requests_text}
-{project_data.get('kb', '')}
+{project_data.get("kb", "")}
 """
 
                     role_enforcement = f"""
@@ -1354,7 +1381,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
     # Manually capture assistant's message for Coordinator conversation storage
     # This ensures that both user and assistant messages are stored
     from .project_storage import ConversationProjectManager
-    
+
     # Get the authoritative role directly from storage, not from metadata
     stored_role = await ConversationProjectManager.get_conversation_role(context)
     role = stored_role.value if stored_role else None
@@ -1380,18 +1407,18 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                         timestamp=msg.timestamp,
                     )
                     logger.info(f"Stored Coordinator assistant message for Team access: {msg.id}")
-                    
+
                     # Automatically update the whiteboard after assistant messages
                     try:
                         # Get recent messages for analysis
                         recent_messages = await context.get_messages(limit=10)  # Adjust limit as needed
-                        
+
                         # Call the whiteboard update method
                         whiteboard_success, whiteboard = await ProjectManager.auto_update_whiteboard(
                             context=context,
                             chat_history=recent_messages.messages,
                         )
-                        
+
                         if whiteboard_success:
                             logger.info(f"Auto-updated whiteboard for project {project_id}")
                         else:

@@ -4,18 +4,19 @@ Team mode handler for the project assistant.
 This module provides conversation handling for Team members in project assistant.
 """
 
-import logging
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .logging import logger
+from .project_common import log_project_action
 from .project_data import (
     InformationRequest,
     LogEntryType,
-    ProjectState,
     ProjectDashboard,
+    ProjectState,
     RequestPriority,
     RequestStatus,
 )
@@ -25,9 +26,8 @@ from .project_storage import (
     ProjectRole,
     ProjectStorage,
 )
-from .project_common import log_project_action
 
-logger = logging.getLogger(__name__)
+# logger is now imported from .logging
 
 
 class TeamConversationHandler:
@@ -39,57 +39,89 @@ class TeamConversationHandler:
     def __init__(self, context: ConversationContext):
         """Initialize the Team conversation handler."""
         self.context = context
-        
-    async def handle_project_update(self, update_type: str, message: str, data: Optional[Dict[str, Any]] = None) -> bool:
+
+    async def handle_project_update(
+        self, update_type: str, message: str, data: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """
         Handles project update notifications in Team conversations.
-        
+
         Args:
             update_type: Type of update (e.g., 'file_created', 'file_updated', 'file_deleted')
             message: Notification message
             data: Additional data about the update
-            
+
         Returns:
             True if handled successfully, False otherwise
         """
+        # Log update details
+        logger.info(f"Team received project update: type={update_type}, message='{message}', data={data}")
+
         # Get project ID
         project_id = await ConversationProjectManager.get_conversation_project(self.context)
         if not project_id:
+            logger.warning("No project ID found for this conversation, cannot process update")
             return False
-            
+
         # First verify this is a Team conversation
         role = await ConversationProjectManager.get_conversation_role(self.context)
         if role != ProjectRole.TEAM:
+            logger.warning(f"Not a Team conversation (role={role}), skipping update handling")
             return False  # Not a Team conversation, skip handling
-            
+
+        logger.info(
+            f"Handling project update for team conversation: project={project_id}, conversation={self.context.id}"
+        )
+
         # Handle file-related updates
         if update_type in ["file_created", "file_updated", "file_deleted"]:
             # Import the file manager
             from .project_files import ProjectFileManager
-            
+
             # Extract filename from the message if not in data
             filename = None
             if data and "filename" in data:
                 filename = data["filename"]
+                logger.info(f"Got filename from data: {filename}")
             else:
                 # Try to extract from message
                 import re
+
                 match = re.search(r"file: (.+?)$", message)
                 if match:
                     filename = match.group(1)
-                    
+                    logger.info(f"Extracted filename from message: {filename}")
+
             if not filename:
                 logger.warning(f"Could not extract filename from update: {update_type}, {message}")
                 return False
-                
+
+            # Check if the file exists in project storage
+            file_path = ProjectFileManager.get_file_path(project_id, filename)
+            if file_path.exists():
+                logger.info(f"File exists in project storage: {file_path} (size: {file_path.stat().st_size} bytes)")
+            else:
+                logger.warning(f"File not found in project storage: {file_path}")
+
+            # Check file metadata
+            metadata = ProjectFileManager.read_file_metadata(project_id)
+            if metadata and any(f.filename == filename for f in metadata.files):
+                logger.info(f"File metadata found for {filename}")
+            else:
+                logger.warning(f"No file metadata found for {filename}")
+
+            logger.info(f"Processing {update_type} notification for file: {filename}")
+
             # Process the file update
-            return await ProjectFileManager.process_file_update_notification(
-                context=self.context,
-                project_id=project_id,
-                update_type=update_type,
-                filename=filename
+            success = await ProjectFileManager.process_file_update_notification(
+                context=self.context, project_id=project_id, update_type=update_type, filename=filename
             )
-            
+
+            logger.info(f"File update notification processed: {update_type}, {filename}, success={success}")
+
+            return success
+
+        logger.info(f"Update type {update_type} not handled by Team conversation")
         return False  # Not a handled update type
 
     async def create_information_request(

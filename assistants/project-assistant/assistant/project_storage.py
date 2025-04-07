@@ -10,23 +10,22 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
-from pydantic import BaseModel, Field
-
-from .utils import get_current_user
 
 from .project_data import (
     InformationRequest,
     LogEntry,
     LogEntryType,
     ProjectBrief,
+    ProjectDashboard,
     ProjectKB,
     ProjectLog,
-    ProjectDashboard,
 )
+from .utils import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +377,7 @@ class ProjectStorage:
             project_id: The project ID
         """
         from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+
         from .project import ConversationClientManager
 
         try:
@@ -385,16 +385,19 @@ class ProjectStorage:
             await ProjectStorage.refresh_current_ui(context)
 
             # Get Coordinator client and update Coordinator if not the current conversation
-            coordinator_client, coordinator_conversation_id = await ConversationClientManager.get_coordinator_client_for_project(
-                context, project_id
-            )
+            (
+                coordinator_client,
+                coordinator_conversation_id,
+            ) = await ConversationClientManager.get_coordinator_client_for_project(context, project_id)
             if coordinator_client and coordinator_conversation_id:
                 try:
                     state_event = AssistantStateEvent(state_id="project_status", event="updated", state=None)
                     # Get assistant ID from context
                     assistant_id = context.assistant.id
                     await coordinator_client.send_conversation_state_event(assistant_id, state_event)
-                    logger.info(f"Sent state event to Coordinator conversation {coordinator_conversation_id} to refresh inspector")
+                    logger.info(
+                        f"Sent state event to Coordinator conversation {coordinator_conversation_id} to refresh inspector"
+                    )
                 except Exception as e:
                     logger.warning(f"Error sending state event to Coordinator: {e}")
 
@@ -403,7 +406,9 @@ class ProjectStorage:
             current_id = str(context.id)
 
             for conv_id in linked_conversations:
-                if conv_id != current_id and (not coordinator_conversation_id or conv_id != coordinator_conversation_id):
+                if conv_id != current_id and (
+                    not coordinator_conversation_id or conv_id != coordinator_conversation_id
+                ):
                     try:
                         # Get client for the conversation
                         client = ConversationClientManager.get_conversation_client(context, conv_id)
@@ -502,6 +507,7 @@ class ProjectNotifier:
             message: Notification message to send
         """
         from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
+
         from .project import ConversationClientManager
 
         # Get conversation IDs in the same project
@@ -527,8 +533,11 @@ class ProjectNotifier:
 
     @staticmethod
     async def notify_project_update(
-        context: ConversationContext, project_id: str, update_type: str, message: str, 
-        data: Optional[Dict[str, Any]] = None
+        context: ConversationContext,
+        project_id: str,
+        update_type: str,
+        message: str,
+        data: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Complete project update: sends notices to all conversations and refreshes all UI inspector panels.

@@ -6,7 +6,7 @@ helping to reduce code duplication and maintain consistency.
 """
 
 import logging
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
@@ -59,16 +59,16 @@ async def handle_project_update(
 ) -> bool:
     """
     Process a project update notification based on the current role.
-    
+
     This utility function determines the current role and routes the update
     to the appropriate handler (Coordinator or Team).
-    
+
     Args:
         context: The conversation context
         update_type: Type of update (e.g., 'file_created', 'file_updated', etc.)
         message: Human-readable notification message
         data: Optional additional data about the update
-        
+
     Returns:
         True if the update was handled, False otherwise
     """
@@ -76,22 +76,22 @@ async def handle_project_update(
     role = await ConversationProjectManager.get_conversation_role(context)
     if not role:
         return False
-        
+
     # Handle based on role
     if role == ProjectRole.COORDINATOR:
         # Import coordinator handler
         from .coordinator_mode import CoordinatorConversationHandler
-        
+
         # Create handler and process update
         handler = CoordinatorConversationHandler(context)
         return await handler.handle_project_update(update_type, message, data)
-        
+
     elif role == ProjectRole.TEAM:
         # Import team handler
         from .team_mode import TeamConversationHandler
-        
+
         # Create handler and process update
         handler = TeamConversationHandler(context)
         return await handler.handle_project_update(update_type, message, data)
-        
+
     return False  # Unknown role

@@ -11,14 +11,15 @@ from typing import Any, Dict, List, Optional, Tuple
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .project_common import log_project_action
 from .project_data import (
     InformationRequest,
     LogEntryType,
     ProjectBrief,
+    ProjectDashboard,
     ProjectGoal,
     ProjectKB,
     ProjectState,
-    ProjectDashboard,
     RequestStatus,
     SuccessCriterion,
 )
@@ -28,7 +29,6 @@ from .project_storage import (
     ProjectRole,
     ProjectStorage,
 )
-from .project_common import log_project_action
 
 logger = logging.getLogger(__name__)
 
@@ -42,16 +42,18 @@ class CoordinatorConversationHandler:
     def __init__(self, context: ConversationContext):
         """Initialize the Coordinator conversation handler."""
         self.context = context
-        
-    async def handle_project_update(self, update_type: str, message: str, data: Optional[Dict[str, Any]] = None) -> bool:
+
+    async def handle_project_update(
+        self, update_type: str, message: str, data: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """
         Handles project update notifications in Coordinator conversations.
-        
+
         Args:
             update_type: Type of update
             message: Notification message
             data: Additional data about the update
-            
+
         Returns:
             True if handled successfully, False otherwise
         """
@@ -59,15 +61,15 @@ class CoordinatorConversationHandler:
         project_id = await ConversationProjectManager.get_conversation_project(self.context)
         if not project_id:
             return False
-            
+
         # First verify this is a Coordinator conversation
         role = await ConversationProjectManager.get_conversation_role(self.context)
         if role != ProjectRole.COORDINATOR:
             return False  # Not a Coordinator conversation, skip handling
-            
+
         # Currently no specific handling needed for Coordinator, but this method
         # provides a hook for future enhancements
-        
+
         return False  # No update types currently handled by Coordinator
 
     async def initialize_project(self, project_name: str, project_description: str) -> Tuple[bool, str]:
@@ -95,9 +97,7 @@ class CoordinatorConversationHandler:
         await ConversationProjectManager.set_conversation_role(self.context, project_id, ProjectRole.COORDINATOR)
 
         # Create initial project brief
-        success, brief = await ProjectManager.create_project_brief(
-            self.context, project_name, project_description
-        )
+        success, brief = await ProjectManager.create_project_brief(self.context, project_name, project_description)
 
         if not success or not brief:
             return False, "Failed to initialize project brief"
@@ -258,7 +258,7 @@ class CoordinatorConversationHandler:
 
         # Use ProjectManager to add KB section which handles whiteboard structure
         from .project_manager import ProjectManager
-        
+
         success, kb = await ProjectManager.add_kb_section(
             context=self.context,
             title=title,
@@ -266,10 +266,10 @@ class CoordinatorConversationHandler:
             order=order,
             tags=tags or [],
         )
-        
+
         if not success or not kb:
             return False, "Failed to add whiteboard section", None
-            
+
         # Log is already done by the ProjectManager
 
         # Send notification
@@ -282,7 +282,9 @@ class CoordinatorConversationHandler:
 
         return True, f"Added whiteboard section: {title}", kb
 
-    async def resolve_information_request(self, request_id: str, resolution: str) -> Tuple[bool, str, Optional[InformationRequest]]:
+    async def resolve_information_request(
+        self, request_id: str, resolution: str
+    ) -> Tuple[bool, str, Optional[InformationRequest]]:
         """
         Resolves an information request.
 

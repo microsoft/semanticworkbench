@@ -12,18 +12,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .utils import get_current_user, require_current_user
-
 from .project_data import (
     InformationRequest,
     LogEntry,
     LogEntryType,
     ProjectBrief,
+    ProjectDashboard,
     ProjectGoal,
     ProjectKB,
     ProjectLog,
     ProjectState,
-    ProjectDashboard,
     RequestPriority,
     RequestStatus,
     SuccessCriterion,
@@ -35,6 +33,7 @@ from .project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
+from .utils import get_current_user, require_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -96,9 +95,7 @@ class ProjectManager:
             return False, ""
 
     @staticmethod
-    async def join_project(
-        context: ConversationContext, project_id: str, role: ProjectRole = ProjectRole.TEAM
-    ) -> bool:
+    async def join_project(context: ConversationContext, project_id: str, role: ProjectRole = ProjectRole.TEAM) -> bool:
         """
         Joins an existing project.
 
@@ -780,11 +777,14 @@ class ProjectManager:
             # Send direct notification to requestor's conversation
             if information_request.conversation_id != str(context.id):
                 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
+
                 from .project import ConversationClientManager
 
                 try:
                     # Get client for requestor's conversation
-                    client = ConversationClientManager.get_conversation_client(context, information_request.conversation_id)
+                    client = ConversationClientManager.get_conversation_client(
+                        context, information_request.conversation_id
+                    )
 
                     # Send notification message
                     await client.send_messages(
@@ -931,7 +931,11 @@ class ProjectManager:
         Returns:
             Tuple of (success, project_kb)
         """
-        logger.error("DEBUG: update_whiteboard called with content length: %d, auto_generated: %s", len(content), is_auto_generated)
+        logger.error(
+            "DEBUG: update_whiteboard called with content length: %d, auto_generated: %s",
+            len(content),
+            is_auto_generated,
+        )
         try:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
@@ -1045,7 +1049,7 @@ class ProjectManager:
 
             # Format the new content with the title
             formatted_content = f"## {title}\n\n{content}"
-            
+
             # Append to existing content or create new
             if whiteboard.content:
                 whiteboard.content = f"{whiteboard.content}\n\n{formatted_content}"
@@ -1172,12 +1176,12 @@ class ProjectManager:
     ) -> Tuple[bool, Optional[ProjectKB]]:
         """
         Automatically updates the whiteboard by analyzing chat history.
-        
+
         This method:
         1. Retrieves recent conversation messages
         2. Sends them to the LLM with a prompt to extract important info
         3. Updates the whiteboard with the extracted content
-        
+
         Args:
             context: Current conversation context
             chat_history: Recent chat messages to analyze
@@ -1193,30 +1197,33 @@ class ProjectManager:
             if not project_id:
                 logger.error("Cannot auto-update whiteboard: no project associated with this conversation")
                 return False, None
-                
+
             # Get user information for storage purposes
             current_user_id = await require_current_user(context, "auto-update whiteboard")
             if not current_user_id:
                 return False, None
-                
+
             # Skip if no messages to analyze
             if not chat_history:
                 logger.info("No chat history to analyze for whiteboard update")
                 return False, None
-            
+
             # Import necessary model types
             from semantic_workbench_api_model.workbench_model import ParticipantRole
-                
+
             # Format the chat history for the prompt
             chat_history_text = ""
             for msg in chat_history:
-                sender_type = "User" if msg.sender and msg.sender.participant_role == ParticipantRole.user else "Assistant"
+                sender_type = (
+                    "User" if msg.sender and msg.sender.participant_role == ParticipantRole.user else "Assistant"
+                )
                 chat_history_text += f"{sender_type}: {msg.content}\n\n"
-                
+
             # Get config for the LLM call
             from .chat import assistant_config
+
             config = await assistant_config.get(context.assistant)
-            
+
             # Construct the whiteboard prompt
             whiteboard_prompt = f"""
             Please provide updated <WHITEBOARD/> content based upon information extracted from the <CHAT_HISTORY/>. Do not provide any information that is not already in
@@ -1245,10 +1252,10 @@ class ProjectManager:
             {chat_history_text}
             </CHAT_HISTORY>
             """
-            
+
             # Import necessary modules for the LLM call
             import openai_client
-            
+
             # Create a completion with the whiteboard prompt
             async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
                 completion = await client.chat.completions.create(
@@ -1256,14 +1263,15 @@ class ProjectManager:
                     messages=[{"role": "user", "content": whiteboard_prompt}],
                     max_tokens=2500,  # Limiting to 2500 tokens to keep whiteboard content manageable
                 )
-                
+
                 # Extract the content from the completion
                 content = completion.choices[0].message.content or ""
-                
+
                 # Extract just the whiteboard content
                 import re
+
                 whiteboard_content = ""
-                
+
                 # Look for content between <WHITEBOARD> tags
                 match = re.search(r"<WHITEBOARD>(.*?)</WHITEBOARD>", content, re.DOTALL)
                 if match:
@@ -1271,23 +1279,23 @@ class ProjectManager:
                 else:
                     # If no tags, use the whole content
                     whiteboard_content = content.strip()
-                    
+
             # Only update if we have content
             if not whiteboard_content:
                 logger.info("No content extracted from whiteboard LLM analysis")
                 return False, None
-                
+
             # Update the whiteboard with the extracted content
             return await ProjectManager.update_whiteboard(
                 context=context,
                 content=whiteboard_content,
                 is_auto_generated=True,
             )
-            
+
         except Exception as e:
             logger.exception(f"Error auto-updating whiteboard: {e}")
             return False, None
-            
+
     @staticmethod
     async def complete_project(
         context: ConversationContext,

@@ -151,21 +151,27 @@ make lint
 
 #### Type Checking
 To check for type issues, use the following command:
+
 ```bash
 make type-check
 ```
 
+Don't try to "get around" type-check problems. Solve them with proper type handling.
+
 Note: Type checking might report errors related to imports from external dependencies. These are expected in development but should be resolved before deployment.
 
 #### Testing
+
 Run tests to verify functionality:
+
 ```bash
 make test
 ```
 
 For a specific test file:
+
 ```bash
-python -m pytest tests/test_file.py -v
+uv run python -m pytest tests/test_file.py -v
 ```
 
 ### Common Type Issues
