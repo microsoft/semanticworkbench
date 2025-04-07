@@ -419,9 +419,24 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
     setup_complete = metadata.get("setup_complete", False)
     assistant_mode = metadata.get("assistant_mode", "setup")
     metadata_role = metadata.get("project_role")
+    
+    # First check if project ID exists - if it does, setup should be considered complete
+    project_id = await ProjectManager.get_project_id(context)
+    if project_id:
+        # If we have a project ID, we should never show the setup instructions
+        setup_complete = True
+        
+        # If metadata doesn't reflect this, try to get actual role
+        if not metadata.get("setup_complete", False):
+            role = await ConversationProjectManager.get_conversation_role(context)
+            if role:
+                metadata_role = role.value
+            else:
+                # Default to team mode if we can't determine role
+                metadata_role = "team"
 
-    # Special handling for setup mode
-    if not setup_complete and assistant_mode == "setup":
+    # Special handling for setup mode - only if we truly have no project
+    if not setup_complete and assistant_mode == "setup" and not project_id:
         # If a specific command is specified, show detailed help for that command
         if args:
             command_name = args[0]
@@ -1938,6 +1953,7 @@ async def process_command(context: ConversationContext, message: ConversationMes
             # Continue to normal command processing below
             logger.info(f"Fixed inconsistent state, processing command {command_name} normally")
         else:
+            # Only truly in setup mode if we don't have a project ID
             # Always allow these commands in setup mode
             setup_commands = ["start", "join", "help"]
 
