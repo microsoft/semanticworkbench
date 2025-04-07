@@ -142,9 +142,7 @@ class WorkbenchFileClientResourceHandler:
             match params.contents:
                 case BlobResourceContents():
                     content_bytes = base64.b64decode(params.contents.blob)
-                    content_type = (
-                        params.contents.mimeType or "application/octet-stream"
-                    )
+                    content_type = params.contents.mimeType or "application/octet-stream"
 
                 case TextResourceContents():
                     content_bytes = params.contents.text.encode("utf-8")
