@@ -166,21 +166,22 @@ async def on_message_created(
 
         # First check if project ID exists - if it does, setup should always be considered complete
         from .project_manager import ProjectManager
+
         project_id = await ProjectManager.get_project_id(context)
         if project_id:
             # If we have a project ID, we should never show the setup instructions
             setup_complete = True
-            
+
             # If metadata doesn't reflect this, try to get actual role
             from .project_storage import ConversationProjectManager
-            
+
             role = await ConversationProjectManager.get_conversation_role(context)
             if role:
                 metadata["project_role"] = role.value
                 metadata["assistant_mode"] = role.value
                 metadata["setup_complete"] = True
                 logger.info(f"Found project role in storage: {role.value}")
-                
+
                 # Update conversation metadata to fix this inconsistency
                 await context.send_conversation_state_event(
                     AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
@@ -194,7 +195,7 @@ async def on_message_created(
             else:
                 # Default to team if we can't determine
                 metadata["project_role"] = "team"
-                metadata["assistant_mode"] = "team" 
+                metadata["assistant_mode"] = "team"
                 metadata["setup_complete"] = True
                 logger.info("Could not determine role from storage, defaulting to team mode")
         # If no project ID, check storage as a fallback
@@ -306,7 +307,6 @@ IMPORTANT ABOUT FILES: When files are uploaded, they are automatically shared wi
 Your AUTHORIZED Coordinator-specific tools are:
 - create_project_brief: Use this to start a new project with a name and description
 - add_project_goal: Use this to add operational goals that team members will complete, with measurable success criteria
-- add_kb_section: Use this to add information sections to the project whiteboard for team reference (note: this adds to the whiteboard, not a knowledge base)
 - resolve_information_request: Use this to resolve information requests. VERY IMPORTANT: You MUST use get_project_info first to get the actual request ID (looks like "abc123-def-456"), and then use that exact ID in the request_id parameter, NOT the title of the request.
 - mark_project_ready_for_working: Use this when project planning is complete and work can begin
 - get_project_info: Use this to get information about the current project
@@ -1114,7 +1114,6 @@ async def respond_to_conversation(
         "get_project_info",
         "create_project_brief",
         "add_project_goal",
-        "add_kb_section",
         "resolve_information_request",
         "mark_project_ready_for_working",
         "suggest_next_action",

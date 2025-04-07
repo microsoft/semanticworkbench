@@ -6,7 +6,7 @@ __all__ = [
     "AssistantConfigModel",
     "ContextTransferConfigModel",
     "ProjectConfig",
-    "ReceiverConfig", 
+    "ReceiverConfig",
     "RequestConfig",
     "SenderConfig",
 ]

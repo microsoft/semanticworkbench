@@ -2,11 +2,11 @@ from typing import Annotated
 
 import openai_client
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 from semantic_workbench_assistant.config import UISchema
 
 from ..utils import load_text_include
-from .project_config import ProjectConfig, ReceiverConfig, RequestConfig, SenderConfig
+from .project_config import ProjectConfig, RequestConfig
 
 
 # Base Assistant Configuration

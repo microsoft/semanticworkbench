@@ -419,13 +419,13 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
     setup_complete = metadata.get("setup_complete", False)
     assistant_mode = metadata.get("assistant_mode", "setup")
     metadata_role = metadata.get("project_role")
-    
+
     # First check if project ID exists - if it does, setup should be considered complete
     project_id = await ProjectManager.get_project_id(context)
     if project_id:
         # If we have a project ID, we should never show the setup instructions
         setup_complete = True
-        
+
         # If metadata doesn't reflect this, try to get actual role
         if not metadata.get("setup_complete", False):
             role = await ConversationProjectManager.get_conversation_role(context)
@@ -806,95 +806,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
         )
 
 
-async def handle_add_whiteboard_section_command(
-    context: ConversationContext, message: ConversationMessage, args: List[str]
-) -> None:
-    """Handle the add-whiteboard-section command (previously add-kb-section)."""
-    # Parse the command
-    content = message.content.strip()[len("/add-kb-section") :].strip()
-
-    if not content or "|" not in content:
-        await context.send_messages(
-            NewConversationMessage(
-                content="Please provide a section title and content in the format: `/add-kb-section Section Title|Section content here`",
-                message_type=MessageType.notice,
-            )
-        )
-        return
-
-    # Extract section title and content
-    try:
-        title, section_content = content.split("|", 1)
-        title = title.strip()
-        section_content = section_content.strip()
-
-        if not title or not section_content:
-            raise ValueError("Both section title and content are required")
-
-        # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(context)
-        if not project_id:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="You are not associated with a project. Please create one first with `/create-brief`.",
-                    message_type=MessageType.notice,
-                )
-            )
-            return
-
-        # Get user info
-        participants = await context.get_participants()
-        current_user_id = None
-        for participant in participants.participants:
-            if participant.role == "user":
-                current_user_id = participant.id
-                break
-
-        if not current_user_id:
-            current_user_id = "kb-creator"
-
-        # This now uses the whiteboard implementation behind the scenes
-        # Call the ProjectManager.add_kb_section method which is already updated
-        success, kb = await ProjectManager.add_kb_section(
-            context=context,
-            title=title,
-            content=section_content,
-        )
-
-        if not success:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="Failed to add section to the whiteboard. Please try again.",
-                    message_type=MessageType.notice,
-                )
-            )
-            return
-
-        # KB metadata is already updated by the ProjectManager.add_kb_section method
-
-        # Send message to user about successful addition
-        if success and kb:
-            await context.send_messages(
-                NewConversationMessage(
-                    content=f"Whiteboard section '{title}' added successfully. This information is now available to all project participants.",
-                    message_type=MessageType.chat,
-                )
-            )
-        else:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="Failed to add whiteboard section. Please try again.",
-                    message_type=MessageType.notice,
-                )
-            )
-    except Exception as e:
-        logger.exception(f"Error adding KB section: {e}")
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"Error adding knowledge base section: {str(e)}",
-                message_type=MessageType.notice,
-            )
-        )
+# Command completely removed - whiteboard is now auto-updated by coordinator
 
 
 async def handle_request_info_command(
@@ -1809,14 +1721,7 @@ command_registry.register_command(
     ["coordinator"],  # Only Coordinator can add goals
 )
 
-command_registry.register_command(
-    "add-kb-section",  # Keep the command name for backwards compatibility
-    handle_add_whiteboard_section_command,
-    "Add a section to the project whiteboard",
-    "/add-kb-section Section Title|Section content",
-    "/add-kb-section Brand Guidelines|Our brand uses the following color palette: [details]",
-    ["coordinator"],  # Only Coordinator can add whiteboard sections
-)
+# Command completely removed - whiteboard is now auto-updated by coordinator
 
 command_registry.register_command(
     "resolve-request",
