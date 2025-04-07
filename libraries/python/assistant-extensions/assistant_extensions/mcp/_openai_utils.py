@@ -47,9 +47,7 @@ class OpenAISamplingHandler(SamplingHandler):
 
     def __init__(
         self,
-        ai_client_configs: list[
-            Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel]
-        ],
+        ai_client_configs: list[Union[AzureOpenAIClientConfigModel, OpenAIClientConfigModel]],
         assistant_mcp_tools: list[ChatCompletionToolParam] | None = None,
         message_processor: OpenAIMessageProcessor | None = None,
         handler: MCPSamplingMessageHandler | None = None,
@@ -60,27 +58,19 @@ class OpenAISamplingHandler(SamplingHandler):
         # set a default message processor that converts sampling messages to
         # chat completion messages and performs any necessary transformations
         # such as injecting content as replacements for placeholders, etc.
-        self.message_processor: OpenAIMessageProcessor = (
-            message_processor or self._default_message_processor
-        )
+        self.message_processor: OpenAIMessageProcessor = message_processor or self._default_message_processor
 
         # set a default handler so that it can be registered during client
         # session connection, prior to having access to the actual handler
         # allowing the handler to be set after the client session is created
         # and more context is available
-        self._message_handler: MCPSamplingMessageHandler = (
-            handler or self._default_message_handler
-        )
+        self._message_handler: MCPSamplingMessageHandler = handler or self._default_message_handler
 
-    def _default_message_processor(
-        self, messages: List[SamplingMessage]
-    ) -> List[ChatCompletionMessageParam]:
+    def _default_message_processor(self, messages: List[SamplingMessage]) -> List[ChatCompletionMessageParam]:
         """
         Default template processor that passes messages through.
         """
-        return [
-            sampling_message_to_chat_completion_message(message) for message in messages
-        ]
+        return [sampling_message_to_chat_completion_message(message) for message in messages]
 
     async def _default_message_handler(
         self,
@@ -89,9 +79,7 @@ class OpenAISamplingHandler(SamplingHandler):
     ) -> CreateMessageResult | ErrorData:
         logger.info(f"Sampling handler invoked with context: {context}")
 
-        ai_client_config = self._ai_client_config_from_model_preferences(
-            params.modelPreferences
-        )
+        ai_client_config = self._ai_client_config_from_model_preferences(params.modelPreferences)
 
         if not ai_client_config:
             raise ValueError("No AI client configs defined for sampling requests.")
@@ -183,10 +171,7 @@ class OpenAISamplingHandler(SamplingHandler):
         use_reasoning_model = intelligence_priority > speed_priority
 
         for ai_client_config in self.ai_client_configs:
-            if (
-                ai_client_config.request_config.is_reasoning_model
-                == use_reasoning_model
-            ):
+            if ai_client_config.request_config.is_reasoning_model == use_reasoning_model:
                 return ai_client_config
 
         # failing to find a config via preferences, return first config
@@ -264,9 +249,7 @@ def sampling_message_to_chat_completion_user_message(
         raise ValueError(f"Unsupported role: {sampling_message.role}")
 
     if isinstance(sampling_message.content, TextContent):
-        return ChatCompletionUserMessageParam(
-            role="user", content=sampling_message.content.text
-        )
+        return ChatCompletionUserMessageParam(role="user", content=sampling_message.content.text)
     elif isinstance(sampling_message.content, ImageContent):
         return ChatCompletionUserMessageParam(
             role="user",
@@ -294,9 +277,7 @@ def sampling_message_to_chat_completion_assistant_message(
         raise ValueError(f"Unsupported role: {sampling_message.role}")
 
     if not isinstance(sampling_message.content, TextContent):
-        raise ValueError(
-            f"Unsupported content type: {type(sampling_message.content)} for assistant"
-        )
+        raise ValueError(f"Unsupported content type: {type(sampling_message.content)} for assistant")
 
     return ChatCompletionAssistantMessageParam(
         role="assistant",
@@ -315,8 +296,6 @@ def sampling_message_to_chat_completion_message(
         case "user":
             return sampling_message_to_chat_completion_user_message(sampling_message)
         case "assistant":
-            return sampling_message_to_chat_completion_assistant_message(
-                sampling_message
-            )
+            return sampling_message_to_chat_completion_assistant_message(sampling_message)
         case _:
             raise ValueError(f"Unsupported role: {sampling_message.role}")

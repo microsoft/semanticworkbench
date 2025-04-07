@@ -40,9 +40,7 @@ class DocumentEditorExtension:
         drive = Drive(DriveConfig(root=root))
         return drive
 
-    def client_resource_handler_for(
-        self, ctx: ConversationContext
-    ) -> AssistantFileResourceHandler:
+    def client_resource_handler_for(self, ctx: ConversationContext) -> AssistantFileResourceHandler:
         return AssistantFileResourceHandler(
             context=ctx,
             drive=self._drive_for(ctx),
@@ -50,9 +48,7 @@ class DocumentEditorExtension:
         )
 
     @asynccontextmanager
-    async def lock_document_edits(
-        self, ctx: ConversationContext
-    ) -> AsyncGenerator[None, None]:
+    async def lock_document_edits(self, ctx: ConversationContext) -> AsyncGenerator[None, None]:
         """
         Lock the document for editing and return a context manager that will unlock the document when exited.
         """
