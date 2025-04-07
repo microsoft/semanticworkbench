@@ -8,6 +8,12 @@ import { getEnvironment } from '../../libs/useEnvironment';
 import { getMsalInstance } from '../../main';
 import { RootState } from '../../redux/app/store';
 
+const onAuthFailure = () => {
+    // If authentication fails, we need to reload the current page, after
+    // which the user will be redirected to the login page.
+    window.location.reload();
+};
+
 const dynamicBaseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> = async (
     args,
     workbenchApi,
@@ -20,6 +26,7 @@ const dynamicBaseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryE
         const msalInstance = await getMsalInstance();
         const account = msalInstance.getActiveAccount();
         if (!account) {
+            onAuthFailure();
             throw new Error('No active account');
         }
 
@@ -32,9 +39,11 @@ const dynamicBaseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryE
                 if (error instanceof InteractionRequiredAuthError) {
                     return await AuthHelper.loginAsync(msalInstance);
                 }
+                onAuthFailure();
                 throw error;
             });
         if (!response) {
+            onAuthFailure();
             throw new Error('Could not acquire token');
         }
 
