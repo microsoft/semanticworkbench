@@ -206,6 +206,14 @@ Type `/help` for more information on available commands."""
             description="Automatically synchronize files between linked conversations.",
         ),
     ] = True
+    
+    track_progress: Annotated[
+        bool,
+        Field(
+            title="Track Progress",
+            description="Track project progress with goals, criteria completion, and overall project state.",
+        ),
+    ] = True
 
     invitation_message: Annotated[
         str,

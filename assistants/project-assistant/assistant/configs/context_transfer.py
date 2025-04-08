@@ -113,6 +113,15 @@ class ContextTransferConfigModel(AssistantConfigModel):
         ),
     ] = True
     
+    # Disable progress tracking for context transfer mode
+    track_progress: Annotated[
+        bool,
+        Field(
+            title="Track Progress",
+            description="Track project progress with goals, criteria completion, and overall project state.",
+        ),
+    ] = False
+    
     invitation_message: Annotated[
         str,
         Field(

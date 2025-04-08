@@ -49,6 +49,11 @@ class ProjectInspectorStateProvider:
         setup_complete = metadata.get("setup_complete", False)
         assistant_mode = metadata.get("assistant_mode", "setup")
 
+        track_progress = True
+        if self.config_provider:
+            config = await self.config_provider.get(context.assistant)
+            track_progress = config.track_progress
+
         # Double-check with project storage/manager state
         if not setup_complete:
             # Check if we have a project role in storage
@@ -118,19 +123,27 @@ Type `/help` for more information on available commands.
         # Generate nicely formatted markdown for the state panel
         if role == ProjectRole.COORDINATOR:
             # Format for Coordinator role
-            markdown = await self._format_coordinator_markdown(project_id, role, brief, dashboard, context)
+            markdown = await self._format_coordinator_markdown(
+                project_id, role, brief, dashboard, context, track_progress
+            )
         else:
             # Format for Team role
-            markdown = await self._format_team_markdown(project_id, role, brief, dashboard, context)
+            markdown = await self._format_team_markdown(project_id, role, brief, dashboard, context, track_progress)
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
     async def _format_coordinator_markdown(
-        self, project_id: str, role: ProjectRole, brief: Any, dashboard: Any, context: ConversationContext
+        self,
+        project_id: str,
+        role: ProjectRole,
+        brief: Any,
+        dashboard: Any,
+        context: ConversationContext,
+        track_progress: bool,
     ) -> str:
         """Format project information as markdown for Coordinator role"""
         project_name = brief.project_name if brief else "Unnamed Project"
-        progress = dashboard.progress_percentage if dashboard else 0
+        progress = dashboard.progress_percentage if dashboard and track_progress else 0
 
         # Build the markdown content
         lines: List[str] = []
@@ -154,7 +167,11 @@ Type `/help` for more information on available commands.
 
         lines.append("**Role:** Coordinator")
         lines.append(f"**Status:** {stage_label}")
-        lines.append(f"**Progress:** {progress}%")
+
+        # Only show progress information if progress tracking is enabled
+        if track_progress:
+            lines.append(f"**Progress:** {progress}%")
+
         lines.append("")
 
         # Add project description if available
@@ -163,8 +180,8 @@ Type `/help` for more information on available commands.
             lines.append(brief.project_description)
             lines.append("")
 
-        # Add goals section if available
-        if brief and brief.goals:
+        # Add goals section if available and progress tracking is enabled
+        if track_progress and brief and brief.goals:
             lines.append("## Goals")
             for goal in brief.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
@@ -231,11 +248,17 @@ Type `/help` for more information on available commands.
         return "\n".join(lines)
 
     async def _format_team_markdown(
-        self, project_id: str, role: ProjectRole, brief: Any, dashboard: Any, context: ConversationContext
+        self,
+        project_id: str,
+        role: ProjectRole,
+        brief: Any,
+        dashboard: Any,
+        context: ConversationContext,
+        track_progress: bool,
     ) -> str:
         """Format project information as markdown for Team role"""
         project_name = brief.project_name if brief else "Unnamed Project"
-        progress = dashboard.progress_percentage if dashboard else 0
+        progress = dashboard.progress_percentage if dashboard and track_progress else 0
 
         # Build the markdown content
         lines: List[str] = []
@@ -259,7 +282,11 @@ Type `/help` for more information on available commands.
 
         lines.append(f"**Role:** Team ({stage_label})")
         lines.append(f"**Status:** {stage_label}")
-        lines.append(f"**Progress:** {progress}%")
+
+        # Only show progress information if progress tracking is enabled
+        if track_progress:
+            lines.append(f"**Progress:** {progress}%")
+
         lines.append("")
 
         # Add project description if available
@@ -268,8 +295,8 @@ Type `/help` for more information on available commands.
             lines.append(brief.project_description)
             lines.append("")
 
-        # Add goals section with checkable criteria
-        if brief and brief.goals:
+        # Add goals section with checkable criteria if progress tracking is enabled
+        if track_progress and brief and brief.goals:
             lines.append("## Objectives")
             for goal in brief.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)

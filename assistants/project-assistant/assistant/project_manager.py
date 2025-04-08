@@ -1058,8 +1058,7 @@ class ProjectManager:
             # Load the whiteboard prompt from text includes
             from .utils import load_text_include
             
-            # Check if we're using the context_transfer template
-            template_id = getattr(context.assistant, "template_id", None)
+            template_id = context.assistant._template_id
             
             # Use the appropriate prompt based on the template
             if template_id == "context_transfer":

@@ -170,7 +170,12 @@ class TestSetupMode:
         """Test that chat messages are processed after setup is complete."""
         # Set up mocks
         mock_detect_role.return_value = "hq"
-        mock_respond.return_value = None
+        
+        # Make the mock return a coroutine
+        async def mock_coroutine(*args, **kwargs):
+            return None
+            
+        mock_respond.side_effect = mock_coroutine
 
         # Set up metadata to indicate setup is complete
         conversation = await context.get_conversation()

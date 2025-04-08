@@ -5,11 +5,14 @@ This module defines tool functions for the Project Assistant that can be used
 by the LLM during chat completions to proactively assist users.
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Literal, Optional
 from uuid import UUID
 
+import openai_client
+from openai.types.chat import ChatCompletionMessageParam
 from openai_client.tools import ToolFunctions
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
@@ -18,11 +21,15 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
     ParticipantRole,
 )
-from semantic_workbench_assistant.assistant_app import ConversationContext
+from semantic_workbench_assistant.assistant_app import BaseModelAssistantConfig, ConversationContext
+from semantic_workbench_assistant.storage import read_model
 
+from .chat import assistant_config
 from .command_processor import (
     handle_add_goal_command,
 )
+from .config import AssistantConfigModel
+from .project import ConversationClientManager
 from .project_data import (
     LogEntryType,
     ProjectDashboard,
@@ -30,11 +37,13 @@ from .project_data import (
     RequestPriority,
     RequestStatus,
 )
-from .project_manager import ProjectManager, ProjectRole
+from .project_manager import ProjectManager
 from .project_storage import (
     ConversationProjectManager,
     ProjectNotifier,
+    ProjectRole,
     ProjectStorage,
+    ProjectStorageManager,
 )
 
 logger = logging.getLogger(__name__)
@@ -374,6 +383,10 @@ class ProjectTools:
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "coordinator":
             return "Only Coordinator can add project goals."
 
@@ -526,6 +539,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "team":
             return "Only Team members can update project dashboard."
 
@@ -569,6 +586,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "team":
             return "Only Team members can mark criteria as completed."
 
@@ -699,6 +720,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "coordinator":
             return "Only Coordinator can mark a project as ready for working."
 
@@ -819,6 +844,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "team":
             return "Only Team members can report project completion."
 
@@ -928,7 +957,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         try:
             # Read from shared storage instead of trying cross-conversation API access
-            from .project_storage import ProjectStorage
 
             # Read Coordinator conversation messages from shared storage
             coordinator_conversation = ProjectStorage.read_coordinator_conversation(project_id)
@@ -994,7 +1022,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
 
             # Read the information request
-            from .project_storage import ProjectStorage
 
             information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
 
@@ -1123,7 +1150,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Delete the information request - implementing deletion logic by removing the file
             # Using ProjectStorage instead of direct path access
             # Create information requests directory path and remove the specific file
-            from .project_storage import ProjectStorageManager
 
             request_path = ProjectStorageManager.get_information_request_path(project_id, actual_request_id)
             if request_path.exists():
@@ -1132,9 +1158,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Notify Coordinator about the deletion
             try:
                 # Get Coordinator conversation ID
-                from semantic_workbench_assistant.storage import read_model
-
-                from .project_storage import ConversationProjectManager, ProjectRole, ProjectStorageManager
 
                 coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ProjectRole.COORDINATOR.value
                 if coordinator_dir.exists():
@@ -1145,7 +1168,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                             coordinator_conversation_id = role_data.conversation_id
 
                             # Notify Coordinator
-                            from .project import ConversationClientManager
 
                             client = ConversationClientManager.get_conversation_client(
                                 self.context, coordinator_conversation_id
@@ -1188,12 +1210,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             }
 
         # Use a more sophisticated approach with a language model call
-        import json
-        import logging
-        from typing import List
-
-        import openai_client
-        from openai.types.chat import ChatCompletionMessageParam
 
         logger = logging.getLogger(__name__)
 
@@ -1240,9 +1256,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
             # Create a simple client for this specific call
             # Note: Using a basic model to keep this detection lightweight
-            from semantic_workbench_assistant.assistant_app import BaseModelAssistantConfig
-
-            from .config import AssistantConfigModel
 
             # Get the config through the proper assistant app context
             assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
@@ -1564,4 +1577,33 @@ async def get_project_tools(context: ConversationContext, role: str) -> ProjectT
     Returns:
         An instance of ProjectTools
     """
-    return ProjectTools(context, role)
+    # Create the ProjectTools instance
+    project_tools = ProjectTools(context, role)
+
+    config = await assistant_config.get(context.assistant)
+
+    # If progress tracking is disabled, remove progress-related tools
+    if not config.track_progress:
+        # Get original tool functions
+        tool_functions = project_tools.tool_functions
+
+        # List of progress-related functions to remove
+        progress_functions = [
+            "add_project_goal",
+            "mark_criterion_completed",
+            "mark_project_ready_for_working",
+            "report_project_completion",
+            "update_project_dashboard",
+        ]
+
+        # Remove progress-related functions
+        for func_name in progress_functions:
+            if func_name in tool_functions.function_map:
+                del tool_functions.function_map[func_name]
+
+        # Log the modifications for debugging
+        # Access the template_id using the correct property name (_template_id)
+        template_id = context.assistant._template_id
+        logger.info(f"Progress tracking disabled for template {template_id}, removed progress tools")
+
+    return project_tools

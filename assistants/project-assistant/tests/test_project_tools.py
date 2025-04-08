@@ -19,6 +19,10 @@ class TestProjectTools:
         context = AsyncMock(spec=ConversationContext)
         context.conversation = MagicMock()
         context.id = "test-conversation-id"
+        # Add the assistant attribute for the get_project_tools test
+        context.assistant = MagicMock()
+        # Use the correct property name (_template_id)
+        context.assistant._template_id = "default"
         return context
 
     def test_initialization(self, context):
@@ -71,12 +75,41 @@ class TestProjectTools:
         assert "detect_information_request_needs" in team_tools.tool_functions.function_map
 
     @pytest.mark.asyncio
-    async def test_get_project_tools(self, context):
+    async def test_get_project_tools(self, context, monkeypatch):
         """Test the get_project_tools factory function."""
+        # Mock the assistant_config.get method
+        mock_config = MagicMock()
+        mock_config.track_progress = True
+        
+        async def mock_get_config(*args, **kwargs):
+            return mock_config
+        
+        # Patch the assistant_config.get method directly since it's now imported at the top level
+        # Import the module where get_project_tools is defined to patch the assistant_config
+        import assistant.project_tools as project_tools_module
+        # Save the original assistant_config
+        original_assistant_config = project_tools_module.assistant_config
+        # Replace with our mock
+        mock_assistant_config = MagicMock()
+        mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
+        project_tools_module.assistant_config = mock_assistant_config
+        
+        # Ensure we restore the original when the test is done
+        monkeypatch.setattr(project_tools_module, 'assistant_config', mock_assistant_config)
+        
         # Test that get_project_tools returns a ProjectTools instance
         tools = await get_project_tools(context, "coordinator")
         assert isinstance(tools, ProjectTools)
         assert tools.role == "coordinator"
+        
+        # Test with track_progress set to False
+        mock_config.track_progress = False
+        tools = await get_project_tools(context, "coordinator")
+        assert isinstance(tools, ProjectTools)
+        assert tools.role == "coordinator"
+        # Verify progress functions are removed
+        assert "add_project_goal" not in tools.tool_functions.function_map
+        assert "mark_criterion_completed" not in tools.tool_functions.function_map
 
     @pytest.mark.asyncio
     async def test_detect_information_request_needs(self, context):
