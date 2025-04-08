@@ -81,14 +81,16 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
     isBackendReadOnly = false,
 }) => {
     const styles = useStyles();
-    const { get } = useEditor((root) =>
-        Editor.make()
-            .config(nord)
-            .config((ctx) => {
-                ctx.set(rootCtx, root);
-                ctx.set(defaultValueCtx, content);
-            })
-            .use(commonmark),
+    const { get } = useEditor(
+        (root) =>
+            Editor.make()
+                .config(nord)
+                .config((ctx) => {
+                    ctx.set(rootCtx, root);
+                    ctx.set(defaultValueCtx, content);
+                })
+                .use(commonmark),
+        [content],
     );
 
     React.useEffect(() => {

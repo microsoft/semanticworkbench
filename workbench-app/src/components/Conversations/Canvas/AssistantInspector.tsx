@@ -2,19 +2,17 @@
 
 import { Button, Text, makeStyles, shorthands, tokens } from '@fluentui/react-components';
 import { ArrowDownloadRegular } from '@fluentui/react-icons';
-import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import {} from '@rjsf/core';
 import Form from '@rjsf/fluentui-rc';
 import { RegistryWidgetsType } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import React from 'react';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
-import { workbenchConversationEvents } from '../../../routes/FrontDoor';
-import { useGetConversationStateQuery, useUpdateConversationStateMutation } from '../../../services/workbench';
+import { ConversationState } from '../../../models/ConversationState';
+import { useUpdateConversationStateMutation } from '../../../services/workbench';
 import { CustomizedArrayFieldTemplate } from '../../App/FormWidgets/CustomizedArrayFieldTemplate';
 import { CustomizedObjectFieldTemplate } from '../../App/FormWidgets/CustomizedObjectFieldTemplate';
 import { InspectableWidget } from '../../App/FormWidgets/InspectableWidget';
-import { Loading } from '../../App/Loading';
 import { CodeContentRenderer } from '../ContentRenderers/CodeContentRenderer';
 import { ContentListRenderer } from '../ContentRenderers/ContentListRenderer';
 import { ContentRenderer } from '../ContentRenderers/ContentRenderer';
@@ -57,183 +55,126 @@ interface AssistantInspectorProps {
     assistantId: string;
     conversationId: string;
     stateDescription: AssistantStateDescription;
+    state: ConversationState;
 }
 
 export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => {
-    const { assistantId, conversationId, stateDescription } = props;
+    const { assistantId, conversationId, stateDescription, state } = props;
     const classes = useClasses();
-    const {
-        data: state,
-        error: stateError,
-        isFetching: isFetchingState,
-        refetch: refetchState,
-    } = useGetConversationStateQuery(
-        { assistantId, stateId: stateDescription.id, conversationId },
-        { refetchOnMountOrArgChange: true },
-    );
     const [updateConversationState] = useUpdateConversationStateMutation();
-    const [formData, setFormData] = React.useState<object>();
+    const [formData, setFormData] = React.useState<object>(state.data);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-    if (stateError) {
-        const errorMessage = JSON.stringify(stateError);
-        throw new Error(`Error loading assistant state: ${errorMessage}`);
-    }
-
-    const handleEvent = React.useCallback(
-        (event: EventSourceMessage) => {
-            const { data } = JSON.parse(event.data);
-            if (assistantId !== data['assistant_id']) return;
-            if (stateDescription.id !== data['state_id']) return;
-            if (conversationId !== data['conversation_id']) return;
-            refetchState();
+    const handleChange = React.useCallback(
+        async (updatedState: object) => {
+            if (!state || isSubmitting) return;
+            setIsSubmitting(true);
+            setFormData(updatedState);
+            await updateConversationState({ assistantId, conversationId, state: { ...state, data: updatedState } });
+            setIsSubmitting(false);
         },
-        [assistantId, stateDescription.id, conversationId, refetchState],
+        [assistantId, conversationId, state, updateConversationState, isSubmitting],
     );
 
-    React.useEffect(() => {
-        workbenchConversationEvents.addEventListener('assistant.state.updated', handleEvent);
-
-        return () => {
-            workbenchConversationEvents.removeEventListener('assistant.state.updated', handleEvent);
-        };
-    }, [handleEvent]);
-
-    React.useEffect(() => {
-        if (isFetchingState) return;
-        setFormData(state?.data);
-    }, [isFetchingState, state]);
-
-    const handleChange = async (updatedState: object) => {
-        if (!state || isSubmitting) return;
-        setIsSubmitting(true);
-        setFormData(updatedState);
-        await updateConversationState({ assistantId, conversationId, state: { ...state, data: updatedState } });
-        setIsSubmitting(false);
-    };
-
-    // if we are fetching the state, show a loading spinner
-    // this includes the initial load and any refetch such
-    // as after a state update
-    if (isFetchingState) {
-        return <Loading />;
-    }
-
-    if (!state) {
-        return <Text>No state data received from assistant</Text>;
-    }
-
-    const widgets: RegistryWidgetsType = {
-        inspectable: InspectableWidget,
-    };
-
-    const templates = {
-        ArrayFieldTemplate: CustomizedArrayFieldTemplate,
-        ObjectFieldTemplate: CustomizedObjectFieldTemplate,
-    };
-
-    const renderers = {
-        default: () => {
-            // check to see if data contains a key "content" that is a string, if so, render it
-            // with the default content renderer, otherwise, render the data as a json object
-            if ('content' in state.data) {
-                const content = state.data['content'];
-                if (typeof content === 'string') {
-                    return <ContentRenderer content={content} />;
-                }
-                if (Array.isArray(content)) {
-                    return <ContentListRenderer contentList={content} />;
-                }
+    const defaultRenderer = React.useCallback(() => {
+        // check to see if data contains a key "content" that is a string, if so, render it
+        // with the default content renderer, otherwise, render the data as a json object
+        if ('content' in state.data) {
+            const content = state.data['content'];
+            if (typeof content === 'string') {
+                return <ContentRenderer content={content} />;
             }
-            return <CodeContentRenderer content={JSON.stringify(state.data, null, 2)} language="json" />;
-        },
-        jsonSchema: () => {
-            return (
-                <Form
-                    aria-autocomplete="none"
-                    autoComplete="off"
-                    className={classes.form}
-                    widgets={widgets}
-                    templates={templates}
-                    schema={state.jsonSchema ?? {}}
-                    uiSchema={{
-                        ...state.uiSchema,
-                        'ui:submitButtonOptions': {
-                            submitText: 'Save',
-                            ...state.uiSchema?.['ui:submitButtonOptions'],
-                            props: {
-                                disabled: JSON.stringify(formData) === JSON.stringify(state.data),
-                                ...state.uiSchema?.['ui:submitButtonOptions']?.['props'],
-                            },
-                        },
-                    }}
-                    formData={formData}
-                    validator={validator}
-                    onChange={(data) => {
-                        setFormData(data.formData);
-                    }}
-                    onSubmit={(data, event) => {
-                        event.preventDefault();
-                        handleChange(data.formData);
-                    }}
-                />
-            );
-        },
-        markdownEditor: () => {
-            // Check if the data contains markdown_content, if not assume its empty.
-            const markdownContent = 'markdown_content' in state.data ? String(state.data.markdown_content ?? '') : '';
-            const filename = 'filename' in state.data ? String(state.data.filename) : undefined;
-            // Check if the document is in read-only mode
-            const isReadOnly = 'readonly' in state.data ? Boolean(state.data.readonly) : false;
-
-            return (
-                <MilkdownEditorWrapper
-                    content={markdownContent}
-                    filename={filename}
-                    readOnly={isReadOnly}
-                    onSubmit={async (updatedContent: string) => {
-                        if (!state || isSubmitting || isReadOnly) return;
-                        setIsSubmitting(true);
-                        try {
-                            const updatedState = {
-                                ...state.data,
-                                markdown_content: updatedContent,
-                            };
-                            setFormData(updatedState);
-                            await updateConversationState({
-                                assistantId,
-                                conversationId,
-                                state: { ...state, data: updatedState },
-                            });
-                        } finally {
-                            setIsSubmitting(false);
-                        }
-                    }}
-                />
-            );
-        },
-    };
-
-    const getRender = () => {
-        if (state.jsonSchema) {
-            return renderers.jsonSchema;
-        } else if (state.data && 'markdown_content' in state.data) {
-            return renderers.markdownEditor;
+            if (Array.isArray(content)) {
+                return <ContentListRenderer contentList={content} />;
+            }
         }
-        return renderers.default;
-    };
+        return <CodeContentRenderer content={JSON.stringify(state.data, null, 2)} language="json" />;
+    }, [state]);
 
-    const renderer = getRender();
+    const jsonSchemaRenderer = React.useCallback(() => {
+        const widgets: RegistryWidgetsType = {
+            inspectable: InspectableWidget,
+        };
+
+        const templates = {
+            ArrayFieldTemplate: CustomizedArrayFieldTemplate,
+            ObjectFieldTemplate: CustomizedObjectFieldTemplate,
+        };
+        return (
+            <Form
+                aria-autocomplete="none"
+                autoComplete="off"
+                className={classes.form}
+                widgets={widgets}
+                templates={templates}
+                schema={state.jsonSchema ?? {}}
+                uiSchema={{
+                    ...state.uiSchema,
+                    'ui:submitButtonOptions': {
+                        submitText: 'Save',
+                        ...state.uiSchema?.['ui:submitButtonOptions'],
+                        props: {
+                            disabled: JSON.stringify(formData) === JSON.stringify(state.data),
+                            ...state.uiSchema?.['ui:submitButtonOptions']?.['props'],
+                        },
+                    },
+                }}
+                formData={formData}
+                validator={validator}
+                onChange={(data) => {
+                    setFormData(data.formData);
+                }}
+                onSubmit={(data, event) => {
+                    event.preventDefault();
+                    handleChange(data.formData);
+                }}
+            />
+        );
+    }, [classes.form, formData, handleChange, state]);
+
+    const markdownEditorRenderer = React.useCallback(() => {
+        // Check if the data contains markdown_content, if not assume its empty.
+        const markdownContent = 'markdown_content' in state.data ? String(state.data.markdown_content ?? '') : '';
+        const filename = 'filename' in state.data ? String(state.data.filename) : undefined;
+        // Check if the document is in read-only mode
+        const isReadOnly = 'readonly' in state.data ? Boolean(state.data.readonly) : false;
+
+        return (
+            <MilkdownEditorWrapper
+                content={markdownContent}
+                filename={filename}
+                readOnly={isReadOnly}
+                onSubmit={async (updatedContent: string) => {
+                    if (!state || isSubmitting || isReadOnly) return;
+                    setIsSubmitting(true);
+                    try {
+                        const updatedState = {
+                            ...state.data,
+                            markdown_content: updatedContent,
+                        };
+                        setFormData(updatedState);
+                        await updateConversationState({
+                            assistantId,
+                            conversationId,
+                            state: { ...state, data: updatedState },
+                        });
+                    } finally {
+                        setIsSubmitting(false);
+                    }
+                }}
+            />
+        );
+    }, [state, isSubmitting, updateConversationState, assistantId, conversationId]);
 
     let debugInspector = null;
-    if ('metadata' in state.data) {
+    if (state && 'metadata' in state.data) {
         if ('debug' in (state.data.metadata as Record<string, unknown>)) {
             const debug = (state.data.metadata as Record<string, Record<string, unknown>>).debug;
             debugInspector = <DebugInspector debug={debug} />;
         }
     }
 
-    const attachments = ('attachments' in state.data ? state.data['attachments'] : []) as Attachment[];
+    const attachments = (state && 'attachments' in state.data ? state.data['attachments'] : []) as Attachment[];
 
     const handleDownloadAttachment = async (attachment: Attachment) => {
         // download helper function
@@ -254,6 +195,17 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
         }
     };
 
+    const renderer = () => {
+        if (!state) {
+            return defaultRenderer();
+        }
+        if (state.jsonSchema) {
+            return jsonSchemaRenderer();
+        } else if (state.data && 'markdown_content' in state.data) {
+            return markdownEditorRenderer();
+        }
+        return defaultRenderer();
+    };
     return (
         <div className={classes.root}>
             <div className={classes.header}>
