@@ -19,6 +19,7 @@ def test_blockify_roundtrip():
     reconstructed = unblockify(blocks)
     assert reconstructed == latex_content
 
+
 def test_small_document():
     small_doc = r"""\documentclass{article}
 \begin{document}
@@ -27,4 +28,3 @@ Hello world!
     blocks = blockify(small_doc)
     assert len(blocks) >= 3
     assert unblockify(blocks) == small_doc
-

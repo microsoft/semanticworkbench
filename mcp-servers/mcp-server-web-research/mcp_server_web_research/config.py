@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+
 def ensure_required_settings() -> None:
     # Ensure required settings are set.
     # These values should have been set in the environment.

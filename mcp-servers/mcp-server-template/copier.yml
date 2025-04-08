@@ -1,4 +1,7 @@
 _subdirectory: template
+_tasks:
+  # format files after copying
+  - "make format"
 
 short_name:
   type: str

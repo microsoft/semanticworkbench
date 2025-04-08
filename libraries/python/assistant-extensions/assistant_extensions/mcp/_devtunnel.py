@@ -20,7 +20,6 @@ class DevTunnelConfig:
     tunnel_id: str
     port: int
 
-
     def unique_tunnel_id(self) -> str:
         """Generate a unique ID for the tunnel."""
         return f"{self.tunnel_id}-{self.access_token}"
@@ -163,9 +162,7 @@ async def _create_tunnel(devtunnel: DevTunnelConfig) -> DevTunnel:
         stdout = completed_process.stdout[completed_process.stdout.index("{") :]
         output = json.loads(stdout)
     except (json.JSONDecodeError, ValueError) as e:
-        raise RuntimeError(
-            f"Failed to parse JSON output from devtunnel show: {e}"
-        ) from e
+        raise RuntimeError(f"Failed to parse JSON output from devtunnel show: {e}") from e
 
     tunnel: dict[str, Any] = output.get("tunnel")
     if not tunnel:
