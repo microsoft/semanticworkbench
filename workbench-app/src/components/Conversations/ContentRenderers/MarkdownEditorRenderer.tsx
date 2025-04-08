@@ -1,5 +1,5 @@
 import { Button, makeStyles, Text } from '@fluentui/react-components';
-import { SaveRegular } from '@fluentui/react-icons';
+import { LockClosedRegular, LockOpenRegular, SaveRegular } from '@fluentui/react-icons';
 import { defaultValueCtx, Editor, editorViewCtx, rootCtx, serializerCtx } from '@milkdown/kit/core';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
@@ -41,7 +41,25 @@ const useStyles = makeStyles({
     },
     filenameContainer: {
         display: 'flex',
-        alignItems: 'left',
+        alignItems: 'baseline',
+        gap: '12px',
+    },
+    filename: {
+        margin: '0',
+        fontSize: '2rem',
+        fontWeight: 'bold',
+        lineHeight: '1',
+    },
+    readOnlyIndicator: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        color: 'var(--colorNeutralForeground3)',
+        fontStyle: 'italic',
+    },
+    buttonGroup: {
+        display: 'flex',
+        gap: '4px',
     },
 });
 
@@ -49,9 +67,19 @@ interface MilkdownEditorProps {
     content?: string;
     onSave?: (content: string) => void;
     filename?: string;
+    readOnly?: boolean;
+    onToggleReadOnly?: () => void;
+    isBackendReadOnly?: boolean;
 }
 
-const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content = '', onSave, filename }) => {
+const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
+    content = '',
+    onSave,
+    filename,
+    readOnly = false,
+    onToggleReadOnly,
+    isBackendReadOnly = false,
+}) => {
     const styles = useStyles();
     const { get } = useEditor((root) =>
         Editor.make()
@@ -62,6 +90,17 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content = '', onSave, f
             })
             .use(commonmark),
     );
+
+    React.useEffect(() => {
+        const editor = get();
+        if (!editor) return;
+
+        const view = editor.ctx.get(editorViewCtx);
+        if (!view) return;
+
+        // Set editor's editable state based on readOnly prop
+        view.setProps({ editable: () => !readOnly });
+    }, [get, readOnly]);
 
     const handleSave = React.useCallback(() => {
         if (!onSave) return;
@@ -81,29 +120,42 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content = '', onSave, f
     return (
         <>
             {/* Toolbar with filename and save button */}
-            {(onSave || filename) && (
+            {(onSave || filename || readOnly) && (
                 <div className={styles.toolbar}>
-                    {filename && (
-                        <div className={styles.filenameContainer}>
-                            {/* File name */}
-                            <Text
-                                as="h1"
-                                weight="bold"
-                                style={{
-                                    margin: '0',
-                                    fontSize: '2rem',
-                                }}
-                            >
+                    <div className={styles.filenameContainer}>
+                        {/* File name */}
+                        {filename && (
+                            <Text as="h1" className={styles.filename}>
                                 {/* Remove file extension from filename */}
                                 {filename ? filename.replace(/\.[^/.]+$/, '') : ''}
                             </Text>
-                        </div>
-                    )}
-                    {onSave && (
-                        <Button appearance="primary" icon={<SaveRegular />} onClick={handleSave}>
-                            Save
-                        </Button>
-                    )}
+                        )}
+                        {/* Read-only indicator */}
+                        {readOnly && (
+                            <div className={styles.readOnlyIndicator}>
+                                <LockClosedRegular />
+                                <Text>{isBackendReadOnly ? 'View-only due to assistant at work' : 'View-only'}</Text>
+                            </div>
+                        )}
+                    </div>
+                    <div className={styles.buttonGroup}>
+                        {/* Save button */}
+                        {onSave && !readOnly && (
+                            <Button appearance="primary" icon={<SaveRegular />} onClick={handleSave}>
+                                Save
+                            </Button>
+                        )}
+                        {/* Toggle read-only button - hide if backend has enforced read-only */}
+                        {onToggleReadOnly && !isBackendReadOnly && (
+                            <Button
+                                icon={readOnly ? <LockOpenRegular /> : <LockClosedRegular />}
+                                onClick={onToggleReadOnly}
+                                appearance="subtle"
+                            >
+                                {readOnly ? 'Switch to Edit Mode' : 'Switch to View Mode'}
+                            </Button>
+                        )}
+                    </div>
                 </div>
             )}
             <div className={styles.milkdownRoot}>
@@ -115,15 +167,29 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({ content = '', onSave, f
 
 export interface MilkdownEditorWrapperProps extends MilkdownEditorProps {
     onSubmit?: (content: string) => Promise<void>;
+    readOnly?: boolean;
 }
 
-export const MilkdownEditorWrapper: React.FC<MilkdownEditorWrapperProps> = ({ content, onSubmit, filename }) => {
+export const MilkdownEditorWrapper: React.FC<MilkdownEditorWrapperProps> = ({
+    content,
+    onSubmit,
+    filename,
+    readOnly = false,
+}) => {
     const styles = useStyles();
     const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [isReadOnly, setIsReadOnly] = React.useState(readOnly);
+
+    // Track if read-only state is backend-enforced
+    const isBackendReadOnly = readOnly;
+
+    React.useEffect(() => {
+        setIsReadOnly(readOnly);
+    }, [readOnly]);
 
     const handleSave = React.useCallback(
         async (updatedContent: string) => {
-            if (!onSubmit || isSubmitting) return;
+            if (!onSubmit || isSubmitting || isReadOnly) return;
 
             setIsSubmitting(true);
             try {
@@ -132,13 +198,27 @@ export const MilkdownEditorWrapper: React.FC<MilkdownEditorWrapperProps> = ({ co
                 setIsSubmitting(false);
             }
         },
-        [onSubmit, isSubmitting],
+        [onSubmit, isSubmitting, isReadOnly],
     );
+
+    const toggleReadOnly = React.useCallback(() => {
+        // Only allow toggling if not backend-enforced
+        if (!isBackendReadOnly) {
+            setIsReadOnly(!isReadOnly);
+        }
+    }, [isReadOnly, isBackendReadOnly]);
 
     return (
         <div className={styles.editorContainer}>
             <MilkdownProvider>
-                <MilkdownEditor content={content} onSave={onSubmit ? handleSave : undefined} filename={filename} />
+                <MilkdownEditor
+                    content={content}
+                    onSave={onSubmit && !isReadOnly ? handleSave : undefined}
+                    filename={filename}
+                    readOnly={isReadOnly}
+                    onToggleReadOnly={toggleReadOnly}
+                    isBackendReadOnly={isBackendReadOnly}
+                />
             </MilkdownProvider>
         </div>
     );

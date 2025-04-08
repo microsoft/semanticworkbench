@@ -123,10 +123,13 @@ class EditableDocumentFileStateInspector:
         if not document:
             return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
+        is_readonly = await self._controller.is_read_only(context)
+
         return AssistantConversationInspectorStateDataModel(
             data={
                 "markdown_content": document.content,
                 "filename": document.filename,
+                "readonly": is_readonly,
             }
         )
 
@@ -195,6 +198,7 @@ class ReadonlyDocumentFileStateInspector:
             data={
                 "markdown_content": document.content,
                 "filename": document.filename,
+                "readonly": True,  # Always read-only for this inspector
             },
         )
 

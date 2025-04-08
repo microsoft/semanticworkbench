@@ -183,13 +183,16 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
             // Check if the data contains markdown_content, if not assume its empty.
             const markdownContent = 'markdown_content' in state.data ? String(state.data.markdown_content ?? '') : '';
             const filename = 'filename' in state.data ? String(state.data.filename) : undefined;
+            // Check if the document is in read-only mode
+            const isReadOnly = 'readonly' in state.data ? Boolean(state.data.readonly) : false;
 
             return (
                 <MilkdownEditorWrapper
                     content={markdownContent}
                     filename={filename}
+                    readOnly={isReadOnly}
                     onSubmit={async (updatedContent: string) => {
-                        if (!state || isSubmitting) return;
+                        if (!state || isSubmitting || isReadOnly) return;
                         setIsSubmitting(true);
                         try {
                             const updatedState = {
