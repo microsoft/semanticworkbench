@@ -27,7 +27,7 @@ class ProjectInspectorStateProvider:
     This provider displays project-specific information in the inspector panel
     including project state, brief, goals, and information requests based on the
     user's role (Coordinator or Team).
-    
+
     The content displayed is adapted based on the template configuration:
     - Default: Shows brief, goals, criteria, and request status
     - Context Transfer: Focuses on knowledge context without goals or progress tracking
@@ -59,7 +59,7 @@ class ProjectInspectorStateProvider:
         if self.config_provider:
             config = await self.config_provider.get(context.assistant)
             track_progress = config.track_progress
-            
+
             # Update description and display name based on template
             self.is_context_transfer = not track_progress
             if self.is_context_transfer:
@@ -195,10 +195,10 @@ Type `/help` for more information on available commands.
                 lines.append("## Knowledge Context")
             else:
                 lines.append("## Description")
-                
+
             lines.append(brief.project_description)
             lines.append("")
-            
+
             # In context transfer mode, show additional context in a dedicated section
             if self.is_context_transfer and brief.additional_context:
                 lines.append("## Additional Context")
@@ -261,12 +261,12 @@ Type `/help` for more information on available commands.
             lines.append("## Share Knowledge Context")
         else:
             lines.append("## Project Invitation")
-            
+
         lines.append("")
         lines.append("### Project ID")
         lines.append(f"**Project ID:** `{project_id}`")
         lines.append("")
-        
+
         if self.is_context_transfer:
             lines.append("**IMPORTANT:** Share this Project ID with anyone who needs to access this knowledge context.")
             lines.append("Recipients can access this knowledge context using:")
@@ -332,10 +332,10 @@ Type `/help` for more information on available commands.
                 lines.append("## Knowledge Context")
             else:
                 lines.append("## Project Brief")
-                
+
             lines.append(brief.project_description)
             lines.append("")
-            
+
             # In context transfer mode, show additional context in a dedicated section
             if self.is_context_transfer and brief.additional_context:
                 lines.append("## Additional Context")
@@ -407,7 +407,9 @@ Type `/help` for more information on available commands.
         # Add section for viewing Coordinator conversation
         if self.is_context_transfer:
             lines.append("\n## Knowledge Creator Communication")
-            lines.append("Use the `view_coordinator_conversation` tool to see messages from the knowledge creator. Example:")
+            lines.append(
+                "Use the `view_coordinator_conversation` tool to see messages from the knowledge creator. Example:"
+            )
             lines.append("```")
             lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
             lines.append("```")

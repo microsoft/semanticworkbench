@@ -206,7 +206,7 @@ Type `/help` for more information on available commands."""
             description="Automatically synchronize files between linked conversations.",
         ),
     ] = True
-    
+
     track_progress: Annotated[
         bool,
         Field(

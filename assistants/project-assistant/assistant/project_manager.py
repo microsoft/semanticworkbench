@@ -1057,15 +1057,15 @@ class ProjectManager:
 
             # Load the whiteboard prompt from text includes
             from .utils import load_text_include
-            
+
             template_id = context.assistant._template_id
-            
+
             # Use the appropriate prompt based on the template
             if template_id == "context_transfer":
                 whiteboard_prompt_template = load_text_include("context_transfer_whiteboard_prompt.txt")
             else:
                 whiteboard_prompt_template = load_text_include("whiteboard_auto_update_prompt.txt")
-            
+
             # Construct the whiteboard prompt with the chat history
             whiteboard_prompt = f"""
             {whiteboard_prompt_template}

@@ -80,26 +80,27 @@ class TestProjectTools:
         # Mock the assistant_config.get method
         mock_config = MagicMock()
         mock_config.track_progress = True
-        
+
         async def mock_get_config(*args, **kwargs):
             return mock_config
-        
+
         # Patch the assistant_config.get method directly since it's now imported at the top level
         # Import the module where get_project_tools is defined to patch the assistant_config
         import assistant.project_tools as project_tools_module
+
         # Replace with our mock
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
         project_tools_module.assistant_config = mock_assistant_config
-        
+
         # Ensure we restore the original when the test is done
-        monkeypatch.setattr(project_tools_module, 'assistant_config', mock_assistant_config)
-        
+        monkeypatch.setattr(project_tools_module, "assistant_config", mock_assistant_config)
+
         # Test that get_project_tools returns a ProjectTools instance
         tools = await get_project_tools(context, "coordinator")
         assert isinstance(tools, ProjectTools)
         assert tools.role == "coordinator"
-        
+
         # Test with track_progress set to False
         mock_config.track_progress = False
         tools = await get_project_tools(context, "coordinator")

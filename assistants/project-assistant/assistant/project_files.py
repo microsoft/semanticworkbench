@@ -15,7 +15,7 @@ from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .logging import extra_data, logger
+from .logging import logger
 from .project_data import BaseEntity, LogEntryType
 from .project_storage import (
     ConversationProjectManager,
@@ -169,20 +169,78 @@ class ProjectFileManager:
         Returns:
             True if successful, False otherwise
         """
+        # Create safe log data for debugging
+        log_extra = {
+            "file_name": file.filename,
+            "project_id": project_id,
+            "conversation_id": str(context.id),
+            "file_size": getattr(file, "file_size", 0),
+            "is_coordinator_file": is_coordinator_file,
+        }
+
         try:
-            # Read the file from the conversation
-            buffer = io.BytesIO()
-            async with context.read_file(file.filename) as reader:
-                async for chunk in reader:
-                    buffer.write(chunk)
+            # Verify file information
+            if not file.filename:
+                logger.error("Missing filename in file metadata", extra=safe_extra(log_extra))
+                return False
+
+            # Check if project storage directory exists
+            files_dir = ProjectFileManager.get_project_files_dir(project_id)
+            if not files_dir.exists():
+                logger.info(f"Creating project files directory: {files_dir}", extra=safe_extra(log_extra))
+                files_dir.mkdir(parents=True, exist_ok=True)
+
+            # Log the file upload operation starting
+            logger.info(
+                f"Starting upload of file '{file.filename}' ({file.file_size} bytes) to project storage",
+                extra=safe_extra(log_extra),
+            )
+
+            # Read the file from the conversation with error handling
+            try:
+                buffer = io.BytesIO()
+                async with context.read_file(file.filename) as reader:
+                    async for chunk in reader:
+                        buffer.write(chunk)
+
+                # Verify we got file content
+                buffer_size = buffer.tell()
+                if buffer_size == 0:
+                    logger.error(
+                        "Failed to read file content from conversation - buffer is empty", extra=safe_extra(log_extra)
+                    )
+                    return False
+
+                # Log successful file read
+                logger.info(f"Successfully read {buffer_size} bytes from file", extra=safe_extra(log_extra))
+            except Exception as read_error:
+                logger.error(f"Error reading file from conversation: {read_error}", extra=safe_extra(log_extra))
+                return False
 
             # Reset buffer position
             buffer.seek(0)
 
             # Write the file to project storage
             file_path = ProjectFileManager.get_file_path(project_id, file.filename)
-            with open(file_path, "wb") as f:
-                f.write(buffer.getvalue())
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(buffer.getvalue())
+
+                # Verify file was written
+                if not file_path.exists() or file_path.stat().st_size == 0:
+                    logger.error(
+                        "Failed to write file to project storage - file is missing or empty",
+                        extra=safe_extra(log_extra),
+                    )
+                    return False
+
+                logger.info(
+                    f"Successfully wrote file to {file_path} ({file_path.stat().st_size} bytes)",
+                    extra=safe_extra(log_extra),
+                )
+            except Exception as write_error:
+                logger.error(f"Error writing file to project storage: {write_error}", extra=safe_extra(log_extra))
+                return False
 
             # Store file metadata
             file_metadata = ProjectFile(
@@ -197,37 +255,69 @@ class ProjectFileManager:
                 is_coordinator_file=is_coordinator_file,
             )
 
-            # Add to metadata collection
-            metadata_path = ProjectFileManager.get_file_metadata_path(project_id)
-            metadata = read_model(metadata_path, ProjectFileCollection)
-            if not metadata:
-                # Create new collection
-                metadata = ProjectFileCollection(
-                    created_by=file.participant_id,
-                    updated_by=file.participant_id,
-                    conversation_id=str(context.id),
-                    files=[],
-                )
+            # Add to metadata collection with error handling
+            try:
+                metadata_path = ProjectFileManager.get_file_metadata_path(project_id)
+                logger.debug(f"Reading metadata from {metadata_path}", extra=safe_extra(log_extra))
 
-            # Check if file already exists in collection
-            existing_idx = next((i for i, f in enumerate(metadata.files) if f.filename == file.filename), None)
-            if existing_idx is not None:
-                metadata.files[existing_idx] = file_metadata
-            else:
-                metadata.files.append(file_metadata)
+                metadata = read_model(metadata_path, ProjectFileCollection)
+                if not metadata:
+                    # Create new collection
+                    logger.info("Creating new metadata collection", extra=safe_extra(log_extra))
+                    metadata = ProjectFileCollection(
+                        created_by=file.participant_id,
+                        updated_by=file.participant_id,
+                        conversation_id=str(context.id),
+                        files=[],
+                    )
 
-            # Update metadata
-            metadata.updated_at = datetime.utcnow()
-            metadata.updated_by = file.participant_id
-            metadata.version += 1
+                # Check if file already exists in collection
+                existing_idx = next((i for i, f in enumerate(metadata.files) if f.filename == file.filename), None)
+                if existing_idx is not None:
+                    logger.info("Updating existing file metadata in collection", extra=safe_extra(log_extra))
+                    metadata.files[existing_idx] = file_metadata
+                else:
+                    logger.info("Adding new file metadata to collection", extra=safe_extra(log_extra))
+                    metadata.files.append(file_metadata)
 
-            # Save metadata
-            ProjectFileManager.write_file_metadata(project_id, metadata)
+                # Update metadata
+                metadata.updated_at = datetime.utcnow()
+                metadata.updated_by = file.participant_id
+                metadata.version += 1
 
+                # Save metadata
+                logger.debug(f"Writing metadata to {metadata_path}", extra=safe_extra(log_extra))
+                ProjectFileManager.write_file_metadata(project_id, metadata)
+
+                # Verify metadata was written
+                if not metadata_path.exists():
+                    logger.error(f"Failed to write metadata file {metadata_path}", extra=safe_extra(log_extra))
+                    return False
+
+                # Final check - verify file appears in metadata
+                verification_metadata = read_model(metadata_path, ProjectFileCollection)
+                if not verification_metadata:
+                    logger.error("Metadata file exists but can't be read", extra=safe_extra(log_extra))
+                    return False
+
+                file_exists_in_metadata = any(f.filename == file.filename for f in verification_metadata.files)
+                if not file_exists_in_metadata:
+                    logger.error(
+                        f"File metadata doesn't contain entry for {file.filename}", extra=safe_extra(log_extra)
+                    )
+                    return False
+
+                logger.info(f"Successfully verified file metadata for {file.filename}", extra=safe_extra(log_extra))
+            except Exception as metadata_error:
+                logger.error(f"Error updating metadata: {metadata_error}", extra=safe_extra(log_extra))
+                return False
+
+            # Everything succeeded
+            logger.info("File successfully copied to project storage", extra=safe_extra(log_extra))
             return True
 
         except Exception as e:
-            logger.exception(f"Error copying file to project storage: {e}")
+            logger.exception(f"Error copying file to project storage: {e}", extra=safe_extra(log_extra))
             return False
 
     @staticmethod
@@ -354,357 +444,85 @@ class ProjectFileManager:
         Returns:
             True if successful, False otherwise
         """
-        # IMPORTANT: Don't use 'filename' as a key in log_extra since it conflicts with LogRecord's internal attribute
-        log_extra = {
-            "conversation_id": str(context.id),
-            "target_conversation_id": target_conversation_id,
-            "project_id": project_id,
-            "file_name": filename,  # Changed from 'filename' to 'file_name' to avoid conflict
-        }
-
         try:
-            logger.info(
-                f"Starting file copy: {filename} to conversation {target_conversation_id}", extra=safe_extra(log_extra)
-            )
+            logger.info(f"Copying file {filename} to conversation {target_conversation_id}")
 
-            # First check if the file exists in project storage
+            # Check if the file exists in project storage
             file_path = ProjectFileManager.get_file_path(project_id, filename)
             if not file_path.exists():
-                logger.warning(
-                    f"File {filename} not found in project storage: {file_path}", extra=safe_extra(log_extra)
-                )
+                logger.warning(f"File {filename} not found in project storage")
                 return False
-
-            # Get file size
-            file_size = file_path.stat().st_size
-            logger.info(f"Found file in storage: {filename}, size: {file_size} bytes", extra=safe_extra(log_extra))
 
             # Get file metadata
             metadata = ProjectFileManager.read_file_metadata(project_id)
             if not metadata:
-                logger.warning(f"No file metadata found for project {project_id}", extra=safe_extra(log_extra))
+                logger.warning(f"No file metadata found for project {project_id}")
                 return False
 
             # Find the file metadata
             file_meta = next((f for f in metadata.files if f.filename == filename), None)
             if not file_meta:
-                logger.warning(f"No metadata found for file {filename}", extra=safe_extra(log_extra))
+                logger.warning(f"No metadata found for file {filename}")
                 return False
 
-            # Add additional metadata but don't include the file_meta directly as it might have a filename attribute
-            metadata_extra = extra_data(file_meta)
-            # Avoid any key conflicts with LogRecord
-            if "filename" in metadata_extra:
-                metadata_extra["file_meta_name"] = metadata_extra.pop("filename")
-
-            logger.info(
-                f"Found file metadata: {file_meta.filename}, type: {file_meta.content_type}, size: {file_meta.file_size}",
-                extra=dict(**log_extra, **metadata_extra),
-            )
-
-            # Open the file from storage
-            logger.debug(f"Reading file content from {file_path}", extra=safe_extra(log_extra))
-            with open(file_path, "rb") as f:
-                file_content = io.BytesIO(f.read())
-                read_size = file_content.getbuffer().nbytes
-                logger.debug(f"Read {read_size} bytes from file {filename}", extra=safe_extra(log_extra))
-
-            # Create client for target conversation
+            # Simple approach - create client and upload file
             from .conversation_clients import ConversationClientManager
 
-            logger.debug(
-                f"Creating client for target conversation {target_conversation_id}", extra=safe_extra(log_extra)
-            )
+            # Create client for target conversation
             target_client = ConversationClientManager.get_conversation_client(context, target_conversation_id)
             if not target_client:
-                logger.warning(
-                    f"Could not create client for conversation {target_conversation_id}", extra=safe_extra(log_extra)
-                )
+                logger.warning(f"Could not create client for conversation {target_conversation_id}")
                 return False
 
-            # Check if the file already exists in the target conversation
-            logger.debug(
-                f"Checking if file exists in conversation {target_conversation_id}", extra=safe_extra(log_extra)
-            )
-
-            # Check for file existence
-            file_exists = False
-            target_files = []
-
-            # Try file_exists method first if available (most direct)
+            # Read the file content
             try:
-                if hasattr(target_client, "file_exists") and callable(getattr(target_client, "file_exists")):
-                    file_exists_method = getattr(target_client, "file_exists")
-                    file_exists = await file_exists_method(filename)
-                    logger.debug(f"Used file_exists() API check - result: {file_exists}", extra=safe_extra(log_extra))
+                with open(file_path, "rb") as f:
+                    file_bytes = f.read()
 
-                    # If file doesn't exist, still get the file list for logging
-                    if not file_exists:
-                        conversation = await target_client.get_conversation()
-                        target_files = getattr(conversation, "files", [])
-                else:
-                    # Fallback to get_conversation
-                    logger.debug("file_exists() not available, using get_conversation()", extra=safe_extra(log_extra))
-                    conversation = await target_client.get_conversation()
-                    target_files = getattr(conversation, "files", [])
-                    file_exists = any(f.filename == filename for f in target_files)
-            except Exception as e:
-                logger.warning(f"Error checking existing files: {e}", extra=safe_extra(log_extra))
-                # Continue with empty list if we can't check
-
-            logger.debug(f"Found {len(target_files)} files in target conversation", extra=safe_extra(log_extra))
-
-            if file_exists:
-                logger.info(
-                    f"File {filename} already exists in conversation {target_conversation_id}, updating",
-                    extra=safe_extra(log_extra),
-                )
-                # File already exists, update it
-                # First delete the existing file with retry
-                delete_success = False
-                for delete_attempt in range(3):  # Try deletion up to 3 times
-                    try:
-                        logger.debug(
-                            f"Deleting existing file {filename} before update (attempt {delete_attempt + 1}/3)",
-                            extra=safe_extra(log_extra),
-                        )
-                        await target_client.delete_file(filename)
-                        delete_success = True
-                        logger.info(
-                            f"Successfully deleted existing file (attempt {delete_attempt + 1})",
-                            extra=safe_extra(log_extra),
-                        )
-                        break
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to delete existing file (attempt {delete_attempt + 1}): {e}",
-                            extra=safe_extra(log_extra),
-                        )
-                        # Short delay before retry
-                        import asyncio
-
-                        await asyncio.sleep(1.0)
-
-                if not delete_success:
-                    logger.warning(
-                        f"Could not delete existing file {filename} after all attempts. Will try to upload anyway.",
-                        extra=safe_extra(log_extra),
-                    )
-                    # Continue despite delete failure - the upload might overwrite
-
-                # Then upload the new version with retry
-                logger.debug(f"Uploading new version of file {filename}", extra=safe_extra(log_extra))
-
-                upload_success = False
-                upload_error = None
-                for upload_attempt in range(3):  # Try upload up to 3 times
-                    try:
-                        logger.debug(f"Update upload attempt {upload_attempt + 1}/3", extra=safe_extra(log_extra))
-                        file_content.seek(0)  # Reset position for each attempt
-                        await target_client.write_file(
-                            filename=filename, file_content=file_content, content_type=file_meta.content_type
-                        )
-                        upload_success = True
-                        logger.info(
-                            f"Update upload attempt {upload_attempt + 1} succeeded", extra=safe_extra(log_extra)
-                        )
-                        break
-                    except Exception as e:
-                        upload_error = e
-                        logger.warning(
-                            f"Update upload attempt {upload_attempt + 1} failed: {e}", extra=safe_extra(log_extra)
-                        )
-                        # Short delay before retry
-                        import asyncio
-
-                        await asyncio.sleep(1.0)
-
-                if not upload_success:
-                    logger.error(
-                        f"All update upload attempts failed for file {filename}: {upload_error}",
-                        extra=safe_extra(log_extra),
-                    )
+                if not file_bytes:
+                    logger.warning(f"Failed to read file content from {file_path} (empty file)")
                     return False
 
-                # Use a similar approach to the file upload verification
-                # Don't use retry logic but just a single longer delay
-                try:
+                file_content = io.BytesIO(file_bytes)
+            except Exception as read_error:
+                logger.error(f"Failed to read file: {read_error}")
+                return False
+
+            # Determine content type
+            content_type = file_meta.content_type
+            if not content_type:
+                content_type = "application/octet-stream"
+
+            # Check if the file exists and delete it first (to handle updates)
+            try:
+                conversation = await target_client.get_conversation()
+                target_files = getattr(conversation, "files", [])
+                file_exists = any(f.filename == filename for f in target_files)
+
+                if file_exists:
+                    logger.info(f"File {filename} exists, deleting before upload")
+                    await target_client.delete_file(filename)
+
+                    # Brief wait after deletion
                     import asyncio
 
-                    # Use a longer delay (10 seconds) to allow the API time to process the update
-                    logger.info(
-                        f"Waiting 10s to allow API to process file update for {filename}",
-                        extra=safe_extra(log_extra),
-                    )
-                    await asyncio.sleep(10.0)
-
-                    # Check if the file is visible after the delay (for debugging only)
-                    try:
-                        # Get conversation object directly - more reliable than list_files
-                        logger.info("Using get_conversation() to check files after update", extra=safe_extra(log_extra))
-                        updated_conversation = await target_client.get_conversation()
-                        updated_files = getattr(updated_conversation, "files", [])
-
-                        # Try direct file_exists check
-                        if hasattr(target_client, "file_exists") and callable(getattr(target_client, "file_exists")):
-                            try:
-                                file_exists_method = getattr(target_client, "file_exists")
-                                file_exists = await file_exists_method(filename)
-                                logger.info(
-                                    f"Used file_exists() API check after update - result: {file_exists}",
-                                    extra=safe_extra(log_extra),
-                                )
-                            except Exception as ex:
-                                logger.debug(
-                                    f"file_exists check failed after update: {ex}", extra=safe_extra(log_extra)
-                                )
-                                # Continue with standard verification
-                    except Exception as e:
-                        logger.warning(f"Error checking files with API after update: {e}", extra=safe_extra(log_extra))
-                        updated_files = []
-
-                    # Log what we found
-                    file_count = len(updated_files) if updated_files else 0
-                    file_names = [f.filename for f in updated_files] if updated_files else []
-                    logger.info(
-                        f"After 10s delay, found {file_count} files in conversation: {file_names}",
-                        extra=safe_extra(log_extra),
-                    )
-
-                    # Check for our file
-                    file_verified = any(f.filename == filename for f in updated_files)
-                    if file_verified:
-                        logger.info(f"File {filename} is now visible after update", extra=safe_extra(log_extra))
-                    else:
-                        logger.info(
-                            f"File {filename} not yet visible after update - this is expected with API caching",
-                            extra=safe_extra(log_extra),
-                        )
-                except Exception as e:
-                    logger.warning(f"Error checking file update: {e}", extra=safe_extra(log_extra))
-                    # Continue anyway assuming the update worked
-
-                logger.info(
-                    f"Successfully updated file {filename} in conversation {target_conversation_id}",
-                    extra=safe_extra(log_extra),
-                )
-            else:
-                # Upload the file to the target conversation
-                logger.debug(
-                    f"Uploading new file {filename} to conversation {target_conversation_id}",
-                    extra=safe_extra(log_extra),
-                )
-                file_content.seek(0)  # Make sure to reset to beginning of file
-
-                # Add retry logic for the file upload operation
-                upload_success = False
-                upload_error = None
-                for upload_attempt in range(3):  # Try up to 3 times
-                    try:
-                        logger.debug(f"File upload attempt {upload_attempt + 1}/3", extra=safe_extra(log_extra))
-                        file_content.seek(0)  # Reset position for each attempt
-                        await target_client.write_file(
-                            filename=filename, file_content=file_content, content_type=file_meta.content_type
-                        )
-                        upload_success = True
-                        logger.info(f"Upload attempt {upload_attempt + 1} succeeded", extra=safe_extra(log_extra))
-                        break
-                    except Exception as e:
-                        upload_error = e
-                        logger.warning(f"Upload attempt {upload_attempt + 1} failed: {e}", extra=safe_extra(log_extra))
-                        # Short delay before retry
-                        import asyncio
-
-                        await asyncio.sleep(1.0)
-
-                if not upload_success:
-                    logger.error(
-                        f"All upload attempts failed for file {filename}: {upload_error}", extra=safe_extra(log_extra)
-                    )
-                    return False
-
-                logger.info(
-                    f"Successfully copied file {filename} to conversation {target_conversation_id}",
-                    extra=safe_extra(log_extra),
-                )
-
-            # File uploads appear to work with the API but verification consistently fails
-            # due to known eventual consistency issues in the Workbench API
-
-            # Instead of attempting multiple verifications, we'll use a simpler approach
-            try:
-                import asyncio
-
-                # Use a longer delay (10 seconds) to give the API more time for background processing
-                logger.info(
-                    f"Waiting 10s to allow API to process file upload for {filename}",
-                    extra=safe_extra(log_extra),
-                )
-                await asyncio.sleep(10.0)
-
-                # Check if the file is visible after the delay
-                try:
-                    # Get conversation object and extract files - more reliable than list_files
-                    logger.info("Using get_conversation() to check files", extra=safe_extra(log_extra))
-                    new_conversation = await target_client.get_conversation()
-                    new_target_files = getattr(new_conversation, "files", [])
-
-                    # Try direct file_exists check first
-                    file_verified = False
-                    if hasattr(target_client, "file_exists") and callable(getattr(target_client, "file_exists")):
-                        try:
-                            file_exists_method = getattr(target_client, "file_exists")
-                            file_exists = await file_exists_method(filename)
-                            logger.info(
-                                f"Used file_exists() API check - result: {file_exists}", extra=safe_extra(log_extra)
-                            )
-                            if file_exists:
-                                file_verified = True
-                        except Exception as ex:
-                            logger.debug(f"file_exists check failed: {ex}", extra=safe_extra(log_extra))
-                            # Continue to standard verification
-                except Exception as e:
-                    logger.warning(f"Error checking files with API: {e}", extra=safe_extra(log_extra))
-                    new_target_files = []
-
-                # Get more detailed information for debugging
-                file_count = len(new_target_files) if new_target_files else 0
-                file_names = [f.filename for f in new_target_files] if new_target_files else []
-                logger.info(
-                    f"After 10s delay, found {file_count} files in conversation: {file_names}",
-                    extra=safe_extra(log_extra),
-                )
-
-                # Check if the file is there, but only for logging purposes
-                file_verified = any(f.filename == filename for f in new_target_files)
-                if file_verified:
-                    logger.info(f"File {filename} is now visible in conversation", extra=safe_extra(log_extra))
-                else:
-                    logger.info(
-                        f"File {filename} not yet visible in API response - this is expected with API caching",
-                        extra=safe_extra(log_extra),
-                    )
-
-                # IMPORTANT: We always return success since the upload API call worked
-                # The file will eventually appear in the conversation, but the API has
-                # eventual consistency issues that prevent immediate verification
-                logger.info(
-                    f"File upload operation for {filename} considered successful based on upload API response",
-                    extra=safe_extra(log_extra),
-                )
-                return True
+                    await asyncio.sleep(1.0)
             except Exception as e:
-                logger.warning(
-                    f"Error in verification, but upload succeeded so continuing: {e}", extra=safe_extra(log_extra)
-                )
-                # Even if verification process has errors, consider it a success
-                # as long as the upload API call worked
-                return True
+                logger.info(f"Could not check/delete existing file: {e}")
+                # Continue with upload anyway
 
-            return True
+            # Upload the file
+            try:
+                file_content.seek(0)  # Reset position to start of file
+                await target_client.write_file(filename=filename, file_content=file_content, content_type=content_type)
+                logger.info(f"Successfully uploaded file {filename}")
+                return True
+            except Exception as upload_error:
+                logger.error(f"Failed to upload file: {upload_error}")
+                return False
 
         except Exception as e:
-            logger.exception(f"Error copying file to conversation: {e}", extra=safe_extra(log_extra))
+            logger.exception(f"Error copying file to conversation: {e}")
             return False
 
     @staticmethod
@@ -780,186 +598,117 @@ class ProjectFileManager:
         Returns:
             True if successful, False otherwise
         """
-        # Create safe logging data without filename field to avoid conflicts
-        log_data = {
-            "conversation_id": str(context.id),
-            "project_id": project_id,
-            "function": "synchronize_files_to_team_conversation",
-        }
-
         try:
             # Get file metadata for the project
-            logger.info(f"Starting file synchronization for project {project_id}", extra=safe_extra(log_data))
+            logger.info(f"Starting file synchronization for project {project_id}")
 
             metadata = ProjectFileManager.read_file_metadata(project_id)
 
-            if not metadata or not metadata.files:
-                logger.info("No files found in project metadata", extra=safe_extra(log_data))
-                return True  # No files to sync
+            if not metadata:
+                # No metadata found
+                await context.send_messages(
+                    NewConversationMessage(
+                        content="No shared files available. The coordinator hasn't shared any files yet.",
+                        message_type=MessageType.notice,
+                    )
+                )
+                return True  # Nothing to sync, no error
 
-            # Log files found
-            file_names = [f.filename for f in metadata.files]
-            logger.info(
-                f"Found {len(metadata.files)} files in project metadata: {file_names}", extra=safe_extra(log_data)
-            )
+            if not metadata.files:
+                # No files in metadata
+                await context.send_messages(
+                    NewConversationMessage(
+                        content="No shared files available. The coordinator hasn't shared any files yet.",
+                        message_type=MessageType.notice,
+                    )
+                )
+                return True  # No files to sync
 
             # Identify Coordinator files to sync
             coordinator_files = [f for f in metadata.files if f.is_coordinator_file]
             if not coordinator_files:
-                logger.info("No Coordinator files to sync", extra=safe_extra(log_data))
+                logger.info("No Coordinator files to sync")
                 return True  # No Coordinator files to sync
 
-            # Create a list for tracking results
+            # Check which files already exist in conversation
+            conversation = await context.get_conversation()
+            existing_files = getattr(conversation, "files", [])
+            existing_filenames = {f.filename for f in existing_files}
+
+            # Track successful and failed files
             successful_files = []
             failed_files = []
+            skipped_files = []  # Files that already exist
 
-            # Copy each file to the Team conversation with multiple attempts
-            import asyncio
-
-            max_sync_attempts = 3  # Try each file up to 3 times
-
+            # Process each file
             for file_meta in coordinator_files:
-                # Safe log data for this specific file (without using 'filename' key)
-                file_log_data = {**log_data, "file_name": file_meta.filename}
+                # Skip files that already exist
+                if file_meta.filename in existing_filenames:
+                    skipped_files.append(file_meta.filename)
+                    continue
 
-                logger.info(f"Copying file {file_meta.filename} to Team conversation", extra=safe_extra(file_log_data))
+                # Try to copy the file
+                logger.info(f"Copying file {file_meta.filename} to conversation")
+                success = await ProjectFileManager.copy_file_to_conversation(
+                    context=context,
+                    project_id=project_id,
+                    filename=file_meta.filename,
+                    target_conversation_id=str(context.id),
+                )
 
-                # Try multiple times for each file
-                file_sync_success = False
-                for sync_attempt in range(max_sync_attempts):
-                    logger.info(
-                        f"File sync attempt {sync_attempt + 1}/{max_sync_attempts} for {file_meta.filename}",
-                        extra=safe_extra(file_log_data),
-                    )
-
-                    # Check for the file before uploading (to avoid duplicates)
-                    try:
-                        # Use list_files() method for more reliable file detection
-                        target_files = []
-                        # Don't try to use list_files - it returns data in a different format than expected
-                        # Just use the more reliable get_conversation method
-                        logger.debug(
-                            "Using get_conversation() to check for existing file", extra=safe_extra(file_log_data)
-                        )
-                        conversation = await context.get_conversation()
-                        target_files = getattr(conversation, "files", [])
-
-                        # Try direct file_exists check if available
-                        file_exists = False
-                        if hasattr(context, "file_exists") and callable(getattr(context, "file_exists")):
-                            try:
-                                file_exists_method = getattr(context, "file_exists")
-                                file_exists = await file_exists_method(file_meta.filename)
-                                logger.debug(
-                                    f"Used file_exists() API - result: {file_exists}", extra=safe_extra(file_log_data)
-                                )
-                            except Exception as ex:
-                                logger.debug(f"file_exists check failed: {ex}", extra=safe_extra(file_log_data))
-                                # Continue to fallback check
-
-                        # Fallback to list check if file_exists not available or failed
-                        if not file_exists:
-                            file_exists = any(f.filename == file_meta.filename for f in target_files)
-
-                        if file_exists:
-                            logger.info(
-                                f"File {file_meta.filename} already exists in conversation {context.id}",
-                                extra=safe_extra(file_log_data),
-                            )
-                            # Consider this a success without re-uploading
-                            file_sync_success = True
-                            break
-                    except Exception as e:
-                        logger.warning(f"Error checking for existing file: {e}", extra=safe_extra(file_log_data))
-                        # Continue to upload attempt
-
-                    # Attempt the file copy
-                    success = await ProjectFileManager.copy_file_to_conversation(
-                        context=context,
-                        project_id=project_id,
-                        filename=file_meta.filename,
-                        target_conversation_id=str(context.id),
-                    )
-
-                    if success:
-                        file_sync_success = True
-                        logger.info(
-                            f"Successfully copied file {file_meta.filename} (attempt {sync_attempt + 1})",
-                            extra=safe_extra(file_log_data),
-                        )
-                        break
-                    else:
-                        logger.warning(
-                            f"Failed to copy file {file_meta.filename} (attempt {sync_attempt + 1})",
-                            extra=safe_extra(file_log_data),
-                        )
-                        # Add delay before retry
-                        await asyncio.sleep(1.0 + sync_attempt)  # Progressive backoff
-
-                # Record final result for this file
-                if file_sync_success:
+                if success:
                     successful_files.append(file_meta.filename)
-                    logger.info(
-                        f"Successfully copied file {file_meta.filename} to Team conversation",
-                        extra=safe_extra(file_log_data),
-                    )
                 else:
                     failed_files.append(file_meta.filename)
-                    logger.warning(
-                        f"Failed to copy file {file_meta.filename} to Team conversation after all attempts",
-                        extra=safe_extra(file_log_data),
-                    )
 
-            # Send notification about synchronized files
-            if successful_files:
-                file_list = ", ".join(successful_files)
+            # Create notification message for the user
+            available_files = successful_files + skipped_files
+            if available_files:
+                # Create message about synchronized files
+                if successful_files:
+                    file_list = ", ".join(successful_files)
+                    message = f"Synchronized files from Coordinator: {file_list}"
+
+                    # Add info about skipped files if any
+                    if skipped_files:
+                        existing_list = ", ".join(skipped_files)
+                        message += f"\nAlready available: {existing_list}"
+                else:
+                    # Only skipped files
+                    file_list = ", ".join(skipped_files)
+                    message = f"All shared files already available: {file_list}"
+
+                # Send notification
                 await context.send_messages(
                     NewConversationMessage(
-                        content=f"Synchronized shared files from Coordinator: {file_list}",
+                        content=message,
                         message_type=MessageType.notice,
                     )
                 )
 
-            # Log the results
-            logger.info(
-                f"Synchronized {len(successful_files)} of {len(coordinator_files)} files to Team conversation {context.id}",
-                extra=safe_extra(log_data),
-            )
-            if failed_files:
-                # Log failures with safe extra data
-                failure_log_data = {
-                    **log_data,
-                    "failed_count": len(failed_files),
-                    "failed_files_list": ", ".join(failed_files),
-                }
-                logger.warning(
-                    f"Failed to synchronize files: {', '.join(failed_files)}", extra=safe_extra(failure_log_data)
+                # Log the synchronization event
+                sync_message = (
+                    f"Synchronized files to Team conversation: "
+                    f"{len(successful_files)} new, {len(skipped_files)} existing"
                 )
-
-            # Update project log with synchronization event
-            if successful_files:
-                # Create safe metadata for project log (avoid using "filename" key)
-                log_metadata = {
-                    "successful_file_names": successful_files,
-                    "failed_file_names": failed_files,
-                    "conversation_id": str(context.id),
-                    "successful_count": len(successful_files),
-                    "failed_count": len(failed_files),
-                }
 
                 await ProjectStorage.log_project_event(
                     context=context,
                     project_id=project_id,
                     entry_type=LogEntryType.FILE_SHARED,
-                    message=f"Synchronized {len(successful_files)} files to Team conversation",
-                    metadata=log_metadata,
+                    message=sync_message,
+                    metadata={
+                        "successful_files": successful_files,
+                        "skipped_files": skipped_files,
+                        "failed_files": failed_files,
+                    },
                 )
 
-            return len(failed_files) == 0
+            # Consider success if any files are available (new or existing)
+            return len(available_files) > 0
 
         except Exception as e:
-            # Log exception with safe data
-            logger.exception(f"Error synchronizing files to Team conversation: {e}", extra=safe_extra(log_data))
+            logger.exception(f"Error synchronizing files to Team conversation: {e}")
             return False
 
     @staticmethod
