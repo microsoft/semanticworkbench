@@ -212,7 +212,7 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
 
         # Set up the mock conversation client to return the mock builder
         patch_client_builder = unittest.mock.patch(
-            "assistant.project.wsc.WorkbenchServiceClientBuilder", return_value=self.mock_client_builder
+            "assistant.conversation_clients.wsc.WorkbenchServiceClientBuilder", return_value=self.mock_client_builder
         )
         patch_client_builder.start()
         self.patches.append(patch_client_builder)

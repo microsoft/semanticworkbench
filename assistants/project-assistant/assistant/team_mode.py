@@ -4,18 +4,19 @@ Team mode handler for the project assistant.
 This module provides conversation handling for Team members in project assistant.
 """
 
-import logging
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .logging import logger
+from .project_common import log_project_action
 from .project_data import (
     InformationRequest,
     LogEntryType,
-    ProjectState,
     ProjectDashboard,
+    ProjectState,
     RequestPriority,
     RequestStatus,
 )
@@ -25,9 +26,8 @@ from .project_storage import (
     ProjectRole,
     ProjectStorage,
 )
-from .project_common import log_project_action
 
-logger = logging.getLogger(__name__)
+# logger is now imported from .logging
 
 
 class TeamConversationHandler:
@@ -39,6 +39,90 @@ class TeamConversationHandler:
     def __init__(self, context: ConversationContext):
         """Initialize the Team conversation handler."""
         self.context = context
+
+    async def handle_project_update(
+        self, update_type: str, message: str, data: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Handles project update notifications in Team conversations.
+
+        Args:
+            update_type: Type of update (e.g., 'file_created', 'file_updated', 'file_deleted')
+            message: Notification message
+            data: Additional data about the update
+
+        Returns:
+            True if handled successfully, False otherwise
+        """
+        # Log update details
+        logger.info(f"Team received project update: type={update_type}, message='{message}', data={data}")
+
+        # Get project ID
+        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        if not project_id:
+            logger.warning("No project ID found for this conversation, cannot process update")
+            return False
+
+        # First verify this is a Team conversation
+        role = await ConversationProjectManager.get_conversation_role(self.context)
+        if role != ProjectRole.TEAM:
+            logger.warning(f"Not a Team conversation (role={role}), skipping update handling")
+            return False  # Not a Team conversation, skip handling
+
+        logger.info(
+            f"Handling project update for team conversation: project={project_id}, conversation={self.context.id}"
+        )
+
+        # Handle file-related updates
+        if update_type in ["file_created", "file_updated", "file_deleted"]:
+            # Import the file manager
+            from .project_files import ProjectFileManager
+
+            # Extract filename from the message if not in data
+            filename = None
+            if data and "filename" in data:
+                filename = data["filename"]
+                logger.info(f"Got filename from data: {filename}")
+            else:
+                # Try to extract from message
+                import re
+
+                match = re.search(r"file: (.+?)$", message)
+                if match:
+                    filename = match.group(1)
+                    logger.info(f"Extracted filename from message: {filename}")
+
+            if not filename:
+                logger.warning(f"Could not extract filename from update: {update_type}, {message}")
+                return False
+
+            # Check if the file exists in project storage
+            file_path = ProjectFileManager.get_file_path(project_id, filename)
+            if file_path.exists():
+                logger.info(f"File exists in project storage: {file_path} (size: {file_path.stat().st_size} bytes)")
+            else:
+                logger.warning(f"File not found in project storage: {file_path}")
+
+            # Check file metadata
+            metadata = ProjectFileManager.read_file_metadata(project_id)
+            if metadata and any(f.filename == filename for f in metadata.files):
+                logger.info(f"File metadata found for {filename}")
+            else:
+                logger.warning(f"No file metadata found for {filename}")
+
+            logger.info(f"Processing {update_type} notification for file: {filename}")
+
+            # Process the file update
+            success = await ProjectFileManager.process_file_update_notification(
+                context=self.context, project_id=project_id, update_type=update_type, filename=filename
+            )
+
+            logger.info(f"File update notification processed: {update_type}, {filename}, success={success}")
+
+            return success
+
+        logger.info(f"Update type {update_type} not handled by Team conversation")
+        return False  # Not a handled update type
 
     async def create_information_request(
         self, title: str, description: str, priority: RequestPriority = RequestPriority.MEDIUM
@@ -101,7 +185,7 @@ class TeamConversationHandler:
         # Update project dashboard to include this request as a potential blocker
         dashboard = await ProjectManager.get_project_dashboard(self.context)
         if dashboard and priority in [RequestPriority.HIGH, RequestPriority.CRITICAL] and request.request_id:
-            dashboard.active_blockers.append(request.request_id)
+            dashboard.active_requests.append(request.request_id)
             dashboard.updated_at = datetime.utcnow()
             dashboard.updated_by = user_id
             dashboard.version += 1
@@ -434,64 +518,6 @@ class TeamConversationHandler:
         )
 
         return True, "Project has been marked as completed", dashboard
-
-    async def get_kb_section(self, section_id: Optional[str] = None) -> Dict:
-        """
-        Retrieves knowledge base content from project KB.
-
-        Args:
-            section_id: Optional ID of specific section to retrieve
-
-        Returns:
-            Dictionary with KB information
-        """
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
-        if not project_id:
-            return {
-                "has_kb": False,
-                "message": "This conversation is not associated with a project",
-            }
-
-        # Get KB
-        kb = ProjectStorage.read_project_kb(project_id)
-
-        if not kb:
-            return {
-                "has_kb": False,
-                "message": "No knowledge base found for this project",
-            }
-
-        # If section ID provided, return just that section
-        if section_id and section_id in kb.sections:
-            section = kb.sections[section_id]
-            return {
-                "has_kb": True,
-                "sections": [
-                    {
-                        "id": section.id,
-                        "title": section.title,
-                        "content": section.content,
-                        "tags": section.tags,
-                        "last_updated": section.last_updated.isoformat(),
-                    }
-                ],
-            }
-
-        # Otherwise return all sections, sorted by order
-        sorted_sections = sorted(kb.sections.values(), key=lambda s: s.order)
-        return {
-            "has_kb": True,
-            "sections": [
-                {
-                    "id": section.id,
-                    "title": section.title,
-                    "content": section.content,
-                    "tags": section.tags,
-                    "last_updated": section.last_updated.isoformat(),
-                }
-                for section in sorted_sections
-            ],
-        }
 
     async def get_project_brief_info(self) -> Dict:
         """

@@ -27,13 +27,19 @@ class ProjectInspectorStateProvider:
     This provider displays project-specific information in the inspector panel
     including project state, brief, goals, and information requests based on the
     user's role (Coordinator or Team).
+    
+    The content displayed is adapted based on the template configuration:
+    - Default: Shows brief, goals, criteria, and request status
+    - Context Transfer: Focuses on knowledge context without goals or progress tracking
     """
 
     display_name = "Project Status"
+    # Default description - will be updated based on template
     description = "Current project information including brief, goals, and request status."
 
     def __init__(self, config_provider) -> None:
         self.config_provider = config_provider
+        self.is_context_transfer = False
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
@@ -44,11 +50,25 @@ class ProjectInspectorStateProvider:
         # First check conversation metadata for setup status
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
-        
+
         # Check if metadata has setup info
         setup_complete = metadata.get("setup_complete", False)
         assistant_mode = metadata.get("assistant_mode", "setup")
-        
+
+        track_progress = True
+        if self.config_provider:
+            config = await self.config_provider.get(context.assistant)
+            track_progress = config.track_progress
+            
+            # Update description and display name based on template
+            self.is_context_transfer = not track_progress
+            if self.is_context_transfer:
+                self.description = "Context transfer information including knowledge resources and shared content."
+                self.display_name = "Knowledge Context"
+            else:
+                self.description = "Current project information including brief, goals, and request status."
+                self.display_name = "Project Status"
+
         # Double-check with project storage/manager state
         if not setup_complete:
             # Check if we have a project role in storage
@@ -57,15 +77,16 @@ class ProjectInspectorStateProvider:
                 # If we have a role in storage, consider setup complete
                 setup_complete = True
                 assistant_mode = role.value
-                
+
                 # Update local metadata too
                 metadata["setup_complete"] = True
                 metadata["assistant_mode"] = role.value
                 metadata["project_role"] = role.value
-                
+
                 # Send conversation state event to save the metadata - using None for state values
                 try:
                     from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+
                     await context.send_conversation_state_event(
                         AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
                     )
@@ -87,7 +108,7 @@ class ProjectInspectorStateProvider:
 
 Before you can access project features, please specify your role:
 
-- Use `/start-coordinator` to create a new project as Coordinator
+- Use `/start` to create a new project as Coordinator
 - Use `/join <project_id>` to join an existing project as Team member
 
 Type `/help` for more information on available commands.
@@ -117,23 +138,32 @@ Type `/help` for more information on available commands.
         # Generate nicely formatted markdown for the state panel
         if role == ProjectRole.COORDINATOR:
             # Format for Coordinator role
-            markdown = await self._format_coordinator_markdown(project_id, role, brief, dashboard, context)
+            markdown = await self._format_coordinator_markdown(
+                project_id, role, brief, dashboard, context, track_progress
+            )
         else:
             # Format for Team role
-            markdown = await self._format_team_markdown(project_id, role, brief, dashboard, context)
+            markdown = await self._format_team_markdown(project_id, role, brief, dashboard, context, track_progress)
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
     async def _format_coordinator_markdown(
-        self, project_id: str, role: ProjectRole, brief: Any, dashboard: Any, context: ConversationContext
+        self,
+        project_id: str,
+        role: ProjectRole,
+        brief: Any,
+        dashboard: Any,
+        context: ConversationContext,
+        track_progress: bool,
     ) -> str:
         """Format project information as markdown for Coordinator role"""
         project_name = brief.project_name if brief else "Unnamed Project"
-        progress = dashboard.progress_percentage if dashboard else 0
+        progress = dashboard.progress_percentage if dashboard and track_progress else 0
 
         # Build the markdown content
         lines: List[str] = []
         lines.append(f"# Project: {project_name}")
+        lines.append(f"**Project ID:** `{project_id}`")
         lines.append("")
 
         # Determine stage based on project status
@@ -152,17 +182,31 @@ Type `/help` for more information on available commands.
 
         lines.append("**Role:** Coordinator")
         lines.append(f"**Status:** {stage_label}")
-        lines.append(f"**Progress:** {progress}%")
+
+        # Only show progress information if progress tracking is enabled
+        if track_progress:
+            lines.append(f"**Progress:** {progress}%")
+
         lines.append("")
 
-        # Add project description if available
+        # Add project description and additional context if available
         if brief and brief.project_description:
-            lines.append("## Description")
+            if self.is_context_transfer:
+                lines.append("## Knowledge Context")
+            else:
+                lines.append("## Description")
+                
             lines.append(brief.project_description)
             lines.append("")
+            
+            # In context transfer mode, show additional context in a dedicated section
+            if self.is_context_transfer and brief.additional_context:
+                lines.append("## Additional Context")
+                lines.append(brief.additional_context)
+                lines.append("")
 
-        # Add goals section if available
-        if brief and brief.goals:
+        # Add goals section if available and progress tracking is enabled
+        if track_progress and brief and brief.goals:
             lines.append("## Goals")
             for goal in brief.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
@@ -213,27 +257,45 @@ Type `/help` for more information on available commands.
             lines.append("")
 
         # Display project ID as invitation information (simplified approach)
-        lines.append("## Project Invitation")
+        if self.is_context_transfer:
+            lines.append("## Share Knowledge Context")
+        else:
+            lines.append("## Project Invitation")
+            
         lines.append("")
         lines.append("### Project ID")
         lines.append(f"**Project ID:** `{project_id}`")
         lines.append("")
-        lines.append("**IMPORTANT:** Share this Project ID with all team members.")
-        lines.append("Team members can join this project using:")
-        lines.append(f"```\n/join {project_id}\n```")
-        lines.append("")
-        lines.append("The Project ID never expires and can be used by multiple team members.")
+        
+        if self.is_context_transfer:
+            lines.append("**IMPORTANT:** Share this Project ID with anyone who needs to access this knowledge context.")
+            lines.append("Recipients can access this knowledge context using:")
+            lines.append(f"```\n/join {project_id}\n```")
+            lines.append("")
+            lines.append("The Project ID never expires and can be used by multiple recipients.")
+        else:
+            lines.append("**IMPORTANT:** Share this Project ID with all team members.")
+            lines.append("Team members can join this project using:")
+            lines.append(f"```\n/join {project_id}\n```")
+            lines.append("")
+            lines.append("The Project ID never expires and can be used by multiple team members.")
 
         lines.append("")
 
         return "\n".join(lines)
 
     async def _format_team_markdown(
-        self, project_id: str, role: ProjectRole, brief: Any, dashboard: Any, context: ConversationContext
+        self,
+        project_id: str,
+        role: ProjectRole,
+        brief: Any,
+        dashboard: Any,
+        context: ConversationContext,
+        track_progress: bool,
     ) -> str:
         """Format project information as markdown for Team role"""
         project_name = brief.project_name if brief else "Unnamed Project"
-        progress = dashboard.progress_percentage if dashboard else 0
+        progress = dashboard.progress_percentage if dashboard and track_progress else 0
 
         # Build the markdown content
         lines: List[str] = []
@@ -257,17 +319,31 @@ Type `/help` for more information on available commands.
 
         lines.append(f"**Role:** Team ({stage_label})")
         lines.append(f"**Status:** {stage_label}")
-        lines.append(f"**Progress:** {progress}%")
+
+        # Only show progress information if progress tracking is enabled
+        if track_progress:
+            lines.append(f"**Progress:** {progress}%")
+
         lines.append("")
 
-        # Add project description if available
+        # Add project description and additional context if available
         if brief and brief.project_description:
-            lines.append("## Project Brief")
+            if self.is_context_transfer:
+                lines.append("## Knowledge Context")
+            else:
+                lines.append("## Project Brief")
+                
             lines.append(brief.project_description)
             lines.append("")
+            
+            # In context transfer mode, show additional context in a dedicated section
+            if self.is_context_transfer and brief.additional_context:
+                lines.append("## Additional Context")
+                lines.append(brief.additional_context)
+                lines.append("")
 
-        # Add goals section with checkable criteria
-        if brief and brief.goals:
+        # Add goals section with checkable criteria if progress tracking is enabled
+        if track_progress and brief and brief.goals:
             lines.append("## Objectives")
             for goal in brief.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
@@ -329,10 +405,17 @@ Type `/help` for more information on available commands.
             lines.append("You haven't created any information requests yet.")
 
         # Add section for viewing Coordinator conversation
-        lines.append("\n## Coordinator Communication")
-        lines.append("Use the `view_coordinator_conversation` tool to see messages from the Coordinator. Example:")
-        lines.append("```")
-        lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
-        lines.append("```")
+        if self.is_context_transfer:
+            lines.append("\n## Knowledge Creator Communication")
+            lines.append("Use the `view_coordinator_conversation` tool to see messages from the knowledge creator. Example:")
+            lines.append("```")
+            lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
+            lines.append("```")
+        else:
+            lines.append("\n## Coordinator Communication")
+            lines.append("Use the `view_coordinator_conversation` tool to see messages from the Coordinator. Example:")
+            lines.append("```")
+            lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
+            lines.append("```")
 
         return "\n".join(lines)

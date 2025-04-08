@@ -99,7 +99,7 @@ class LogEntryType(str, Enum):
     MILESTONE_PASSED = "milestone_passed"  # A milestone or checkpoint was passed
     INFORMATION_UPDATE = "information_update"  # General information or status update
     FILE_SHARED = "file_shared"  # A file was shared between participants
-    KB_UPDATE = "kb_update"  # Knowledge base was updated
+    KB_UPDATE = "kb_update"  # Whiteboard was updated
     CUSTOM = "custom"  # Custom log entry for specialized events
 
 
@@ -162,12 +162,17 @@ class ProjectGoal(BaseModel):
 
 class ProjectBrief(BaseEntity):
     """
-    A clear, concise statement of the project, including goals,
-    success criteria, and high-level context.
+    A thorough, comprehensive documentation of the project or context to be transferred,
+    containing all relevant information necessary for understanding and execution.
 
-    The project brief is the primary document that defines the project.
+    The project brief is the primary document that defines the project or context.
     It serves as the central reference for both the Coordinator and team members
-    to understand what needs to be accomplished and why.
+    to understand what needs to be accomplished and why, or in the case of context transfer,
+    what information needs to be preserved and communicated.
+
+    In the standard project configuration, it includes project goals, success criteria,
+    and complete context. In context transfer configuration, it focuses on capturing
+    comprehensive context through detailed project_description and additional_context fields.
 
     Created by the Coordinator during the PLANNING phase, the brief must be
     completed before the project can move to the READY_FOR_WORKING state.
@@ -175,51 +180,30 @@ class ProjectBrief(BaseEntity):
     but major changes should be communicated to all participants.
     """
 
-    project_name: str  # Short, distinctive name for the project
-    project_description: str  # Comprehensive description of the project's purpose and scope
-    goals: List[ProjectGoal] = Field(default_factory=list)  # List of project goals
-    timeline: Optional[str] = None  # Expected timeline or deadline information (free-form text)
-    additional_context: Optional[str] = None  # Any other relevant information for project participants
+    project_name: str  # Short, distinctive name for the project or context transfer
+    project_description: str  # Comprehensive description of the project's purpose, scope, and context
+    goals: List[ProjectGoal] = Field(default_factory=list)  # List of project goals (not used in context transfer mode)
+    timeline: Optional[str] = None  # Expected timeline or deadline information (not used in context transfer mode)
+    additional_context: Optional[str] = (
+        None  # Detailed supplementary information for project participants or context transfer
+    )
 
 
-class KBSection(BaseModel):
+class ProjectWhiteboard(BaseEntity):
     """
-    A section of the project knowledge base with specific content.
+    A dynamic whiteboard that gets automatically updated as the coordinator assembles their project.
 
-    Knowledge base sections allow the Coordinator to organize and share important
-    information with team members. Each section focuses on a specific
-    topic or area relevant to the project.
+    The project whiteboard captures and maintains important project context that emerges during
+    conversations. It is automatically updated after each assistant message by analyzing
+    the conversation history and extracting key information.
 
-    Sections can be added, updated, or removed as the project progresses,
-    allowing the knowledge base to evolve as new information becomes available.
-    Tags help with categorization and searching within larger knowledge bases.
-    """
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # Unique identifier for the section
-    title: str  # Section title
-    content: str  # Markdown content of the section
-    order: int  # Display order within the KB (lower numbers appear first)
-    tags: List[str] = Field(default_factory=list)  # Categorization tags for searching and filtering
-    last_updated: datetime = Field(default_factory=datetime.utcnow)  # When the section was last modified
-    updated_by: str  # User ID of the person who last updated this section
-
-
-class ProjectKB(BaseEntity):
-    """
-    The curated information necessary for the Team to carry out
-    the project, kept up-to-date by the Coordinator.
-
-    The project knowledge base (KB) is a collection of organized information
-    that team members can reference while carrying out the project. It complements
-    the project brief by providing more detailed reference material.
-
-    The KB is typically created by the Coordinator during project planning and can be
-    continuously updated throughout the project as new information becomes
-    available or circumstances change. It serves as a single source of truth
-    for project-relevant information.
+    Unlike a traditional knowledge base with separate sections, the whiteboard is a single
+    consolidated view that shows the most relevant information for the project. It serves as
+    a dynamic, evolving source of truth that all team members can reference.
     """
 
-    sections: Dict[str, KBSection] = Field(default_factory=dict)  # Dictionary mapping section_id to KBSection objects
+    content: str = ""  # Markdown content for the whiteboard
+    is_auto_generated: bool = True  # Whether the content was auto-generated or manually edited
 
 
 class ProjectDashboard(BaseEntity):
@@ -248,8 +232,8 @@ class ProjectDashboard(BaseEntity):
     # Copy of all goals with their current status
     goals: List[ProjectGoal] = Field(default_factory=list)
 
-    # Active request IDs that are currently blocking progress
-    active_blockers: List[str] = Field(default_factory=list)
+    # Active request IDs that need attention
+    active_requests: List[str] = Field(default_factory=list)
 
     # Number of completed success criteria out of total
     completed_criteria: int = 0

@@ -12,9 +12,9 @@ from typing import Any, TypeVar
 
 from assistant.project_data import ProjectBrief, ProjectGoal, SuccessCriterion
 from assistant.project_manager import ProjectManager
-from assistant.project import (
+from assistant.conversation_clients import ProjectRole
+from assistant.project_storage import (
     ConversationProjectManager,
-    ProjectRole,
     ProjectStorageManager,
 )
 from semantic_workbench_assistant import settings
@@ -63,7 +63,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
             return self.test_dir / f"context_{context.id}"
 
         patch1 = unittest.mock.patch(
-            "assistant.project.storage_directory_for_context", side_effect=mock_storage_directory_for_context
+            "semantic_workbench_assistant.assistant_app.context.storage_directory_for_context", side_effect=mock_storage_directory_for_context
         )
         self.mock_storage_directory = patch1.start()
         self.patches.append(patch1)

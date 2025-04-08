@@ -20,12 +20,12 @@ The assistant operates in two distinct modes with different capabilities:
 
 1. **Coordinator Mode (Planning Stage)**
    - Create project briefs with clear goals and success criteria
-   - Develop a knowledge base with project-critical information
+   - Maintain an auto-updating project whiteboard with critical information
    - Provide guidance and respond to information requests
    - Control the "Ready for Working" milestone when project definition is complete
 
 2. **Team Mode (Working Stage)**
-   - Access project brief and knowledge base
+   - Access project brief and project whiteboard
    - Mark success criteria as completed
    - Log requests for information or assistance from Coordinators
    - Update project dashboard with progress information
@@ -36,7 +36,7 @@ The assistant operates in two distinct modes with different capabilities:
 The system manages several core artifacts that support project operations:
 
 - **Project Brief**: Details project goals and success criteria
-- **Knowledge Base**: Structured information repository for the project
+- **Project Whiteboard**: Dynamically updated information repository that captures key project context
 - **Information Requests**: Documented information needs from Team members
 - **Project Dashboard**: Real-time progress tracking and state information
 
@@ -45,7 +45,7 @@ The system manages several core artifacts that support project operations:
 The assistant uses a multi-layered state management approach:
 
 - **Cross-Conversation Linking**: Connects Coordinator and Team conversations
-- **File Synchronization**: Key artifacts are shared between conversations
+- **File Synchronization**: Automatic file sharing between conversations, including when files are uploaded by Coordinators or when team members return to a conversation
 - **Inspector Panel**: Real-time visual status dashboard for project progress
 - **Conversation-Specific Storage**: Each conversation maintains role-specific state
 
@@ -55,12 +55,12 @@ The assistant uses a multi-layered state management approach:
 
 #### Common Commands
 - `/status` - View current project status and progress
-- `/info [brief|kb|requests|all]` - View project information
+- `/info [brief|whiteboard|requests|all]` - View project information
 
 #### Coordinator Commands
 - `/create-project <name> | <description>` - Create a new project
 - `/add-goal <name> | <description> | [criteria1;criteria2;...]` - Add a project goal
-- `/add-kb-section <title> | <content>` - Add knowledge base section
+- `/add-kb-section <title> | <content>` - Add whiteboard content manually
 - `/ready-for-working` - Mark project as ready for team operations
 - `/invite` - Generate project invitation for team members
 - `/resolve <request-id> | <resolution>` - Resolve an information request
@@ -76,13 +76,13 @@ The assistant uses a multi-layered state management approach:
 
 1. **Coordinator Preparation**:
    - Create project brief with goals and success criteria
-   - Develop knowledge base with necessary information
+   - The project whiteboard automatically updates with key information
    - Generate invitation link for team members
    - Mark project as ready for working
 
 2. **Team Operations**:
    - Join project using invitation link
-   - Review project brief and knowledge base
+   - Review project brief and whiteboard content
    - Execute project tasks and track progress
    - Create information requests when information is needed
    - Mark criteria as completed when achieved
@@ -140,7 +140,3 @@ The Project Assistant leverages the Semantic Workbench Assistant library for cor
 5. **Role-Specific Experiences**: Tailored interfaces for Coordinator and Team roles
 
 The system follows a centralized artifact storage model with event-driven updates to keep all conversations synchronized.
-
-## License
-
-Copyright (c) Microsoft. All rights reserved.

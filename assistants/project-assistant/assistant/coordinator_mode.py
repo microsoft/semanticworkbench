@@ -6,20 +6,19 @@ This module provides conversation handling for Coordinator users in project assi
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .project_common import log_project_action
 from .project_data import (
     InformationRequest,
-    KBSection,
     LogEntryType,
     ProjectBrief,
-    ProjectGoal,
-    ProjectKB,
-    ProjectState,
     ProjectDashboard,
+    ProjectGoal,
+    ProjectState,
     RequestStatus,
     SuccessCriterion,
 )
@@ -29,7 +28,6 @@ from .project_storage import (
     ProjectRole,
     ProjectStorage,
 )
-from .project_common import log_project_action
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +41,35 @@ class CoordinatorConversationHandler:
     def __init__(self, context: ConversationContext):
         """Initialize the Coordinator conversation handler."""
         self.context = context
+
+    async def handle_project_update(
+        self, update_type: str, message: str, data: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Handles project update notifications in Coordinator conversations.
+
+        Args:
+            update_type: Type of update
+            message: Notification message
+            data: Additional data about the update
+
+        Returns:
+            True if handled successfully, False otherwise
+        """
+        # Get project ID
+        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        if not project_id:
+            return False
+
+        # First verify this is a Coordinator conversation
+        role = await ConversationProjectManager.get_conversation_role(self.context)
+        if role != ProjectRole.COORDINATOR:
+            return False  # Not a Coordinator conversation, skip handling
+
+        # Currently no specific handling needed for Coordinator, but this method
+        # provides a hook for future enhancements
+
+        return False  # No update types currently handled by Coordinator
 
     async def initialize_project(self, project_name: str, project_description: str) -> Tuple[bool, str]:
         """
@@ -69,9 +96,7 @@ class CoordinatorConversationHandler:
         await ConversationProjectManager.set_conversation_role(self.context, project_id, ProjectRole.COORDINATOR)
 
         # Create initial project brief
-        success, brief = await ProjectManager.create_project_brief(
-            self.context, project_name, project_description
-        )
+        success, brief = await ProjectManager.create_project_brief(self.context, project_name, project_description)
 
         if not success or not brief:
             return False, "Failed to initialize project brief"
@@ -194,90 +219,9 @@ class CoordinatorConversationHandler:
 
         return True, f"Added project goal: {name}", brief
 
-    async def add_kb_section(
-        self, title: str, content: str, order: int = 0, tags: Optional[List[str]] = None
-    ) -> Tuple[bool, str, Optional[ProjectKB]]:
-        """
-        Adds a section to the project knowledge base.
-
-        Args:
-            title: Title of the section
-            content: Content of the section
-            order: Display order (lower numbers shown first)
-            tags: Optional tags for categorization
-
-        Returns:
-            Tuple of (success, message, updated_kb)
-        """
-        # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.COORDINATOR:
-            return False, "Only Coordinator conversations can add KB sections", None
-
-        # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
-        if not project_id:
-            return False, "Conversation not associated with a project", None
-
-        # Get user ID
-        participants = await self.context.get_participants()
-        user_id = None
-        for participant in participants.participants:
-            if participant.role == "user":
-                user_id = participant.id
-                break
-
-        if not user_id:
-            user_id = "coordinator-system"
-
-        # Get existing KB or create new one
-        kb = ProjectStorage.read_project_kb(project_id)
-
-        if not kb:
-            # Create new KB
-            kb = ProjectKB(
-                created_by=user_id,
-                updated_by=user_id,
-                conversation_id=str(self.context.id),
-                sections={},
-            )
-
-        # Create section
-        section = KBSection(
-            title=title,
-            content=content,
-            order=order,
-            tags=tags or [],
-            updated_by=user_id,
-        )
-
-        # Add to KB
-        kb.sections[section.id] = section
-        kb.updated_at = datetime.utcnow()
-        kb.updated_by = user_id
-        kb.version += 1
-
-        # Save KB
-        ProjectStorage.write_project_kb(project_id, kb)
-
-        # Log update
-        await self.log_action(
-            LogEntryType.KB_UPDATE,
-            f"Added KB section: {title}",
-            related_entity_id=section.id,  # Use the section ID directly
-        )
-
-        # Send notification
-        await self.context.send_messages(
-            NewConversationMessage(
-                content=f"Added knowledge base section: {title}",
-                message_type=MessageType.notice,
-            )
-        )
-
-        return True, f"Added knowledge base section: {title}", kb
-
-    async def resolve_information_request(self, request_id: str, resolution: str) -> Tuple[bool, str, Optional[InformationRequest]]:
+    async def resolve_information_request(
+        self, request_id: str, resolution: str
+    ) -> Tuple[bool, str, Optional[InformationRequest]]:
         """
         Resolves an information request.
 
@@ -341,8 +285,8 @@ class CoordinatorConversationHandler:
 
         # Update project dashboard if this was a blocker
         dashboard = await ProjectManager.get_project_dashboard(self.context)
-        if dashboard and request_id in dashboard.active_blockers:
-            dashboard.active_blockers.remove(request_id)
+        if dashboard and request_id in dashboard.active_requests:
+            dashboard.active_requests.remove(request_id)
             dashboard.updated_at = datetime.utcnow()
             dashboard.updated_by = user_id
             dashboard.version += 1

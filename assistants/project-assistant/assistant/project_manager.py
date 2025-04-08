@@ -12,19 +12,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .utils import get_current_user, require_current_user
-
 from .project_data import (
     InformationRequest,
-    KBSection,
     LogEntry,
     LogEntryType,
     ProjectBrief,
+    ProjectDashboard,
     ProjectGoal,
-    ProjectKB,
     ProjectLog,
     ProjectState,
-    ProjectDashboard,
+    ProjectWhiteboard,
     RequestPriority,
     RequestStatus,
     SuccessCriterion,
@@ -36,6 +33,7 @@ from .project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
+from .utils import get_current_user, require_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +63,7 @@ class ProjectManager:
         1. Generates a unique project ID
         2. Associates the current conversation with that project
         3. Sets the current conversation as Coordinator for the project
-        4. Creates empty project data structures (brief, KB, etc.)
+        4. Creates empty project data structures (brief, whiteboard, etc.)
         5. Logs the project creation event
 
         After creating a project, the Coordinator should proceed to create a project brief
@@ -97,9 +95,7 @@ class ProjectManager:
             return False, ""
 
     @staticmethod
-    async def join_project(
-        context: ConversationContext, project_id: str, role: ProjectRole = ProjectRole.TEAM
-    ) -> bool:
+    async def join_project(context: ConversationContext, project_id: str, role: ProjectRole = ProjectRole.TEAM) -> bool:
         """
         Joins an existing project.
 
@@ -425,7 +421,7 @@ class ProjectManager:
                     created_by=current_user_id,
                     updated_by=current_user_id,
                     conversation_id=str(context.id),
-                    active_blockers=[],
+                    active_requests=[],
                     next_actions=[],
                 )
 
@@ -563,7 +559,7 @@ class ProjectManager:
             if priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]:
                 dashboard = ProjectStorage.read_project_dashboard(project_id)
                 if dashboard and information_request.request_id:
-                    dashboard.active_blockers.append(information_request.request_id)
+                    dashboard.active_requests.append(information_request.request_id)
                     dashboard.updated_at = datetime.utcnow()
                     dashboard.updated_by = current_user_id
                     dashboard.version += 1
@@ -763,8 +759,8 @@ class ProjectManager:
 
             # Update project dashboard if this was a blocker
             dashboard = ProjectStorage.read_project_dashboard(project_id)
-            if dashboard and information_request.request_id in dashboard.active_blockers:
-                dashboard.active_blockers.remove(information_request.request_id)
+            if dashboard and information_request.request_id in dashboard.active_requests:
+                dashboard.active_requests.remove(information_request.request_id)
                 dashboard.updated_at = datetime.utcnow()
                 dashboard.updated_by = current_user_id
                 dashboard.version += 1
@@ -781,11 +777,14 @@ class ProjectManager:
             # Send direct notification to requestor's conversation
             if information_request.conversation_id != str(context.id):
                 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
-                from .project import ConversationClientManager
+
+                from .conversation_clients import ConversationClientManager
 
                 try:
                     # Get client for requestor's conversation
-                    client = ConversationClientManager.get_conversation_client(context, information_request.conversation_id)
+                    client = ConversationClientManager.get_conversation_client(
+                        context, information_request.conversation_id
+                    )
 
                     # Send notification message
                     await client.send_messages(
@@ -907,195 +906,216 @@ class ProjectManager:
             return False, None
 
     @staticmethod
-    async def get_project_kb(context: ConversationContext) -> Optional[ProjectKB]:
-        """Gets the project knowledge base for the current conversation's project."""
+    async def get_project_whiteboard(context: ConversationContext) -> Optional[ProjectWhiteboard]:
+        """Gets the project whiteboard for the current conversation's project."""
         project_id = await ProjectManager.get_project_id(context)
         if not project_id:
             return None
 
-        return ProjectStorage.read_project_kb(project_id)
+        return ProjectStorage.read_project_whiteboard(project_id)
 
     @staticmethod
-    async def add_kb_section(
+    async def update_whiteboard(
         context: ConversationContext,
-        title: str,
         content: str,
-        order: int = 0,
-        tags: Optional[List[str]] = None,
-    ) -> Tuple[bool, Optional[ProjectKB]]:
+        is_auto_generated: bool = True,
+    ) -> Tuple[bool, Optional[ProjectWhiteboard]]:
         """
-        Adds a section to the project knowledge base.
+        Updates the project whiteboard content.
 
         Args:
             context: Current conversation context
-            title: Section title
-            content: Section content
-            order: Optional display order
-            tags: Optional tags for categorization
+            content: Whiteboard content in markdown format
+            is_auto_generated: Whether the content was automatically generated
 
         Returns:
             Tuple of (success, project_kb)
         """
+        logger.error(
+            "DEBUG: update_whiteboard called with content length: %d, auto_generated: %s",
+            len(content),
+            is_auto_generated,
+        )
         try:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
+            logger.error("DEBUG: update_whiteboard found project ID: %s", project_id)
             if not project_id:
-                logger.error("Cannot add KB section: no project associated with this conversation")
+                logger.error("Cannot update whiteboard: no project associated with this conversation")
                 return False, None
 
             # Get user information
-            current_user_id = await require_current_user(context, "add KB section")
+            current_user_id = await require_current_user(context, "update whiteboard")
             if not current_user_id:
                 return False, None
 
-            # Get existing KB or create new one
-            kb = ProjectStorage.read_project_kb(project_id)
+            # Get existing whiteboard or create new one
+            whiteboard = ProjectStorage.read_project_whiteboard(project_id)
             is_new = False
 
-            if not kb:
-                kb = ProjectKB(
+            if not whiteboard:
+                whiteboard = ProjectWhiteboard(
                     created_by=current_user_id,
                     updated_by=current_user_id,
                     conversation_id=str(context.id),
-                    sections={},
+                    content="",
                 )
                 is_new = True
 
-            # Create the section
-            section = KBSection(
-                title=title,
-                content=content,
-                order=order,
-                tags=tags or [],
-                updated_by=current_user_id,
-            )
-
-            # Add to KB
-            kb.sections[section.id] = section
+            # Update the content
+            whiteboard.content = content
+            whiteboard.is_auto_generated = is_auto_generated
 
             # Update metadata
-            kb.updated_at = datetime.utcnow()
-            kb.updated_by = current_user_id
-            kb.version += 1
+            whiteboard.updated_at = datetime.utcnow()
+            whiteboard.updated_by = current_user_id
+            whiteboard.version += 1
 
-            # Save the KB
-            ProjectStorage.write_project_kb(project_id, kb)
+            # Save the whiteboard
+            ProjectStorage.write_project_whiteboard(project_id, whiteboard)
 
             # Log the update
             event_type = LogEntryType.KB_UPDATE
-            message = f"{'Created' if is_new else 'Updated'} project knowledge base: added section '{title}'"
+            update_type = "auto-generated" if is_auto_generated else "manual"
+            message = f"{'Created' if is_new else 'Updated'} project whiteboard ({update_type})"
 
             await ProjectStorage.log_project_event(
                 context=context,
                 project_id=project_id,
                 entry_type=event_type.value,
                 message=message,
-                metadata={"section_id": section.id, "section_title": title},
             )
 
             # Notify linked conversations
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
-                update_type="project_kb",
-                message=f"Project knowledge base updated: added section '{title}'",
+                update_type="project_whiteboard",
+                message="Project whiteboard updated",
             )
 
-            return True, kb
+            return True, whiteboard
 
         except Exception as e:
-            logger.exception(f"Error adding KB section: {e}")
+            logger.exception(f"Error updating whiteboard: {e}")
             return False, None
 
     @staticmethod
-    async def update_kb_section(
+    async def auto_update_whiteboard(
         context: ConversationContext,
-        section_id: str,
-        updates: Dict[str, Any],
-    ) -> Tuple[bool, Optional[ProjectKB]]:
+        chat_history: List[Any],
+    ) -> Tuple[bool, Optional[ProjectWhiteboard]]:
         """
-        Updates a section in the project knowledge base.
+        Automatically updates the whiteboard by analyzing chat history.
+
+        This method:
+        1. Retrieves recent conversation messages
+        2. Sends them to the LLM with a prompt to extract important info
+        3. Updates the whiteboard with the extracted content
 
         Args:
             context: Current conversation context
-            section_id: ID of the section to update
-            updates: Dictionary of fields to update
+            chat_history: Recent chat messages to analyze
 
         Returns:
             Tuple of (success, project_kb)
         """
+        logger.error("DEBUG: auto_update_whiteboard called with conversation ID: %s", context.id)
         try:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
+            logger.error("DEBUG: auto_update_whiteboard found project ID: %s", project_id)
             if not project_id:
-                logger.error("Cannot update KB section: no project associated with this conversation")
+                logger.error("Cannot auto-update whiteboard: no project associated with this conversation")
                 return False, None
 
-            # Get user information
-            current_user_id = await require_current_user(context, "update KB section")
+            # Get user information for storage purposes
+            current_user_id = await require_current_user(context, "auto-update whiteboard")
             if not current_user_id:
                 return False, None
 
-            # Get existing KB
-            kb = ProjectStorage.read_project_kb(project_id)
-            if not kb:
-                logger.error(f"Cannot update KB section: no KB found for project {project_id}")
+            # Skip if no messages to analyze
+            if not chat_history:
+                logger.info("No chat history to analyze for whiteboard update")
                 return False, None
 
-            # Check if section exists
-            if section_id not in kb.sections:
-                logger.error(f"Cannot update KB section: section {section_id} not found")
+            # Import necessary model types
+            from semantic_workbench_api_model.workbench_model import ParticipantRole
+
+            # Format the chat history for the prompt
+            chat_history_text = ""
+            for msg in chat_history:
+                sender_type = (
+                    "User" if msg.sender and msg.sender.participant_role == ParticipantRole.user else "Assistant"
+                )
+                chat_history_text += f"{sender_type}: {msg.content}\n\n"
+
+            # Get config for the LLM call
+            from .chat import assistant_config
+
+            config = await assistant_config.get(context.assistant)
+
+            # Load the whiteboard prompt from text includes
+            from .utils import load_text_include
+            
+            template_id = context.assistant._template_id
+            
+            # Use the appropriate prompt based on the template
+            if template_id == "context_transfer":
+                whiteboard_prompt_template = load_text_include("context_transfer_whiteboard_prompt.txt")
+            else:
+                whiteboard_prompt_template = load_text_include("whiteboard_auto_update_prompt.txt")
+            
+            # Construct the whiteboard prompt with the chat history
+            whiteboard_prompt = f"""
+            {whiteboard_prompt_template}
+            
+            <CHAT_HISTORY>
+            {chat_history_text}
+            </CHAT_HISTORY>
+            """
+
+            # Import necessary modules for the LLM call
+            import openai_client
+
+            # Create a completion with the whiteboard prompt
+            async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
+                completion = await client.chat.completions.create(
+                    model=config.request_config.openai_model,
+                    messages=[{"role": "user", "content": whiteboard_prompt}],
+                    max_tokens=2500,  # Limiting to 2500 tokens to keep whiteboard content manageable
+                )
+
+                # Extract the content from the completion
+                content = completion.choices[0].message.content or ""
+
+                # Extract just the whiteboard content
+                import re
+
+                whiteboard_content = ""
+
+                # Look for content between <WHITEBOARD> tags
+                match = re.search(r"<WHITEBOARD>(.*?)</WHITEBOARD>", content, re.DOTALL)
+                if match:
+                    whiteboard_content = match.group(1).strip()
+                else:
+                    # If no tags, use the whole content
+                    whiteboard_content = content.strip()
+
+            # Only update if we have content
+            if not whiteboard_content:
+                logger.info("No content extracted from whiteboard LLM analysis")
                 return False, None
 
-            # Get the section
-            section = kb.sections[section_id]
-
-            # Apply updates, skipping protected fields
-            updated = False
-            protected_fields = ["id"]
-
-            for field, value in updates.items():
-                if hasattr(section, field) and field not in protected_fields:
-                    setattr(section, field, value)
-                    updated = True
-
-            if not updated:
-                logger.info(f"No updates applied to KB section {section_id}")
-                return True, kb
-
-            # Update section metadata
-            section.last_updated = datetime.utcnow()
-            section.updated_by = current_user_id
-
-            # Update KB metadata
-            kb.updated_at = datetime.utcnow()
-            kb.updated_by = current_user_id
-            kb.version += 1
-
-            # Save the KB
-            ProjectStorage.write_project_kb(project_id, kb)
-
-            # Log the update
-            await ProjectStorage.log_project_event(
+            # Update the whiteboard with the extracted content
+            return await ProjectManager.update_whiteboard(
                 context=context,
-                project_id=project_id,
-                entry_type=LogEntryType.KB_UPDATE.value,
-                message=f"Updated knowledge base section: '{section.title}'",
-                metadata={"section_id": section_id, "section_title": section.title},
+                content=whiteboard_content,
+                is_auto_generated=True,
             )
-
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="project_kb",
-                message=f"Project knowledge base updated: section '{section.title}' modified",
-            )
-
-            return True, kb
 
         except Exception as e:
-            logger.exception(f"Error updating KB section: {e}")
+            logger.exception(f"Error auto-updating whiteboard: {e}")
             return False, None
 
     @staticmethod

@@ -5,11 +5,14 @@ This module defines tool functions for the Project Assistant that can be used
 by the LLM during chat completions to proactively assist users.
 """
 
+import json
 import logging
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Literal, Optional
 from uuid import UUID
 
+import openai_client
+from openai.types.chat import ChatCompletionMessageParam
 from openai_client.tools import ToolFunctions
 from semantic_workbench_api_model.workbench_model import (
     ConversationMessage,
@@ -19,24 +22,29 @@ from semantic_workbench_api_model.workbench_model import (
     ParticipantRole,
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
+from semantic_workbench_assistant.storage import read_model
 
+from .chat import assistant_config
 from .command_processor import (
     handle_add_goal_command,
-    handle_add_kb_section_command,
 )
+from .conversation_clients import ConversationClientManager
 from .project_data import (
     LogEntryType,
-    ProjectState,
     ProjectDashboard,
+    ProjectState,
     RequestPriority,
     RequestStatus,
 )
-from .project_manager import ProjectManager, ProjectRole
+from .project_manager import ProjectManager
 from .project_storage import (
-    ProjectStorage,
     ConversationProjectManager,
     ProjectNotifier,
+    ProjectRole,
+    ProjectStorage,
+    ProjectStorageManager,
 )
+from .utils import load_text_include
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +122,11 @@ class ProjectTools:
                 "add_project_goal",
                 "Add a goal to the project brief with optional success criteria",
             )
+            # Whiteboard content is auto-updated
             self.tool_functions.add_function(
-                self.add_kb_section, "add_kb_section", "Add a section to the project knowledge base"
-            )
-            self.tool_functions.add_function(
-                self.resolve_information_request, "resolve_information_request", "Resolve an information request with information"
+                self.resolve_information_request,
+                "resolve_information_request",
+                "Resolve an information request with information",
             )
             self.tool_functions.add_function(
                 self.mark_project_ready_for_working,
@@ -133,7 +141,9 @@ class ProjectTools:
                 "Create an information request for information or to report a blocker",
             )
             self.tool_functions.add_function(
-                self.update_project_dashboard, "update_project_dashboard", "Update the status and progress of the project"
+                self.update_project_dashboard,
+                "update_project_dashboard",
+                "Update the status and progress of the project",
             )
             self.tool_functions.add_function(
                 self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
@@ -142,7 +152,9 @@ class ProjectTools:
                 self.report_project_completion, "report_project_completion", "Report that the project is complete"
             )
             self.tool_functions.add_function(
-                self.delete_information_request, "delete_information_request", "Delete an information request that is no longer needed"
+                self.delete_information_request,
+                "delete_information_request",
+                "Delete an information request that is no longer needed",
             )
             self.tool_functions.add_function(
                 self.detect_information_request_needs,
@@ -162,18 +174,18 @@ class ProjectTools:
             "Suggest the next action the user should take based on project state",
         )
 
-    async def get_project_info(self, info_type: Literal["all", "brief", "kb", "dashboard", "requests"]) -> str:
+    async def get_project_info(self, info_type: Literal["all", "brief", "whiteboard", "dashboard", "requests"]) -> str:
         """
         Get information about the current project.
 
         Args:
-            info_type: Type of information to retrieve. Must be one of: all, brief, kb, dashboard, requests.
+            info_type: Type of information to retrieve. Must be one of: all, brief, whiteboard, dashboard, requests.
 
         Returns:
             Information about the project in a formatted string
         """
-        if info_type not in ["all", "brief", "kb", "dashboard", "requests"]:
-            return f"Invalid info_type: {info_type}. Must be one of: all, brief, kb, dashboard, requests. Use 'all' to get all information types."
+        if info_type not in ["all", "brief", "whiteboard", "dashboard", "requests"]:
+            return f"Invalid info_type: {info_type}. Must be one of: all, brief, whiteboard, dashboard, requests. Use 'all' to get all information types."
 
         # Get the project ID for the current conversation
         project_id = await ProjectManager.get_project_id(self.context)
@@ -213,28 +225,24 @@ class ProjectTools:
                 else:
                     output.append("\n*No goals defined yet.*")
 
-        # Get project KB if requested
-        if info_type in ["all", "kb"]:
-            kb = ProjectStorage.read_project_kb(project_id)
+        # Get project whiteboard if requested
+        if info_type in ["all", "whiteboard"]:
+            whiteboard = ProjectStorage.read_project_whiteboard(project_id)
 
-            if kb and kb.sections:
-                output.append("\n## Project Knowledge Base\n")
+            if whiteboard and whiteboard.content:
+                output.append("\n## Project Whiteboard\n")
+                output.append(whiteboard.content)
+                output.append("")
 
-                # Sort sections by order
-                sorted_sections = sorted(kb.sections.values(), key=lambda s: s.order)
+                if whiteboard.is_auto_generated:
+                    output.append("*This whiteboard content is automatically updated by the assistant.*")
+                else:
+                    output.append("*This whiteboard content has been manually edited.*")
 
-                for section in sorted_sections:
-                    output.append(f"### {section.title}")
-                    output.append(f"{section.content}")
-
-                    if section.tags:
-                        tags = ", ".join(section.tags)
-                        output.append(f"\n*Tags: {tags}*")
-
-                    output.append("")
-            elif info_type == "kb":
-                output.append("\n## Project Knowledge Base\n")
-                output.append("*No knowledge base sections defined yet.*")
+                output.append("")
+            elif info_type == "whiteboard":
+                output.append("\n## Project Whiteboard\n")
+                output.append("*No whiteboard content available yet.*")
 
         # Get project dashboard if requested
         if info_type in ["all", "dashboard"]:
@@ -251,7 +259,9 @@ class ProjectTools:
                     output.append(f"**Status Message**: {dashboard.status_message}")
 
                 if dashboard.completed_criteria > 0:
-                    output.append(f"**Success Criteria**: {dashboard.completed_criteria}/{dashboard.total_criteria} complete")
+                    output.append(
+                        f"**Success Criteria**: {dashboard.completed_criteria}/{dashboard.total_criteria} complete"
+                    )
 
                 if dashboard.next_actions:
                     output.append("\n**Next Actions**:")
@@ -269,12 +279,8 @@ class ProjectTools:
                 output.append("\n## Information Requests\n")
 
                 # Group requests by status
-                active_requests = [
-                    r for r in requests if r.status != RequestStatus.RESOLVED
-                ]
-                resolved_requests = [
-                    r for r in requests if r.status == RequestStatus.RESOLVED
-                ]
+                active_requests = [r for r in requests if r.status != RequestStatus.RESOLVED]
+                resolved_requests = [r for r in requests if r.status == RequestStatus.RESOLVED]
 
                 if active_requests:
                     output.append("### Active Requests")
@@ -377,6 +383,10 @@ class ProjectTools:
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "coordinator":
             return "Only Coordinator can add project goals."
 
@@ -405,35 +415,7 @@ class ProjectTools:
             error_prefix="Error adding goal",
         )
 
-    async def add_kb_section(self, title: str, content: str) -> str:
-        """
-        Add a section to the project knowledge base.
-
-        Args:
-            title: The title of the section
-            content: The content of the section
-
-        Returns:
-            A message indicating success or failure
-        """
-        if self.role != "coordinator":
-            return "Only Coordinator can add knowledge base sections."
-
-        # Get project ID
-        project_id = await ProjectManager.get_project_id(self.context)
-        if not project_id:
-            return "No project associated with this conversation. Please create a project brief first."
-
-        # Use the formatted command processor from chat.py to leverage existing functionality
-        command_content = f"/add-kb-section {title}|{content}"
-
-        return await invoke_command_handler(
-            context=self.context,
-            command_content=command_content,
-            handler_func=handle_add_kb_section_command,
-            success_message=f"Knowledge base section '{title}' added successfully.",
-            error_prefix="Error adding knowledge base section",
-        )
+    # Whiteboard methods removed - content is auto-generated
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
@@ -557,6 +539,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "team":
             return "Only Team members can update project dashboard."
 
@@ -600,6 +586,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "team":
             return "Only Team members can mark criteria as completed."
 
@@ -730,6 +720,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "coordinator":
             return "Only Coordinator can mark a project as ready for working."
 
@@ -738,9 +732,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not project_id:
             return "No project associated with this conversation. Unable to mark project as ready for working."
 
-        # Get existing project brief and KB
+        # Get existing project brief and whiteboard
         brief = ProjectStorage.read_project_brief(project_id)
-        kb = ProjectStorage.read_project_kb(project_id)
+        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
 
         if not brief:
             return "No project brief found. Please create one before marking as ready for working."
@@ -758,11 +752,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not has_criteria:
             return "No success criteria defined. Please add at least one success criterion to a goal before marking as ready for working."
 
-        # Check if KB has content
-        if not kb or not kb.sections:
-            return (
-                "Project Knowledge Base is empty. Please add at least one KB section before marking as ready for working."
-            )
+        # Check if whiteboard has content
+        if not whiteboard or not whiteboard.content:
+            return "Project whiteboard is empty. Content will be automatically generated as the project progresses."
 
         # Get or create project dashboard
         dashboard = ProjectStorage.read_project_dashboard(project_id)
@@ -852,6 +844,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
+        config = await assistant_config.get(self.context.assistant)
+        if not config.track_progress:
+            return "Progress tracking is not enabled for this template."
+
         if self.role != "team":
             return "Only Team members can report project completion."
 
@@ -961,7 +957,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         try:
             # Read from shared storage instead of trying cross-conversation API access
-            from .project_storage import ProjectStorage
 
             # Read Coordinator conversation messages from shared storage
             coordinator_conversation = ProjectStorage.read_coordinator_conversation(project_id)
@@ -973,7 +968,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Format the messages for display
             output = []
             output.append(f"# Coordinator Conversation for {project_name}\n")
-            output.append("Here are the recent messages from the Coordinator to help you understand the project context:\n")
+            output.append(
+                "Here are the recent messages from the Coordinator to help you understand the project context:\n"
+            )
 
             # Sort messages by timestamp and limit to the requested count
             messages = sorted(coordinator_conversation.messages, key=lambda m: m.timestamp)
@@ -1020,30 +1017,30 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Clean the request_id to handle common formatting issues
             cleaned_request_id = request_id.strip().lower()
             # Remove any quotes that might have been added
-            cleaned_request_id = cleaned_request_id.replace('"', '').replace("'", "")
-            
+            cleaned_request_id = cleaned_request_id.replace('"', "").replace("'", "")
+
             logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
-            
+
             # Read the information request
-            from .project_storage import ProjectStorage
+
             information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
-            
+
             if not information_request:
                 # Try to find it in all requests with improved matching algorithm
                 all_requests = ProjectStorage.get_all_information_requests(project_id)
                 matching_request = None
-                
+
                 # Log available request IDs for debug purposes
                 available_ids = [req.request_id for req in all_requests if req.conversation_id == str(self.context.id)]
                 logger.info(f"Available request IDs for this conversation: {available_ids}")
                 logger.info(f"Looking for request ID: '{cleaned_request_id}'")
-                
+
                 # Try to normalize the request ID to a UUID format
                 normalized_id = cleaned_request_id
                 # Remove any "uuid:" prefix if present
                 if normalized_id.startswith("uuid:"):
                     normalized_id = normalized_id[5:]
-                
+
                 # Check if the ID contains hyphens already, if not try to format it
                 if "-" not in normalized_id and len(normalized_id) >= 32:
                     # Try to format in standard UUID format (8-4-4-4-12)
@@ -1053,20 +1050,20 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         normalized_id = formatted_id
                     except Exception as e:
                         logger.warning(f"Failed to reformat ID: {e}")
-                
+
                 # For each request, try multiple matching strategies
                 for req in all_requests:
                     # Only consider requests from this conversation
                     if req.conversation_id != str(self.context.id):
                         continue
-                        
+
                     # Get string representations of request_id to compare
                     req_id_str = str(req.request_id).lower()
-                    req_id_clean = req_id_str.replace('-', '')
-                    normalized_id_clean = normalized_id.replace('-', '')
-                    
+                    req_id_clean = req_id_str.replace("-", "")
+                    normalized_id_clean = normalized_id.replace("-", "")
+
                     logger.debug(f"Comparing against request: {req_id_str}")
-                    
+
                     # Multiple matching strategies, from most specific to least
                     if any([
                         # Exact match
@@ -1084,7 +1081,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         matching_request = req
                         logger.info(f"Found matching request: {req.request_id}, title: {req.title}")
                         break
-                
+
                 if matching_request:
                     information_request = matching_request
                     # Use the actual request_id for future operations
@@ -1092,39 +1089,41 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     logger.info(f"Using matched request ID: {request_id}")
                 else:
                     # Log the attempted deletion for debugging
-                    logger.warning(f"Failed deletion attempt - request ID '{request_id}' not found in project {project_id}")
+                    logger.warning(
+                        f"Failed deletion attempt - request ID '{request_id}' not found in project {project_id}"
+                    )
                     # Provide a more helpful error message with available IDs
                     if available_ids:
                         id_examples = ", ".join([f"`{id[:8]}...`" for id in available_ids[:3]])
                         return f"Information request with ID '{request_id}' not found. Your available requests have IDs like: {id_examples}. Please check and try again with the exact ID."
                     else:
                         return f"Information request with ID '{request_id}' not found. You don't have any active requests to delete."
-            
+
             # Verify ownership - team member can only delete their own requests
             if information_request.conversation_id != str(self.context.id):
                 return "You can only delete information requests that you created. This request was created by another conversation."
-            
+
             # Get current user info for logging
             participants = await self.context.get_participants()
             current_user_id = None
             current_username = None
-            
+
             for participant in participants.participants:
                 if participant.role == "user":
                     current_user_id = participant.id
                     current_username = participant.name
                     break
-            
+
             if not current_user_id:
                 current_user_id = "team-system"
                 current_username = "Team Member"
-                
+
             # Log the deletion before removing the request
             request_title = information_request.title
-            
+
             # Store the actual request ID from the information_request object for reliable operations
             actual_request_id = information_request.request_id
-            
+
             # Log the deletion in the project log
             await ProjectStorage.log_project_event(
                 context=self.context,
@@ -1135,33 +1134,31 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 metadata={
                     "request_title": request_title,
                     "deleted_by": current_user_id,
-                    "deleted_by_name": current_username
-                }
+                    "deleted_by_name": current_username,
+                },
             )
-            
+
             # Update project dashboard if this was a blocker
             dashboard = ProjectStorage.read_project_dashboard(project_id)
-            if dashboard and hasattr(dashboard, "active_blockers") and actual_request_id in dashboard.active_blockers:
-                dashboard.active_blockers.remove(actual_request_id)
+            if dashboard and hasattr(dashboard, "active_requests") and actual_request_id in dashboard.active_requests:
+                dashboard.active_requests.remove(actual_request_id)
                 dashboard.updated_at = datetime.utcnow()
                 dashboard.updated_by = current_user_id
                 dashboard.version += 1
                 ProjectStorage.write_project_dashboard(project_id, dashboard)
-            
+
             # Delete the information request - implementing deletion logic by removing the file
             # Using ProjectStorage instead of direct path access
             # Create information requests directory path and remove the specific file
-            from .project_storage import ProjectStorageManager
+
             request_path = ProjectStorageManager.get_information_request_path(project_id, actual_request_id)
             if request_path.exists():
                 request_path.unlink()  # Delete the file
-            
+
             # Notify Coordinator about the deletion
             try:
                 # Get Coordinator conversation ID
-                from .project_storage import ProjectRole, ProjectStorageManager, ConversationProjectManager
-                from semantic_workbench_assistant.storage import read_model
-                
+
                 coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ProjectRole.COORDINATOR.value
                 if coordinator_dir.exists():
                     role_file = coordinator_dir / "conversation_role.json"
@@ -1169,10 +1166,12 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         role_data = read_model(role_file, ConversationProjectManager.ConversationRoleInfo)
                         if role_data:
                             coordinator_conversation_id = role_data.conversation_id
-                            
+
                             # Notify Coordinator
-                            from .project import ConversationClientManager
-                            client = ConversationClientManager.get_conversation_client(self.context, coordinator_conversation_id)
+
+                            client = ConversationClientManager.get_conversation_client(
+                                self.context, coordinator_conversation_id
+                            )
                             await client.send_messages(
                                 NewConversationMessage(
                                     content=f"Team member ({current_username}) has deleted their request: '{request_title}'",
@@ -1182,16 +1181,16 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             except Exception as e:
                 logger.warning(f"Could not notify Coordinator about deleted request: {e}")
                 # Not critical, so we continue
-            
+
             # Update all project UI inspectors
             await ProjectStorage.refresh_all_project_uis(self.context, project_id)
-            
+
             return f"Information request '{request_title}' has been successfully deleted."
-            
+
         except Exception as e:
             logger.exception(f"Error deleting information request: {e}")
             return f"Error deleting information request: {str(e)}. Please try again later."
-            
+
     async def detect_information_request_needs(self, message: str) -> Dict[str, Any]:
         """
         Analyze a user message in context of recent chat history to detect potential information request needs.
@@ -1205,53 +1204,31 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         """
         # This is Coordinator perspective - not used directly but helps model understanding
         if self.role != "team":
-            return {"is_information_request": False, "reason": "Only Team conversations can create information requests"}
+            return {
+                "is_information_request": False,
+                "reason": "Only Team conversations can create information requests",
+            }
 
         # Use a more sophisticated approach with a language model call
-        import json
-        import logging
-        from typing import List
-
-        import openai_client
-        from openai.types.chat import ChatCompletionMessageParam
 
         logger = logging.getLogger(__name__)
 
-        # Define system prompt for the analysis
-        system_prompt = """
-        You are an analyzer that determines if a team member's message indicates they need information
-        or assistance from the Coordinator. You are part of a project coordination system where:
+        # Check if we're in context transfer mode
+        is_context_transfer = False
+        try:
+            if hasattr(self.context, "assistant") and self.context.assistant is not None:
+                # Use the shared config instance from chat.py that has the templates registered
+                config = await assistant_config.get(self.context.assistant)
+                # In context transfer mode, track_progress is False
+                is_context_transfer = not getattr(config, "track_progress", True)
+        except Exception as e:
+            logger.warning(f"Error determining context transfer mode: {e}")
 
-        1. Team members may need information from the Project Coordinator
-        2. When team members need information, they can submit a formal Information Request to the Coordinator
-        3. Your job is to detect when a message suggests the team member needs information/help
-
-        Analyze the chat history and latest message to determine:
-
-        1. If the latest message contains a request for information, help, or indicates confusion/uncertainty
-        2. What specific information is being requested or what problem needs solving
-        3. A concise title for this potential information request
-        4. The priority level (low, medium, high, critical) of the request
-
-        Respond with JSON only:
-        {
-            "is_information_request": boolean,  // true if message indicates a need for Coordinator assistance
-            "reason": string,  // explanation of your determination
-            "potential_title": string,  // a short title for the request (3-8 words)
-            "potential_description": string,  // summarized description of the information needed
-            "suggested_priority": string,  // "low", "medium", "high", or "critical"
-            "confidence": number  // 0.0-1.0 how confident you are in this assessment
-        }
-
-        When determining priority:
-        - low: routine information, no urgency
-        - medium: needed information but not blocking progress
-        - high: important information that's blocking progress
-        - critical: urgent information needed to address safety or project-critical issues
-
-        Be conservative - only return is_information_request=true if you're reasonably confident
-        the team member is actually asking for information/help from the Coordinator.
-        """
+        # Load appropriate detection prompt based on mode
+        if is_context_transfer:
+            system_prompt = load_text_include("context_transfer_information_request_detection.txt")
+        else:
+            system_prompt = load_text_include("project_information_request_detection.txt")
 
         try:
             # Check if we're in a test environment (Missing parts of context)
@@ -1260,12 +1237,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
             # Create a simple client for this specific call
             # Note: Using a basic model to keep this detection lightweight
-            from semantic_workbench_assistant.assistant_app import BaseModelAssistantConfig
 
-            from .config import AssistantConfigModel
-
-            # Get the config through the proper assistant app context
-            assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
             config = await assistant_config.get(self.context.assistant)
 
             if not hasattr(config, "service_config"):
@@ -1346,26 +1318,63 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             Dict with detection results
         """
-        # Simple keyword matching for fallback
-        request_indicators = [
-            "need information",
-            "missing",
-            "don't know",
-            "unclear",
-            "need clarification",
-            "help me understand",
-            "confused about",
-            "what is",
-            "how do i",
-            "can you explain",
-            "request",
-            "blocked",
-            "problem",
-            "issue",
-            "question",
-            "uncertain",
-            "clarify",
-        ]
+        # Check if we're in context transfer mode (without using async)
+        is_context_transfer = False
+        try:
+            if hasattr(self, "context") and hasattr(self.context, "assistant") and self.context.assistant is not None:
+                # Check metadata directly if available
+                if hasattr(self.context, "get_conversation"):
+                    try:
+                        conversation = getattr(self.context, "conversation", None)
+                        if conversation and hasattr(conversation, "metadata"):
+                            metadata = conversation.metadata or {}
+                            assistant_mode = metadata.get("assistant_mode", "")
+                            # If we're in context_transfer mode, be more conservative
+                            if assistant_mode == "context_transfer":
+                                is_context_transfer = True
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # Different indicators based on mode
+        if is_context_transfer:
+            # More strict indicators for context transfer mode - require clear indicators of missing information
+            request_indicators = [
+                "not in the context",
+                "additional information needed",
+                "can't find in the shared knowledge",
+                "missing from the context",
+                "need information that's not here",
+                "the context doesn't cover",
+                "knowledge gap",
+                "information gap",
+                "nothing provided about",
+                "no information about",
+                "not mentioned anywhere",
+                "critical information missing",
+            ]
+        else:
+            # Standard indicators for project mode
+            request_indicators = [
+                "need information",
+                "missing",
+                "don't know",
+                "unclear",
+                "need clarification",
+                "help me understand",
+                "confused about",
+                "what is",
+                "how do i",
+                "can you explain",
+                "request",
+                "blocked",
+                "problem",
+                "issue",
+                "question",
+                "uncertain",
+                "clarify",
+            ]
 
         message_lower = message.lower()
         matched_indicators = [indicator for indicator in request_indicators if indicator in message_lower]
@@ -1427,7 +1436,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Get project state information
         brief = ProjectStorage.read_project_brief(project_id)
-        kb = ProjectStorage.read_project_kb(project_id)
+        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
         dashboard = ProjectStorage.read_project_dashboard(project_id)
         requests = ProjectStorage.get_all_information_requests(project_id)
 
@@ -1467,23 +1476,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                     "function": None,
                 }
 
-        # Check if KB exists
-        if not kb or not kb.sections:
-            if self.role == "coordinator":
-                return {
-                    "suggestion": "add_kb_section",
-                    "reason": "Project Knowledge Base is empty. Add at least one section with important information.",
-                    "priority": "high",
-                    "function": "add_kb_section",
-                    "parameters": {"title": "", "content": ""},
-                }
-            else:
-                return {
-                    "suggestion": "wait_for_kb",
-                    "reason": "Project Knowledge Base is empty. The Coordinator needs to add information before you can proceed.",
-                    "priority": "medium",
-                    "function": None,
-                }
+        # No need to check for whiteboard content as it's automatically generated
+        # Project whiteboard content is now completely auto-generated by the Coordinator assistant
 
         # Check project dashboard
         if not dashboard:
@@ -1497,20 +1491,22 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         "status": "in_progress",
                         "progress": 0,
                         "status_message": "Starting project operations",
-                        "next_actions": []
+                        "next_actions": [],
                     },
                 }
         else:
             # Check if project is ready for working
             ready_for_working = (
-                hasattr(dashboard, "lifecycle") and dashboard.lifecycle and dashboard.lifecycle.get("ready_for_working", False)
+                hasattr(dashboard, "lifecycle")
+                and dashboard.lifecycle
+                and dashboard.lifecycle.get("ready_for_working", False)
             )
 
             if not ready_for_working and self.role == "coordinator":
                 # Check if it's ready to mark as ready for working
                 has_goals = bool(brief.goals)
                 has_criteria = any(bool(goal.success_criteria) for goal in brief.goals)
-                has_kb = bool(kb and kb.sections)
+                has_kb = bool(whiteboard and whiteboard.content)
 
                 if has_goals and has_criteria and has_kb:
                     return {
@@ -1597,4 +1593,33 @@ async def get_project_tools(context: ConversationContext, role: str) -> ProjectT
     Returns:
         An instance of ProjectTools
     """
-    return ProjectTools(context, role)
+    # Create the ProjectTools instance
+    project_tools = ProjectTools(context, role)
+
+    config = await assistant_config.get(context.assistant)
+
+    # If progress tracking is disabled, remove progress-related tools
+    if not config.track_progress:
+        # Get original tool functions
+        tool_functions = project_tools.tool_functions
+
+        # List of progress-related functions to remove
+        progress_functions = [
+            "add_project_goal",
+            "mark_criterion_completed",
+            "mark_project_ready_for_working",
+            "report_project_completion",
+            "update_project_dashboard",
+        ]
+
+        # Remove progress-related functions
+        for func_name in progress_functions:
+            if func_name in tool_functions.function_map:
+                del tool_functions.function_map[func_name]
+
+        # Log the modifications for debugging
+        # Access the template_id using the correct property name (_template_id)
+        template_id = context.assistant._template_id
+        logger.info(f"Progress tracking disabled for template {template_id}, removed progress tools")
+
+    return project_tools

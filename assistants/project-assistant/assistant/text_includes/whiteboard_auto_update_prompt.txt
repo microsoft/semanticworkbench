@@ -1,0 +1,21 @@
+Please provide updated <WHITEBOARD/> content based upon information extracted from the <CHAT_HISTORY/>. Do not provide any information that is not already in
+the chat history and do not answer any pending requests.
+
+The assistant has access to look up information in the rest of the chat history, but this is based upon semantic similarity to current user request, so the
+whiteboard content is for information that should always be available to the bot, even if it is not directly semantically related to the current user request.
+
+IMPORTANT: The whiteboard must be CONCISE and LIMITED in size. Focus only on the MOST CRITICAL information:
+- Keep project goals, decisions, and key context
+- Use brief bullet points and short sections
+- Limit to 2000 tokens maximum (about 1500 words)
+- Remove information that is no longer relevant
+- It's OK to leave the whiteboard blank if there's nothing important
+
+Think of the whiteboard as the type of content that might be written down on a whiteboard during a meeting - just the essential facts and decisions, not a transcript.
+
+Use markdown for formatting:
+- Use ## for main headings and ### for subheadings
+- Use bullet lists for sets of related items
+- Bold key terms with **bold**
+
+Your output format should be: <WHITEBOARD>{content}</WHITEBOARD>
