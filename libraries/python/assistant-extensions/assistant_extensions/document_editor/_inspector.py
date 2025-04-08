@@ -116,7 +116,7 @@ class EditableDocumentFileStateInspector:
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
-                data={"content": "The Document Editor MCP server is not enabled."}
+                data={"content": "The Document Editor extension is not enabled."}
             )
 
         document = await self._controller.read_active_document(context)
