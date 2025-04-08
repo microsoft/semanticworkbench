@@ -87,8 +87,6 @@ class TestProjectTools:
         # Patch the assistant_config.get method directly since it's now imported at the top level
         # Import the module where get_project_tools is defined to patch the assistant_config
         import assistant.project_tools as project_tools_module
-        # Save the original assistant_config
-        original_assistant_config = project_tools_module.assistant_config
         # Replace with our mock
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)

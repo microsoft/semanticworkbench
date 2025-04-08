@@ -12,9 +12,9 @@ from typing import Any, TypeVar
 
 from assistant.project_data import ProjectBrief, ProjectGoal, SuccessCriterion
 from assistant.project_manager import ProjectManager
-from assistant.project import (
+from assistant.conversation_clients import ProjectRole
+from assistant.project_storage import (
     ConversationProjectManager,
-    ProjectRole,
     ProjectStorageManager,
 )
 from semantic_workbench_assistant import settings

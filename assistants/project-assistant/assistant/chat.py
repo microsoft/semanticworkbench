@@ -36,8 +36,8 @@ from semantic_workbench_assistant.assistant_app import (
 )
 
 from .config import AssistantConfigModel, ContextTransferConfigModel
-from .project import ProjectManager
 from .project_files import ProjectFileManager
+from .project_manager import ProjectManager
 from .project_storage import ConversationProjectManager, ProjectNotifier, ProjectRole, ProjectStorage
 from .state_inspector import ProjectInspectorStateProvider
 
@@ -80,7 +80,7 @@ assistant = AssistantApp(
     additional_templates=[
         AssistantTemplate(
             id="context_transfer",
-            name="Context Transfer Assistant",
+            name="Context Transfer Assistant (2)",
             description="An assistant for capturing and sharing complex information for others to explore.",
         ),
     ],

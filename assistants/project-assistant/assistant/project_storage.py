@@ -378,7 +378,7 @@ class ProjectStorage:
         """
         from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 
-        from .project import ConversationClientManager
+        from .conversation_clients import ConversationClientManager
 
         try:
             # First update the current conversation's UI
@@ -508,7 +508,7 @@ class ProjectNotifier:
         """
         from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 
-        from .project import ConversationClientManager
+        from .conversation_clients import ConversationClientManager
 
         # Get conversation IDs in the same project
         linked_conversations = await ConversationProjectManager.get_linked_conversations(context)

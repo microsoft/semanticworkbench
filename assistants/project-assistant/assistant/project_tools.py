@@ -29,7 +29,7 @@ from .command_processor import (
     handle_add_goal_command,
 )
 from .config import AssistantConfigModel
-from .project import ConversationClientManager
+from .conversation_clients import ConversationClientManager
 from .project_data import (
     LogEntryType,
     ProjectDashboard,

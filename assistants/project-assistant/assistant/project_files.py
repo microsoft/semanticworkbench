@@ -306,7 +306,7 @@ class ProjectFileManager:
                 return
 
             # Create clients for Team conversations
-            from .project import ConversationClientManager
+            from .conversation_clients import ConversationClientManager
 
             for conv_id in team_conversations:
                 try:
@@ -410,7 +410,7 @@ class ProjectFileManager:
                 logger.debug(f"Read {read_size} bytes from file {filename}", extra=safe_extra(log_extra))
 
             # Create client for target conversation
-            from .project import ConversationClientManager
+            from .conversation_clients import ConversationClientManager
 
             logger.debug(
                 f"Creating client for target conversation {target_conversation_id}", extra=safe_extra(log_extra)
@@ -754,10 +754,10 @@ class ProjectFileManager:
             Temporary ConversationContext or None
         """
         try:
-            # Use the helper from ProjectInvitation
-            from .project import ProjectInvitation
+            # Use the helper from ConversationClientManager
+            from .conversation_clients import ConversationClientManager
 
-            return await ProjectInvitation.create_temporary_context_for_conversation(
+            return await ConversationClientManager.create_temporary_context_for_conversation(
                 source_context, target_conversation_id
             )
 

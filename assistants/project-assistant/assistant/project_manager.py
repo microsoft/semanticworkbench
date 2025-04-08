@@ -778,7 +778,7 @@ class ProjectManager:
             if information_request.conversation_id != str(context.id):
                 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 
-                from .project import ConversationClientManager
+                from .conversation_clients import ConversationClientManager
 
                 try:
                     # Get client for requestor's conversation
