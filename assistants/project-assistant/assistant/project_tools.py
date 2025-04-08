@@ -21,14 +21,13 @@ from semantic_workbench_api_model.workbench_model import (
     NewConversationMessage,
     ParticipantRole,
 )
-from semantic_workbench_assistant.assistant_app import BaseModelAssistantConfig, ConversationContext
+from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
 from .chat import assistant_config
 from .command_processor import (
     handle_add_goal_command,
 )
-from .config import AssistantConfigModel
 from .conversation_clients import ConversationClientManager
 from .project_data import (
     LogEntryType,
@@ -45,6 +44,7 @@ from .project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
+from .utils import load_text_include
 
 logger = logging.getLogger(__name__)
 
@@ -1213,41 +1213,22 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         logger = logging.getLogger(__name__)
 
-        # Define system prompt for the analysis
-        system_prompt = """
-        You are an analyzer that determines if a team member's message indicates they need information
-        or assistance from the Coordinator. You are part of a project coordination system where:
+        # Check if we're in context transfer mode
+        is_context_transfer = False
+        try:
+            if hasattr(self.context, "assistant") and self.context.assistant is not None:
+                # Use the shared config instance from chat.py that has the templates registered
+                config = await assistant_config.get(self.context.assistant)
+                # In context transfer mode, track_progress is False
+                is_context_transfer = not getattr(config, "track_progress", True)
+        except Exception as e:
+            logger.warning(f"Error determining context transfer mode: {e}")
 
-        1. Team members may need information from the Project Coordinator
-        2. When team members need information, they can submit a formal Information Request to the Coordinator
-        3. Your job is to detect when a message suggests the team member needs information/help
-
-        Analyze the chat history and latest message to determine:
-
-        1. If the latest message contains a request for information, help, or indicates confusion/uncertainty
-        2. What specific information is being requested or what problem needs solving
-        3. A concise title for this potential information request
-        4. The priority level (low, medium, high, critical) of the request
-
-        Respond with JSON only:
-        {
-            "is_information_request": boolean,  // true if message indicates a need for Coordinator assistance
-            "reason": string,  // explanation of your determination
-            "potential_title": string,  // a short title for the request (3-8 words)
-            "potential_description": string,  // summarized description of the information needed
-            "suggested_priority": string,  // "low", "medium", "high", or "critical"
-            "confidence": number  // 0.0-1.0 how confident you are in this assessment
-        }
-
-        When determining priority:
-        - low: routine information, no urgency
-        - medium: needed information but not blocking progress
-        - high: important information that's blocking progress
-        - critical: urgent information needed to address safety or project-critical issues
-
-        Be conservative - only return is_information_request=true if you're reasonably confident
-        the team member is actually asking for information/help from the Coordinator.
-        """
+        # Load appropriate detection prompt based on mode
+        if is_context_transfer:
+            system_prompt = load_text_include("context_transfer_information_request_detection.txt")
+        else:
+            system_prompt = load_text_include("project_information_request_detection.txt")
 
         try:
             # Check if we're in a test environment (Missing parts of context)
@@ -1257,8 +1238,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Create a simple client for this specific call
             # Note: Using a basic model to keep this detection lightweight
 
-            # Get the config through the proper assistant app context
-            assistant_config = BaseModelAssistantConfig(AssistantConfigModel)
             config = await assistant_config.get(self.context.assistant)
 
             if not hasattr(config, "service_config"):
@@ -1339,26 +1318,63 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             Dict with detection results
         """
-        # Simple keyword matching for fallback
-        request_indicators = [
-            "need information",
-            "missing",
-            "don't know",
-            "unclear",
-            "need clarification",
-            "help me understand",
-            "confused about",
-            "what is",
-            "how do i",
-            "can you explain",
-            "request",
-            "blocked",
-            "problem",
-            "issue",
-            "question",
-            "uncertain",
-            "clarify",
-        ]
+        # Check if we're in context transfer mode (without using async)
+        is_context_transfer = False
+        try:
+            if hasattr(self, "context") and hasattr(self.context, "assistant") and self.context.assistant is not None:
+                # Check metadata directly if available
+                if hasattr(self.context, "get_conversation"):
+                    try:
+                        conversation = getattr(self.context, "conversation", None)
+                        if conversation and hasattr(conversation, "metadata"):
+                            metadata = conversation.metadata or {}
+                            assistant_mode = metadata.get("assistant_mode", "")
+                            # If we're in context_transfer mode, be more conservative
+                            if assistant_mode == "context_transfer":
+                                is_context_transfer = True
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # Different indicators based on mode
+        if is_context_transfer:
+            # More strict indicators for context transfer mode - require clear indicators of missing information
+            request_indicators = [
+                "not in the context",
+                "additional information needed",
+                "can't find in the shared knowledge",
+                "missing from the context",
+                "need information that's not here",
+                "the context doesn't cover",
+                "knowledge gap",
+                "information gap",
+                "nothing provided about",
+                "no information about",
+                "not mentioned anywhere",
+                "critical information missing",
+            ]
+        else:
+            # Standard indicators for project mode
+            request_indicators = [
+                "need information",
+                "missing",
+                "don't know",
+                "unclear",
+                "need clarification",
+                "help me understand",
+                "confused about",
+                "what is",
+                "how do i",
+                "can you explain",
+                "request",
+                "blocked",
+                "problem",
+                "issue",
+                "question",
+                "uncertain",
+                "clarify",
+            ]
 
         message_lower = message.lower()
         matched_indicators = [indicator for indicator in request_indicators if indicator in message_lower]

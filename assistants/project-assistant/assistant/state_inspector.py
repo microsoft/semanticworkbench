@@ -27,13 +27,19 @@ class ProjectInspectorStateProvider:
     This provider displays project-specific information in the inspector panel
     including project state, brief, goals, and information requests based on the
     user's role (Coordinator or Team).
+    
+    The content displayed is adapted based on the template configuration:
+    - Default: Shows brief, goals, criteria, and request status
+    - Context Transfer: Focuses on knowledge context without goals or progress tracking
     """
 
     display_name = "Project Status"
+    # Default description - will be updated based on template
     description = "Current project information including brief, goals, and request status."
 
     def __init__(self, config_provider) -> None:
         self.config_provider = config_provider
+        self.is_context_transfer = False
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
@@ -53,6 +59,15 @@ class ProjectInspectorStateProvider:
         if self.config_provider:
             config = await self.config_provider.get(context.assistant)
             track_progress = config.track_progress
+            
+            # Update description and display name based on template
+            self.is_context_transfer = not track_progress
+            if self.is_context_transfer:
+                self.description = "Context transfer information including knowledge resources and shared content."
+                self.display_name = "Knowledge Context"
+            else:
+                self.description = "Current project information including brief, goals, and request status."
+                self.display_name = "Project Status"
 
         # Double-check with project storage/manager state
         if not setup_complete:
@@ -174,11 +189,21 @@ Type `/help` for more information on available commands.
 
         lines.append("")
 
-        # Add project description if available
+        # Add project description and additional context if available
         if brief and brief.project_description:
-            lines.append("## Description")
+            if self.is_context_transfer:
+                lines.append("## Knowledge Context")
+            else:
+                lines.append("## Description")
+                
             lines.append(brief.project_description)
             lines.append("")
+            
+            # In context transfer mode, show additional context in a dedicated section
+            if self.is_context_transfer and brief.additional_context:
+                lines.append("## Additional Context")
+                lines.append(brief.additional_context)
+                lines.append("")
 
         # Add goals section if available and progress tracking is enabled
         if track_progress and brief and brief.goals:
@@ -232,16 +257,28 @@ Type `/help` for more information on available commands.
             lines.append("")
 
         # Display project ID as invitation information (simplified approach)
-        lines.append("## Project Invitation")
+        if self.is_context_transfer:
+            lines.append("## Share Knowledge Context")
+        else:
+            lines.append("## Project Invitation")
+            
         lines.append("")
         lines.append("### Project ID")
         lines.append(f"**Project ID:** `{project_id}`")
         lines.append("")
-        lines.append("**IMPORTANT:** Share this Project ID with all team members.")
-        lines.append("Team members can join this project using:")
-        lines.append(f"```\n/join {project_id}\n```")
-        lines.append("")
-        lines.append("The Project ID never expires and can be used by multiple team members.")
+        
+        if self.is_context_transfer:
+            lines.append("**IMPORTANT:** Share this Project ID with anyone who needs to access this knowledge context.")
+            lines.append("Recipients can access this knowledge context using:")
+            lines.append(f"```\n/join {project_id}\n```")
+            lines.append("")
+            lines.append("The Project ID never expires and can be used by multiple recipients.")
+        else:
+            lines.append("**IMPORTANT:** Share this Project ID with all team members.")
+            lines.append("Team members can join this project using:")
+            lines.append(f"```\n/join {project_id}\n```")
+            lines.append("")
+            lines.append("The Project ID never expires and can be used by multiple team members.")
 
         lines.append("")
 
@@ -289,11 +326,21 @@ Type `/help` for more information on available commands.
 
         lines.append("")
 
-        # Add project description if available
+        # Add project description and additional context if available
         if brief and brief.project_description:
-            lines.append("## Project Brief")
+            if self.is_context_transfer:
+                lines.append("## Knowledge Context")
+            else:
+                lines.append("## Project Brief")
+                
             lines.append(brief.project_description)
             lines.append("")
+            
+            # In context transfer mode, show additional context in a dedicated section
+            if self.is_context_transfer and brief.additional_context:
+                lines.append("## Additional Context")
+                lines.append(brief.additional_context)
+                lines.append("")
 
         # Add goals section with checkable criteria if progress tracking is enabled
         if track_progress and brief and brief.goals:
@@ -358,10 +405,17 @@ Type `/help` for more information on available commands.
             lines.append("You haven't created any information requests yet.")
 
         # Add section for viewing Coordinator conversation
-        lines.append("\n## Coordinator Communication")
-        lines.append("Use the `view_coordinator_conversation` tool to see messages from the Coordinator. Example:")
-        lines.append("```")
-        lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
-        lines.append("```")
+        if self.is_context_transfer:
+            lines.append("\n## Knowledge Creator Communication")
+            lines.append("Use the `view_coordinator_conversation` tool to see messages from the knowledge creator. Example:")
+            lines.append("```")
+            lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
+            lines.append("```")
+        else:
+            lines.append("\n## Coordinator Communication")
+            lines.append("Use the `view_coordinator_conversation` tool to see messages from the Coordinator. Example:")
+            lines.append("```")
+            lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
+            lines.append("```")
 
         return "\n".join(lines)
