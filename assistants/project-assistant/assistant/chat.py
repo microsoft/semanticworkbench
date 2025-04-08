@@ -585,18 +585,6 @@ async def on_file_deleted(
         logger.exception(f"Error handling file deletion: {e}")
 
 
-# Notice messages are now simpler without artifact abstraction
-@assistant.events.conversation.message.notice.on_created
-async def on_notice_created(
-    context: ConversationContext, event: ConversationEvent, message: ConversationMessage
-) -> None:
-    """
-    Handle notice messages.
-    """
-    # Notice messages don't require special handling
-    pass
-
-
 # Role detection for the project assistant
 async def detect_assistant_role(context: ConversationContext) -> str:
     """
