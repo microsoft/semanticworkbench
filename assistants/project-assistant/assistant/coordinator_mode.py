@@ -285,8 +285,8 @@ class CoordinatorConversationHandler:
 
         # Update project dashboard if this was a blocker
         dashboard = await ProjectManager.get_project_dashboard(self.context)
-        if dashboard and request_id in dashboard.active_blockers:
-            dashboard.active_blockers.remove(request_id)
+        if dashboard and request_id in dashboard.active_requests:
+            dashboard.active_requests.remove(request_id)
             dashboard.updated_at = datetime.utcnow()
             dashboard.updated_by = user_id
             dashboard.version += 1

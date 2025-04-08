@@ -79,11 +79,11 @@ class TestSetupMode:
         context.assistant.id = "test-assistant-id"
 
         # Handle storage directory issues by mocking the storage path functions
-        with patch("assistant.project.storage_directory_for_context") as mock_storage_dir:
+        with patch("semantic_workbench_assistant.assistant_app.context.storage_directory_for_context") as mock_storage_dir:
             mock_storage_dir.return_value = pathlib.Path("/tmp/test-storage")
 
             # Mock read_model to return None by default
-            with patch("assistant.project.read_model") as mock_read_model:
+            with patch("semantic_workbench_assistant.storage.read_model") as mock_read_model:
                 mock_read_model.return_value = None
 
                 # Also patch write_model
@@ -246,7 +246,7 @@ You are operating in Coordinator Mode (Planning Stage). Your responsibilities in
 
     @pytest.mark.asyncio
     @patch("assistant.command_processor.ProjectManager.get_project_id")
-    @patch("assistant.project.ConversationProjectManager.get_conversation_role")
+    @patch("assistant.conversation_clients.ConversationProjectManager.get_conversation_role")
     async def test_command_processor_blocks_non_setup_commands(self, mock_get_role, mock_get_project_id, context):
         """Test that non-setup commands are blocked in setup mode."""
         # Set up mocks to simulate setup mode
@@ -540,11 +540,11 @@ class TestSetupModeHelp:
         context.assistant.id = "test-assistant-id"
 
         # Handle storage directory issues by mocking the storage path functions
-        with patch("assistant.project.storage_directory_for_context") as mock_storage_dir:
+        with patch("semantic_workbench_assistant.assistant_app.context.storage_directory_for_context") as mock_storage_dir:
             mock_storage_dir.return_value = pathlib.Path("/tmp/test-storage")
 
             # Mock read_model to return None by default
-            with patch("assistant.project.read_model") as mock_read_model:
+            with patch("semantic_workbench_assistant.storage.read_model") as mock_read_model:
                 mock_read_model.return_value = None
 
                 with patch("semantic_workbench_assistant.storage.write_model"):

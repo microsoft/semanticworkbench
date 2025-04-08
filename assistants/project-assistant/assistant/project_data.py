@@ -162,12 +162,17 @@ class ProjectGoal(BaseModel):
 
 class ProjectBrief(BaseEntity):
     """
-    A clear, concise statement of the project, including goals,
-    success criteria, and high-level context.
+    A thorough, comprehensive documentation of the project or context to be transferred,
+    containing all relevant information necessary for understanding and execution.
 
-    The project brief is the primary document that defines the project.
+    The project brief is the primary document that defines the project or context.
     It serves as the central reference for both the Coordinator and team members
-    to understand what needs to be accomplished and why.
+    to understand what needs to be accomplished and why, or in the case of context transfer,
+    what information needs to be preserved and communicated.
+
+    In the standard project configuration, it includes project goals, success criteria,
+    and complete context. In context transfer configuration, it focuses on capturing
+    comprehensive context through detailed project_description and additional_context fields.
 
     Created by the Coordinator during the PLANNING phase, the brief must be
     completed before the project can move to the READY_FOR_WORKING state.
@@ -175,33 +180,13 @@ class ProjectBrief(BaseEntity):
     but major changes should be communicated to all participants.
     """
 
-    project_name: str  # Short, distinctive name for the project
-    project_description: str  # Comprehensive description of the project's purpose and scope
-    goals: List[ProjectGoal] = Field(default_factory=list)  # List of project goals
-    timeline: Optional[str] = None  # Expected timeline or deadline information (free-form text)
-    additional_context: Optional[str] = None  # Any other relevant information for project participants
-
-
-class KBSection(BaseModel):
-    """
-    A section of the project whiteboard with specific content.
-
-    Whiteboard sections allow the Coordinator to organize and share important
-    information with team members. Each section focuses on a specific
-    topic or area relevant to the project.
-
-    Sections can be added, updated, or removed as the project progresses,
-    allowing the whiteboard to evolve as new information becomes available.
-    Tags help with categorization and searching within larger whiteboards.
-    """
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # Unique identifier for the section
-    title: str  # Section title
-    content: str  # Markdown content of the section
-    order: int  # Display order within the whiteboard (lower numbers appear first)
-    tags: List[str] = Field(default_factory=list)  # Categorization tags for searching and filtering
-    last_updated: datetime = Field(default_factory=datetime.utcnow)  # When the section was last modified
-    updated_by: str  # User ID of the person who last updated this section
+    project_name: str  # Short, distinctive name for the project or context transfer
+    project_description: str  # Comprehensive description of the project's purpose, scope, and context
+    goals: List[ProjectGoal] = Field(default_factory=list)  # List of project goals (not used in context transfer mode)
+    timeline: Optional[str] = None  # Expected timeline or deadline information (not used in context transfer mode)
+    additional_context: Optional[str] = (
+        None  # Detailed supplementary information for project participants or context transfer
+    )
 
 
 class ProjectWhiteboard(BaseEntity):
@@ -247,8 +232,8 @@ class ProjectDashboard(BaseEntity):
     # Copy of all goals with their current status
     goals: List[ProjectGoal] = Field(default_factory=list)
 
-    # Active request IDs that are currently blocking progress
-    active_blockers: List[str] = Field(default_factory=list)
+    # Active request IDs that need attention
+    active_requests: List[str] = Field(default_factory=list)
 
     # Number of completed success criteria out of total
     completed_criteria: int = 0

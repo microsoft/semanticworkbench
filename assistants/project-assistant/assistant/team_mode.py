@@ -185,7 +185,7 @@ class TeamConversationHandler:
         # Update project dashboard to include this request as a potential blocker
         dashboard = await ProjectManager.get_project_dashboard(self.context)
         if dashboard and priority in [RequestPriority.HIGH, RequestPriority.CRITICAL] and request.request_id:
-            dashboard.active_blockers.append(request.request_id)
+            dashboard.active_requests.append(request.request_id)
             dashboard.updated_at = datetime.utcnow()
             dashboard.updated_by = user_id
             dashboard.version += 1

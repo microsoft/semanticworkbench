@@ -421,7 +421,7 @@ class ProjectManager:
                     created_by=current_user_id,
                     updated_by=current_user_id,
                     conversation_id=str(context.id),
-                    active_blockers=[],
+                    active_requests=[],
                     next_actions=[],
                 )
 
@@ -559,7 +559,7 @@ class ProjectManager:
             if priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]:
                 dashboard = ProjectStorage.read_project_dashboard(project_id)
                 if dashboard and information_request.request_id:
-                    dashboard.active_blockers.append(information_request.request_id)
+                    dashboard.active_requests.append(information_request.request_id)
                     dashboard.updated_at = datetime.utcnow()
                     dashboard.updated_by = current_user_id
                     dashboard.version += 1
@@ -759,8 +759,8 @@ class ProjectManager:
 
             # Update project dashboard if this was a blocker
             dashboard = ProjectStorage.read_project_dashboard(project_id)
-            if dashboard and information_request.request_id in dashboard.active_blockers:
-                dashboard.active_blockers.remove(information_request.request_id)
+            if dashboard and information_request.request_id in dashboard.active_requests:
+                dashboard.active_requests.remove(information_request.request_id)
                 dashboard.updated_at = datetime.utcnow()
                 dashboard.updated_by = current_user_id
                 dashboard.version += 1

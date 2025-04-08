@@ -102,12 +102,12 @@ class InformationRequest(BaseArtifact):
 
 class ProjectDashboard(BaseArtifact):
     def __init__(
-        self, state=None, progress_percentage=0, active_blockers=None, completed_criteria=0, total_criteria=0, **kwargs
+        self, state=None, progress_percentage=0, active_requests=None, completed_criteria=0, total_criteria=0, **kwargs
     ):
         super().__init__(artifact_type=ArtifactType.PROJECT_DASHBOARD, **kwargs)
         self.state = state or ProjectState.PLANNING
         self.progress_percentage = progress_percentage
-        self.active_blockers = active_blockers or []
+        self.active_requests = active_requests or []
         self.completed_criteria = completed_criteria
         self.total_criteria = total_criteria
         self.status_message = None

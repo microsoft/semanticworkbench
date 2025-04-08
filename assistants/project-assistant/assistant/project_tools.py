@@ -1140,8 +1140,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
             # Update project dashboard if this was a blocker
             dashboard = ProjectStorage.read_project_dashboard(project_id)
-            if dashboard and hasattr(dashboard, "active_blockers") and actual_request_id in dashboard.active_blockers:
-                dashboard.active_blockers.remove(actual_request_id)
+            if dashboard and hasattr(dashboard, "active_requests") and actual_request_id in dashboard.active_requests:
+                dashboard.active_requests.remove(actual_request_id)
                 dashboard.updated_at = datetime.utcnow()
                 dashboard.updated_by = current_user_id
                 dashboard.version += 1
