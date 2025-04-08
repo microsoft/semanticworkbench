@@ -767,6 +767,18 @@ def init(
             new_conversation=new_conversation,
         )
 
+    @app.post("/conversations/{owner_id}")
+    async def create_conversation_with_owner(
+        assistant_principal: auth.DependsAssistantPrincipal,
+        new_conversation: NewConversation,
+        owner_id: str,
+    ) -> Conversation:
+        return await conversation_controller.create_conversation_with_owner(
+            new_conversation=new_conversation,
+            principal=assistant_principal,
+            owner_id=owner_id,
+        )
+
     @app.post("/conversations/{conversation_id}")
     async def duplicate_conversation(
         conversation_id: uuid.UUID,
@@ -1044,6 +1056,18 @@ def init(
         return await conversation_share_controller.create_conversation_share(
             user_principal=user_principal,
             new_conversation_share=new_conversation_share,
+        )
+
+    # create_conversation_share_with_owner
+    @app.post("/conversation-shares/{owener_id}")
+    async def create_conversation_share_with_owner(
+        assistant_principal: auth.DependsAssistantPrincipal,
+        new_conversation_share: NewConversationShare,
+        owner_id: str,
+    ) -> ConversationShare:
+        return await conversation_share_controller.create_conversation_share_with_owner(
+            new_conversation_share=new_conversation_share,
+            owner_id=owner_id,
         )
 
     @app.get("/conversation-shares")

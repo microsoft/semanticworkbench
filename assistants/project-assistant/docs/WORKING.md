@@ -1,1 +1,0 @@
-- Recently, in codespace-assistant, we added a new feature where an assistant can started with one of multiple configurations. Check out assistants/codespace-assistant/assistant/chat.py to see what I'm talking about.

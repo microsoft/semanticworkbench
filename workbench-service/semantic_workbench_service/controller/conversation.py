@@ -105,6 +105,43 @@ class ConversationController:
             conversation_id=conversation.conversation_id, principal=user_principal, latest_message_types=set()
         )
 
+    async def create_conversation_with_owner(
+        self,
+        new_conversation: NewConversation,
+        owner_id: str,
+        principal: auth.ActorPrincipal,
+    ) -> Conversation:
+        async with self._get_session() as session:
+            conversation = db.Conversation(
+                owner_id=owner_id,
+                title=new_conversation.title or NewConversation().title,
+                meta_data=new_conversation.metadata,
+                imported_from_conversation_id=None,
+            )
+
+            if new_conversation.title and new_conversation.title != NewConversation().title:
+                conversation.meta_data = {
+                    **conversation.meta_data,
+                    META_DATA_KEY_USER_SET_TITLE: True,
+                }
+
+            session.add(conversation)
+
+            session.add(
+                db.UserParticipant(
+                    conversation_id=conversation.conversation_id,
+                    user_id=owner_id,
+                    conversation_permission="read_write",
+                )
+            )
+
+            await session.commit()
+            await session.refresh(conversation)
+
+        return await self.get_conversation(
+            conversation_id=conversation.conversation_id, principal=principal, latest_message_types=set()
+        )
+
     async def _projections_with_participants(
         self,
         session: AsyncSession,

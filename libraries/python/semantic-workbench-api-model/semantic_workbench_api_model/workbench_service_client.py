@@ -381,6 +381,32 @@ class ConversationsAPIClient:
             http_response.raise_for_status()
             return workbench_model.Conversation.model_validate(http_response.json())
 
+    async def create_conversation_with_owner(
+        self,
+        new_conversation: workbench_model.NewConversation,
+        owner_id: str,
+    ) -> workbench_model.Conversation:
+        async with self._client as client:
+            http_response = await client.post(
+                f"/conversations/{owner_id}",
+                json=new_conversation.model_dump(exclude_defaults=True, exclude_unset=True, mode="json"),
+            )
+            http_response.raise_for_status()
+            return workbench_model.Conversation.model_validate(http_response.json())
+
+    async def create_conversation_share_with_owner(
+        self,
+        new_conversation_share: workbench_model.NewConversationShare,
+        owner_id: str,
+    ) -> workbench_model.ConversationShare:
+        async with self._client as client:
+            http_response = await client.post(
+                f"/conversation-shares/{owner_id}",
+                json=new_conversation_share.model_dump(exclude_defaults=True, exclude_unset=True, mode="json"),
+            )
+            http_response.raise_for_status()
+            return workbench_model.ConversationShare.model_validate(http_response.json())
+
     async def delete_conversation(self, conversation_id: str) -> None:
         async with self._client as client:
             http_response = await client.delete(f"/conversations/{conversation_id}")
