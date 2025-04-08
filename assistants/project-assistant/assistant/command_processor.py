@@ -474,7 +474,7 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
             return
 
         # Show setup-specific help
-        help_text = """## Project Assistant Setup
+        help_text = """## Assistant Setup
 
 This assistant is in setup mode. You need to establish your role before proceeding:
 
@@ -490,7 +490,7 @@ Please use one of these commands to get started. The recommended workflow is:
 2. The Coordinator shares the project ID (automatically displayed after creation)
 3. Team members use `/join` with the project ID in their conversations
 
-Once setup is complete, you will have access to all project commands appropriate for your role.
+Once setup is complete, you will have access to all commands appropriate for your role.
 """
 
         await context.send_messages(
@@ -553,9 +553,9 @@ Once setup is complete, you will have access to all project commands appropriate
 
     # Format help text based on role
     if role == "coordinator":
-        help_text = "## Project Assistant Commands (Coordinator Mode)\n\n"
+        help_text = "## Assistant Commands (Coordinator Mode)\n\n"
     else:
-        help_text = "## Project Assistant Commands (Team Mode)\n\n"
+        help_text = "## Assistant Commands (Team Mode)\n\n"
 
     # Group commands by category
     project_commands = []
@@ -570,7 +570,7 @@ Once setup is complete, you will have access to all project commands appropriate
 
         if "create-brief" in name or "add-goal" in name:
             project_commands.append(command_entry)
-        elif "kb" in name:
+        elif "whiteboard" in name:
             whiteboard_commands.append(command_entry)
         elif "request" in name:
             request_commands.append(command_entry)
@@ -602,7 +602,9 @@ Once setup is complete, you will have access to all project commands appropriate
 
     # Add role-specific guidance
     if role == "coordinator":
-        help_text += "As a Coordinator, you are responsible for defining the project, maintaining the project whiteboard, and coordinating team members."
+        help_text += (
+            "As a Coordinator, you are responsible for defining the project and responding to team member requests."
+        )
     else:
         help_text += "As a Team member, you can access project information, request information, and report progress on project goals."
 
@@ -1042,101 +1044,6 @@ async def handle_resolve_request_command(
         )
 
 
-async def handle_invite_command(context: ConversationContext, message: ConversationMessage, args: List[str]) -> None:
-    """
-    Legacy invite command handler - simplified to just show project ID.
-
-    With the simplified invitation system, we don't need to generate invitations.
-    This function now just displays the project ID as the invitation code.
-    """
-    try:
-        # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(context)
-        if not project_id:
-            await context.send_messages(
-                NewConversationMessage(
-                    content="You are not associated with a project. Please create one first with `/create-brief`.",
-                    message_type=MessageType.notice,
-                )
-            )
-            return
-
-        # Instead of creating a complex invitation, just display the project ID
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"""## Project Invitation
-
-**Project ID:** `{project_id}`
-
-Share this Project ID with team members. They can join using:
-`/join {project_id}`
-
-This Project ID never expires and can be used by multiple team members.
-""",
-                message_type=MessageType.chat,
-            )
-        )
-
-        # Update all project UI inspectors
-        await ProjectStorage.refresh_all_project_uis(context, project_id)
-
-    except Exception as e:
-        logger.exception(f"Error displaying project ID: {e}")
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"Error displaying project ID: {str(e)}",
-                message_type=MessageType.notice,
-            )
-        )
-
-
-async def handle_join_legacy_command(
-    context: ConversationContext, message: ConversationMessage, args: List[str]
-) -> None:
-    """Handle the join command for legacy operation (non-setup mode)."""
-    # Parse the command
-    if not args:
-        await context.send_messages(
-            NewConversationMessage(
-                content="Please specify an invitation code. Format: `/join invitation_code`",
-                message_type=MessageType.notice,
-            )
-        )
-        return
-
-    invitation_code = args[0]
-
-    try:
-        # Use the proper ProjectInvitation implementation from project.py
-        from .project import ProjectInvitation
-
-        # Validate and redeem the invitation
-        success, result_message = await ProjectInvitation.redeem_invitation(context, invitation_code)
-
-        # The redeem_invitation method handles all the operations, so we just need to send the result message
-        await context.send_messages(
-            NewConversationMessage(
-                content=result_message,
-                message_type=MessageType.chat if success else MessageType.notice,
-            )
-        )
-
-        # Update all project UI inspectors to reflect the change
-        if success:
-            project_id = await ConversationProjectManager.get_conversation_project(context)
-            if project_id:
-                await ProjectStorage.refresh_all_project_uis(context, project_id)
-
-    except Exception as e:
-        logger.exception(f"Error joining project: {e}")
-        await context.send_messages(
-            NewConversationMessage(
-                content=f"Error joining project: {str(e)}",
-                message_type=MessageType.notice,
-            )
-        )
-
-
 async def handle_project_info_command(
     context: ConversationContext, message: ConversationMessage, args: List[str]
 ) -> None:
@@ -1206,14 +1113,14 @@ async def handle_project_info_command(
 
         # Get project whiteboard if requested
         if info_type in ["all", "whiteboard"]:
-            kb = await ProjectManager.get_project_whiteboard(context)
+            whiteboard = await ProjectManager.get_project_whiteboard(context)
 
-            if kb and kb.content:
+            if whiteboard and whiteboard.content:
                 output.append("\n## Project Whiteboard\n")
-                output.append(kb.content)
+                output.append(whiteboard.content)
                 output.append("")
 
-                if kb.is_auto_generated:
+                if whiteboard.is_auto_generated:
                     output.append("*This whiteboard content is automatically updated by the assistant.*")
                 else:
                     output.append("*This whiteboard content has been manually edited.*")
@@ -1609,7 +1516,7 @@ command_registry.register_command(
     "project-info",
     handle_project_info_command,
     "View project information",
-    "/project-info [brief|kb|status|requests]",
+    "/project-info [brief|whiteboard|status|requests]",
     "/project-info brief",
     None,  # Available to all roles
 )

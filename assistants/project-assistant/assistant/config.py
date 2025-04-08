@@ -2,17 +2,15 @@
 from .configs import (
     AssistantConfigModel,
     ContextTransferConfigModel,
-    ProjectConfig,
-    ReceiverConfig,
+    CoordinatorConfig,
     RequestConfig,
-    SenderConfig,
+    TeamConfig,
 )
 
 __all__ = [
     "AssistantConfigModel",
     "ContextTransferConfigModel",
-    "ProjectConfig",
-    "ReceiverConfig",
+    "CoordinatorConfig", 
     "RequestConfig",
-    "SenderConfig",
+    "TeamConfig",
 ]

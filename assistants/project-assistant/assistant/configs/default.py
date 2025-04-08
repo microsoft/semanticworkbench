@@ -1,7 +1,11 @@
 from typing import Annotated
 
+import openai_client
+from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import UISchema
+
+from ..utils import load_text_include
 
 
 class RequestConfig(BaseModel):
@@ -40,9 +44,9 @@ class RequestConfig(BaseModel):
     ] = "gpt-4o"
 
 
-class SenderConfig(BaseModel):
+class CoordinatorConfig(BaseModel):
     model_config = ConfigDict(
-        title="Project Sender Configuration",
+        title="Coordinator Configuration",
         json_schema_extra={
             "required": ["welcome_message", "prompt_for_files", "context_building_prompt"],
         },
@@ -51,8 +55,8 @@ class SenderConfig(BaseModel):
     welcome_message: Annotated[
         str,
         Field(
-            title="Sender Welcome Message",
-            description="The message to display when a project coordinator starts a new conversation.",
+            title="Coordinator Welcome Message",
+            description="The message to display after a user has been assigned the Coordinator role. Shown after setup is complete.",
         ),
         UISchema(widget="textarea"),
     ] = "Welcome to your project control! As the project coordinator, I'll help you build context by organizing files and information to share with your team. You can upload files, invite team members with the /invite command, and I'll help synchronize everything between conversations."
@@ -84,9 +88,9 @@ class SenderConfig(BaseModel):
     ] = "list-participants"
 
 
-class ReceiverConfig(BaseModel):
+class TeamConfig(BaseModel):
     model_config = ConfigDict(
-        title="Project Receiver Configuration",
+        title="Team Member Configuration",
         json_schema_extra={
             "required": ["welcome_message", "status_command"],
         },
@@ -95,8 +99,8 @@ class ReceiverConfig(BaseModel):
     welcome_message: Annotated[
         str,
         Field(
-            title="Receiver Welcome Message",
-            description="The message to display when a user joins a project via invitation.",
+            title="Team Welcome Message",
+            description="The message to display when a user joins a project as a Team member. Shown after successfully joining a project.",
         ),
         UISchema(widget="textarea"),
     ] = "Welcome to the project! You've been added as a collaborator, and any files shared by the project coordinator will appear in this conversation. You can also contribute by uploading your own files, which will be shared with the team."
@@ -119,14 +123,82 @@ class ReceiverConfig(BaseModel):
     ] = "Your file has been uploaded and shared with the project team. The project coordinator and other participants will be notified."
 
 
-class ProjectConfig(BaseModel):
-    model_config = ConfigDict(
-        title="Project Configuration",
-        json_schema_extra={
-            "required": ["auto_sync_files", "invite_command", "join_command"],
-        },
+# ProjectConfig class has been removed - fields are now directly in AssistantConfigModel
+
+
+# Base Assistant Configuration - shared by all templates
+class AssistantConfigModel(BaseModel):
+    enable_debug_output: Annotated[
+        bool,
+        Field(
+            title="Include Debug Output",
+            description="Include debug output on conversation messages.",
+        ),
+    ] = False
+
+    instruction_prompt: Annotated[
+        str,
+        Field(
+            title="Instruction Prompt",
+            description="The prompt used to instruct the behavior of the AI assistant.",
+        ),
+        UISchema(widget="textarea"),
+    ] = (
+        "You are an AI project assistant that helps teams collaborate. You can facilitate file sharing between "
+        "different conversations, allowing users to collaborate without being in the same conversation. "
+        "Users can invite others with the /invite command, and you'll help synchronize files between conversations. "
+        "In addition to text, you can also produce markdown, code snippets, and other types of content."
     )
 
+    guardrails_prompt: Annotated[
+        str,
+        Field(
+            title="Guardrails Prompt",
+            description=(
+                "The prompt used to inform the AI assistant about the guardrails to follow. Default value based upon"
+                " recommendations from: [Microsoft OpenAI Service: System message templates]"
+                "(https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/system-message"
+                "#define-additional-safety-and-behavioral-guardrails)"
+            ),
+        ),
+        UISchema(widget="textarea", enable_markdown_in_description=True),
+    ] = load_text_include("guardrails_prompt.txt")
+
+    welcome_message: Annotated[
+        str,
+        Field(
+            title="Initial Setup Welcome Message",
+            description="The message displayed when the assistant first starts, before any role is assigned. This explains the setup process.",
+        ),
+        UISchema(widget="textarea"),
+    ] = """# Welcome to the Project Assistant
+
+This assistant helps coordinate project activities between Coordinators and Team members.
+
+**Setup Required**: To begin, please specify your role:
+
+- Use `/start` to create a new project as Coordinator
+- Use `/join <project_id>` to join an existing project as a Team member
+
+Type `/help` for more information on available commands."""
+
+    request_config: Annotated[
+        RequestConfig,
+        Field(
+            title="Request Configuration",
+        ),
+    ] = RequestConfig()
+
+    service_config: openai_client.ServiceConfig
+
+    content_safety_config: Annotated[
+        CombinedContentSafetyEvaluatorConfig,
+        Field(
+            title="Content Safety Configuration",
+        ),
+    ] = CombinedContentSafetyEvaluatorConfig()
+
+    # Project configuration fields moved directly into AssistantConfigModel
     auto_sync_files: Annotated[
         bool,
         Field(
@@ -134,22 +206,6 @@ class ProjectConfig(BaseModel):
             description="Automatically synchronize files between linked conversations.",
         ),
     ] = True
-
-    invite_command: Annotated[
-        str,
-        Field(
-            title="Invite Command",
-            description="The command users can type to invite others (without the slash).",
-        ),
-    ] = "invite"
-
-    join_command: Annotated[
-        str,
-        Field(
-            title="Join Command",
-            description="The command users can type to join a project (without the slash).",
-        ),
-    ] = "join"
 
     invitation_message: Annotated[
         str,
@@ -168,18 +224,18 @@ class ProjectConfig(BaseModel):
         ),
     ] = True
 
-    sender_config: Annotated[
-        SenderConfig,
+    coordinator_config: Annotated[
+        CoordinatorConfig,
         Field(
-            title="Sender Configuration",
-            description="Configuration for project coordinators (senders).",
+            title="Coordinator Configuration",
+            description="Configuration for project coordinators.",
         ),
-    ] = SenderConfig()
+    ] = CoordinatorConfig()
 
-    receiver_config: Annotated[
-        ReceiverConfig,
+    team_config: Annotated[
+        TeamConfig,
         Field(
-            title="Receiver Configuration",
-            description="Configuration for project team members (receivers).",
+            title="Team Configuration",
+            description="Configuration for project team members.",
         ),
-    ] = ReceiverConfig()
+    ] = TeamConfig()

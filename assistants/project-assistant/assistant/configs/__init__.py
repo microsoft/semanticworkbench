@@ -1,12 +1,10 @@
-from .base import AssistantConfigModel
+from .default import AssistantConfigModel, CoordinatorConfig, RequestConfig, TeamConfig
 from .context_transfer import ContextTransferConfigModel
-from .project_config import ProjectConfig, ReceiverConfig, RequestConfig, SenderConfig
 
 __all__ = [
     "AssistantConfigModel",
     "ContextTransferConfigModel",
-    "ProjectConfig",
-    "ReceiverConfig",
+    "CoordinatorConfig",
     "RequestConfig",
-    "SenderConfig",
+    "TeamConfig",
 ]

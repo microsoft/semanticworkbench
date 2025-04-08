@@ -25,16 +25,16 @@ from .command_processor import (
 )
 from .project_data import (
     LogEntryType,
-    ProjectState,
     ProjectDashboard,
+    ProjectState,
     RequestPriority,
     RequestStatus,
 )
 from .project_manager import ProjectManager, ProjectRole
 from .project_storage import (
-    ProjectStorage,
     ConversationProjectManager,
     ProjectNotifier,
+    ProjectStorage,
 )
 
 logger = logging.getLogger(__name__)
@@ -165,18 +165,18 @@ class ProjectTools:
             "Suggest the next action the user should take based on project state",
         )
 
-    async def get_project_info(self, info_type: Literal["all", "brief", "kb", "dashboard", "requests"]) -> str:
+    async def get_project_info(self, info_type: Literal["all", "brief", "whiteboard", "dashboard", "requests"]) -> str:
         """
         Get information about the current project.
 
         Args:
-            info_type: Type of information to retrieve. Must be one of: all, brief, kb, dashboard, requests.
+            info_type: Type of information to retrieve. Must be one of: all, brief, whiteboard, dashboard, requests.
 
         Returns:
             Information about the project in a formatted string
         """
-        if info_type not in ["all", "brief", "kb", "dashboard", "requests"]:
-            return f"Invalid info_type: {info_type}. Must be one of: all, brief, kb, dashboard, requests. Use 'all' to get all information types."
+        if info_type not in ["all", "brief", "whiteboard", "dashboard", "requests"]:
+            return f"Invalid info_type: {info_type}. Must be one of: all, brief, whiteboard, dashboard, requests. Use 'all' to get all information types."
 
         # Get the project ID for the current conversation
         project_id = await ProjectManager.get_project_id(self.context)
@@ -218,14 +218,14 @@ class ProjectTools:
 
         # Get project whiteboard if requested
         if info_type in ["all", "whiteboard"]:
-            kb = ProjectStorage.read_project_whiteboard(project_id)
+            whiteboard = ProjectStorage.read_project_whiteboard(project_id)
 
-            if kb and kb.content:
+            if whiteboard and whiteboard.content:
                 output.append("\n## Project Whiteboard\n")
-                output.append(kb.content)
+                output.append(whiteboard.content)
                 output.append("")
 
-                if kb.is_auto_generated:
+                if whiteboard.is_auto_generated:
                     output.append("*This whiteboard content is automatically updated by the assistant.*")
                 else:
                     output.append("*This whiteboard content has been manually edited.*")
@@ -709,7 +709,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Get existing project brief and whiteboard
         brief = ProjectStorage.read_project_brief(project_id)
-        kb = ProjectStorage.read_project_whiteboard(project_id)
+        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
 
         if not brief:
             return "No project brief found. Please create one before marking as ready for working."
@@ -728,7 +728,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "No success criteria defined. Please add at least one success criterion to a goal before marking as ready for working."
 
         # Check if whiteboard has content
-        if not kb or not kb.content:
+        if not whiteboard or not whiteboard.content:
             return "Project whiteboard is empty. Content will be automatically generated as the project progresses."
 
         # Get or create project dashboard
@@ -1132,8 +1132,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             # Notify Coordinator about the deletion
             try:
                 # Get Coordinator conversation ID
-                from .project_storage import ProjectRole, ProjectStorageManager, ConversationProjectManager
                 from semantic_workbench_assistant.storage import read_model
+
+                from .project_storage import ConversationProjectManager, ProjectRole, ProjectStorageManager
 
                 coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ProjectRole.COORDINATOR.value
                 if coordinator_dir.exists():
@@ -1406,7 +1407,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Get project state information
         brief = ProjectStorage.read_project_brief(project_id)
-        kb = ProjectStorage.read_project_whiteboard(project_id)
+        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
         dashboard = ProjectStorage.read_project_dashboard(project_id)
         requests = ProjectStorage.get_all_information_requests(project_id)
 
@@ -1476,7 +1477,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 # Check if it's ready to mark as ready for working
                 has_goals = bool(brief.goals)
                 has_criteria = any(bool(goal.success_criteria) for goal in brief.goals)
-                has_kb = bool(kb and kb.content)
+                has_kb = bool(whiteboard and whiteboard.content)
 
                 if has_goals and has_criteria and has_kb:
                     return {

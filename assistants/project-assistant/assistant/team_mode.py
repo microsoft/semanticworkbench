@@ -519,41 +519,6 @@ class TeamConversationHandler:
 
         return True, "Project has been marked as completed", dashboard
 
-    async def get_kb_section(self, section_id: Optional[str] = None) -> Dict:
-        """
-        Retrieves whiteboard content from project whiteboard.
-
-        Args:
-            section_id: Optional ID of specific section to retrieve
-
-        Returns:
-            Dictionary with whiteboard information
-        """
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
-        if not project_id:
-            return {
-                "has_kb": False,
-                "message": "This conversation is not associated with a project",
-            }
-
-        # Get whiteboard
-        kb = ProjectStorage.read_project_whiteboard(project_id)
-
-        if not kb:
-            return {
-                "has_kb": False,
-                "message": "No whiteboard found for this project",
-            }
-
-        # With the whiteboard structure, we now return the entire content
-        return {
-            "has_kb": True,
-            "is_whiteboard": True,
-            "whiteboard_content": kb.content,
-            "is_auto_generated": kb.is_auto_generated,
-            "last_updated": kb.updated_at.isoformat(),
-        }
-
     async def get_project_brief_info(self) -> Dict:
         """
         Gets information about the project brief.

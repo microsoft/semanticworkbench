@@ -204,7 +204,7 @@ class KBSection(BaseModel):
     updated_by: str  # User ID of the person who last updated this section
 
 
-class ProjectKB(BaseEntity):
+class ProjectWhiteboard(BaseEntity):
     """
     A dynamic whiteboard that gets automatically updated as the coordinator assembles their project.
 

@@ -31,7 +31,6 @@ class TestProjectTools:
         # Verify Coordinator-specific functions are registered
         assert "create_project_brief" in coordinator_tools.tool_functions.function_map
         assert "add_project_goal" in coordinator_tools.tool_functions.function_map
-        assert "add_kb_section" in coordinator_tools.tool_functions.function_map
         assert "resolve_information_request" in coordinator_tools.tool_functions.function_map
         assert "mark_project_ready_for_working" in coordinator_tools.tool_functions.function_map
 
@@ -55,7 +54,6 @@ class TestProjectTools:
         # Verify Coordinator-specific functions are NOT registered
         assert "create_project_brief" not in team_tools.tool_functions.function_map
         assert "add_project_goal" not in team_tools.tool_functions.function_map
-        assert "add_kb_section" not in team_tools.tool_functions.function_map
         assert "resolve_information_request" not in team_tools.tool_functions.function_map
         assert "mark_project_ready_for_working" not in team_tools.tool_functions.function_map
 

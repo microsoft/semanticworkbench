@@ -18,7 +18,6 @@ from .project_data import (
     ProjectBrief,
     ProjectDashboard,
     ProjectGoal,
-    ProjectKB,
     ProjectState,
     RequestStatus,
     SuccessCriterion,
@@ -219,68 +218,6 @@ class CoordinatorConversationHandler:
         )
 
         return True, f"Added project goal: {name}", brief
-
-    async def add_kb_section(
-        self, title: str, content: str, order: int = 0, tags: Optional[List[str]] = None
-    ) -> Tuple[bool, str, Optional[ProjectKB]]:
-        """
-        Adds a section to the project whiteboard.
-
-        Args:
-            title: Title of the section
-            content: Content of the section
-            order: Display order (lower numbers shown first)
-            tags: Optional tags for categorization
-
-        Returns:
-            Tuple of (success, message, updated_kb)
-        """
-        # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.COORDINATOR:
-            return False, "Only Coordinator conversations can add whiteboard sections", None
-
-        # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
-        if not project_id:
-            return False, "Conversation not associated with a project", None
-
-        # Get user ID
-        participants = await self.context.get_participants()
-        user_id = None
-        for participant in participants.participants:
-            if participant.role == "user":
-                user_id = participant.id
-                break
-
-        if not user_id:
-            user_id = "coordinator-system"
-
-        # Use ProjectManager to add KB section which handles whiteboard structure
-        from .project_manager import ProjectManager
-
-        success, kb = await ProjectManager.add_kb_section(
-            context=self.context,
-            title=title,
-            content=content,
-            order=order,
-            tags=tags or [],
-        )
-
-        if not success or not kb:
-            return False, "Failed to add whiteboard section", None
-
-        # Log is already done by the ProjectManager
-
-        # Send notification
-        await self.context.send_messages(
-            NewConversationMessage(
-                content=f"Added whiteboard section: {title}",
-                message_type=MessageType.notice,
-            )
-        )
-
-        return True, f"Added whiteboard section: {title}", kb
 
     async def resolve_information_request(
         self, request_id: str, resolution: str

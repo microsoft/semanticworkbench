@@ -227,78 +227,16 @@ async def on_message_created(
                 logger.exception(f"Error storing Coordinator message for Team access: {e}")
 
         # Prepare custom system message based on role
+        from .utils import load_text_include
+
         role_specific_prompt = ""
 
         if role == "coordinator":
             # Coordinator-specific instructions
-            role_specific_prompt = """
-You are operating in Coordinator Mode (Planning Stage). Your responsibilities include:
-- Creating a clear Project Brief that outlines the project's purpose and objectives
-- Defining specific, actionable project goals that team members will need to complete
-- Establishing measurable success criteria for each goal to track team progress
-- Building a comprehensive Whiteboard with project-critical information
-- Providing guidance and information to team members
-- Responding to Information Requests from project participants (using get_project_info first to get the correct Request ID)
-- Controlling the "Ready for Working" milestone when project definition is complete
-- Maintaining an overview of project progress
-
-IMPORTANT: Project goals are operational objectives for team members to complete, not goals for the Coordinator.
-Each goal should:
-- Be clear and specific tasks that team members need to accomplish
-- Include measurable success criteria that team members can mark as completed
-- Focus on project outcomes, not the planning process
-
-IMPORTANT ABOUT FILES: When files are uploaded, they are automatically shared with all team members. You don't need to ask users what they want to do with uploaded files. Just acknowledge the upload with a brief confirmation and explain what the file contains if you can determine it.
-
-Your AUTHORIZED Coordinator-specific tools are:
-- create_project_brief: Use this to start a new project with a name and description
-- add_project_goal: Use this to add operational goals that team members will complete, with measurable success criteria
-- resolve_information_request: Use this to resolve information requests. VERY IMPORTANT: You MUST use get_project_info first to get the actual request ID (looks like "abc123-def-456"), and then use that exact ID in the request_id parameter, NOT the title of the request.
-- mark_project_ready_for_working: Use this when project planning is complete and work can begin
-- get_project_info: Use this to get information about the current project
-- suggest_next_action: Use this to suggest the next action based on project state
-
-Be proactive in suggesting and using your Coordinator tools based on user requests. Always prefer using tools over just discussing project concepts. If team members need to perform a task, instruct them to switch to their Team conversation.
-
-Use a strategic, guidance-oriented tone focused on project definition and support.
-"""
+            role_specific_prompt = load_text_include("coordinator_prompt.txt")
         else:
             # Team-specific instructions
-            role_specific_prompt = """
-You are operating in Team Mode (Working Stage). Your responsibilities include:
-- Helping team members understand and execute the project objectives defined by the Coordinator
-- Providing access to the Whiteboard created by the Coordinator
-- Guiding team members to complete the project goals established by the Coordinator
-- Tracking and marking completion of success criteria for each goal
-- Logging information gaps and blockers as Information Requests to the Coordinator
-- Updating the Project Dashboard with progress on operational tasks
-- Tracking progress toward the "Project Completion" milestone
-
-IMPORTANT: Your role is to help team members accomplish the project goals that were defined by the Coordinator.
-You should:
-- Focus on executing the goals, not redefining them
-- Mark success criteria as completed when team members report completion
-- Identify information gaps or blockers that require Coordinator assistance
-
-IMPORTANT ABOUT FILES: Files are automatically shared with team members. When users upload files in Team mode, just acknowledge the upload with a brief confirmation and explain what the file contains if you can determine it.
-
-Your AUTHORIZED Team-specific tools are:
-- create_information_request: Use this SPECIFICALLY to send information requests or report blockers to the Coordinator
-- update_project_dashboard: Use this to update the status and progress of the project
-- mark_criterion_completed: Use this to mark success criteria as completed
-- report_project_completion: Use this to report that the project is complete
-- get_project_info: Use this to get information about the current project
-- detect_information_request_needs: Use this to analyze user messages for potential information request needs
-- suggest_next_action: Use this to suggest the next action based on project state
-- view_coordinator_conversation: Use this to view the Coordinator conversation for context and information
-
-When team members need information or assistance from the Coordinator:
-1. Use the view_coordinator_conversation tool to check if the Coordinator has already provided the information
-2. If not, use the create_information_request tool
-3. NEVER try to modify project definition elements (brief, goals, whiteboard)
-
-Use a practical, operational tone focused on project execution and problem-solving.
-"""
+            role_specific_prompt = load_text_include("team_prompt.txt")
 
         # Add role-specific metadata to pass to the LLM
         role_metadata = {
@@ -722,18 +660,9 @@ async def on_conversation_created(context: ConversationContext) -> None:
         AssistantStateEvent(state_id="project_role", event="updated", state=None)
     )
 
-    # Welcome message for setup mode
-    setup_welcome = """# Welcome to the Project Assistant
-
-This assistant helps coordinate project activities between Coordinators and Team members.
-
-**Setup Required**: To begin, please specify your role:
-
-- Use `/start` to create a new project as Coordinator
-- Use `/join <project_id>` to join an existing project as a Team member
-
-Type `/help` for more information on available commands.
-"""
+    # Use welcome message from config
+    config = await assistant_config.get(context.assistant)
+    setup_welcome = config.welcome_message
 
     # send the setup welcome message to the conversation
     await context.send_messages(
@@ -834,29 +763,15 @@ async def respond_to_conversation(
     Respond to a conversation message.
     """
 
-    # define the metadata key for any metadata created within this method
     method_metadata_key = "respond_to_conversation"
-
-    # get the assistant's configuration, supports overwriting defaults from environment variables
     config = await assistant_config.get(context.assistant)
-
-    # get the list of conversation participants
     participants_response = await context.get_participants(include_inactive=True)
-
-    # establish a token to be used by the AI model to indicate no response
     silence_token = "{{SILENCE}}"
-
-    # create a system message, start by adding the guardrails prompt
     system_message_content = config.guardrails_prompt
-
-    # add the instruction prompt and the assistant name
     system_message_content += f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
-
-    # Add role-specific instructions if provided
     if role_specific_prompt:
         system_message_content += f"\n\n{role_specific_prompt}"
 
-    # if this is a multi-participant conversation, add a note about the participants
     if len(participants_response.participants) > 2:
         system_message_content += (
             "\n\n"
@@ -875,7 +790,6 @@ async def respond_to_conversation(
             " your turn."
         )
 
-    # create the completion messages for the AI model and add the system message
     completion_messages: list[ChatCompletionMessageParam] = [
         {
             "role": "system",
@@ -883,14 +797,11 @@ async def respond_to_conversation(
         }
     ]
 
-    # get the current token count and track the tokens used as messages are added
     current_tokens = 0
-    # add the token count for the system message
     current_tokens += get_token_count(system_message_content)
 
-    # consistent formatter that includes the participant name for multi-participant and name references
     def format_message(message: ConversationMessage) -> str:
-        # get the participant name for the message sender
+        """Consistent formatter that includes the participant name for multi-participant and name references"""
         conversation_participant = next(
             (
                 participant
@@ -901,82 +812,33 @@ async def respond_to_conversation(
         )
         participant_name = conversation_participant.name if conversation_participant else "unknown"
 
-        # format the message content with the participant name and message timestamp
         message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
         return f"[{participant_name} - {message_datetime}]: {message.content}"
 
-    # get messages before the current message
     messages_response = await context.get_messages(before=message.id)
     messages = messages_response.messages + [message]
 
-    # create a list of the recent chat history messages to send to the AI model
     history_messages: list[ChatCompletionMessageParam] = []
-    # iterate over the messages in reverse order to get the most recent messages first
     for message in reversed(messages):
-        # add the token count for the message and check if the token limit has been reached
         message_tokens = get_token_count(format_message(message))
         current_tokens += message_tokens
         if current_tokens > config.request_config.max_tokens - config.request_config.response_tokens:
-            # if the token limit has been reached, stop adding messages
             break
 
-        # add the message to the history messages
         if message.sender.participant_id == context.assistant.id:
-            # this is an assistant message
             history_messages.append({
                 "role": "assistant",
                 "content": format_message(message),
             })
         else:
-            # this is a user message
             history_messages.append({
                 "role": "user",
                 "content": format_message(message),
             })
 
-    # reverse the history messages to send the most recent messages first
     history_messages.reverse()
 
-    # add the history messages to the completion messages
     completion_messages.extend(history_messages)
-
-    # evaluate the content for safety
-    # disabled because the OpenAI and Azure OpenAI services already have content safety checks
-    # and we are more interested in running the generated responses through the content safety checks
-    # which are being handled by the content safety interceptor on the assistant
-    # this code is therefore included here for reference on how to call the content safety evaluator
-    # from within the assistant code
-
-    # content_evaluator = await content_evaluator_factory(context)
-    # evaluation = await content_evaluator.evaluate([message.content for message in messages])
-
-    # deepmerge.always_merger.merge(
-    #     metadata,
-    #     {
-    #         "debug": {
-    #             f"{assistant.content_interceptor.metadata_key}": {
-    #                 f"{method_metadata_key}": {
-    #                     "evaluation": evaluation.model_dump(),
-    #                 },
-    #             },
-    #         },
-    #     },
-    # )
-
-    # if evaluation.result == ContentSafetyEvaluationResult.Fail:
-    #     # send a notice to the user that the content safety evaluation failed
-    #     deepmerge.always_merger.merge(
-    #         metadata,
-    #         {"generated_content": False},
-    #     )
-    #     await context.send_messages(
-    #         NewConversationMessage(
-    #             content=evaluation.note or "Content safety evaluation failed.",
-    #             message_type=MessageType.notice,
-    #             metadata=metadata,
-    #         )
-    #     )
-    #     return
 
     # Get the conversation's role
     from .project_storage import ConversationProjectManager
@@ -1113,7 +975,7 @@ async def respond_to_conversation(
                         # Get comprehensive project data for prompt
                         briefing = ProjectStorage.read_project_brief(project_id)
                         status = ProjectStorage.read_project_dashboard(project_id)
-                        kb = ProjectStorage.read_project_whiteboard(project_id)
+                        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
                         all_requests = ProjectStorage.get_all_information_requests(project_id)
 
                         # Format project brief
@@ -1156,21 +1018,27 @@ async def respond_to_conversation(
                                     project_dashboard_text += f"- {action}\n"
 
                         # Format whiteboard content
-                        kb_text = ""
-                        if kb and kb.content:
-                            kb_text = "\n### PROJECT WHITEBOARD\n"
+                        whiteboard_text = ""
+                        if whiteboard and whiteboard.content:
+                            whiteboard_text = "\n### PROJECT WHITEBOARD\n"
 
                             # Truncate content if too long
-                            content = kb.content
+                            content = whiteboard.content
                             max_length = 1500  # Arbitrary limit for context
                             if len(content) > max_length:
                                 content = content[:max_length] + "... (content truncated for brevity)"
-                            kb_text += f"{content}\n\n"
+                            whiteboard_text += f"{content}\n\n"
 
-                            kb_text += '*Use get_project_info(info_type="kb") to see the full whiteboard content.*\n'
+                            whiteboard_text += (
+                                '*Use get_project_info(info_type="whiteboard") to see the full whiteboard content.*\n'
+                            )
 
                         # Store the formatted data
-                        project_data = {"briefing": project_brief_text, "status": project_dashboard_text, "kb": kb_text}
+                        project_data = {
+                            "briefing": project_brief_text,
+                            "status": project_dashboard_text,
+                            "whiteboard": whiteboard_text,
+                        }
 
                 except Exception as e:
                     logger.warning(f"Failed to fetch project data for prompt: {e}")
@@ -1208,7 +1076,7 @@ async def respond_to_conversation(
 {project_data.get("briefing", "")}
 {project_data.get("status", "")}
 {information_requests_text}
-{project_data.get("kb", "")}
+{project_data.get("whiteboard", "")}
 """
 
                     role_enforcement = f"""
@@ -1277,7 +1145,7 @@ As a Coordinator, you can use these tools: {available_tools_str}
 {project_data.get("status", "")}
 {information_requests_info}
 {all_information_requests_text}
-{project_data.get("kb", "")}
+{project_data.get("whiteboard", "")}
 """
 
                     role_enforcement = f"""

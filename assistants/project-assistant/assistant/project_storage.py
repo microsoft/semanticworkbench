@@ -22,8 +22,8 @@ from .project_data import (
     LogEntryType,
     ProjectBrief,
     ProjectDashboard,
-    ProjectKB,
     ProjectLog,
+    ProjectWhiteboard,
 )
 from .utils import get_current_user
 
@@ -73,7 +73,7 @@ class ProjectStorageManager:
         PROJECT_BRIEF: "brief.json",
         PROJECT_LOG: "log.json",
         PROJECT_DASHBOARD: "dashboard.json",
-        PROJECT_WHITEBOARD: "whiteboard.json",  # Changed from kb.json
+        PROJECT_WHITEBOARD: "whiteboard.json",
         COORDINATOR_CONVERSATION: "coordinator_conversation.json",
     }
 
@@ -236,10 +236,10 @@ class ProjectStorage:
         return path
 
     @staticmethod
-    def read_project_whiteboard(project_id: str) -> Optional[ProjectKB]:
+    def read_project_whiteboard(project_id: str) -> Optional[ProjectWhiteboard]:
         """Reads the project whiteboard."""
         path = ProjectStorageManager.get_project_whiteboard_path(project_id)
-        return read_model(path, ProjectKB)
+        return read_model(path, ProjectWhiteboard)
 
     @staticmethod
     def read_coordinator_conversation(project_id: str) -> Optional[CoordinatorConversationStorage]:
@@ -299,10 +299,10 @@ class ProjectStorage:
         ProjectStorage.write_coordinator_conversation(project_id, conversation)
 
     @staticmethod
-    def write_project_whiteboard(project_id: str, kb: ProjectKB) -> pathlib.Path:
+    def write_project_whiteboard(project_id: str, whiteboard: ProjectWhiteboard) -> pathlib.Path:
         """Writes the project whiteboard."""
         path = ProjectStorageManager.get_project_whiteboard_path(project_id)
-        write_model(path, kb)
+        write_model(path, whiteboard)
         return path
 
     @staticmethod
