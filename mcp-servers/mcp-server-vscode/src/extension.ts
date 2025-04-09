@@ -9,8 +9,12 @@ import { z } from 'zod';
 import packageJson from '../package.json';
 import { codeCheckerTool } from './tools/code_checker';
 import {
+    getCallStack,
+    getCallStackSchema,
     listDebugSessions,
     listDebugSessionsSchema,
+    setBreakpoint,
+    setBreakpointSchema,
     startDebugSession,
     startDebugSessionSchema,
     stopDebugSession,
@@ -149,6 +153,42 @@ export const activate = async (context: vscode.ExtensionContext) => {
                     ...item,
                     type: 'text' as const,
                 })),
+            };
+        },
+    );
+
+    // Register 'set_breakpoint' tool
+    mcpServer.tool(
+        'set_breakpoint',
+        'Set a breakpoint at a specific line in a file.',
+        setBreakpointSchema.shape,
+        async (params) => {
+            const result = await setBreakpoint(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Register 'get_call_stack' tool
+    mcpServer.tool(
+        'get_call_stack',
+        'Get the current call stack information for an active debug session.',
+        getCallStackSchema.shape,
+        async (params) => {
+            const result = await getCallStack(params);
+            return {
+                ...result,
+                content: result.content.map((item) => {
+                    if (item.type === 'json') {
+                        return { type: 'text' as const, text: JSON.stringify(item.json) };
+                    }
+                    return { ...item, type: 'text' as const };
+                }),
             };
         },
     );

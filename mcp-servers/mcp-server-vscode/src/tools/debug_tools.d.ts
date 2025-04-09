@@ -79,3 +79,66 @@ export declare const stopDebugSessionSchema: z.ZodObject<{
 }, {
     sessionName: string;
 }>;
+
+export declare const setBreakpoint: (params: {
+    filePath: string;
+    line: number;
+}) => Promise<{
+    content: {
+        type: string;
+        text: string;
+    }[];
+    isError: boolean;
+}>;
+
+export declare const setBreakpointSchema: z.ZodObject<{
+    filePath: z.ZodString;
+    line: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    filePath: string;
+    line: number;
+}, {
+    filePath: string;
+    line: number;
+}>;
+
+export declare const getCallStack: (params: {
+    sessionName?: string;
+}) => Promise<{
+    content: ({
+        type: string;
+        json: {
+            callStacks: {
+                sessionId: string;
+                sessionName: string;
+                threads: {
+                    threadId: number;
+                    threadName: string;
+                    stackFrames?: {
+                        id: number;
+                        name: string;
+                        source?: {
+                            name: string;
+                            path: string;
+                        };
+                        line: number;
+                        column: number;
+                    }[];
+                    error?: string;
+                }[];
+            };
+        };
+    } | {
+        type: string;
+        text: string;
+    })[];
+    isError: boolean;
+}>;
+
+export declare const getCallStackSchema: z.ZodObject<{
+    sessionName: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    sessionName?: string;
+}, {
+    sessionName?: string;
+}>;
