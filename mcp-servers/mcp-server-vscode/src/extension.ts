@@ -9,8 +9,16 @@ import { z } from 'zod';
 import packageJson from '../package.json';
 import { codeCheckerTool } from './tools/code_checker';
 import {
+    getCallStack,
+    getCallStackSchema,
+    getStackFrameVariables,
+    getStackFrameVariablesSchema,
     listDebugSessions,
     listDebugSessionsSchema,
+    resumeDebugSession,
+    resumeDebugSessionSchema,
+    setBreakpoint,
+    setBreakpointSchema,
     startDebugSession,
     startDebugSessionSchema,
     stopDebugSession,
@@ -153,7 +161,96 @@ export const activate = async (context: vscode.ExtensionContext) => {
         },
     );
 
+    // Register 'set_breakpoint' tool
+    mcpServer.tool(
+        'set_breakpoint',
+        'Set a breakpoint at a specific line in a file.',
+        setBreakpointSchema.shape,
+        async (params) => {
+            const result = await setBreakpoint(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Register 'get_call_stack' tool
+    mcpServer.tool(
+        'get_call_stack',
+        'Get the current call stack information for an active debug session.',
+        getCallStackSchema.shape,
+        async (params) => {
+            const result = await getCallStack(params);
+            return {
+                ...result,
+                content: result.content.map((item) => {
+                    if ('json' in item) {
+                        // Convert json content to text string
+                        return { type: 'text' as const, text: JSON.stringify(item.json) };
+                    }
+                    return { ...item, type: 'text' as const };
+                }),
+            };
+        },
+    );
+
+    // Register 'resume_debug_session' tool
+    mcpServer.tool(
+        'resume_debug_session',
+        'Resume execution of a debug session that has been paused (e.g., by a breakpoint).',
+        resumeDebugSessionSchema.shape,
+        async (params) => {
+            const result = await resumeDebugSession(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
+
+    // Register 'get_stack_frame_variables' tool
+    mcpServer.tool(
+        'get_stack_frame_variables',
+        'Get variables from a specific stack frame in a debug session.',
+        getStackFrameVariablesSchema.shape,
+        async (params) => {
+            const result = await getStackFrameVariables(params);
+            return {
+                ...result,
+                content: result.content.map((item) => {
+                    if ('json' in item) {
+                        // Convert json content to text string
+                        return { type: 'text' as const, text: JSON.stringify(item.json) };
+                    }
+                    return { ...item, type: 'text' as const };
+                }),
+            };
+        },
+    );
+
     // Register 'stop_debug_session' tool
+    mcpServer.tool(
+        'stop_debug_session',
+        'Stop all debug sessions that match the provided session name.',
+        stopDebugSessionSchema.shape,
+        async (params) => {
+            const result = await stopDebugSession(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
 
     // Register 'restart_debug_session' tool
     mcpServer.tool(
@@ -166,21 +263,6 @@ export const activate = async (context: vscode.ExtensionContext) => {
 
             // Then start a new debug session with the given configuration
             const result = await startDebugSession(params);
-            return {
-                ...result,
-                content: result.content.map((item) => ({
-                    ...item,
-                    type: 'text' as const,
-                })),
-            };
-        },
-    );
-    mcpServer.tool(
-        'stop_debug_session',
-        'Stop all debug sessions that match the provided session name.',
-        stopDebugSessionSchema.shape,
-        async (params) => {
-            const result = await stopDebugSession(params);
             return {
                 ...result,
                 content: result.content.map((item) => ({

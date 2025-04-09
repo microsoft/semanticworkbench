@@ -79,3 +79,113 @@ export declare const stopDebugSessionSchema: z.ZodObject<{
 }, {
     sessionName: string;
 }>;
+export declare const setBreakpoint: (params: {
+    filePath: string;
+    line: number;
+}) => Promise<{
+    content: {
+        type: string;
+        text: string;
+    }[];
+    isError: boolean;
+}>;
+export declare const setBreakpointSchema: z.ZodObject<{
+    filePath: z.ZodString;
+    line: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    filePath: string;
+    line: number;
+}, {
+    filePath: string;
+    line: number;
+}>;
+export declare const getCallStack: (params: {
+    sessionName?: string;
+}) => Promise<{
+    content: {
+        type: string;
+        text: string;
+    }[];
+    isError: boolean;
+} | {
+    content: {
+        type: string;
+        json: {
+            callStacks: ({
+                sessionId: string;
+                sessionName: string;
+                threads: any[];
+                error?: undefined;
+            } | {
+                sessionId: string;
+                sessionName: string;
+                error: string;
+                threads?: undefined;
+            })[];
+        };
+    }[];
+    isError: boolean;
+}>;
+export declare const getCallStackSchema: z.ZodObject<{
+    sessionName: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    sessionName?: string | undefined;
+}, {
+    sessionName?: string | undefined;
+}>;
+export declare const resumeDebugSession: (params: {
+    sessionId: string;
+}) => Promise<{
+    content: {
+        type: string;
+        text: string;
+    }[];
+    isError: boolean;
+}>;
+export declare const resumeDebugSessionSchema: z.ZodObject<{
+    sessionId: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    sessionId: string;
+}, {
+    sessionId: string;
+}>;
+export declare const getStackFrameVariables: (params: {
+    sessionId: string;
+    frameId: number;
+    threadId: number;
+    filter?: string;
+}) => Promise<{
+    content: {
+        type: string;
+        text: string;
+    }[];
+    isError: boolean;
+} | {
+    content: {
+        type: string;
+        json: {
+            sessionId: string;
+            frameId: number;
+            threadId: number;
+            variablesByScope: any[];
+            filter: string | undefined;
+        };
+    }[];
+    isError: boolean;
+}>;
+export declare const getStackFrameVariablesSchema: z.ZodObject<{
+    sessionId: z.ZodString;
+    frameId: z.ZodNumber;
+    threadId: z.ZodNumber;
+    filter: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    sessionId: string;
+    frameId: number;
+    threadId: number;
+    filter?: string | undefined;
+}, {
+    sessionId: string;
+    frameId: number;
+    threadId: number;
+    filter?: string | undefined;
+}>;
