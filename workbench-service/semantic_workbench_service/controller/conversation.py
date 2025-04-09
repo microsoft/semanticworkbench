@@ -1,7 +1,15 @@
 import datetime
 import logging
 import uuid
-from typing import Annotated, AsyncContextManager, Awaitable, Callable, Iterable, Literal, Sequence
+from typing import (
+    Annotated,
+    AsyncContextManager,
+    Awaitable,
+    Callable,
+    Iterable,
+    Literal,
+    Sequence,
+)
 
 import deepmerge
 import openai_client
@@ -102,14 +110,16 @@ class ConversationController:
             await session.refresh(conversation)
 
         return await self.get_conversation(
-            conversation_id=conversation.conversation_id, principal=user_principal, latest_message_types=set()
+            conversation_id=conversation.conversation_id,
+            principal=user_principal,
+            latest_message_types=set(),
         )
 
     async def create_conversation_with_owner(
         self,
         new_conversation: NewConversation,
         owner_id: str,
-        principal: auth.ActorPrincipal,
+        principal: auth.AssistantPrincipal,
     ) -> Conversation:
         async with self._get_session() as session:
             conversation = db.Conversation(
@@ -127,19 +137,40 @@ class ConversationController:
 
             session.add(conversation)
 
+            # session.add(
+            #     db.UserParticipant(
+            #         conversation_id=conversation.conversation_id,
+            #         user_id=owner_id,
+            #         conversation_permission="read_write",
+            #     )
+            # )
+
             session.add(
-                db.UserParticipant(
+                db.AssistantParticipant(
                     conversation_id=conversation.conversation_id,
-                    user_id=owner_id,
-                    conversation_permission="read_write",
+                    assistant_id=principal.assistant_id,
                 )
             )
 
             await session.commit()
             await session.refresh(conversation)
 
+            assistant = (
+                await session.exec(select(db.Assistant).where(db.Assistant.assistant_id == principal.assistant_id))
+            ).one_or_none()
+            if assistant is None:
+                raise exceptions.NotFoundError()
+
+        await self._assistant_controller.connect_assistant_to_conversation(
+            assistant=assistant,
+            conversation=conversation,
+            from_export=None,
+        )
+
         return await self.get_conversation(
-            conversation_id=conversation.conversation_id, principal=principal, latest_message_types=set()
+            conversation_id=conversation.conversation_id,
+            principal=principal,
+            latest_message_types=set(),
         )
 
     async def _projections_with_participants(
@@ -197,7 +228,12 @@ class ConversationController:
                 str,
             ]
         ]:
-            for conversation, latest_message, latest_message_has_debug, permission in conversation_projections:
+            for (
+                conversation,
+                latest_message,
+                latest_message_has_debug,
+                permission,
+            ) in conversation_projections:
                 conversation_id = conversation.conversation_id
                 conversation_user_participants = (
                     up for up in user_participants if up.conversation_id == conversation_id
@@ -264,7 +300,8 @@ class ConversationController:
                 await session.exec(
                     query.select_conversation_projections_for(
                         principal=auth.AssistantPrincipal(
-                            assistant_service_id=assistant.assistant_service_id, assistant_id=assistant_id
+                            assistant_service_id=assistant.assistant_service_id,
+                            assistant_id=assistant_id,
                         ),
                         latest_message_types=latest_message_types,
                     )
@@ -350,7 +387,11 @@ class ConversationController:
                 match key:
                     case "metadata":
                         system_entries = {k: v for k, v in conversation.meta_data.items() if k.startswith("__")}
-                        conversation.meta_data = {**conversation.meta_data, **value, **system_entries}
+                        conversation.meta_data = {
+                            **conversation.meta_data,
+                            **value,
+                            **system_entries,
+                        }
                     case "title":
                         if value == conversation.title:
                             continue
@@ -367,7 +408,9 @@ class ConversationController:
             await session.refresh(conversation)
 
         conversation_model = await self.get_conversation(
-            conversation_id=conversation.conversation_id, principal=user_principal, latest_message_types=set()
+            conversation_id=conversation.conversation_id,
+            principal=user_principal,
+            latest_message_types=set(),
         )
 
         await self._notify_event(
@@ -394,7 +437,9 @@ class ConversationController:
             conversation = (
                 await session.exec(
                     query.select_conversations_for(
-                        principal=principal, include_all_owned=True, include_observer=True
+                        principal=principal,
+                        include_all_owned=True,
+                        include_observer=True,
                     ).where(db.Conversation.conversation_id == conversation_id)
                 )
             ).one_or_none()
@@ -402,7 +447,9 @@ class ConversationController:
                 raise exceptions.NotFoundError()
 
             return await participant_.get_conversation_participants(
-                session=session, conversation_id=conversation.conversation_id, include_inactive=include_inactive
+                session=session,
+                conversation_id=conversation.conversation_id,
+                include_inactive=include_inactive,
             )
 
     async def get_conversation_participant(
@@ -415,7 +462,9 @@ class ConversationController:
             conversation = (
                 await session.exec(
                     query.select_conversations_for(
-                        principal=principal, include_all_owned=True, include_observer=True
+                        principal=principal,
+                        include_all_owned=True,
+                        include_observer=True,
                     ).where(db.Conversation.conversation_id == conversation_id)
                 )
             ).one_or_none()
@@ -615,7 +664,9 @@ class ConversationController:
                     conversation = (
                         await session.exec(
                             query.select_conversations_for(
-                                principal=principal, include_all_owned=True, include_observer=True
+                                principal=principal,
+                                include_all_owned=True,
+                                include_observer=True,
                             ).where(db.Conversation.conversation_id == conversation_id)
                         )
                     ).one_or_none()
@@ -655,7 +706,10 @@ class ConversationController:
                             if assistant is None:
                                 raise exceptions.NotFoundError()
 
-                            participant, event_type = await update_assistant_participant(conversation, assistant)
+                            (
+                                participant,
+                                event_type,
+                            ) = await update_assistant_participant(conversation, assistant)
 
                 case auth.AssistantServicePrincipal():
                     # assistants can update participants in conversations they are already participants of
@@ -689,7 +743,9 @@ class ConversationController:
 
             if event_type is not None:
                 participants = await participant_.get_conversation_participants(
-                    session=session, conversation_id=conversation.conversation_id, include_inactive=True
+                    session=session,
+                    conversation_id=conversation.conversation_id,
+                    include_inactive=True,
                 )
 
                 await self._notify_event(
@@ -828,19 +884,24 @@ class ConversationController:
         return True
 
     async def _retitle_conversation(
-        self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID, latest_message_sequence: int
+        self,
+        principal: auth.ActorPrincipal,
+        conversation_id: uuid.UUID,
+        latest_message_sequence: int,
     ) -> None:
         """Retitle the conversation based on the most recent messages."""
 
         if not settings.service.azure_openai_endpoint:
             logger.warning(
-                "Azure OpenAI endpoint is not configured, skipping retitling conversation %s", conversation_id
+                "Azure OpenAI endpoint is not configured, skipping retitling conversation %s",
+                conversation_id,
             )
             return
 
         if not settings.service.azure_openai_deployment:
             logger.warning(
-                "Azure OpenAI deployment is not configured, skipping retitling conversation %s", conversation_id
+                "Azure OpenAI deployment is not configured, skipping retitling conversation %s",
+                conversation_id,
             )
             return
 
@@ -957,7 +1018,10 @@ class ConversationController:
         )
 
     async def get_message(
-        self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID, message_id: uuid.UUID
+        self,
+        principal: auth.ActorPrincipal,
+        conversation_id: uuid.UUID,
+        message_id: uuid.UUID,
     ) -> ConversationMessage:
         async with self._get_session() as session:
             projection = (
@@ -975,7 +1039,10 @@ class ConversationController:
         return convert.conversation_message_from_db(message, has_debug=has_debug)
 
     async def get_message_debug(
-        self, principal: auth.ActorPrincipal, conversation_id: uuid.UUID, message_id: uuid.UUID
+        self,
+        principal: auth.ActorPrincipal,
+        conversation_id: uuid.UUID,
+        message_id: uuid.UUID,
     ) -> ConversationMessageDebug:
         async with self._get_session() as session:
             message_debug = (

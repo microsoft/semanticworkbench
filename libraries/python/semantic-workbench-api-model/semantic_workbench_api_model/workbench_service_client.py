@@ -30,7 +30,10 @@ class AssistantServiceRequestHeaders:
     api_key: str
 
     def to_headers(self) -> Mapping[str, str]:
-        return {HEADER_ASSISTANT_SERVICE_ID: self.assistant_service_id, HEADER_API_KEY: self.api_key}
+        return {
+            HEADER_ASSISTANT_SERVICE_ID: self.assistant_service_id,
+            HEADER_API_KEY: self.api_key,
+        }
 
     @staticmethod
     def from_headers(headers: Mapping[str, str]) -> AssistantServiceRequestHeaders:
@@ -556,7 +559,10 @@ class WorkbenchServiceClientBuilder:
     def for_service(self) -> AssistantServiceAPIClient:
         return AssistantServiceAPIClient(
             httpx_client_factory=lambda: self._client(
-                AssistantServiceRequestHeaders(assistant_service_id=self._assistant_service_id, api_key=self._api_key),
+                AssistantServiceRequestHeaders(
+                    assistant_service_id=self._assistant_service_id,
+                    api_key=self._api_key,
+                ),
             ),
         )
 
@@ -564,7 +570,31 @@ class WorkbenchServiceClientBuilder:
         return ConversationAPIClient(
             conversation_id=conversation_id,
             httpx_client_factory=lambda: self._client(
-                AssistantServiceRequestHeaders(assistant_service_id=self._assistant_service_id, api_key=self._api_key),
+                AssistantServiceRequestHeaders(
+                    assistant_service_id=self._assistant_service_id,
+                    api_key=self._api_key,
+                ),
+                AssistantRequestHeaders(assistant_id=uuid.UUID(assistant_id)),
+            ),
+        )
+
+    def for_conversations(self, assistant_id: str | None = None) -> ConversationsAPIClient:
+        if assistant_id is None:
+            return ConversationsAPIClient(
+                httpx_client_factory=lambda: self._client(
+                    AssistantServiceRequestHeaders(
+                        assistant_service_id=self._assistant_service_id,
+                        api_key=self._api_key,
+                    ),
+                ),
+            )
+
+        return ConversationsAPIClient(
+            httpx_client_factory=lambda: self._client(
+                AssistantServiceRequestHeaders(
+                    assistant_service_id=self._assistant_service_id,
+                    api_key=self._api_key,
+                ),
                 AssistantRequestHeaders(assistant_id=uuid.UUID(assistant_id)),
             ),
         )

@@ -36,15 +36,28 @@ class ConversationContext:
     _prior_status: str | None = field(default=None)
 
     @property
-    def _workbench_client(self) -> semantic_workbench_api_model.workbench_service_client.ConversationAPIClient:
+    def _workbench_client(
+        self,
+    ) -> semantic_workbench_api_model.workbench_service_client.ConversationAPIClient:
         return semantic_workbench_api_model.workbench_service_client.WorkbenchServiceClientBuilder(
             base_url=str(settings.workbench_service_url),
             assistant_service_id=self.assistant._assistant_service_id,
             api_key=settings.workbench_service_api_key,
         ).for_conversation(self.assistant.id, self.id)
 
+    @property
+    def _conversations_client(
+        self,
+    ) -> semantic_workbench_api_model.workbench_service_client.ConversationsAPIClient:
+        return semantic_workbench_api_model.workbench_service_client.WorkbenchServiceClientBuilder(
+            base_url=str(settings.workbench_service_url),
+            assistant_service_id=self.assistant._assistant_service_id,
+            api_key=settings.workbench_service_api_key,
+        ).for_conversations(self.assistant.id)
+
     async def send_messages(
-        self, messages: workbench_model.NewConversationMessage | list[workbench_model.NewConversationMessage]
+        self,
+        messages: workbench_model.NewConversationMessage | list[workbench_model.NewConversationMessage],
     ) -> workbench_model.ConversationMessageList:
         if not isinstance(messages, list):
             messages = [messages]
@@ -110,7 +123,10 @@ class ConversationContext:
         return await self._workbench_client.send_conversation_state_event(self.assistant.id, state_event)
 
     async def write_file(
-        self, filename: str, file_content: io.BytesIO, content_type: str = "application/octet-stream"
+        self,
+        filename: str,
+        file_content: io.BytesIO,
+        content_type: str = "application/octet-stream",
     ) -> workbench_model.File:
         return await self._workbench_client.write_file(filename, file_content, content_type)
 

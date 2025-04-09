@@ -256,24 +256,31 @@ Type `/help` for more information on available commands.
             lines.append("No open information requests.")
             lines.append("")
 
-        # Display project ID as invitation information (simplified approach)
+        # Display share URL as invitation information
         if self.is_context_transfer:
             lines.append("## Share Knowledge Context")
         else:
             lines.append("## Project Invitation")
 
         lines.append("")
-        lines.append("### Project ID")
-        lines.append(f"**Project ID:** `{project_id}`")
-        lines.append("")
-
-        if self.is_context_transfer:
-            lines.append("**IMPORTANT:** Share this Project ID with anyone who needs to access this knowledge context.")
-            lines.append("Recipients can access this knowledge context using:")
-            lines.append(f"```\n/join {project_id}\n```")
+        
+        # Get conversation metadata to check for share URL
+        conversation = await context.get_conversation()
+        metadata = conversation.metadata or {}
+        share_url = metadata.get("team_workspace_share_url")
+        
+        if share_url:
+            # Display the share URL
+            lines.append("### Invitation Link")
+            lines.append("**Share this link with your team members:**")
+            lines.append(f"{share_url}")
             lines.append("")
-            lines.append("The Project ID never expires and can be used by multiple recipients.")
+            lines.append("The link never expires and can be used by multiple team members.")
         else:
+            # Fallback to displaying the project ID
+            lines.append("### Project ID")
+            lines.append(f"**Project ID:** `{project_id}`")
+            lines.append("")
             lines.append("**IMPORTANT:** Share this Project ID with all team members.")
             lines.append("Team members can join this project using:")
             lines.append(f"```\n/join {project_id}\n```")

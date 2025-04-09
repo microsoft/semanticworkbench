@@ -474,23 +474,16 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
             return
 
         # Show setup-specific help
-        help_text = """## Assistant Setup
+        help_text = """## Project Assistant
 
-This assistant is in setup mode. You need to establish your role before proceeding:
+This assistant is automatically set up to help you with your project:
 
-### Available Commands
+- As a Coordinator: This conversation is your personal workspace for managing the project
+- As a Team Member: This conversation is for collaborating on the project with others
 
-- `/start [Project Name|Project description]`: Create a new project with this conversation as Coordinator
-- `/join project_id`: Join an existing project as a Team member
-- `/help [command]`: Show help for a specific command
+No setup commands needed! You're already good to go.
 
-Please use one of these commands to get started. The recommended workflow is:
-
-1. One conversation uses `/start` to create the project and become the Coordinator
-2. The Coordinator shares the project ID (automatically displayed after creation)
-3. Team members use `/join` with the project ID in their conversations
-
-Once setup is complete, you will have access to all commands appropriate for your role.
+Type `/help` to see all available commands for your role.
 """
 
         await context.send_messages(
@@ -1337,24 +1330,7 @@ async def handle_sync_files_command(
         )
 
 
-# Setup mode commands
-command_registry.register_command(
-    "start",
-    handle_start_coordinator_command,
-    "Create a new project with this conversation as Coordinator",
-    "/start [Project Name|Project description]",
-    "/start Website Redesign|Redesign the company website with modern look and features",
-    None,  # Available to all roles during setup
-)
-
-command_registry.register_command(
-    "join",
-    handle_join_command,
-    "Join an existing project with an invitation code",
-    "/join invitation_code",
-    "/join abc123:xyz456",
-    None,  # Available to all roles
-)
+# Setup mode commands are no longer needed - they're handled automatically
 
 # General commands (available to all)
 command_registry.register_command(
@@ -1376,16 +1352,7 @@ command_registry.register_command(
 )
 
 # Team management commands
-# Project ID is used directly as the invitation code
-
-command_registry.register_command(
-    "join",
-    handle_join_command,
-    "Join a project using its project ID",
-    "/join project_id",
-    "/join abc123-def-456",
-    None,  # Available to all roles (anyone can join if they have the project ID)
-)
+# Note: Manual project joining with /join is no longer needed - users just click the share URL
 
 command_registry.register_command(
     "list-participants",
@@ -1565,15 +1532,13 @@ async def process_command(context: ConversationContext, message: ConversationMes
                     await command_registry.commands[command_name]["handler"](context, message, args)
                     return True
             else:
-                # Show setup required message for non-setup commands
+                # Show message for commands that require an active project
                 await context.send_messages(
                     NewConversationMessage(
                         content=(
-                            "**Setup Required**\n\n"
-                            "You need to set up the assistant before using other commands. Please use one of these commands:\n\n"
-                            "- `/start` - Create a new project as Coordinator\n"
-                            "- `/join <code>` - Join an existing project as a Team member\n"
-                            "- `/help` - Get help with available commands"
+                            "**Project not detected**\n\n"
+                            "Your project is still being set up. Please wait a moment and try again.\n\n"
+                            "If this persists, please report this issue - this should happen automatically."
                         ),
                         message_type=MessageType.notice,
                     )

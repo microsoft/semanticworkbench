@@ -167,20 +167,13 @@ class AssistantConfigModel(BaseModel):
     welcome_message: Annotated[
         str,
         Field(
-            title="Initial Setup Welcome Message",
-            description="The message displayed when the assistant first starts, before any role is assigned. This explains the setup process.",
+            title="Initial Welcome Message",
+            description="The message displayed when the assistant first starts.",
         ),
         UISchema(widget="textarea"),
     ] = """# Welcome to the Project Assistant
 
-This assistant helps coordinate project activities between Coordinators and Team members.
-
-**Setup Required**: To begin, please specify your role:
-
-- Use `/start` to create a new project as Coordinator
-- Use `/join <project_id>` to join an existing project as a Team member
-
-Type `/help` for more information on available commands."""
+This conversation is for project coordinators. Share the generated invitation link with team members to collaborate on your project."""
 
     request_config: Annotated[
         RequestConfig,
