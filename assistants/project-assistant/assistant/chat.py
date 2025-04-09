@@ -50,7 +50,9 @@ logger = logging.getLogger(__name__)
 
 service_id = "project-assistant.made-exploration"
 service_name = "Project Assistant"
-service_description = "A mediator assistant that facilitates file sharing between conversations."
+service_description = (
+    "A mediator assistant that facilitates file sharing between conversations."
+)
 
 # Config.
 assistant_config = BaseModelAssistantConfig(
@@ -135,20 +137,28 @@ async def on_message_created(
 
                 # Update conversation metadata to fix this inconsistency
                 await context.send_conversation_state_event(
-                    AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
+                    AssistantStateEvent(
+                        state_id="setup_complete", event="updated", state=None
+                    )
                 )
                 await context.send_conversation_state_event(
-                    AssistantStateEvent(state_id="project_role", event="updated", state=None)
+                    AssistantStateEvent(
+                        state_id="project_role", event="updated", state=None
+                    )
                 )
                 await context.send_conversation_state_event(
-                    AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
+                    AssistantStateEvent(
+                        state_id="assistant_mode", event="updated", state=None
+                    )
                 )
             else:
                 # Default to team if we can't determine
                 metadata["project_role"] = "team"
                 metadata["assistant_mode"] = "team"
                 metadata["setup_complete"] = True
-                logger.info("Could not determine role from storage, defaulting to team mode")
+                logger.info(
+                    "Could not determine role from storage, defaulting to team mode"
+                )
         # If no project ID, check storage as a fallback
         elif not setup_complete:
             try:
@@ -194,7 +204,9 @@ async def on_message_created(
             metadata["project_role"] = role
             # Update conversation metadata through appropriate method
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="project_role", event="updated", state=None)
+                AssistantStateEvent(
+                    state_id="project_role", event="updated", state=None
+                )
             )
 
         # If this is a Coordinator conversation, store the message for Team access
@@ -223,13 +235,18 @@ async def on_message_created(
                         message_id=str(message.id),
                         content=message.content,
                         sender_name=sender_name,
-                        is_assistant=message.sender.participant_role == ParticipantRole.assistant,
+                        is_assistant=message.sender.participant_role
+                        == ParticipantRole.assistant,
                         timestamp=message.timestamp,
                     )
-                    logger.info(f"Stored Coordinator message for Team access: {message.id}")
+                    logger.info(
+                        f"Stored Coordinator message for Team access: {message.id}"
+                    )
             except Exception as e:
                 # Don't fail message handling if storage fails
-                logger.exception(f"Error storing Coordinator message for Team access: {e}")
+                logger.exception(
+                    f"Error storing Coordinator message for Team access: {e}"
+                )
 
         # Prepare custom system message based on role
         from .utils import load_text_include
@@ -249,7 +266,9 @@ async def on_message_created(
             "role_description": "Coordinator Mode (Planning Stage)"
             if role == "coordinator"
             else "Team Mode (Working Stage)",
-            "debug": {"content_safety": event.data.get(content_safety.metadata_key, {})},
+            "debug": {
+                "content_safety": event.data.get(content_safety.metadata_key, {})
+            },
         }
 
         # respond to the message with role-specific context
@@ -272,7 +291,9 @@ async def on_command_created(
     Handle command messages using the centralized command processor.
     """
     # update the participant status to indicate the assistant is thinking
-    await context.update_participant_me(UpdateParticipant(status="processing command..."))
+    await context.update_participant_me(
+        UpdateParticipant(status="processing command...")
+    )
     try:
         # Get the conversation's role (Coordinator or Team)
         conversation = await context.get_conversation()
@@ -284,7 +305,9 @@ async def on_command_created(
             role = await detect_assistant_role(context)
             metadata["project_role"] = role
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="project_role", event="updated", state=None)
+                AssistantStateEvent(
+                    state_id="project_role", event="updated", state=None
+                )
             )
 
         # Process the command using the command processor
@@ -297,7 +320,13 @@ async def on_command_created(
             await respond_to_conversation(
                 context,
                 message=message,
-                metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
+                metadata={
+                    "debug": {
+                        "content_safety": event.data.get(
+                            content_safety.metadata_key, {}
+                        )
+                    }
+                },
             )
     finally:
         # update the participant status to indicate the assistant is done thinking
@@ -322,7 +351,9 @@ async def on_file_created(
     """
     try:
         # Log file creation event details
-        logger.info(f"File created event: filename={file.filename}, size={file.file_size}, type={file.content_type}")
+        logger.info(
+            f"File created event: filename={file.filename}, size={file.file_size}, type={file.content_type}"
+        )
         logger.info(f"Full file object: {file}")
 
         # Get project ID
@@ -338,10 +369,14 @@ async def on_file_created(
 
         # If role couldn't be determined, skip processing
         if not role:
-            logger.warning(f"Could not determine conversation role for file handling: {file.filename}")
+            logger.warning(
+                f"Could not determine conversation role for file handling: {file.filename}"
+            )
             return
 
-        logger.info(f"Processing file {file.filename} with role: {role.value}, project: {project_id}")
+        logger.info(
+            f"Processing file {file.filename} with role: {role.value}, project: {project_id}"
+        )
 
         # Use ProjectFileManager for file operations
 
@@ -355,7 +390,9 @@ async def on_file_created(
             from .project_files import ProjectFileManager
 
             files_dir = ProjectFileManager.get_project_files_dir(project_id)
-            logger.info(f"Project files directory: {files_dir} (exists: {files_dir.exists()})")
+            logger.info(
+                f"Project files directory: {files_dir} (exists: {files_dir.exists()})"
+            )
 
             # Copy file to project storage
             success = await ProjectFileManager.copy_file_to_project_storage(
@@ -372,7 +409,9 @@ async def on_file_created(
             # Verify file was stored correctly
             file_path = ProjectFileManager.get_file_path(project_id, file.filename)
             if file_path.exists():
-                logger.info(f"File successfully stored at: {file_path} (size: {file_path.stat().st_size} bytes)")
+                logger.info(
+                    f"File successfully stored at: {file_path} (size: {file_path.stat().st_size} bytes)"
+                )
             else:
                 logger.error(f"File not found at expected location: {file_path}")
 
@@ -385,21 +424,29 @@ async def on_file_created(
 
             # 2. Synchronize to all Team conversations
             # Get all Team conversations
-            team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
+            team_conversations = await ProjectFileManager.get_team_conversations(
+                context, project_id
+            )
 
             if team_conversations:
-                logger.info(f"Found {len(team_conversations)} team conversations to update")
+                logger.info(
+                    f"Found {len(team_conversations)} team conversations to update"
+                )
 
                 # Copy to each Team conversation
                 for team_conv_id in team_conversations:
-                    logger.info(f"Copying file to Team conversation {team_conv_id}: {file.filename}")
+                    logger.info(
+                        f"Copying file to Team conversation {team_conv_id}: {file.filename}"
+                    )
                     copy_success = await ProjectFileManager.copy_file_to_conversation(
                         context=context,
                         project_id=project_id,
                         filename=file.filename,
                         target_conversation_id=team_conv_id,
                     )
-                    logger.info(f"Copy to Team conversation {team_conv_id}: {'Success' if copy_success else 'Failed'}")
+                    logger.info(
+                        f"Copy to Team conversation {team_conv_id}: {'Success' if copy_success else 'Failed'}"
+                    )
             else:
                 logger.info("No team conversations found to update files")
 
@@ -414,7 +461,9 @@ async def on_file_created(
         else:
             # For Team files, no special handling needed
             # They're already available in the conversation
-            logger.info(f"Team file created (not shared to project storage): {file.filename}")
+            logger.info(
+                f"Team file created (not shared to project storage): {file.filename}"
+            )
 
         # Log file creation to project log for all files
         await ProjectStorage.log_project_event(
@@ -460,7 +509,9 @@ async def on_file_updated(
 
         # If role couldn't be determined, skip processing
         if not role:
-            logger.warning(f"Could not determine conversation role for file update: {file.filename}")
+            logger.warning(
+                f"Could not determine conversation role for file update: {file.filename}"
+            )
             return
 
         # Use ProjectFileManager for file operations
@@ -469,7 +520,9 @@ async def on_file_updated(
         if role.value == "coordinator":
             # For Coordinator files:
             # 1. Update in project storage
-            logger.info(f"Updating Coordinator file in project storage: {file.filename}")
+            logger.info(
+                f"Updating Coordinator file in project storage: {file.filename}"
+            )
             success = await ProjectFileManager.copy_file_to_project_storage(
                 context=context,
                 project_id=project_id,
@@ -478,16 +531,22 @@ async def on_file_updated(
             )
 
             if not success:
-                logger.error(f"Failed to update file in project storage: {file.filename}")
+                logger.error(
+                    f"Failed to update file in project storage: {file.filename}"
+                )
                 return
 
             # 2. Update in all Team conversations
             # Get all Team conversations
-            team_conversations = await ProjectFileManager.get_team_conversations(context, project_id)
+            team_conversations = await ProjectFileManager.get_team_conversations(
+                context, project_id
+            )
 
             # Update in each Team conversation
             for team_conv_id in team_conversations:
-                logger.info(f"Updating file in Team conversation {team_conv_id}: {file.filename}")
+                logger.info(
+                    f"Updating file in Team conversation {team_conv_id}: {file.filename}"
+                )
                 await ProjectFileManager.copy_file_to_conversation(
                     context=context,
                     project_id=project_id,
@@ -506,7 +565,9 @@ async def on_file_updated(
         else:
             # For Team files, no special handling needed
             # They're already available in the conversation
-            logger.info(f"Team file updated (not shared to project storage): {file.filename}")
+            logger.info(
+                f"Team file updated (not shared to project storage): {file.filename}"
+            )
 
         # Log file update to project log for all files
         await ProjectStorage.log_project_event(
@@ -552,7 +613,9 @@ async def on_file_deleted(
 
         # If role couldn't be determined, skip processing
         if not role:
-            logger.warning(f"Could not determine conversation role for file deletion: {file.filename}")
+            logger.warning(
+                f"Could not determine conversation role for file deletion: {file.filename}"
+            )
             return
 
         # Use ProjectFileManager for file operations
@@ -561,13 +624,17 @@ async def on_file_deleted(
         if role.value == "coordinator":
             # For Coordinator files:
             # 1. Delete from project storage
-            logger.info(f"Deleting Coordinator file from project storage: {file.filename}")
+            logger.info(
+                f"Deleting Coordinator file from project storage: {file.filename}"
+            )
             success = await ProjectFileManager.delete_file_from_project_storage(
                 context=context, project_id=project_id, filename=file.filename
             )
 
             if not success:
-                logger.error(f"Failed to delete file from project storage: {file.filename}")
+                logger.error(
+                    f"Failed to delete file from project storage: {file.filename}"
+                )
 
             # 2. Notify Team conversations to delete their copies
             await ProjectNotifier.notify_project_update(
@@ -622,7 +689,9 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         if share_redemption and share_redemption.get("conversation_share_id"):
             # Check if the share metadata has project information
             share_metadata = share_redemption.get("metadata", {})
-            if share_metadata.get("is_team_workspace", False) or share_metadata.get("project_id"):
+            if share_metadata.get("is_team_workspace", False) or share_metadata.get(
+                "project_id"
+            ):
                 logger.info("Detected role from share redemption: team")
                 return "team"
 
@@ -686,8 +755,12 @@ async def on_conversation_created(context: ConversationContext) -> None:
         project_id = metadata.get("project_id")
         if project_id:
             # Set this conversation as a team member for the project
-            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
-            await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
+            await ConversationProjectManager.associate_conversation_with_project(
+                context, project_id
+            )
+            await ConversationProjectManager.set_conversation_role(
+                context, project_id, ProjectRole.TEAM
+            )
             logger.info(f"Associated team workspace with project: {project_id}")
 
         # Update conversation metadata
@@ -723,8 +796,12 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
         if project_id:
             # Set this conversation as a team member for the project
-            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
-            await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
+            await ConversationProjectManager.associate_conversation_with_project(
+                context, project_id
+            )
+            await ConversationProjectManager.set_conversation_role(
+                context, project_id, ProjectRole.TEAM
+            )
 
             # Update conversation metadata
             metadata["setup_complete"] = True
@@ -732,13 +809,19 @@ async def on_conversation_created(context: ConversationContext) -> None:
             metadata["project_role"] = "team"
 
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
+                AssistantStateEvent(
+                    state_id="setup_complete", event="updated", state=None
+                )
             )
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="project_role", event="updated", state=None)
+                AssistantStateEvent(
+                    state_id="project_role", event="updated", state=None
+                )
             )
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
+                AssistantStateEvent(
+                    state_id="assistant_mode", event="updated", state=None
+                )
             )
 
             # Use team welcome message
@@ -801,15 +884,21 @@ async def on_conversation_created(context: ConversationContext) -> None:
             metadata["team_workspace_share_url"] = share_url
 
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="team_workspace_id", event="updated", state=None)
+                AssistantStateEvent(
+                    state_id="team_workspace_id", event="updated", state=None
+                )
             )
 
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="team_workspace_share_url", event="updated", state=None)
+                AssistantStateEvent(
+                    state_id="team_workspace_share_url", event="updated", state=None
+                )
             )
 
             # Log the creation
-            logger.info(f"Created team workspace: {team_conversation_id} with share URL: {share_url}")
+            logger.info(
+                f"Created team workspace: {team_conversation_id} with share URL: {share_url}"
+            )
 
             # Use coordinator welcome message with link
             config = await assistant_config.get(context.assistant)
@@ -818,7 +907,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 This conversation is your personal workspace as the project coordinator.
 
 **To invite team members to your project, copy and share this link with them:**
-[{share_url}]({share_url})
+[Join Team Workspace]({share_url})
 
 I've created a brief for your project. Let's start by updating it with your project goals and details."""
         else:
@@ -881,7 +970,9 @@ async def on_participant_joined(
         # Check if this is a Team conversation
         role = await ConversationProjectManager.get_conversation_role(context)
         if not role or role != ProjectRole.TEAM:
-            logger.debug(f"Not a Team conversation (role={role}), skipping file sync for participant")
+            logger.debug(
+                f"Not a Team conversation (role={role}), skipping file sync for participant"
+            )
             return
 
         # Get project ID
@@ -890,7 +981,9 @@ async def on_participant_joined(
             logger.debug("No project ID found, skipping file sync for participant")
             return
 
-        logger.info(f"Team member {participant.name} joined project {project_id}, synchronizing files")
+        logger.info(
+            f"Team member {participant.name} joined project {project_id}, synchronizing files"
+        )
 
         # Automatically synchronize files from project storage to this conversation
 
@@ -899,9 +992,13 @@ async def on_participant_joined(
         )
 
         if success:
-            logger.info(f"Successfully synchronized files for returning team member: {participant.name}")
+            logger.info(
+                f"Successfully synchronized files for returning team member: {participant.name}"
+            )
         else:
-            logger.warning(f"File synchronization failed for returning team member: {participant.name}")
+            logger.warning(
+                f"File synchronization failed for returning team member: {participant.name}"
+            )
 
         # Log the participant join event in the project log
         from .project_data import LogEntryType
@@ -944,7 +1041,9 @@ async def respond_to_conversation(
     participants_response = await context.get_participants(include_inactive=True)
     silence_token = "{{SILENCE}}"
     system_message_content = config.guardrails_prompt
-    system_message_content += f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    system_message_content += (
+        f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    )
     if role_specific_prompt:
         system_message_content += f"\n\n{role_specific_prompt}"
 
@@ -953,11 +1052,13 @@ async def respond_to_conversation(
             "\n\n"
             f"There are {len(participants_response.participants)} participants in the conversation,"
             " including you as the assistant and the following users:"
-            + ",".join([
-                f' "{participant.name}"'
-                for participant in participants_response.participants
-                if participant.id != context.assistant.id
-            ])
+            + ",".join(
+                [
+                    f' "{participant.name}"'
+                    for participant in participants_response.participants
+                    if participant.id != context.assistant.id
+                ]
+            )
             + "\n\nYou do not need to respond to every message. Do not respond if the last thing said was a closing"
             " statement such as 'bye' or 'goodbye', or just a general acknowledgement like 'ok' or 'thanks'. Do not"
             f' respond as another user in the conversation, only as "{context.assistant.name}".'
@@ -986,7 +1087,9 @@ async def respond_to_conversation(
             ),
             None,
         )
-        participant_name = conversation_participant.name if conversation_participant else "unknown"
+        participant_name = (
+            conversation_participant.name if conversation_participant else "unknown"
+        )
 
         message_datetime = message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
         return f"[{participant_name} - {message_datetime}]: {message.content}"
@@ -998,19 +1101,26 @@ async def respond_to_conversation(
     for message in reversed(messages):
         message_tokens = get_token_count(format_message(message))
         current_tokens += message_tokens
-        if current_tokens > config.request_config.max_tokens - config.request_config.response_tokens:
+        if (
+            current_tokens
+            > config.request_config.max_tokens - config.request_config.response_tokens
+        ):
             break
 
         if message.sender.participant_id == context.assistant.id:
-            history_messages.append({
-                "role": "assistant",
-                "content": format_message(message),
-            })
+            history_messages.append(
+                {
+                    "role": "assistant",
+                    "content": format_message(message),
+                }
+            )
         else:
-            history_messages.append({
-                "role": "user",
-                "content": format_message(message),
-            })
+            history_messages.append(
+                {
+                    "role": "user",
+                    "content": format_message(message),
+                }
+            )
 
     history_messages.reverse()
 
@@ -1030,11 +1140,15 @@ async def respond_to_conversation(
     stored_role_value = stored_role.value if stored_role else None
 
     # Log the roles we find for debugging
-    logger.info(f"Role detection - Metadata role: {metadata_role}, Stored role: {stored_role_value}")
+    logger.info(
+        f"Role detection - Metadata role: {metadata_role}, Stored role: {stored_role_value}"
+    )
 
     # If we have a stored role but metadata is different or missing, update metadata
     if stored_role_value and metadata_role != stored_role_value:
-        logger.warning(f"Role mismatch detected! Metadata: {metadata_role}, Storage: {stored_role_value}")
+        logger.warning(
+            f"Role mismatch detected! Metadata: {metadata_role}, Storage: {stored_role_value}"
+        )
         metadata["project_role"] = stored_role_value
         # Update state to ensure UI is refreshed
         await context.send_conversation_state_event(
@@ -1054,10 +1168,17 @@ async def respond_to_conversation(
         project_tools_instance = ProjectTools(context, role)
 
         # Check if the message indicates a potential information request
-        detection_result = await project_tools_instance.detect_information_request_needs(message.content)
+        detection_result = (
+            await project_tools_instance.detect_information_request_needs(
+                message.content
+            )
+        )
 
         # If an information request is detected with reasonable confidence
-        if detection_result.get("is_information_request", False) and detection_result.get("confidence", 0) > 0.5:
+        if (
+            detection_result.get("is_information_request", False)
+            and detection_result.get("confidence", 0) > 0.5
+        ):
             # Get detailed information from detection
             suggested_title = detection_result.get("potential_title", "")
             suggested_priority = detection_result.get("suggested_priority", "medium")
@@ -1108,13 +1229,17 @@ async def respond_to_conversation(
     ]
 
     # Get the available tools for the current role
-    available_tools = coordinator_available_tools if role == "coordinator" else team_available_tools
+    available_tools = (
+        coordinator_available_tools if role == "coordinator" else team_available_tools
+    )
 
     # Create a string listing available tools for the current role
     available_tools_str = ", ".join([f"`{tool}`" for tool in available_tools])
 
     # Generate a response from the AI model with tools
-    async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
+    async with openai_client.create_client(
+        config.service_config, api_version="2024-06-01"
+    ) as client:
         try:
             # Create a completion dictionary for tool call handling
             completion_args = {
@@ -1131,7 +1256,9 @@ async def respond_to_conversation(
                 logger.info(f"Using tool functions for completions (role: {role})")
 
                 # Record the tool names available for this role for validation
-                available_tool_names = set(project_tools.tool_functions.function_map.keys())
+                available_tool_names = set(
+                    project_tools.tool_functions.function_map.keys()
+                )
                 logger.info(f"Available tools for {role}: {available_tool_names}")
 
                 # Import required modules at the beginning to avoid scope issues
@@ -1152,7 +1279,9 @@ async def respond_to_conversation(
                         briefing = ProjectStorage.read_project_brief(project_id)
                         status = ProjectStorage.read_project_dashboard(project_id)
                         whiteboard = ProjectStorage.read_project_whiteboard(project_id)
-                        all_requests = ProjectStorage.get_all_information_requests(project_id)
+                        all_requests = ProjectStorage.get_all_information_requests(
+                            project_id
+                        )
 
                         # Format project brief
                         project_brief_text = ""
@@ -1166,15 +1295,23 @@ async def respond_to_conversation(
 """
                             for i, goal in enumerate(briefing.goals):
                                 # Count completed criteria
-                                completed = sum(1 for c in goal.success_criteria if c.completed)
+                                completed = sum(
+                                    1 for c in goal.success_criteria if c.completed
+                                )
                                 total = len(goal.success_criteria)
 
-                                project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
+                                project_brief_text += (
+                                    f"{i + 1}. **{goal.name}** - {goal.description}\n"
+                                )
                                 if goal.success_criteria:
                                     project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
-                                    for j, criterion in enumerate(goal.success_criteria):
+                                    for j, criterion in enumerate(
+                                        goal.success_criteria
+                                    ):
                                         check = "✅" if criterion.completed else "⬜"
-                                        project_brief_text += f"   {check} {criterion.description}\n"
+                                        project_brief_text += (
+                                            f"   {check} {criterion.description}\n"
+                                        )
                                 project_brief_text += "\n"
 
                         # Format project dashboard
@@ -1187,7 +1324,9 @@ async def respond_to_conversation(
                             if status.progress_percentage is not None:
                                 project_dashboard_text += f"**Overall Progress:** {status.progress_percentage}%\n"
                             if status.status_message:
-                                project_dashboard_text += f"**Status Message:** {status.status_message}\n"
+                                project_dashboard_text += (
+                                    f"**Status Message:** {status.status_message}\n"
+                                )
                             if status.next_actions:
                                 project_dashboard_text += "\n**Next Actions:**\n"
                                 for action in status.next_actions:
@@ -1202,12 +1341,13 @@ async def respond_to_conversation(
                             content = whiteboard.content
                             max_length = 1500  # Arbitrary limit for context
                             if len(content) > max_length:
-                                content = content[:max_length] + "... (content truncated for brevity)"
+                                content = (
+                                    content[:max_length]
+                                    + "... (content truncated for brevity)"
+                                )
                             whiteboard_text += f"{content}\n\n"
 
-                            whiteboard_text += (
-                                '*Use get_project_info(info_type="whiteboard") to see the full whiteboard content.*\n'
-                            )
+                            whiteboard_text += '*Use get_project_info(info_type="whiteboard") to see the full whiteboard content.*\n'
 
                         # Store the formatted data
                         project_data = {
@@ -1224,13 +1364,17 @@ async def respond_to_conversation(
                     # Format requests for Coordinator view
                     information_requests_text = ""
                     if project_id and all_requests:
-                        active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
+                        active_requests = [
+                            r
+                            for r in all_requests
+                            if r.status != RequestStatus.RESOLVED
+                        ]
 
                         if active_requests:
-                            information_requests_text = "\n\n### ACTIVE INFORMATION REQUESTS\n"
-                            information_requests_text += (
-                                "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
+                            information_requests_text = (
+                                "\n\n### ACTIVE INFORMATION REQUESTS\n"
                             )
+                            information_requests_text += "> 📋 **Use the request ID (not the title) with resolve_information_request()**\n\n"
 
                             for req in active_requests[:10]:  # Limit to 10 for brevity
                                 priority_marker = {
@@ -1241,8 +1385,12 @@ async def respond_to_conversation(
                                 }.get(req.priority.value, "🔹")
 
                                 information_requests_text += f"{priority_marker} **{req.title}** ({req.status.value})\n"
-                                information_requests_text += f"   **Request ID:** `{req.request_id}`\n"
-                                information_requests_text += f"   **Description:** {req.description}\n\n"
+                                information_requests_text += (
+                                    f"   **Request ID:** `{req.request_id}`\n"
+                                )
+                                information_requests_text += (
+                                    f"   **Description:** {req.description}\n\n"
+                                )
 
                             if len(active_requests) > 10:
                                 information_requests_text += f'*...and {len(active_requests) - 10} more requests. Use get_project_info(info_type="requests") to see all.*\n'
@@ -1274,15 +1422,16 @@ As a Coordinator, you can use these tools: {available_tools_str}
                         my_requests = [
                             r
                             for r in all_requests
-                            if r.conversation_id == str(context.id) and r.status != RequestStatus.RESOLVED
+                            if r.conversation_id == str(context.id)
+                            and r.status != RequestStatus.RESOLVED
                         ]
 
                         if my_requests:
-                            information_requests_info = "\n\n### YOUR CURRENT INFORMATION REQUESTS:\n"
+                            information_requests_info = (
+                                "\n\n### YOUR CURRENT INFORMATION REQUESTS:\n"
+                            )
                             for req in my_requests:
-                                information_requests_info += (
-                                    f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
-                                )
+                                information_requests_info += f"- **{req.title}** (ID: `{req.request_id}`, Priority: {req.priority})\n"
                             information_requests_info += '\nYou can delete any of these requests using `delete_information_request(request_id="the_id")`\n'
 
                     # Format requests from all conversations for team view
@@ -1292,14 +1441,21 @@ As a Coordinator, you can use these tools: {available_tools_str}
                         other_active_requests = [
                             r
                             for r in all_requests
-                            if r.conversation_id != str(context.id) and r.status != RequestStatus.RESOLVED
+                            if r.conversation_id != str(context.id)
+                            and r.status != RequestStatus.RESOLVED
                         ]
 
                         if other_active_requests:
-                            all_information_requests_text = "\n\n### OTHER ACTIVE INFORMATION REQUESTS:\n"
-                            all_information_requests_text += "> These are requests from other team members\n\n"
+                            all_information_requests_text = (
+                                "\n\n### OTHER ACTIVE INFORMATION REQUESTS:\n"
+                            )
+                            all_information_requests_text += (
+                                "> These are requests from other team members\n\n"
+                            )
 
-                            for req in other_active_requests[:5]:  # Limit to 5 for brevity
+                            for req in other_active_requests[
+                                :5
+                            ]:  # Limit to 5 for brevity
                                 status_marker = {
                                     "new": "🆕",
                                     "acknowledged": "👁️",
@@ -1307,10 +1463,10 @@ As a Coordinator, you can use these tools: {available_tools_str}
                                     "deferred": "⏱️",
                                 }.get(req.status.value, "📋")
 
+                                all_information_requests_text += f"{status_marker} **{req.title}** (Status: {req.status.value})\n"
                                 all_information_requests_text += (
-                                    f"{status_marker} **{req.title}** (Status: {req.status.value})\n"
+                                    f"   **Description:** {req.description}\n\n"
                                 )
-                                all_information_requests_text += f"   **Description:** {req.description}\n\n"
 
                             if len(other_active_requests) > 5:
                                 all_information_requests_text += f'*...and {len(other_active_requests) - 5} more requests. Use get_project_info(info_type="requests") to see all.*\n'
@@ -1361,7 +1517,11 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                 # Get the final assistant message content
                 content = None
                 for msg in tool_messages:
-                    if msg["role"] == "assistant" and "content" in msg and msg["content"]:
+                    if (
+                        msg["role"] == "assistant"
+                        and "content" in msg
+                        and msg["content"]
+                    ):
                         content = msg["content"]
 
                 if not content:
@@ -1386,7 +1546,9 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
             except (ImportError, AttributeError):
                 # Fallback to standard completions if tool calls aren't supported
-                logger.info("Tool functions not supported, falling back to standard completion")
+                logger.info(
+                    "Tool functions not supported, falling back to standard completion"
+                )
 
                 # Call the OpenAI chat completion endpoint to get a response
                 completion = await client.chat.completions.create(**completion_args)
@@ -1401,7 +1563,9 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                         "debug": {
                             f"{method_metadata_key}": {
                                 "request": completion_args,
-                                "response": completion.model_dump() if completion else "[no response from openai]",
+                                "response": completion.model_dump()
+                                if completion
+                                else "[no response from openai]",
                             },
                         }
                     },
@@ -1474,7 +1638,9 @@ If you need information from the Coordinator, first try viewing recent Coordinat
     # send the response to the conversation
     response_message = await context.send_messages(
         NewConversationMessage(
-            content=str(content) if content is not None else "[no response from openai]",
+            content=str(content)
+            if content is not None
+            else "[no response from openai]",
             message_type=message_type,
             metadata=metadata,
         )
@@ -1488,7 +1654,12 @@ If you need information from the Coordinator, first try viewing recent Coordinat
     stored_role = await ConversationProjectManager.get_conversation_role(context)
     role = stored_role.value if stored_role else None
 
-    if role == "coordinator" and message_type == MessageType.chat and response_message and response_message.messages:
+    if (
+        role == "coordinator"
+        and message_type == MessageType.chat
+        and response_message
+        and response_message.messages
+    ):
         try:
             # Get the project ID
             from .project_manager import ProjectManager
@@ -1508,12 +1679,16 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                         is_assistant=True,
                         timestamp=msg.timestamp,
                     )
-                    logger.info(f"Stored Coordinator assistant message for Team access: {msg.id}")
+                    logger.info(
+                        f"Stored Coordinator assistant message for Team access: {msg.id}"
+                    )
 
                     # Automatically update the whiteboard after assistant messages
                     try:
                         # Get recent messages for analysis
-                        recent_messages = await context.get_messages(limit=10)  # Adjust limit as needed
+                        recent_messages = await context.get_messages(
+                            limit=10
+                        )  # Adjust limit as needed
 
                         # Call the whiteboard update method
                         (
@@ -1525,15 +1700,21 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                         )
 
                         if whiteboard_success:
-                            logger.info(f"Auto-updated whiteboard for project {project_id}")
+                            logger.info(
+                                f"Auto-updated whiteboard for project {project_id}"
+                            )
                         else:
-                            logger.info("Whiteboard auto-update did not apply any changes")
+                            logger.info(
+                                "Whiteboard auto-update did not apply any changes"
+                            )
                     except Exception as e:
                         # Don't fail message handling if whiteboard update fails
                         logger.exception(f"Error auto-updating whiteboard: {e}")
         except Exception as e:
             # Don't fail message handling if storage fails
-            logger.exception(f"Error storing Coordinator assistant message for Team access: {e}")
+            logger.exception(
+                f"Error storing Coordinator assistant message for Team access: {e}"
+            )
 
 
 # this method is used to get the token count of a string.
