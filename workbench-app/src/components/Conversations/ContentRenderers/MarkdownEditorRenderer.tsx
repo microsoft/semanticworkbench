@@ -3,6 +3,7 @@ import { LockClosedRegular, LockOpenRegular, SaveRegular } from '@fluentui/react
 import { Crepe } from '@milkdown/crepe';
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame.css';
+import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import React from 'react';
 
 const useStyles = makeStyles({
@@ -13,7 +14,11 @@ const useStyles = makeStyles({
         height: '100%',
         flex: 1,
     },
-    crepeEditorRoot: {
+    milkdownWrapper: {
+        height: '100%',
+        width: '100%',
+        flex: 1,
+        display: 'flex',
         '& .milkdown': {
             height: '100%',
             width: '100%',
@@ -21,20 +26,10 @@ const useStyles = makeStyles({
             flexDirection: 'column',
             flex: 1,
             overflow: 'auto',
-            '& .editor': {
-                height: '100%',
-            },
         },
         '& .ProseMirror': {
             margin: '10px 0 0 0',
             padding: '14px 20px 20px 80px',
-        },
-        height: '100%',
-        width: '100%',
-        flex: 1,
-        display: 'flex',
-        '& [data-milkdown-root="true"]': {
-            width: '100%',
         },
     },
     toolbar: {
@@ -68,7 +63,7 @@ const useStyles = makeStyles({
     },
 });
 
-interface CrepeEditorProps {
+interface MilkdownEditorProps {
     content?: string;
     onSave?: (content: string) => void;
     filename?: string;
@@ -77,7 +72,7 @@ interface CrepeEditorProps {
     isBackendReadOnly?: boolean;
 }
 
-const CrepeEditor: React.FC<CrepeEditorProps> = ({
+const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
     content = '',
     onSave,
     filename,
@@ -86,42 +81,43 @@ const CrepeEditor: React.FC<CrepeEditorProps> = ({
     isBackendReadOnly = false,
 }) => {
     const styles = useStyles();
-    const editorRef = React.useRef<HTMLDivElement>(null);
-    const crepeRef = React.useRef<Crepe | null>(null);
+    const [editorInstance, setEditorInstance] = React.useState<Crepe | null>(null);
 
-    React.useEffect(() => {
-        if (!editorRef.current) return;
+    useEditor(
+        (root) => {
+            const crepe = new Crepe({
+                root,
+                defaultValue: content,
+                featureConfigs: {
+                    [Crepe.Feature.Placeholder]: {
+                        text: 'Just start typing...',
+                        mode: 'block',
+                    },
+                },
+            });
 
-        const crepe = new Crepe({
-            root: editorRef.current,
-            defaultValue: content,
-        });
-        crepeRef.current = crepe;
-        crepe.create().then(() => {
-            if (crepeRef.current) {
-                crepeRef.current.setReadonly(readOnly);
-            }
-        });
-        return () => {
-            if (crepeRef.current) {
-                crepeRef.current.destroy();
-                crepeRef.current = null;
-            }
-        };
-    }, [content, readOnly]);
+            crepe.create().then(() => {
+                crepe.setReadonly(readOnly);
+                setEditorInstance(crepe);
+            });
+
+            return crepe;
+        },
+        [content],
+    );
 
     // Update readonly state when it changes
     React.useEffect(() => {
-        if (crepeRef.current) {
-            crepeRef.current.setReadonly(readOnly);
+        if (editorInstance) {
+            editorInstance.setReadonly(readOnly);
         }
-    }, [readOnly]);
+    }, [readOnly, editorInstance]);
 
     const handleSave = React.useCallback(() => {
-        if (!onSave || !crepeRef.current) return;
-        const currentContent = crepeRef.current.getMarkdown();
+        if (!onSave || !editorInstance) return;
+        const currentContent = editorInstance.getMarkdown();
         onSave(currentContent);
-    }, [onSave]);
+    }, [onSave, editorInstance]);
 
     return (
         <>
@@ -129,14 +125,11 @@ const CrepeEditor: React.FC<CrepeEditorProps> = ({
             {(onSave || filename || readOnly) && (
                 <div className={styles.toolbar}>
                     <div className={styles.filenameContainer}>
-                        {/* File name */}
                         {filename && (
                             <Text as="h1" className={styles.filename}>
-                                {/* Remove file extension from filename */}
-                                {filename ? filename.replace(/\.[^/.]+$/, '') : ''}
+                                {filename.replace(/\.[^/.]+$/, '')}
                             </Text>
                         )}
-                        {/* Read-only indicator */}
                         {readOnly && (
                             <div className={styles.readOnlyIndicator}>
                                 <LockClosedRegular />
@@ -145,13 +138,11 @@ const CrepeEditor: React.FC<CrepeEditorProps> = ({
                         )}
                     </div>
                     <div className={styles.buttonGroup}>
-                        {/* Save button */}
                         {onSave && !readOnly && (
                             <Button appearance="primary" icon={<SaveRegular />} onClick={handleSave}>
                                 Save
                             </Button>
                         )}
-                        {/* Toggle read-only button - hide if backend has enforced read-only */}
                         {onToggleReadOnly && !isBackendReadOnly && (
                             <Button
                                 icon={readOnly ? <LockOpenRegular /> : <LockClosedRegular />}
@@ -164,14 +155,15 @@ const CrepeEditor: React.FC<CrepeEditorProps> = ({
                     </div>
                 </div>
             )}
-            <div className={styles.crepeEditorRoot} ref={editorRef} />
+            <div className={styles.milkdownWrapper}>
+                <Milkdown />
+            </div>
         </>
     );
 };
 
-export interface MilkdownEditorWrapperProps extends CrepeEditorProps {
+export interface MilkdownEditorWrapperProps extends MilkdownEditorProps {
     onSubmit?: (content: string) => Promise<void>;
-    readOnly?: boolean;
 }
 
 export const MilkdownEditorWrapper: React.FC<MilkdownEditorWrapperProps> = ({
@@ -214,14 +206,16 @@ export const MilkdownEditorWrapper: React.FC<MilkdownEditorWrapperProps> = ({
 
     return (
         <div className={styles.editorContainer}>
-            <CrepeEditor
-                content={content}
-                onSave={onSubmit && !isReadOnly ? handleSave : undefined}
-                filename={filename}
-                readOnly={isReadOnly}
-                onToggleReadOnly={toggleReadOnly}
-                isBackendReadOnly={isBackendReadOnly}
-            />
+            <MilkdownProvider>
+                <MilkdownEditor
+                    content={content}
+                    onSave={onSubmit && !isReadOnly ? handleSave : undefined}
+                    filename={filename}
+                    readOnly={isReadOnly}
+                    onToggleReadOnly={toggleReadOnly}
+                    isBackendReadOnly={isBackendReadOnly}
+                />
+            </MilkdownProvider>
         </div>
     );
 };
