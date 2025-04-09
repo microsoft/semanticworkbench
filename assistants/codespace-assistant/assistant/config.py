@@ -498,10 +498,10 @@ class AssistantConfigModel(BaseModel):
 # endregion
 
 
-# region: New Workspace Assistant Default Configuration
+# region: Document Assistant Default Configuration
 
 
-class WorkspaceHostedMCPServersConfigModel(HostedMCPServersConfigModel):
+class DocumentHostedMCPServersConfigModel(HostedMCPServersConfigModel):
     web_research: Annotated[
         HostedMCPServerConfig,
         Field(
@@ -588,7 +588,7 @@ class WorkspaceHostedMCPServersConfigModel(HostedMCPServersConfigModel):
         return [config for config in configs if config.command]
 
 
-class WorkspaceAdvancedToolConfigModel(AdvancedToolConfigModel):
+class DocumentAdvancedToolConfigModel(AdvancedToolConfigModel):
     max_steps: Annotated[
         int,
         Field(
@@ -612,7 +612,7 @@ class WorkspaceAdvancedToolConfigModel(AdvancedToolConfigModel):
     ] = ""
 
 
-class WorkspaceMCPToolsConfigModel(MCPToolsConfigModel):
+class DocumentMCPToolsConfigModel(MCPToolsConfigModel):
     enabled: Annotated[
         bool,
         Field(title="Enable experimental use of tools"),
@@ -625,7 +625,7 @@ class WorkspaceMCPToolsConfigModel(MCPToolsConfigModel):
             description="Configuration for hosted MCP servers that provide tools to the assistant.",
         ),
         UISchema(collapsed=False, items=UISchema(title_fields=["key", "enabled"])),
-    ] = WorkspaceHostedMCPServersConfigModel()
+    ] = DocumentHostedMCPServersConfigModel()
 
     personal_mcp_servers: Annotated[
         list[MCPServerConfig],
@@ -641,10 +641,10 @@ class WorkspaceMCPToolsConfigModel(MCPToolsConfigModel):
         Field(
             title="Advanced Tool Settings",
         ),
-    ] = WorkspaceAdvancedToolConfigModel()
+    ] = DocumentAdvancedToolConfigModel()
 
 
-class WorkspaceExtensionsConfigModel(ExtensionsConfigModel):
+class DocumentExtensionsConfigModel(ExtensionsConfigModel):
     attachments: Annotated[
         AttachmentsConfigModel,
         Field(
@@ -661,7 +661,7 @@ class WorkspaceExtensionsConfigModel(ExtensionsConfigModel):
     )
 
 
-class WorkspacePromptsConfigModel(PromptsConfigModel):
+class DocumentPromptsConfigModel(PromptsConfigModel):
     instruction_prompt: Annotated[
         str,
         Field(
@@ -702,7 +702,7 @@ class WorkspacePromptsConfigModel(PromptsConfigModel):
     ] = helpers.load_text_include("guardrails_prompt_workspace.txt")
 
 
-class WorkspaceResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
+class DocumentResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
     welcome_message: Annotated[
         str,
         Field(
@@ -711,7 +711,7 @@ class WorkspaceResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
         ),
         UISchema(widget="textarea"),
     ] = dedent("""
-               Welcome to your new Workspace! Here are ideas for how to get started:
+               Welcome to your new document assistant! Here are ideas for how to get started:
                 - ⚙️ Tell me what you are working on, such as *I'm working on creating a new budget process*
                 - 🗃️ Upload files you are working with and I'll take it from there
                 - 📝 I can make you an initial draft like *Write a proposal for new project management software in our department*
@@ -719,21 +719,21 @@ class WorkspaceResponseBehaviorConfigModel(ResponseBehaviorConfigModel):
                """).strip()
 
 
-class WorkspaceAssistantConfigModel(AssistantConfigModel):
+class DocumentAssistantConfigModel(AssistantConfigModel):
     tools: Annotated[
         MCPToolsConfigModel,
         Field(
             title="Tools",
         ),
         UISchema(collapsed=False, items=UISchema(schema={"hosted_mcp_servers": {"ui:options": {"collapsed": False}}})),
-    ] = WorkspaceMCPToolsConfigModel()
+    ] = DocumentMCPToolsConfigModel()
 
     extensions_config: Annotated[
         ExtensionsConfigModel,
         Field(
             title="Assistant Extensions",
         ),
-    ] = WorkspaceExtensionsConfigModel()
+    ] = DocumentExtensionsConfigModel()
 
     prompts: Annotated[
         PromptsConfigModel,
@@ -741,7 +741,7 @@ class WorkspaceAssistantConfigModel(AssistantConfigModel):
             title="Prompts",
             description="Configuration for various prompts used by the assistant.",
         ),
-    ] = WorkspacePromptsConfigModel()
+    ] = DocumentPromptsConfigModel()
 
     response_behavior: Annotated[
         ResponseBehaviorConfigModel,
@@ -749,7 +749,7 @@ class WorkspaceAssistantConfigModel(AssistantConfigModel):
             title="Response Behavior",
             description="Configuration for the response behavior of the assistant.",
         ),
-    ] = WorkspaceResponseBehaviorConfigModel()
+    ] = DocumentResponseBehaviorConfigModel()
 
 
 # endregion
