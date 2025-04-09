@@ -61,6 +61,10 @@ const useStyles = makeStyles({
         display: 'flex',
         gap: '4px',
     },
+    saveButton: {
+        backgroundColor: 'var(--colorStatusDangerBackground2)',
+        color: 'var(--colorStatusDangerForeground2)',
+    },
 });
 
 interface MilkdownEditorProps {
@@ -82,6 +86,8 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
 }) => {
     const styles = useStyles();
     const [editorInstance, setEditorInstance] = React.useState<Crepe | null>(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+    const initialContentRef = React.useRef(content);
 
     useEditor(
         (root) => {
@@ -99,12 +105,26 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
             crepe.create().then(() => {
                 crepe.setReadonly(readOnly);
                 setEditorInstance(crepe);
+
+                // Set up content change detection
+                crepe.on((listener) => {
+                    listener.markdownUpdated(() => {
+                        const currentContent = crepe.getMarkdown();
+                        setHasUnsavedChanges(currentContent !== initialContentRef.current);
+                    });
+                });
             });
 
             return crepe;
         },
         [content],
     );
+
+    // Reset unsaved changes flag when content prop changes (after saving)
+    React.useEffect(() => {
+        initialContentRef.current = content;
+        setHasUnsavedChanges(false);
+    }, [content]);
 
     // Update readonly state when it changes
     React.useEffect(() => {
@@ -114,10 +134,47 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
     }, [readOnly, editorInstance]);
 
     const handleSave = React.useCallback(() => {
-        if (!onSave || !editorInstance) return;
+        if (!onSave || !editorInstance || !hasUnsavedChanges) return;
         const currentContent = editorInstance.getMarkdown();
         onSave(currentContent);
-    }, [onSave, editorInstance]);
+        // Note: We don't reset hasUnsavedChanges here because the parent component
+        // should update the content prop which will trigger the useEffect above
+    }, [onSave, editorInstance, hasUnsavedChanges]);
+
+    // Add keyboard shortcut for Ctrl+S
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (!readOnly && hasUnsavedChanges) {
+                    handleSave();
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [handleSave, readOnly, hasUnsavedChanges]);
+
+    // Add beforeunload event listener to warn when closing with unsaved changes
+    React.useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges && !readOnly) {
+                // Standard way to show confirmation dialog when closing
+                const message = 'You have unsaved changes in the editor. Are you sure you want to leave?';
+                e.preventDefault();
+                return message;
+            }
+            return undefined;
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [hasUnsavedChanges, readOnly]);
 
     return (
         <>
@@ -139,8 +196,14 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
                     </div>
                     <div className={styles.buttonGroup}>
                         {onSave && !readOnly && (
-                            <Button appearance="primary" icon={<SaveRegular />} onClick={handleSave}>
-                                Save
+                            <Button
+                                appearance="subtle"
+                                icon={<SaveRegular />}
+                                onClick={handleSave}
+                                disabled={!hasUnsavedChanges}
+                                className={hasUnsavedChanges ? styles.saveButton : undefined}
+                            >
+                                Save Changes
                             </Button>
                         )}
                         {onToggleReadOnly && !isBackendReadOnly && (
