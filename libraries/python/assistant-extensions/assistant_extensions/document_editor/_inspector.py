@@ -123,13 +123,14 @@ class EditableDocumentFileStateInspector:
         if not document:
             return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
+        is_readonly = await self._controller.is_read_only(context)
+
         return AssistantConversationInspectorStateDataModel(
-            data=document.model_dump(mode="json"),
-            json_schema=document.model_json_schema(),
-            ui_schema=_get_document_editor_ui_schema(
-                await self._controller.is_read_only(context),
-                await self._controller.list_documents(context),
-            ),
+            data={
+                "markdown_content": document.content,
+                "filename": document.filename,
+                "readonly": is_readonly,
+            }
         )
 
     async def set(
@@ -142,13 +143,18 @@ class EditableDocumentFileStateInspector:
         if await self._controller.is_read_only(context):
             return
 
-        try:
-            model = DocumentFileStateModel.model_validate(data)
-        except ValidationError:
-            logger.exception("invalid data for DocumentFileStateModel")
-            return
-
-        await self._controller.write_active_document(context, model.content)
+        # The data comes in with 'markdown_content' but our model expects 'content'
+        if "markdown_content" in data:
+            content = data["markdown_content"]
+            # If filename is present but we don't need to modify it, we can just get the content
+            await self._controller.write_active_document(context, content)
+        else:
+            try:
+                model = DocumentFileStateModel.model_validate(data)
+                await self._controller.write_active_document(context, model.content)
+            except ValidationError:
+                logger.exception("invalid data for DocumentFileStateModel")
+                return
 
 
 class ReadonlyDocumentFileStateInspector:
@@ -189,7 +195,11 @@ class ReadonlyDocumentFileStateInspector:
             return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
         return AssistantConversationInspectorStateDataModel(
-            data={"content": f"```markdown\n_Filename: {document.filename}_\n\n{document.content}\n```"}
+            data={
+                "markdown_content": document.content,
+                "filename": document.filename,
+                "readonly": True,  # Always read-only for this inspector
+            },
         )
 
 

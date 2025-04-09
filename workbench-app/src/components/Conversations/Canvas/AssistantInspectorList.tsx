@@ -1,11 +1,15 @@
 // Copyright (c) Microsoft. All rights reserved.
 
 import { Overflow, OverflowItem, Tab, TabList, makeStyles, shorthands, tokens } from '@fluentui/react-components';
+import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useChatCanvasController } from '../../../libs/useChatCanvasController';
 import { Assistant } from '../../../models/Assistant';
 import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
 import { useAppSelector } from '../../../redux/app/hooks';
+import { workbenchConversationEvents } from '../../../routes/FrontDoor';
+import { useGetConversationStateQuery } from '../../../services/workbench';
+import { Loading } from '../../App/Loading';
 import { OverflowMenu, OverflowMenuItemData } from '../../App/OverflowMenu';
 import { AssistantInspector } from './AssistantInspector';
 
@@ -48,6 +52,40 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
         [stateDescriptions, chatCanvasState.selectedAssistantStateId],
     );
 
+    const {
+        data: state,
+        error: stateError,
+        isLoading: isLoadingState,
+        refetch: refetchState,
+    } = useGetConversationStateQuery(
+        { assistantId: assistant.id, stateId: selectedStateDescription.id, conversationId },
+        { refetchOnMountOrArgChange: true },
+    );
+
+    if (stateError) {
+        const errorMessage = JSON.stringify(stateError);
+        throw new Error(`Error loading assistant state: ${errorMessage}`);
+    }
+
+    const handleEvent = React.useCallback(
+        (event: EventSourceMessage) => {
+            const { data } = JSON.parse(event.data);
+            if (assistant.id !== data['assistant_id']) return;
+            if (selectedStateDescription.id !== data['state_id']) return;
+            if (conversationId !== data['conversation_id']) return;
+            refetchState();
+        },
+        [assistant.id, selectedStateDescription.id, conversationId, refetchState],
+    );
+
+    React.useEffect(() => {
+        workbenchConversationEvents.addEventListener('assistant.state.updated', handleEvent);
+
+        return () => {
+            workbenchConversationEvents.removeEventListener('assistant.state.updated', handleEvent);
+        };
+    }, [handleEvent]);
+
     const tabItems = React.useMemo(
         () =>
             stateDescriptions
@@ -68,56 +106,76 @@ export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (pr
         [chatCanvasController],
     );
 
-    if (stateDescriptions.length === 1) {
-        // Only one assistant state, no need to show tabs, just show the single assistant state
-        return (
-            <AssistantInspector
-                assistantId={assistant.id}
-                conversationId={conversationId}
-                stateDescription={stateDescriptions[0]}
-            />
-        );
-    }
-
-    if (stateDescriptions.length === 0) {
-        return (
-            <div className={classes.root}>
-                <div className={classes.header}>
-                    <div>No assistant state inspectors available</div>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className={classes.root}>
-            <div className={classes.header}>
-                <Overflow minimumVisible={1}>
-                    <TabList
-                        selectedValue={selectedStateDescription.id}
-                        onTabSelect={(_, data) => handleTabSelect(data.value as string)}
-                        size="small"
-                    >
-                        {tabItems.map((tabItem) => (
-                            <OverflowItem
-                                key={tabItem.id}
-                                id={tabItem.id}
-                                priority={tabItem.id === selectedStateDescription.id ? 2 : 1}
-                            >
-                                <Tab value={tabItem.id}>{tabItem.name}</Tab>
-                            </OverflowItem>
-                        ))}
-                        <OverflowMenu items={tabItems} onItemSelect={handleTabSelect} />
-                    </TabList>
-                </Overflow>
-            </div>
-            <div className={classes.body}>
+    const component = React.useMemo(() => {
+        if (!state || isLoadingState) {
+            return <Loading />;
+        }
+        if (stateDescriptions.length === 1) {
+            // Only one assistant state, no need to show tabs, just show the single assistant state
+            return (
                 <AssistantInspector
                     assistantId={assistant.id}
                     conversationId={conversationId}
-                    stateDescription={selectedStateDescription}
+                    stateDescription={stateDescriptions[0]}
+                    state={state}
                 />
+            );
+        }
+
+        if (stateDescriptions.length === 0) {
+            return (
+                <div className={classes.root}>
+                    <div className={classes.header}>
+                        <div>No assistant state inspectors available</div>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className={classes.root}>
+                <div className={classes.header}>
+                    <Overflow minimumVisible={1}>
+                        <TabList
+                            selectedValue={selectedStateDescription.id}
+                            onTabSelect={(_, data) => handleTabSelect(data.value as string)}
+                            size="small"
+                        >
+                            {tabItems.map((tabItem) => (
+                                <OverflowItem
+                                    key={tabItem.id}
+                                    id={tabItem.id}
+                                    priority={tabItem.id === selectedStateDescription.id ? 2 : 1}
+                                >
+                                    <Tab value={tabItem.id}>{tabItem.name}</Tab>
+                                </OverflowItem>
+                            ))}
+                            <OverflowMenu items={tabItems} onItemSelect={handleTabSelect} />
+                        </TabList>
+                    </Overflow>
+                </div>
+                <div className={classes.body}>
+                    <AssistantInspector
+                        assistantId={assistant.id}
+                        conversationId={conversationId}
+                        stateDescription={selectedStateDescription}
+                        state={state}
+                    />
+                </div>
             </div>
-        </div>
-    );
+        );
+    }, [
+        state,
+        isLoadingState,
+        stateDescriptions,
+        classes.root,
+        classes.header,
+        classes.body,
+        selectedStateDescription,
+        tabItems,
+        handleTabSelect,
+        assistant.id,
+        conversationId,
+    ]);
+    return <>{component}</>;
 };

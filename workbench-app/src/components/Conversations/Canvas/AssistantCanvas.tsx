@@ -33,7 +33,7 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
     const {
         data: stateDescriptions,
         error: stateDescriptionsError,
-        isFetching: isFetchingStateDescriptions,
+        isLoading: isLoadingStateDescriptions,
     } = useGetConversationStateDescriptionsQuery({ assistantId: assistant.id, conversationId: conversationId });
 
     React.useEffect(() => {
@@ -44,7 +44,7 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
     }, [stateDescriptionsError, stateDescriptionsErrorMessage]);
 
     // watching fetching instead of load, to avoid passing the old data on assistant id change
-    if (isFetchingStateDescriptions && !stateDescriptionsErrorMessage) {
+    if (isLoadingStateDescriptions && !stateDescriptionsErrorMessage) {
         return <Loading />;
     }
 
