@@ -29,14 +29,18 @@ const useStyles = makeStyles({
         },
         '& .ProseMirror': {
             margin: '10px 0 0 0',
-            padding: '14px 20px 20px 80px',
+            padding: '14px 20px 20px 70px',
+        },
+        '& [data-milkdown-root="true"]': {
+            height: '100%',
+            width: '100%',
         },
     },
     toolbar: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingLeft: '80px',
+        paddingLeft: '70px',
     },
     filenameContainer: {
         display: 'flex',
@@ -136,7 +140,10 @@ const MilkdownEditor: React.FC<MilkdownEditorProps> = ({
     const handleSave = React.useCallback(() => {
         if (!onSave || !editorInstance || !hasUnsavedChanges) return;
         const currentContent = editorInstance.getMarkdown();
-        onSave(currentContent);
+        // Replace <br> tags with unicode line separator to prevent parser issues.
+        const parsedContent = currentContent.replace(/<br\s*\/?>|<br>/gi, '\u2028');
+
+        onSave(parsedContent);
         // Note: We don't reset hasUnsavedChanges here because the parent component
         // should update the content prop which will trigger the useEffect above
     }, [onSave, editorInstance, hasUnsavedChanges]);
