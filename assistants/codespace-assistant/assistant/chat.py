@@ -50,7 +50,7 @@ service_description = "An assistant for developing in the Codespaces."
 assistant_config = BaseModelAssistantConfig(
     AssistantConfigModel,
     additional_templates={
-        "document_workspace": DocumentAssistantConfigModel,
+        "workspace": DocumentAssistantConfigModel,
         "context_transfer": ContextTransferConfigModel,
     },
 )
@@ -73,7 +73,7 @@ assistant = AssistantApp(
     content_interceptor=content_safety,
     additional_templates=[
         AssistantTemplate(
-            id="document_workspace",
+            id="workspace",
             name="Document Assistant",
             description="An assistant for creating and editing documents.",
         ),
