@@ -19,6 +19,7 @@ from .project_data import (
     ProjectBrief,
     ProjectDashboard,
     ProjectGoal,
+    ProjectInfo,
     ProjectLog,
     ProjectState,
     ProjectWhiteboard,
@@ -122,6 +123,25 @@ class ProjectManager:
             if not success or not share_url:
                 logger.warning(f"Created team workspace but failed to create share: {conversation.id}")
                 return True, str(conversation.id), None
+            
+            # Store team workspace info in ProjectInfo
+            try:
+                # Read existing project info
+                project_info = ProjectStorage.read_project_info(project_id)
+                
+                if project_info:
+                    # Update with team workspace data
+                    project_info.team_conversation_id = str(conversation.id)
+                    project_info.share_url = share_url
+                    project_info.updated_at = datetime.utcnow()
+                    
+                    # Save updated project info
+                    ProjectStorage.write_project_info(project_id, project_info)
+                    logger.info(f"Updated project info with team workspace: {conversation.id}")
+                else:
+                    logger.warning(f"Project info not found for project {project_id}")
+            except Exception as e:
+                logger.warning(f"Failed to update project info with team workspace: {e}")
 
             # Store the share URL in the conversation's metadata
             from semantic_workbench_api_model.workbench_model import AssistantStateEvent
@@ -186,7 +206,7 @@ class ProjectManager:
             new_share = NewConversationShare(
                 conversation_id=conversation_id,
                 label=f"Team Workspace: {project_name}",
-                conversation_permission=ConversationPermission.read_write,
+                conversation_permission=ConversationPermission.read,
                 metadata={"project_id": project_id, "is_team_workspace": True},
             )
 
@@ -235,14 +255,38 @@ class ProjectManager:
         try:
             # Generate a unique project ID
             project_id = str(uuid.uuid4())
+            logger.info(f"Starting project creation with new ID: {project_id}")
 
+            # Create the project directory structure first
+            project_dir = ProjectStorageManager.get_project_dir(project_id)
+            logger.info(f"Created project directory: {project_dir}")
+            
+            # Create and save the initial project info
+            from .project_data import ProjectInfo
+            
+            project_info = ProjectInfo(
+                project_id=project_id,
+                project_name="New Project",
+                coordinator_conversation_id=str(context.id)
+            )
+            
+            # Save the project info
+            ProjectStorage.write_project_info(project_id, project_info)
+            logger.info(f"Created and saved project info: {project_info}")
+            
             # Associate the conversation with the project
-            await ConversationProjectManager.set_conversation_project(context, project_id)
+            logger.info(f"Associating conversation {context.id} with project {project_id}")
+            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
             # Set this conversation as the Coordinator
+            logger.info(f"Setting conversation {context.id} as Coordinator for project {project_id}")
             await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.COORDINATOR)
+            
+            # Ensure linked_conversations directory exists
+            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
+            logger.info(f"Ensured linked_conversations directory exists: {linked_dir}")
 
-            logger.info(f"Created new project {project_id} for conversation {context.id}")
+            logger.info(f"Successfully created new project {project_id} for conversation {context.id}")
             return True, project_id
 
         except Exception as e:
@@ -273,7 +317,7 @@ class ProjectManager:
                 return False
 
             # Associate the conversation with the project
-            await ConversationProjectManager.set_conversation_project(context, project_id)
+            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
             # Set the conversation role
             await ConversationProjectManager.set_conversation_role(context, project_id, role)
@@ -1084,6 +1128,36 @@ class ProjectManager:
         except Exception as e:
             logger.exception(f"Error adding log entry: {e}")
             return False, None
+
+    @staticmethod
+    async def get_project_info(
+        context: ConversationContext, 
+        project_id: Optional[str] = None
+    ) -> Optional[ProjectInfo]:
+        """
+        Gets the project information including share URL and team workspace details.
+        
+        Args:
+            context: Current conversation context
+            project_id: Optional project ID (if not provided, will be retrieved from context)
+            
+        Returns:
+            ProjectInfo object or None if not found
+        """
+        try:
+            # Get project ID if not provided
+            if not project_id:
+                project_id = await ProjectManager.get_project_id(context)
+                if not project_id:
+                    return None
+                    
+            # Read project info
+            project_info = ProjectStorage.read_project_info(project_id)
+            return project_info
+            
+        except Exception as e:
+            logger.exception(f"Error getting project info: {e}")
+            return None
 
     @staticmethod
     async def get_project_whiteboard(

@@ -44,7 +44,6 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
         # Create project directory structure
         self.project_dir = ProjectStorageManager.get_project_dir(self.project_id)
-        self.shared_dir = ProjectStorageManager.get_shared_dir(self.project_id)
 
         # Set up patching
         self.patches = []
@@ -69,12 +68,12 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         self.mock_storage_directory = patch1.start()
         self.patches.append(patch1)
 
-        # Patch get_conversation_project
-        async def mock_get_conversation_project(context):
+        # Patch get_associated_project_id
+        async def mock_get_associated_project_id(context):
             return self.project_id
 
         patch2 = unittest.mock.patch.object(
-            ConversationProjectManager, "get_conversation_project", side_effect=mock_get_conversation_project
+            ConversationProjectManager, "get_associated_project_id", side_effect=mock_get_associated_project_id
         )
         self.mock_get_project = patch2.start()
         self.patches.append(patch2)

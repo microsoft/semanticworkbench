@@ -700,7 +700,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
             raise ValueError("Both goal name and description are required")
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(context)
+        project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
             await context.send_messages(
                 NewConversationMessage(
@@ -1226,7 +1226,7 @@ async def handle_list_participants_command(
     """Handle the list-participants command."""
     try:
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(context)
+        project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
             await context.send_messages(
                 NewConversationMessage(

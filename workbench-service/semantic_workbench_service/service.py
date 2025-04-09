@@ -1061,7 +1061,6 @@ def init(
     # create_conversation_share_with_owner
     @app.post("/conversation-shares/{owner_id}")
     async def create_conversation_share_with_owner(
-        assistant_principal: auth.DependsAssistantPrincipal,
         new_conversation_share: NewConversationShare,
         owner_id: str,
     ) -> ConversationShare:

@@ -49,7 +49,6 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
         # Create project directory structure
         self.project_dir = ProjectStorageManager.get_project_dir(self.project_id)
-        self.shared_dir = ProjectStorageManager.get_shared_dir(self.project_id)
 
         # Set up directories for different conversation roles
         self.coordinator_dir = self.project_dir / ProjectRole.COORDINATOR.value
@@ -206,9 +205,6 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         """Test the project directory structure."""
         # Verify project directory exists
         self.assertTrue(self.project_dir.exists(), "Project directory should exist")
-
-        # Verify shared directory exists
-        self.assertTrue(self.shared_dir.exists(), "Shared directory should exist")
 
         # Verify Coordinator directory exists
         self.assertTrue(self.coordinator_dir.exists(), "Coordinator directory should exist")

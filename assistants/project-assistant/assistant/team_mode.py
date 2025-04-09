@@ -58,7 +58,7 @@ class TeamConversationHandler:
         logger.info(f"Team received project update: type={update_type}, message='{message}', data={data}")
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             logger.warning("No project ID found for this conversation, cannot process update")
             return False
@@ -154,7 +154,7 @@ class TeamConversationHandler:
             return False, "Only Team conversations can create information requests", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -231,7 +231,7 @@ class TeamConversationHandler:
             return False, "Only Team conversations can update project dashboard", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -329,7 +329,7 @@ class TeamConversationHandler:
             return False, "Only Team conversations can mark criteria as completed", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -476,7 +476,7 @@ class TeamConversationHandler:
             return False, "Only Team conversations can report project completion", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -576,7 +576,7 @@ class TeamConversationHandler:
         Returns:
             Dictionary with project information
         """
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return {
                 "has_project": False,

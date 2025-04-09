@@ -57,7 +57,7 @@ class CoordinatorConversationHandler:
             True if handled successfully, False otherwise
         """
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False
 
@@ -83,7 +83,7 @@ class CoordinatorConversationHandler:
             Tuple of (success, message)
         """
         # Check if already associated with a project
-        current_project = await ConversationProjectManager.get_conversation_project(self.context)
+        current_project = await ConversationProjectManager.get_associated_project_id(self.context)
         if current_project:
             return False, f"This conversation is already associated with project {current_project}"
 
@@ -196,7 +196,7 @@ class CoordinatorConversationHandler:
         brief.version += 1
 
         # Save updated brief
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -238,7 +238,7 @@ class CoordinatorConversationHandler:
             return False, "Only Coordinator conversations can resolve information requests", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -316,7 +316,7 @@ class CoordinatorConversationHandler:
             return False, "Only Coordinator conversations can mark projects as ready for team work", None
 
         # Get project ID and dashboard
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -373,7 +373,7 @@ class CoordinatorConversationHandler:
         Returns:
             Dictionary with project information
         """
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return {
                 "has_project": False,

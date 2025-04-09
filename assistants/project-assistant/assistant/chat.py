@@ -85,7 +85,7 @@ assistant = AssistantApp(
     additional_templates=[
         AssistantTemplate(
             id="context_transfer",
-            name="Context Transfer Assistant (2)",
+            name="Context Transfer Assistant (experimental)",
             description="An assistant for capturing and sharing complex information for others to explore.",
         ),
     ],
@@ -686,7 +686,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
         project_id = metadata.get("project_id")
         if project_id:
             # Set this conversation as a team member for the project
-            await ConversationProjectManager.set_conversation_project(context, project_id)
+            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
             await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
             logger.info(f"Associated team workspace with project: {project_id}")
 
@@ -718,16 +718,12 @@ async def on_conversation_created(context: ConversationContext) -> None:
     # Check if this is a conversation created through a share URL
     share_redemption = metadata.get("share_redemption", {})
     if share_redemption and share_redemption.get("conversation_share_id"):
-        # This is a conversation created through a share link
-        logger.info("This is a conversation created through a share link")
-
-        # Get metadata from the share
         share_metadata = share_redemption.get("metadata", {})
         project_id = share_metadata.get("project_id")
 
         if project_id:
             # Set this conversation as a team member for the project
-            await ConversationProjectManager.set_conversation_project(context, project_id)
+            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
             await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
 
             # Update conversation metadata
@@ -821,7 +817,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
 This conversation is your personal workspace as the project coordinator.
 
-**To invite team members to your project, share this link with them:**
+**To invite team members to your project, copy and share this link with them:**
 [{share_url}]({share_url})
 
 I've created a brief for your project. Let's start by updating it with your project goals and details."""
@@ -889,7 +885,7 @@ async def on_participant_joined(
             return
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(context)
+        project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
             logger.debug("No project ID found, skipping file sync for participant")
             return

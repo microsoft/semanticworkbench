@@ -86,8 +86,8 @@ class ProjectFileManager:
         Returns:
             Path to the project files directory
         """
-        shared_dir = ProjectStorageManager.get_shared_dir(project_id)
-        files_dir = shared_dir / "files"
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        files_dir = project_dir / "files"
         files_dir.mkdir(parents=True, exist_ok=True)
         return files_dir
 
