@@ -120,9 +120,7 @@ class ProjectManager:
             )
 
             if not success or not share_url:
-                logger.warning(
-                    f"Created team workspace but failed to create share: {conversation.id}"
-                )
+                logger.warning(f"Created team workspace but failed to create share: {conversation.id}")
                 return True, str(conversation.id), None
 
             # Store the share URL in the conversation's metadata
@@ -138,9 +136,7 @@ class ProjectManager:
             if team_context:
                 # Update the team conversation's metadata with the share URL
                 await team_context.send_conversation_state_event(
-                    AssistantStateEvent(
-                        state_id="share_url", event="updated", state=None
-                    )
+                    AssistantStateEvent(state_id="share_url", event="updated", state=None)
                 )
 
             return True, str(conversation.id), share_url
@@ -201,9 +197,7 @@ class ProjectManager:
             )
 
             if not share:
-                logger.error(
-                    f"Failed to create share for conversation: {conversation_id}"
-                )
+                logger.error(f"Failed to create share for conversation: {conversation_id}")
                 return False, None
 
             # Return the share URL
@@ -243,18 +237,12 @@ class ProjectManager:
             project_id = str(uuid.uuid4())
 
             # Associate the conversation with the project
-            await ConversationProjectManager.set_conversation_project(
-                context, project_id
-            )
+            await ConversationProjectManager.set_conversation_project(context, project_id)
 
             # Set this conversation as the Coordinator
-            await ConversationProjectManager.set_conversation_role(
-                context, project_id, ProjectRole.COORDINATOR
-            )
+            await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.COORDINATOR)
 
-            logger.info(
-                f"Created new project {project_id} for conversation {context.id}"
-            )
+            logger.info(f"Created new project {project_id} for conversation {context.id}")
             return True, project_id
 
         except Exception as e:
@@ -281,20 +269,14 @@ class ProjectManager:
         try:
             # Check if project exists
             if not ProjectStorageManager.project_exists(project_id):
-                logger.error(
-                    f"Cannot join project: project {project_id} does not exist"
-                )
+                logger.error(f"Cannot join project: project {project_id} does not exist")
                 return False
 
             # Associate the conversation with the project
-            await ConversationProjectManager.set_conversation_project(
-                context, project_id
-            )
+            await ConversationProjectManager.set_conversation_project(context, project_id)
 
             # Set the conversation role
-            await ConversationProjectManager.set_conversation_role(
-                context, project_id, role
-            )
+            await ConversationProjectManager.set_conversation_role(context, project_id, role)
 
             logger.info(f"Joined project {project_id} as {role.value}")
             return True
@@ -407,9 +389,7 @@ class ProjectManager:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error(
-                    "Cannot create brief: no project associated with this conversation"
-                )
+                logger.error("Cannot create brief: no project associated with this conversation")
                 return False, None
 
             # Get user information
@@ -431,9 +411,7 @@ class ProjectManager:
                     # Add success criteria
                     criteria = goal_data.get("success_criteria", [])
                     for criterion in criteria:
-                        goal.success_criteria.append(
-                            SuccessCriterion(description=criterion)
-                        )
+                        goal.success_criteria.append(SuccessCriterion(description=criterion))
 
                     project_goals.append(goal)
 
@@ -493,9 +471,7 @@ class ProjectManager:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error(
-                    "Cannot update brief: no project associated with this conversation"
-                )
+                logger.error("Cannot update brief: no project associated with this conversation")
                 return False
 
             # Get user information
@@ -506,9 +482,7 @@ class ProjectManager:
             # Load existing brief
             brief = ProjectStorage.read_project_brief(project_id)
             if not brief:
-                logger.error(
-                    f"Cannot update brief: no brief found for project {project_id}"
-                )
+                logger.error(f"Cannot update brief: no brief found for project {project_id}")
                 return False
 
             # Apply updates, skipping immutable fields
@@ -595,9 +569,7 @@ class ProjectManager:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error(
-                    "Cannot update dashboard: no project associated with this conversation"
-                )
+                logger.error("Cannot update dashboard: no project associated with this conversation")
                 return False, None
 
             # Get user information
@@ -656,9 +628,7 @@ class ProjectManager:
 
             # Log the update
             event_type = LogEntryType.STATUS_CHANGED
-            message = (
-                "Created project dashboard" if is_new else "Updated project dashboard"
-            )
+            message = "Created project dashboard" if is_new else "Updated project dashboard"
 
             await ProjectStorage.log_project_event(
                 context=context,
@@ -721,15 +691,11 @@ class ProjectManager:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error(
-                    "Cannot create information request: no project associated with this conversation"
-                )
+                logger.error("Cannot create information request: no project associated with this conversation")
                 return False, None
 
             # Get user information
-            current_user_id = await require_current_user(
-                context, "create information request"
-            )
+            current_user_id = await require_current_user(context, "create information request")
             if not current_user_id:
                 return False, None
 
@@ -808,22 +774,16 @@ class ProjectManager:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error(
-                    "Cannot update information request: no project associated with this conversation"
-                )
+                logger.error("Cannot update information request: no project associated with this conversation")
                 return False, None
 
             # Get user information
-            current_user_id = await require_current_user(
-                context, "update information request"
-            )
+            current_user_id = await require_current_user(context, "update information request")
             if not current_user_id:
                 return False, None
 
             # Get the information request
-            information_request = ProjectStorage.read_information_request(
-                project_id, request_id
-            )
+            information_request = ProjectStorage.read_information_request(project_id, request_id)
             if not information_request:
                 logger.error(f"Information request {request_id} not found")
                 return False, None
@@ -839,21 +799,16 @@ class ProjectManager:
             ]
 
             for field, value in updates.items():
-                if (
-                    hasattr(information_request, field)
-                    and field not in protected_fields
-                ):
+                if hasattr(information_request, field) and field not in protected_fields:
                     # Special handling for status changes
                     if field == "status" and information_request.status != value:
                         # Add an update to the history
-                        information_request.updates.append(
-                            {
-                                "timestamp": datetime.utcnow().isoformat(),
-                                "user_id": current_user_id,
-                                "message": f"Status changed from {information_request.status.value} to {value.value}",
-                                "status": value.value,
-                            }
-                        )
+                        information_request.updates.append({
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "user_id": current_user_id,
+                            "message": f"Status changed from {information_request.status.value} to {value.value}",
+                            "status": value.value,
+                        })
 
                     setattr(information_request, field, value)
                     updated = True
@@ -914,22 +869,16 @@ class ProjectManager:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error(
-                    "Cannot resolve information request: no project associated with this conversation"
-                )
+                logger.error("Cannot resolve information request: no project associated with this conversation")
                 return False, None
 
             # Get user information
-            current_user_id = await require_current_user(
-                context, "resolve information request"
-            )
+            current_user_id = await require_current_user(context, "resolve information request")
             if not current_user_id:
                 return False, None
 
             # Get the information request
-            information_request = ProjectStorage.read_information_request(
-                project_id, request_id
-            )
+            information_request = ProjectStorage.read_information_request(project_id, request_id)
             if not information_request:
                 # Try to find it in all requests
                 all_requests = ProjectStorage.get_all_information_requests(project_id)
@@ -954,14 +903,12 @@ class ProjectManager:
             information_request.resolved_by = current_user_id
 
             # Add to history
-            information_request.updates.append(
-                {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "user_id": current_user_id,
-                    "message": f"Request resolved: {resolution}",
-                    "status": RequestStatus.RESOLVED.value,
-                }
-            )
+            information_request.updates.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "user_id": current_user_id,
+                "message": f"Request resolved: {resolution}",
+                "status": RequestStatus.RESOLVED.value,
+            })
 
             # Update metadata
             information_request.updated_at = datetime.utcnow()
@@ -989,10 +936,7 @@ class ProjectManager:
 
             # Update project dashboard if this was a blocker
             dashboard = ProjectStorage.read_project_dashboard(project_id)
-            if (
-                dashboard
-                and information_request.request_id in dashboard.active_requests
-            ):
+            if dashboard and information_request.request_id in dashboard.active_requests:
                 dashboard.active_requests.remove(information_request.request_id)
                 dashboard.updated_at = datetime.utcnow()
                 dashboard.updated_by = current_user_id
@@ -1075,9 +1019,7 @@ class ProjectManager:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error(
-                    "Cannot add log entry: no project associated with this conversation"
-                )
+                logger.error("Cannot add log entry: no project associated with this conversation")
                 return False, None
 
             # Get user information
@@ -1181,9 +1123,7 @@ class ProjectManager:
             project_id = await ProjectManager.get_project_id(context)
             logger.error("DEBUG: update_whiteboard found project ID: %s", project_id)
             if not project_id:
-                logger.error(
-                    "Cannot update whiteboard: no project associated with this conversation"
-                )
+                logger.error("Cannot update whiteboard: no project associated with this conversation")
                 return False, None
 
             # Get user information
@@ -1262,25 +1202,17 @@ class ProjectManager:
         Returns:
             Tuple of (success, project_kb)
         """
-        logger.error(
-            "DEBUG: auto_update_whiteboard called with conversation ID: %s", context.id
-        )
+        logger.error("DEBUG: auto_update_whiteboard called with conversation ID: %s", context.id)
         try:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
-            logger.error(
-                "DEBUG: auto_update_whiteboard found project ID: %s", project_id
-            )
+            logger.error("DEBUG: auto_update_whiteboard found project ID: %s", project_id)
             if not project_id:
-                logger.error(
-                    "Cannot auto-update whiteboard: no project associated with this conversation"
-                )
+                logger.error("Cannot auto-update whiteboard: no project associated with this conversation")
                 return False, None
 
             # Get user information for storage purposes
-            current_user_id = await require_current_user(
-                context, "auto-update whiteboard"
-            )
+            current_user_id = await require_current_user(context, "auto-update whiteboard")
             if not current_user_id:
                 return False, None
 
@@ -1296,10 +1228,7 @@ class ProjectManager:
             chat_history_text = ""
             for msg in chat_history:
                 sender_type = (
-                    "User"
-                    if msg.sender
-                    and msg.sender.participant_role == ParticipantRole.user
-                    else "Assistant"
+                    "User" if msg.sender and msg.sender.participant_role == ParticipantRole.user else "Assistant"
                 )
                 chat_history_text += f"{sender_type}: {msg.content}\n\n"
 
@@ -1315,13 +1244,9 @@ class ProjectManager:
 
             # Use the appropriate prompt based on the template
             if template_id == "context_transfer":
-                whiteboard_prompt_template = load_text_include(
-                    "context_transfer_whiteboard_prompt.txt"
-                )
+                whiteboard_prompt_template = load_text_include("context_transfer_whiteboard_prompt.txt")
             else:
-                whiteboard_prompt_template = load_text_include(
-                    "whiteboard_auto_update_prompt.txt"
-                )
+                whiteboard_prompt_template = load_text_include("whiteboard_auto_update_prompt.txt")
 
             # Construct the whiteboard prompt with the chat history
             whiteboard_prompt = f"""
@@ -1336,9 +1261,7 @@ class ProjectManager:
             import openai_client
 
             # Create a completion with the whiteboard prompt
-            async with openai_client.create_client(
-                config.service_config, api_version="2024-06-01"
-            ) as client:
+            async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
                 completion = await client.chat.completions.create(
                     model=config.request_config.openai_model,
                     messages=[{"role": "user", "content": whiteboard_prompt}],
@@ -1396,9 +1319,7 @@ class ProjectManager:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error(
-                    "Cannot complete project: no project associated with this conversation"
-                )
+                logger.error("Cannot complete project: no project associated with this conversation")
                 return False, None
 
             # Get role - only Coordinator can complete a project

@@ -42,15 +42,9 @@ def document_list_model(documents: list[DocumentFileStateModel]) -> type[BaseMod
     )
 
 
-def _get_document_editor_ui_schema(
-    readonly: bool, documents: list[DocumentFileStateModel]
-) -> dict[str, Any]:
+def _get_document_editor_ui_schema(readonly: bool, documents: list[DocumentFileStateModel]) -> dict[str, Any]:
     schema = get_ui_schema(DocumentFileStateModel)
-    multiple_files_message = (
-        "To edit another document, switch to the Documents tab."
-        if len(documents) > 1
-        else ""
-    )
+    multiple_files_message = "To edit another document, switch to the Documents tab." if len(documents) > 1 else ""
     schema = deepmerge.always_merger.merge(
         schema.copy(),
         {
@@ -65,9 +59,7 @@ def _get_document_editor_ui_schema(
     return schema
 
 
-def _get_document_list_ui_schema(
-    model: type[BaseModel], filenames: list[str]
-) -> dict[str, Any]:
+def _get_document_list_ui_schema(model: type[BaseModel], filenames: list[str]) -> dict[str, Any]:
     return {
         "ui:options": {
             "collapsible": False,
@@ -88,18 +80,10 @@ def _get_document_list_ui_schema(
 class InspectorController(Protocol):
     async def is_enabled(self, context: ConversationContext) -> bool: ...
     async def is_read_only(self, context: ConversationContext) -> bool: ...
-    async def read_active_document(
-        self, context: ConversationContext
-    ) -> DocumentFileStateModel | None: ...
-    async def write_active_document(
-        self, context: ConversationContext, content: str
-    ) -> None: ...
-    async def set_active_filename(
-        self, context: ConversationContext, filename: str
-    ) -> None: ...
-    async def list_documents(
-        self, context: ConversationContext
-    ) -> list[DocumentFileStateModel]: ...
+    async def read_active_document(self, context: ConversationContext) -> DocumentFileStateModel | None: ...
+    async def write_active_document(self, context: ConversationContext, content: str) -> None: ...
+    async def set_active_filename(self, context: ConversationContext, filename: str) -> None: ...
+    async def list_documents(self, context: ConversationContext) -> list[DocumentFileStateModel]: ...
 
 
 class EditableDocumentFileStateInspector:
@@ -129,9 +113,7 @@ class EditableDocumentFileStateInspector:
     def description(self) -> str:
         return self._description
 
-    async def get(
-        self, context: ConversationContext
-    ) -> AssistantConversationInspectorStateDataModel:
+    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "The Document Editor extension is not enabled."}
@@ -139,17 +121,16 @@ class EditableDocumentFileStateInspector:
 
         document = await self._controller.read_active_document(context)
         if not document:
-            return AssistantConversationInspectorStateDataModel(
-                data={"content": "No current document."}
-            )
+            return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
+
+        is_readonly = await self._controller.is_read_only(context)
 
         return AssistantConversationInspectorStateDataModel(
-            data=document.model_dump(mode="json"),
-            json_schema=document.model_json_schema(),
-            ui_schema=_get_document_editor_ui_schema(
-                await self._controller.is_read_only(context),
-                await self._controller.list_documents(context),
-            ),
+            data={
+                "markdown_content": document.content,
+                "filename": document.filename,
+                "readonly": is_readonly,
+            }
         )
 
     async def set(
@@ -162,13 +143,18 @@ class EditableDocumentFileStateInspector:
         if await self._controller.is_read_only(context):
             return
 
-        try:
-            model = DocumentFileStateModel.model_validate(data)
-        except ValidationError:
-            logger.exception("invalid data for DocumentFileStateModel")
-            return
-
-        await self._controller.write_active_document(context, model.content)
+        # The data comes in with 'markdown_content' but our model expects 'content'
+        if "markdown_content" in data:
+            content = data["markdown_content"]
+            # If filename is present but we don't need to modify it, we can just get the content
+            await self._controller.write_active_document(context, content)
+        else:
+            try:
+                model = DocumentFileStateModel.model_validate(data)
+                await self._controller.write_active_document(context, model.content)
+            except ValidationError:
+                logger.exception("invalid data for DocumentFileStateModel")
+                return
 
 
 class ReadonlyDocumentFileStateInspector:
@@ -198,9 +184,7 @@ class ReadonlyDocumentFileStateInspector:
     def description(self) -> str:
         return self._description
 
-    async def get(
-        self, context: ConversationContext
-    ) -> AssistantConversationInspectorStateDataModel:
+    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "The Document Editor extension is not enabled."}
@@ -208,14 +192,14 @@ class ReadonlyDocumentFileStateInspector:
 
         document = await self._controller.read_active_document(context)
         if not document:
-            return AssistantConversationInspectorStateDataModel(
-                data={"content": "No current document."}
-            )
+            return AssistantConversationInspectorStateDataModel(data={"content": "No current document."})
 
         return AssistantConversationInspectorStateDataModel(
             data={
-                "content": f"```markdown\n_Filename: {document.filename}_\n\n{document.content}\n```"
-            }
+                "markdown_content": document.content,
+                "filename": document.filename,
+                "readonly": True,  # Always read-only for this inspector
+            },
         )
 
 
@@ -246,9 +230,7 @@ class DocumentListInspector:
     def description(self) -> str:
         return self._description
 
-    async def get(
-        self, context: ConversationContext
-    ) -> AssistantConversationInspectorStateDataModel:
+    async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "The Document Editor extension is not enabled."}
@@ -256,25 +238,18 @@ class DocumentListInspector:
 
         documents = await self._controller.list_documents(context)
         if not documents:
-            return AssistantConversationInspectorStateDataModel(
-                data={"content": "No documents available."}
-            )
+            return AssistantConversationInspectorStateDataModel(data={"content": "No documents available."})
 
         filenames = [document.filename for document in documents]
         model = document_list_model(documents)
 
         current_document = await self._controller.read_active_document(context)
-        selected_filename = (
-            current_document.filename if current_document else filenames[0]
-        )
+        selected_filename = current_document.filename if current_document else filenames[0]
 
         return AssistantConversationInspectorStateDataModel(
             data={
                 "attachments": [
-                    DocumentFileStateModel.model_validate(document).model_dump(
-                        mode="json"
-                    )
-                    for document in documents
+                    DocumentFileStateModel.model_validate(document).model_dump(mode="json") for document in documents
                 ],
                 "active_document": selected_filename,
             },
@@ -314,9 +289,7 @@ class DocumentInspectors:
             display_name="Documents",
             description="Download a document:",
         )
-        app.add_inspector_state_provider(
-            state_id=self._file_list.state_id, provider=self._file_list
-        )
+        app.add_inspector_state_provider(state_id=self._file_list.state_id, provider=self._file_list)
 
         self._viewer = ReadonlyDocumentFileStateInspector(
             controller=self,
@@ -330,9 +303,7 @@ class DocumentInspectors:
             controller=self,
             display_name="Document Editor",
         )
-        app.add_inspector_state_provider(
-            state_id=self._editor.state_id, provider=self._editor
-        )
+        app.add_inspector_state_provider(state_id=self._editor.state_id, provider=self._editor)
 
         @app.events.conversation.participant.on_updated_including_mine
         async def on_participant_update(
@@ -371,9 +342,7 @@ class DocumentInspectors:
                 )
             )
 
-    async def on_external_write(
-        self, context: ConversationContext, filename: str
-    ) -> None:
+    async def on_external_write(self, context: ConversationContext, filename: str) -> None:
         self._selected_file[context.id] = filename
         await context.send_conversation_state_event(
             workbench_model.AssistantStateEvent(
@@ -390,13 +359,9 @@ class DocumentInspectors:
     async def is_read_only(self, context: ConversationContext) -> bool:
         return context.id in self._readonly
 
-    async def read_active_document(
-        self, context: ConversationContext
-    ) -> DocumentFileStateModel | None:
+    async def read_active_document(self, context: ConversationContext) -> DocumentFileStateModel | None:
         drive = self._drive_provider(context)
-        markdown_files = [
-            filename for filename in drive.list() if filename.endswith(".md")
-        ]
+        markdown_files = [filename for filename in drive.list() if filename.endswith(".md")]
         if not markdown_files:
             self._selected_file.pop(context.id, None)
             return None
@@ -417,9 +382,7 @@ class DocumentInspectors:
 
         return DocumentFileStateModel(content=file_content, filename=selected_file_name)
 
-    async def write_active_document(
-        self, context: ConversationContext, content: str
-    ) -> None:
+    async def write_active_document(self, context: ConversationContext, content: str) -> None:
         drive = self._drive_provider(context)
         filename = self._selected_file.get(context.id)
         if not filename:
@@ -432,13 +395,9 @@ class DocumentInspectors:
             content_type="text/markdown",
         )
 
-    async def list_documents(
-        self, context: ConversationContext
-    ) -> list[DocumentFileStateModel]:
+    async def list_documents(self, context: ConversationContext) -> list[DocumentFileStateModel]:
         drive = self._drive_provider(context)
-        markdown_files = [
-            filename for filename in drive.list() if filename.endswith(".md")
-        ]
+        markdown_files = [filename for filename in drive.list() if filename.endswith(".md")]
 
         documents = []
         for filename in markdown_files:
@@ -450,15 +409,11 @@ class DocumentInspectors:
                 continue
 
             file_content = buffer.getvalue().decode("utf-8")
-            documents.append(
-                DocumentFileStateModel(content=file_content, filename=filename)
-            )
+            documents.append(DocumentFileStateModel(content=file_content, filename=filename))
 
         return sorted(documents, key=lambda x: x.filename)
 
-    async def set_active_filename(
-        self, context: ConversationContext, filename: str
-    ) -> None:
+    async def set_active_filename(self, context: ConversationContext, filename: str) -> None:
         self._selected_file[context.id] = filename
 
         await context.send_conversation_state_event(
@@ -471,9 +426,7 @@ class DocumentInspectors:
 
 
 @asynccontextmanager
-async def lock_document_edits(
-    app: AssistantAppProtocol, context: ConversationContext
-) -> AsyncGenerator[None, None]:
+async def lock_document_edits(app: AssistantAppProtocol, context: ConversationContext) -> AsyncGenerator[None, None]:
     """
     A temporary work-around to call the event handlers directly to communicate the document lock
     status to the document inspectors. This circumvents the serialization of event delivery by

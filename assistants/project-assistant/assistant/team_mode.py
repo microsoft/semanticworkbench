@@ -83,7 +83,7 @@ class TeamConversationHandler:
             context=self.context, project_id=project_id
         )
         logger.info(f"File synchronization after update: success={sync_success}")
-        
+
         # Additionally handle file-specific updates for individual file operations
         if update_type in ["file_created", "file_updated", "file_deleted"]:
             # Extract filename from the message if not in data

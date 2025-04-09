@@ -205,6 +205,12 @@ Type `/help` for more information on available commands.
                 lines.append(brief.additional_context)
                 lines.append("")
 
+            # In context transfer mode, show additional context in a dedicated section
+            if self.is_context_transfer and brief.additional_context:
+                lines.append("## Additional Context")
+                lines.append(brief.additional_context)
+                lines.append("")
+
         # Add goals section if available and progress tracking is enabled
         if track_progress and brief and brief.goals:
             lines.append("## Goals")
@@ -263,12 +269,12 @@ Type `/help` for more information on available commands.
             lines.append("## Project Invitation")
 
         lines.append("")
-        
+
         # Get conversation metadata to check for share URL
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
         share_url = metadata.get("team_workspace_share_url")
-        
+
         if share_url:
             # Display the share URL
             lines.append("### Invitation Link")
@@ -342,6 +348,12 @@ Type `/help` for more information on available commands.
 
             lines.append(brief.project_description)
             lines.append("")
+
+            # In context transfer mode, show additional context in a dedicated section
+            if self.is_context_transfer and brief.additional_context:
+                lines.append("## Additional Context")
+                lines.append(brief.additional_context)
+                lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
             if self.is_context_transfer and brief.additional_context:

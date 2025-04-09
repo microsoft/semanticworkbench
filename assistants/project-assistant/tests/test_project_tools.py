@@ -110,6 +110,15 @@ class TestProjectTools:
         assert "add_project_goal" not in tools.tool_functions.function_map
         assert "mark_criterion_completed" not in tools.tool_functions.function_map
 
+        # Test with track_progress set to False
+        mock_config.track_progress = False
+        tools = await get_project_tools(context, "coordinator")
+        assert isinstance(tools, ProjectTools)
+        assert tools.role == "coordinator"
+        # Verify progress functions are removed
+        assert "add_project_goal" not in tools.tool_functions.function_map
+        assert "mark_criterion_completed" not in tools.tool_functions.function_map
+
     @pytest.mark.asyncio
     async def test_detect_information_request_needs(self, context):
         """Test the detect_information_request_needs function."""

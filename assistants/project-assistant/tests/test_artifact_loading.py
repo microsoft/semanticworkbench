@@ -3,16 +3,16 @@ Tests for the project storage functionality with the direct storage approach.
 These tests replace the previous artifact-based tests.
 """
 
-import shutil
 import pathlib
+import shutil
 import unittest
 import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
+from assistant.conversation_clients import ProjectRole
 from assistant.project_data import ProjectBrief, ProjectGoal, SuccessCriterion
 from assistant.project_manager import ProjectManager
-from assistant.conversation_clients import ProjectRole
 from assistant.project_storage import (
     ConversationProjectManager,
     ProjectStorageManager,
