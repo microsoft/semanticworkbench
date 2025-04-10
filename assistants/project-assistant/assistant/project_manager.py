@@ -19,6 +19,7 @@ from .project_data import (
     ProjectBrief,
     ProjectDashboard,
     ProjectGoal,
+    ProjectInfo,
     ProjectLog,
     ProjectState,
     ProjectWhiteboard,
@@ -55,6 +56,180 @@ class ProjectManager:
     """
 
     @staticmethod
+    async def create_team_conversation(
+        context: ConversationContext, project_id: str, project_name: str = "Project"
+    ) -> Tuple[bool, Optional[str], Optional[str]]:
+        """
+        Creates a new team workspace conversation.
+
+        This creates a new conversation owned by the same user as the current conversation,
+        intended to be used as a team workspace. The conversation is tagged with
+        metadata indicating its purpose.
+
+        Args:
+            context: Current conversation context
+            project_id: ID of the project
+            project_name: Name of the project
+
+        Returns:
+            Tuple of (success, conversation_id, share_url) where:
+            - success: Boolean indicating if the creation was successful
+            - conversation_id: ID of the created conversation
+            - share_url: URL for the conversation share
+        """
+        try:
+            # Get the current user ID to set as owner
+            user_id, _ = await get_current_user(context)
+            if not user_id:
+                logger.error("Cannot create team conversation: no user found")
+                return False, None, None
+
+            # Create a new conversation using the client
+            from semantic_workbench_api_model.workbench_model import NewConversation
+
+            # Create the new conversation with appropriate metadata
+            new_conversation = NewConversation(
+                title=f"Team Workspace: {project_name}",
+                metadata={
+                    "is_team_workspace": True,
+                    "project_id": project_id,
+                    "setup_complete": True,
+                    "project_role": "team",
+                    "assistant_mode": "team",
+                },
+            )
+
+            # Use the conversations client to create the conversation with owner
+            client = context._conversations_client
+            conversation = await client.create_conversation_with_owner(
+                new_conversation=new_conversation, owner_id=user_id
+            )
+
+            if not conversation or not conversation.id:
+                logger.error("Failed to create team workspace conversation")
+                return False, None, None
+
+            logger.info(f"Created team workspace conversation: {conversation.id}")
+
+            # Create a share for the new conversation
+            success, share_url = await ProjectManager.create_share_for_conversation(
+                context=context,
+                conversation_id=conversation.id,
+                project_id=project_id,
+                project_name=project_name,
+                owner_id=user_id,
+            )
+
+            if not success or not share_url:
+                logger.warning(f"Created team workspace but failed to create share: {conversation.id}")
+                return True, str(conversation.id), None
+            
+            # Store team workspace info in ProjectInfo
+            try:
+                # Read existing project info
+                project_info = ProjectStorage.read_project_info(project_id)
+                
+                if project_info:
+                    # Update with team workspace data
+                    project_info.team_conversation_id = str(conversation.id)
+                    project_info.share_url = share_url
+                    project_info.updated_at = datetime.utcnow()
+                    
+                    # Save updated project info
+                    ProjectStorage.write_project_info(project_id, project_info)
+                    logger.info(f"Updated project info with team workspace: {conversation.id}")
+                else:
+                    logger.warning(f"Project info not found for project {project_id}")
+            except Exception as e:
+                logger.warning(f"Failed to update project info with team workspace: {e}")
+
+            # Store the share URL in the conversation's metadata
+            from semantic_workbench_api_model.workbench_model import AssistantStateEvent
+
+            # Create a temporary context for the team conversation to update its metadata
+            from .conversation_clients import ConversationClientManager
+
+            team_context = await ConversationClientManager.create_temporary_context_for_conversation(
+                source_context=context, target_conversation_id=str(conversation.id)
+            )
+
+            if team_context:
+                # Update the team conversation's metadata with the share URL
+                await team_context.send_conversation_state_event(
+                    AssistantStateEvent(state_id="share_url", event="updated", state=None)
+                )
+
+            return True, str(conversation.id), share_url
+
+        except Exception as e:
+            logger.exception(f"Error creating team conversation: {e}")
+            return False, None, None
+
+    @staticmethod
+    async def create_share_for_conversation(
+        context: ConversationContext,
+        conversation_id: uuid.UUID,
+        project_id: str,
+        project_name: str = "Project",
+        owner_id: Optional[str] = None,
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Creates a share for the specified conversation.
+
+        Args:
+            context: Current conversation context
+            conversation_id: ID of the conversation to share
+            project_id: ID of the project
+            project_name: Name of the project
+            owner_id: Optional ID of the owner (defaults to current user)
+
+        Returns:
+            Tuple of (success, share_url) where:
+            - success: Boolean indicating if the share creation was successful
+            - share_url: URL for the conversation share
+        """
+        try:
+            # Get the owner ID if not provided
+            if not owner_id:
+                owner_id, _ = await get_current_user(context)
+                if not owner_id:
+                    logger.error("Cannot create conversation share: no user found")
+                    return False, None
+
+            # Create the share using the client
+            from semantic_workbench_api_model.workbench_model import (
+                ConversationPermission,
+                NewConversationShare,
+            )
+
+            # Create the share with required parameters
+            new_share = NewConversationShare(
+                conversation_id=conversation_id,
+                label=f"Team Workspace: {project_name}",
+                conversation_permission=ConversationPermission.read,
+                metadata={"project_id": project_id, "is_team_workspace": True},
+            )
+
+            # Use the conversations client to create the share with owner
+            client = context._conversations_client
+            share = await client.create_conversation_share_with_owner(
+                new_conversation_share=new_share, owner_id=owner_id
+            )
+
+            if not share:
+                logger.error(f"Failed to create share for conversation: {conversation_id}")
+                return False, None
+
+            # Return the share URL
+            url = f"/conversation-share/{share.id}/redeem"
+            logger.info(f"Created share for conversation {conversation_id}: {url}")
+            return True, url
+
+        except Exception as e:
+            logger.exception(f"Error creating conversation share: {e}")
+            return False, None
+
+    @staticmethod
     async def create_project(context: ConversationContext) -> Tuple[bool, str]:
         """
         Creates a new project and associates the current conversation with it.
@@ -80,14 +255,38 @@ class ProjectManager:
         try:
             # Generate a unique project ID
             project_id = str(uuid.uuid4())
+            logger.info(f"Starting project creation with new ID: {project_id}")
 
+            # Create the project directory structure first
+            project_dir = ProjectStorageManager.get_project_dir(project_id)
+            logger.info(f"Created project directory: {project_dir}")
+            
+            # Create and save the initial project info
+            from .project_data import ProjectInfo
+            
+            project_info = ProjectInfo(
+                project_id=project_id,
+                project_name="New Project",
+                coordinator_conversation_id=str(context.id)
+            )
+            
+            # Save the project info
+            ProjectStorage.write_project_info(project_id, project_info)
+            logger.info(f"Created and saved project info: {project_info}")
+            
             # Associate the conversation with the project
-            await ConversationProjectManager.set_conversation_project(context, project_id)
+            logger.info(f"Associating conversation {context.id} with project {project_id}")
+            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
             # Set this conversation as the Coordinator
+            logger.info(f"Setting conversation {context.id} as Coordinator for project {project_id}")
             await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.COORDINATOR)
+            
+            # Ensure linked_conversations directory exists
+            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
+            logger.info(f"Ensured linked_conversations directory exists: {linked_dir}")
 
-            logger.info(f"Created new project {project_id} for conversation {context.id}")
+            logger.info(f"Successfully created new project {project_id} for conversation {context.id}")
             return True, project_id
 
         except Exception as e:
@@ -95,7 +294,11 @@ class ProjectManager:
             return False, ""
 
     @staticmethod
-    async def join_project(context: ConversationContext, project_id: str, role: ProjectRole = ProjectRole.TEAM) -> bool:
+    async def join_project(
+        context: ConversationContext,
+        project_id: str,
+        role: ProjectRole = ProjectRole.TEAM,
+    ) -> bool:
         """
         Joins an existing project.
 
@@ -114,7 +317,7 @@ class ProjectManager:
                 return False
 
             # Associate the conversation with the project
-            await ConversationProjectManager.set_conversation_project(context, project_id)
+            await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
             # Set the conversation role
             await ConversationProjectManager.set_conversation_role(context, project_id, role)
@@ -328,7 +531,12 @@ class ProjectManager:
 
             # Apply updates, skipping immutable fields
             any_fields_updated = False
-            immutable_fields = ["created_by", "conversation_id", "created_at", "version"]
+            immutable_fields = [
+                "created_by",
+                "conversation_id",
+                "created_at",
+                "version",
+            ]
 
             for field, value in updates.items():
                 if hasattr(brief, field) and field not in immutable_fields:
@@ -370,7 +578,9 @@ class ProjectManager:
             return False
 
     @staticmethod
-    async def get_project_dashboard(context: ConversationContext) -> Optional[ProjectDashboard]:
+    async def get_project_dashboard(
+        context: ConversationContext,
+    ) -> Optional[ProjectDashboard]:
         """Gets the project dashboard for the current conversation's project."""
         project_id = await ProjectManager.get_project_id(context)
         if not project_id:
@@ -490,7 +700,9 @@ class ProjectManager:
             return False, None
 
     @staticmethod
-    async def get_information_requests(context: ConversationContext) -> List[InformationRequest]:
+    async def get_information_requests(
+        context: ConversationContext,
+    ) -> List[InformationRequest]:
         """Gets all information requests for the current conversation's project."""
         project_id = await ProjectManager.get_project_id(context)
         if not project_id:
@@ -552,7 +764,10 @@ class ProjectManager:
                 entry_type=LogEntryType.REQUEST_CREATED.value,
                 message=f"Created information request: {title}",
                 related_entity_id=information_request.request_id,
-                metadata={"priority": priority.value, "request_id": information_request.request_id},
+                metadata={
+                    "priority": priority.value,
+                    "request_id": information_request.request_id,
+                },
             )
 
             # Update project dashboard to add this request as a blocker if high priority
@@ -619,7 +834,13 @@ class ProjectManager:
 
             # Apply updates, skipping protected fields
             updated = False
-            protected_fields = ["request_id", "created_by", "created_at", "conversation_id", "version"]
+            protected_fields = [
+                "request_id",
+                "created_by",
+                "created_at",
+                "conversation_id",
+                "version",
+            ]
 
             for field, value in updates.items():
                 if hasattr(information_request, field) and field not in protected_fields:
@@ -776,7 +997,10 @@ class ProjectManager:
 
             # Send direct notification to requestor's conversation
             if information_request.conversation_id != str(context.id):
-                from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
+                from semantic_workbench_api_model.workbench_model import (
+                    MessageType,
+                    NewConversationMessage,
+                )
 
                 from .conversation_clients import ConversationClientManager
 
@@ -906,7 +1130,39 @@ class ProjectManager:
             return False, None
 
     @staticmethod
-    async def get_project_whiteboard(context: ConversationContext) -> Optional[ProjectWhiteboard]:
+    async def get_project_info(
+        context: ConversationContext, 
+        project_id: Optional[str] = None
+    ) -> Optional[ProjectInfo]:
+        """
+        Gets the project information including share URL and team workspace details.
+        
+        Args:
+            context: Current conversation context
+            project_id: Optional project ID (if not provided, will be retrieved from context)
+            
+        Returns:
+            ProjectInfo object or None if not found
+        """
+        try:
+            # Get project ID if not provided
+            if not project_id:
+                project_id = await ProjectManager.get_project_id(context)
+                if not project_id:
+                    return None
+                    
+            # Read project info
+            project_info = ProjectStorage.read_project_info(project_id)
+            return project_info
+            
+        except Exception as e:
+            logger.exception(f"Error getting project info: {e}")
+            return None
+
+    @staticmethod
+    async def get_project_whiteboard(
+        context: ConversationContext,
+    ) -> Optional[ProjectWhiteboard]:
         """Gets the project whiteboard for the current conversation's project."""
         project_id = await ProjectManager.get_project_id(context)
         if not project_id:
@@ -1057,19 +1313,19 @@ class ProjectManager:
 
             # Load the whiteboard prompt from text includes
             from .utils import load_text_include
-            
+
             template_id = context.assistant._template_id
-            
+
             # Use the appropriate prompt based on the template
             if template_id == "context_transfer":
                 whiteboard_prompt_template = load_text_include("context_transfer_whiteboard_prompt.txt")
             else:
                 whiteboard_prompt_template = load_text_include("whiteboard_auto_update_prompt.txt")
-            
+
             # Construct the whiteboard prompt with the chat history
             whiteboard_prompt = f"""
             {whiteboard_prompt_template}
-            
+
             <CHAT_HISTORY>
             {chat_history_text}
             </CHAT_HISTORY>

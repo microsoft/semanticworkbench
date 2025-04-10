@@ -1,0 +1,105 @@
+{
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [],
+    "compounds": [
+      {
+        "name": "semantic-workbench",
+        "configurations": [
+          "app: semantic-workbench-app",
+          "service: semantic-workbench-service"
+        ]
+      },
+      {
+        "name": "everything",
+        "configurations": [
+          "app: semantic-workbench-app",
+          "service: semantic-workbench-service",
+          "assistants: project-assistant"
+        ]
+      }
+    ]
+  },
+  // Naming convention: <root folder>:<package folder> (skip all subfolders)
+  "folders": [
+    {
+      "name": "docs",
+      "path": "../../docs"
+    },
+    {
+      "name": "workbench-app",
+      "path": "../../workbench-app"
+    },
+    {
+      "name": "workbench-service",
+      "path": "../../workbench-service"
+    },
+    {
+      "name": "assistants:project-assistant",
+      "path": "../../assistants/project-assistant"
+    },
+    {
+      "name": "libraries:assistant-drive",
+      "path": "../../assistants/project-assistant"
+    },
+    {
+      "name": "libraries:assistant-extensions",
+      "path": "../../libraries/python/assistant-extensions"
+    },
+    {
+      "name": "libraries:events",
+      "path": "../../libraries/python/events"
+    },
+    {
+      "name": "libraries:llm-client",
+      "path": "../../libraries/python/llm-client"
+    },
+    {
+      "name": "libraries:openai-client",
+      "path": "../../libraries/python/openai-client"
+    },
+    {
+      "name": "libraries:semantic-workbench-api-model",
+      "path": "../../libraries/python/semantic-workbench-api-model"
+    },
+    {
+      "name": "libraries:semantic-workbench-assistant",
+      "path": "../../libraries/python/semantic-workbench-assistant"
+    },
+    {
+      "name": "tools",
+      "path": "../../tools"
+    },
+    {
+      "name": ".github",
+      "path": "../../.github"
+    },
+    {
+      "name": ".multi-root-tools",
+      "path": "../../.multi-root-tools"
+    }
+  ],
+  "settings": {
+    "markdown.validate.enabled": true,
+    "ruff.configuration": "${workspaceFolder:.multi-root-tools}/../ruff.toml",
+    "ruff.interpreter": ["${workspaceFolder:.multi-root-tools}/.venv"],
+    "ruff.importStrategy": "useBundled",
+    "ruff.nativeServer": "on",
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "charliermarsh.ruff",
+      "dbaeumer.vscode-eslint",
+      "epivision.vscode-file-header",
+      "esbenp.prettier-vscode",
+      "ms-python.debugpy",
+      "ms-python.python",
+      "ms-vscode.makefile-tools",
+      "ms-vscode.vscode-node-azure-pack",
+      "tamasfe.even-better-toml"
+    ]
+  }
+}

@@ -103,7 +103,7 @@ class ConversationClientManager:
         # Create a client for the Coordinator conversation
         client = ConversationClientManager.get_conversation_client(context, coordinator_conversation_id)
         return client, coordinator_conversation_id
-        
+
     @staticmethod
     async def create_temporary_context_for_conversation(
         source_context: ConversationContext, target_conversation_id: str
@@ -147,5 +147,3 @@ class ConversationClientManager:
         except Exception as e:
             logger.error(f"Error creating temporary context: {e}")
             return None
-
-

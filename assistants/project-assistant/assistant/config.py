@@ -10,7 +10,7 @@ from .configs import (
 __all__ = [
     "AssistantConfigModel",
     "ContextTransferConfigModel",
-    "CoordinatorConfig", 
+    "CoordinatorConfig",
     "RequestConfig",
     "TeamConfig",
 ]

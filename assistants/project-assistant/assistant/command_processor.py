@@ -474,23 +474,16 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
             return
 
         # Show setup-specific help
-        help_text = """## Assistant Setup
+        help_text = """## Project Assistant
 
-This assistant is in setup mode. You need to establish your role before proceeding:
+This assistant is automatically set up to help you with your project:
 
-### Available Commands
+- As a Coordinator: This conversation is your personal workspace for managing the project
+- As a Team Member: This conversation is for collaborating on the project with others
 
-- `/start [Project Name|Project description]`: Create a new project with this conversation as Coordinator
-- `/join project_id`: Join an existing project as a Team member
-- `/help [command]`: Show help for a specific command
+No setup commands needed! You're already good to go.
 
-Please use one of these commands to get started. The recommended workflow is:
-
-1. One conversation uses `/start` to create the project and become the Coordinator
-2. The Coordinator shares the project ID (automatically displayed after creation)
-3. Team members use `/join` with the project ID in their conversations
-
-Once setup is complete, you will have access to all commands appropriate for your role.
+Type `/help` to see all available commands for your role.
 """
 
         await context.send_messages(
@@ -707,7 +700,7 @@ async def handle_add_goal_command(context: ConversationContext, message: Convers
             raise ValueError("Both goal name and description are required")
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(context)
+        project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
             await context.send_messages(
                 NewConversationMessage(
@@ -1233,7 +1226,7 @@ async def handle_list_participants_command(
     """Handle the list-participants command."""
     try:
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(context)
+        project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
             await context.send_messages(
                 NewConversationMessage(
@@ -1313,13 +1306,10 @@ async def handle_sync_files_command(
             )
             return
 
-        # Get role - primarily for team members, but could be used by coordinator to test
-        _ = await ProjectManager.get_project_role(context)
-
         # Import the file manager
         from .project_files import ProjectFileManager
 
-        # Start sync
+        # Start sync with a simple message
         await context.send_messages(
             NewConversationMessage(
                 content="Synchronizing files from project...",
@@ -1327,149 +1317,8 @@ async def handle_sync_files_command(
             )
         )
 
-        # Perform synchronization
-        # Add detailed debugging
-        logger.info(f"Starting file synchronization for project {project_id}")
-
-        # Check if files exist in the project storage
-        # Check file metadata
-        metadata = ProjectFileManager.read_file_metadata(project_id)
-        if metadata and metadata.files:
-            logger.info(
-                f"Found {len(metadata.files)} files in project metadata: {[f.filename for f in metadata.files]}"
-            )
-        else:
-            logger.warning(f"No files found in project metadata for project {project_id}")
-
-        # Check project files directory
-        files_dir = ProjectFileManager.get_project_files_dir(project_id)
-        if files_dir.exists():
-            file_count = len(list(files_dir.glob("*")))
-            logger.info(f"Project files directory exists at {files_dir} with {file_count} entries")
-            for file_path in files_dir.glob("*"):
-                if file_path.is_file() and file_path.name != "file_metadata.json":
-                    logger.info(f"Found file: {file_path.name} (size: {file_path.stat().st_size} bytes)")
-        else:
-            logger.warning(f"Project files directory does not exist: {files_dir}")
-
-        # Attempt multiple synchronization with retry and improved handling
-        success = False
-        file_count = 0
-        sync_details = ""
-        import asyncio  # Import at the beginning for all retry attempts
-
-        for attempt in range(3):
-            try:
-                logger.info(f"File sync attempt {attempt + 1}/3...")
-
-                # Check if files exist in the project storage
-                metadata = ProjectFileManager.read_file_metadata(project_id)
-                if metadata and metadata.files:
-                    file_count = len(metadata.files)
-                    logger.info(f"Found {file_count} files in project metadata: {[f.filename for f in metadata.files]}")
-                    sync_details = (
-                        f"Trying to sync {file_count} files: {', '.join([f.filename for f in metadata.files])}"
-                    )
-                else:
-                    logger.warning(f"No files found in project metadata for project {project_id}")
-                    # If no files exist, we can consider this a successful sync (nothing to sync)
-                    if attempt == 0:  # Only notify on first attempt
-                        await context.send_messages(
-                            NewConversationMessage(
-                                content="No files found in the project to synchronize.",
-                                message_type=MessageType.notice,
-                            )
-                        )
-                    success = True
-                    break
-
-                # Attempt synchronization
-                sync_success = await ProjectFileManager.synchronize_files_to_team_conversation(
-                    context=context, project_id=project_id
-                )
-
-                # Verify the files were actually copied to the conversation
-                try:
-                    # Get files in the conversation after sync
-                    conversation = await context.get_conversation()
-                    conversation_files = getattr(conversation, "files", [])
-                    synced_files = [f.filename for f in conversation_files]
-
-                    # Compare with expected files from metadata
-                    expected_files = [f.filename for f in metadata.files]
-                    missing_files = [f for f in expected_files if f not in synced_files]
-
-                    if not missing_files:
-                        logger.info(f"All {len(expected_files)} files successfully verified in conversation")
-                        sync_details += (
-                            f"\nVerified {len(expected_files)} files in conversation: {', '.join(synced_files)}"
-                        )
-                        success = True
-                        break
-                    else:
-                        logger.warning(f"Files missing after sync: {missing_files}")
-                        sync_details += f"\nFiles missing after sync: {', '.join(missing_files)}"
-                        success = False
-
-                        # If it's the last attempt and we have partial success, consider it a partial success
-                        if attempt == 2 and len(missing_files) < len(expected_files):
-                            sync_details += f"\nPartial sync: {len(expected_files) - len(missing_files)}/{len(expected_files)} files synced"
-                            success = True  # Partial success
-                except Exception as e:
-                    logger.exception(f"Error verifying synced files: {e}")
-                    sync_details += f"\nError verifying files: {str(e)}"
-
-                if sync_success:
-                    logger.info(f"Synchronization attempt {attempt + 1} API call succeeded")
-                    # Need to wait a moment for file system operations to complete
-                    await asyncio.sleep(1.0)
-                else:
-                    logger.warning(f"Synchronization attempt {attempt + 1} failed")
-                    sync_details += f"\nAttempt {attempt + 1} failed, will retry"
-                    # Add longer delay before retry
-                    await asyncio.sleep(1.0)
-            except Exception as e:
-                logger.exception(f"Error in sync attempt {attempt + 1}: {e}")
-                sync_details += f"\nError in attempt {attempt + 1}: {str(e)}"
-                # Longer delay before retry
-                await asyncio.sleep(1.0)
-
-        if success:
-            if file_count > 0:
-                # Include information about which files were synced
-                success_message = f"File synchronization completed successfully. {file_count} shared project files are now available in this conversation."
-                if sync_details:
-                    # Add detailed information in a code block for technical users
-                    success_message += f"\n\n<details>\n<summary>Synchronization Details</summary>\n\n```\n{sync_details}\n```\n</details>"
-
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=success_message,
-                        message_type=MessageType.chat,
-                    )
-                )
-            else:
-                # No files case (already notified above)
-                pass
-        else:
-            # Create a more detailed error message with sync details
-            error_message = (
-                "File synchronization completed with errors. Some files may not have been synchronized correctly."
-            )
-            if sync_details:
-                error_message += (
-                    f"\n\n<details>\n<summary>Error Details</summary>\n\n```\n{sync_details}\n```\n</details>"
-                )
-
-            # Also suggest possible solutions
-            error_message += "\n\nYou can try:\n- Running `/sync-files` again\n- Having the Coordinator upload the files again\n- Checking logs in the .data/logs directory for more information"
-
-            await context.send_messages(
-                NewConversationMessage(
-                    content=error_message,
-                    message_type=MessageType.notice,
-                )
-            )
+        # Perform synchronization directly - this handles all error messaging
+        await ProjectFileManager.synchronize_files_to_team_conversation(context=context, project_id=project_id)
 
     except Exception as e:
         logger.exception(f"Error synchronizing files: {e}")
@@ -1481,26 +1330,7 @@ async def handle_sync_files_command(
         )
 
 
-# Register commands in the registry
-
-# Setup mode commands
-command_registry.register_command(
-    "start",
-    handle_start_coordinator_command,
-    "Create a new project with this conversation as Coordinator",
-    "/start [Project Name|Project description]",
-    "/start Website Redesign|Redesign the company website with modern look and features",
-    None,  # Available to all roles during setup
-)
-
-command_registry.register_command(
-    "join",
-    handle_join_command,
-    "Join an existing project with an invitation code",
-    "/join invitation_code",
-    "/join abc123:xyz456",
-    None,  # Available to all roles
-)
+# Setup mode commands are no longer needed - they're handled automatically
 
 # General commands (available to all)
 command_registry.register_command(
@@ -1522,16 +1352,7 @@ command_registry.register_command(
 )
 
 # Team management commands
-# Project ID is used directly as the invitation code
-
-command_registry.register_command(
-    "join",
-    handle_join_command,
-    "Join a project using its project ID",
-    "/join project_id",
-    "/join abc123-def-456",
-    None,  # Available to all roles (anyone can join if they have the project ID)
-)
+# Note: Manual project joining with /join is no longer needed - users just click the share URL
 
 command_registry.register_command(
     "list-participants",
@@ -1711,15 +1532,13 @@ async def process_command(context: ConversationContext, message: ConversationMes
                     await command_registry.commands[command_name]["handler"](context, message, args)
                     return True
             else:
-                # Show setup required message for non-setup commands
+                # Show message for commands that require an active project
                 await context.send_messages(
                     NewConversationMessage(
                         content=(
-                            "**Setup Required**\n\n"
-                            "You need to set up the assistant before using other commands. Please use one of these commands:\n\n"
-                            "- `/start` - Create a new project as Coordinator\n"
-                            "- `/join <code>` - Join an existing project as a Team member\n"
-                            "- `/help` - Get help with available commands"
+                            "**Project not detected**\n\n"
+                            "Your project is still being set up. Please wait a moment and try again.\n\n"
+                            "If this persists, please report this issue - this should happen automatically."
                         ),
                         message_type=MessageType.notice,
                     )

@@ -1,3 +1,5 @@
+# The workbench service is the only consumer of this.
+
 from __future__ import annotations
 
 import types

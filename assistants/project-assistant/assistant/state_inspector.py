@@ -27,7 +27,7 @@ class ProjectInspectorStateProvider:
     This provider displays project-specific information in the inspector panel
     including project state, brief, goals, and information requests based on the
     user's role (Coordinator or Team).
-    
+
     The content displayed is adapted based on the template configuration:
     - Default: Shows brief, goals, criteria, and request status
     - Context Transfer: Focuses on knowledge context without goals or progress tracking
@@ -59,7 +59,7 @@ class ProjectInspectorStateProvider:
         if self.config_provider:
             config = await self.config_provider.get(context.assistant)
             track_progress = config.track_progress
-            
+
             # Update description and display name based on template
             self.is_context_transfer = not track_progress
             if self.is_context_transfer:
@@ -119,7 +119,7 @@ Type `/help` for more information on available commands.
 
         # Continue with normal inspector display for already set up conversations
         # Determine the conversation's role and project
-        project_id = await ConversationProjectManager.get_conversation_project(context)
+        project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
             return AssistantConversationInspectorStateDataModel(
                 data={"content": "No active project. Start a conversation to create one."}
@@ -163,7 +163,6 @@ Type `/help` for more information on available commands.
         # Build the markdown content
         lines: List[str] = []
         lines.append(f"# Project: {project_name}")
-        lines.append(f"**Project ID:** `{project_id}`")
         lines.append("")
 
         # Determine stage based on project status
@@ -195,10 +194,16 @@ Type `/help` for more information on available commands.
                 lines.append("## Knowledge Context")
             else:
                 lines.append("## Description")
-                
+
             lines.append(brief.project_description)
             lines.append("")
-            
+
+            # In context transfer mode, show additional context in a dedicated section
+            if self.is_context_transfer and brief.additional_context:
+                lines.append("## Additional Context")
+                lines.append(brief.additional_context)
+                lines.append("")
+
             # In context transfer mode, show additional context in a dedicated section
             if self.is_context_transfer and brief.additional_context:
                 lines.append("## Additional Context")
@@ -256,29 +261,47 @@ Type `/help` for more information on available commands.
             lines.append("No open information requests.")
             lines.append("")
 
-        # Display project ID as invitation information (simplified approach)
+        # Display share URL as invitation information
         if self.is_context_transfer:
             lines.append("## Share Knowledge Context")
         else:
             lines.append("## Project Invitation")
+
+        lines.append("")
+
+        # Get share URL from the project info
+        share_url = None
+        try:
+            # Get project info which contains the share URL
+            project_info = await ProjectManager.get_project_info(context, project_id)
+            if project_info and project_info.share_url:
+                share_url = project_info.share_url
+                logger.info(f"Retrieved share URL from project info: {share_url}")
+        except Exception as e:
+            logger.warning(f"Error retrieving share URL from project info: {e}")
             
-        lines.append("")
-        lines.append("### Project ID")
-        lines.append(f"**Project ID:** `{project_id}`")
-        lines.append("")
-        
-        if self.is_context_transfer:
-            lines.append("**IMPORTANT:** Share this Project ID with anyone who needs to access this knowledge context.")
-            lines.append("Recipients can access this knowledge context using:")
-            lines.append(f"```\n/join {project_id}\n```")
+        # Fallback to metadata if needed
+        if not share_url:
+            conversation = await context.get_conversation()
+            metadata = conversation.metadata or {}
+            share_url = metadata.get("team_workspace_share_url")
+            if share_url:
+                logger.info(f"Retrieved share URL from metadata: {share_url}")
+
+        if share_url:
+            # Display the share URL as a properly formatted link
+            lines.append("### Team Workspace Invitation Link")
+            lines.append("**Share this link with your team members:**")
+            lines.append(f"[Join Team Workspace]({share_url})")
             lines.append("")
-            lines.append("The Project ID never expires and can be used by multiple recipients.")
+            lines.append("The link never expires and can be used by multiple team members.")
         else:
-            lines.append("**IMPORTANT:** Share this Project ID with all team members.")
-            lines.append("Team members can join this project using:")
-            lines.append(f"```\n/join {project_id}\n```")
+            # Display that share URL is not available yet
+            lines.append("### Team Workspace Share Link")
+            lines.append("🔄 **Creating team workspace...**")
             lines.append("")
-            lines.append("The Project ID never expires and can be used by multiple team members.")
+            lines.append("A shareable link for inviting team members will appear here soon.")
+            lines.append("This link will appear after the project setup is complete.")
 
         lines.append("")
 
@@ -300,7 +323,6 @@ Type `/help` for more information on available commands.
         # Build the markdown content
         lines: List[str] = []
         lines.append(f"# Project: {project_name}")
-        lines.append(f"**Project ID:** `{project_id}`")
         lines.append("")
 
         # Determine stage based on project status
@@ -332,10 +354,16 @@ Type `/help` for more information on available commands.
                 lines.append("## Knowledge Context")
             else:
                 lines.append("## Project Brief")
-                
+
             lines.append(brief.project_description)
             lines.append("")
-            
+
+            # In context transfer mode, show additional context in a dedicated section
+            if self.is_context_transfer and brief.additional_context:
+                lines.append("## Additional Context")
+                lines.append(brief.additional_context)
+                lines.append("")
+
             # In context transfer mode, show additional context in a dedicated section
             if self.is_context_transfer and brief.additional_context:
                 lines.append("## Additional Context")
@@ -403,19 +431,5 @@ Type `/help` for more information on available commands.
         else:
             lines.append("## Information Requests")
             lines.append("You haven't created any information requests yet.")
-
-        # Add section for viewing Coordinator conversation
-        if self.is_context_transfer:
-            lines.append("\n## Knowledge Creator Communication")
-            lines.append("Use the `view_coordinator_conversation` tool to see messages from the knowledge creator. Example:")
-            lines.append("```")
-            lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
-            lines.append("```")
-        else:
-            lines.append("\n## Coordinator Communication")
-            lines.append("Use the `view_coordinator_conversation` tool to see messages from the Coordinator. Example:")
-            lines.append("```")
-            lines.append("view_coordinator_conversation(message_count=20)  # Shows last 20 messages")
-            lines.append("```")
 
         return "\n".join(lines)

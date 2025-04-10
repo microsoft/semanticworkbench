@@ -8,7 +8,7 @@ from .default import AssistantConfigModel, CoordinatorConfig, RequestConfig, Tea
 
 class ContextTransferCoordinatorConfig(CoordinatorConfig):
     """Coordinator configuration specific to context transfer template."""
-    
+
     welcome_message: Annotated[
         str,
         Field(
@@ -16,7 +16,7 @@ class ContextTransferCoordinatorConfig(CoordinatorConfig):
             description="The message to display after a user has been assigned the Coordinator role in context transfer mode.",
         ),
     ] = "Welcome to Context Transfer mode as a Coordinator! You can organize and structure knowledge to be shared with others. Upload files, add context, and create an interactive knowledge space that others can explore."
-    
+
     context_building_prompt: Annotated[
         str,
         Field(
@@ -35,15 +35,15 @@ How would you like to structure your knowledge transfer?"""
 
 class ContextTransferTeamConfig(TeamConfig):
     """Team configuration specific to context transfer template."""
-    
+
     welcome_message: Annotated[
         str,
         Field(
-            title="Context Transfer Team Welcome Message", 
+            title="Context Transfer Team Welcome Message",
             description="The message to display when a user joins as a Team member in context transfer mode.",
         ),
     ] = "Welcome to the shared knowledge space! You can now explore the context that has been prepared for you. Feel free to ask questions to understand the knowledge better."
-    
+
     upload_notification: Annotated[
         str,
         Field(
@@ -65,12 +65,12 @@ class ContextTransferConfigModel(AssistantConfigModel):
         ),
     ] = dedent("""
         You are an AI context transfer assistant that helps users capture and share complex information in a way that others can easily explore and understand. You're designed to:
-        
+
         1. Help users organize knowledge from documents, code, research, or brainstorming sessions
         2. Establish shared understanding through careful questioning
         3. Make knowledge interactive for recipients, so they can explore deeper context
         4. Create shareable experiences that give others a self-service way to explore your knowledge
-        
+
         You should focus on helping users clarify their thoughts and structure information effectively. Ask questions to understand what aspects of their knowledge are most important to convey.
         """).strip()
 
@@ -82,14 +82,14 @@ class ContextTransferConfigModel(AssistantConfigModel):
         ),
     ] = dedent("""
         Welcome! I'm here to help you capture and share complex information in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
-        
+
         - 📚 **Organize your thoughts** - whether from documents, code, research papers, or brainstorming sessions
         - 🔄 **Establish shared understanding** - I'll ask questions to ensure we're aligned on what matters most
         - 🔍 **Make your knowledge interactive** - so others can explore the "why" behind decisions, alternatives considered, and deeper context
         - 🔗 **Create shareable experiences** - when we're done, share a link that gives others a self-service way to explore your knowledge
-        
+
         Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. We'll work together to create an interactive knowledge space that others can explore at their own pace.
-        
+
         What knowledge would you like to transfer today?
         """).strip()
 
@@ -112,7 +112,7 @@ class ContextTransferConfigModel(AssistantConfigModel):
             description="Proactively guide context organizers through knowledge structuring.",
         ),
     ] = True
-    
+
     # Disable progress tracking for context transfer mode
     track_progress: Annotated[
         bool,
@@ -121,7 +121,7 @@ class ContextTransferConfigModel(AssistantConfigModel):
             description="Track project progress with goals, criteria completion, and overall project state.",
         ),
     ] = False
-    
+
     invitation_message: Annotated[
         str,
         Field(
@@ -129,7 +129,7 @@ class ContextTransferConfigModel(AssistantConfigModel):
             description="The message sent to users when they are invited to explore a knowledge context.",
         ),
     ] = "You've been invited to explore shared knowledge in a context transfer. Type /join to accept the invitation."
-    
+
     # Use the specialized context transfer configs
     coordinator_config: Annotated[
         CoordinatorConfig,  # Use the base type for type compatibility
@@ -138,7 +138,7 @@ class ContextTransferConfigModel(AssistantConfigModel):
             description="Configuration for coordinators in context transfer mode.",
         ),
     ] = ContextTransferCoordinatorConfig()
-    
+
     team_config: Annotated[
         TeamConfig,  # Use the base type for type compatibility
         Field(

@@ -52,7 +52,6 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
 
         # Create project directory structure
         self.project_dir = ProjectStorageManager.get_project_dir(self.project_id)
-        self.shared_dir = ProjectStorageManager.get_shared_dir(self.project_id)
 
         # Set up directories for different conversation roles
         self.coordinator_dir = self.project_dir / ProjectRole.COORDINATOR.value

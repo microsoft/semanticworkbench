@@ -60,6 +60,37 @@ class ConversationShareController:
 
         return convert.conversation_share_from_db(conversation_share)
 
+    async def create_conversation_share_with_owner(
+        self,
+        new_conversation_share: NewConversationShare,
+        owner_id: str,
+    ) -> ConversationShare:
+        async with self._get_session() as session:
+            conversation = (
+                await session.exec(
+                    select(db.Conversation).where(
+                        db.Conversation.conversation_id == new_conversation_share.conversation_id
+                    )
+                )
+            ).one_or_none()
+            if conversation is None:
+                raise exceptions.InvalidArgumentError("Conversation not found")
+
+            conversation_share = db.ConversationShare(
+                conversation_id=new_conversation_share.conversation_id,
+                owner_id=owner_id,
+                label=new_conversation_share.label,
+                conversation_permission=new_conversation_share.conversation_permission,
+                meta_data=new_conversation_share.metadata,
+            )
+
+            session.add(conversation_share)
+            await session.commit()
+
+            await session.refresh(conversation_share)
+
+        return convert.conversation_share_from_db(conversation_share)
+
     async def get_conversation_shares(
         self,
         user_principal: auth.UserPrincipal,

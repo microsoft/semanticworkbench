@@ -79,7 +79,9 @@ class TestSetupMode:
         context.assistant.id = "test-assistant-id"
 
         # Handle storage directory issues by mocking the storage path functions
-        with patch("semantic_workbench_assistant.assistant_app.context.storage_directory_for_context") as mock_storage_dir:
+        with patch(
+            "semantic_workbench_assistant.assistant_app.context.storage_directory_for_context"
+        ) as mock_storage_dir:
             mock_storage_dir.return_value = pathlib.Path("/tmp/test-storage")
 
             # Mock read_model to return None by default
@@ -170,11 +172,11 @@ class TestSetupMode:
         """Test that chat messages are processed after setup is complete."""
         # Set up mocks
         mock_detect_role.return_value = "hq"
-        
+
         # Make the mock return a coroutine
         async def mock_coroutine(*args, **kwargs):
             return None
-            
+
         mock_respond.side_effect = mock_coroutine
 
         # Set up metadata to indicate setup is complete
@@ -277,7 +279,8 @@ You are operating in Coordinator Mode (Planning Stage). Your responsibilities in
 
         # Verify message content indicates setup is required
         args, kwargs = context.send_messages.call_args
-        assert "Setup Required" in args[0].content
+        assert "Project not detected" in args[0].content
+        assert "Your project is still being set up" in args[0].content
 
     @pytest.mark.asyncio
     @patch("assistant.command_processor.ProjectManager")
@@ -540,7 +543,9 @@ class TestSetupModeHelp:
         context.assistant.id = "test-assistant-id"
 
         # Handle storage directory issues by mocking the storage path functions
-        with patch("semantic_workbench_assistant.assistant_app.context.storage_directory_for_context") as mock_storage_dir:
+        with patch(
+            "semantic_workbench_assistant.assistant_app.context.storage_directory_for_context"
+        ) as mock_storage_dir:
             mock_storage_dir.return_value = pathlib.Path("/tmp/test-storage")
 
             # Mock read_model to return None by default

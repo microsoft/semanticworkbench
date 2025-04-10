@@ -1,5 +1,5 @@
-from .default import AssistantConfigModel, CoordinatorConfig, RequestConfig, TeamConfig
 from .context_transfer import ContextTransferConfigModel
+from .default import AssistantConfigModel, CoordinatorConfig, RequestConfig, TeamConfig
 
 __all__ = [
     "AssistantConfigModel",

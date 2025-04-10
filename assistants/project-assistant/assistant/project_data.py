@@ -337,3 +337,21 @@ class ProjectLog(BaseEntity):
     """
 
     entries: List[LogEntry] = Field(default_factory=list)  # Chronological list of log entries
+
+
+class ProjectInfo(BaseModel):
+    """
+    Core information about a project including its ID, name, and sharing details.
+    
+    This model stores essential project metadata that doesn't fit into other
+    specific models like brief or dashboard. It's the central reference point
+    for project identification and team collaboration settings.
+    """
+    
+    project_id: str  # Unique identifier for the project
+    project_name: str = "New Project"  # Name of the project
+    coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
+    team_conversation_id: Optional[str] = None  # ID of the team workspace conversation
+    share_url: Optional[str] = None  # Shareable URL for inviting users to the team workspace
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

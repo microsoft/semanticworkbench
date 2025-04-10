@@ -22,6 +22,7 @@ from .project_data import (
     LogEntryType,
     ProjectBrief,
     ProjectDashboard,
+    ProjectInfo,
     ProjectLog,
     ProjectWhiteboard,
 )
@@ -60,22 +61,13 @@ class ProjectStorageManager:
 
     PROJECTS_ROOT = "projects"
 
-    # Define standard entity types and their file names
-    PROJECT_BRIEF = "project_brief"
-    PROJECT_LOG = "project_log"
-    PROJECT_DASHBOARD = "project_dashboard"
-    PROJECT_WHITEBOARD = "project_whiteboard"  # Changed from PROJECT_KB
-    INFORMATION_REQUEST = "information_request"
-    COORDINATOR_CONVERSATION = "coordinator_conversation"
-
-    # Predefined entity types that have a single instance per project
-    PREDEFINED_ENTITIES = {
-        PROJECT_BRIEF: "brief.json",
-        PROJECT_LOG: "log.json",
-        PROJECT_DASHBOARD: "dashboard.json",
-        PROJECT_WHITEBOARD: "whiteboard.json",
-        COORDINATOR_CONVERSATION: "coordinator_conversation.json",
-    }
+    # File names for project entities
+    PROJECT_INFO_FILE = "project.json"
+    PROJECT_BRIEF_FILE = "brief.json"
+    PROJECT_LOG_FILE = "log.json"
+    PROJECT_DASHBOARD_FILE = "dashboard.json"
+    PROJECT_WHITEBOARD_FILE = "whiteboard.json"
+    COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"
 
     @staticmethod
     def get_projects_root() -> pathlib.Path:
@@ -91,20 +83,13 @@ class ProjectStorageManager:
         return project_dir
 
     @staticmethod
-    def get_shared_dir(project_id: str) -> pathlib.Path:
-        """Gets the shared directory for a project."""
+    def get_linked_conversations_dir(project_id: str) -> pathlib.Path:
+        """Gets the directory that tracks linked conversations for a project."""
         project_dir = ProjectStorageManager.get_project_dir(project_id)
-        shared_dir = project_dir / "shared"
-        shared_dir.mkdir(parents=True, exist_ok=True)
-        return shared_dir
+        linked_dir = project_dir / "linked_conversations"
+        linked_dir.mkdir(parents=True, exist_ok=True)
+        return linked_dir
 
-    @staticmethod
-    def get_entity_dir(project_id: str, entity_type: str) -> pathlib.Path:
-        """Gets the directory for a specific entity type in the shared directory."""
-        shared_dir = ProjectStorageManager.get_shared_dir(project_id)
-        entity_dir = shared_dir / entity_type
-        entity_dir.mkdir(parents=True, exist_ok=True)
-        return entity_dir
 
     @staticmethod
     def get_conversation_dir(project_id: str, conversation_id: str, role: ProjectRole) -> pathlib.Path:
@@ -132,45 +117,54 @@ class ProjectStorageManager:
         return conv_dir
 
     @staticmethod
+    def get_project_info_path(project_id: str) -> pathlib.Path:
+        """Gets the path to the project info file."""
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        return project_dir / ProjectStorageManager.PROJECT_INFO_FILE
+        
+    @staticmethod
     def get_brief_path(project_id: str) -> pathlib.Path:
         """Gets the path to the project brief file."""
-        entity_dir = ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.PROJECT_BRIEF)
-        return entity_dir / ProjectStorageManager.PREDEFINED_ENTITIES[ProjectStorageManager.PROJECT_BRIEF]
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        return project_dir / ProjectStorageManager.PROJECT_BRIEF_FILE
 
     @staticmethod
     def get_project_log_path(project_id: str) -> pathlib.Path:
         """Gets the path to the project log file."""
-        entity_dir = ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.PROJECT_LOG)
-        return entity_dir / ProjectStorageManager.PREDEFINED_ENTITIES[ProjectStorageManager.PROJECT_LOG]
-
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        return project_dir / ProjectStorageManager.PROJECT_LOG_FILE
+        
     @staticmethod
     def get_project_dashboard_path(project_id: str) -> pathlib.Path:
         """Gets the path to the project dashboard file."""
-        entity_dir = ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.PROJECT_DASHBOARD)
-        return entity_dir / ProjectStorageManager.PREDEFINED_ENTITIES[ProjectStorageManager.PROJECT_DASHBOARD]
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        return project_dir / ProjectStorageManager.PROJECT_DASHBOARD_FILE
 
     @staticmethod
     def get_project_whiteboard_path(project_id: str) -> pathlib.Path:
         """Gets the path to the project whiteboard file."""
-        entity_dir = ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.PROJECT_WHITEBOARD)
-        return entity_dir / ProjectStorageManager.PREDEFINED_ENTITIES[ProjectStorageManager.PROJECT_WHITEBOARD]
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        return project_dir / ProjectStorageManager.PROJECT_WHITEBOARD_FILE
 
     @staticmethod
     def get_coordinator_conversation_path(project_id: str) -> pathlib.Path:
         """Gets the path to the Coordinator conversation file."""
-        entity_dir = ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.COORDINATOR_CONVERSATION)
-        return entity_dir / ProjectStorageManager.PREDEFINED_ENTITIES[ProjectStorageManager.COORDINATOR_CONVERSATION]
-
-    @staticmethod
-    def get_information_request_path(project_id: str, request_id: str) -> pathlib.Path:
-        """Gets the path to an information request file."""
-        entity_dir = ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.INFORMATION_REQUEST)
-        return entity_dir / f"{request_id}.json"
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        return project_dir / ProjectStorageManager.COORDINATOR_CONVERSATION_FILE
 
     @staticmethod
     def get_information_requests_dir(project_id: str) -> pathlib.Path:
         """Gets the directory containing all information requests."""
-        return ProjectStorageManager.get_entity_dir(project_id, ProjectStorageManager.INFORMATION_REQUEST)
+        project_dir = ProjectStorageManager.get_project_dir(project_id)
+        requests_dir = project_dir / "requests"
+        requests_dir.mkdir(parents=True, exist_ok=True)
+        return requests_dir
+        
+    @staticmethod
+    def get_information_request_path(project_id: str, request_id: str) -> pathlib.Path:
+        """Gets the path to an information request file."""
+        requests_dir = ProjectStorageManager.get_information_requests_dir(project_id)
+        return requests_dir / f"{request_id}.json"
 
     @staticmethod
     def project_exists(project_id: str) -> bool:
@@ -190,11 +184,27 @@ class ProjectStorageManager:
         """Gets the path to the file that stores a conversation's project association."""
         storage_dir = storage_directory_for_context(context)
         storage_dir.mkdir(parents=True, exist_ok=True)
-        return storage_dir / "project_association.json"
+        file_path = storage_dir / "project_association.json"
+        logger.info(f"Project association file path: {file_path} (exists: {file_path.exists()})")
+        logger.info(f"Storage directory: {storage_dir} (exists: {storage_dir.exists()})")
+        return file_path
 
 
 class ProjectStorage:
     """Unified storage operations for project data."""
+    
+    @staticmethod
+    def read_project_info(project_id: str) -> Optional[ProjectInfo]:
+        """Reads the project info."""
+        path = ProjectStorageManager.get_project_info_path(project_id)
+        return read_model(path, ProjectInfo)
+        
+    @staticmethod
+    def write_project_info(project_id: str, info: ProjectInfo) -> pathlib.Path:
+        """Writes the project info."""
+        path = ProjectStorageManager.get_project_info_path(project_id)
+        write_model(path, info)
+        return path
 
     @staticmethod
     def read_project_brief(project_id: str) -> Optional[ProjectBrief]:
@@ -602,39 +612,27 @@ class ConversationProjectManager:
         """
         try:
             # Get project ID
-            project_id = await ConversationProjectManager.get_conversation_project(context)
+            project_id = await ConversationProjectManager.get_associated_project_id(context)
             if not project_id:
                 return []
 
-            # Get all conversation role files in the storage
-            project_dir = ProjectStorageManager.get_project_dir(project_id)
-            if not project_dir.exists():
+            # Get the linked conversations directory
+            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
+            if not linked_dir.exists():
                 return []
 
-            # Look for conversation directories
+            # Get all conversation files in the directory
             result = []
             conversation_id = str(context.id)
 
-            # Check Coordinator directory
-            coordinator_dir = project_dir / ProjectRole.COORDINATOR.value
-            if coordinator_dir.exists():
-                # If this isn't the current conversation, add it
-                role_file = coordinator_dir / "conversation_role.json"
-                if role_file.exists():
-                    try:
-                        role_data = read_model(role_file, ConversationProjectManager.ConversationRoleInfo)
-                        if role_data and role_data.conversation_id != conversation_id:
-                            result.append(role_data.conversation_id)
-                    except Exception:
-                        pass
-
-            # Check team directories
-            for team_dir in project_dir.glob("team_*"):
-                if team_dir.is_dir():
-                    # Extract conversation ID from directory name
-                    team_id = team_dir.name[5:]  # Remove "team_" prefix
-                    if team_id != conversation_id:
-                        result.append(team_id)
+            # Each file in the directory represents a linked conversation
+            # The filename itself is the conversation ID
+            for file_path in linked_dir.glob("*"):
+                if file_path.is_file():
+                    # The filename is the conversation ID
+                    conv_id = file_path.name
+                    if conv_id != conversation_id:
+                        result.append(conv_id)
 
             return result
 
@@ -686,9 +684,27 @@ class ConversationProjectManager:
             context: Conversation context
             project_id: ID of the project to associate with
         """
-        project_data = ConversationProjectManager.ProjectAssociation(project_id=project_id)
-        project_path = ProjectStorageManager.get_conversation_project_file_path(context)
-        write_model(project_path, project_data)
+        logger.info(f"Associating conversation {context.id} with project {project_id}")
+        
+        try:
+            # 1. Store the project association in the conversation's storage directory
+            project_data = ConversationProjectManager.ProjectAssociation(project_id=project_id)
+            project_path = ProjectStorageManager.get_conversation_project_file_path(context)
+            logger.info(f"Writing project association to {project_path}")
+            write_model(project_path, project_data)
+            
+            # 2. Register this conversation in the project's linked_conversations directory
+            linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
+            logger.info(f"Registering in linked_conversations directory: {linked_dir}")
+            conversation_file = linked_dir / str(context.id)
+            
+            # Touch the file to create it if it doesn't exist
+            # We don't need to write any content to it, just its existence is sufficient
+            conversation_file.touch(exist_ok=True)
+            logger.info(f"Created conversation link file: {conversation_file}")
+        except Exception as e:
+            logger.error(f"Error associating conversation with project: {e}")
+            raise
 
     @staticmethod
     async def get_associated_project_id(context: ConversationContext) -> Optional[str]:
@@ -709,22 +725,3 @@ class ConversationProjectManager:
 
         return None
 
-    # Maintain backwards compatibility with existing code
-    # These methods are deprecated and should be removed in a future update
-    @staticmethod
-    async def set_conversation_project(context: ConversationContext, project_id: str) -> None:
-        """
-        DEPRECATED: Use associate_conversation_with_project instead.
-
-        Associates a conversation with a project.
-        """
-        await ConversationProjectManager.associate_conversation_with_project(context, project_id)
-
-    @staticmethod
-    async def get_conversation_project(context: ConversationContext) -> Optional[str]:
-        """
-        DEPRECATED: Use get_associated_project_id instead.
-
-        Gets the project ID associated with a conversation.
-        """
-        return await ConversationProjectManager.get_associated_project_id(context)

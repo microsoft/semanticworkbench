@@ -58,7 +58,7 @@ class TeamConversationHandler:
         logger.info(f"Team received project update: type={update_type}, message='{message}', data={data}")
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             logger.warning("No project ID found for this conversation, cannot process update")
             return False
@@ -73,11 +73,19 @@ class TeamConversationHandler:
             f"Handling project update for team conversation: project={project_id}, conversation={self.context.id}"
         )
 
-        # Handle file-related updates
-        if update_type in ["file_created", "file_updated", "file_deleted"]:
-            # Import the file manager
-            from .project_files import ProjectFileManager
+        # Import the file manager for all update types
+        from .project_files import ProjectFileManager
 
+        # For ALL update types, automatically synchronize files from project storage
+        # This ensures team members always have the latest files whenever any update occurs
+        logger.info(f"Automatically synchronizing files after update type: {update_type}")
+        sync_success = await ProjectFileManager.synchronize_files_to_team_conversation(
+            context=self.context, project_id=project_id
+        )
+        logger.info(f"File synchronization after update: success={sync_success}")
+
+        # Additionally handle file-specific updates for individual file operations
+        if update_type in ["file_created", "file_updated", "file_deleted"]:
             # Extract filename from the message if not in data
             filename = None
             if data and "filename" in data:
@@ -94,7 +102,8 @@ class TeamConversationHandler:
 
             if not filename:
                 logger.warning(f"Could not extract filename from update: {update_type}, {message}")
-                return False
+                # Return True anyway since we already did the file sync
+                return sync_success
 
             # Check if the file exists in project storage
             file_path = ProjectFileManager.get_file_path(project_id, filename)
@@ -112,7 +121,7 @@ class TeamConversationHandler:
 
             logger.info(f"Processing {update_type} notification for file: {filename}")
 
-            # Process the file update
+            # Process the specific file update
             success = await ProjectFileManager.process_file_update_notification(
                 context=self.context, project_id=project_id, update_type=update_type, filename=filename
             )
@@ -121,8 +130,9 @@ class TeamConversationHandler:
 
             return success
 
-        logger.info(f"Update type {update_type} not handled by Team conversation")
-        return False  # Not a handled update type
+        # For non-file updates, we've already synced the files, so return success
+        logger.info(f"Update type {update_type} handled by automatic file synchronization")
+        return sync_success
 
     async def create_information_request(
         self, title: str, description: str, priority: RequestPriority = RequestPriority.MEDIUM
@@ -144,7 +154,7 @@ class TeamConversationHandler:
             return False, "Only Team conversations can create information requests", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -221,7 +231,7 @@ class TeamConversationHandler:
             return False, "Only Team conversations can update project dashboard", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -319,7 +329,7 @@ class TeamConversationHandler:
             return False, "Only Team conversations can mark criteria as completed", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -466,7 +476,7 @@ class TeamConversationHandler:
             return False, "Only Team conversations can report project completion", None
 
         # Get project ID
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
@@ -566,7 +576,7 @@ class TeamConversationHandler:
         Returns:
             Dictionary with project information
         """
-        project_id = await ConversationProjectManager.get_conversation_project(self.context)
+        project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return {
                 "has_project": False,

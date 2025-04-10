@@ -58,7 +58,9 @@ class TestSimplifiedInvitationSystem:
         context.assistant.name = "Test Assistant"
 
         # Handle storage directory issues by mocking the storage path functions
-        with patch("semantic_workbench_assistant.assistant_app.context.storage_directory_for_context") as mock_storage_dir:
+        with patch(
+            "semantic_workbench_assistant.assistant_app.context.storage_directory_for_context"
+        ) as mock_storage_dir:
             mock_storage_dir.return_value = pathlib.Path("/tmp/test-storage")
 
             # Mock read_model to return None by default
@@ -114,7 +116,9 @@ class TestSimplifiedInvitationSystem:
     @pytest.mark.skip(reason="Test needs significant refactoring after removing ProjectInvitation class")
     @patch("assistant.command_processor.ProjectManager")
     @patch("assistant.command_processor.ProjectStorageManager")
-    async def test_redeem_invitation_nonexistent_project(self, mock_storage_manager, mock_project_manager, context, join_command_message):
+    async def test_redeem_invitation_nonexistent_project(
+        self, mock_storage_manager, mock_project_manager, context, join_command_message
+    ):
         """Test that joining a nonexistent project fails."""
         # This test needs to be refactored after removing ProjectInvitation class
         pass
