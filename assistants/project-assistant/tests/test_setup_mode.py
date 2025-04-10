@@ -279,7 +279,8 @@ You are operating in Coordinator Mode (Planning Stage). Your responsibilities in
 
         # Verify message content indicates setup is required
         args, kwargs = context.send_messages.call_args
-        assert "Setup Required" in args[0].content
+        assert "Project not detected" in args[0].content
+        assert "Your project is still being set up" in args[0].content
 
     @pytest.mark.asyncio
     @patch("assistant.command_processor.ProjectManager")
