@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { z } from 'zod';
 
 // Create an output channel for debugging
 export const outputChannel = vscode.window.createOutputChannel('Debug Tools');
@@ -136,7 +137,15 @@ export const getCallStack = async (params: { sessionName?: string }) => {
         };
     }
 };
-
+// Zod schema for validating get_call_stack parameters.
+export const getCallStackSchema = z.object({
+    sessionName: z
+        .string()
+        .optional()
+        .describe(
+            'The name of the debug session to get call stack for. If not provided, returns call stacks for all active sessions.',
+        ),
+});
 // Track new debug sessions as they start.
 vscode.debug.onDidStartDebugSession((session) => {
     activeSessions.push(session);

@@ -201,7 +201,7 @@ export const waitForBreakpointHit = async (params: { sessionId?: string; session
         return {
             content: [
                 {
-                    type: 'text',
+                    type: 'text' as const,
                     text: `No matching debug sessions found.`,
                 },
             ],
@@ -211,103 +211,23 @@ export const waitForBreakpointHit = async (params: { sessionId?: string; session
 
     try {
         // Create a promise that resolves when a breakpoint is hit
-        const breakpointHitPromise = new Promise<{
-            sessionId: string;
-            sessionName: string;
-            threadId: number;
-            reason: string;
-            frameId?: number;
-            filePath?: string;
-            line?: number;
-        }>((resolve, reject) => {
-            // Listen for the 'stopped' event from the debug adapter
-            const sessionStoppedListener = vscode.debug.onDidReceiveDebugSessionCustomEvent((event) => {
-                // The 'stopped' event is fired when execution stops (e.g., at a breakpoint)
-                if (event.event === 'stopped' && targetSessions.some((s) => s.id === event.session.id)) {
-                    const session = event.session;
-                    const body = event.body;
-
-                    if (body.reason === 'breakpoint' || body.reason === 'step' || body.reason === 'pause') {
-                        // Get the first stack frame to provide the frameId
-                        (async () => {
-                            try {
-                                const threadsResponse = await Promise.resolve(session.customRequest('threads'));
-                                const thread = threadsResponse.threads.find((t: any) => t.id === body.threadId);
-
-                                if (thread) {
-                                    try {
-                                        const stackTrace = await Promise.resolve(
-                                            session.customRequest('stackTrace', { threadId: body.threadId }),
-                                        );
-
-                                        const frameId =
-                                            stackTrace.stackFrames.length > 0
-                                                ? stackTrace.stackFrames[0].id
-                                                : undefined;
-                                        const filePath =
-                                            stackTrace.stackFrames.length > 0 && stackTrace.stackFrames[0].source
-                                                ? stackTrace.stackFrames[0].source.path
-                                                : undefined;
-                                        const line =
-                                            stackTrace.stackFrames.length > 0
-                                                ? stackTrace.stackFrames[0].line
-                                                : undefined;
-
-                                        // Clean up the listener before resolving
-                                        sessionStoppedListener.dispose();
-
-                                        resolve({
-                                            sessionId: session.id,
-                                            sessionName: session.name,
-                                            threadId: body.threadId,
-                                            reason: body.reason,
-                                            frameId,
-                                            filePath,
-                                            line,
-                                        });
-                                    } catch (error) {
-                                        // Clean up the listener before resolving
-                                        sessionStoppedListener.dispose();
-
-                                        // Still resolve, but without frameId
-                                        resolve({
-                                            sessionId: session.id,
-                                            sessionName: session.name,
-                                            threadId: body.threadId,
-                                            reason: body.reason,
-                                        });
-                                    }
-                                } else {
-                                    // Clean up the listener before resolving
-                                    sessionStoppedListener.dispose();
-
-                                    resolve({
-                                        sessionId: session.id,
-                                        sessionName: session.name,
-                                        threadId: body.threadId,
-                                        reason: body.reason,
-                                    });
-                                }
-                            } catch (error) {
-                                // Clean up the listener before resolving
-                                sessionStoppedListener.dispose();
-
-                                // Still resolve with basic info
-                                resolve({
-                                    sessionId: session.id,
-                                    sessionName: session.name,
-                                    threadId: body.threadId,
-                                    reason: body.reason,
-                                });
-                            }
-                        })();
-                    }
+        const breakpointHitPromise = new Promise<BreakpointHitInfo>((resolve, reject) => {
+            // Use the breakpointEventEmitter which is already wired up to the debug adapter tracker
+            const listener = onBreakpointHit((event) => {
+                // Check if this event is for one of our target sessions
+                if (targetSessions.some((s) => s.id === event.sessionId)) {
+                    // If it is, clean up the listener and resolve the promise
+                    listener.dispose();
+                    resolve(event);
+                    outputChannel.appendLine(
+                        `Breakpoint hit detected for waitForBreakpointHit: ${JSON.stringify(event)}`,
+                    );
                 }
             });
 
             // Set a timeout to prevent blocking indefinitely
             setTimeout(() => {
-                sessionStoppedListener.dispose();
+                listener.dispose();
                 reject(new Error(`Timed out waiting for breakpoint to be hit (${timeout}ms).`));
             }, timeout);
         });
@@ -318,8 +238,8 @@ export const waitForBreakpointHit = async (params: { sessionId?: string; session
         return {
             content: [
                 {
-                    type: 'json',
-                    json: result,
+                    type: 'text' as const,
+                    text: JSON.stringify(result),
                 },
             ],
             isError: false,
@@ -328,7 +248,7 @@ export const waitForBreakpointHit = async (params: { sessionId?: string; session
         return {
             content: [
                 {
-                    type: 'text',
+                    type: 'text' as const,
                     text: `Error waiting for breakpoint: ${error instanceof Error ? error.message : String(error)}`,
                 },
             ],

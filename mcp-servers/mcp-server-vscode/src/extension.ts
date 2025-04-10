@@ -178,42 +178,6 @@ export const activate = async (context: vscode.ExtensionContext) => {
         },
     );
 
-    // Register 'wait_for_breakpoint_hit' tool
-    // mcpServer.tool(
-    // 'wait_for_breakpoint_hit',
-    // 'Wait for a breakpoint to be hit in a debug session. This tool blocks until a breakpoint is hit or the timeout expires.',
-    // {
-    //     sessionId: z
-    //         .string()
-    //         .optional()
-    //         .describe('The ID of the debug session to watch. If not provided, sessionName must be provided.'),
-    //     sessionName: z
-    //         .string()
-    //         .optional()
-    //         .describe('The name of the debug session to watch. If not provided, sessionId must be provided.'),
-    //     timeout: z
-    //         .number()
-    //         .positive()
-    //         .optional()
-    //         .describe(
-    //             'Maximum time to wait for a breakpoint to be hit, in milliseconds. Default is 30000 (30 seconds).',
-    //         ),
-    // },
-    //     async (params: { sessionId?: string; sessionName?: string; timeout?: number }) => {
-    //         const result = await waitForBreakpointHit(params);
-    //         return {
-    //             ...result,
-    //             content: result.content.map((item) => {
-    //                 if ('json' in item) {
-    //                     // Convert json content to text string
-    //                     return { type: 'text' as const, text: JSON.stringify(item.json) };
-    //                 }
-    //                 return { type: 'text', text: item.text || '' };
-    //             }),
-    //         };
-    //     },
-    // );
-
     // Register 'start_debug_session' tool
     mcpServer.tool(
         'start_debug_session',
