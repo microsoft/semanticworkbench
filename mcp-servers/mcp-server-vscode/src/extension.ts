@@ -20,7 +20,7 @@ import {
     startDebugSessionSchema,
     stopDebugSession,
     stopDebugSessionSchema,
-} from './tools/debug_tools';
+} from './tools/debug';
 import { focusEditorTool } from './tools/focus_editor';
 import { resolvePort } from './utils/port';
 
@@ -213,6 +213,23 @@ export const activate = async (context: vscode.ExtensionContext) => {
     //         };
     //     },
     // );
+
+    // Register 'start_debug_session' tool
+    mcpServer.tool(
+        'start_debug_session',
+        'Start a new debug session using the provided configuration. Can optionally wait for the session to stop at a breakpoint.',
+        startDebugSessionSchema.shape,
+        async (params) => {
+            const result = await startDebugSession(params);
+            return {
+                ...result,
+                content: result.content.map((item) => ({
+                    ...item,
+                    type: 'text' as const,
+                })),
+            };
+        },
+    );
 
     // Register 'restart_debug_session' tool
     mcpServer.tool(
