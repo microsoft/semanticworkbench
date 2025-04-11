@@ -15,14 +15,14 @@ class ContextTransferCoordinatorConfig(CoordinatorConfig):
             title="Context Transfer Coordinator Welcome Message",
             description="The message to display when a coordinator starts a new knowledge transfer project. {share_url} will be replaced with the actual URL.",
         ),
-    ] = """# Welcome to Knowledge Transfer 
+    ] = """# Welcome to Context Transfer
 
 Welcome! I'm here to help you capture and share complex information in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
 
-📚 Organize your thoughts - whether from documents, code, research papers, or brainstorming sessions
-🔄 Establish shared understanding - I'll ask questions to ensure we're aligned on what matters most
-🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered, and deeper context
-🔗 Create shareable experiences - share this link with others for a self-service way to explore your knowledge:
+- 📚 Organize your thoughts - whether from documents, code, research papers, or brainstorming sessions
+- 🔄 Establish shared understanding - I'll ask questions to ensure we're aligned on what matters most
+- 🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered, and deeper context
+- 🔗 Create shareable experiences - share this link with others for a self-service way to explore your knowledge:
 [Explore Knowledge Space]({share_url})
 
 Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. We'll work together to create an interactive knowledge space that others can explore at their own pace.

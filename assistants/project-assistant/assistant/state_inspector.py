@@ -279,7 +279,7 @@ Type `/help` for more information on available commands.
                 logger.info(f"Retrieved share URL from project info: {share_url}")
         except Exception as e:
             logger.warning(f"Error retrieving share URL from project info: {e}")
-            
+
         # Fallback to metadata if needed
         if not share_url:
             conversation = await context.get_conversation()
@@ -322,7 +322,7 @@ Type `/help` for more information on available commands.
 
         # Build the markdown content
         lines: List[str] = []
-        lines.append(f"# Project: {project_name}")
+        lines.append(f"# {project_name}")
         lines.append("")
 
         # Determine stage based on project status
