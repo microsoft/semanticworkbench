@@ -90,38 +90,12 @@ class ProjectStorageManager:
         linked_dir.mkdir(parents=True, exist_ok=True)
         return linked_dir
 
-
-    @staticmethod
-    def get_conversation_dir(project_id: str, conversation_id: str, role: ProjectRole) -> pathlib.Path:
-        """
-        Gets the directory for a specific conversation within a project.
-
-        Args:
-            project_id: ID of the project
-            conversation_id: ID of the conversation
-            role: Role of the conversation (COORDINATOR or TEAM)
-
-        Returns:
-            Path to the conversation directory
-        """
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-
-        # For Coordinator conversations, use the role as directory name
-        if role == ProjectRole.COORDINATOR:
-            conv_dir = project_dir / role.value
-        else:
-            # For team conversations, prefix the conversation ID with 'team_'
-            conv_dir = project_dir / f"team_{conversation_id}"
-
-        conv_dir.mkdir(parents=True, exist_ok=True)
-        return conv_dir
-
     @staticmethod
     def get_project_info_path(project_id: str) -> pathlib.Path:
         """Gets the path to the project info file."""
         project_dir = ProjectStorageManager.get_project_dir(project_id)
         return project_dir / ProjectStorageManager.PROJECT_INFO_FILE
-        
+
     @staticmethod
     def get_brief_path(project_id: str) -> pathlib.Path:
         """Gets the path to the project brief file."""
@@ -133,7 +107,7 @@ class ProjectStorageManager:
         """Gets the path to the project log file."""
         project_dir = ProjectStorageManager.get_project_dir(project_id)
         return project_dir / ProjectStorageManager.PROJECT_LOG_FILE
-        
+
     @staticmethod
     def get_project_dashboard_path(project_id: str) -> pathlib.Path:
         """Gets the path to the project dashboard file."""
@@ -159,7 +133,7 @@ class ProjectStorageManager:
         requests_dir = project_dir / "requests"
         requests_dir.mkdir(parents=True, exist_ok=True)
         return requests_dir
-        
+
     @staticmethod
     def get_information_request_path(project_id: str, request_id: str) -> pathlib.Path:
         """Gets the path to an information request file."""
@@ -192,13 +166,13 @@ class ProjectStorageManager:
 
 class ProjectStorage:
     """Unified storage operations for project data."""
-    
+
     @staticmethod
     def read_project_info(project_id: str) -> Optional[ProjectInfo]:
         """Reads the project info."""
         path = ProjectStorageManager.get_project_info_path(project_id)
         return read_model(path, ProjectInfo)
-        
+
     @staticmethod
     def write_project_info(project_id: str, info: ProjectInfo) -> pathlib.Path:
         """Writes the project info."""
@@ -685,19 +659,19 @@ class ConversationProjectManager:
             project_id: ID of the project to associate with
         """
         logger.info(f"Associating conversation {context.id} with project {project_id}")
-        
+
         try:
             # 1. Store the project association in the conversation's storage directory
             project_data = ConversationProjectManager.ProjectAssociation(project_id=project_id)
             project_path = ProjectStorageManager.get_conversation_project_file_path(context)
             logger.info(f"Writing project association to {project_path}")
             write_model(project_path, project_data)
-            
+
             # 2. Register this conversation in the project's linked_conversations directory
             linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
             logger.info(f"Registering in linked_conversations directory: {linked_dir}")
             conversation_file = linked_dir / str(context.id)
-            
+
             # Touch the file to create it if it doesn't exist
             # We don't need to write any content to it, just its existence is sufficient
             conversation_file.touch(exist_ok=True)
@@ -724,4 +698,3 @@ class ConversationProjectManager:
             return project_data.project_id
 
         return None
-

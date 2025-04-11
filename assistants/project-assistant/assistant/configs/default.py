@@ -1,6 +1,7 @@
 from typing import Annotated
 
 import openai_client
+from assistant_extensions.attachments import AttachmentsConfigModel
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from pydantic import BaseModel, ConfigDict, Field
 from semantic_workbench_assistant.config import UISchema
@@ -190,6 +191,14 @@ This conversation is for project coordinators. Share the generated invitation li
             title="Content Safety Configuration",
         ),
     ] = CombinedContentSafetyEvaluatorConfig()
+    
+    attachments_config: Annotated[
+        AttachmentsConfigModel,
+        Field(
+            title="Attachments Configuration",
+            description="Configuration for handling file attachments in messages.",
+        ),
+    ] = AttachmentsConfigModel()
 
     # Project configuration fields moved directly into AssistantConfigModel
     auto_sync_files: Annotated[
