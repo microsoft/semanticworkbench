@@ -348,11 +348,19 @@ class ProjectStorage:
     async def refresh_all_project_uis(context: ConversationContext, project_id: str) -> None:
         """
         Refreshes the UI inspector panels of all conversations in a project except the
-        shareable team conversation that's used for invitation links.
-
-        This sends a state event to all relevant conversations (current, Coordinator, and all active team members)
+        shareable team conversation template.
+        
+        There are three types of conversations in the system:
+        1. Coordinator Conversation - The main conversation for the project owner
+        2. Shareable Team Conversation Template - Only used to generate the share URL, never directly used by any user
+        3. Team Conversation(s) - Individual conversations for each team member
+        
+        This sends a state event to all relevant conversations (Coordinator and all active team members)
         involved in the project to refresh their inspector panels, ensuring all
         participants have the latest information without sending any text notifications.
+        
+        The shareable team conversation template is excluded because no user will ever see it - 
+        it only exists to create the share URL that team members can use to join.
 
         Use this when project data has changed and all UIs need to be updated,
         but you don't want to send notification messages to users.
@@ -495,9 +503,14 @@ class ProjectNotifier:
         """
         Sends a notice message to all linked conversations except:
         1. The current conversation
-        2. The shareable team conversation created for invitation links
+        2. The shareable team conversation template (used only for creating the share URL)
         
-        Does NOT refresh any UI inspector panels.
+        NOTE: The shareable team conversation is NEVER used directly by any user.
+        It's just a template that gets copied when team members redeem the share URL
+        to create their own individual team conversations. We exclude it from notifications
+        because no one will ever see those notifications.
+        
+        This method does NOT refresh any UI inspector panels.
 
         Args:
             context: Current conversation context

@@ -671,11 +671,16 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
 
-    This handler now automatically:
-    1. Checks if this is a new conversation or a shared team conversation
-    2. For new conversations, creates a project and sets up as coordinator
-    3. For shared conversations via share URL, sets up as team member
-    4. Creates and stores share URL for team conversation
+    The assistant manages three types of conversations:
+    1. Coordinator Conversation: The main conversation used by the project coordinator
+    2. Shareable Team Conversation: A template conversation that has a share URL and is never directly used
+    3. Team Conversation(s): Individual conversations for team members created when they redeem the share URL
+
+    This handler automatically:
+    1. Identifies which type of conversation this is based on metadata
+    2. For new conversations, creates a project, sets up as coordinator, and creates a shareable team conversation
+    3. For team conversations created from the share URL, sets up as team member
+    4. For the shareable team conversation itself, initializes it properly
     """
     # Get conversation to access metadata
     conversation = await context.get_conversation()
@@ -708,9 +713,8 @@ async def on_conversation_created(context: ConversationContext) -> None:
             AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
         )
 
-        # Use welcome message from config
-        config = await assistant_config.get(context.assistant)
-        welcome_message = "# Welcome to the Team Workspace\n\nThis conversation is for collaboration on the project. All team members will use this shared space."
+        # Use welcome message explaining this is just a template
+        welcome_message = "# Template Conversation - Not For Direct Use\n\nThis is a template conversation used only to generate the share URL. No user should directly interact with this conversation.\n\nTeam members who click the share URL will get their own personal team conversation."
 
         # Send welcome message
         await context.send_messages(
@@ -750,7 +754,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
 
             # Use team welcome message
             config = await assistant_config.get(context.assistant)
-            welcome_message = "# Welcome to the Team Workspace\n\nYou've joined this project as a team member. You can collaborate with the coordinator and other team members here."
+            welcome_message = "# Welcome to Your Team Conversation\n\nYou've joined this project as a team member. This is your personal conversation for working on the project. You can communicate with the assistant, make information requests, and track your progress here."
 
             # Send welcome message
             await context.send_messages(

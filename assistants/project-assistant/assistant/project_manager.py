@@ -60,11 +60,16 @@ class ProjectManager:
         context: ConversationContext, project_id: str, project_name: str = "Project"
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Creates a new team conversation.
+        Creates a new shareable team conversation template.
 
         This creates a new conversation owned by the same user as the current conversation,
-        intended to be used as a team conversation. The conversation is tagged with
-        metadata indicating its purpose.
+        intended to be used as a shareable team conversation template. This is NOT a 
+        conversation that anyone will directly use. Instead, it's a template that gets
+        copied when team members redeem the share URL, creating their own individual
+        team conversations.
+
+        The conversation is tagged with metadata indicating its purpose and gets a
+        share URL that can be used by team members to join the project.
 
         Args:
             context: Current conversation context
@@ -74,8 +79,8 @@ class ProjectManager:
         Returns:
             Tuple of (success, conversation_id, share_url) where:
             - success: Boolean indicating if the creation was successful
-            - conversation_id: ID of the created conversation
-            - share_url: URL for the conversation share
+            - conversation_id: ID of the created shareable team conversation
+            - share_url: URL for joining the project and creating a team conversation
         """
         try:
             # Get the current user ID to set as owner
@@ -89,7 +94,7 @@ class ProjectManager:
 
             # Create the new conversation with appropriate metadata
             new_conversation = NewConversation(
-                title=f"Team Workspace: {project_name}",
+                title=f"Shareable Team Template: {project_name}",
                 metadata={
                     "is_team_conversation": True,
                     "project_id": project_id,

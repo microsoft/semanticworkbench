@@ -14,7 +14,15 @@ The Project Assistant is designed to bridge the information gap between project 
 
 ## Key Features
 
-### Dual Mode Operation
+### Conversation Types and Dual Mode Operation 
+
+The Project Assistant creates and manages three distinct types of conversations:
+
+1. **Coordinator Conversation**: The personal conversation used by the project coordinator/owner to create and manage the project.
+
+2. **Shareable Team Conversation**: A template conversation that's automatically created along with a share URL. This conversation is never directly used - it serves as the template for creating individual team conversations when users click the share link.
+
+3. **Team Conversation(s)**: Individual conversations for team members, created when they redeem the share URL. Each team member gets their own personal conversation connected to the project.
 
 The assistant operates in two distinct modes with different capabilities:
 
