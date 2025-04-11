@@ -8,7 +8,6 @@ from assistant_extensions.mcp import (
     MCPClientSettings,
     MCPServerConnectionError,
     OpenAISamplingHandler,
-    WorkbenchFileClientResourceHandler,
     establish_mcp_sessions,
     get_enabled_mcp_server_configs,
     get_mcp_server_prompts,

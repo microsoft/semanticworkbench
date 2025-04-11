@@ -11,6 +11,7 @@ from typing import Any
 import deepmerge
 from assistant_extensions.attachments import AttachmentsExtension
 from assistant_extensions.document_editor import DocumentEditorConfigModel, DocumentEditorExtension
+from assistant_extensions.mcp import MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from semantic_workbench_api_model.workbench_model import (
     ConversationEvent,
@@ -20,7 +21,6 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
-    AssistantContext,
     AssistantTemplate,
     BaseModelAssistantConfig,
     ContentSafety,
@@ -28,8 +28,9 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, ContextTransferConfigModel, DocumentAssistantConfigModel, MCPToolsConfigModel
+from .config import AssistantConfigModel, ContextTransferConfigModel, DocumentAssistantConfigModel
 from .response import respond_to_conversation
+from .whiteboard import WhiteboardInspector
 
 logger = logging.getLogger(__name__)
 
@@ -86,10 +87,6 @@ assistant = AssistantApp(
 )
 
 
-async def tools_config_provider(context: AssistantContext) -> MCPToolsConfigModel:
-    return (await assistant_config.get(context)).tools
-
-
 async def document_editor_config_provider(ctx: ConversationContext) -> DocumentEditorConfigModel:
     config = await assistant_config.get(ctx.assistant)
     return config.extensions_config.document_editor
@@ -100,6 +97,14 @@ document_editor_extension = DocumentEditorExtension(
     config_provider=document_editor_config_provider,
     storage_directory="documents",
 )
+
+
+async def whiteboard_config_provider(ctx: ConversationContext) -> MCPServerConfig:
+    config = await assistant_config.get(ctx.assistant)
+    return config.tools.hosted_mcp_servers.memory_whiteboard
+
+
+_ = WhiteboardInspector(state_id="whiteboard", app=assistant, server_config_provider=whiteboard_config_provider)
 
 
 attachments_extension = AttachmentsExtension(assistant)

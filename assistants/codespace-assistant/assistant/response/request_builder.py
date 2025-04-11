@@ -25,6 +25,7 @@ from openai_client import (
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from ..config import MCPToolsConfigModel, PromptsConfigModel
+from ..whiteboard import notify_whiteboard
 from .utils import (
     build_system_message_content,
     get_history_messages,
@@ -205,6 +206,15 @@ async def build_request(
 
         return updated_messages
 
+    # Notify the whiteboard of the latest context (messages)
+    await notify_whiteboard(
+        context=context,
+        server_config=tools_config.hosted_mcp_servers.memory_whiteboard,
+        attachment_messages=attachment_messages,
+        chat_messages=history_messages_result.messages,
+    )
+
+    # Set the message processor for the sampling handler
     sampling_handler.message_processor = message_processor
 
     return BuildRequestResult(

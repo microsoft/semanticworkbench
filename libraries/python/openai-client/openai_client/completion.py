@@ -87,7 +87,7 @@ async def completion_structured(
     openai_model: str,
     response_model: type[ResponseModelT],
     max_completion_tokens: int,
-    reasoning_effort: Literal["low", "medium", "high"] | None,
+    reasoning_effort: Literal["low", "medium", "high"] | None = None,
 ) -> StructuredResponse[ResponseModelT]:
     start = perf_counter()
 

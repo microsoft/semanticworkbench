@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "debugpy",
+      "request": "launch",
+      "name": "mcp-servers: mcp-server-memory-whiteboard",
+      "cwd": "${workspaceFolder}",
+      "module": "mcp_server_memory_whiteboard.start",
+      "args": ["--transport", "sse", "--port", "38733"],
+      "consoleTitle": "mcp-server-memory-whiteboard"
+      // "justMyCode": false // Set to false to debug external libraries
+    }
+  ]
+}

@@ -168,6 +168,25 @@ class HostedMCPServersConfigModel(BaseModel):
         roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
         # auto-include the user-bio memory prompt
         prompts_to_auto_include=["user-bio"],
+    )
+
+    memory_whiteboard: Annotated[
+        HostedMCPServerConfig,
+        Field(
+            title="Whiteboard Memory",
+            description=dedent("""
+                Enable this assistant to retain memories of active and historical tasks and decisions, in the form of a whiteboard.
+                Whiteboards are scoped to the conversation.
+                """).strip(),
+        ),
+        UISchema(collapsible=False),
+    ] = HostedMCPServerConfig.from_env(
+        "memory-whiteboard",
+        "MCP_SERVER_MEMORY_WHITEBOARD_URL",
+        # scopes the memories to this conversation for this assistant
+        roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}.{conversation_id}")],
+        # auto-include the whiteboard memory prompt
+        prompts_to_auto_include=["memory:whiteboard"],
         enabled=False,
     )
 
@@ -186,7 +205,6 @@ class HostedMCPServersConfigModel(BaseModel):
         # configures the filesystem edit server to use the client-side storage (using the magic hostname of "workspace")
         roots=[MCPClientRoot(name="root", uri="file://workspace/")],
         prompts_to_auto_include=["instructions"],
-        enabled=False,
     )
 
     @property
@@ -502,90 +520,7 @@ class AssistantConfigModel(BaseModel):
 
 
 class DocumentHostedMCPServersConfigModel(HostedMCPServersConfigModel):
-    web_research: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="Web Research",
-            description="Enable your assistant to perform web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL")
-
-    open_deep_research_clone: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="Open Deep Research Clone",
-            description="Enable a web research tool that is modeled after the Open Deep Research project as a demonstration of writing routines using our Skills library.",
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env(
-        "open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", enabled=False
-    )
-
-    giphy: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="Giphy",
-            description="Enable your assistant to search for and share GIFs from Giphy.",
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env("giphy", "MCP_SERVER_GIPHY_URL", enabled=False)
-
-    memory_user_bio: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="User-Bio Memories",
-            description=dedent("""
-                Enable this assistant to store long-term memories about you, the user (\"user-bio\" memories).
-                This implementation is modeled after ChatGPT's memory system.
-                These memories are available to the assistant in all conversations, much like ChatGPT memories are available
-                to ChatGPT in all chats.
-                To determine what memories are saved, you can ask the assistant what memories it has of you.
-                To forget a memory, you can ask the assistant to forget it.
-                """).strip(),
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env(
-        "memory-user-bio",
-        "MCP_SERVER_MEMORY_USER_BIO_URL",
-        # scopes the memories to the assistant instance
-        roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
-        # auto-include the user-bio memory prompt
-        prompts_to_auto_include=["user-bio"],
-        enabled=True,
-    )
-
-    filesystem_edit: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="Document Editor",
-            description=dedent("""
-                Enable this to create, edit, and refine documents, all through chat.
-                """).strip(),
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env(
-        "filesystem-edit",
-        "MCP_SERVER_FILESYSTEM_EDIT_URL",
-        # configures the filesystem edit server to use the client-side storage (using the magic hostname of "workspace")
-        roots=[MCPClientRoot(name="root", uri="file://workspace/")],
-        prompts_to_auto_include=["instructions"],
-        enabled=True,
-    )
-
-    @property
-    def mcp_servers(self) -> list[HostedMCPServerConfig]:
-        """
-        Returns a list of all hosted MCP servers that are configured.
-        """
-        # Get all fields that are of type HostedMCPServerConfig
-        configs = [
-            getattr(self, field)
-            for field in self.model_fields
-            if isinstance(getattr(self, field), HostedMCPServerConfig)
-        ]
-        # Filter out any configs that are missing command (URL)
-        return [config for config in configs if config.command]
+    pass
 
 
 class DocumentAdvancedToolConfigModel(AdvancedToolConfigModel):
@@ -623,6 +558,7 @@ class DocumentMCPToolsConfigModel(MCPToolsConfigModel):
         Field(
             title="Hosted MCP Servers",
             description="Configuration for hosted MCP servers that provide tools to the assistant.",
+            default=DocumentHostedMCPServersConfigModel(),
         ),
         UISchema(collapsed=False, items=UISchema(title_fields=["key", "enabled"])),
     ] = DocumentHostedMCPServersConfigModel()
@@ -632,6 +568,7 @@ class DocumentMCPToolsConfigModel(MCPToolsConfigModel):
         Field(
             title="Personal MCP Servers",
             description="Configuration for personal MCP servers that provide tools to the assistant.",
+            default=[],
         ),
         UISchema(items=UISchema(collapsible=False, hide_title=True, title_fields=["key", "enabled"])),
     ] = []
@@ -759,59 +696,6 @@ class DocumentAssistantConfigModel(AssistantConfigModel):
 
 
 class ContextTransferHostedMCPServersConfigModel(HostedMCPServersConfigModel):
-    web_research: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="Web Research",
-            description="Enable your assistant to perform web research on a given topic. It will generate a list of facts it needs to collect and use Bing search and simple web requests to fill in the facts. Once it decides it has enough, it will summarize the information and return it as a report.",
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env("web-research", "MCP_SERVER_WEB_RESEARCH_URL", enabled=True)
-
-    open_deep_research_clone: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="Open Deep Research Clone",
-            description="Enable a web research tool that is modeled after the Open Deep Research project as a demonstration of writing routines using our Skills library.",
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env(
-        "open-deep-research-clone", "MCP_SERVER_OPEN_DEEP_RESEARCH_CLONE_URL", enabled=False
-    )
-
-    giphy: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="Giphy",
-            description="Enable your assistant to search for and share GIFs from Giphy.",
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env("giphy", "MCP_SERVER_GIPHY_URL", enabled=False)
-
-    memory_user_bio: Annotated[
-        HostedMCPServerConfig,
-        Field(
-            title="User-Bio Memories",
-            description=dedent("""
-                Enable this assistant to store long-term memories about you, the user (\"user-bio\" memories).
-                This implementation is modeled after ChatGPT's memory system.
-                These memories are available to the assistant in all conversations, much like ChatGPT memories are available
-                to ChatGPT in all chats.
-                To determine what memories are saved, you can ask the assistant what memories it has of you.
-                To forget a memory, you can ask the assistant to forget it.
-                """).strip(),
-        ),
-        UISchema(collapsible=False),
-    ] = HostedMCPServerConfig.from_env(
-        "memory-user-bio",
-        "MCP_SERVER_MEMORY_USER_BIO_URL",
-        # scopes the memories to the assistant instance
-        roots=[MCPClientRoot(name="session-id", uri="file://{assistant_id}")],
-        # auto-include the user-bio memory prompt
-        prompts_to_auto_include=["user-bio"],
-        enabled=False,
-    )
-
     filesystem_edit: Annotated[
         HostedMCPServerConfig,
         Field(
@@ -829,20 +713,6 @@ class ContextTransferHostedMCPServersConfigModel(HostedMCPServersConfigModel):
         prompts_to_auto_include=["instructions"],
         enabled=False,
     )
-
-    @property
-    def mcp_servers(self) -> list[HostedMCPServerConfig]:
-        """
-        Returns a list of all hosted MCP servers that are configured.
-        """
-        # Get all fields that are of type HostedMCPServerConfig
-        configs = [
-            getattr(self, field)
-            for field in self.model_fields
-            if isinstance(getattr(self, field), HostedMCPServerConfig)
-        ]
-        # Filter out any configs that are missing command (URL)
-        return [config for config in configs if config.command]
 
 
 class ContextTransferMCPToolsConfigModel(MCPToolsConfigModel):
@@ -865,6 +735,7 @@ class ContextTransferMCPToolsConfigModel(MCPToolsConfigModel):
         Field(
             title="Personal MCP Servers",
             description="Configuration for personal MCP servers that provide tools to the assistant.",
+            default=[],
         ),
         UISchema(items=UISchema(collapsible=False, hide_title=True, title_fields=["key", "enabled"])),
     ] = []

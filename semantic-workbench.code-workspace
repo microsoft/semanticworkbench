@@ -161,6 +161,10 @@
       "path": "mcp-servers/mcp-server-memory-user-bio"
     },
     {
+      "name": "mcp-servers:mcp-server-memory-whiteboard",
+      "path": "mcp-servers/mcp-server-memory-whiteboard"
+    },
+    {
       "name": "mcp-servers:mcp-server-office",
       "path": "mcp-servers/mcp-server-office"
     },
