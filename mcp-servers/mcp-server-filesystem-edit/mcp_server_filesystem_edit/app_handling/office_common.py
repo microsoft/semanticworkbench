@@ -11,7 +11,7 @@ class OfficeAppType(Enum):
     POWERPOINT = auto()
 
 
-def open_document_in_office(file_path: Path, app_type: OfficeAppType) -> tuple[object, object]:
+def open_document_in_office(file_path: Path, app_type: OfficeAppType):
     """
     Opens a document at the specified path in Word, Excel, or PowerPoint.
     Creates and saves the document if it doesn't exist.
