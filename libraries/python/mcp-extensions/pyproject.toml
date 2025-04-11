@@ -5,7 +5,12 @@ description = "Extensions for Model Context Protocol (MCP) clients / servers."
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["deepmerge>=2.0", "mcp>=1.6.0,<2.0", "pydantic>=2.10.6"]
+dependencies = [
+    "deepmerge>=2.0",
+    "mcp>=1.6.0,<2.0",
+    "pydantic>=2.10.6",
+    "openai>=1.63.2",
+]
 
 [project.optional-dependencies]
 # For any of the above dependencies that are specific to a single extension, it'd be good
@@ -13,7 +18,6 @@ dependencies = ["deepmerge>=2.0", "mcp>=1.6.0,<2.0", "pydantic>=2.10.6"]
 # are only installed when the specific extension is installed, to reduce the overall size
 # of the package installation, especially when bundling larger dependencies.
 llm = ["azure-identity>=1.21,<2.0", "python-liquid>=2.0,<3.0"]
-openai = ["openai>=1.63.2"]
 
 [build-system]
 requires = ["hatchling"]
