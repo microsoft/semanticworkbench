@@ -11,7 +11,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.whiteboard._whiteboard import whiteboard_mcp_session
+from ._whiteboard import whiteboard_mcp_session
 
 
 class WhiteboardInspector:

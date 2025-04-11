@@ -403,6 +403,7 @@ source = { editable = "../../libraries/python/mcp-extensions" }
 dependencies = [
     { name = "deepmerge" },
     { name = "mcp" },
+    { name = "openai" },
     { name = "pydantic" },
 ]
 
@@ -411,20 +412,17 @@ llm = [
     { name = "azure-identity" },
     { name = "python-liquid" },
 ]
-openai = [
-    { name = "openai" },
-]
 
 [package.metadata]
 requires-dist = [
     { name = "azure-identity", marker = "extra == 'llm'", specifier = ">=1.21,<2.0" },
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "mcp", specifier = ">=1.6.0,<2.0" },
-    { name = "openai", marker = "extra == 'openai'", specifier = ">=1.63.2" },
+    { name = "openai", specifier = ">=1.63.2" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "python-liquid", marker = "extra == 'llm'", specifier = ">=2.0,<3.0" },
 ]
-provides-extras = ["llm", "openai"]
+provides-extras = ["llm"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -438,7 +436,7 @@ name = "mcp-server-filesystem-edit"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "mcp-extensions", extra = ["llm", "openai"] },
+    { name = "mcp-extensions", extra = ["llm"] },
     { name = "pendulum" },
     { name = "pydantic" },
     { name = "python-dotenv" },

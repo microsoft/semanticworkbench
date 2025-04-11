@@ -398,12 +398,8 @@ source = { editable = "../../libraries/python/mcp-extensions" }
 dependencies = [
     { name = "deepmerge" },
     { name = "mcp" },
-    { name = "pydantic" },
-]
-
-[package.optional-dependencies]
-openai = [
     { name = "openai" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
@@ -411,11 +407,11 @@ requires-dist = [
     { name = "azure-identity", marker = "extra == 'llm'", specifier = ">=1.21,<2.0" },
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "mcp", specifier = ">=1.6.0,<2.0" },
-    { name = "openai", marker = "extra == 'openai'", specifier = ">=1.63.2" },
+    { name = "openai", specifier = ">=1.63.2" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "python-liquid", marker = "extra == 'llm'", specifier = ">=2.0,<3.0" },
 ]
-provides-extras = ["llm", "openai"]
+provides-extras = ["llm"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -430,7 +426,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
-    { name = "mcp-extensions", extra = ["openai"] },
+    { name = "mcp-extensions" },
     { name = "requests" },
 ]
 

@@ -429,6 +429,7 @@ source = { editable = "." }
 dependencies = [
     { name = "deepmerge" },
     { name = "mcp" },
+    { name = "openai" },
     { name = "pydantic" },
 ]
 
@@ -436,9 +437,6 @@ dependencies = [
 llm = [
     { name = "azure-identity" },
     { name = "python-liquid" },
-]
-openai = [
-    { name = "openai" },
 ]
 
 [package.dev-dependencies]
@@ -453,11 +451,11 @@ requires-dist = [
     { name = "azure-identity", marker = "extra == 'llm'", specifier = ">=1.21,<2.0" },
     { name = "deepmerge", specifier = ">=2.0" },
     { name = "mcp", specifier = ">=1.6.0,<2.0" },
-    { name = "openai", marker = "extra == 'openai'", specifier = ">=1.63.2" },
+    { name = "openai", specifier = ">=1.63.2" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "python-liquid", marker = "extra == 'llm'", specifier = ">=2.0,<3.0" },
 ]
-provides-extras = ["llm", "openai"]
+provides-extras = ["llm"]
 
 [package.metadata.requires-dev]
 dev = [

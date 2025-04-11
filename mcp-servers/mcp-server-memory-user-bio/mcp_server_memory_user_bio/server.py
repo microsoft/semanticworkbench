@@ -2,6 +2,7 @@ import datetime
 import logging
 import pathlib
 import zoneinfo
+from dataclasses import dataclass
 
 from mcp import ClientCapabilities, RootsCapability, ServerSession
 from mcp.server.fastmcp import Context, FastMCP
@@ -35,7 +36,8 @@ class MemoryBank(BaseModel):
     memories: list[UserBioMemory] = []
 
 
-class SessionConfig(BaseModel):
+@dataclass
+class SessionConfig:
     user_timezone: datetime.tzinfo | None
     session_id: str
 
