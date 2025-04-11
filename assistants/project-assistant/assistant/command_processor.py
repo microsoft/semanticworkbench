@@ -639,13 +639,15 @@ async def handle_create_brief_command(
         if not success:
             raise ValueError("Failed to create project")
 
-        # Create the project brief
-        success, briefing = await ProjectManager.create_project_brief(context, project_name, project_description)
+        # Create the project brief without sending a notification (we'll send our own)
+        success, briefing = await ProjectManager.create_project_brief(
+            context, project_name, project_description, send_notification=False
+        )
 
         if success and briefing:
             await context.send_messages(
                 NewConversationMessage(
-                    content=f"Project brief '{project_name}' created successfully. You can now add goals with `/add-goal` and share the project with your team.",
+                    content=f"Project brief '{project_name}' created successfully.",
                     message_type=MessageType.chat,
                 )
             )

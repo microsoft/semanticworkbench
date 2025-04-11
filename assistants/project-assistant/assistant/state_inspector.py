@@ -158,10 +158,10 @@ Type `/help` for more information on available commands.
     ) -> str:
         """Format project information as markdown for Coordinator role"""
         project_name = brief.project_name if brief else "Unnamed Project"
-        
+
         # Build the markdown content
         lines: List[str] = []
-        lines.append(f"# Project: {project_name}")
+        lines.append(f"# {project_name}")
         lines.append("")
 
         # Determine stage based on project status

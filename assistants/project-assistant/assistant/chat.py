@@ -690,6 +690,15 @@ async def on_conversation_created(context: ConversationContext) -> None:
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
 
+    # send a focus event to notify the assistant to focus on the artifacts
+    await context.send_conversation_state_event(
+        AssistantStateEvent(
+            state_id="project_dashboard",
+            event="focus",
+            state=None,
+        )
+    )
+
     # Check if this is a team conversation created by a coordinator
     if metadata.get("is_team_conversation", False) or metadata.get("is_team_workspace", False):
         # This is already a team conversation
@@ -798,7 +807,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             team_conversation_id,
             share_url,
         ) = await ProjectManager.create_team_conversation(
-            context=context, project_id=project_id, project_name="New Project"
+            context=context, project_id=project_id, project_name="Shared assistant"
         )
 
         if success and share_url:
@@ -825,7 +834,9 @@ async def on_conversation_created(context: ConversationContext) -> None:
             # Even if share URL creation failed, still use the welcome message
             # but it won't have a working share URL
             config = await assistant_config.get(context.assistant)
-            welcome_message = config.coordinator_config.welcome_message.format(share_url="<Share URL generation failed>")
+            welcome_message = config.coordinator_config.welcome_message.format(
+                share_url="<Share URL generation failed>"
+            )
     else:
         # Failed to create project - use fallback mode
         metadata["setup_complete"] = False
@@ -1196,6 +1207,7 @@ async def respond_to_conversation(
 
     # Generate a response from the AI model with tools
     async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
+        llm_call_metadata = {}
         try:
             # Create a completion dictionary for tool call handling
             completion_args = {
@@ -1238,25 +1250,29 @@ async def respond_to_conversation(
                         # Format project brief
                         project_brief_text = ""
                         if briefing:
+                            # Basic project brief without goals
                             project_brief_text = f"""
 ### PROJECT BRIEF
 **Name:** {briefing.project_name}
 **Description:** {briefing.project_description}
-
+"""
+                            # Only include goals and progress tracking if track_progress is enabled
+                            if config.track_progress and briefing.goals:
+                                project_brief_text += """
 #### PROJECT GOALS:
 """
-                            for i, goal in enumerate(briefing.goals):
-                                # Count completed criteria
-                                completed = sum(1 for c in goal.success_criteria if c.completed)
-                                total = len(goal.success_criteria)
+                                for i, goal in enumerate(briefing.goals):
+                                    # Count completed criteria
+                                    completed = sum(1 for c in goal.success_criteria if c.completed)
+                                    total = len(goal.success_criteria)
 
-                                project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-                                if goal.success_criteria:
-                                    project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
-                                    for j, criterion in enumerate(goal.success_criteria):
-                                        check = "✅" if criterion.completed else "⬜"
-                                        project_brief_text += f"   {check} {criterion.description}\n"
-                                project_brief_text += "\n"
+                                    project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
+                                    if goal.success_criteria:
+                                        project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
+                                        for j, criterion in enumerate(goal.success_criteria):
+                                            check = "✅" if criterion.completed else "⬜"
+                                            project_brief_text += f"   {check} {criterion.description}\n"
+                                    project_brief_text += "\n"
 
                         # Format project info
                         project_dashboard_text = ""
@@ -1410,7 +1426,6 @@ As a TEAM member, you can use these tools: {available_tools_str}
 When working with information requests:
 1. Use the `create_information_request` tool to send requests for information to the Coordinator
 2. Use the `delete_information_request` tool if you need to remove a request you created
-3. Always note request IDs when creating requests - you'll need them for deletion
 
 If you need information from the Coordinator, first try viewing recent Coordinator messages with the `view_coordinator_conversation` tool.
 {project_data_text}
@@ -1430,7 +1445,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                     async_client=client,
                     completion_args=completion_args,
                     tool_functions=project_tools.tool_functions,
-                    metadata=metadata,
+                    metadata=llm_call_metadata,
                 )
 
                 # Get the final assistant message content
@@ -1442,22 +1457,6 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                 if not content:
                     # Fallback if no final message was generated
                     content = "I've processed your request, but couldn't generate a proper response."
-
-                # Add tool call message exchange to metadata for debugging
-                deepmerge.always_merger.merge(
-                    metadata,
-                    {
-                        "debug": {
-                            f"{method_metadata_key}": {
-                                "request": completion_args,
-                                "tool_messages": str(tool_messages),
-                                "response": tool_completion.model_dump()
-                                if tool_completion
-                                else "[no response from openai]",
-                            },
-                        }
-                    },
-                )
 
             except (ImportError, AttributeError):
                 # Fallback to standard completions if tool calls aren't supported
@@ -1471,14 +1470,12 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
                 # Merge the completion response into the passed in metadata
                 deepmerge.always_merger.merge(
-                    metadata,
+                    llm_call_metadata,
                     {
-                        "debug": {
-                            f"{method_metadata_key}": {
-                                "request": completion_args,
-                                "response": completion.model_dump() if completion else "[no response from openai]",
-                            },
-                        }
+                        f"{method_metadata_key}": {
+                            "request": completion_args,
+                            "response": completion.model_dump() if completion else "[no response from openai]",
+                        },
                     },
                 )
 
@@ -1489,17 +1486,15 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
             # merge the error into the passed in metadata
             deepmerge.always_merger.merge(
-                metadata,
+                llm_call_metadata,
                 {
-                    "debug": {
-                        f"{method_metadata_key}": {
-                            "request": {
-                                "model": config.request_config.openai_model,
-                                "messages": completion_messages,
-                            },
-                            "error": str(e),
+                    f"{method_metadata_key}": {
+                        "request": {
+                            "model": config.request_config.openai_model,
+                            "messages": completion_messages,
                         },
-                    }
+                        "error": str(e),
+                    },
                 },
             )
 
@@ -1521,14 +1516,11 @@ If you need information from the Coordinator, first try viewing recent Coordinat
             if config.enable_debug_output:
                 # update the metadata to indicate the assistant chose to remain silent
                 deepmerge.always_merger.merge(
-                    metadata,
+                    llm_call_metadata,
                     {
-                        "debug": {
-                            f"{method_metadata_key}": {
-                                "silence_token": True,
-                            },
+                        f"{method_metadata_key}": {
+                            "silence_token": True,
                         },
-                        "attribution": "debug output",
                         "generated_content": False,
                     },
                 )
@@ -1537,7 +1529,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                     NewConversationMessage(
                         message_type=MessageType.notice,
                         content="[assistant chose to remain silent]",
-                        metadata=metadata,
+                        metadata={"debug": llm_call_metadata},
                     )
                 )
             return
@@ -1551,7 +1543,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
         NewConversationMessage(
             content=str(content) if content is not None else "[no response from openai]",
             message_type=message_type,
-            metadata=metadata,
+            metadata={"debug": llm_call_metadata},
         )
     )
 

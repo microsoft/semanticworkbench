@@ -93,7 +93,7 @@ class ProjectManager:
 
             # Create the new conversation with appropriate metadata
             new_conversation = NewConversation(
-                title=f"Shareable Team Template: {project_name}",
+                title=f"{project_name}",
                 metadata={
                     "is_team_conversation": True,
                     "project_id": project_id,
@@ -401,6 +401,7 @@ class ProjectManager:
         goals: Optional[List[Dict]] = None,
         timeline: Optional[str] = None,
         additional_context: Optional[str] = None,
+        send_notification: bool = True,
     ) -> Tuple[bool, Optional[ProjectBrief]]:
         """
         Creates a new project brief for the current project.
@@ -430,6 +431,7 @@ class ProjectManager:
             goals: Optional list of goals with success criteria (see format above)
             timeline: Optional information about project timeline/deadlines
             additional_context: Optional additional information relevant to the project
+            send_notification: Whether to send a notification about the brief creation (default: True)
 
         Returns:
             Tuple of (success, project_brief) where:
@@ -489,13 +491,15 @@ class ProjectManager:
                 message=f"Created project brief: {project_name}",
             )
 
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="brief",
-                message=f"Project brief updated: {project_name}",
-            )
+            # Only notify if send_notification is True
+            if send_notification:
+                # Notify linked conversations
+                await ProjectNotifier.notify_project_update(
+                    context=context,
+                    project_id=project_id,
+                    update_type="brief",
+                    message=f"Project brief created: {project_name}",
+                )
 
             return True, brief
 
@@ -507,6 +511,7 @@ class ProjectManager:
     async def update_project_brief(
         context: ConversationContext,
         updates: Dict[str, Any],
+        send_notification: bool = True,
     ) -> bool:
         """
         Updates an existing project brief.
@@ -514,6 +519,7 @@ class ProjectManager:
         Args:
             context: Current conversation context
             updates: Dictionary of fields to update
+            send_notification: Whether to send a notification about the brief update (default: True)
 
         Returns:
             True if update was successful, False otherwise
@@ -570,13 +576,15 @@ class ProjectManager:
                 message=f"Updated project brief: {brief.project_name}",
             )
 
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="brief",
-                message=f"Project brief updated: {brief.project_name}",
-            )
+            # Only notify if send_notification is True
+            if send_notification:
+                # Notify linked conversations
+                await ProjectNotifier.notify_project_update(
+                    context=context,
+                    project_id=project_id,
+                    update_type="brief",
+                    message=f"Project brief updated: {brief.project_name}",
+                )
 
             return True
 
@@ -599,7 +607,7 @@ class ProjectManager:
             return None
 
         return project_info.state
-        
+
     @staticmethod
     async def get_project_dashboard(
         context: ConversationContext,
@@ -609,9 +617,10 @@ class ProjectManager:
         Please use get_project_info instead.
         """
         import logging
+
         logging.warning("DEPRECATED: get_project_dashboard is deprecated, use get_project_info instead")
         return await ProjectManager.get_project_info(context)
-        
+
     @staticmethod
     async def update_project_dashboard(
         context: ConversationContext,
@@ -625,6 +634,7 @@ class ProjectManager:
         Please use update_project_state instead.
         """
         import logging
+
         logging.warning("DEPRECATED: update_project_dashboard is deprecated, use update_project_state instead")
         return await ProjectManager.update_project_state(context, state, status_message)
 
