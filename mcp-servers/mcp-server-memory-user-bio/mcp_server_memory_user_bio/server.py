@@ -1,12 +1,12 @@
 import datetime
 import logging
+import pathlib
 import zoneinfo
-from collections import defaultdict
-from dataclasses import dataclass
 
 from mcp import ClientCapabilities, RootsCapability, ServerSession
 from mcp.server.fastmcp import Context, FastMCP
-from pydantic import AnyUrl
+from mcp_extensions.server import storage
+from pydantic import AnyUrl, BaseModel
 
 from .config import settings
 
@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 server_name = "Memory - User Bio MCP Server"
 
 
-@dataclass
-class UserBioMemory:
+class UserBioMemory(BaseModel):
     """
     A dataclass representing the memory of a user.
     This is used to store long-term details about the user.
@@ -27,8 +26,16 @@ class UserBioMemory:
     memory: str
 
 
-@dataclass
-class SessionConfig:
+class MemoryBank(BaseModel):
+    """
+    A dataclass representing a bank of memories.
+    This is used to store multiple memories for a user.
+    """
+
+    memories: list[UserBioMemory] = []
+
+
+class SessionConfig(BaseModel):
     user_timezone: datetime.tzinfo | None
     session_id: str
 
@@ -39,8 +46,6 @@ memory_uri = "resource://memory/user-bio"
 def create_mcp_server() -> FastMCP:
     # Initialize FastMCP with debug logging.
     mcp = FastMCP(name=server_name, log_level=settings.log_level)
-
-    memories: dict[str, list[UserBioMemory]] = defaultdict(lambda: [])
 
     @mcp.tool()
     async def bio(memory: str) -> str:
@@ -56,16 +61,18 @@ def create_mcp_server() -> FastMCP:
         """
 
         ctx = mcp.get_context()
-        client_roots = await get_session_config(ctx)
+        session_config = await get_session_config(ctx)
 
-        memory_date = get_user_date(user_timezone=client_roots.user_timezone)
+        memory_date = get_user_date(user_timezone=session_config.user_timezone)
 
         memory_entry = UserBioMemory(
             date=memory_date,
             memory=memory,
         )
 
-        memories[client_roots.session_id].append(memory_entry)
+        memory_bank = await read_memory_bank(session_config=session_config)
+        memory_bank.memories.append(memory_entry)
+        await write_memory_bank(session_config=session_config, state=memory_bank)
 
         await ctx.session.send_resource_updated(uri=AnyUrl(memory_uri))
 
@@ -78,17 +85,18 @@ def create_mcp_server() -> FastMCP:
         """
 
         ctx = mcp.get_context()
-        client_roots = await get_session_config(ctx)
+        session_config = await get_session_config(ctx)
 
-        original_length = len(memories[client_roots.session_id])
-        memories[client_roots.session_id] = [
-            entry for entry in memories[client_roots.session_id] if entry.memory != memory
-        ]
-        found = len(memories[client_roots.session_id]) < original_length
+        memory_bank = await read_memory_bank(session_config=session_config)
+
+        original_length = len(memory_bank.memories)
+        memory_bank.memories = [entry for entry in memory_bank.memories if entry.memory != memory]
+        found = len(memory_bank.memories) < original_length
 
         if not found:
             return "Memory not found."
 
+        await write_memory_bank(session_config=session_config, state=memory_bank)
         await ctx.session.send_resource_updated(uri=AnyUrl(memory_uri))
 
         return "Memory forgotten successfully."
@@ -97,13 +105,15 @@ def create_mcp_server() -> FastMCP:
     @mcp.prompt(name="user-bio", description="Long-term memories about the user.")
     async def get_bio_prompt() -> str:
         ctx = mcp.get_context()
-        client_roots = await get_session_config(ctx)
+        session_config = await get_session_config(ctx)
 
-        if not memories[client_roots.session_id]:
+        memory_bank = await read_memory_bank(session_config=session_config)
+
+        if not memory_bank.memories:
             return "No memories saved."
 
         # Sort memories by date
-        session_memories = sorted(memories[client_roots.session_id], key=lambda x: x.date)
+        session_memories = sorted(memory_bank.memories, key=lambda x: x.date)
 
         # Format the memories into a string
         formatted_memories = "\n".join(f"[{memory.date}] {memory.memory}" for memory in session_memories)
@@ -111,6 +121,27 @@ def create_mcp_server() -> FastMCP:
         return f"Here are your memories about the user:\n{formatted_memories}"
 
     return mcp
+
+
+def path_for_memory_bank(session_config: SessionConfig) -> pathlib.Path:
+    return pathlib.Path(storage.settings.root) / session_config.session_id / "memory_bank.json"
+
+
+async def read_memory_bank(session_config: SessionConfig) -> MemoryBank:
+    """
+    Read the memory bank from the storage.
+    """
+    memory_bank_path = path_for_memory_bank(session_config)
+    state = storage.read_model(file_path=memory_bank_path, cls=MemoryBank) or MemoryBank()
+    return state
+
+
+async def write_memory_bank(session_config: SessionConfig, state: MemoryBank) -> None:
+    """
+    Write the memory bank to the storage.
+    """
+    memory_bank_path = path_for_memory_bank(session_config)
+    storage.write_model(file_path=memory_bank_path, value=state)
 
 
 async def get_session_config(ctx: Context[ServerSession, object]) -> SessionConfig:

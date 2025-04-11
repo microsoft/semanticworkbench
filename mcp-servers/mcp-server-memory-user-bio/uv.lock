@@ -56,6 +56,15 @@ wheels = [
 ]
 
 [[package]]
+name = "deepmerge"
+version = "2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/3a/b0ba594708f1ad0bc735884b3ad854d3ca3bdc1d741e56e40bbda6263499/deepmerge-2.0.tar.gz", hash = "sha256:5c3d86081fbebd04dd5de03626a0607b809a98fb6ccba5770b62466fe940ff20", size = 19890 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2d/82/e5d2c1c67d19841e9edc74954c827444ae826978499bde3dfc1d007c8c11/deepmerge-2.0-py3-none-any.whl", hash = "sha256:6de9ce507115cff0bed95ff0ce9ecc31088ef50cbdf09bc90a09349a318b3d00", size = 13475 },
+]
+
+[[package]]
 name = "h11"
 version = "0.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -112,7 +121,7 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.4.1"
+version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -124,9 +133,37 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/50/cc/5c5bb19f1a0f8f89a95e25cb608b0b07009e81fd4b031e519335404e1422/mcp-1.4.1.tar.gz", hash = "sha256:b9655d2de6313f9d55a7d1df62b3c3fe27a530100cc85bf23729145b0dba4c7a", size = 154942 }
+sdist = { url = "https://files.pythonhosted.org/packages/95/d2/f587cb965a56e992634bebc8611c5b579af912b74e04eb9164bd49527d21/mcp-1.6.0.tar.gz", hash = "sha256:d9324876de2c5637369f43161cd71eebfd803df5a95e46225cab8d280e366723", size = 200031 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e8/0e/885f156ade60108e67bf044fada5269da68e29d758a10b0c513f4d85dd76/mcp-1.4.1-py3-none-any.whl", hash = "sha256:a7716b1ec1c054e76f49806f7d96113b99fc1166fc9244c2c6f19867cb75b593", size = 72448 },
+    { url = "https://files.pythonhosted.org/packages/10/30/20a7f33b0b884a9d14dd3aa94ff1ac9da1479fe2ad66dd9e2736075d2506/mcp-1.6.0-py3-none-any.whl", hash = "sha256:7bd24c6ea042dbec44c754f100984d186620d8b841ec30f1b19eda9b93a634d0", size = 76077 },
+]
+
+[[package]]
+name = "mcp-extensions"
+version = "0.1.0"
+source = { editable = "../../libraries/python/mcp-extensions" }
+dependencies = [
+    { name = "deepmerge" },
+    { name = "mcp" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "azure-identity", marker = "extra == 'llm'", specifier = ">=1.21,<2.0" },
+    { name = "deepmerge", specifier = ">=2.0" },
+    { name = "mcp", specifier = ">=1.6.0,<2.0" },
+    { name = "openai", marker = "extra == 'openai'", specifier = ">=1.63.2" },
+    { name = "pydantic", specifier = ">=2.10.6" },
+    { name = "python-liquid", marker = "extra == 'llm'", specifier = ">=2.0,<3.0" },
+]
+provides-extras = ["llm", "openai"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.389" },
+    { name = "pytest", specifier = ">=8.3.1" },
+    { name = "pytest-asyncio", specifier = ">=0.25.3" },
 ]
 
 [[package]]
@@ -135,6 +172,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
+    { name = "mcp-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -143,7 +181,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "mcp", specifier = ">=1.2.1" }]
+requires-dist = [
+    { name = "mcp", specifier = ">=1.2.1" },
+    { name = "mcp-extensions", editable = "../../libraries/python/mcp-extensions" },
+]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pyright", specifier = ">=1.1.389" }]

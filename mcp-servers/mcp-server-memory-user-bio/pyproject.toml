@@ -5,13 +5,16 @@ description = "Allows saving of memories across conversations related to user in
 authors = [{ name = "Semantic Workbench Team" }]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["mcp>=1.2.1"]
+dependencies = ["mcp>=1.2.1", "mcp-extensions>=0.1.0"]
 
 [dependency-groups]
 dev = ["pyright>=1.1.389"]
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
 
 [project.scripts]
 mcp-server-memory-user-bio = "mcp_server_memory_user_bio.start:main"
