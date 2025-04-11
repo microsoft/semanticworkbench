@@ -629,7 +629,11 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         if share_redemption and share_redemption.get("conversation_share_id"):
             # Check if the share metadata has project information
             share_metadata = share_redemption.get("metadata", {})
-            if share_metadata.get("is_team_conversation", False) or share_metadata.get("is_team_workspace", False) or share_metadata.get("project_id"):
+            if (
+                share_metadata.get("is_team_conversation", False)
+                or share_metadata.get("is_team_workspace", False)
+                or share_metadata.get("project_id")
+            ):
                 logger.info("Detected role from share redemption: team")
                 return "team"
 
@@ -713,20 +717,12 @@ async def on_conversation_created(context: ConversationContext) -> None:
             AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
         )
 
-        # Use welcome message explaining this is just a template
-        welcome_message = "# Template Conversation - Not For Direct Use\n\nThis is a template conversation used only to generate the share URL. No user should directly interact with this conversation.\n\nTeam members who click the share URL will get their own personal team conversation."
-
-        # Send welcome message
-        await context.send_messages(
-            NewConversationMessage(
-                content=welcome_message,
-                message_type=MessageType.chat,
-                metadata={"generated_content": False},
-            )
-        )
+        # No need to send a welcome message for the shareable team conversation
+        # since no user will ever see it - it's just a template for creating
+        # team conversations when users redeem the share URL
         return
 
-    # Check if this is a conversation created through a share URL
+    # Check if this is a conversation created through a share URL (a team conversation)
     share_redemption = metadata.get("share_redemption", {})
     if share_redemption and share_redemption.get("conversation_share_id"):
         share_metadata = share_redemption.get("metadata", {})
@@ -752,9 +748,9 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
             )
 
-            # Use team welcome message
+            # Use team welcome message from config
             config = await assistant_config.get(context.assistant)
-            welcome_message = "# Welcome to Your Team Conversation\n\nYou've joined this project as a team member. This is your personal conversation for working on the project. You can communicate with the assistant, make information requests, and track your progress here."
+            welcome_message = config.team_config.welcome_message
 
             # Send welcome message
             await context.send_messages(
@@ -822,24 +818,13 @@ async def on_conversation_created(context: ConversationContext) -> None:
             # Log the creation
             logger.info(f"Created team conversation: {team_conversation_id} with share URL: {share_url}")
 
-            # Use coordinator welcome message with link
+            # Use coordinator welcome message with share URL from config
             config = await assistant_config.get(context.assistant)
-            welcome_message = f"""# Welcome to the Project Assistant
-
-This conversation is your personal conversation as the project coordinator.
-
-**To invite team members to your project, copy and share this link with them:**
-[Join Team Conversation]({share_url})
-
-I've created a brief for your project. Let's start by updating it with your project goals and details."""
+            welcome_message = config.coordinator_config.welcome_with_share_url.format(share_url=share_url)
         else:
-            # Use fallback welcome message without link
+            # Use coordinator welcome message without share URL from config
             config = await assistant_config.get(context.assistant)
-            welcome_message = """# Welcome to the Project Assistant
-
-This conversation is your personal conversation as the project coordinator. I'll help you set up and manage your project.
-
-Let's start by updating the project brief with your goals and details."""
+            welcome_message = config.coordinator_config.welcome_without_share_url
     else:
         # Failed to create project - use fallback mode
         metadata["setup_complete"] = False
@@ -1018,7 +1003,7 @@ async def respond_to_conversation(
 
     # Add attachment messages to completion messages
     completion_messages.extend(attachment_messages)
-    
+
     # Update token count to include attachment messages
     token_count += openai_client.num_tokens_from_messages(
         model=config.request_config.openai_model,
@@ -1027,44 +1012,41 @@ async def respond_to_conversation(
 
     # Calculate available tokens for history messages
     available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
-    
+
     # Get the conversation history
     # For pagination, we'll retrieve messages in batches as needed
     history_messages: list[ChatCompletionMessageParam] = []
     before_message_id = message.id
-    
+
     # Track token usage and overflow
     token_overage = 0
-    
+
     # We'll fetch messages in batches until we hit the token limit or run out of messages
     while True:
         # Get a batch of messages
         messages_response = await context.get_messages(
             before=before_message_id,
             limit=100,  # Get messages in batches of 100
-            message_types=[MessageType.chat]  # Include only chat messages
+            message_types=[MessageType.chat],  # Include only chat messages
         )
-        
+
         messages_list = messages_response.messages
-        
+
         # If no messages found, break the loop
         if not messages_list or len(messages_list) == 0:
             break
-            
+
         # Set before_message_id for the next batch
         before_message_id = messages_list[0].id
-        
+
         # Process messages in reverse order (oldest first for history)
         for msg in reversed(messages_list):
             # Format this message for inclusion
             formatted_message = format_message(msg)
-            
+
             # Create the message parameter based on sender with proper typing
-            from openai.types.chat import (
-                ChatCompletionAssistantMessageParam,
-                ChatCompletionUserMessageParam
-            )
-            
+            from openai.types.chat import ChatCompletionAssistantMessageParam, ChatCompletionUserMessageParam
+
             if msg.sender.participant_id == context.assistant.id:
                 chat_message: ChatCompletionMessageParam = ChatCompletionAssistantMessageParam(
                     role="assistant",
@@ -1075,13 +1057,13 @@ async def respond_to_conversation(
                     role="user",
                     content=formatted_message,
                 )
-                
+
             # Calculate tokens for this message
             message_tokens = openai_client.num_tokens_from_messages(
                 model=config.request_config.openai_model,
                 messages=[chat_message],
             )
-            
+
             # Check if we can add this message without exceeding the token limit
             if token_overage == 0 and token_count + message_tokens < available_tokens:
                 # Add message to the front of history_messages (to maintain chronological order)
@@ -1090,23 +1072,23 @@ async def respond_to_conversation(
             else:
                 # We've exceeded the token limit, track the overage
                 token_overage += message_tokens
-        
+
         # If we've already exceeded the token limit, no need to fetch more messages
         if token_overage > 0:
             break
-    
+
     # Log the token usage
     logger.debug(f"Token usage: {token_count}/{available_tokens} tokens used, {token_overage} tokens skipped")
-    
+
     # Add history messages to completion messages
     completion_messages.extend(history_messages)
-    
+
     # Final check to ensure we don't exceed the token limit
     total_token_count = openai_client.num_tokens_from_messages(
         model=config.request_config.openai_model,
         messages=completion_messages,
     )
-    
+
     if total_token_count > available_tokens:
         logger.warning(
             f"Token limit exceeded: {total_token_count} > {available_tokens}. "

@@ -15,7 +15,43 @@ class ContextTransferCoordinatorConfig(CoordinatorConfig):
             title="Context Transfer Coordinator Welcome Message",
             description="The message to display after a user has been assigned the Coordinator role in context transfer mode.",
         ),
-    ] = "Welcome to Context Transfer mode as a Coordinator! You can organize and structure knowledge to be shared with others. Upload files, add context, and create an interactive knowledge space that others can explore."
+    ] = """Welcome! I'm here to help you capture and share complex information in a way that others can easily explore and understand. Think of me as your personal knowledge bridge - I'll help you:
+
+📚 Organize your thoughts - whether from documents, code, research papers, or brainstorming sessions
+🔄 Establish shared understanding - I'll ask questions to ensure we're aligned on what matters most
+🔍 Make your knowledge interactive - so others can explore the "why" behind decisions, alternatives considered, and deeper context
+🔗 Create shareable experiences - when we're done, share a link that gives others a self-service way to explore your knowledge
+
+Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. We'll work together to create an interactive knowledge space that others can explore at their own pace.
+
+What knowledge would you like to transfer today?"""
+
+    welcome_with_share_url: Annotated[
+        str,
+        Field(
+            title="Context Transfer Coordinator Welcome with Share URL",
+            description="The message to display when a context transfer coordinator has a share URL available. {share_url} will be replaced with the actual URL.",
+        ),
+    ] = """# Welcome to Knowledge Transfer
+
+This conversation is your personal conversation as the knowledge coordinator.
+
+**To invite team members to explore your knowledge, copy and share this link with them:**
+[Explore Knowledge Space]({share_url})
+
+I've created a knowledge space for you. Let's start by organizing your knowledge and context."""
+
+    welcome_without_share_url: Annotated[
+        str,
+        Field(
+            title="Context Transfer Coordinator Welcome without Share URL",
+            description="The message to display when a context transfer coordinator does not have a share URL available yet.",
+        ),
+    ] = """# Welcome to Knowledge Transfer
+
+This conversation is your personal conversation for organizing and structuring knowledge. I'll help you create a knowledge space that others can explore.
+
+Let's start by capturing the key concepts and information you want to share."""
 
     context_building_prompt: Annotated[
         str,
@@ -42,7 +78,7 @@ class ContextTransferTeamConfig(TeamConfig):
             title="Context Transfer Team Welcome Message",
             description="The message to display when a user joins as a Team member in context transfer mode.",
         ),
-    ] = "Welcome to the shared knowledge space! You can now explore the context that has been prepared for you. Feel free to ask questions to understand the knowledge better."
+    ] = "# Welcome to the Knowledge Space\n\nYou now have access to the shared knowledge that has been prepared for you. Feel free to explore and ask questions to better understand the content. This is your personal conversation for interacting with the knowledge space."
 
     upload_notification: Annotated[
         str,

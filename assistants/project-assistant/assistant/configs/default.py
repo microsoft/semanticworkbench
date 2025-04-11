@@ -60,7 +60,36 @@ class CoordinatorConfig(BaseModel):
             description="The message to display after a user has been assigned the Coordinator role. Shown after setup is complete.",
         ),
         UISchema(widget="textarea"),
-    ] = "Welcome to your project control! As the project coordinator, I'll help you build context by organizing files and information to share with your team. You can upload files, invite team members with the /invite command, and I'll help synchronize everything between conversations."
+    ] = "Welcome to your project control! As the project coordinator, I'll help you build context by organizing files and information to share with your team. You can upload files, set up your project brief, and provide share links with your teammates. I'll keep you up to date on their progress and let you know if they need any help."
+
+    welcome_with_share_url: Annotated[
+        str,
+        Field(
+            title="Coordinator Welcome with Share URL",
+            description="The message to display when a coordinator has a share URL available. {share_url} will be replaced with the actual URL.",
+        ),
+        UISchema(widget="textarea"),
+    ] = """# Welcome to the Project Assistant
+
+This conversation is your personal conversation as the project coordinator.
+
+**To invite team members to your project, copy and share this link with them:**
+[Join Team Conversation]({share_url})
+
+I've created a brief for your project. Let's start by updating it with your project goals and details."""
+
+    welcome_without_share_url: Annotated[
+        str,
+        Field(
+            title="Coordinator Welcome without Share URL",
+            description="The message to display when a coordinator does not have a share URL available yet.",
+        ),
+        UISchema(widget="textarea"),
+    ] = """# Welcome to the Project Assistant
+
+This conversation is your personal conversation as the project coordinator. I'll help you set up and manage your project.
+
+Let's start by updating the project brief with your goals and details."""
 
     prompt_for_files: Annotated[
         str,
@@ -104,7 +133,7 @@ class TeamConfig(BaseModel):
             description="The message to display when a user joins a project as a Team member. Shown after successfully joining a project.",
         ),
         UISchema(widget="textarea"),
-    ] = "Welcome to the project! You've been added as a collaborator, and any files shared by the project coordinator will appear in this conversation. You can also contribute by uploading your own files, which will be shared with the team."
+    ] = "# Welcome to Your Team Conversation\n\nYou've joined this project as a team member. This is your personal conversation for working on the project. You can communicate with the assistant, make information requests, and track your progress here."
 
     status_command: Annotated[
         str,
@@ -191,7 +220,7 @@ This conversation is for project coordinators. Share the generated invitation li
             title="Content Safety Configuration",
         ),
     ] = CombinedContentSafetyEvaluatorConfig()
-    
+
     attachments_config: Annotated[
         AttachmentsConfigModel,
         Field(
