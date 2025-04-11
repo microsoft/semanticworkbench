@@ -672,10 +672,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
     Handle the event triggered when the assistant is added to a conversation.
 
     This handler now automatically:
-    1. Checks if this is a new conversation or a shared team workspace
+    1. Checks if this is a new conversation or a shared team conversation
     2. For new conversations, creates a project and sets up as coordinator
     3. For shared conversations via share URL, sets up as team member
-    4. Creates and stores share URL for team workspace
+    4. Creates and stores share URL for team conversation
     """
     # Get conversation to access metadata
     conversation = await context.get_conversation()
@@ -695,7 +695,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             # Set this conversation as a team member for the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
             await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
-            logger.info(f"Associated team workspace with project: {project_id}")
+            logger.info(f"Associated team conversation with project: {project_id}")
 
         # Update conversation metadata
         await context.send_conversation_state_event(
@@ -762,7 +762,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             )
             return
 
-    # This is a new conversation (not from a share and not a team workspace)
+    # This is a new conversation (not from a share and not a team conversation)
     # Automatically create a new project and set up as coordinator
     logger.info("Creating new project for coordinator conversation")
 

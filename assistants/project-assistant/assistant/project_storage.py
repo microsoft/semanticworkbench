@@ -495,7 +495,7 @@ class ProjectNotifier:
         """
         Sends a notice message to all linked conversations except:
         1. The current conversation
-        2. The shareable team workspace conversation created for invitation links
+        2. The shareable team conversation created for invitation links
         
         Does NOT refresh any UI inspector panels.
 

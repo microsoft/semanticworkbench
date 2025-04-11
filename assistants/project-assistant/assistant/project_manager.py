@@ -124,7 +124,7 @@ class ProjectManager:
                 logger.warning(f"Created team conversation but failed to create share: {conversation.id}")
                 return True, str(conversation.id), None
 
-            # Store team workspace info in ProjectInfo
+            # Store team conversation info in ProjectInfo
             try:
                 # Read existing project info
                 project_info = ProjectStorage.read_project_info(project_id)
