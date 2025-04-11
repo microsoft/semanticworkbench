@@ -172,7 +172,6 @@ async def handle_completion(
             async with context.set_status(f"{tool_call_status}..."):
                 try:
                     tool_call_result = await handle_mcp_tool_call(
-                        sampling_handler,
                         mcp_sessions,
                         tool_call,
                         f"{metadata_key}:request:tool_call_{tool_call_count}",

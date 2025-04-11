@@ -1,0 +1,25 @@
+[project]
+name = "mcp-server-memory-whiteboard"
+version = "0.1.0"
+description = "Stores working memory in a format analogous to a whiteboard"
+authors = [{ name = "Semantic Workbench Team" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.2.1", "openai-client>=0.1.0", "mcp-extensions>=0.1.0"]
+
+[dependency-groups]
+dev = ["pyright>=1.1.389"]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+openai-client = { path = "../../libraries/python/openai-client", editable = true }
+mcp-extensions = { path = "../../libraries/python/mcp-extensions", editable = true }
+
+[project.scripts]
+mcp-server-memory-whiteboard = "mcp_server_memory_whiteboard.start:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
