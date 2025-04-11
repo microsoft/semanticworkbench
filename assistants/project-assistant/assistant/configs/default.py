@@ -57,16 +57,7 @@ class CoordinatorConfig(BaseModel):
         str,
         Field(
             title="Coordinator Welcome Message",
-            description="The message to display after a user has been assigned the Coordinator role. Shown after setup is complete.",
-        ),
-        UISchema(widget="textarea"),
-    ] = "Welcome to your project control! As the project coordinator, I'll help you build context by organizing files and information to share with your team. You can upload files, set up your project brief, and provide share links with your teammates. I'll keep you up to date on their progress and let you know if they need any help."
-
-    welcome_with_share_url: Annotated[
-        str,
-        Field(
-            title="Coordinator Welcome with Share URL",
-            description="The message to display when a coordinator has a share URL available. {share_url} will be replaced with the actual URL.",
+            description="The message to display when a coordinator starts a new project. {share_url} will be replaced with the actual URL.",
         ),
         UISchema(widget="textarea"),
     ] = """# Welcome to the Project Assistant
@@ -77,19 +68,6 @@ This conversation is your personal conversation as the project coordinator.
 [Join Team Conversation]({share_url})
 
 I've created a brief for your project. Let's start by updating it with your project goals and details."""
-
-    welcome_without_share_url: Annotated[
-        str,
-        Field(
-            title="Coordinator Welcome without Share URL",
-            description="The message to display when a coordinator does not have a share URL available yet.",
-        ),
-        UISchema(widget="textarea"),
-    ] = """# Welcome to the Project Assistant
-
-This conversation is your personal conversation as the project coordinator. I'll help you set up and manage your project.
-
-Let's start by updating the project brief with your goals and details."""
 
     prompt_for_files: Annotated[
         str,

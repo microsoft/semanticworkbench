@@ -818,13 +818,14 @@ async def on_conversation_created(context: ConversationContext) -> None:
             # Log the creation
             logger.info(f"Created team conversation: {team_conversation_id} with share URL: {share_url}")
 
-            # Use coordinator welcome message with share URL from config
+            # Use coordinator welcome message from config with the share URL
             config = await assistant_config.get(context.assistant)
-            welcome_message = config.coordinator_config.welcome_with_share_url.format(share_url=share_url)
+            welcome_message = config.coordinator_config.welcome_message.format(share_url=share_url)
         else:
-            # Use coordinator welcome message without share URL from config
+            # Even if share URL creation failed, still use the welcome message
+            # but it won't have a working share URL
             config = await assistant_config.get(context.assistant)
-            welcome_message = config.coordinator_config.welcome_without_share_url
+            welcome_message = config.coordinator_config.welcome_message.format(share_url="<Share URL generation failed>")
     else:
         # Failed to create project - use fallback mode
         metadata["setup_complete"] = False
