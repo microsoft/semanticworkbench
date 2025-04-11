@@ -619,9 +619,9 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
 
-        # Check if this is explicitly marked as a team workspace
-        if metadata.get("is_team_workspace", False):
-            logger.info("Detected role from metadata: team workspace")
+        # Check if this is explicitly marked as a team conversation
+        if metadata.get("is_team_conversation", False) or metadata.get("is_team_workspace", False):
+            logger.info("Detected role from metadata: team conversation")
             return "team"
 
         # Check if this was created through a share redemption
@@ -629,7 +629,7 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         if share_redemption and share_redemption.get("conversation_share_id"):
             # Check if the share metadata has project information
             share_metadata = share_redemption.get("metadata", {})
-            if share_metadata.get("is_team_workspace", False) or share_metadata.get("project_id"):
+            if share_metadata.get("is_team_conversation", False) or share_metadata.get("is_team_workspace", False) or share_metadata.get("project_id"):
                 logger.info("Detected role from share redemption: team")
                 return "team"
 
@@ -681,10 +681,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
 
-    # Check if this is a team workspace created by a coordinator
-    if metadata.get("is_team_workspace", False):
-        # This is already a team workspace conversation
-        logger.info("This is a team workspace conversation created by a coordinator")
+    # Check if this is a team conversation created by a coordinator
+    if metadata.get("is_team_conversation", False) or metadata.get("is_team_workspace", False):
+        # This is already a team conversation
+        logger.info("This is a team conversation created by a coordinator")
         metadata["setup_complete"] = True
         metadata["assistant_mode"] = "team"
         metadata["project_role"] = "team"
@@ -792,7 +792,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             project_description="This project was automatically created. Please update the project brief with your project details.",
         )
 
-        # Create a team workspace conversation and share URL
+        # Create a team conversation and share URL
         (
             success,
             team_conversation_id,
@@ -802,30 +802,30 @@ async def on_conversation_created(context: ConversationContext) -> None:
         )
 
         if success and share_url:
-            # Store the team workspace information in the coordinator's metadata
+            # Store the team conversation information in the coordinator's metadata
             # Using None for state as required by the type system
-            metadata["team_workspace_id"] = team_conversation_id
-            metadata["team_workspace_share_url"] = share_url
+            metadata["team_conversation_id"] = team_conversation_id
+            metadata["team_conversation_share_url"] = share_url
 
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="team_workspace_id", event="updated", state=None)
+                AssistantStateEvent(state_id="team_conversation_id", event="updated", state=None)
             )
 
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="team_workspace_share_url", event="updated", state=None)
+                AssistantStateEvent(state_id="team_conversation_share_url", event="updated", state=None)
             )
 
             # Log the creation
-            logger.info(f"Created team workspace: {team_conversation_id} with share URL: {share_url}")
+            logger.info(f"Created team conversation: {team_conversation_id} with share URL: {share_url}")
 
             # Use coordinator welcome message with link
             config = await assistant_config.get(context.assistant)
             welcome_message = f"""# Welcome to the Project Assistant
 
-This conversation is your personal workspace as the project coordinator.
+This conversation is your personal conversation as the project coordinator.
 
 **To invite team members to your project, copy and share this link with them:**
-[Join Team Workspace]({share_url})
+[Join Team Conversation]({share_url})
 
 I've created a brief for your project. Let's start by updating it with your project goals and details."""
         else:
@@ -833,7 +833,7 @@ I've created a brief for your project. Let's start by updating it with your proj
             config = await assistant_config.get(context.assistant)
             welcome_message = """# Welcome to the Project Assistant
 
-This conversation is your personal workspace as the project coordinator. I'll help you set up and manage your project.
+This conversation is your personal conversation as the project coordinator. I'll help you set up and manage your project.
 
 Let's start by updating the project brief with your goals and details."""
     else:

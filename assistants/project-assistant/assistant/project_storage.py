@@ -348,7 +348,7 @@ class ProjectStorage:
     async def refresh_all_project_uis(context: ConversationContext, project_id: str) -> None:
         """
         Refreshes the UI inspector panels of all conversations in a project except the
-        shareable team workspace conversation that's used for invitation links.
+        shareable team conversation that's used for invitation links.
 
         This sends a state event to all relevant conversations (current, Coordinator, and all active team members)
         involved in the project to refresh their inspector panels, ensuring all
@@ -369,12 +369,12 @@ class ProjectStorage:
             # First update the current conversation's UI
             await ProjectStorage.refresh_current_ui(context)
 
-            # Get the shareable team workspace ID from project info to exclude it
-            shareable_workspace_id = None
+            # Get the shareable team conversation ID from project info to exclude it
+            shareable_conversation_id = None
             project_info = ProjectStorage.read_project_info(project_id)
             if project_info and project_info.team_conversation_id:
-                shareable_workspace_id = project_info.team_conversation_id
-                logger.info(f"Excluding shareable team workspace from UI updates: {shareable_workspace_id}")
+                shareable_conversation_id = project_info.team_conversation_id
+                logger.info(f"Excluding shareable team conversation from UI updates: {shareable_conversation_id}")
 
             # Get Coordinator client and update Coordinator if not the current conversation
             (
@@ -398,10 +398,10 @@ class ProjectStorage:
             current_id = str(context.id)
 
             for conv_id in linked_conversations:
-                # Skip current conversation, coordinator conversation, and shareable workspace
+                # Skip current conversation, coordinator conversation, and shareable conversation
                 if (conv_id != current_id and 
                     (not coordinator_conversation_id or conv_id != coordinator_conversation_id) and
-                    (not shareable_workspace_id or conv_id != shareable_workspace_id)):
+                    (not shareable_conversation_id or conv_id != shareable_conversation_id)):
                     try:
                         # Get client for the conversation
                         client = ConversationClientManager.get_conversation_client(context, conv_id)
@@ -415,8 +415,8 @@ class ProjectStorage:
                     except Exception as e:
                         logger.warning(f"Error sending state event to conversation {conv_id}: {e}")
                         continue
-                elif conv_id == shareable_workspace_id:
-                    logger.info(f"Skipping UI update for shareable workspace: {conv_id}")
+                elif conv_id == shareable_conversation_id:
+                    logger.info(f"Skipping UI update for shareable conversation: {conv_id}")
 
         except Exception as e:
             logger.warning(f"Error notifying all project UIs: {e}")
@@ -512,20 +512,20 @@ class ProjectNotifier:
         linked_conversations = await ConversationProjectManager.get_linked_conversations(context)
         current_conversation_id = str(context.id)
         
-        # Get the shareable team workspace ID from project info
+        # Get the shareable team conversation ID from project info
         # This is the conversation created by the coordinator for sharing, 
         # not an actual user conversation
-        shareable_workspace_id = None
+        shareable_conversation_id = None
         project_info = ProjectStorage.read_project_info(project_id)
         if project_info and project_info.team_conversation_id:
-            shareable_workspace_id = project_info.team_conversation_id
-            logger.info(f"Excluding shareable team workspace from notifications: {shareable_workspace_id}")
+            shareable_conversation_id = project_info.team_conversation_id
+            logger.info(f"Excluding shareable team conversation from notifications: {shareable_conversation_id}")
 
-        # Send notification to each linked conversation, excluding current and shareable workspace
+        # Send notification to each linked conversation, excluding current and shareable conversation
         for conv_id in linked_conversations:
-            # Skip current conversation and the shareable team workspace
+            # Skip current conversation and the shareable team conversation
             if (conv_id != current_conversation_id and 
-                (not shareable_workspace_id or conv_id != shareable_workspace_id)):
+                (not shareable_conversation_id or conv_id != shareable_conversation_id)):
                 try:
                     # Get client for the target conversation
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
@@ -540,8 +540,8 @@ class ProjectNotifier:
                     logger.info(f"Sent notification to conversation {conv_id}")
                 except Exception as e:
                     logger.error(f"Failed to notify conversation {conv_id}: {e}")
-            elif conv_id == shareable_workspace_id:
-                logger.info(f"Skipping notification to shareable workspace: {conv_id}")
+            elif conv_id == shareable_conversation_id:
+                logger.info(f"Skipping notification to shareable conversation: {conv_id}")
             elif conv_id == current_conversation_id:
                 logger.debug(f"Skipping notification to current conversation: {conv_id}")
 

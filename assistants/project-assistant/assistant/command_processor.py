@@ -478,7 +478,7 @@ async def handle_help_command(context: ConversationContext, message: Conversatio
 
 This assistant is automatically set up to help you with your project:
 
-- As a Coordinator: This conversation is your personal workspace for managing the project
+- As a Coordinator: This conversation is your personal conversation for managing the project
 - As a Team Member: This conversation is for collaborating on the project with others
 
 No setup commands needed! You're already good to go.

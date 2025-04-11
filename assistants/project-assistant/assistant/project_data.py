@@ -351,7 +351,7 @@ class ProjectInfo(BaseModel):
     project_id: str  # Unique identifier for the project
     project_name: str = "New Project"  # Name of the project
     coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
-    team_conversation_id: Optional[str] = None  # ID of the team workspace conversation
-    share_url: Optional[str] = None  # Shareable URL for inviting users to the team workspace
+    team_conversation_id: Optional[str] = None  # ID of the team conversation
+    share_url: Optional[str] = None  # Shareable URL for inviting users to the team conversation
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

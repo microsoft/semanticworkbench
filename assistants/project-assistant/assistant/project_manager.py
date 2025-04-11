@@ -60,10 +60,10 @@ class ProjectManager:
         context: ConversationContext, project_id: str, project_name: str = "Project"
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Creates a new team workspace conversation.
+        Creates a new team conversation.
 
         This creates a new conversation owned by the same user as the current conversation,
-        intended to be used as a team workspace. The conversation is tagged with
+        intended to be used as a team conversation. The conversation is tagged with
         metadata indicating its purpose.
 
         Args:
@@ -91,7 +91,7 @@ class ProjectManager:
             new_conversation = NewConversation(
                 title=f"Team Workspace: {project_name}",
                 metadata={
-                    "is_team_workspace": True,
+                    "is_team_conversation": True,
                     "project_id": project_id,
                     "setup_complete": True,
                     "project_role": "team",
@@ -106,10 +106,10 @@ class ProjectManager:
             )
 
             if not conversation or not conversation.id:
-                logger.error("Failed to create team workspace conversation")
+                logger.error("Failed to create team conversation")
                 return False, None, None
 
-            logger.info(f"Created team workspace conversation: {conversation.id}")
+            logger.info(f"Created team conversation: {conversation.id}")
 
             # Create a share for the new conversation
             success, share_url = await ProjectManager.create_share_for_conversation(
@@ -121,7 +121,7 @@ class ProjectManager:
             )
 
             if not success or not share_url:
-                logger.warning(f"Created team workspace but failed to create share: {conversation.id}")
+                logger.warning(f"Created team conversation but failed to create share: {conversation.id}")
                 return True, str(conversation.id), None
 
             # Store team workspace info in ProjectInfo
@@ -130,18 +130,18 @@ class ProjectManager:
                 project_info = ProjectStorage.read_project_info(project_id)
 
                 if project_info:
-                    # Update with team workspace data
+                    # Update with team conversation data
                     project_info.team_conversation_id = str(conversation.id)
                     project_info.share_url = share_url
                     project_info.updated_at = datetime.utcnow()
 
                     # Save updated project info
                     ProjectStorage.write_project_info(project_id, project_info)
-                    logger.info(f"Updated project info with team workspace: {conversation.id}")
+                    logger.info(f"Updated project info with team conversation: {conversation.id}")
                 else:
                     logger.warning(f"Project info not found for project {project_id}")
             except Exception as e:
-                logger.warning(f"Failed to update project info with team workspace: {e}")
+                logger.warning(f"Failed to update project info with team conversation: {e}")
 
             # Store the share URL in the conversation's metadata
             from semantic_workbench_api_model.workbench_model import AssistantStateEvent
@@ -209,7 +209,7 @@ class ProjectManager:
                 conversation_permission=ConversationPermission.read,
                 metadata={
                     "project_id": project_id,
-                    "is_team_workspace": True,
+                    "is_team_conversation": True,
                     "showDuplicateAction": True,
                     "show_duplicate_action": True,
                 },
@@ -1135,7 +1135,7 @@ class ProjectManager:
     @staticmethod
     async def get_project_info(context: ConversationContext, project_id: Optional[str] = None) -> Optional[ProjectInfo]:
         """
-        Gets the project information including share URL and team workspace details.
+        Gets the project information including share URL and team conversation details.
 
         Args:
             context: Current conversation context
