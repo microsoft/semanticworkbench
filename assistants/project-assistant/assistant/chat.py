@@ -407,13 +407,14 @@ async def on_file_created(
             else:
                 logger.info("No team conversations found to update files")
 
-            # 3. Notify Team conversations about the new file
+            # 3. Update all UIs but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_created",
                 message=f"Coordinator shared a file: {file.filename}",
                 data={"filename": file.filename},
+                send_notification=False,  # Don't send notification to reduce noise
             )
         else:
             # For Team files, no special handling needed
@@ -499,13 +500,14 @@ async def on_file_updated(
                     target_conversation_id=team_conv_id,
                 )
 
-            # 3. Notify Team conversations about the updated file
+            # 3. Update all UIs but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_updated",
                 message=f"Coordinator updated a file: {file.filename}",
                 data={"filename": file.filename},
+                send_notification=False,  # Don't send notification to reduce noise
             )
         else:
             # For Team files, no special handling needed
@@ -573,13 +575,14 @@ async def on_file_deleted(
             if not success:
                 logger.error(f"Failed to delete file from project storage: {file.filename}")
 
-            # 2. Notify Team conversations to delete their copies
+            # 2. Update all UIs about the deletion but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_deleted",
                 message=f"Coordinator deleted a file: {file.filename}",
                 data={"filename": file.filename},
+                send_notification=False,  # Don't send notification to reduce noise
             )
         else:
             # For Team files, no special handling needed
@@ -616,9 +619,9 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
 
-        # Check if this is explicitly marked as a team workspace
-        if metadata.get("is_team_workspace", False):
-            logger.info("Detected role from metadata: team workspace")
+        # Check if this is explicitly marked as a team conversation
+        if metadata.get("is_team_conversation", False) or metadata.get("is_team_workspace", False):
+            logger.info("Detected role from metadata: team conversation")
             return "team"
 
         # Check if this was created through a share redemption
@@ -626,7 +629,11 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         if share_redemption and share_redemption.get("conversation_share_id"):
             # Check if the share metadata has project information
             share_metadata = share_redemption.get("metadata", {})
-            if share_metadata.get("is_team_workspace", False) or share_metadata.get("project_id"):
+            if (
+                share_metadata.get("is_team_conversation", False)
+                or share_metadata.get("is_team_workspace", False)
+                or share_metadata.get("project_id")
+            ):
                 logger.info("Detected role from share redemption: team")
                 return "team"
 
@@ -668,20 +675,25 @@ async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
 
-    This handler now automatically:
-    1. Checks if this is a new conversation or a shared team workspace
-    2. For new conversations, creates a project and sets up as coordinator
-    3. For shared conversations via share URL, sets up as team member
-    4. Creates and stores share URL for team workspace
+    The assistant manages three types of conversations:
+    1. Coordinator Conversation: The main conversation used by the project coordinator
+    2. Shareable Team Conversation: A template conversation that has a share URL and is never directly used
+    3. Team Conversation(s): Individual conversations for team members created when they redeem the share URL
+
+    This handler automatically:
+    1. Identifies which type of conversation this is based on metadata
+    2. For new conversations, creates a project, sets up as coordinator, and creates a shareable team conversation
+    3. For team conversations created from the share URL, sets up as team member
+    4. For the shareable team conversation itself, initializes it properly
     """
     # Get conversation to access metadata
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
 
-    # Check if this is a team workspace created by a coordinator
-    if metadata.get("is_team_workspace", False):
-        # This is already a team workspace conversation
-        logger.info("This is a team workspace conversation created by a coordinator")
+    # Check if this is a team conversation created by a coordinator
+    if metadata.get("is_team_conversation", False) or metadata.get("is_team_workspace", False):
+        # This is already a team conversation
+        logger.info("This is a team conversation created by a coordinator")
         metadata["setup_complete"] = True
         metadata["assistant_mode"] = "team"
         metadata["project_role"] = "team"
@@ -692,7 +704,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             # Set this conversation as a team member for the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
             await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
-            logger.info(f"Associated team workspace with project: {project_id}")
+            logger.info(f"Associated team conversation with project: {project_id}")
 
         # Update conversation metadata
         await context.send_conversation_state_event(
@@ -705,21 +717,12 @@ async def on_conversation_created(context: ConversationContext) -> None:
             AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
         )
 
-        # Use welcome message from config
-        config = await assistant_config.get(context.assistant)
-        welcome_message = "# Welcome to the Team Workspace\n\nThis conversation is for collaboration on the project. All team members will use this shared space."
-
-        # Send welcome message
-        await context.send_messages(
-            NewConversationMessage(
-                content=welcome_message,
-                message_type=MessageType.chat,
-                metadata={"generated_content": False},
-            )
-        )
+        # No need to send a welcome message for the shareable team conversation
+        # since no user will ever see it - it's just a template for creating
+        # team conversations when users redeem the share URL
         return
 
-    # Check if this is a conversation created through a share URL
+    # Check if this is a conversation created through a share URL (a team conversation)
     share_redemption = metadata.get("share_redemption", {})
     if share_redemption and share_redemption.get("conversation_share_id"):
         share_metadata = share_redemption.get("metadata", {})
@@ -745,9 +748,9 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
             )
 
-            # Use team welcome message
+            # Use team welcome message from config
             config = await assistant_config.get(context.assistant)
-            welcome_message = "# Welcome to the Team Workspace\n\nYou've joined this project as a team member. You can collaborate with the coordinator and other team members here."
+            welcome_message = config.team_config.welcome_message
 
             # Send welcome message
             await context.send_messages(
@@ -759,7 +762,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             )
             return
 
-    # This is a new conversation (not from a share and not a team workspace)
+    # This is a new conversation (not from a share and not a team conversation)
     # Automatically create a new project and set up as coordinator
     logger.info("Creating new project for coordinator conversation")
 
@@ -789,7 +792,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             project_description="This project was automatically created. Please update the project brief with your project details.",
         )
 
-        # Create a team workspace conversation and share URL
+        # Create a team conversation and share URL
         (
             success,
             team_conversation_id,
@@ -799,48 +802,39 @@ async def on_conversation_created(context: ConversationContext) -> None:
         )
 
         if success and share_url:
-            # Store the team workspace information in the coordinator's metadata
+            # Store the team conversation information in the coordinator's metadata
             # Using None for state as required by the type system
-            metadata["team_workspace_id"] = team_conversation_id
-            metadata["team_workspace_share_url"] = share_url
+            metadata["team_conversation_id"] = team_conversation_id
+            metadata["team_conversation_share_url"] = share_url
 
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="team_workspace_id", event="updated", state=None)
+                AssistantStateEvent(state_id="team_conversation_id", event="updated", state=None)
             )
 
             await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="team_workspace_share_url", event="updated", state=None)
+                AssistantStateEvent(state_id="team_conversation_share_url", event="updated", state=None)
             )
 
             # Log the creation
-            logger.info(f"Created team workspace: {team_conversation_id} with share URL: {share_url}")
+            logger.info(f"Created team conversation: {team_conversation_id} with share URL: {share_url}")
 
-            # Use coordinator welcome message with link
+            # Use coordinator welcome message from config with the share URL
             config = await assistant_config.get(context.assistant)
-            welcome_message = f"""# Welcome to the Project Assistant
-
-This conversation is your personal workspace as the project coordinator.
-
-**To invite team members to your project, copy and share this link with them:**
-[Join Team Workspace]({share_url})
-
-I've created a brief for your project. Let's start by updating it with your project goals and details."""
+            welcome_message = config.coordinator_config.welcome_message.format(share_url=share_url)
         else:
-            # Use fallback welcome message without link
+            # Even if share URL creation failed, still use the welcome message
+            # but it won't have a working share URL
             config = await assistant_config.get(context.assistant)
-            welcome_message = """# Welcome to the Project Assistant
-
-This conversation is your personal workspace as the project coordinator. I'll help you set up and manage your project.
-
-Let's start by updating the project brief with your goals and details."""
+            welcome_message = config.coordinator_config.welcome_message.format(share_url="<Share URL generation failed>")
     else:
         # Failed to create project - use fallback mode
         metadata["setup_complete"] = False
         metadata["assistant_mode"] = "setup"
 
-        # Use default welcome from config
-        config = await assistant_config.get(context.assistant)
-        welcome_message = config.welcome_message
+        # Use a simple fallback welcome message
+        welcome_message = """# Welcome to the Project Assistant
+
+I'm having trouble setting up your project. Please try again or contact support if the issue persists."""
 
     # Send the welcome message
     await context.send_messages(
@@ -1011,7 +1005,7 @@ async def respond_to_conversation(
 
     # Add attachment messages to completion messages
     completion_messages.extend(attachment_messages)
-    
+
     # Update token count to include attachment messages
     token_count += openai_client.num_tokens_from_messages(
         model=config.request_config.openai_model,
@@ -1020,44 +1014,41 @@ async def respond_to_conversation(
 
     # Calculate available tokens for history messages
     available_tokens = config.request_config.max_tokens - config.request_config.response_tokens
-    
+
     # Get the conversation history
     # For pagination, we'll retrieve messages in batches as needed
     history_messages: list[ChatCompletionMessageParam] = []
     before_message_id = message.id
-    
+
     # Track token usage and overflow
     token_overage = 0
-    
+
     # We'll fetch messages in batches until we hit the token limit or run out of messages
     while True:
         # Get a batch of messages
         messages_response = await context.get_messages(
             before=before_message_id,
             limit=100,  # Get messages in batches of 100
-            message_types=[MessageType.chat]  # Include only chat messages
+            message_types=[MessageType.chat],  # Include only chat messages
         )
-        
+
         messages_list = messages_response.messages
-        
+
         # If no messages found, break the loop
         if not messages_list or len(messages_list) == 0:
             break
-            
+
         # Set before_message_id for the next batch
         before_message_id = messages_list[0].id
-        
+
         # Process messages in reverse order (oldest first for history)
         for msg in reversed(messages_list):
             # Format this message for inclusion
             formatted_message = format_message(msg)
-            
+
             # Create the message parameter based on sender with proper typing
-            from openai.types.chat import (
-                ChatCompletionAssistantMessageParam,
-                ChatCompletionUserMessageParam
-            )
-            
+            from openai.types.chat import ChatCompletionAssistantMessageParam, ChatCompletionUserMessageParam
+
             if msg.sender.participant_id == context.assistant.id:
                 chat_message: ChatCompletionMessageParam = ChatCompletionAssistantMessageParam(
                     role="assistant",
@@ -1068,13 +1059,13 @@ async def respond_to_conversation(
                     role="user",
                     content=formatted_message,
                 )
-                
+
             # Calculate tokens for this message
             message_tokens = openai_client.num_tokens_from_messages(
                 model=config.request_config.openai_model,
                 messages=[chat_message],
             )
-            
+
             # Check if we can add this message without exceeding the token limit
             if token_overage == 0 and token_count + message_tokens < available_tokens:
                 # Add message to the front of history_messages (to maintain chronological order)
@@ -1083,23 +1074,23 @@ async def respond_to_conversation(
             else:
                 # We've exceeded the token limit, track the overage
                 token_overage += message_tokens
-        
+
         # If we've already exceeded the token limit, no need to fetch more messages
         if token_overage > 0:
             break
-    
+
     # Log the token usage
     logger.debug(f"Token usage: {token_count}/{available_tokens} tokens used, {token_overage} tokens skipped")
-    
+
     # Add history messages to completion messages
     completion_messages.extend(history_messages)
-    
+
     # Final check to ensure we don't exceed the token limit
     total_token_count = openai_client.num_tokens_from_messages(
         model=config.request_config.openai_model,
         messages=completion_messages,
     )
-    
+
     if total_token_count > available_tokens:
         logger.warning(
             f"Token limit exceeded: {total_token_count} > {available_tokens}. "
@@ -1601,11 +1592,13 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                     logger.info(f"Stored Coordinator assistant message for Team access: {msg.id}")
 
                     # Automatically update the whiteboard after assistant messages
+                    # This will update the whiteboard content but won't send notifications to users
                     try:
                         # Get recent messages for analysis
                         recent_messages = await context.get_messages(limit=10)  # Adjust limit as needed
 
-                        # Call the whiteboard update method
+                        # Call the whiteboard update method - this is configured to NOT send notifications
+                        # to avoid cluttering the UI with frequent update messages
                         (
                             whiteboard_success,
                             whiteboard,

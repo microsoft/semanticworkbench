@@ -60,11 +60,16 @@ class ProjectManager:
         context: ConversationContext, project_id: str, project_name: str = "Project"
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Creates a new team workspace conversation.
+        Creates a new shareable team conversation template.
 
         This creates a new conversation owned by the same user as the current conversation,
-        intended to be used as a team workspace. The conversation is tagged with
-        metadata indicating its purpose.
+        intended to be used as a shareable team conversation template. This is NOT a 
+        conversation that anyone will directly use. Instead, it's a template that gets
+        copied when team members redeem the share URL, creating their own individual
+        team conversations.
+
+        The conversation is tagged with metadata indicating its purpose and gets a
+        share URL that can be used by team members to join the project.
 
         Args:
             context: Current conversation context
@@ -74,8 +79,8 @@ class ProjectManager:
         Returns:
             Tuple of (success, conversation_id, share_url) where:
             - success: Boolean indicating if the creation was successful
-            - conversation_id: ID of the created conversation
-            - share_url: URL for the conversation share
+            - conversation_id: ID of the created shareable team conversation
+            - share_url: URL for joining the project and creating a team conversation
         """
         try:
             # Get the current user ID to set as owner
@@ -89,9 +94,9 @@ class ProjectManager:
 
             # Create the new conversation with appropriate metadata
             new_conversation = NewConversation(
-                title=f"Team Workspace: {project_name}",
+                title=f"Shareable Team Template: {project_name}",
                 metadata={
-                    "is_team_workspace": True,
+                    "is_team_conversation": True,
                     "project_id": project_id,
                     "setup_complete": True,
                     "project_role": "team",
@@ -106,10 +111,10 @@ class ProjectManager:
             )
 
             if not conversation or not conversation.id:
-                logger.error("Failed to create team workspace conversation")
+                logger.error("Failed to create team conversation")
                 return False, None, None
 
-            logger.info(f"Created team workspace conversation: {conversation.id}")
+            logger.info(f"Created team conversation: {conversation.id}")
 
             # Create a share for the new conversation
             success, share_url = await ProjectManager.create_share_for_conversation(
@@ -121,27 +126,27 @@ class ProjectManager:
             )
 
             if not success or not share_url:
-                logger.warning(f"Created team workspace but failed to create share: {conversation.id}")
+                logger.warning(f"Created team conversation but failed to create share: {conversation.id}")
                 return True, str(conversation.id), None
 
-            # Store team workspace info in ProjectInfo
+            # Store team conversation info in ProjectInfo
             try:
                 # Read existing project info
                 project_info = ProjectStorage.read_project_info(project_id)
 
                 if project_info:
-                    # Update with team workspace data
+                    # Update with team conversation data
                     project_info.team_conversation_id = str(conversation.id)
                     project_info.share_url = share_url
                     project_info.updated_at = datetime.utcnow()
 
                     # Save updated project info
                     ProjectStorage.write_project_info(project_id, project_info)
-                    logger.info(f"Updated project info with team workspace: {conversation.id}")
+                    logger.info(f"Updated project info with team conversation: {conversation.id}")
                 else:
                     logger.warning(f"Project info not found for project {project_id}")
             except Exception as e:
-                logger.warning(f"Failed to update project info with team workspace: {e}")
+                logger.warning(f"Failed to update project info with team conversation: {e}")
 
             # Store the share URL in the conversation's metadata
             from semantic_workbench_api_model.workbench_model import AssistantStateEvent
@@ -209,7 +214,7 @@ class ProjectManager:
                 conversation_permission=ConversationPermission.read,
                 metadata={
                     "project_id": project_id,
-                    "is_team_workspace": True,
+                    "is_team_conversation": True,
                     "showDuplicateAction": True,
                     "show_duplicate_action": True,
                 },
@@ -1135,7 +1140,7 @@ class ProjectManager:
     @staticmethod
     async def get_project_info(context: ConversationContext, project_id: Optional[str] = None) -> Optional[ProjectInfo]:
         """
-        Gets the project information including share URL and team workspace details.
+        Gets the project information including share URL and team conversation details.
 
         Args:
             context: Current conversation context
@@ -1175,6 +1180,7 @@ class ProjectManager:
         context: ConversationContext,
         content: str,
         is_auto_generated: bool = True,
+        send_notification: bool = False,  # Add parameter to control notifications
     ) -> Tuple[bool, Optional[ProjectWhiteboard]]:
         """
         Updates the project whiteboard content.
@@ -1183,19 +1189,14 @@ class ProjectManager:
             context: Current conversation context
             content: Whiteboard content in markdown format
             is_auto_generated: Whether the content was automatically generated
+            send_notification: Whether to send notifications about the update (default: False)
 
         Returns:
             Tuple of (success, project_kb)
         """
-        logger.error(
-            "DEBUG: update_whiteboard called with content length: %d, auto_generated: %s",
-            len(content),
-            is_auto_generated,
-        )
         try:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
-            logger.error("DEBUG: update_whiteboard found project ID: %s", project_id)
             if not project_id:
                 logger.error("Cannot update whiteboard: no project associated with this conversation")
                 return False, None
@@ -1242,13 +1243,18 @@ class ProjectManager:
                 message=message,
             )
 
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="project_whiteboard",
-                message="Project whiteboard updated",
-            )
+            # Only notify linked conversations if explicitly requested
+            # This prevents auto-updates from generating notifications
+            if send_notification:
+                await ProjectNotifier.notify_project_update(
+                    context=context,
+                    project_id=project_id,
+                    update_type="project_whiteboard",
+                    message="Project whiteboard updated",
+                )
+            else:
+                # Just refresh the UI without sending notifications
+                await ProjectStorage.refresh_all_project_uis(context, project_id)
 
             return True, whiteboard
 
@@ -1364,10 +1370,12 @@ class ProjectManager:
                 return False, None
 
             # Update the whiteboard with the extracted content
+            # Use send_notification=False to avoid sending notifications for automatic updates
             return await ProjectManager.update_whiteboard(
                 context=context,
                 content=whiteboard_content,
                 is_auto_generated=True,
+                send_notification=False,
             )
 
         except Exception as e:

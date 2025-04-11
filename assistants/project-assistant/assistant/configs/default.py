@@ -49,7 +49,7 @@ class CoordinatorConfig(BaseModel):
     model_config = ConfigDict(
         title="Coordinator Configuration",
         json_schema_extra={
-            "required": ["welcome_message", "prompt_for_files", "context_building_prompt"],
+            "required": ["welcome_message", "prompt_for_files"],
         },
     )
 
@@ -57,10 +57,17 @@ class CoordinatorConfig(BaseModel):
         str,
         Field(
             title="Coordinator Welcome Message",
-            description="The message to display after a user has been assigned the Coordinator role. Shown after setup is complete.",
+            description="The message to display when a coordinator starts a new project. {share_url} will be replaced with the actual URL.",
         ),
         UISchema(widget="textarea"),
-    ] = "Welcome to your project control! As the project coordinator, I'll help you build context by organizing files and information to share with your team. You can upload files, invite team members with the /invite command, and I'll help synchronize everything between conversations."
+    ] = """# Welcome to the Project Assistant
+
+This conversation is your personal conversation as the project coordinator.
+
+**To invite team members to your project, copy and share this link with them:**
+[Join Team Conversation]({share_url})
+
+I've created a brief for your project. Let's start by updating it with your project goals and details."""
 
     prompt_for_files: Annotated[
         str,
@@ -70,15 +77,6 @@ class CoordinatorConfig(BaseModel):
         ),
         UISchema(widget="textarea"),
     ] = "To begin building your project context, would you like to upload any relevant files like documents, images, or data that your team will need? You can drag and drop files directly into this conversation."
-
-    context_building_prompt: Annotated[
-        str,
-        Field(
-            title="Context Building Prompt",
-            description="The message used to help project coordinators organize their project context.",
-        ),
-        UISchema(widget="textarea"),
-    ] = "Let's organize your project context. Here are some ways to structure your information:\n\n- Key documents: What reference materials does your team need?\n- Project objectives: What are the specific goals and deliverables?\n- Timeline: What are the key milestones and deadlines?\n- Team roles: Who should do what?\n\nWould you like me to help you document any of these aspects?"
 
     list_participants_command: Annotated[
         str,
@@ -104,7 +102,7 @@ class TeamConfig(BaseModel):
             description="The message to display when a user joins a project as a Team member. Shown after successfully joining a project.",
         ),
         UISchema(widget="textarea"),
-    ] = "Welcome to the project! You've been added as a collaborator, and any files shared by the project coordinator will appear in this conversation. You can also contribute by uploading your own files, which will be shared with the team."
+    ] = "# Welcome to Your Team Conversation\n\nYou've joined this project as a team member. This is your personal conversation for working on the project. You can communicate with the assistant, make information requests, and track your progress here."
 
     status_command: Annotated[
         str,
@@ -113,15 +111,6 @@ class TeamConfig(BaseModel):
             description="The command project participants can use to check project status (without the slash).",
         ),
     ] = "project-status"
-
-    upload_notification: Annotated[
-        str,
-        Field(
-            title="Upload Notification",
-            description="The message displayed when a project team member uploads a file.",
-        ),
-        UISchema(widget="textarea"),
-    ] = "Your file has been uploaded and shared with the project team. The project coordinator and other participants will be notified."
 
 
 # ProjectConfig class has been removed - fields are now directly in AssistantConfigModel
@@ -165,17 +154,6 @@ class AssistantConfigModel(BaseModel):
         UISchema(widget="textarea", enable_markdown_in_description=True),
     ] = load_text_include("guardrails_prompt.txt")
 
-    welcome_message: Annotated[
-        str,
-        Field(
-            title="Initial Welcome Message",
-            description="The message displayed when the assistant first starts.",
-        ),
-        UISchema(widget="textarea"),
-    ] = """# Welcome to the Project Assistant
-
-This conversation is for project coordinators. Share the generated invitation link with team members to collaborate on your project."""
-
     request_config: Annotated[
         RequestConfig,
         Field(
@@ -191,7 +169,7 @@ This conversation is for project coordinators. Share the generated invitation li
             title="Content Safety Configuration",
         ),
     ] = CombinedContentSafetyEvaluatorConfig()
-    
+
     attachments_config: Annotated[
         AttachmentsConfigModel,
         Field(
@@ -216,15 +194,6 @@ This conversation is for project coordinators. Share the generated invitation li
             description="Track project progress with goals, criteria completion, and overall project state.",
         ),
     ] = True
-
-    invitation_message: Annotated[
-        str,
-        Field(
-            title="Invitation Message",
-            description="The message sent to users when they are invited to collaborate.",
-        ),
-        UISchema(widget="textarea"),
-    ] = "You've been invited to collaborate on a project. Type /join to accept the invitation."
 
     proactive_guidance: Annotated[
         bool,

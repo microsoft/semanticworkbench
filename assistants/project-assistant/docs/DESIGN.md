@@ -8,6 +8,33 @@ The system features a simplified invitation system using project IDs directly, c
 
 ## System Design
 
+### Conversation Structure
+
+The Project Assistant manages three distinct types of conversations:
+
+1. **Coordinator Conversation**: 
+   - Created when a user first interacts with the Project Assistant
+   - Acts as the personal workspace for the project owner/coordinator
+   - Contains private communication between the coordinator and the assistant
+   - Stores the link to the shareable team conversation
+   - Used for high-level project management and planning
+
+2. **Shareable Team Conversation**:
+   - Automatically created when a coordinator starts a new project
+   - Never directly used by any user - serves as a template only
+   - Has a share URL associated with it
+   - When team members click the share link, they get a copy of this conversation
+   - Contains project-specific setup and metadata
+
+3. **Team Conversation(s)**:
+   - Created when a team member redeems the share URL
+   - Each team member gets their own personal conversation
+   - All team conversations are linked to the same project
+   - Used for team members to work on the project, make information requests, etc.
+   - Automatically set up with the team role
+
+### Operation Modes
+
 The Project Assistant is built as a dual-mode context transfer assistant:
 
 1. **Coordinator Mode (Planning Stage)**:

@@ -279,26 +279,26 @@ Type `/help` for more information on available commands.
                 logger.info(f"Retrieved share URL from project info: {share_url}")
         except Exception as e:
             logger.warning(f"Error retrieving share URL from project info: {e}")
-            
+
         # Fallback to metadata if needed
         if not share_url:
             conversation = await context.get_conversation()
             metadata = conversation.metadata or {}
-            share_url = metadata.get("team_workspace_share_url")
+            share_url = metadata.get("team_conversation_share_url")
             if share_url:
                 logger.info(f"Retrieved share URL from metadata: {share_url}")
 
         if share_url:
             # Display the share URL as a properly formatted link
-            lines.append("### Team Workspace Invitation Link")
+            lines.append("### Team Conversation Invitation Link")
             lines.append("**Share this link with your team members:**")
-            lines.append(f"[Join Team Workspace]({share_url})")
+            lines.append(f"[Join Team Conversation]({share_url})")
             lines.append("")
             lines.append("The link never expires and can be used by multiple team members.")
         else:
             # Display that share URL is not available yet
-            lines.append("### Team Workspace Share Link")
-            lines.append("🔄 **Creating team workspace...**")
+            lines.append("### Team Conversation Share Link")
+            lines.append("🔄 **Creating team conversation...**")
             lines.append("")
             lines.append("A shareable link for inviting team members will appear here soon.")
             lines.append("This link will appear after the project setup is complete.")
@@ -322,7 +322,7 @@ Type `/help` for more information on available commands.
 
         # Build the markdown content
         lines: List[str] = []
-        lines.append(f"# Project: {project_name}")
+        lines.append(f"# {project_name}")
         lines.append("")
 
         # Determine stage based on project status
