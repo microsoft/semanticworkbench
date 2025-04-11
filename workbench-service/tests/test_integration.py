@@ -325,15 +325,8 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_ass
             resp.raise_for_status()
             assistants_response = workbench_model.AssistantList.model_validate(resp.json())
             assistant_count = len(assistants_response.assistants)
-            assert assistant_count == import_number + 1
-
-            for index, assistant in enumerate(assistants_response.assistants):
-                if index == assistant_count - 1:
-                    assert assistant.name == "test-assistant"
-                    continue
-
-                # assistants are ordered by created_datetime descending
-                assert assistant.name == f"test-assistant ({assistant_count - index - 1})"
+            assert assistant_count == 1
+            assert assistants_response.assistants[0].name == "test-assistant"
 
             # ensure the new assistant can send and receive messages in the new conversation
             await send_message_wait_for_response(new_conversation)
@@ -440,15 +433,9 @@ async def test_flow_create_assistant_send_message_receive_resp_export_import_con
 
             assistants_response = workbench_model.AssistantList.model_validate(resp.json())
             assistant_count = len(assistants_response.assistants)
-            assert assistant_count == import_number + 1
+            assert assistant_count == 1
 
-            for index, assistant in enumerate(assistants_response.assistants):
-                if index == assistant_count - 1:
-                    assert assistant.name == "test-assistant"
-                    continue
-
-                # assistants are ordered by created_datetime descending
-                assert assistant.name == f"test-assistant ({assistant_count - index - 1})"
+            assert assistants_response.assistants[0].name == "test-assistant"
 
             # ensure the new assistant can send and receive messages in the new conversation
             await send_message_wait_for_response(new_conversation)

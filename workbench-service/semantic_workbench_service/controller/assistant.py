@@ -154,7 +154,7 @@ class AssistantController:
         session: AsyncSession,
         assistant: db.Assistant,
         conversation_id: uuid.UUID,
-    ):
+    ) -> None:
         try:
             await self.disconnect_assistant_from_conversation(conversation_id=conversation_id, assistant=assistant)
         except AssistantError:
@@ -774,7 +774,7 @@ class AssistantController:
 
                 try:
                     # enumerate assistants
-                    for old_assistant_id, new_assistant_id in import_result.assistant_id_old_to_new.items():
+                    for old_assistant_id, (new_assistant_id, is_new) in import_result.assistant_id_old_to_new.items():
                         assistant = (
                             await session.exec(
                                 select(db.Assistant).where(db.Assistant.assistant_id == new_assistant_id)
@@ -796,51 +796,52 @@ class AssistantController:
 
                         assistant_dir = extraction_path / "assistants" / str(old_assistant_id)
 
-                        # create the assistant from the assistant data file
-                        with (assistant_dir / AssistantController.EXPORT_ASSISTANT_DATA_FILENAME).open(
-                            "rb"
-                        ) as assistant_file:
-                            try:
-                                await self._put_assistant(
-                                    assistant=assistant,
-                                    from_export=assistant_file,
-                                )
-                            except AssistantError:
-                                logger.error("error creating assistant on import", exc_info=True)
-                                raise
-
-                            # enumerate assistant conversations
-                            for old_conversation_id in import_result.assistant_conversation_old_ids[old_assistant_id]:
-                                new_conversation_id = import_result.conversation_id_old_to_new[old_conversation_id]
-                                new_conversation = (
-                                    await session.exec(
-                                        select(db.Conversation).where(
-                                            db.Conversation.conversation_id == new_conversation_id
-                                        )
+                        if is_new:
+                            # create the assistant from the assistant data file
+                            with (assistant_dir / AssistantController.EXPORT_ASSISTANT_DATA_FILENAME).open(
+                                "rb"
+                            ) as assistant_file:
+                                try:
+                                    await self._put_assistant(
+                                        assistant=assistant,
+                                        from_export=assistant_file,
                                     )
-                                ).one()
+                                except AssistantError:
+                                    logger.error("error creating assistant on import", exc_info=True)
+                                    raise
 
-                                conversation_dir = assistant_dir / "conversations" / str(old_conversation_id)
+                        # enumerate assistant conversations
+                        for old_conversation_id in import_result.assistant_conversation_old_ids[old_assistant_id]:
+                            new_conversation_id = import_result.conversation_id_old_to_new[old_conversation_id]
+                            new_conversation = (
+                                await session.exec(
+                                    select(db.Conversation).where(
+                                        db.Conversation.conversation_id == new_conversation_id
+                                    )
+                                )
+                            ).one()
 
-                                # create the conversation from the conversation data file
-                                with (
-                                    conversation_dir / AssistantController.EXPORT_ASSISTANT_CONVERSATION_DATA_FILENAME
-                                ).open("rb") as conversation_file:
-                                    try:
-                                        await self.connect_assistant_to_conversation(
-                                            conversation=new_conversation,
-                                            assistant=assistant,
-                                            from_export=conversation_file,
-                                        )
-                                    except AssistantError:
-                                        logger.error(
-                                            "error connecting assistant to conversation on import", exc_info=True
-                                        )
-                                        raise
+                            conversation_dir = assistant_dir / "conversations" / str(old_conversation_id)
+
+                            # create the conversation from the conversation data file
+                            with (
+                                conversation_dir / AssistantController.EXPORT_ASSISTANT_CONVERSATION_DATA_FILENAME
+                            ).open("rb") as conversation_file:
+                                try:
+                                    await self.connect_assistant_to_conversation(
+                                        conversation=new_conversation,
+                                        assistant=assistant,
+                                        from_export=conversation_file,
+                                    )
+                                except AssistantError:
+                                    logger.error("error connecting assistant to conversation on import", exc_info=True)
+                                    raise
 
                 except Exception:
                     async with self._get_session() as session_delete:
-                        for new_assistant_id in import_result.assistant_id_old_to_new.values():
+                        for new_assistant_id, is_new in import_result.assistant_id_old_to_new.values():
+                            if not is_new:
+                                continue
                             assistant = (
                                 await session_delete.exec(
                                     select(db.Assistant).where(db.Assistant.assistant_id == new_assistant_id)
@@ -865,7 +866,7 @@ class AssistantController:
             await session.commit()
 
         return ConversationImportResult(
-            assistant_ids=list(import_result.assistant_id_old_to_new.values()),
+            assistant_ids=[assistant_id for assistant_id, _ in import_result.assistant_id_old_to_new.values()],
             conversation_ids=list(import_result.conversation_id_old_to_new.values()),
         )
 

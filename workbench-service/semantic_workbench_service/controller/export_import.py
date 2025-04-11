@@ -119,7 +119,7 @@ async def export_file(
 
 @dataclass
 class ImportResult:
-    assistant_id_old_to_new: dict[uuid.UUID, uuid.UUID]
+    assistant_id_old_to_new: dict[uuid.UUID, tuple[uuid.UUID, bool]]
     conversation_id_old_to_new: dict[uuid.UUID, uuid.UUID]
     message_id_old_to_new: dict[uuid.UUID, uuid.UUID]
     assistant_conversation_old_ids: dict[uuid.UUID, set[uuid.UUID]]
@@ -139,10 +139,27 @@ async def import_files(session: AsyncSession, owner_id: str, files: Iterable[IO[
         match record.type:
             case db.Assistant.__name__:
                 assistant = db.Assistant.model_validate(record.data)
+
+                # re-use existing assistants with matching service_id, template_id, and name
+                existing_assistant = (
+                    await session.exec(
+                        select(db.Assistant)
+                        .where(db.Assistant.owner_id == owner_id)
+                        .where(
+                            db.Assistant.assistant_service_id == assistant.assistant_service_id,
+                            db.Assistant.template_id == assistant.template_id,
+                            db.Assistant.name == assistant.name,
+                        )
+                    )
+                ).one_or_none()
+                if existing_assistant:
+                    result.assistant_id_old_to_new[assistant.assistant_id] = existing_assistant.assistant_id, False
+                    return
+
                 assistant.imported_from_assistant_id = assistant.assistant_id
                 assistant.created_datetime = datetime.datetime.now(datetime.UTC)
-                result.assistant_id_old_to_new[assistant.assistant_id] = uuid.uuid4()
-                assistant.assistant_id = result.assistant_id_old_to_new[assistant.assistant_id]
+                result.assistant_id_old_to_new[assistant.assistant_id] = uuid.uuid4(), True
+                assistant.assistant_id, _ = result.assistant_id_old_to_new[assistant.assistant_id]
                 assistant.owner_id = owner_id
 
                 like_expression = re.sub(r"([?%_])", r"\\\1", assistant.name.lower())
@@ -178,7 +195,7 @@ async def import_files(session: AsyncSession, owner_id: str, files: Iterable[IO[
                     raise RuntimeError(f"conversation_id {participant.conversation_id} is not found")
                 participant.conversation_id = conversation_id
                 participant.status = None
-                assistant_id = result.assistant_id_old_to_new.get(participant.assistant_id)
+                assistant_id, _ = result.assistant_id_old_to_new.get(participant.assistant_id, (None, None))
                 if assistant_id is not None:
                     participant.assistant_id = assistant_id
                 session.add(participant)
@@ -244,7 +261,9 @@ async def import_files(session: AsyncSession, owner_id: str, files: Iterable[IO[
                 message.message_id = result.message_id_old_to_new[message.message_id]
 
                 if message.sender_participant_role == "assistant":
-                    assistant_id = result.assistant_id_old_to_new.get(uuid.UUID(message.sender_participant_id))
+                    assistant_id, _ = result.assistant_id_old_to_new.get(
+                        uuid.UUID(message.sender_participant_id), (None, None)
+                    )
                     if assistant_id is not None:
                         message.sender_participant_id = str(assistant_id)
                 session.add(message)
@@ -276,7 +295,9 @@ async def import_files(session: AsyncSession, owner_id: str, files: Iterable[IO[
                 file_version.file_id = file_id
 
                 if file_version.participant_role == "assistant":
-                    assistant_id = result.assistant_id_old_to_new.get(uuid.UUID(file_version.participant_id))
+                    assistant_id, _ = result.assistant_id_old_to_new.get(
+                        uuid.UUID(file_version.participant_id), (None, None)
+                    )
                     if assistant_id is not None:
                         file_version.participant_id = str(assistant_id)
                 session.add(file_version)
