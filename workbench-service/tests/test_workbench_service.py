@@ -5,8 +5,8 @@ import json
 import logging
 import re
 import time
-from unittest.mock import AsyncMock, Mock
 import uuid
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import openai_client
@@ -18,7 +18,6 @@ from fastapi.testclient import TestClient
 from pydantic import HttpUrl
 from pytest_httpx import HTTPXMock
 from semantic_workbench_api_model import workbench_model, workbench_service_client
-
 
 from .types import MockUser
 
@@ -1109,15 +1108,10 @@ def test_create_assistant_export_import_data(
             assistants_response = http_response.json()
             assert "assistants" in assistants_response
             assistant_count = len(assistants_response["assistants"])
-            assert assistant_count == import_number + 1
+            assert assistant_count == 1
 
             for index, assistant in enumerate(assistants_response["assistants"]):
-                if index == assistant_count - 1:
-                    assert assistant["name"] == "test-assistant"
-                    continue
-
-                # assistants are ordered by created_datetime descending
-                assert assistant["name"] == f"test-assistant ({assistant_count - index - 1})"
+                assert assistant["name"] == "test-assistant"
 
 
 @pytest.mark.httpx_mock(can_send_already_matched_responses=True)
@@ -1224,7 +1218,7 @@ def test_create_assistant_conversations_export_import_conversations(
 
         file_io = io.BytesIO(http_response.content)
 
-        for import_number in range(1, 3):
+        for _ in range(1, 3):
             http_response = client.post("/conversations/import", files={"from_export": file_io})
             logging.info("response: %s", http_response.json())
             assert httpx.codes.is_success(http_response.status_code)
@@ -1235,7 +1229,7 @@ def test_create_assistant_conversations_export_import_conversations(
             assistants_response = http_response.json()
             assert "assistants" in assistants_response
             assistant_count = len(assistants_response["assistants"])
-            assert assistant_count == (import_number + 1) * 2
+            assert assistant_count == 2
 
         http_response = client.get("/assistants")
         logging.info("response: %s", http_response.json())
@@ -1244,12 +1238,9 @@ def test_create_assistant_conversations_export_import_conversations(
         assistants = workbench_model.AssistantList.model_validate(http_response.json())
 
         assistants.assistants = sorted(assistants.assistants, key=lambda a: a.name)
+        assert len(assistants.assistants) == 2
         assert assistants.assistants[0].name == "test-assistant-1"
-        assert assistants.assistants[1].name == "test-assistant-1 (1)"
-        assert assistants.assistants[2].name == "test-assistant-1 (2)"
-        assert assistants.assistants[3].name == "test-assistant-2"
-        assert assistants.assistants[4].name == "test-assistant-2 (1)"
-        assert assistants.assistants[5].name == "test-assistant-2 (2)"
+        assert assistants.assistants[1].name == "test-assistant-2"
 
         http_response = client.get("/conversations")
         logging.info("response: %s", http_response.json())
