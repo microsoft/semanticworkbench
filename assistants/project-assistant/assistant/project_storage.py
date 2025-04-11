@@ -522,37 +522,45 @@ class ProjectNotifier:
         update_type: str,
         message: str,
         data: Optional[Dict[str, Any]] = None,
+        send_notification: bool = True,  # Add parameter to control notifications
     ) -> None:
         """
         Complete project update: sends notices to all conversations and refreshes all UI inspector panels.
 
         This method:
-        1. Sends a notice message to the current conversation
-        2. Sends the same notice message to all linked conversations
+        1. Sends a notice message to the current conversation (if send_notification=True)
+        2. Sends the same notice message to all linked conversations (if send_notification=True)
         3. Refreshes UI inspector panels for all conversations in the project
 
         Use this for important project updates that need both user notification AND UI refresh.
+        Set send_notification=False for frequent updates (like file syncs, whiteboard updates) to
+        avoid notification spam.
 
         Args:
             context: Current conversation context
             project_id: ID of the project
             update_type: Type of update (e.g., 'brief', 'dashboard', 'information_request', etc.)
             message: Notification message to display to users
+            data: Optional additional data related to the update
+            send_notification: Whether to send notifications (default: True)
         """
         from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 
-        # Notify the current conversation with a message
-        await context.send_messages(
-            NewConversationMessage(
-                content=message,
-                message_type=MessageType.notice,
+        # Only send notifications if explicitly requested
+        if send_notification:
+            # Notify the current conversation with a message
+            await context.send_messages(
+                NewConversationMessage(
+                    content=message,
+                    message_type=MessageType.notice,
+                )
             )
-        )
 
-        # Notify all linked conversations with the same message
-        await ProjectNotifier.send_notice_to_linked_conversations(context, project_id, message)
+            # Notify all linked conversations with the same message
+            await ProjectNotifier.send_notice_to_linked_conversations(context, project_id, message)
 
-        # Refresh all project UI inspector panels
+        # Always refresh all project UI inspector panels to keep UI in sync
+        # This will update the UI without sending notifications
         await ProjectStorage.refresh_all_project_uis(context, project_id)
 
 

@@ -407,13 +407,14 @@ async def on_file_created(
             else:
                 logger.info("No team conversations found to update files")
 
-            # 3. Notify Team conversations about the new file
+            # 3. Update all UIs but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_created",
                 message=f"Coordinator shared a file: {file.filename}",
                 data={"filename": file.filename},
+                send_notification=False,  # Don't send notification to reduce noise
             )
         else:
             # For Team files, no special handling needed
@@ -499,13 +500,14 @@ async def on_file_updated(
                     target_conversation_id=team_conv_id,
                 )
 
-            # 3. Notify Team conversations about the updated file
+            # 3. Update all UIs but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_updated",
                 message=f"Coordinator updated a file: {file.filename}",
                 data={"filename": file.filename},
+                send_notification=False,  # Don't send notification to reduce noise
             )
         else:
             # For Team files, no special handling needed
@@ -573,13 +575,14 @@ async def on_file_deleted(
             if not success:
                 logger.error(f"Failed to delete file from project storage: {file.filename}")
 
-            # 2. Notify Team conversations to delete their copies
+            # 2. Update all UIs about the deletion but don't send notifications to reduce noise
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
                 update_type="file_deleted",
                 message=f"Coordinator deleted a file: {file.filename}",
                 data={"filename": file.filename},
+                send_notification=False,  # Don't send notification to reduce noise
             )
         else:
             # For Team files, no special handling needed
@@ -1601,11 +1604,13 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                     logger.info(f"Stored Coordinator assistant message for Team access: {msg.id}")
 
                     # Automatically update the whiteboard after assistant messages
+                    # This will update the whiteboard content but won't send notifications to users
                     try:
                         # Get recent messages for analysis
                         recent_messages = await context.get_messages(limit=10)  # Adjust limit as needed
 
-                        # Call the whiteboard update method
+                        # Call the whiteboard update method - this is configured to NOT send notifications
+                        # to avoid cluttering the UI with frequent update messages
                         (
                             whiteboard_success,
                             whiteboard,

@@ -1175,6 +1175,7 @@ class ProjectManager:
         context: ConversationContext,
         content: str,
         is_auto_generated: bool = True,
+        send_notification: bool = False,  # Add parameter to control notifications
     ) -> Tuple[bool, Optional[ProjectWhiteboard]]:
         """
         Updates the project whiteboard content.
@@ -1183,19 +1184,14 @@ class ProjectManager:
             context: Current conversation context
             content: Whiteboard content in markdown format
             is_auto_generated: Whether the content was automatically generated
+            send_notification: Whether to send notifications about the update (default: False)
 
         Returns:
             Tuple of (success, project_kb)
         """
-        logger.error(
-            "DEBUG: update_whiteboard called with content length: %d, auto_generated: %s",
-            len(content),
-            is_auto_generated,
-        )
         try:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
-            logger.error("DEBUG: update_whiteboard found project ID: %s", project_id)
             if not project_id:
                 logger.error("Cannot update whiteboard: no project associated with this conversation")
                 return False, None
@@ -1242,13 +1238,18 @@ class ProjectManager:
                 message=message,
             )
 
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="project_whiteboard",
-                message="Project whiteboard updated",
-            )
+            # Only notify linked conversations if explicitly requested
+            # This prevents auto-updates from generating notifications
+            if send_notification:
+                await ProjectNotifier.notify_project_update(
+                    context=context,
+                    project_id=project_id,
+                    update_type="project_whiteboard",
+                    message="Project whiteboard updated",
+                )
+            else:
+                # Just refresh the UI without sending notifications
+                await ProjectStorage.refresh_all_project_uis(context, project_id)
 
             return True, whiteboard
 
@@ -1364,10 +1365,12 @@ class ProjectManager:
                 return False, None
 
             # Update the whiteboard with the extracted content
+            # Use send_notification=False to avoid sending notifications for automatic updates
             return await ProjectManager.update_whiteboard(
                 context=context,
                 content=whiteboard_content,
                 is_auto_generated=True,
+                send_notification=False,
             )
 
         except Exception as e:
