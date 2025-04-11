@@ -831,9 +831,10 @@ async def on_conversation_created(context: ConversationContext) -> None:
         metadata["setup_complete"] = False
         metadata["assistant_mode"] = "setup"
 
-        # Use default welcome from config
-        config = await assistant_config.get(context.assistant)
-        welcome_message = config.welcome_message
+        # Use a simple fallback welcome message
+        welcome_message = """# Welcome to the Project Assistant
+
+I'm having trouble setting up your project. Please try again or contact support if the issue persists."""
 
     # Send the welcome message
     await context.send_messages(
