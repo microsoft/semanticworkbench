@@ -206,47 +206,9 @@ class ProjectWhiteboard(BaseEntity):
     is_auto_generated: bool = True  # Whether the content was auto-generated or manually edited
 
 
-class ProjectDashboard(BaseEntity):
-    """
-    A dynamic representation of progress toward success,
-    updated in real time to reflect remaining tasks and progress.
-
-    The project dashboard tracks the current state of the project and its progress.
-    It provides a snapshot of how far along the project is toward completion
-    and what state it's currently in (planning, in progress, etc.).
-
-    Both the Coordinator and team members can update the project dashboard, typically with:
-    - The Coordinator updating the overall state (e.g., from PLANNING to READY_FOR_WORKING)
-    - Team members updating the progress percentage as they complete work
-
-    The project dashboard is used by all project participants to understand
-    the current situation and what phase the project is in.
-    """
-
-    # State of the project
-    state: ProjectState = ProjectState.PLANNING  # Current project lifecycle state
-
-    # Overall progress percentage (0-100)
-    progress_percentage: int = 0
-
-    # Copy of all goals with their current status
-    goals: List[ProjectGoal] = Field(default_factory=list)
-
-    # Active request IDs that need attention
-    active_requests: List[str] = Field(default_factory=list)
-
-    # Number of completed success criteria out of total
-    completed_criteria: int = 0
-    total_criteria: int = 0
-
-    # Custom status message
-    status_message: Optional[str] = None
-
-    # Next actions or upcoming milestones
-    next_actions: List[str] = Field(default_factory=list)
-
-    # Lifecycle metadata for tracking project milestones
-    lifecycle: Dict[str, Any] = Field(default_factory=dict)
+# ProjectDashboard has been removed as it was redundant. 
+# Project state is tracked in ProjectInfo, project progress is calculated from goals/criteria.
+# The state inspector dynamically builds the dashboard view from primary data (brief, requests, etc.)
 
 
 class InformationRequest(BaseEntity):
@@ -341,17 +303,19 @@ class ProjectLog(BaseEntity):
 
 class ProjectInfo(BaseModel):
     """
-    Core information about a project including its ID, name, and sharing details.
+    Core information about a project including its ID, name, state, and sharing details.
     
     This model stores essential project metadata that doesn't fit into other
-    specific models like brief or dashboard. It's the central reference point
-    for project identification and team collaboration settings.
+    specific models like brief or whiteboard. It's the central reference point
+    for project identification, state, and team collaboration settings.
     """
     
     project_id: str  # Unique identifier for the project
     project_name: str = "New Project"  # Name of the project
+    state: ProjectState = ProjectState.PLANNING  # Current project lifecycle state
     coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
     team_conversation_id: Optional[str] = None  # ID of the team conversation
     share_url: Optional[str] = None  # Shareable URL for inviting users to the team conversation
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    status_message: Optional[str] = None  # Custom status message about the project

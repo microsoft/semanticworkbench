@@ -21,7 +21,6 @@ from .project_data import (
     LogEntry,
     LogEntryType,
     ProjectBrief,
-    ProjectDashboard,
     ProjectInfo,
     ProjectLog,
     ProjectWhiteboard,
@@ -65,7 +64,6 @@ class ProjectStorageManager:
     PROJECT_INFO_FILE = "project.json"
     PROJECT_BRIEF_FILE = "brief.json"
     PROJECT_LOG_FILE = "log.json"
-    PROJECT_DASHBOARD_FILE = "dashboard.json"
     PROJECT_WHITEBOARD_FILE = "whiteboard.json"
     COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"
 
@@ -108,11 +106,6 @@ class ProjectStorageManager:
         project_dir = ProjectStorageManager.get_project_dir(project_id)
         return project_dir / ProjectStorageManager.PROJECT_LOG_FILE
 
-    @staticmethod
-    def get_project_dashboard_path(project_id: str) -> pathlib.Path:
-        """Gets the path to the project dashboard file."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        return project_dir / ProjectStorageManager.PROJECT_DASHBOARD_FILE
 
     @staticmethod
     def get_project_whiteboard_path(project_id: str) -> pathlib.Path:
@@ -206,19 +199,34 @@ class ProjectStorage:
         write_model(path, log)
         return path
 
-    @staticmethod
-    def read_project_dashboard(project_id: str) -> Optional[ProjectDashboard]:
-        """Reads the project dashboard."""
-        path = ProjectStorageManager.get_project_dashboard_path(project_id)
-        return read_model(path, ProjectDashboard)
 
     @staticmethod
-    def write_project_dashboard(project_id: str, dashboard: ProjectDashboard) -> pathlib.Path:
-        """Writes the project dashboard."""
-        path = ProjectStorageManager.get_project_dashboard_path(project_id)
-        write_model(path, dashboard)
-        return path
-
+    def read_project_dashboard(project_id: str) -> Optional[Any]:
+        """
+        DEPRECATED: This method is kept for backward compatibility.
+        Please use read_project_info instead.
+        """
+        import logging
+        logging.warning("DEPRECATED: read_project_dashboard is deprecated, use read_project_info instead")
+        return ProjectStorage.read_project_info(project_id)
+        
+    @staticmethod
+    def write_project_dashboard(project_id: str, dashboard: Any) -> pathlib.Path:
+        """
+        DEPRECATED: This method is kept for backward compatibility.
+        Please use write_project_info instead.
+        """
+        import logging
+        logging.warning("DEPRECATED: write_project_dashboard is deprecated, use write_project_info instead")
+        info = ProjectStorage.read_project_info(project_id)
+        if info and hasattr(dashboard, "state"):
+            info.state = dashboard.state
+            info.updated_at = datetime.utcnow()
+            if hasattr(dashboard, "status_message") and dashboard.status_message:
+                info.status_message = dashboard.status_message
+            return ProjectStorage.write_project_info(project_id, info)
+        return pathlib.Path()
+    
     @staticmethod
     def read_project_whiteboard(project_id: str) -> Optional[ProjectWhiteboard]:
         """Reads the project whiteboard."""

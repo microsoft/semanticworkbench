@@ -1231,7 +1231,7 @@ async def respond_to_conversation(
                     if project_id:
                         # Get comprehensive project data for prompt
                         briefing = ProjectStorage.read_project_brief(project_id)
-                        status = ProjectStorage.read_project_dashboard(project_id)
+                        project_info = ProjectStorage.read_project_info(project_id)
                         whiteboard = ProjectStorage.read_project_whiteboard(project_id)
                         all_requests = ProjectStorage.get_all_information_requests(project_id)
 
@@ -1258,21 +1258,15 @@ async def respond_to_conversation(
                                         project_brief_text += f"   {check} {criterion.description}\n"
                                 project_brief_text += "\n"
 
-                        # Format project dashboard
+                        # Format project info
                         project_dashboard_text = ""
-                        if status:
+                        if project_info:
                             project_dashboard_text = f"""
-### PROJECT DASHBOARD
-**Current State:** {status.state.value}
+### PROJECT INFO
+**Current State:** {project_info.state.value}
 """
-                            if status.progress_percentage is not None:
-                                project_dashboard_text += f"**Overall Progress:** {status.progress_percentage}%\n"
-                            if status.status_message:
-                                project_dashboard_text += f"**Status Message:** {status.status_message}\n"
-                            if status.next_actions:
-                                project_dashboard_text += "\n**Next Actions:**\n"
-                                for action in status.next_actions:
-                                    project_dashboard_text += f"- {action}\n"
+                            if project_info.status_message:
+                                project_dashboard_text += f"**Status Message:** {project_info.status_message}\n"
 
                         # Format whiteboard content
                         whiteboard_text = ""
