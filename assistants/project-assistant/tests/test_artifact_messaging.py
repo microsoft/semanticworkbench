@@ -208,6 +208,7 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
         self.mock_conversation_client = unittest.mock.MagicMock()
         self.mock_conversation_client.send_messages = unittest.mock.AsyncMock()
         self.mock_conversation_client.get_conversation = unittest.mock.AsyncMock()
+        self.mock_conversation_client.send_conversation_state_event = unittest.mock.AsyncMock()
 
         # Set up the mock conversation client to return the mock builder
         patch_client_builder = unittest.mock.patch(
@@ -223,6 +224,27 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
         mock_conversation = unittest.mock.MagicMock()
         mock_conversation.title = "Test Conversation"
         self.mock_conversation_client.get_conversation.return_value = mock_conversation
+
+        # Mock the ConversationClientManager.get_conversation_client method
+        patch_get_client = unittest.mock.patch(
+            "assistant.conversation_clients.ConversationClientManager.get_conversation_client", 
+            return_value=self.mock_conversation_client
+        )
+        patch_get_client.start()
+        self.patches.append(patch_get_client)
+
+        # Mock the get_coordinator_client_for_project method
+        # Create an AsyncMock with a return value
+        mock_get_coordinator = unittest.mock.AsyncMock(
+            return_value=(self.mock_conversation_client, self.coordinator_conversation_id)
+        )
+            
+        patch_get_coordinator = unittest.mock.patch(
+            "assistant.conversation_clients.ConversationClientManager.get_coordinator_client_for_project",
+            mock_get_coordinator
+        )
+        patch_get_coordinator.start()
+        self.patches.append(patch_get_coordinator)
 
         # Mock the linked conversation IDs
         patch_linked_conversations = unittest.mock.patch.object(

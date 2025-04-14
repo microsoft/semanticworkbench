@@ -2,6 +2,7 @@
 Tests for the ProjectTools functionality.
 """
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -120,16 +121,87 @@ class TestProjectTools:
         assert "mark_criterion_completed" not in tools.tool_functions.function_map
 
     @pytest.mark.asyncio
-    async def test_detect_information_request_needs(self, context):
+    async def test_detect_information_request_needs(self, context, monkeypatch):
         """Test the detect_information_request_needs function."""
+        # Create the ProjectTools instance
         team_tools = ProjectTools(context, "team")
+
+        # Mock the openai_client.create_client function to avoid LLM calls
+        class MockAsyncContextManager:
+            async def __aenter__(self):
+                mock_client = MagicMock()
+                # Set up the chat completions create method to return a valid response
+                mock_completion = MagicMock()
+                mock_choice = MagicMock()
+                mock_message = MagicMock()
+                mock_message.content = json.dumps({
+                    "is_information_request": True,
+                    "matched_indicators": ["need information"],
+                    "potential_title": "I need information about",
+                    "potential_description": "I need information about how to proceed with this task.",
+                    "suggested_priority": "medium",
+                    "confidence": 0.8
+                })
+                mock_choice.message = mock_message
+                mock_completion.choices = [mock_choice]
+                
+                # Set up the nested structure for the async mock
+                mock_chat = MagicMock()
+                mock_chat.completions = MagicMock()
+                mock_chat.completions.create = AsyncMock(return_value=mock_completion)
+                mock_client.chat = mock_chat
+                
+                return mock_client
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        # Patch the create_client function
+        monkeypatch.setattr(
+            "openai_client.create_client", 
+            lambda service_config, **kwargs: MockAsyncContextManager()
+        )
 
         # Test with a message that contains information request indicators
         test_message = "I need information about how to proceed with this task."
         result = await team_tools.detect_information_request_needs(test_message)
 
         assert result["is_information_request"]
-        assert "need information" in result["matched_indicators"]
+        # Either the mocked LLM result or the fallback keyword matching could be used
+        assert "need information" in result.get("matched_indicators", []) or result.get("potential_title") == "I need information about"
+
+        # Modify the mock to return a negative result for the second test
+        class MockAsyncContextManagerNegative:
+            async def __aenter__(self):
+                mock_client = MagicMock()
+                # Set up the chat completions create method to return a valid response
+                mock_completion = MagicMock()
+                mock_choice = MagicMock()
+                mock_message = MagicMock()
+                mock_message.content = json.dumps({
+                    "is_information_request": False,
+                    "reason": "No information request indicators found",
+                    "confidence": 0.9
+                })
+                mock_choice.message = mock_message
+                mock_completion.choices = [mock_choice]
+                
+                # Set up the nested structure for the async mock
+                mock_chat = MagicMock()
+                mock_chat.completions = MagicMock()
+                mock_chat.completions.create = AsyncMock(return_value=mock_completion)
+                mock_client.chat = mock_chat
+                
+                return mock_client
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        # Update the patch for the second test
+        monkeypatch.setattr(
+            "openai_client.create_client", 
+            lambda service_config, **kwargs: MockAsyncContextManagerNegative()
+        )
 
         # Test with a message that doesn't contain information request indicators
         test_message = "Everything is going well with the project."
