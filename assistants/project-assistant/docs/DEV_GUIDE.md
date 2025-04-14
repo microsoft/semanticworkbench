@@ -197,3 +197,11 @@ uv run python -m pytest tests/test_file.py -v
    - Never use imports inside functions - if a circular dependency exists, use TYPE_CHECKING
    - Keep import statements clean and well-organized to improve code readability
 6. Update tests when changing functionality
+
+
+
+- If you want to run python scripts, you MUST use `uv` from the project directory for them to be in the correct environment.
+- Test your changes with `make lint && make type-check && make test` from the project directory.
+- Put all imports at the top of files.
+- You have access to logs in .data/logs. They have timestamps in the name, so the latests logs are sorted last.
+
