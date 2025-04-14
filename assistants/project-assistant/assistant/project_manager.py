@@ -5,19 +5,18 @@ This module provides the core business logic for working with project data
 without relying on the artifact abstraction.
 """
 
-import logging
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .logging import logger
 from .project_data import (
     InformationRequest,
     LogEntry,
     LogEntryType,
     ProjectBrief,
-    ProjectDashboard,
     ProjectGoal,
     ProjectInfo,
     ProjectLog,
@@ -35,8 +34,6 @@ from .project_storage import (
     ProjectStorageManager,
 )
 from .utils import get_current_user, require_current_user
-
-logger = logging.getLogger(__name__)
 
 
 class ProjectManager:
@@ -63,7 +60,7 @@ class ProjectManager:
         Creates a new shareable team conversation template.
 
         This creates a new conversation owned by the same user as the current conversation,
-        intended to be used as a shareable team conversation template. This is NOT a 
+        intended to be used as a shareable team conversation template. This is NOT a
         conversation that anyone will directly use. Instead, it's a template that gets
         copied when team members redeem the share URL, creating their own individual
         team conversations.
@@ -94,7 +91,7 @@ class ProjectManager:
 
             # Create the new conversation with appropriate metadata
             new_conversation = NewConversation(
-                title=f"Shareable Team Template: {project_name}",
+                title=f"{project_name}",
                 metadata={
                     "is_team_conversation": True,
                     "project_id": project_id,
@@ -207,10 +204,9 @@ class ProjectManager:
                 NewConversationShare,
             )
 
-            # Create the share with required parameters
             new_share = NewConversationShare(
                 conversation_id=conversation_id,
-                label=f"Team Workspace: {project_name}",
+                label=f"{project_name}",
                 conversation_permission=ConversationPermission.read,
                 metadata={
                     "project_id": project_id,
@@ -402,6 +398,7 @@ class ProjectManager:
         goals: Optional[List[Dict]] = None,
         timeline: Optional[str] = None,
         additional_context: Optional[str] = None,
+        send_notification: bool = True,
     ) -> Tuple[bool, Optional[ProjectBrief]]:
         """
         Creates a new project brief for the current project.
@@ -431,6 +428,7 @@ class ProjectManager:
             goals: Optional list of goals with success criteria (see format above)
             timeline: Optional information about project timeline/deadlines
             additional_context: Optional additional information relevant to the project
+            send_notification: Whether to send a notification about the brief creation (default: True)
 
         Returns:
             Tuple of (success, project_brief) where:
@@ -490,13 +488,15 @@ class ProjectManager:
                 message=f"Created project brief: {project_name}",
             )
 
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="brief",
-                message=f"Project brief updated: {project_name}",
-            )
+            # Only notify if send_notification is True
+            if send_notification:
+                # Notify linked conversations
+                await ProjectNotifier.notify_project_update(
+                    context=context,
+                    project_id=project_id,
+                    update_type="brief",
+                    message=f"Project brief created: {project_name}",
+                )
 
             return True, brief
 
@@ -508,6 +508,7 @@ class ProjectManager:
     async def update_project_brief(
         context: ConversationContext,
         updates: Dict[str, Any],
+        send_notification: bool = True,
     ) -> bool:
         """
         Updates an existing project brief.
@@ -515,6 +516,7 @@ class ProjectManager:
         Args:
             context: Current conversation context
             updates: Dictionary of fields to update
+            send_notification: Whether to send a notification about the brief update (default: True)
 
         Returns:
             True if update was successful, False otherwise
@@ -571,13 +573,15 @@ class ProjectManager:
                 message=f"Updated project brief: {brief.project_name}",
             )
 
-            # Notify linked conversations
-            await ProjectNotifier.notify_project_update(
-                context=context,
-                project_id=project_id,
-                update_type="brief",
-                message=f"Project brief updated: {brief.project_name}",
-            )
+            # Only notify if send_notification is True
+            if send_notification:
+                # Notify linked conversations
+                await ProjectNotifier.notify_project_update(
+                    context=context,
+                    project_id=project_id,
+                    update_type="brief",
+                    message=f"Project brief updated: {brief.project_name}",
+                )
 
             return True
 
@@ -586,15 +590,33 @@ class ProjectManager:
             return False
 
     @staticmethod
-    async def get_project_dashboard(
+    async def get_project_state(
         context: ConversationContext,
-    ) -> Optional[ProjectDashboard]:
-        """Gets the project dashboard for the current conversation's project."""
+    ) -> Optional[ProjectState]:
+        """Gets the project state for the current conversation's project."""
         project_id = await ProjectManager.get_project_id(context)
         if not project_id:
             return None
 
-        return ProjectStorage.read_project_dashboard(project_id)
+        # Get the project info which contains state information
+        project_info = ProjectStorage.read_project_info(project_id)
+        if not project_info:
+            return None
+
+        return project_info.state
+
+    @staticmethod
+    async def get_project_dashboard(
+        context: ConversationContext,
+    ) -> Optional[Any]:
+        """
+        DEPRECATED: This method is kept for backward compatibility.
+        Please use get_project_info instead.
+        """
+        import logging
+
+        logging.warning("DEPRECATED: get_project_dashboard is deprecated, use get_project_info instead")
+        return await ProjectManager.get_project_info(context)
 
     @staticmethod
     async def update_project_dashboard(
@@ -603,84 +625,67 @@ class ProjectManager:
         progress: Optional[int] = None,
         status_message: Optional[str] = None,
         next_actions: Optional[List[str]] = None,
-    ) -> Tuple[bool, Optional[ProjectDashboard]]:
+    ) -> Tuple[bool, Optional[Any]]:
         """
-        Updates the project dashboard.
+        DEPRECATED: This method is kept for backward compatibility.
+        Please use update_project_state instead.
+        """
+        import logging
+
+        logging.warning("DEPRECATED: update_project_dashboard is deprecated, use update_project_state instead")
+        return await ProjectManager.update_project_state(context, state, status_message)
+
+    @staticmethod
+    async def update_project_state(
+        context: ConversationContext,
+        state: Optional[str] = None,
+        status_message: Optional[str] = None,
+    ) -> Tuple[bool, Optional[ProjectInfo]]:
+        """
+        Updates the project state and status message.
 
         Args:
             context: Current conversation context
             state: Optional project state
-            progress: Optional progress percentage (0-100)
             status_message: Optional status message
-            next_actions: Optional list of next actions
 
         Returns:
-            Tuple of (success, project_dashboard)
+            Tuple of (success, project_info)
         """
         try:
             # Get project ID
             project_id = await ProjectManager.get_project_id(context)
             if not project_id:
-                logger.error("Cannot update dashboard: no project associated with this conversation")
+                logger.error("Cannot update project state: no project associated with this conversation")
                 return False, None
 
             # Get user information
-            current_user_id = await require_current_user(context, "update dashboard")
+            current_user_id = await require_current_user(context, "update project state")
             if not current_user_id:
                 return False, None
 
-            # Get existing dashboard or create new
-            dashboard = ProjectStorage.read_project_dashboard(project_id)
-            is_new = False
-
-            if not dashboard:
-                # Create new dashboard
-                dashboard = ProjectDashboard(
-                    created_by=current_user_id,
-                    updated_by=current_user_id,
-                    conversation_id=str(context.id),
-                    active_requests=[],
-                    next_actions=[],
-                )
-
-                # Copy goals from brief if available
-                brief = ProjectStorage.read_project_brief(project_id)
-                if brief:
-                    dashboard.goals = brief.goals
-
-                    # Calculate total criteria
-                    total_criteria = 0
-                    for goal in brief.goals:
-                        total_criteria += len(goal.success_criteria)
-
-                    dashboard.total_criteria = total_criteria
-
-                is_new = True
+            # Get existing project info
+            project_info = ProjectStorage.read_project_info(project_id)
+            if not project_info:
+                logger.error(f"Cannot update project state: no project info found for {project_id}")
+                return False, None
 
             # Apply updates
             if state:
-                dashboard.state = ProjectState(state)
-
-            if progress is not None:
-                dashboard.progress_percentage = min(max(progress, 0), 100)
+                project_info.state = ProjectState(state)
 
             if status_message:
-                dashboard.status_message = status_message
-
-            if next_actions:
-                dashboard.next_actions = next_actions
+                project_info.status_message = status_message
 
             # Update metadata
-            dashboard.updated_at = datetime.utcnow()
-            dashboard.updated_by = current_user_id
-            dashboard.version += 1
+            project_info.updated_at = datetime.utcnow()
 
-            # Save the dashboard
-            ProjectStorage.write_project_dashboard(project_id, dashboard)
+            # Save the project info
+            ProjectStorage.write_project_info(project_id, project_info)
 
             # Log the update
             event_type = LogEntryType.STATUS_CHANGED
-            message = "Created project dashboard" if is_new else "Updated project dashboard"
+            message = f"Updated project state to {project_info.state.value}"
 
             await ProjectStorage.log_project_event(
                 context=context,
@@ -688,8 +693,8 @@ class ProjectManager:
                 entry_type=event_type.value,
                 message=message,
                 metadata={
-                    "state": dashboard.state.value if dashboard.state else None,
-                    "progress": dashboard.progress_percentage,
+                    "state": project_info.state.value,
+                    "status_message": status_message,
                 },
             )
 
@@ -697,14 +702,14 @@ class ProjectManager:
             await ProjectNotifier.notify_project_update(
                 context=context,
                 project_id=project_id,
-                update_type="dashboard",
-                message=f"Project dashboard updated: {dashboard.state.value if dashboard.state else 'Unknown'}",
+                update_type="project_state",
+                message=f"Project state updated: {project_info.state.value}",
             )
 
-            return True, dashboard
+            return True, project_info
 
         except Exception as e:
-            logger.exception(f"Error updating project dashboard: {e}")
+            logger.exception(f"Error updating project state: {e}")
             return False, None
 
     @staticmethod
@@ -778,15 +783,8 @@ class ProjectManager:
                 },
             )
 
-            # Update project dashboard to add this request as a blocker if high priority
-            if priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]:
-                dashboard = ProjectStorage.read_project_dashboard(project_id)
-                if dashboard and information_request.request_id:
-                    dashboard.active_requests.append(information_request.request_id)
-                    dashboard.updated_at = datetime.utcnow()
-                    dashboard.updated_by = current_user_id
-                    dashboard.version += 1
-                    ProjectStorage.write_project_dashboard(project_id, dashboard)
+            # For high priority requests, we could update project info or add an indicator
+            # in the future if needed
 
             # Notify linked conversations
             await ProjectNotifier.notify_project_update(
@@ -986,14 +984,8 @@ class ProjectManager:
                 },
             )
 
-            # Update project dashboard if this was a blocker
-            dashboard = ProjectStorage.read_project_dashboard(project_id)
-            if dashboard and information_request.request_id in dashboard.active_requests:
-                dashboard.active_requests.remove(information_request.request_id)
-                dashboard.updated_at = datetime.utcnow()
-                dashboard.updated_by = current_user_id
-                dashboard.version += 1
-                ProjectStorage.write_project_dashboard(project_id, dashboard)
+            # High priority request has been resolved, could update project info
+            # in the future if needed
 
             # Notify linked conversations
             await ProjectNotifier.notify_project_update(
@@ -1386,16 +1378,16 @@ class ProjectManager:
     async def complete_project(
         context: ConversationContext,
         summary: Optional[str] = None,
-    ) -> Tuple[bool, Optional[ProjectDashboard]]:
+    ) -> Tuple[bool, Optional[ProjectInfo]]:
         """
-        Completes a project and updates the dashboard.
+        Completes a project and updates the project state.
 
         Args:
             context: Current conversation context
             summary: Optional summary of project results
 
         Returns:
-            Tuple of (success, project_dashboard)
+            Tuple of (success, project_info)
         """
         try:
             # Get project ID
@@ -1410,16 +1402,15 @@ class ProjectManager:
                 logger.error("Only Coordinator can complete a project")
                 return False, None
 
-            # Update project dashboard to completed
+            # Update project state to completed
             status_message = summary if summary else "Project completed successfully"
-            success, dashboard = await ProjectManager.update_project_dashboard(
+            success, project_info = await ProjectManager.update_project_state(
                 context=context,
                 state=ProjectState.COMPLETED.value,
-                progress=100,
                 status_message=status_message,
             )
 
-            if not success or not dashboard:
+            if not success or not project_info:
                 return False, None
 
             # Add completion entry to the log
@@ -1438,7 +1429,7 @@ class ProjectManager:
                 message=f"🎉 PROJECT COMPLETED: {status_message}",
             )
 
-            return True, dashboard
+            return True, project_info
 
         except Exception as e:
             logger.exception(f"Error completing project: {e}")

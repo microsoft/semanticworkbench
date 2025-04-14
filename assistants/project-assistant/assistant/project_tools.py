@@ -31,7 +31,7 @@ from .command_processor import (
 from .conversation_clients import ConversationClientManager
 from .project_data import (
     LogEntryType,
-    ProjectDashboard,
+    ProjectInfo,
     ProjectState,
     RequestPriority,
     RequestStatus,
@@ -772,37 +772,31 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             return "Could not identify current user."
 
         if not dashboard:
-            # Create new dashboard if not found
-            dashboard = ProjectDashboard(
-                created_by=current_user_id,
-                updated_by=current_user_id,
-                conversation_id=str(self.context.id),
-                goals=brief.goals,
+            # Create new project info if dashboard doesn't exist
+            project_info = ProjectInfo(
+                project_id=project_id,
+                project_name=brief.project_name if brief else "New Project",
+                coordinator_conversation_id=str(self.context.id),
+                state=ProjectState.PLANNING,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
             )
+            ProjectStorage.write_project_info(project_id, project_info)
+            
+            # Use project_info directly instead of dashboard
+            dashboard = project_info
 
-            # Calculate total criteria
-            total_criteria = 0
-            for goal in brief.goals:
-                total_criteria += len(goal.success_criteria)
-
-            dashboard.total_criteria = total_criteria
-
-        # Update dashboard to ready_for_working
-        dashboard.state = ProjectState.READY_FOR_WORKING
-        dashboard.status_message = "Project is now ready for team operations"
-
-        # Add lifecycle metadata
-        if not hasattr(dashboard, "lifecycle") or not dashboard.lifecycle:
-            dashboard.lifecycle = {}
-
-        dashboard.lifecycle["ready_for_working"] = True
-        dashboard.lifecycle["ready_for_working_time"] = datetime.utcnow().isoformat()
-        dashboard.lifecycle["ready_for_working_by"] = current_user_id
-
-        # Update metadata
-        dashboard.updated_at = datetime.utcnow()
-        dashboard.updated_by = current_user_id
-        dashboard.version += 1
+        # Update state to ready_for_working
+        if isinstance(dashboard, dict):
+            # Handle the dict case for backward compatibility
+            dashboard["state"] = ProjectState.READY_FOR_WORKING
+            dashboard["status_message"] = "Project is now ready for team operations"
+            dashboard["updated_at"] = datetime.utcnow()
+        else:
+            # Handle the ProjectInfo case
+            dashboard.state = ProjectState.READY_FOR_WORKING
+            dashboard.status_message = "Project is now ready for team operations"
+            dashboard.updated_at = datetime.utcnow()
 
         # Save the updated dashboard
         ProjectStorage.write_project_dashboard(project_id, dashboard)

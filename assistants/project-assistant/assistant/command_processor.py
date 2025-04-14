@@ -639,13 +639,15 @@ async def handle_create_brief_command(
         if not success:
             raise ValueError("Failed to create project")
 
-        # Create the project brief
-        success, briefing = await ProjectManager.create_project_brief(context, project_name, project_description)
+        # Create the project brief without sending a notification (we'll send our own)
+        success, briefing = await ProjectManager.create_project_brief(
+            context, project_name, project_description, send_notification=False
+        )
 
         if success and briefing:
             await context.send_messages(
                 NewConversationMessage(
-                    content=f"Project brief '{project_name}' created successfully. You can now add goals with `/add-goal` and share the project with your team.",
+                    content=f"Project brief '{project_name}' created successfully.",
                     message_type=MessageType.chat,
                 )
             )
@@ -904,8 +906,8 @@ async def handle_update_status_command(
                 progress = None
 
         # Update the project status
-        success, status_obj = await ProjectManager.update_project_dashboard(
-            context=context, state=status, progress=progress, status_message=status_message
+        success, status_obj = await ProjectManager.update_project_state(
+            context=context, state=status, status_message=status_message
         )
 
         if success and status_obj:
@@ -1127,25 +1129,16 @@ async def handle_project_info_command(
 
         # Get project status if requested
         if info_type in ["all", "status"]:
-            status = await ProjectManager.get_project_dashboard(context)
+            project_info = await ProjectManager.get_project_info(context)
 
-            if status:
+            if project_info:
                 output.append("\n## Project Dashboard\n")
-                output.append(f"**Current Status**: {status.state.value}")
+                output.append(f"**Current Status**: {project_info.state.value}")
 
-                if status.progress_percentage is not None:
-                    output.append(f"**Overall Progress**: {status.progress_percentage}%")
+                if project_info.status_message:
+                    output.append(f"**Status Message**: {project_info.status_message}")
 
-                if status.status_message:
-                    output.append(f"**Status Message**: {status.status_message}")
-
-                if status.completed_criteria > 0:
-                    output.append(f"**Success Criteria**: {status.completed_criteria}/{status.total_criteria} complete")
-
-                if status.next_actions:
-                    output.append("\n**Next Actions**:")
-                    for action in status.next_actions:
-                        output.append(f"- {action}")
+                # Success criteria status can be calculated from the brief if needed later
             elif info_type == "status":
                 output.append("\n## Project Dashboard\n")
                 output.append("*No project status defined yet. Update status with `/update-status`.*")

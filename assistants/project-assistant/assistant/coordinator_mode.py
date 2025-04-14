@@ -16,8 +16,8 @@ from .project_data import (
     InformationRequest,
     LogEntryType,
     ProjectBrief,
-    ProjectDashboard,
     ProjectGoal,
+    ProjectInfo,
     ProjectState,
     RequestStatus,
     SuccessCriterion,
@@ -283,15 +283,8 @@ class CoordinatorConversationHandler:
             },
         )
 
-        # Update project dashboard if this was a blocker
-        dashboard = await ProjectManager.get_project_dashboard(self.context)
-        if dashboard and request_id in dashboard.active_requests:
-            dashboard.active_requests.remove(request_id)
-            dashboard.updated_at = datetime.utcnow()
-            dashboard.updated_by = user_id
-            dashboard.version += 1
-
-            ProjectStorage.write_project_dashboard(project_id, dashboard)
+        # High priority request has been resolved, could update project info
+        # in the future if needed
 
         # Send notification
         await self.context.send_messages(
@@ -303,30 +296,30 @@ class CoordinatorConversationHandler:
 
         return True, f"Resolved information request: {request.title}", request
 
-    async def mark_project_ready_for_working(self) -> Tuple[bool, str, Optional[ProjectDashboard]]:
+    async def mark_project_ready_for_working(self) -> Tuple[bool, str, Optional[ProjectInfo]]:
         """
         Marks the project as ready for team operations.
 
         Returns:
-            Tuple of (success, message, updated_dashboard)
+            Tuple of (success, message, updated_project_info)
         """
         # Check role
         role = await ConversationProjectManager.get_conversation_role(self.context)
         if role != ProjectRole.COORDINATOR:
             return False, "Only Coordinator conversations can mark projects as ready for team work", None
 
-        # Get project ID and dashboard
+        # Get project ID and project info
         project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
-        dashboard = await ProjectManager.get_project_dashboard(self.context)
-        if not dashboard:
-            return False, "Project dashboard not found", None
+        project_info = await ProjectManager.get_project_info(self.context)
+        if not project_info:
+            return False, "Project information not found", None
 
-        # Update dashboard
-        dashboard.state = ProjectState.READY_FOR_WORKING
-        dashboard.updated_at = datetime.utcnow()
+        # Update project state
+        project_info.state = ProjectState.READY_FOR_WORKING
+        project_info.updated_at = datetime.utcnow()
 
         # Get user info
         participants = await self.context.get_participants()
@@ -339,11 +332,8 @@ class CoordinatorConversationHandler:
         if not user_id:
             user_id = "coordinator-system"
 
-        dashboard.updated_by = user_id
-        dashboard.version += 1
-
-        # Save updated dashboard
-        ProjectStorage.write_project_dashboard(project_id, dashboard)
+        # Save updated project info
+        ProjectStorage.write_project_info(project_id, project_info)
 
         # Log the milestone passage
         await self.log_action(
@@ -364,7 +354,7 @@ class CoordinatorConversationHandler:
             )
         )
 
-        return True, "Project marked as ready for team operations", dashboard
+        return True, "Project marked as ready for team operations", project_info
 
     async def get_project_info(self) -> Dict:
         """
@@ -383,7 +373,7 @@ class CoordinatorConversationHandler:
         role = await ConversationProjectManager.get_conversation_role(self.context)
 
         brief = await ProjectManager.get_project_brief(self.context)
-        dashboard = await ProjectManager.get_project_dashboard(self.context)
+        project_info = await ProjectManager.get_project_info(self.context)
 
         # Get information requests
         requests = await ProjectManager.get_information_requests(self.context)
@@ -402,8 +392,8 @@ class CoordinatorConversationHandler:
             "role": role.value if role else None,
             "project_name": brief.project_name if brief else "Unnamed Project",
             "project_description": brief.project_description if brief else "",
-            "status": dashboard.state.value if dashboard else "unknown",
-            "progress": dashboard.progress_percentage if dashboard else 0,
+            "status": project_info.state.value if project_info else "unknown",
+            "status_message": project_info.status_message if project_info and project_info.status_message else "",
             "open_requests": open_requests_count,
             "pending_invitations": pending_invitations if role == ProjectRole.COORDINATOR else [],
         }

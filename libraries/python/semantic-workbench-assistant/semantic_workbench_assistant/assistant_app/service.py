@@ -24,7 +24,10 @@ from ..assistant_service import FastAPIAssistantService
 from ..storage import read_model, write_model
 from .context import AssistantContext, ConversationContext
 from .error import BadRequestError, ConflictError, NotFoundError
-from .protocol import AssistantAppProtocol, WriteableAssistantConversationInspectorStateProvider
+from .protocol import (
+    AssistantAppProtocol,
+    WriteableAssistantConversationInspectorStateProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +164,9 @@ class AssistantService(FastAPIAssistantService):
             pass
         except ValidationError:
             logging.warning(
-                "invalid assistant states, returning new state; path: %s", self._assistant_states_path, exc_info=True
+                "invalid assistant states, returning new state; path: %s",
+                self._assistant_states_path,
+                exc_info=True,
             )
 
         return states or _PersistedAssistantStates()
@@ -183,7 +188,9 @@ class AssistantService(FastAPIAssistantService):
         if assistant_state is None:
             return None
         return self._build_assistant_context(
-            assistant_state.assistant_id, assistant_state.template_id, assistant_state.assistant_name
+            assistant_state.assistant_id,
+            assistant_state.template_id,
+            assistant_state.assistant_name,
         )
 
     def get_conversation_context(self, assistant_id: str, conversation_id: str) -> ConversationContext | None:
@@ -353,7 +360,7 @@ class AssistantService(FastAPIAssistantService):
             conversation_id=conversation_id,
             title=conversation.title,
         )
-        is_new = not from_export and conversation_id not in assistant_state.conversations
+        is_new = conversation_id not in assistant_state.conversations
 
         conversation_state.title = conversation.title
 
@@ -363,7 +370,7 @@ class AssistantService(FastAPIAssistantService):
         conversation_context = require_found(self.get_conversation_context(assistant_id, conversation_id))
 
         if is_new:
-            await self.assistant_app.events.conversation._on_created_handlers(True, conversation_context)
+            await self.assistant_app.events.conversation._on_created_handlers(not from_export, conversation_context)
         else:
             await self.assistant_app.events.conversation._on_updated_handlers(True, conversation_context)
 
@@ -447,7 +454,8 @@ class AssistantService(FastAPIAssistantService):
                 asgi_correlation_id.correlation_id.set(event.correlation_id)
 
                 conversation_context = self.get_conversation_context(
-                    assistant_id=assistant_id, conversation_id=str(event.conversation_id)
+                    assistant_id=assistant_id,
+                    conversation_id=str(event.conversation_id),
                 )
                 if conversation_context is None:
                     continue
@@ -459,7 +467,10 @@ class AssistantService(FastAPIAssistantService):
 
     @translate_assistant_errors
     async def post_conversation_event(
-        self, assistant_id: str, conversation_id: str, event: workbench_model.ConversationEvent
+        self,
+        assistant_id: str,
+        conversation_id: str,
+        event: workbench_model.ConversationEvent,
     ) -> None:
         """
         Receives events from semantic workbench and buffers them in a queue to avoid keeping
@@ -471,7 +482,9 @@ class AssistantService(FastAPIAssistantService):
         await queue.put(_Event(assistant_id=assistant_id, event=event))
 
     async def _forward_event(
-        self, conversation_context: ConversationContext, event: workbench_model.ConversationEvent
+        self,
+        conversation_context: ConversationContext,
+        event: workbench_model.ConversationEvent,
     ) -> None:
         updated_event = event
 
@@ -503,12 +516,18 @@ class AssistantService(FastAPIAssistantService):
                 async with asyncio.TaskGroup() as tg:
                     tg.create_task(
                         self.assistant_app.events.conversation.message._on_created_handlers(
-                            event_originated_externally, conversation_context, updated_event, message
+                            event_originated_externally,
+                            conversation_context,
+                            updated_event,
+                            message,
                         )
                     )
                     tg.create_task(
                         self.assistant_app.events.conversation.message[message.message_type]._on_created_handlers(
-                            event_originated_externally, conversation_context, updated_event, message
+                            event_originated_externally,
+                            conversation_context,
+                            updated_event,
+                            message,
                         )
                     )
 
@@ -524,12 +543,18 @@ class AssistantService(FastAPIAssistantService):
                 async with asyncio.TaskGroup() as tg:
                     tg.create_task(
                         self.assistant_app.events.conversation.message._on_deleted_handlers(
-                            event_originated_externally, conversation_context, updated_event, message
+                            event_originated_externally,
+                            conversation_context,
+                            updated_event,
+                            message,
                         )
                     )
                     tg.create_task(
                         self.assistant_app.events.conversation.message[message.message_type]._on_deleted_handlers(
-                            event_originated_externally, conversation_context, updated_event, message
+                            event_originated_externally,
+                            conversation_context,
+                            updated_event,
+                            message,
                         )
                     )
 
@@ -544,7 +569,10 @@ class AssistantService(FastAPIAssistantService):
 
                 event_originated_externally = participant.id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.participant._on_created_handlers(
-                    event_originated_externally, conversation_context, updated_event, participant
+                    event_originated_externally,
+                    conversation_context,
+                    updated_event,
+                    participant,
                 )
 
             case workbench_model.ConversationEventType.participant_updated:
@@ -558,7 +586,10 @@ class AssistantService(FastAPIAssistantService):
 
                 event_originated_externally = participant.id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.participant._on_updated_handlers(
-                    event_originated_externally, conversation_context, updated_event, participant
+                    event_originated_externally,
+                    conversation_context,
+                    updated_event,
+                    participant,
                 )
 
             case workbench_model.ConversationEventType.file_created:
@@ -570,7 +601,10 @@ class AssistantService(FastAPIAssistantService):
 
                 event_originated_externally = file.participant_id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.file._on_created_handlers(
-                    event_originated_externally, conversation_context, updated_event, file
+                    event_originated_externally,
+                    conversation_context,
+                    updated_event,
+                    file,
                 )
 
             case workbench_model.ConversationEventType.file_updated:
@@ -582,7 +616,10 @@ class AssistantService(FastAPIAssistantService):
 
                 event_originated_externally = file.participant_id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.file._on_updated_handlers(
-                    event_originated_externally, conversation_context, updated_event, file
+                    event_originated_externally,
+                    conversation_context,
+                    updated_event,
+                    file,
                 )
 
             case workbench_model.ConversationEventType.file_deleted:
@@ -594,7 +631,10 @@ class AssistantService(FastAPIAssistantService):
 
                 event_originated_externally = file.participant_id != conversation_context.assistant.id
                 await self.assistant_app.events.conversation.file._on_deleted_handlers(
-                    event_originated_externally, conversation_context, updated_event, file
+                    event_originated_externally,
+                    conversation_context,
+                    updated_event,
+                    file,
                 )
 
     @translate_assistant_errors

@@ -21,7 +21,6 @@ from .project_data import (
     LogEntry,
     LogEntryType,
     ProjectBrief,
-    ProjectDashboard,
     ProjectInfo,
     ProjectLog,
     ProjectWhiteboard,
@@ -65,7 +64,6 @@ class ProjectStorageManager:
     PROJECT_INFO_FILE = "project.json"
     PROJECT_BRIEF_FILE = "brief.json"
     PROJECT_LOG_FILE = "log.json"
-    PROJECT_DASHBOARD_FILE = "dashboard.json"
     PROJECT_WHITEBOARD_FILE = "whiteboard.json"
     COORDINATOR_CONVERSATION_FILE = "coordinator_conversation.json"
 
@@ -107,12 +105,6 @@ class ProjectStorageManager:
         """Gets the path to the project log file."""
         project_dir = ProjectStorageManager.get_project_dir(project_id)
         return project_dir / ProjectStorageManager.PROJECT_LOG_FILE
-
-    @staticmethod
-    def get_project_dashboard_path(project_id: str) -> pathlib.Path:
-        """Gets the path to the project dashboard file."""
-        project_dir = ProjectStorageManager.get_project_dir(project_id)
-        return project_dir / ProjectStorageManager.PROJECT_DASHBOARD_FILE
 
     @staticmethod
     def get_project_whiteboard_path(project_id: str) -> pathlib.Path:
@@ -207,17 +199,33 @@ class ProjectStorage:
         return path
 
     @staticmethod
-    def read_project_dashboard(project_id: str) -> Optional[ProjectDashboard]:
-        """Reads the project dashboard."""
-        path = ProjectStorageManager.get_project_dashboard_path(project_id)
-        return read_model(path, ProjectDashboard)
+    def read_project_dashboard(project_id: str) -> Optional[Any]:
+        """
+        DEPRECATED: This method is kept for backward compatibility.
+        Please use read_project_info instead.
+        """
+        import logging
+
+        logging.warning("DEPRECATED: read_project_dashboard is deprecated, use read_project_info instead")
+        return ProjectStorage.read_project_info(project_id)
 
     @staticmethod
-    def write_project_dashboard(project_id: str, dashboard: ProjectDashboard) -> pathlib.Path:
-        """Writes the project dashboard."""
-        path = ProjectStorageManager.get_project_dashboard_path(project_id)
-        write_model(path, dashboard)
-        return path
+    def write_project_dashboard(project_id: str, dashboard: Any) -> pathlib.Path:
+        """
+        DEPRECATED: This method is kept for backward compatibility.
+        Please use write_project_info instead.
+        """
+        import logging
+
+        logging.warning("DEPRECATED: write_project_dashboard is deprecated, use write_project_info instead")
+        info = ProjectStorage.read_project_info(project_id)
+        if info and hasattr(dashboard, "state"):
+            info.state = dashboard.state
+            info.updated_at = datetime.utcnow()
+            if hasattr(dashboard, "status_message") and dashboard.status_message:
+                info.status_message = dashboard.status_message
+            return ProjectStorage.write_project_info(project_id, info)
+        return pathlib.Path()
 
     @staticmethod
     def read_project_whiteboard(project_id: str) -> Optional[ProjectWhiteboard]:
@@ -349,17 +357,17 @@ class ProjectStorage:
         """
         Refreshes the UI inspector panels of all conversations in a project except the
         shareable team conversation template.
-        
+
         There are three types of conversations in the system:
         1. Coordinator Conversation - The main conversation for the project owner
         2. Shareable Team Conversation Template - Only used to generate the share URL, never directly used by any user
         3. Team Conversation(s) - Individual conversations for each team member
-        
+
         This sends a state event to all relevant conversations (Coordinator and all active team members)
         involved in the project to refresh their inspector panels, ensuring all
         participants have the latest information without sending any text notifications.
-        
-        The shareable team conversation template is excluded because no user will ever see it - 
+
+        The shareable team conversation template is excluded because no user will ever see it -
         it only exists to create the share URL that team members can use to join.
 
         Use this when project data has changed and all UIs need to be updated,
@@ -407,9 +415,11 @@ class ProjectStorage:
 
             for conv_id in linked_conversations:
                 # Skip current conversation, coordinator conversation, and shareable conversation
-                if (conv_id != current_id and 
-                    (not coordinator_conversation_id or conv_id != coordinator_conversation_id) and
-                    (not shareable_conversation_id or conv_id != shareable_conversation_id)):
+                if (
+                    conv_id != current_id
+                    and (not coordinator_conversation_id or conv_id != coordinator_conversation_id)
+                    and (not shareable_conversation_id or conv_id != shareable_conversation_id)
+                ):
                     try:
                         # Get client for the conversation
                         client = ConversationClientManager.get_conversation_client(context, conv_id)
@@ -419,7 +429,6 @@ class ProjectStorage:
                         # Get assistant ID from context
                         assistant_id = context.assistant.id
                         await client.send_conversation_state_event(assistant_id, state_event)
-                        logger.info(f"Sent state event to conversation {conv_id} to refresh inspector")
                     except Exception as e:
                         logger.warning(f"Error sending state event to conversation {conv_id}: {e}")
                         continue
@@ -504,12 +513,12 @@ class ProjectNotifier:
         Sends a notice message to all linked conversations except:
         1. The current conversation
         2. The shareable team conversation template (used only for creating the share URL)
-        
+
         NOTE: The shareable team conversation is NEVER used directly by any user.
         It's just a template that gets copied when team members redeem the share URL
         to create their own individual team conversations. We exclude it from notifications
         because no one will ever see those notifications.
-        
+
         This method does NOT refresh any UI inspector panels.
 
         Args:
@@ -524,9 +533,9 @@ class ProjectNotifier:
         # Get conversation IDs in the same project
         linked_conversations = await ConversationProjectManager.get_linked_conversations(context)
         current_conversation_id = str(context.id)
-        
+
         # Get the shareable team conversation ID from project info
-        # This is the conversation created by the coordinator for sharing, 
+        # This is the conversation created by the coordinator for sharing,
         # not an actual user conversation
         shareable_conversation_id = None
         project_info = ProjectStorage.read_project_info(project_id)
@@ -537,8 +546,9 @@ class ProjectNotifier:
         # Send notification to each linked conversation, excluding current and shareable conversation
         for conv_id in linked_conversations:
             # Skip current conversation and the shareable team conversation
-            if (conv_id != current_conversation_id and 
-                (not shareable_conversation_id or conv_id != shareable_conversation_id)):
+            if conv_id != current_conversation_id and (
+                not shareable_conversation_id or conv_id != shareable_conversation_id
+            ):
                 try:
                     # Get client for the target conversation
                     client = ConversationClientManager.get_conversation_client(context, conv_id)
