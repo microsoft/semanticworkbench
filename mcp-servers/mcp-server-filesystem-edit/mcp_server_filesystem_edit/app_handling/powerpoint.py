@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import re
 
 
@@ -24,7 +26,7 @@ def get_markdown_representation(document) -> str:
         layout_name = layout_types.get(layout_type, "title_and_content")  # Default if not recognized
 
         # Start slide tag
-        markdown_text.append(f'<slide num=<{slide_index}> layout="{layout_name}">')
+        markdown_text.append(f'<slide index="{slide_index}" layout="{layout_name}">')
 
         # Extract title if slide has one
         if slide.Shapes.HasTitle:
@@ -201,12 +203,12 @@ def write_markdown(document, markdown_text: str) -> None:
     Uses a structured format with <slide> tags to define slides.
 
     Format:
-    <slide num=<1> layout=<"title"|"section header"|"two content"|"title and content">
+    <slide index=1 layout=<"title"|"section header"|"two content"|"title and content">
     <title>Title text</title>
     <content>Markdown content</content>
     <content>Second Markdown content - use only if two content is chosen </content>
     </slide>
-    <slide num=<2> layout=<"title"|"section header"|"two content"|"title and content">
+    <slide index=2 layout=<"title"|"section header"|"two content"|"title and content">
     ...
     </slide>
     ...
@@ -233,12 +235,12 @@ def write_markdown(document, markdown_text: str) -> None:
         "section_header": 33,  # Section Header
     }
 
-    slide_pattern = re.compile(r'<slide\s+num=<\d+>\s+layout="([^"]+)">(.*?)</slide>', re.DOTALL)
+    slide_pattern = re.compile(r'<slide\s+index=(?:"?(\d+)"?)\s+layout="([^"]+)">(.*?)</slide>', re.DOTALL)
     title_pattern = re.compile(r"<title>(.*?)</title>", re.DOTALL)
     content_pattern = re.compile(r"<content>(.*?)</content>", re.DOTALL)
 
     slides = slide_pattern.findall(markdown_text)
-    for layout_name, slide_content in slides:
+    for _, layout_name, slide_content in slides:
         layout_name_typed = layout_name.lower()
         # Use default layout if not recognized
         if layout_name_typed not in layouts:

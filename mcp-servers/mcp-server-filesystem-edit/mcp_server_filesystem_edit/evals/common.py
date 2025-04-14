@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_test_cases(
-    test_case_type: Literal["writing", "comments"] | None = None,
+    test_case_type: Literal["writing", "comments", "presentation"] | None = None,
 ) -> list[CustomContext]:
     """
     Load test cases and convert them to CustomContext objects.

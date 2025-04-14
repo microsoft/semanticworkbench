@@ -29,3 +29,10 @@ test_cases:
     next_ask: "Can you give feedback on the doc? Include at least one piece of feedback about searching for recent similar games."
     attachments:
       - "ReDoodle.txt"
+  - test_case_name: Startup Idea Presentation 1
+    test_case_type: "presentation"
+    transcription_file: "transcript_Startup_Idea_2_202503031659.md"
+    next_ask: "Can you create a presentation I can share with the investors?"
+    attachments:
+      - "ReDoodle.txt"
+      - "Daily Game Ideas.txt"

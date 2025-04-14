@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 import sys
 from pathlib import Path
 
@@ -36,7 +38,7 @@ def markdown_roundtrip_helper(powerpoint_document, markdown_text: str) -> str:
 
 
 def test_title_and_content(powerpoint_document):
-    markdown_text = """<slide num=<3> layout="title_and_content">
+    markdown_text = """<slide index="3" layout="title_and_content">
 <title>Key Points</title>
 <content>
 ## Main Ideas
@@ -52,7 +54,7 @@ def test_title_and_content(powerpoint_document):
 
 
 def test_formatting(powerpoint_document):
-    markdown_text = """<slide num=<3> layout="title_and_content">
+    markdown_text = """<slide index="3" layout="title_and_content">
 <title>Key Points</title>
 <content>
 important point with **bold text** in the middle
@@ -62,7 +64,7 @@ important point with **bold text** in the middle
 
 
 def test_section_header(powerpoint_document):
-    markdown_text = """<slide num=<2> layout="section_header">
+    markdown_text = """<slide index="1" layout="section_header">
 <title>Agenda</title>
 <content>
 What we'll cover today
@@ -72,7 +74,7 @@ What we'll cover today
 
 
 def test_title(powerpoint_document):
-    markdown_text = """<slide num=<1> layout="title">
+    markdown_text = """<slide index="3" layout="title">
 <title>Presentation Title</title>
 <content>By **John** Smith</content>
 </slide>"""
@@ -80,19 +82,19 @@ def test_title(powerpoint_document):
 
 
 def test_basic_presentation_content(powerpoint_document):
-    markdown_text = """<slide num=<1> layout="title">
+    markdown_text = """<slide index="1" layout="title">
 <title>Presentation Title</title>
 <content>By John Smith</content>
 </slide>
 
-<slide num=<2> layout="section_header">
+<slide index="2" layout="section_header">
 <title>Agenda</title>
 <content>
 What we'll cover today
 </content>
 </slide>
 
-<slide num=<3> layout="title_and_content">
+<slide index="3" layout="title_and_content">
 <title>Key Points</title>
 <content>
 ## Main Ideas
@@ -106,7 +108,7 @@ What we'll cover today
 </content>
 </slide>
 
-<slide num=<4> layout="two_content">
+<slide index="4" layout="two_content">
 <title>Comparison</title>
 <content>
 ### Option A
