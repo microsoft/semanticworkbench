@@ -5,13 +5,13 @@ This module provides the core business logic for working with project data
 without relying on the artifact abstraction.
 """
 
-import logging
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .logging import logger
 from .project_data import (
     InformationRequest,
     LogEntry,
@@ -34,8 +34,6 @@ from .project_storage import (
     ProjectStorageManager,
 )
 from .utils import get_current_user, require_current_user
-
-logger = logging.getLogger(__name__)
 
 
 class ProjectManager:
@@ -206,7 +204,6 @@ class ProjectManager:
                 NewConversationShare,
             )
 
-            # Create the share with required parameters
             new_share = NewConversationShare(
                 conversation_id=conversation_id,
                 label=f"{project_name}",
