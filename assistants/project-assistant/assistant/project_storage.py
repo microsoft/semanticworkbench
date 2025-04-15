@@ -198,34 +198,6 @@ class ProjectStorage:
         write_model(path, log)
         return path
 
-    @staticmethod
-    def read_project_dashboard(project_id: str) -> Optional[Any]:
-        """
-        DEPRECATED: This method is kept for backward compatibility.
-        Please use read_project_info instead.
-        """
-        import logging
-
-        logging.warning("DEPRECATED: read_project_dashboard is deprecated, use read_project_info instead")
-        return ProjectStorage.read_project_info(project_id)
-
-    @staticmethod
-    def write_project_dashboard(project_id: str, dashboard: Any) -> pathlib.Path:
-        """
-        DEPRECATED: This method is kept for backward compatibility.
-        Please use write_project_info instead.
-        """
-        import logging
-
-        logging.warning("DEPRECATED: write_project_dashboard is deprecated, use write_project_info instead")
-        info = ProjectStorage.read_project_info(project_id)
-        if info and hasattr(dashboard, "state"):
-            info.state = dashboard.state
-            info.updated_at = datetime.utcnow()
-            if hasattr(dashboard, "status_message") and dashboard.status_message:
-                info.status_message = dashboard.status_message
-            return ProjectStorage.write_project_info(project_id, info)
-        return pathlib.Path()
 
     @staticmethod
     def read_project_whiteboard(project_id: str) -> Optional[ProjectWhiteboard]:
@@ -592,7 +564,7 @@ class ProjectNotifier:
         Args:
             context: Current conversation context
             project_id: ID of the project
-            update_type: Type of update (e.g., 'brief', 'dashboard', 'information_request', etc.)
+            update_type: Type of update (e.g., 'brief', 'status', 'information_request', etc.)
             message: Notification message to display to users
             data: Optional additional data related to the update
             send_notification: Whether to send notifications (default: True)

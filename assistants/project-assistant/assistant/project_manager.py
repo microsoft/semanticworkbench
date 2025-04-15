@@ -606,36 +606,6 @@ class ProjectManager:
         return project_info.state
 
     @staticmethod
-    async def get_project_dashboard(
-        context: ConversationContext,
-    ) -> Optional[Any]:
-        """
-        DEPRECATED: This method is kept for backward compatibility.
-        Please use get_project_info instead.
-        """
-        import logging
-
-        logging.warning("DEPRECATED: get_project_dashboard is deprecated, use get_project_info instead")
-        return await ProjectManager.get_project_info(context)
-
-    @staticmethod
-    async def update_project_dashboard(
-        context: ConversationContext,
-        state: Optional[str] = None,
-        progress: Optional[int] = None,
-        status_message: Optional[str] = None,
-        next_actions: Optional[List[str]] = None,
-    ) -> Tuple[bool, Optional[Any]]:
-        """
-        DEPRECATED: This method is kept for backward compatibility.
-        Please use update_project_state instead.
-        """
-        import logging
-
-        logging.warning("DEPRECATED: update_project_dashboard is deprecated, use update_project_state instead")
-        return await ProjectManager.update_project_state(context, state, status_message)
-
-    @staticmethod
     async def update_project_state(
         context: ConversationContext,
         state: Optional[str] = None,

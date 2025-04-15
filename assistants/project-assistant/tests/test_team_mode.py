@@ -175,7 +175,7 @@ class MockTeamConversationHandler:
 
         return True, f"Created information request: {title}", request
 
-    async def update_project_dashboard(self, progress_percentage, status_message=None):
+    async def update_project_status(self, progress_percentage, status_message=None):
         # Mock implementation
         dashboard = ProjectDashboard(
             state=ProjectState.IN_PROGRESS,
@@ -326,10 +326,10 @@ class TestTeamConversationHandler:
         team_handler.log_action.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_update_project_dashboard(self, team_handler, mock_context):
-        """Test updating the project dashboard."""
+    async def test_update_project_status(self, team_handler, mock_context):
+        """Test updating the project status."""
         # Call the method
-        success, message, dashboard = await team_handler.update_project_dashboard(50, "Making progress in the team")
+        success, message, dashboard = await team_handler.update_project_status(50, "Making progress in the team")
 
         # Assertions
         assert success is True
