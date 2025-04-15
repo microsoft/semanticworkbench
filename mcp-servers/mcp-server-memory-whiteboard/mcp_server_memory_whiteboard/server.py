@@ -141,12 +141,12 @@ async def read_whiteboard_state(
     """
     Read the whiteboard state from the storage.
     """
-    whiteboard_path = path_for_directory(session_config) / "latest.json"
+    whiteboard_path = path_for_directory(session_config) / "whiteboard.json"
     if timestamp:
         first_timestamp_after = ""
         first_timestamp_before = ""
         for file in path_for_directory(session_config).glob("*.json"):
-            if file.name == "latest.json":
+            if file.name == "whiteboard.json":
                 continue
 
             if file.name <= timestamp_to_filename(timestamp):
@@ -169,7 +169,7 @@ async def write_whiteboard_state(session_config: SessionConfig, state: Whiteboar
     """
     Write the whiteboard state to the storage.
     """
-    latest_path = path_for_directory(session_config) / "latest.json"
+    latest_path = path_for_directory(session_config) / "whiteboard.json"
     timestamp_path = path_for_directory(session_config) / timestamp_to_filename(state.timestamp)
     storage.write_model(file_path=latest_path, value=state)
     storage.write_model(file_path=timestamp_path, value=state)
