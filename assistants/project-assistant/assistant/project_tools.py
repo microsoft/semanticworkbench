@@ -103,76 +103,107 @@ class ProjectTools:
         self.context = context
         self.role = role
         self.tool_functions = ToolFunctions()
+        self.is_context_transfer = is_context_transfer_assistant(context)
 
-        # Register common tools for both roles
-        self.tool_functions.add_function(
-            self.get_project_info, "get_project_info", "Get information about the current project state"
-        )
-
-        # Register role-specific tools
+        # 1. Register tools common to all roles and templates
+        self.register_common_tools()
+        
+        # 2. Register role-specific tools
         if role == "coordinator":
-            # Coordinator-specific tools
-            self.tool_functions.add_function(
-                self.create_project_brief,
-                "create_project_brief",
-                "Create a project brief with a name and description",
-            )
-            self.tool_functions.add_function(
-                self.add_project_goal,
-                "add_project_goal",
-                "Add a goal to the project brief with optional success criteria",
-            )
-            # Whiteboard content is auto-updated
-            self.tool_functions.add_function(
-                self.resolve_information_request,
-                "resolve_information_request",
-                "Resolve an information request with information",
-            )
-            self.tool_functions.add_function(
-                self.mark_project_ready_for_working,
-                "mark_project_ready_for_working",
-                "Mark the project as ready for working",
-            )
+            self.register_coordinator_tools()
         else:
-            # Team-specific tools
-            self.tool_functions.add_function(
-                self.create_information_request,
-                "create_information_request",
-                "Create an information request for information or to report a blocker",
-            )
-            self.tool_functions.add_function(
-                self.update_project_status,
-                "update_project_status",
-                "Update the status and progress of the project",
-            )
-            self.tool_functions.add_function(
-                self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
-            )
-            self.tool_functions.add_function(
-                self.report_project_completion, "report_project_completion", "Report that the project is complete"
-            )
-            self.tool_functions.add_function(
-                self.delete_information_request,
-                "delete_information_request",
-                "Delete an information request that is no longer needed",
-            )
-            self.tool_functions.add_function(
-                self.detect_information_request_needs,
-                "detect_information_request_needs",
-                "Analyze user message to detect potential information request needs",
-            )
-            self.tool_functions.add_function(
-                self.view_coordinator_conversation,
-                "view_coordinator_conversation",
-                "View the Coordinator conversation messages to understand the project context and planning discussions",
-            )
+            self.register_team_tools()
 
-        # Common detection tool for both roles
+    def register_common_tools(self) -> None:
+        """Register tools that are common across all roles and templates."""
+        # Common tools for all roles and templates
+        self.tool_functions.add_function(
+            self.get_project_info, 
+            "get_project_info", 
+            "Get information about the current project state"
+        )
+        
         self.tool_functions.add_function(
             self.suggest_next_action,
             "suggest_next_action",
             "Suggest the next action the user should take based on project state",
         )
+        
+    def register_coordinator_tools(self) -> None:
+        """Register coordinator-specific tools based on current template."""
+        # Tools available to coordinator in all templates
+        self.tool_functions.add_function(
+            self.create_project_brief,
+            "create_project_brief",
+            "Create a project brief with a name and description",
+        )
+        
+        self.tool_functions.add_function(
+            self.resolve_information_request,
+            "resolve_information_request",
+            "Resolve an information request with information",
+        )
+        
+        # Progress-tracking tools only available in default template
+        if not self.is_context_transfer:
+            self.tool_functions.add_function(
+                self.add_project_goal,
+                "add_project_goal",
+                "Add a goal to the project brief with optional success criteria",
+            )
+            
+            self.tool_functions.add_function(
+                self.mark_project_ready_for_working,
+                "mark_project_ready_for_working",
+                "Mark the project as ready for working",
+            )
+            
+    def register_team_tools(self) -> None:
+        """Register team-specific tools based on current template."""
+        # Tools available to team in all templates
+        self.tool_functions.add_function(
+            self.create_information_request,
+            "create_information_request",
+            "Create an information request for information or to report a blocker",
+        )
+        
+        self.tool_functions.add_function(
+            self.delete_information_request,
+            "delete_information_request",
+            "Delete an information request that is no longer needed",
+        )
+        
+        self.tool_functions.add_function(
+            self.detect_information_request_needs,
+            "detect_information_request_needs",
+            "Analyze user message to detect potential information request needs",
+        )
+        
+        self.tool_functions.add_function(
+            self.view_coordinator_conversation,
+            "view_coordinator_conversation",
+            "View the Coordinator conversation messages to understand the project context and planning discussions",
+        )
+        
+        # Progress-tracking tools only available in default template
+        if not self.is_context_transfer:
+            self.tool_functions.add_function(
+                self.update_project_status,
+                "update_project_status",
+                "Update the status and progress of the project",
+            )
+            
+            self.tool_functions.add_function(
+                self.mark_criterion_completed, 
+                "mark_criterion_completed", 
+                "Mark a success criterion as completed"
+            )
+            
+            self.tool_functions.add_function(
+                self.report_project_completion, 
+                "report_project_completion", 
+                "Report that the project is complete"
+            )
 
     async def get_project_info(self, info_type: Literal["all", "brief", "whiteboard", "status", "requests"]) -> str:
         """
@@ -387,9 +418,6 @@ class ProjectTools:
         Returns:
             A message indicating success or failure
         """
-        # Check if using context transfer template
-        if is_context_transfer_assistant(self.context):
-            return "Goals and progress tracking are not available in Context Transfer mode."
 
         if self.role != "coordinator":
             return "Only Coordinator can add project goals."
@@ -543,9 +571,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        # Check if using context transfer template
-        if is_context_transfer_assistant(self.context):
-            return "Status tracking is not available in Context Transfer mode."
 
         if self.role != "team":
             return "Only Team members can update project status."
@@ -588,9 +613,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        # Check if using context transfer template
-        if is_context_transfer_assistant(self.context):
-            return "Goals and progress tracking are not available in Context Transfer mode."
 
         if self.role != "team":
             return "Only Team members can mark criteria as completed."
@@ -712,9 +734,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        # Check if using context transfer template
-        if is_context_transfer_assistant(self.context):
-            return "Project stages are not available in Context Transfer mode."
 
         if self.role != "coordinator":
             return "Only Coordinator can mark a project as ready for working."
@@ -819,9 +838,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        # Check if using context transfer template
-        if is_context_transfer_assistant(self.context):
-            return "Project completion tracking is not available in Context Transfer mode."
 
         if self.role != "team":
             return "Only Team members can report project completion."
@@ -1187,15 +1203,8 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         logger = logging.getLogger(__name__)
 
-        # Check if we're in context transfer mode based on template ID
-        is_context_transfer = False
-        try:
-            is_context_transfer = is_context_transfer_assistant(self.context)
-        except Exception as e:
-            logger.warning(f"Error determining context transfer mode: {e}")
-
         # Load appropriate detection prompt based on mode
-        if is_context_transfer:
+        if self.is_context_transfer:
             system_prompt = load_text_include("context_transfer_information_request_detection.txt")
         else:
             system_prompt = load_text_include("project_information_request_detection.txt")
@@ -1482,32 +1491,5 @@ async def get_project_tools(context: ConversationContext, role: str) -> ProjectT
     Returns:
         An instance of ProjectTools
     """
-    # Create the ProjectTools instance
-    project_tools = ProjectTools(context, role)
-
-    # Check if we're using the context transfer template
-    is_context_transfer = is_context_transfer_assistant(context)
-
-    # If using context transfer template, remove progress-related tools
-    if is_context_transfer:
-        # Get original tool functions
-        tool_functions = project_tools.tool_functions
-
-        # List of progress-related functions to remove
-        progress_functions = [
-            "add_project_goal",
-            "mark_criterion_completed",
-            "mark_project_ready_for_working",
-            "report_project_completion",
-            "update_project_status",
-        ]
-
-        # Remove progress-related functions
-        for func_name in progress_functions:
-            if func_name in tool_functions.function_map:
-                del tool_functions.function_map[func_name]
-
-        # Log the modifications for debugging
-        logger.info("Progress tracking disabled for context transfer template, removed progress tools")
-
-    return project_tools
+    # Create the ProjectTools instance with appropriate role and template-specific tools
+    return ProjectTools(context, role)
