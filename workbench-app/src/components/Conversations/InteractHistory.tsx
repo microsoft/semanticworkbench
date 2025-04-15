@@ -14,6 +14,7 @@ import { useConversationUtility } from '../../libs/useConversationUtility';
 import { Conversation } from '../../models/Conversation';
 import { ConversationMessage } from '../../models/ConversationMessage';
 import { ConversationParticipant } from '../../models/ConversationParticipant';
+import { useUpdateConversationParticipantMutation } from '../../services/workbench';
 import { MemoizedInteractMessage } from './Message/InteractMessage';
 import { MemoizedToolResultMessage } from './Message/ToolResultMessage';
 import { ParticipantStatus } from './ParticipantStatus';
@@ -63,12 +64,42 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
     const [scrollToIndex, setScrollToIndex] = React.useState<number>();
     const [items, setItems] = React.useState<React.ReactNode[]>([]);
     const [isAtBottom, setIsAtBottom] = React.useState<boolean>(true);
+    const [updateParticipantState] = useUpdateConversationParticipantMutation();
 
     // handler for when a message is read
     const handleOnRead = React.useCallback(
         // update the last read timestamp for the conversation
-        async (message: ConversationMessage) => await debouncedSetLastRead(conversation, message.timestamp),
+        async (message: ConversationMessage) => debouncedSetLastRead(conversation, message.timestamp),
         [debouncedSetLastRead, conversation],
+    );
+
+    const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    const debouncedUpdateViewingMessage = React.useCallback(
+        (conversationId: string, messageTimestamp: string) => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+            timeoutRef.current = setTimeout(
+                () =>
+                    updateParticipantState({
+                        conversationId,
+                        participantId: 'me',
+                        metadata: {
+                            viewing_message_timestamp: messageTimestamp,
+                        },
+                    })?.unwrap(),
+                300,
+            );
+        },
+        [updateParticipantState],
+    );
+
+    // handler for when a message is visible
+    const handleOnVisible = React.useCallback(
+        async (message: ConversationMessage) => {
+            debouncedUpdateViewingMessage(conversation.id, message.timestamp);
+        },
+        [conversation.id, debouncedUpdateViewingMessage],
     );
 
     // create a ref for the virtuoso component for using its methods directly
@@ -175,6 +206,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
                         hideParticipant={hideParticipant}
                         displayDate={displayDate}
                         onRead={handleOnRead}
+                        onVisible={handleOnVisible}
                         onRewind={onRewindToBefore}
                     />
                 );
@@ -217,6 +249,7 @@ export const InteractHistory: React.FC<InteractHistoryProps> = (props) => {
         isAtBottom,
         items.length,
         triggerAutoScroll,
+        handleOnVisible,
     ]);
 
     // render the history

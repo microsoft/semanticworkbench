@@ -92,11 +92,13 @@ interface InteractMessageProps {
     displayDate?: boolean;
     readOnly: boolean;
     onRead?: (message: ConversationMessage) => void;
+    onVisible?: (message: ConversationMessage) => void;
     onRewind?: (message: ConversationMessage, redo: boolean) => void;
 }
 
 export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
-    const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead, onRewind } = props;
+    const { conversation, message, participant, hideParticipant, displayDate, readOnly, onRead, onVisible, onRewind } =
+        props;
     const classes = useClasses();
     const { isMessageVisible, isMessageVisibleRef, isUnread } = useConversationUtility();
 
@@ -104,12 +106,16 @@ export const InteractMessage: React.FC<InteractMessageProps> = (props) => {
     const date = Utility.toFormattedDateString(message.timestamp, 'dddd, MMMM D');
 
     React.useEffect(() => {
-        // Check if the message is visible and unread. If so, trigger the onRead handler to mark it read.
-        // If the message is visible, mark it as read by invoking the onRead handler.
-        if (isMessageVisible && isUnread(conversation, message.timestamp)) {
-            onRead?.(message);
+        if (isMessageVisible) {
+            onVisible?.(message);
+
+            // Check if the message is visible and unread. If so, trigger the onRead handler to mark it read.
+            // If the message is visible, mark it as read by invoking the onRead handler.
+            if (isUnread(conversation, message.timestamp)) {
+                onRead?.(message);
+            }
         }
-    }, [isMessageVisible, isUnread, message.timestamp, onRead, conversation, message]);
+    }, [isMessageVisible, isUnread, message.timestamp, onRead, onVisible, conversation, message]);
 
     const header = hideParticipant ? null : (
         <MessageHeader
