@@ -1065,10 +1065,39 @@ async def respond_to_conversation(
     # Get the conversation history
     # For pagination, we'll retrieve messages in batches as needed
     history_messages: list[ChatCompletionMessageParam] = []
-    before_message_id = message.id
-
-    # Track token usage and overflow
+    
+    # Add the current message as the first message in history
+    # Since we need to include the triggering message in the LLM context
+    formatted_current_message = format_message(message)
+    if message.sender.participant_id == context.assistant.id:
+        current_chat_message: ChatCompletionMessageParam = {
+            "role": "assistant",
+            "content": formatted_current_message,
+        }
+    else:
+        current_chat_message: ChatCompletionMessageParam = {
+            "role": "user",
+            "content": formatted_current_message,
+        }
+    
+    # Add the current message to history but track tokens
+    current_message_tokens = openai_client.num_tokens_from_messages(
+        model=config.request_config.openai_model,
+        messages=[current_chat_message],
+    )
+    
+    # Only add if we have enough tokens
     token_overage = 0
+    if token_count + current_message_tokens < available_tokens:
+        history_messages.append(current_chat_message)
+        token_count += current_message_tokens
+        logger.debug(f"Added current message to history: {formatted_current_message[:100]}...")
+    else:
+        token_overage += current_message_tokens
+        logger.warning("Current message exceeds token limit and won't be included in context")
+    
+    # Now get previous messages, excluding the current one
+    before_message_id = message.id
 
     # We'll fetch messages in batches until we hit the token limit or run out of messages
     while True:
@@ -1495,7 +1524,30 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
                 if not content:
                     # Fallback if no final message was generated
+                    logger.warning("No content from assistant message in OpenAI completion response")
                     content = "I've processed your request, but couldn't generate a proper response."
+                    
+                # Log the result for debugging
+                if content:
+                    content_str = str(content)
+                    logger.debug(f"LLM response content: {content_str[:100]}..." if len(content_str) > 100 else content_str)
+                else:
+                    logger.debug("No content in LLM response")
+                
+                # Add debug information about message processing
+                deepmerge.always_merger.merge(
+                    llm_call_metadata,
+                    {
+                        f"{method_metadata_key}": {
+                            "message_processing": {
+                                "current_message_included": len(history_messages) > 0 and history_messages[0] == current_chat_message,
+                                "total_history_messages": len(history_messages),
+                                "token_count": token_count,
+                                "token_overage": token_overage
+                            }
+                        }
+                    }
+                )
 
             except (ImportError, AttributeError):
                 # Fallback to standard completions if tool calls aren't supported
@@ -1507,6 +1559,13 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                 # Get the content from the completion response
                 content = completion.choices[0].message.content
 
+                # Log the result for debugging
+                if content:
+                    content_str = str(content)
+                    logger.debug(f"LLM response content: {content_str[:100]}..." if len(content_str) > 100 else content_str)
+                else:
+                    logger.debug("No content in LLM response")
+
                 # Merge the completion response into the passed in metadata
                 deepmerge.always_merger.merge(
                     llm_call_metadata,
@@ -1514,6 +1573,12 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                         f"{method_metadata_key}": {
                             "request": completion_args,
                             "response": completion.model_dump() if completion else "[no response from openai]",
+                            "message_processing": {
+                                "current_message_included": len(history_messages) > 0 and history_messages[0] == current_chat_message,
+                                "total_history_messages": len(history_messages),
+                                "token_count": token_count,
+                                "token_overage": token_overage
+                            }
                         },
                     },
                 )
@@ -1533,6 +1598,12 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                             "messages": completion_messages,
                         },
                         "error": str(e),
+                        "message_processing": {
+                            "current_message_included": len(history_messages) > 0 and history_messages[0] == current_chat_message,
+                            "total_history_messages": len(history_messages),
+                            "token_count": token_count,
+                            "token_overage": token_overage
+                        }
                     },
                 },
             )
