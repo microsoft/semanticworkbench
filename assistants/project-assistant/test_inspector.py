@@ -7,7 +7,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 from assistant.chat import assistant
-from assistant.state_inspector import ProjectInspectorStateProvider
 from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 from semantic_workbench_assistant.assistant_app import ConversationContext
 

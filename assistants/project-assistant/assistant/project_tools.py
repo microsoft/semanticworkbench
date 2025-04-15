@@ -1168,7 +1168,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
     async def detect_information_request_needs(self, message: str) -> Dict[str, Any]:
         """
         Analyze a user message in context of recent chat history to detect potential information request needs.
-        Uses an LLM for sophisticated detection, with keyword fallback.
+        Uses an LLM for sophisticated detection.
 
         Args:
             message: The user message to analyze
@@ -1190,11 +1190,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Check if we're in context transfer mode
         is_context_transfer = False
         try:
-            if hasattr(self.context, "assistant") and self.context.assistant is not None:
-                # Use the shared config instance from chat.py that has the templates registered
+            if self.context.assistant is not None:
                 config = await assistant_config.get(self.context.assistant)
-                # In context transfer mode, track_progress is False
-                is_context_transfer = not getattr(config, "track_progress", True)
+                is_context_transfer = not config.track_progress
         except Exception as e:
             logger.warning(f"Error determining context transfer mode: {e}")
 
@@ -1207,7 +1205,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         try:
             # Check if we're in a test environment (Missing parts of context)
             if not hasattr(self.context, "assistant") or self.context.assistant is None:
-                return self._simple_keyword_detection(message)
+                return {
+                    "is_information_request": False,
+                    "reason": "Cannot detect information requests without proper context",
+                }
 
             # Create a simple client for this specific call
             # Note: Using a basic model to keep this detection lightweight
@@ -1215,8 +1216,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             config = await assistant_config.get(self.context.assistant)
 
             if not hasattr(config, "service_config"):
-                # Fallback to simple detection if service config not available
-                return self._simple_keyword_detection(message)
+                return {
+                    "is_information_request": False,
+                    "reason": "Service configuration not available for detection",
+                }
 
             # Get recent conversation history (up to 10 messages)
             chat_history = []
@@ -1272,114 +1275,28 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         return result
                     except json.JSONDecodeError:
                         logger.warning(f"Failed to parse JSON from LLM response: {response.choices[0].message.content}")
-                        return self._simple_keyword_detection(message)
+                        return {
+                            "is_information_request": False,
+                            "reason": "Failed to parse detection response",
+                            "confidence": 0.0,
+                        }
                 else:
                     logger.warning("Empty response from LLM for information request detection")
-                    return self._simple_keyword_detection(message)
+                    return {
+                        "is_information_request": False,
+                        "reason": "Empty detection response",
+                        "confidence": 0.0,
+                    }
 
         except Exception as e:
-            # Fallback to simple detection if LLM call fails
+            # Log failure but provide a structured response
             logger.exception(f"Error in LLM-based information request detection: {e}")
-            return self._simple_keyword_detection(message)
+            return {
+                "is_information_request": False,
+                "reason": f"Detection error: {str(e)}",
+                "confidence": 0.0,
+            }
 
-    def _simple_keyword_detection(self, message: str) -> Dict[str, Any]:
-        """
-        Simple fallback method for request detection using keyword matching.
-
-        Args:
-            message: The user message to analyze
-
-        Returns:
-            Dict with detection results
-        """
-        # Check if we're in context transfer mode (without using async)
-        is_context_transfer = False
-        try:
-            if hasattr(self, "context") and hasattr(self.context, "assistant") and self.context.assistant is not None:
-                # Check metadata directly if available
-                if hasattr(self.context, "get_conversation"):
-                    try:
-                        conversation = getattr(self.context, "conversation", None)
-                        if conversation and hasattr(conversation, "metadata"):
-                            metadata = conversation.metadata or {}
-                            assistant_mode = metadata.get("assistant_mode", "")
-                            # If we're in context_transfer mode, be more conservative
-                            if assistant_mode == "context_transfer":
-                                is_context_transfer = True
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
-        # Different indicators based on mode
-        if is_context_transfer:
-            # More strict indicators for context transfer mode - require clear indicators of missing information
-            request_indicators = [
-                "not in the context",
-                "additional information needed",
-                "can't find in the shared knowledge",
-                "missing from the context",
-                "need information that's not here",
-                "the context doesn't cover",
-                "knowledge gap",
-                "information gap",
-                "nothing provided about",
-                "no information about",
-                "not mentioned anywhere",
-                "critical information missing",
-            ]
-        else:
-            # Standard indicators for project mode
-            request_indicators = [
-                "need information",
-                "missing",
-                "don't know",
-                "unclear",
-                "need clarification",
-                "help me understand",
-                "confused about",
-                "what is",
-                "how do i",
-                "can you explain",
-                "request",
-                "blocked",
-                "problem",
-                "issue",
-                "question",
-                "uncertain",
-                "clarify",
-            ]
-
-        message_lower = message.lower()
-        matched_indicators = [indicator for indicator in request_indicators if indicator in message_lower]
-
-        if not matched_indicators:
-            return {"is_information_request": False, "reason": "No information request indicators found in message"}
-
-        # Guess a potential title and description based on the message
-        potential_title = ""
-        words = message.split()
-        if len(words) > 5:
-            # Use first 5-7 words as a potential title
-            potential_title = " ".join(words[: min(7, len(words))])
-            if not potential_title.endswith((".", "?", "!")):
-                potential_title += "..."
-
-        # Guess a priority based on urgency keywords
-        priority = "medium"
-        if any(word in message_lower for word in ["urgent", "critical", "asap", "immediately", "emergency"]):
-            priority = "high"
-        elif any(word in message_lower for word in ["whenever", "not urgent", "low priority"]):
-            priority = "low"
-
-        return {
-            "is_information_request": True,
-            "matched_indicators": matched_indicators,
-            "potential_title": potential_title,
-            "potential_description": message,
-            "suggested_priority": priority,
-            "confidence": 0.6,  # Medium confidence for keyword-based detection
-        }
 
     async def suggest_next_action(self) -> Dict[str, Any]:
         """
