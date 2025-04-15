@@ -1,10 +1,12 @@
 import json
 from hashlib import md5
 from typing import Awaitable, Callable
+from urllib.parse import quote
 
 from assistant_extensions.mcp import MCPServerConfig
 from mcp.types import TextResourceContents
 from pydantic import AnyUrl
+from semantic_workbench_api_model import workbench_model
 from semantic_workbench_assistant.assistant_app import (
     AssistantAppProtocol,
     AssistantConversationInspectorStateDataModel,
@@ -33,11 +35,37 @@ class WhiteboardInspector:
         self._display_name = display_name
         self._description = description
         self._server_config_provider = server_config_provider
+        self._viewing_message_timestamp = ""
 
         app.add_inspector_state_provider(
             state_id=self.state_id,
             provider=self,
         )
+
+        @app.events.conversation.participant.on_updated
+        async def participant_updated(
+            ctx: ConversationContext,
+            event: workbench_model.ConversationEvent,
+            participant: workbench_model.ConversationParticipant,
+        ) -> None:
+            if participant.role != workbench_model.ParticipantRole.user:
+                return
+
+            viewing_message_timestamp = participant.metadata.get("viewing_message_timestamp")
+            if not viewing_message_timestamp:
+                return
+
+            if viewing_message_timestamp == self._viewing_message_timestamp:
+                return
+
+            self._viewing_message_timestamp = viewing_message_timestamp
+            await ctx.send_conversation_state_event(
+                workbench_model.AssistantStateEvent(
+                    state_id=self.state_id,
+                    event="updated",
+                    state=None,
+                )
+            )
 
     @property
     def state_id(self) -> str:
@@ -59,7 +87,11 @@ class WhiteboardInspector:
             )
 
         async with whiteboard_mcp_session(context, server_config=server_config) as whiteboard_session:
-            result = await whiteboard_session.client_session.read_resource(AnyUrl("resource://memory/whiteboard"))
+            resource_url = AnyUrl("resource://memory/whiteboard")
+            if self._viewing_message_timestamp:
+                resource_url = AnyUrl(f"resource://memory/whiteboard/{quote(self._viewing_message_timestamp)}")
+
+            result = await whiteboard_session.client_session.read_resource(resource_url)
             if not result.contents:
                 return AssistantConversationInspectorStateDataModel(
                     data={"content": "Error: Whiteboard resource is empty."},

@@ -103,10 +103,7 @@ class TestProjectTools:
         team_tools = ProjectTools(context, "team")
 
         # Patch the is_context_transfer_assistant function to return False for tests
-        monkeypatch.setattr(
-            "assistant.utils.is_context_transfer_assistant",
-            lambda context: False
-        )
+        monkeypatch.setattr("assistant.utils.is_context_transfer_assistant", lambda context: False)
 
         # Mock the assistant_config.get to avoid config issues
         mock_config = MagicMock()
@@ -117,15 +114,13 @@ class TestProjectTools:
 
         # Replace with our mock
         import assistant.project_tools as project_tools_module
+
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
         monkeypatch.setattr(project_tools_module, "assistant_config", mock_assistant_config)
 
         # Mock text include to avoid file loading issues
-        monkeypatch.setattr(
-            "assistant.utils.load_text_include",
-            lambda filename: "This is a test prompt"
-        )
+        monkeypatch.setattr("assistant.utils.load_text_include", lambda filename: "This is a test prompt")
 
         # Mock the openai_client.create_client function to avoid LLM calls
         class MockAsyncContextManager:
@@ -141,27 +136,24 @@ class TestProjectTools:
                     "potential_title": "I need information about",
                     "potential_description": "I need information about how to proceed with this task.",
                     "suggested_priority": "medium",
-                    "confidence": 0.8
+                    "confidence": 0.8,
                 })
                 mock_choice.message = mock_message
                 mock_completion.choices = [mock_choice]
-                
+
                 # Set up the nested structure for the async mock
                 mock_chat = MagicMock()
                 mock_chat.completions = MagicMock()
                 mock_chat.completions.create = AsyncMock(return_value=mock_completion)
                 mock_client.chat = mock_chat
-                
+
                 return mock_client
 
             async def __aexit__(self, exc_type, exc_val, exc_tb):
                 pass
 
         # Patch the create_client function
-        monkeypatch.setattr(
-            "openai_client.create_client", 
-            lambda service_config, **kwargs: MockAsyncContextManager()
-        )
+        monkeypatch.setattr("openai_client.create_client", lambda service_config, **kwargs: MockAsyncContextManager())
 
         # Test with a message that contains information request indicators
         test_message = "I need information about how to proceed with this task."
@@ -169,7 +161,7 @@ class TestProjectTools:
 
         assert result["is_information_request"]
         assert "potential_title" in result
-        
+
         # Modify the mock to return a negative result for the second test
         class MockAsyncContextManagerNegative:
             async def __aenter__(self):
@@ -181,17 +173,17 @@ class TestProjectTools:
                 mock_message.content = json.dumps({
                     "is_information_request": False,
                     "reason": "No information request indicators found",
-                    "confidence": 0.9
+                    "confidence": 0.9,
                 })
                 mock_choice.message = mock_message
                 mock_completion.choices = [mock_choice]
-                
+
                 # Set up the nested structure for the async mock
                 mock_chat = MagicMock()
                 mock_chat.completions = MagicMock()
                 mock_chat.completions.create = AsyncMock(return_value=mock_completion)
                 mock_client.chat = mock_chat
-                
+
                 return mock_client
 
             async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -199,8 +191,7 @@ class TestProjectTools:
 
         # Update the patch for the second test
         monkeypatch.setattr(
-            "openai_client.create_client", 
-            lambda service_config, **kwargs: MockAsyncContextManagerNegative()
+            "openai_client.create_client", lambda service_config, **kwargs: MockAsyncContextManagerNegative()
         )
 
         # Test with a message that doesn't contain information request indicators

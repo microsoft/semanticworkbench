@@ -107,7 +107,7 @@ class ProjectTools:
 
         # 1. Register tools common to all roles and templates
         self.register_common_tools()
-        
+
         # 2. Register role-specific tools
         if role == "coordinator":
             self.register_coordinator_tools()
@@ -118,17 +118,15 @@ class ProjectTools:
         """Register tools that are common across all roles and templates."""
         # Common tools for all roles and templates
         self.tool_functions.add_function(
-            self.get_project_info, 
-            "get_project_info", 
-            "Get information about the current project state"
+            self.get_project_info, "get_project_info", "Get information about the current project state"
         )
-        
+
         self.tool_functions.add_function(
             self.suggest_next_action,
             "suggest_next_action",
             "Suggest the next action the user should take based on project state",
         )
-        
+
     def register_coordinator_tools(self) -> None:
         """Register coordinator-specific tools based on current template."""
         # Tools available to coordinator in all templates
@@ -137,13 +135,13 @@ class ProjectTools:
             "create_project_brief",
             "Create a project brief with a name and description",
         )
-        
+
         self.tool_functions.add_function(
             self.resolve_information_request,
             "resolve_information_request",
             "Resolve an information request with information",
         )
-        
+
         # Progress-tracking tools only available in default template
         if not self.is_context_transfer:
             self.tool_functions.add_function(
@@ -151,13 +149,13 @@ class ProjectTools:
                 "add_project_goal",
                 "Add a goal to the project brief with optional success criteria",
             )
-            
+
             self.tool_functions.add_function(
                 self.mark_project_ready_for_working,
                 "mark_project_ready_for_working",
                 "Mark the project as ready for working",
             )
-            
+
     def register_team_tools(self) -> None:
         """Register team-specific tools based on current template."""
         # Tools available to team in all templates
@@ -166,25 +164,25 @@ class ProjectTools:
             "create_information_request",
             "Create an information request for information or to report a blocker",
         )
-        
+
         self.tool_functions.add_function(
             self.delete_information_request,
             "delete_information_request",
             "Delete an information request that is no longer needed",
         )
-        
+
         self.tool_functions.add_function(
             self.detect_information_request_needs,
             "detect_information_request_needs",
             "Analyze user message to detect potential information request needs",
         )
-        
+
         self.tool_functions.add_function(
             self.view_coordinator_conversation,
             "view_coordinator_conversation",
             "View the Coordinator conversation messages to understand the project context and planning discussions",
         )
-        
+
         # Progress-tracking tools only available in default template
         if not self.is_context_transfer:
             self.tool_functions.add_function(
@@ -192,17 +190,13 @@ class ProjectTools:
                 "update_project_status",
                 "Update the status and progress of the project",
             )
-            
+
             self.tool_functions.add_function(
-                self.mark_criterion_completed, 
-                "mark_criterion_completed", 
-                "Mark a success criterion as completed"
+                self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
             )
-            
+
             self.tool_functions.add_function(
-                self.report_project_completion, 
-                "report_project_completion", 
-                "Report that the project is complete"
+                self.report_project_completion, "report_project_completion", "Report that the project is complete"
             )
 
     async def get_project_info(self, info_type: Literal["all", "brief", "whiteboard", "status", "requests"]) -> str:
@@ -1303,7 +1297,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 "reason": f"Detection error: {str(e)}",
                 "confidence": 0.0,
             }
-
 
     async def suggest_next_action(self) -> Dict[str, Any]:
         """
