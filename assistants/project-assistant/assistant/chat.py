@@ -693,7 +693,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
     # send a focus event to notify the assistant to focus on the artifacts
     await context.send_conversation_state_event(
         AssistantStateEvent(
-            state_id="project_dashboard",
+            state_id="project_status",
             event="focus",
             state=None,
         )
@@ -1230,7 +1230,7 @@ async def respond_to_conversation(
         "get_project_info",
         "create_information_request",
         "delete_information_request",
-        "update_project_dashboard",
+        "update_project_status",
         "mark_criterion_completed",
         "report_project_completion",
         "detect_information_request_needs",
@@ -1314,14 +1314,14 @@ async def respond_to_conversation(
                                     project_brief_text += "\n"
 
                         # Format project info
-                        project_dashboard_text = ""
+                        project_status_text = ""
                         if project_info:
-                            project_dashboard_text = f"""
+                            project_status_text = f"""
 ### PROJECT INFO
 **Current State:** {project_info.state.value}
 """
                             if project_info.status_message:
-                                project_dashboard_text += f"**Status Message:** {project_info.status_message}\n"
+                                project_status_text += f"**Status Message:** {project_info.status_message}\n"
 
                         # Format whiteboard content
                         whiteboard_text = ""
@@ -1342,7 +1342,7 @@ async def respond_to_conversation(
                         # Store the formatted data
                         project_data = {
                             "briefing": project_brief_text,
-                            "status": project_dashboard_text,
+                            "status": project_status_text,
                             "whiteboard": whiteboard_text,
                         }
 

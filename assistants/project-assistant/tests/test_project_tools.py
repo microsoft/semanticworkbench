@@ -41,7 +41,7 @@ class TestProjectTools:
 
         # Verify Team-specific functions are NOT registered
         assert "create_information_request" not in coordinator_tools.tool_functions.function_map
-        assert "update_project_dashboard" not in coordinator_tools.tool_functions.function_map
+        assert "update_project_status" not in coordinator_tools.tool_functions.function_map
         assert "mark_criterion_completed" not in coordinator_tools.tool_functions.function_map
         assert "report_project_completion" not in coordinator_tools.tool_functions.function_map
 
@@ -52,7 +52,7 @@ class TestProjectTools:
 
         # Verify Team-specific functions are registered
         assert "create_information_request" in team_tools.tool_functions.function_map
-        assert "update_project_dashboard" in team_tools.tool_functions.function_map
+        assert "update_project_status" in team_tools.tool_functions.function_map
         assert "mark_criterion_completed" in team_tools.tool_functions.function_map
         assert "report_project_completion" in team_tools.tool_functions.function_map
 
