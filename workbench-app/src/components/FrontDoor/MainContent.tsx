@@ -110,6 +110,21 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
         }
     }, [activeConversationId, siteUtility]);
 
+    const createConversationWithAssistant = React.useCallback(
+        async (
+            assistantInfo: { assistantId: string } | { name: string; assistantServiceId: string; templateId: string },
+        ) => {
+            setSubmitted(true);
+            try {
+                const { conversation } = await createConversation(assistantInfo);
+                navigateToConversation(conversation.id);
+            } finally {
+                setSubmitted(false);
+            }
+        },
+        [createConversation, navigateToConversation],
+    );
+
     const handleCreate = React.useCallback(async () => {
         if (submitted || !isValid || !assistantId) {
             return;
@@ -129,25 +144,9 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
         if (!assistantInfo) {
             return;
         }
-        setSubmitted(true);
 
-        try {
-            const { conversation } = await createConversation(assistantInfo);
-            navigateToConversation(conversation.id);
-        } finally {
-            // In case of error, allow user to retry
-            setSubmitted(false);
-        }
-    }, [
-        assistantId,
-        assistantServiceId,
-        createConversation,
-        isValid,
-        name,
-        navigateToConversation,
-        submitted,
-        templateId,
-    ]);
+        await createConversationWithAssistant(assistantInfo);
+    }, [assistantId, assistantServiceId, createConversationWithAssistant, isValid, name, submitted, templateId]);
 
     const handleImport = React.useCallback(
         (conversationIds: string[]) => {
@@ -159,17 +158,14 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
     );
 
     const handleQuickCreate = React.useCallback(
-        (assistant: Assistant | undefined) => {
-            if (!assistant) {
-                return () => {};
-            }
-            return () => {
-                setIsValid(true);
-                setAssistantId(assistant.id);
-                handleCreate();
+        (assistant: Assistant) => {
+            return async () => {
+                await createConversationWithAssistant({
+                    assistantId: assistant.id,
+                });
             };
         },
-        [handleCreate],
+        [createConversationWithAssistant],
     );
 
     const quickAssistantCreateButton = React.useCallback(
