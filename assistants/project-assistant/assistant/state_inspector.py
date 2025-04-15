@@ -16,6 +16,7 @@ from semantic_workbench_assistant.assistant_app import (
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .project_storage import ConversationProjectManager, ProjectRole
+from .utils import is_context_transfer_assistant
 
 logger = logging.getLogger(__name__)
 
@@ -55,19 +56,21 @@ class ProjectInspectorStateProvider:
         setup_complete = metadata.get("setup_complete", False)
         assistant_mode = metadata.get("assistant_mode", "setup")
 
+        # Determine if this is a context transfer assistant based on template_id
+        self.is_context_transfer = is_context_transfer_assistant(context)
+        
+        if self.is_context_transfer:
+            self.description = "Context transfer information including knowledge resources and shared content."
+            self.display_name = "Knowledge Context"
+        else:
+            self.description = "Current project information including brief, goals, and request status."
+            self.display_name = "Project Status"
+            
+        # We still need the track_progress value for some operations
         track_progress = True
         if self.config_provider:
             config = await self.config_provider.get(context.assistant)
             track_progress = config.track_progress
-
-            # Update description and display name based on template
-            self.is_context_transfer = not track_progress
-            if self.is_context_transfer:
-                self.description = "Context transfer information including knowledge resources and shared content."
-                self.display_name = "Knowledge Context"
-            else:
-                self.description = "Current project information including brief, goals, and request status."
-                self.display_name = "Project Status"
 
         # Double-check with project storage/manager state
         if not setup_complete:

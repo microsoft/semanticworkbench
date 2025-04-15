@@ -78,45 +78,21 @@ class TestProjectTools:
     @pytest.mark.asyncio
     async def test_get_project_tools(self, context, monkeypatch):
         """Test the get_project_tools factory function."""
-        # Mock the assistant_config.get method
-        mock_config = MagicMock()
-        mock_config.track_progress = True
-
-        async def mock_get_config(*args, **kwargs):
-            return mock_config
-
-        # Patch the assistant_config.get method directly since it's now imported at the top level
-        # Import the module where get_project_tools is defined to patch the assistant_config
-        import assistant.project_tools as project_tools_module
-
-        # Replace with our mock
-        mock_assistant_config = MagicMock()
-        mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
-        project_tools_module.assistant_config = mock_assistant_config
-
-        # Ensure we restore the original when the test is done
-        monkeypatch.setattr(project_tools_module, "assistant_config", mock_assistant_config)
-
+        # Test with default template
         # Test that get_project_tools returns a ProjectTools instance
         tools = await get_project_tools(context, "coordinator")
         assert isinstance(tools, ProjectTools)
         assert tools.role == "coordinator"
+        # Verify progress functions are present with default template
+        assert "add_project_goal" in tools.tool_functions.function_map
+        assert "mark_project_ready_for_working" in tools.tool_functions.function_map
 
-        # Test with track_progress set to False
-        mock_config.track_progress = False
+        # Now test with context transfer template by changing the template_id
+        context.assistant._template_id = "context_transfer"
         tools = await get_project_tools(context, "coordinator")
         assert isinstance(tools, ProjectTools)
         assert tools.role == "coordinator"
-        # Verify progress functions are removed
-        assert "add_project_goal" not in tools.tool_functions.function_map
-        assert "mark_criterion_completed" not in tools.tool_functions.function_map
-
-        # Test with track_progress set to False
-        mock_config.track_progress = False
-        tools = await get_project_tools(context, "coordinator")
-        assert isinstance(tools, ProjectTools)
-        assert tools.role == "coordinator"
-        # Verify progress functions are removed
+        # Verify progress functions are removed with context_transfer template
         assert "add_project_goal" not in tools.tool_functions.function_map
         assert "mark_criterion_completed" not in tools.tool_functions.function_map
 
@@ -125,6 +101,31 @@ class TestProjectTools:
         """Test the detect_information_request_needs function."""
         # Create the ProjectTools instance
         team_tools = ProjectTools(context, "team")
+
+        # Patch the is_context_transfer_assistant function to return False for tests
+        monkeypatch.setattr(
+            "assistant.utils.is_context_transfer_assistant",
+            lambda context: False
+        )
+
+        # Mock the assistant_config.get to avoid config issues
+        mock_config = MagicMock()
+        mock_config.service_config = MagicMock()
+
+        async def mock_get_config(*args, **kwargs):
+            return mock_config
+
+        # Replace with our mock
+        import assistant.project_tools as project_tools_module
+        mock_assistant_config = MagicMock()
+        mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
+        monkeypatch.setattr(project_tools_module, "assistant_config", mock_assistant_config)
+
+        # Mock text include to avoid file loading issues
+        monkeypatch.setattr(
+            "assistant.utils.load_text_include",
+            lambda filename: "This is a test prompt"
+        )
 
         # Mock the openai_client.create_client function to avoid LLM calls
         class MockAsyncContextManager:

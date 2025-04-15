@@ -44,7 +44,7 @@ from .project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
-from .utils import load_text_include
+from .utils import is_context_transfer_assistant, load_text_include
 
 logger = logging.getLogger(__name__)
 
@@ -387,9 +387,9 @@ class ProjectTools:
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
+        # Check if using context transfer template
+        if is_context_transfer_assistant(self.context):
+            return "Goals and progress tracking are not available in Context Transfer mode."
 
         if self.role != "coordinator":
             return "Only Coordinator can add project goals."
@@ -543,9 +543,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
+        # Check if using context transfer template
+        if is_context_transfer_assistant(self.context):
+            return "Status tracking is not available in Context Transfer mode."
 
         if self.role != "team":
             return "Only Team members can update project status."
@@ -588,9 +588,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
+        # Check if using context transfer template
+        if is_context_transfer_assistant(self.context):
+            return "Goals and progress tracking are not available in Context Transfer mode."
 
         if self.role != "team":
             return "Only Team members can mark criteria as completed."
@@ -712,9 +712,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
+        # Check if using context transfer template
+        if is_context_transfer_assistant(self.context):
+            return "Project stages are not available in Context Transfer mode."
 
         if self.role != "coordinator":
             return "Only Coordinator can mark a project as ready for working."
@@ -819,9 +819,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
+        # Check if using context transfer template
+        if is_context_transfer_assistant(self.context):
+            return "Project completion tracking is not available in Context Transfer mode."
 
         if self.role != "team":
             return "Only Team members can report project completion."
@@ -1187,12 +1187,10 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         logger = logging.getLogger(__name__)
 
-        # Check if we're in context transfer mode
+        # Check if we're in context transfer mode based on template ID
         is_context_transfer = False
         try:
-            if self.context.assistant is not None:
-                config = await assistant_config.get(self.context.assistant)
-                is_context_transfer = not config.track_progress
+            is_context_transfer = is_context_transfer_assistant(self.context)
         except Exception as e:
             logger.warning(f"Error determining context transfer mode: {e}")
 
@@ -1487,10 +1485,11 @@ async def get_project_tools(context: ConversationContext, role: str) -> ProjectT
     # Create the ProjectTools instance
     project_tools = ProjectTools(context, role)
 
-    config = await assistant_config.get(context.assistant)
+    # Check if we're using the context transfer template
+    is_context_transfer = is_context_transfer_assistant(context)
 
-    # If progress tracking is disabled, remove progress-related tools
-    if not config.track_progress:
+    # If using context transfer template, remove progress-related tools
+    if is_context_transfer:
         # Get original tool functions
         tool_functions = project_tools.tool_functions
 
@@ -1509,8 +1508,6 @@ async def get_project_tools(context: ConversationContext, role: str) -> ProjectT
                 del tool_functions.function_map[func_name]
 
         # Log the modifications for debugging
-        # Access the template_id using the correct property name (_template_id)
-        template_id = context.assistant._template_id
-        logger.info(f"Progress tracking disabled for template {template_id}, removed progress tools")
+        logger.info("Progress tracking disabled for context transfer template, removed progress tools")
 
     return project_tools
