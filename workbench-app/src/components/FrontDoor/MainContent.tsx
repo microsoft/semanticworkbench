@@ -284,7 +284,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                 </ul>
                             </>
                         )}
-                        {getAssistants('project-assistant.made-exploration', 'context_transfer') && (
+                        {/* {getAssistants('project-assistant.made-exploration', 'context_transfer') && (
                             <>
                                 <div className={classes.assistantHeader}>
                                     <Title3>Context Transfer Assistant</Title3>
@@ -351,7 +351,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                     </li>
                                 </ul>
                             </>
-                        )}
+                        )} */}
                         {getAssistants('codespace-assistant.made-exploration-team', 'default') && (
                             <>
                                 <div className={classes.assistantHeader}>
