@@ -136,3 +136,4 @@ uv run python -m pytest tests/test_file.py -v
 - Do not remove tests unless the functionality they test has also been removed. Never skip tests.
 - If you want to run python scripts, you MUST use `uv` from the project directory for them to be in the correct environment.
 - You have access to logs in a project's .data/logs directory. They have timestamps in the name, so the latests logs are sorted last.
+- Never make any git commits. The QA will do that after they review your code.
