@@ -1,16 +1,13 @@
-import tempfile
 from pathlib import Path
-from typing import Iterator
 
 import pytest
 
 
 @pytest.fixture
-def temporary_directory() -> Iterator[Path]:
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
-        temp_path.mkdir(exist_ok=True, parents=True)
-        yield temp_path
+def temporary_directory() -> Path:
+    path = Path(__file__).parents[1] / "temp" / "tests"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 @pytest.fixture

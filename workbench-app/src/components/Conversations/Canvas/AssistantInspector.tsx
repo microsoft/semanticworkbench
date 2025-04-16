@@ -150,9 +150,11 @@ export const AssistantInspector: React.FC<AssistantInspectorProps> = (props) => 
                     if (!state || isSubmitting || isReadOnly) return;
                     setIsSubmitting(true);
                     try {
+                        // Convert back the unicode line separators to <br> tags
+                        const processedContent = updatedContent.replace(/\u2028/g, '<br>');
                         const updatedState = {
                             ...state.data,
-                            markdown_content: updatedContent,
+                            markdown_content: processedContent,
                         };
                         setFormData(updatedState);
                         await updateConversationState({
