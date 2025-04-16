@@ -72,7 +72,7 @@ You must follow this format exactly when writing the content parameter so that s
     - ###: Use triple hash marks to create a third level header.
     - -: Use a hyphen to create a bullet point.
     - 1.: Use a number followed by a period to create a numbered list.
-- Slides must be short and concise. No more than 6 lines of text per slide.
+- Slides must be short and concise. No more than 8 lines of text per slide.
 
 Here is an example of the syntax of some sample slides. The content parameter should be one slide (including the <slide> tags).
 <slide index="1" layout="title">
@@ -116,7 +116,10 @@ What we'll cover today
 - ***Important note***
 </content>
 </slide>
-"""
+
+When inserting new slides, you must provide the EXACT index of the slide you want to insert after as the index attribute of the new slide.
+DO NOT provide an index like "3.1" or "3_new". Instead use the exact numeric index - it should be the same as the slide you are inserting after.
+For example, if you are inserting after slide 3, the slide to insert should ALSO have an index of 3 like `<slide index="3" layout=...`"""
 )
 
 PPT_EDIT_REASONING_USER_ATTACHMENTS_PROMPT = UserMessage(
