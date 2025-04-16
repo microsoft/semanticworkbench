@@ -25,7 +25,8 @@ const participantApi = workbenchApi.injectEndpoints({
                 method: 'PUT',
                 body: { status, active_participant: true, metadata },
             }),
-            invalidatesTags: ['Conversation'],
+            // This mutation should not invalidate the conversation query because it does not add or remove participants
+            invalidatesTags: [],
         }),
         removeConversationParticipant: builder.mutation<void, { conversationId: string; participantId: string }>({
             query: ({ conversationId, participantId }) => ({

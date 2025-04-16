@@ -670,7 +670,7 @@ async def detect_assistant_role(context: ConversationContext) -> str:
 
 
 # Handle the event triggered when the assistant is added to a conversation.
-@assistant.events.conversation.on_created
+@assistant.events.conversation.on_created_including_mine
 async def on_conversation_created(context: ConversationContext) -> None:
     """
     Handle the event triggered when the assistant is added to a conversation.
@@ -690,10 +690,52 @@ async def on_conversation_created(context: ConversationContext) -> None:
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
 
-    # Check if this is a team conversation created by a coordinator
-    if metadata.get("is_team_conversation", False) or metadata.get("is_team_workspace", False):
-        # This is already a team conversation
-        logger.info("This is a team conversation created by a coordinator")
+    # send a focus event to notify the assistant to focus on the artifacts
+    await context.send_conversation_state_event(
+        AssistantStateEvent(
+            state_id="project_status",
+            event="focus",
+            state=None,
+        )
+    )
+
+    # Define variables for each conversation type
+    is_shareable_template = False
+    is_team_from_redemption = False
+    is_coordinator = False
+
+    # Check if this conversation was imported from another (indicates it's from share redemption)
+    if conversation.imported_from_conversation_id:
+        # If it was imported AND has team metadata, it's a redeemed team conversation
+        if metadata.get("is_team_conversation", False) and metadata.get("project_id"):
+            is_team_from_redemption = True
+
+    # First check for an explicit share redemption
+    elif metadata.get("share_redemption", {}) and metadata.get("share_redemption", {}).get("conversation_share_id"):
+        share_redemption = metadata.get("share_redemption", {})
+        is_team_from_redemption = True
+        share_metadata = share_redemption.get("metadata", {})
+
+    # Check if this is a template conversation (original team conversation created by coordinator)
+    elif (
+        metadata.get("is_team_conversation", False)
+        and metadata.get("project_id")
+        and not conversation.imported_from_conversation_id
+    ):
+        # If it's a team conversation with project_id but NOT imported, it's the template
+        is_shareable_template = True
+
+    # Additional check for team conversations (from older versions without imported_from)
+    elif metadata.get("is_team_conversation", False) and metadata.get("project_id"):
+        is_team_from_redemption = True
+
+    # If none of the above match, it's a coordinator conversation
+    else:
+        is_coordinator = True
+
+    # Handle shareable template conversation - No welcome message
+    if is_shareable_template:
+        # This is a shareable template conversation, not an actual team conversation
         metadata["setup_complete"] = True
         metadata["assistant_mode"] = "team"
         metadata["project_role"] = "team"
@@ -704,7 +746,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
             # Set this conversation as a team member for the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
             await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
-            logger.info(f"Associated team conversation with project: {project_id}")
 
         # Update conversation metadata
         await context.send_conversation_state_event(
@@ -717,16 +758,18 @@ async def on_conversation_created(context: ConversationContext) -> None:
             AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
         )
 
-        # No need to send a welcome message for the shareable team conversation
-        # since no user will ever see it - it's just a template for creating
-        # team conversations when users redeem the share URL
+        # No welcome message for the shareable template
         return
 
-    # Check if this is a conversation created through a share URL (a team conversation)
-    share_redemption = metadata.get("share_redemption", {})
-    if share_redemption and share_redemption.get("conversation_share_id"):
-        share_metadata = share_redemption.get("metadata", {})
-        project_id = share_metadata.get("project_id")
+    # Handle team conversation from share redemption - Show team welcome message
+    if is_team_from_redemption:
+        # Get project ID from metadata or share metadata
+        project_id = metadata.get("project_id")
+
+        # If no project_id directly in metadata, try to get it from share_redemption
+        if not project_id and metadata.get("share_redemption"):
+            share_metadata = metadata.get("share_redemption", {}).get("metadata", {})
+            project_id = share_metadata.get("project_id")
 
         if project_id:
             # Set this conversation as a team member for the project
@@ -749,101 +792,107 @@ async def on_conversation_created(context: ConversationContext) -> None:
             )
 
             # Use team welcome message from config
-            config = await assistant_config.get(context.assistant)
-            welcome_message = config.team_config.welcome_message
+            try:
+                config = await assistant_config.get(context.assistant)
+                welcome_message = config.team_config.welcome_message
 
-            # Send welcome message
-            await context.send_messages(
-                NewConversationMessage(
-                    content=welcome_message,
-                    message_type=MessageType.chat,
-                    metadata={"generated_content": False},
+                # Send welcome message
+                await context.send_messages(
+                    NewConversationMessage(
+                        content=welcome_message,
+                        message_type=MessageType.chat,
+                        metadata={"generated_content": False},
+                    )
                 )
-            )
+            except Exception as e:
+                logger.error(f"Error sending team welcome message: {e}", exc_info=True)
             return
-
-    # This is a new conversation (not from a share and not a team conversation)
-    # Automatically create a new project and set up as coordinator
-    logger.info("Creating new project for coordinator conversation")
-
-    # Create a new project
-    success, project_id = await ProjectManager.create_project(context)
-
-    if success and project_id:
-        # Update conversation metadata
-        metadata["setup_complete"] = True
-        metadata["assistant_mode"] = "coordinator"
-        metadata["project_role"] = "coordinator"
-
-        await context.send_conversation_state_event(
-            AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
-        )
-        await context.send_conversation_state_event(
-            AssistantStateEvent(state_id="project_role", event="updated", state=None)
-        )
-        await context.send_conversation_state_event(
-            AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
-        )
-
-        # Create a default project brief with placeholder information
-        await ProjectManager.create_project_brief(
-            context=context,
-            project_name="New Project",
-            project_description="This project was automatically created. Please update the project brief with your project details.",
-        )
-
-        # Create a team conversation and share URL
-        (
-            success,
-            team_conversation_id,
-            share_url,
-        ) = await ProjectManager.create_team_conversation(
-            context=context, project_id=project_id, project_name="New Project"
-        )
-
-        if success and share_url:
-            # Store the team conversation information in the coordinator's metadata
-            # Using None for state as required by the type system
-            metadata["team_conversation_id"] = team_conversation_id
-            metadata["team_conversation_share_url"] = share_url
-
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="team_conversation_id", event="updated", state=None)
-            )
-
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="team_conversation_share_url", event="updated", state=None)
-            )
-
-            # Log the creation
-            logger.info(f"Created team conversation: {team_conversation_id} with share URL: {share_url}")
-
-            # Use coordinator welcome message from config with the share URL
-            config = await assistant_config.get(context.assistant)
-            welcome_message = config.coordinator_config.welcome_message.format(share_url=share_url)
         else:
-            # Even if share URL creation failed, still use the welcome message
-            # but it won't have a working share URL
-            config = await assistant_config.get(context.assistant)
-            welcome_message = config.coordinator_config.welcome_message.format(share_url="<Share URL generation failed>")
-    else:
-        # Failed to create project - use fallback mode
-        metadata["setup_complete"] = False
-        metadata["assistant_mode"] = "setup"
+            logger.debug("Team conversation missing project_id in share metadata")
 
-        # Use a simple fallback welcome message
-        welcome_message = """# Welcome to the Project Assistant
+    # Handle coordinator conversation - Show coordinator welcome message
+    if is_coordinator:
+        # Create a new project
+        success, project_id = await ProjectManager.create_project(context)
+
+        if success and project_id:
+            # Update conversation metadata
+            metadata["setup_complete"] = True
+            metadata["assistant_mode"] = "coordinator"
+            metadata["project_role"] = "coordinator"
+
+            await context.send_conversation_state_event(
+                AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
+            )
+            await context.send_conversation_state_event(
+                AssistantStateEvent(state_id="project_role", event="updated", state=None)
+            )
+            await context.send_conversation_state_event(
+                AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
+            )
+
+            # Create a default project brief with placeholder information
+            await ProjectManager.create_project_brief(
+                context=context,
+                project_name="New Project",
+                project_description="This project was automatically created. Please update the project brief with your project details.",
+            )
+
+            # Create a team conversation and share URL
+            (
+                success,
+                team_conversation_id,
+                share_url,
+            ) = await ProjectManager.create_team_conversation(
+                context=context, project_id=project_id, project_name="Shared assistant"
+            )
+
+            if success and share_url:
+                # Store the team conversation information in the coordinator's metadata
+                # Using None for state as required by the type system
+                metadata["team_conversation_id"] = team_conversation_id
+                metadata["team_conversation_share_url"] = share_url
+
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(state_id="team_conversation_id", event="updated", state=None)
+                )
+
+                await context.send_conversation_state_event(
+                    AssistantStateEvent(
+                        state_id="team_conversation_share_url",
+                        event="updated",
+                        state=None,
+                    )
+                )
+
+                # Use coordinator welcome message from config with the share URL
+                config = await assistant_config.get(context.assistant)
+                welcome_message = config.coordinator_config.welcome_message.format(share_url=share_url)
+            else:
+                # Even if share URL creation failed, still use the welcome message
+                # but it won't have a working share URL
+                config = await assistant_config.get(context.assistant)
+                welcome_message = config.coordinator_config.welcome_message.format(
+                    share_url="<Share URL generation failed>"
+                )
+        else:
+            # Failed to create project - use fallback mode
+            metadata["setup_complete"] = False
+            metadata["assistant_mode"] = "setup"
+
+            # Use a simple fallback welcome message
+            welcome_message = """# Welcome to the Project Assistant
 
 I'm having trouble setting up your project. Please try again or contact support if the issue persists."""
 
-    # Send the welcome message
-    await context.send_messages(
-        NewConversationMessage(
-            content=welcome_message,
-            message_type=MessageType.chat,
-            metadata={"generated_content": False},
+        # Send the welcome message
+        await context.send_messages(
+            NewConversationMessage(
+                content=welcome_message,
+                message_type=MessageType.chat,
+                metadata={"generated_content": False},
+            )
         )
-    )
 
 
 # Handle the event triggered when a participant joins a conversation
@@ -860,8 +909,6 @@ async def on_participant_joined(
     and automatically synchronize project files.
     """
     try:
-        logger.info(f"Participant joined event: {participant.id} ({participant.name})")
-
         # Skip the assistant's own join event
         if participant.id == context.assistant.id:
             logger.debug("Skipping assistant's own join event")
@@ -1018,10 +1065,39 @@ async def respond_to_conversation(
     # Get the conversation history
     # For pagination, we'll retrieve messages in batches as needed
     history_messages: list[ChatCompletionMessageParam] = []
-    before_message_id = message.id
 
-    # Track token usage and overflow
+    # Add the current message as the first message in history
+    # Since we need to include the triggering message in the LLM context
+    formatted_current_message = format_message(message)
+    if message.sender.participant_id == context.assistant.id:
+        current_chat_message: ChatCompletionMessageParam = {
+            "role": "assistant",
+            "content": formatted_current_message,
+        }
+    else:
+        current_chat_message: ChatCompletionMessageParam = {
+            "role": "user",
+            "content": formatted_current_message,
+        }
+
+    # Add the current message to history but track tokens
+    current_message_tokens = openai_client.num_tokens_from_messages(
+        model=config.request_config.openai_model,
+        messages=[current_chat_message],
+    )
+
+    # Only add if we have enough tokens
     token_overage = 0
+    if token_count + current_message_tokens < available_tokens:
+        history_messages.append(current_chat_message)
+        token_count += current_message_tokens
+        logger.debug(f"Added current message to history: {formatted_current_message[:100]}...")
+    else:
+        token_overage += current_message_tokens
+        logger.warning("Current message exceeds token limit and won't be included in context")
+
+    # Now get previous messages, excluding the current one
+    before_message_id = message.id
 
     # We'll fetch messages in batches until we hit the token limit or run out of messages
     while True:
@@ -1047,7 +1123,10 @@ async def respond_to_conversation(
             formatted_message = format_message(msg)
 
             # Create the message parameter based on sender with proper typing
-            from openai.types.chat import ChatCompletionAssistantMessageParam, ChatCompletionUserMessageParam
+            from openai.types.chat import (
+                ChatCompletionAssistantMessageParam,
+                ChatCompletionUserMessageParam,
+            )
 
             if msg.sender.participant_id == context.assistant.id:
                 chat_message: ChatCompletionMessageParam = ChatCompletionAssistantMessageParam(
@@ -1180,7 +1259,7 @@ async def respond_to_conversation(
         "get_project_info",
         "create_information_request",
         "delete_information_request",
-        "update_project_dashboard",
+        "update_project_status",
         "mark_criterion_completed",
         "report_project_completion",
         "detect_information_request_needs",
@@ -1196,6 +1275,7 @@ async def respond_to_conversation(
 
     # Generate a response from the AI model with tools
     async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
+        llm_call_metadata = {}
         try:
             # Create a completion dictionary for tool call handling
             completion_args = {
@@ -1231,48 +1311,46 @@ async def respond_to_conversation(
                     if project_id:
                         # Get comprehensive project data for prompt
                         briefing = ProjectStorage.read_project_brief(project_id)
-                        status = ProjectStorage.read_project_dashboard(project_id)
+                        project_info = ProjectStorage.read_project_info(project_id)
                         whiteboard = ProjectStorage.read_project_whiteboard(project_id)
                         all_requests = ProjectStorage.get_all_information_requests(project_id)
 
                         # Format project brief
                         project_brief_text = ""
                         if briefing:
+                            # Basic project brief without goals
                             project_brief_text = f"""
 ### PROJECT BRIEF
 **Name:** {briefing.project_name}
 **Description:** {briefing.project_description}
-
+"""
+                            # Only include goals and progress tracking if track_progress is enabled
+                            if config.track_progress and briefing.goals:
+                                project_brief_text += """
 #### PROJECT GOALS:
 """
-                            for i, goal in enumerate(briefing.goals):
-                                # Count completed criteria
-                                completed = sum(1 for c in goal.success_criteria if c.completed)
-                                total = len(goal.success_criteria)
+                                for i, goal in enumerate(briefing.goals):
+                                    # Count completed criteria
+                                    completed = sum(1 for c in goal.success_criteria if c.completed)
+                                    total = len(goal.success_criteria)
 
-                                project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-                                if goal.success_criteria:
-                                    project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
-                                    for j, criterion in enumerate(goal.success_criteria):
-                                        check = "✅" if criterion.completed else "⬜"
-                                        project_brief_text += f"   {check} {criterion.description}\n"
-                                project_brief_text += "\n"
+                                    project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
+                                    if goal.success_criteria:
+                                        project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
+                                        for j, criterion in enumerate(goal.success_criteria):
+                                            check = "✅" if criterion.completed else "⬜"
+                                            project_brief_text += f"   {check} {criterion.description}\n"
+                                    project_brief_text += "\n"
 
-                        # Format project dashboard
-                        project_dashboard_text = ""
-                        if status:
-                            project_dashboard_text = f"""
-### PROJECT DASHBOARD
-**Current State:** {status.state.value}
+                        # Format project info
+                        project_status_text = ""
+                        if project_info:
+                            project_status_text = f"""
+### PROJECT INFO
+**Current State:** {project_info.state.value}
 """
-                            if status.progress_percentage is not None:
-                                project_dashboard_text += f"**Overall Progress:** {status.progress_percentage}%\n"
-                            if status.status_message:
-                                project_dashboard_text += f"**Status Message:** {status.status_message}\n"
-                            if status.next_actions:
-                                project_dashboard_text += "\n**Next Actions:**\n"
-                                for action in status.next_actions:
-                                    project_dashboard_text += f"- {action}\n"
+                            if project_info.status_message:
+                                project_status_text += f"**Status Message:** {project_info.status_message}\n"
 
                         # Format whiteboard content
                         whiteboard_text = ""
@@ -1293,7 +1371,7 @@ async def respond_to_conversation(
                         # Store the formatted data
                         project_data = {
                             "briefing": project_brief_text,
-                            "status": project_dashboard_text,
+                            "status": project_status_text,
                             "whiteboard": whiteboard_text,
                         }
 
@@ -1416,7 +1494,6 @@ As a TEAM member, you can use these tools: {available_tools_str}
 When working with information requests:
 1. Use the `create_information_request` tool to send requests for information to the Coordinator
 2. Use the `delete_information_request` tool if you need to remove a request you created
-3. Always note request IDs when creating requests - you'll need them for deletion
 
 If you need information from the Coordinator, first try viewing recent Coordinator messages with the `view_coordinator_conversation` tool.
 {project_data_text}
@@ -1436,7 +1513,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                     async_client=client,
                     completion_args=completion_args,
                     tool_functions=project_tools.tool_functions,
-                    metadata=metadata,
+                    metadata=llm_call_metadata,
                 )
 
                 # Get the final assistant message content
@@ -1447,20 +1524,30 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
                 if not content:
                     # Fallback if no final message was generated
+                    logger.warning("No content from assistant message in OpenAI completion response")
                     content = "I've processed your request, but couldn't generate a proper response."
 
-                # Add tool call message exchange to metadata for debugging
+                # Log the result for debugging
+                if content:
+                    content_str = str(content)
+                    logger.debug(
+                        f"LLM response content: {content_str[:100]}..." if len(content_str) > 100 else content_str
+                    )
+                else:
+                    logger.debug("No content in LLM response")
+
+                # Add debug information about message processing
                 deepmerge.always_merger.merge(
-                    metadata,
+                    llm_call_metadata,
                     {
-                        "debug": {
-                            f"{method_metadata_key}": {
-                                "request": completion_args,
-                                "tool_messages": str(tool_messages),
-                                "response": tool_completion.model_dump()
-                                if tool_completion
-                                else "[no response from openai]",
-                            },
+                        f"{method_metadata_key}": {
+                            "message_processing": {
+                                "current_message_included": len(history_messages) > 0
+                                and history_messages[0] == current_chat_message,
+                                "total_history_messages": len(history_messages),
+                                "token_count": token_count,
+                                "token_overage": token_overage,
+                            }
                         }
                     },
                 )
@@ -1475,16 +1562,30 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                 # Get the content from the completion response
                 content = completion.choices[0].message.content
 
+                # Log the result for debugging
+                if content:
+                    content_str = str(content)
+                    logger.debug(
+                        f"LLM response content: {content_str[:100]}..." if len(content_str) > 100 else content_str
+                    )
+                else:
+                    logger.debug("No content in LLM response")
+
                 # Merge the completion response into the passed in metadata
                 deepmerge.always_merger.merge(
-                    metadata,
+                    llm_call_metadata,
                     {
-                        "debug": {
-                            f"{method_metadata_key}": {
-                                "request": completion_args,
-                                "response": completion.model_dump() if completion else "[no response from openai]",
+                        f"{method_metadata_key}": {
+                            "request": completion_args,
+                            "response": completion.model_dump() if completion else "[no response from openai]",
+                            "message_processing": {
+                                "current_message_included": len(history_messages) > 0
+                                and history_messages[0] == current_chat_message,
+                                "total_history_messages": len(history_messages),
+                                "token_count": token_count,
+                                "token_overage": token_overage,
                             },
-                        }
+                        },
                     },
                 )
 
@@ -1495,17 +1596,22 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
             # merge the error into the passed in metadata
             deepmerge.always_merger.merge(
-                metadata,
+                llm_call_metadata,
                 {
-                    "debug": {
-                        f"{method_metadata_key}": {
-                            "request": {
-                                "model": config.request_config.openai_model,
-                                "messages": completion_messages,
-                            },
-                            "error": str(e),
+                    f"{method_metadata_key}": {
+                        "request": {
+                            "model": config.request_config.openai_model,
+                            "messages": completion_messages,
                         },
-                    }
+                        "error": str(e),
+                        "message_processing": {
+                            "current_message_included": len(history_messages) > 0
+                            and history_messages[0] == current_chat_message,
+                            "total_history_messages": len(history_messages),
+                            "token_count": token_count,
+                            "token_overage": token_overage,
+                        },
+                    },
                 },
             )
 
@@ -1527,14 +1633,11 @@ If you need information from the Coordinator, first try viewing recent Coordinat
             if config.enable_debug_output:
                 # update the metadata to indicate the assistant chose to remain silent
                 deepmerge.always_merger.merge(
-                    metadata,
+                    llm_call_metadata,
                     {
-                        "debug": {
-                            f"{method_metadata_key}": {
-                                "silence_token": True,
-                            },
+                        f"{method_metadata_key}": {
+                            "silence_token": True,
                         },
-                        "attribution": "debug output",
                         "generated_content": False,
                     },
                 )
@@ -1543,7 +1646,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                     NewConversationMessage(
                         message_type=MessageType.notice,
                         content="[assistant chose to remain silent]",
-                        metadata=metadata,
+                        metadata={"debug": llm_call_metadata},
                     )
                 )
             return
@@ -1557,7 +1660,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
         NewConversationMessage(
             content=str(content) if content is not None else "[no response from openai]",
             message_type=message_type,
-            metadata=metadata,
+            metadata={"debug": llm_call_metadata},
         )
     )
 

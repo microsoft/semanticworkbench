@@ -15,7 +15,7 @@ from .project_common import log_project_action
 from .project_data import (
     InformationRequest,
     LogEntryType,
-    ProjectDashboard,
+    ProjectInfo,
     ProjectState,
     RequestPriority,
     RequestStatus,
@@ -192,15 +192,8 @@ class TeamConversationHandler:
             related_entity_id=request.request_id,
         )
 
-        # Update project dashboard to include this request as a potential blocker
-        dashboard = await ProjectManager.get_project_dashboard(self.context)
-        if dashboard and priority in [RequestPriority.HIGH, RequestPriority.CRITICAL] and request.request_id:
-            dashboard.active_requests.append(request.request_id)
-            dashboard.updated_at = datetime.utcnow()
-            dashboard.updated_by = user_id
-            dashboard.version += 1
-
-            ProjectStorage.write_project_dashboard(project_id, dashboard)
+        # For high priority requests, we could update project state or add an indicator
+        # in the future if needed
 
         # Send notification
         await self.context.send_messages(
@@ -212,39 +205,38 @@ class TeamConversationHandler:
 
         return True, f"Created information request: {title}", request
 
-    async def update_project_dashboard(
-        self, completion_percentage: int, status_message: Optional[str] = None
-    ) -> Tuple[bool, str, Optional[ProjectDashboard]]:
+    async def update_project_state(
+        self, status_message: Optional[str] = None
+    ) -> Tuple[bool, str, Optional[ProjectInfo]]:
         """
-        Updates the project dashboard with progress information from the team.
+        Updates the project state with information from the team.
 
         Args:
-            completion_percentage: Current project completion percentage (0-100)
             status_message: Optional status message or update from team
 
         Returns:
-            Tuple of (success, message, updated_dashboard)
+            Tuple of (success, message, updated_project_info)
         """
         # Check role
         role = await ConversationProjectManager.get_conversation_role(self.context)
         if role != ProjectRole.TEAM:
-            return False, "Only Team conversations can update project dashboard", None
+            return False, "Only Team conversations can update project state", None
 
         # Get project ID
         project_id = await ConversationProjectManager.get_associated_project_id(self.context)
         if not project_id:
             return False, "Conversation not associated with a project", None
 
-        # Get dashboard
-        dashboard = await ProjectManager.get_project_dashboard(self.context)
-        if not dashboard:
-            return False, "Project dashboard not found", None
+        # Get project info
+        project_info = await ProjectManager.get_project_info(self.context)
+        if not project_info:
+            return False, "Project information not found", None
 
         # Make sure project is in the right state for team updates
-        if dashboard.state not in [ProjectState.READY_FOR_WORKING, ProjectState.IN_PROGRESS]:
+        if project_info.state not in [ProjectState.READY_FOR_WORKING, ProjectState.IN_PROGRESS]:
             return (
                 False,
-                f"Cannot update project in {dashboard.state} state. Project must be ready for team operations.",
+                f"Cannot update project in {project_info.state} state. Project must be ready for team operations.",
                 None,
             )
 
@@ -259,43 +251,39 @@ class TeamConversationHandler:
         if not user_id:
             user_id = "team-system"
 
-        # Update dashboard
-        previous_progress = dashboard.progress_percentage
-        dashboard.progress_percentage = max(0, min(100, completion_percentage))  # Clamp between 0-100
+        # Update project info
+        previous_state = project_info.state
         if status_message:
-            dashboard.status_message = status_message
+            project_info.status_message = status_message
 
         # If this is the first team update, change state to IN_PROGRESS
-        if dashboard.state == ProjectState.READY_FOR_WORKING:
-            previous_state = dashboard.state
-            dashboard.state = ProjectState.IN_PROGRESS
+        if project_info.state == ProjectState.READY_FOR_WORKING:
+            project_info.state = ProjectState.IN_PROGRESS
 
             # Log state change
             await self.log_action(
                 LogEntryType.MILESTONE_PASSED,
                 "Project is now in progress",
-                related_entity_id=None,  # No ID needed for dashboard state change
+                related_entity_id=None,
                 additional_metadata={
                     "previous_state": previous_state.value,
                     "new_state": ProjectState.IN_PROGRESS.value,
                 },
             )
 
-        dashboard.updated_at = datetime.utcnow()
-        dashboard.updated_by = user_id
-        dashboard.version += 1
+        project_info.updated_at = datetime.utcnow()
 
-        # Save updated dashboard
-        ProjectStorage.write_project_dashboard(project_id, dashboard)
+        # Save updated project info
+        ProjectStorage.write_project_info(project_id, project_info)
 
         # Log update
         await self.log_action(
             LogEntryType.STATUS_CHANGED,
-            f"Updated project progress to {completion_percentage}%",
-            related_entity_id=None,  # No specific entity ID needed
+            f"Updated project status: {status_message or 'No message provided'}",
+            related_entity_id=None,
             additional_metadata={
-                "previous_progress": previous_progress,
-                "new_progress": completion_percentage,
+                "previous_state": previous_state.value,
+                "new_state": project_info.state.value,
                 "status_message": status_message,
             },
         )
@@ -303,16 +291,16 @@ class TeamConversationHandler:
         # Send notification
         await self.context.send_messages(
             NewConversationMessage(
-                content=f"Updated project progress to {completion_percentage}%",
+                content=f"Updated project status: {status_message or 'No message provided'}",
                 message_type=MessageType.notice,
             )
         )
 
-        return True, f"Updated project progress to {completion_percentage}%", dashboard
+        return True, f"Updated project status: {status_message or 'No message provided'}", project_info
 
     async def mark_criterion_completed(
         self, goal_id: str, criterion_id: str
-    ) -> Tuple[bool, str, Optional[ProjectDashboard]]:
+    ) -> Tuple[bool, str, Optional[ProjectInfo]]:
         """
         Marks a success criterion as completed.
 
@@ -321,7 +309,7 @@ class TeamConversationHandler:
             criterion_id: ID of the criterion to mark completed
 
         Returns:
-            Tuple of (success, message, updated_dashboard)
+            Tuple of (success, message, updated_project_info)
         """
         # Check role
         role = await ConversationProjectManager.get_conversation_role(self.context)
@@ -382,32 +370,27 @@ class TeamConversationHandler:
 
         ProjectStorage.write_project_brief(project_id, brief)
 
-        # Update project dashboard
-        dashboard = await ProjectManager.get_project_dashboard(self.context)
-        if not dashboard:
-            return False, "Project dashboard not found", None
+        # Get project info
+        project_info = await ProjectManager.get_project_info(self.context)
+        if not project_info:
+            return False, "Project information not found", None
 
-        # Count completed criteria
+        # Count completed criteria to calculate progress
         total_criteria = 0
         completed_criteria = 0
         for g in brief.goals:
             total_criteria += len(g.success_criteria)
             completed_criteria += sum(1 for c in g.success_criteria if c.completed)
 
-        # Update dashboard
-        dashboard.completed_criteria = completed_criteria
-        dashboard.total_criteria = total_criteria
-
-        # Calculate progress percentage based on completed criteria
+        # Update project info with status message showing progress
         if total_criteria > 0:
-            dashboard.progress_percentage = int((completed_criteria / total_criteria) * 100)
-
-        dashboard.updated_at = datetime.utcnow()
-        dashboard.updated_by = user_id
-        dashboard.version += 1
-
-        # Save updated dashboard
-        ProjectStorage.write_project_dashboard(project_id, dashboard)
+            progress_percentage = int((completed_criteria / total_criteria) * 100)
+            project_info.status_message = f"Progress: {progress_percentage}% of criteria completed ({completed_criteria}/{total_criteria})"
+        
+        project_info.updated_at = datetime.utcnow()
+        
+        # Save updated project info
+        ProjectStorage.write_project_info(project_id, project_info)
 
         # Log completion
         await self.log_action(
@@ -417,23 +400,19 @@ class TeamConversationHandler:
             additional_metadata={
                 "goal_id": goal_id,
                 "goal_name": goal.name,
-                "progress": dashboard.progress_percentage,
             },
         )
 
         # Check if all goals are completed
         all_complete = all(all(c.completed for c in g.success_criteria) for g in brief.goals if g.success_criteria)
 
-        if all_complete and dashboard.state != ProjectState.COMPLETED:
+        if all_complete and project_info.state != ProjectState.COMPLETED:
             # Mark project as completed
-            dashboard.state = ProjectState.COMPLETED
-            dashboard.progress_percentage = 100
-            dashboard.status_message = "All success criteria have been met"
-            dashboard.updated_at = datetime.utcnow()
-            dashboard.updated_by = user_id
-            dashboard.version += 1
+            project_info.state = ProjectState.COMPLETED
+            project_info.status_message = "All success criteria have been met"
+            project_info.updated_at = datetime.utcnow()
 
-            ProjectStorage.write_project_dashboard(project_id, dashboard)
+            ProjectStorage.write_project_info(project_id, project_info)
 
             # Log project completion
             await self.log_action(
@@ -458,9 +437,9 @@ class TeamConversationHandler:
                 )
             )
 
-        return True, f"Marked criterion '{criterion.description}' as completed.", dashboard
+        return True, f"Marked criterion '{criterion.description}' as completed.", project_info
 
-    async def report_project_completed(self, completion_summary: str) -> Tuple[bool, str, Optional[ProjectDashboard]]:
+    async def report_project_completed(self, completion_summary: str) -> Tuple[bool, str, Optional[ProjectInfo]]:
         """
         Reports that the project has been completed from the team perspective.
 
@@ -468,7 +447,7 @@ class TeamConversationHandler:
             completion_summary: Summary of the project completion
 
         Returns:
-            Tuple of (success, message, updated_dashboard)
+            Tuple of (success, message, updated_project_info)
         """
         # Check role
         role = await ConversationProjectManager.get_conversation_role(self.context)
@@ -480,10 +459,10 @@ class TeamConversationHandler:
         if not project_id:
             return False, "Conversation not associated with a project", None
 
-        # Get dashboard
-        dashboard = await ProjectManager.get_project_dashboard(self.context)
-        if not dashboard:
-            return False, "Project dashboard not found", None
+        # Get project info
+        project_info = await ProjectManager.get_project_info(self.context)
+        if not project_info:
+            return False, "Project information not found", None
 
         # Get user info
         participants = await self.context.get_participants()
@@ -496,17 +475,14 @@ class TeamConversationHandler:
         if not user_id:
             user_id = "team-system"
 
-        # Update dashboard
-        previous_state = dashboard.state
-        dashboard.state = ProjectState.COMPLETED
-        dashboard.progress_percentage = 100
-        dashboard.status_message = completion_summary
-        dashboard.updated_at = datetime.utcnow()
-        dashboard.updated_by = user_id
-        dashboard.version += 1
+        # Update project info
+        previous_state = project_info.state
+        project_info.state = ProjectState.COMPLETED
+        project_info.status_message = completion_summary
+        project_info.updated_at = datetime.utcnow()
 
-        # Save updated dashboard
-        ProjectStorage.write_project_dashboard(project_id, dashboard)
+        # Save updated project info
+        ProjectStorage.write_project_info(project_id, project_info)
 
         # Log project completion
         await self.log_action(
@@ -527,7 +503,7 @@ class TeamConversationHandler:
             )
         )
 
-        return True, "Project has been marked as completed", dashboard
+        return True, "Project has been marked as completed", project_info
 
     async def get_project_brief_info(self) -> Dict:
         """
@@ -586,7 +562,7 @@ class TeamConversationHandler:
         role = await ConversationProjectManager.get_conversation_role(self.context)
 
         brief = await ProjectManager.get_project_brief(self.context)
-        dashboard = await ProjectManager.get_project_dashboard(self.context)
+        project_info = await ProjectManager.get_project_info(self.context)
 
         # Get information requests made by this conversation
         requests = await ProjectManager.get_information_requests(self.context)
@@ -599,8 +575,8 @@ class TeamConversationHandler:
             "role": role.value if role else None,
             "project_name": brief.project_name if brief else "Unnamed Project",
             "project_description": brief.project_description if brief else "",
-            "status": dashboard.state.value if dashboard else "unknown",
-            "progress": dashboard.progress_percentage if dashboard else 0,
+            "status": project_info.state.value if project_info else "unknown",
+            "status_message": project_info.status_message if project_info and project_info.status_message else "",
             "open_requests": open_requests_count,
             "pending_requests": [
                 {

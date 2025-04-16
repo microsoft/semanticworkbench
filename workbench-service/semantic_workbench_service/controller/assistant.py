@@ -358,6 +358,8 @@ class AssistantController:
     ) -> AssistantList:
         async with self._get_session() as session:
             if conversation_id is None:
+                await self._create_default_user_assistants(user_principal=user_principal)
+
                 assistants = (
                     await session.exec(
                         query.select_assistants_for(user_principal=user_principal).order_by(
@@ -369,8 +371,6 @@ class AssistantController:
 
                 if assistants:
                     return convert.assistant_list_from_db(models=assistants)
-
-                return await self._create_default_user_assistants(user_principal=user_principal)
 
             conversation = (
                 await session.exec(
@@ -396,10 +396,22 @@ class AssistantController:
     async def _create_default_user_assistants(
         self,
         user_principal: auth.UserPrincipal,
-    ) -> AssistantList:
-        assistants = []
-        for identifiers in settings.service.default_assistants:
-            async with self._get_session() as session:
+    ) -> None:
+        """Create default assistants for the user if they don't already exist."""
+        async with self._get_session() as session:
+            for identifiers in settings.service.default_assistants:
+                existing_assistant = (
+                    await session.exec(
+                        query.select_assistants_for(user_principal=user_principal).where(
+                            db.Assistant.assistant_service_id == identifiers.assistant_service_id,
+                            db.Assistant.template_id == identifiers.template_id,
+                        )
+                    )
+                ).first()
+
+                if existing_assistant is not None:
+                    continue
+
                 assistant_service = (
                     await session.exec(
                         select(db.AssistantServiceRegistration).where(
@@ -412,19 +424,16 @@ class AssistantController:
                         "configured assistant service id for default assistants is not valid; id: %s",
                         identifiers.assistant_service_id,
                     )
-                    return AssistantList(assistants=[])
+                    continue
 
-            assistant = await self.create_assistant(
-                user_principal=user_principal,
-                new_assistant=NewAssistant(
-                    assistant_service_id=identifiers.assistant_service_id,
-                    template_id=identifiers.template_id,
-                    name=identifiers.name,
-                ),
-            )
-            assistants.append(assistant)
-
-        return AssistantList(assistants=assistants)
+                await self.create_assistant(
+                    user_principal=user_principal,
+                    new_assistant=NewAssistant(
+                        assistant_service_id=identifiers.assistant_service_id,
+                        template_id=identifiers.template_id,
+                        name=identifiers.name,
+                    ),
+                )
 
     async def get_assistant(
         self,

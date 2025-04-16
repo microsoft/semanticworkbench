@@ -16,6 +16,7 @@ from semantic_workbench_assistant.assistant_app import (
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .project_storage import ConversationProjectManager, ProjectRole
+from .utils import is_context_transfer_assistant
 
 logger = logging.getLogger(__name__)
 
@@ -55,19 +56,21 @@ class ProjectInspectorStateProvider:
         setup_complete = metadata.get("setup_complete", False)
         assistant_mode = metadata.get("assistant_mode", "setup")
 
+        # Determine if this is a context transfer assistant based on template_id
+        self.is_context_transfer = is_context_transfer_assistant(context)
+        
+        if self.is_context_transfer:
+            self.description = "Context transfer information including knowledge resources and shared content."
+            self.display_name = "Knowledge Context"
+        else:
+            self.description = "Current project information including brief, goals, and request status."
+            self.display_name = "Project Status"
+            
+        # We still need the track_progress value for some operations
         track_progress = True
         if self.config_provider:
             config = await self.config_provider.get(context.assistant)
             track_progress = config.track_progress
-
-            # Update description and display name based on template
-            self.is_context_transfer = not track_progress
-            if self.is_context_transfer:
-                self.description = "Context transfer information including knowledge resources and shared content."
-                self.display_name = "Knowledge Context"
-            else:
-                self.description = "Current project information including brief, goals, and request status."
-                self.display_name = "Project Status"
 
         # Double-check with project storage/manager state
         if not setup_complete:
@@ -133,17 +136,17 @@ Type `/help` for more information on available commands.
 
         # Get project information
         brief = await ProjectManager.get_project_brief(context)
-        dashboard = await ProjectManager.get_project_dashboard(context)
+        project_info = await ProjectManager.get_project_info(context)
 
         # Generate nicely formatted markdown for the state panel
         if role == ProjectRole.COORDINATOR:
             # Format for Coordinator role
             markdown = await self._format_coordinator_markdown(
-                project_id, role, brief, dashboard, context, track_progress
+                project_id, role, brief, project_info, context, track_progress
             )
         else:
             # Format for Team role
-            markdown = await self._format_team_markdown(project_id, role, brief, dashboard, context, track_progress)
+            markdown = await self._format_team_markdown(project_id, role, brief, project_info, context, track_progress)
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
@@ -152,39 +155,38 @@ Type `/help` for more information on available commands.
         project_id: str,
         role: ProjectRole,
         brief: Any,
-        dashboard: Any,
+        project_info: Any,
         context: ConversationContext,
         track_progress: bool,
     ) -> str:
         """Format project information as markdown for Coordinator role"""
         project_name = brief.project_name if brief else "Unnamed Project"
-        progress = dashboard.progress_percentage if dashboard and track_progress else 0
 
         # Build the markdown content
         lines: List[str] = []
-        lines.append(f"# Project: {project_name}")
+        lines.append(f"# {project_name}")
         lines.append("")
 
         # Determine stage based on project status
         stage_label = "Planning Stage"
-        if dashboard and dashboard.state:
-            if dashboard.state.value == "planning":
+        if project_info and project_info.state:
+            if project_info.state.value == "planning":
                 stage_label = "Planning Stage"
-            elif dashboard.state.value == "ready_for_working":
+            elif project_info.state.value == "ready_for_working":
                 stage_label = "Ready for Working"
-            elif dashboard.state.value == "in_progress":
+            elif project_info.state.value == "in_progress":
                 stage_label = "Working Stage"
-            elif dashboard.state.value == "completed":
+            elif project_info.state.value == "completed":
                 stage_label = "Completed Stage"
-            elif dashboard.state.value == "aborted":
+            elif project_info.state.value == "aborted":
                 stage_label = "Aborted Stage"
 
         lines.append("**Role:** Coordinator")
         lines.append(f"**Status:** {stage_label}")
 
-        # Only show progress information if progress tracking is enabled
-        if track_progress:
-            lines.append(f"**Progress:** {progress}%")
+        # Add status message if available
+        if project_info and project_info.status_message:
+            lines.append(f"**Status Message:** {project_info.status_message}")
 
         lines.append("")
 
@@ -312,13 +314,12 @@ Type `/help` for more information on available commands.
         project_id: str,
         role: ProjectRole,
         brief: Any,
-        dashboard: Any,
+        project_info: Any,
         context: ConversationContext,
         track_progress: bool,
     ) -> str:
         """Format project information as markdown for Team role"""
         project_name = brief.project_name if brief else "Unnamed Project"
-        progress = dashboard.progress_percentage if dashboard and track_progress else 0
 
         # Build the markdown content
         lines: List[str] = []
@@ -327,24 +328,24 @@ Type `/help` for more information on available commands.
 
         # Determine stage based on project status
         stage_label = "Working Stage"
-        if dashboard and dashboard.state:
-            if dashboard.state.value == "planning":
+        if project_info and project_info.state:
+            if project_info.state.value == "planning":
                 stage_label = "Planning Stage"
-            elif dashboard.state.value == "ready_for_working":
+            elif project_info.state.value == "ready_for_working":
                 stage_label = "Working Stage"
-            elif dashboard.state.value == "in_progress":
+            elif project_info.state.value == "in_progress":
                 stage_label = "Working Stage"
-            elif dashboard.state.value == "completed":
+            elif project_info.state.value == "completed":
                 stage_label = "Completed Stage"
-            elif dashboard.state.value == "aborted":
+            elif project_info.state.value == "aborted":
                 stage_label = "Aborted Stage"
 
         lines.append(f"**Role:** Team ({stage_label})")
         lines.append(f"**Status:** {stage_label}")
 
-        # Only show progress information if progress tracking is enabled
-        if track_progress:
-            lines.append(f"**Progress:** {progress}%")
+        # Add status message if available
+        if project_info and project_info.status_message:
+            lines.append(f"**Status Message:** {project_info.status_message}")
 
         lines.append("")
 

@@ -1,6 +1,7 @@
 import { Button, DialogTrigger } from '@fluentui/react-components';
-import { ChatAddRegular } from '@fluentui/react-icons';
+import { ChatAddRegular, NavigationRegular } from '@fluentui/react-icons';
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useConversationUtility } from '../../../libs/useConversationUtility';
 import { useCreateConversation } from '../../../libs/useCreateConversation';
 import { useNotify } from '../../../libs/useNotify';
@@ -19,6 +20,7 @@ export const NewConversationButton: React.FC = () => {
     const [submitted, setSubmitted] = React.useState(false);
     const { navigateToConversation } = useConversationUtility();
     const { notifyError } = useNotify();
+    const navigate = useNavigate();
 
     const handleCreate = React.useCallback(async () => {
         if (submitted || !isValid || !assistantId) {
@@ -102,6 +104,18 @@ export const NewConversationButton: React.FC = () => {
             }
             hideDismissButton
             additionalActions={[
+                <Button
+                    key="home"
+                    icon={<NavigationRegular />}
+                    onClick={() => {
+                        setOpen(false);
+                        navigate('/');
+                    }}
+                    appearance="subtle"
+                    autoFocus={false}
+                >
+                    View assistant descriptions
+                </Button>,
                 <ConversationsImport
                     key="import"
                     appearance="outline"
@@ -114,7 +128,13 @@ export const NewConversationButton: React.FC = () => {
                         Cancel
                     </Button>
                 </DialogTrigger>,
-                <Button key="create" appearance="primary" onClick={handleCreate} disabled={!isValid || submitted}>
+                <Button
+                    key="create"
+                    appearance="primary"
+                    onClick={handleCreate}
+                    disabled={!isValid || submitted}
+                    autoFocus
+                >
                     {submitted ? 'Creating...' : 'Create'}
                 </Button>,
             ]}

@@ -19,6 +19,13 @@ from pydantic import BaseModel
 logger = logging.getLogger("project-assistant")
 logger.setLevel(logging.DEBUG)
 
+# Ensure propagation is enabled to allow logs to reach the root handler
+logger.propagate = True
+
+# Remove any existing handlers to avoid duplicates
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
 # Add a null handler by default (to prevent "No handler found" warnings)
 logger.addHandler(logging.NullHandler())
 
@@ -139,15 +146,25 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
     # Create log file path with timestamp to avoid conflicts
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = log_path / f"project_assistant_{timestamp}.json"
+    line_log_file = log_path / f"project_assistant_{timestamp}.log"  # Add a regular log file too
 
     try:
-        # Set up file handler
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(JsonFormatter())
+        # Remove any existing file handlers to avoid duplicates
+        for handler in logger.handlers[:]:
+            if isinstance(handler, logging.FileHandler):
+                logger.removeHandler(handler)
 
-        # Add handler to logger
-        logger.addHandler(file_handler)
+        # Set up JSON file handler 
+        json_file_handler = logging.FileHandler(log_file)
+        json_file_handler.setLevel(logging.DEBUG)
+        json_file_handler.setFormatter(JsonFormatter())
+        logger.addHandler(json_file_handler)
+        
+        # Also set up a regular text file handler for easier debugging
+        text_file_handler = logging.FileHandler(line_log_file)
+        text_file_handler.setLevel(logging.DEBUG)
+        text_file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] %(message)s'))
+        logger.addHandler(text_file_handler)
 
         # Create an initial log entry with system info
         import platform
@@ -162,15 +179,21 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
             },
         )
 
+        # Also force a flush to ensure the log is written immediately
+        for handler in logger.handlers:
+            if hasattr(handler, 'flush'):
+                handler.flush()
+
         # Set permissions to ensure files are readable (for debugging)
         try:
             import stat
-
             os.chmod(log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+            os.chmod(line_log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
         except Exception as e:
             logger.warning(f"Could not set log file permissions: {e}")
+            print(f"Permission error: {e}")
 
-        print(f"Logging to file: {log_file}")
+        print(f"Logging to files: {log_file} and {line_log_file}")
 
     except Exception as e:
         print(f"Failed to set up file logging: {e}")
@@ -182,14 +205,20 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
             fallback_dir = project_dir / ".data" / "fallback_logs"
             os.makedirs(fallback_dir, exist_ok=True)
             log_file = Path(fallback_dir) / f"project_assistant_{timestamp}.json"
+            line_log_file = Path(fallback_dir) / f"project_assistant_{timestamp}.log"
 
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setLevel(logging.DEBUG)
-            file_handler.setFormatter(JsonFormatter())
-
-            logger.addHandler(file_handler)
+            json_file_handler = logging.FileHandler(log_file)
+            json_file_handler.setLevel(logging.DEBUG)
+            json_file_handler.setFormatter(JsonFormatter())
+            logger.addHandler(json_file_handler)
+            
+            text_file_handler = logging.FileHandler(line_log_file)
+            text_file_handler.setLevel(logging.DEBUG)
+            text_file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] %(message)s'))
+            logger.addHandler(text_file_handler)
+            
             logger.warning(f"Using fallback log location: {log_file}")
-            print(f"Fallback logging to: {log_file}")
+            print(f"Fallback logging to: {log_file} and {line_log_file}")
 
         except Exception as fallback_error:
             print(f"Failed to set up fallback logging: {fallback_error}")

@@ -34,13 +34,17 @@
       "name": "workbench-service",
       "path": "../../workbench-service"
     },
+    // {
+    //   "name": "assistants:codespace-assistant",
+    //   "path": "../../assistants/codespace-assistant"
+    // },
     {
       "name": "assistants:project-assistant",
       "path": "../../assistants/project-assistant"
     },
     {
       "name": "libraries:assistant-drive",
-      "path": "../../assistants/project-assistant"
+      "path": "../../libraries/python/assistant-drive"
     },
     {
       "name": "libraries:assistant-extensions",
