@@ -92,7 +92,7 @@ async def main() -> None:
         output = await editor.run(edit_request)
         print_edit_output(console, output, i + 1, custom_context)
 
-        output_path = Path(__file__).parents[2] / "temp" / "created_presentation.pptx"
+        output_path = Path(__file__).parents[2] / "temp" / "created_presentation.pptx"  # type: ignore
         _, document = open_document_in_office(output_path, OfficeAppType.POWERPOINT)
         write_markdown(
             document,
