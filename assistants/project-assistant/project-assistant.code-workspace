@@ -83,16 +83,6 @@
       "path": "../../.multi-root-tools"
     }
   ],
-  "settings": {
-    "markdown.validate.enabled": true,
-    "ruff.configuration": "${workspaceFolder:.multi-root-tools}/../ruff.toml",
-    "ruff.interpreter": ["${workspaceFolder:.multi-root-tools}/.venv"],
-    "ruff.importStrategy": "useBundled",
-    "ruff.nativeServer": "on",
-    "[python]": {
-      "editor.defaultFormatter": "charliermarsh.ruff"
-    }
-  },
   "extensions": {
     "recommendations": [
       "charliermarsh.ruff",

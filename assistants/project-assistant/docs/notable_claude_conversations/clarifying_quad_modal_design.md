@@ -1,3 +1,82 @@
+# Conversation about clarifying a design problem
+
+Note: This is an example of "backwards/reverse engineering" where the design/specs are updated based on code changes. I started out just trying to clarify a design that evolved, but ended up refreshing the entire codebase.
+
+Developer:
+
+```markdown
+
+We probably shouldn't call the configuration template differences "modes". I can see you are already confusing this with our existing usage of the word "modes" to be whether or not the assistant is in "Coordinator mode" (in a conversation with the coordinator) or "Team mode" in a  conversation with a team member. So, we have two configurations with two modes each (four different states). How would you suggest we modify the language to make communicate this simply?
+
+```
+
+Claude:
+
+```markdown
+You're right about the terminology confusion. Let me clarify the distinction:
+
+1. The assistant has two configuration templates:
+  - Default Project Assistant template
+  - Context Transfer template
+2. Each template supports two conversation roles:
+  - Coordinator role
+  - Team member role
+
+So we have a 2×2 matrix with four distinct states.
+
+I'd suggest using consistent terminology:
+- "Configuration templates" for the two assistant types
+- "Conversation roles" for coordinator vs team member
+- Avoid using "mode" in either context to prevent confusion
+
+Would you like me to update the DESIGN.md with this clarified terminology?
+```
+
+Developer:
+
+```markdown
+Yes please. After we udpate the design doc, let's make a plan in the WORKING.md doc for how we can update all the code in the code base to support this design.
+```
+
+_... the assistant completed these and the developer then read through the new artifacts._
+
+Developer:
+
+```markdown
+We need to update the design quite a bit more as I notice it has lagged work we've done in the code base. Specifically, we changed the project "KB" to be the assistant "whiteboard", but I notice it hasn't been updated in the DESIGN.md doc. Let's update the design doc to reflect the actual code (look at it to make sure you understand the design concepts). When you are done, I'll tell you about two more things we need to update in the design doc.
+```
+
+_... assistant did work_
+
+Developer:
+
+```markdown
+You have correctly identified a few other aspects of the design doc we need to update. First of all, the stucture of the files in the "storage architecture" needs to be updated. At some point, we changed some of the directories and filename for the project data. Please take a look at the code (project_data.py is a good place to start) and  update the design doc appropriately.
+```
+
+_... assistant did work_
+
+Developer:
+
+```markdown
+Excellent. We're almost there. Finally, at first we had the idea of a "dashboard" as being a data entity that would be represented in the state inspector, which is a visible tab in the Semantic Workbench. However, we noticed there was a lot of overlap between the dashboard and the other data entities and the state inspector started to contain other stuff that wasn't from the dashboard entity. This makes sense... we should have been coupling data with UI so directly. We made the decision to eliminate the dashboard entity in the code base and just build the state for the state inspector from other existing entities directly. To complete this decoupling, we needed to add a "project" entity (project.json) that held the overall info about the project (like the id and the share link, etc.). Please read the necessary code (at least state_inspector.py and project_data.py) and update the design doc to reflect our latest design.
+```
+
+_... assistant did work_
+
+And then we play the design changes forward back into the code base...
+
+Developer:
+
+```markdown
+ Ok. This design looks up to date now. Based on your new knowledge, do you want to update anything in ow WORKING.md work plan?
+ ```
+
+The result here was pretty spectacular. It ended up finding many of the things I had "in the back of my head" that I knew I would need to update in the assistant eventually, and it even found several bugs that I didn't yet know about that were introduced from refactors. In essence, the process of collaboratively refreshing the design and then using the design to refresh the code base.
+
+WORKING.md:
+
+```markdown
 # Project Assistant Implementation Plan
 
 ## Configuration Templates Support
@@ -133,3 +212,4 @@ The basic architecture for configuration templates is already implemented:
 - Both templates provide optimal experiences for their intended use cases
 - Code remains maintainable with minimal template-specific logic
 - Documentation clearly explains the differences between templates
+```
