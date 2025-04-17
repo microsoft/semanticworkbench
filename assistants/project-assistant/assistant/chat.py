@@ -114,17 +114,11 @@ async def on_message_created(
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
 
-        # Check if setup is complete - check both local metadata and the state API
-        setup_complete = metadata.get("setup_complete", False)
-
         # First check if project ID exists - if it does, setup should always be considered complete
         from .project_manager import ProjectManager
 
         project_id = await ProjectManager.get_project_id(context)
         if project_id:
-            # If we have a project ID, we should never show the setup instructions
-            setup_complete = True
-
             # If metadata doesn't reflect this, try to get actual role
             from .project_storage import ConversationProjectManager
 
@@ -151,41 +145,6 @@ async def on_message_created(
                 metadata["assistant_mode"] = "team"
                 metadata["setup_complete"] = True
                 logger.info("Could not determine role from storage, defaulting to team mode")
-        # If no project ID, check storage as a fallback
-        elif not setup_complete:
-            try:
-                from .project_storage import ConversationProjectManager
-
-                # Check if we have a project role in storage
-                role = await ConversationProjectManager.get_conversation_role(context)
-                if role:
-                    # If we have a role in storage, consider setup complete
-                    setup_complete = True
-                    metadata["setup_complete"] = True
-                    metadata["project_role"] = role.value
-                    metadata["assistant_mode"] = role.value
-                    logger.info(f"Found project role in storage: {role.value}")
-            except Exception as e:
-                logger.exception(f"Error getting role from project storage: {e}")
-
-        assistant_mode = metadata.get("assistant_mode", "setup")
-
-        # If setup isn't complete, show setup required message (only if we truly have no project)
-        if not setup_complete and assistant_mode == "setup" and not project_id:
-            # Show setup required message for regular chat messages
-            await context.send_messages(
-                NewConversationMessage(
-                    content=(
-                        "**Setup Required**\n\n"
-                        "You need to set up the assistant before proceeding. Please use one of these commands:\n\n"
-                        "- `/start` - Create a new project as Coordinator\n"
-                        "- `/join <code>` - Join an existing project as a Team member\n"
-                        "- `/help` - Get help with available commands"
-                    ),
-                    message_type=MessageType.notice,
-                )
-            )
-            return
 
         # Get the conversation's role (Coordinator or Team)
         role = metadata.get("project_role")
