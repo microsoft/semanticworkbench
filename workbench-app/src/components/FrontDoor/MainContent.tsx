@@ -280,7 +280,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                 </ul>
                             </>
                         )}
-                        {/* {getAssistants('project-assistant.made-exploration', 'context_transfer') && (
+                        {getAssistants('project-assistant.made-exploration', 'context_transfer') && (
                             <>
                                 <div className={classes.assistantHeader}>
                                     <Title3>Context Transfer Assistant</Title3>
@@ -288,28 +288,39 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                         getAssistants('project-assistant.made-exploration', 'context_transfer'),
                                     )}
                                 </div>
-                                Context Transfer Assistant helps you capture and share complex information, turning it
-                                into interactive knowledge that others can easily explore and understand.
+                                Context Transfer Assistant bridges knowledge gaps between experts and learners through
+                                dedicated roles that optimize information exchange.
                                 <ul>
                                     <li>
-                                        <b>Thought Organization:</b> Assists in organizing your thoughts from documents,
-                                        code, research papers, or brainstorming sessions.
+                                        <b>Knowledge Owner Space:</b> Where experts organize and share complex
+                                        information
                                     </li>
                                     <li>
-                                        <b>Shared Understanding:</b> Engages with you to ensure alignment on essential
-                                        information by asking pertinent questions.
+                                        <b>Recipient Workspaces:</b> Where learners explore content and ask questions
                                     </li>
                                     <li>
-                                        <b>Interactive Knowledge:</b> Transforms your knowledge into an interactive
-                                        format to explore the rationale behind decisions and alternatives.
+                                        <b>Auto-Organized Knowledge:</b> Extracts and structures information from expert
+                                        conversations
                                     </li>
                                     <li>
-                                        <b>File Synchronization:</b> Automatically shares and updates files across
-                                        participant conversations using shared links.
+                                        <b>Question Framework:</b> System for recipients to request clarification on
+                                        complex topics
                                     </li>
                                     <li>
-                                        <b>Shareable Experiences:</b> Enables the creation of shareable links for others
-                                        to self-explore the prepared knowledge spaces.
+                                        <b>Resource Sharing:</b> Documents from experts instantly appear for all
+                                        recipients
+                                    </li>
+                                    <li>
+                                        <b>Conversation Access:</b> Recipients can view expert-assistant discussions for
+                                        context
+                                    </li>
+                                    <li>
+                                        <b>Simplified Interface:</b> Tools focused on knowledge transfer rather than
+                                        project tracking
+                                    </li>
+                                    <li>
+                                        <b>Learning-Optimized Design:</b> Removes management overhead to focus on
+                                        understanding
                                     </li>
                                 </ul>
                             </>
@@ -322,32 +333,44 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                         getAssistants('project-assistant.made-exploration', 'default'),
                                     )}
                                 </div>
-                                Project Assistant is designed to help teams collaborate effectively by facilitating
-                                conversations and file sharing within and across projects.
+                                Project Assistant connects project leaders and team members through specialized roles
+                                that streamline collaboration and information sharing.
                                 <ul>
                                     <li>
-                                        <b>Project Coordination:</b> Acts as a personal conversation space for project
-                                        coordinators.
+                                        <b>Coordinator Hub:</b> Central workspace for leaders to define goals, set
+                                        direction, and resolve team blockers.
                                     </li>
                                     <li>
-                                        <b>Team Collaboration:</b> Allows easy invitation of team members to join
-                                        project discussions using shareable links.
+                                        <b>Team Workspaces:</b> Connected environments where members track progress and
+                                        request clarification.
                                     </li>
                                     <li>
-                                        <b>Project Brief Management:</b> Helps you create and update project briefs with
-                                        goals and details.
+                                        <b>Automatic Updates:</b> Changes by coordinators instantly reach all team
+                                        members.
                                     </li>
                                     <li>
-                                        <b>File Synchronization:</b> Automatically shares and updates files across
-                                        participant conversations using shared links, keeping everyone aligned.
+                                        <b>Structured Requests:</b> Clear channel for team members to ask questions and
+                                        seek guidance.
                                     </li>
                                     <li>
-                                        <b>Content Creation Support:</b> Capable of producing markdown, code snippets,
-                                        and other types of content to support projects.
+                                        <b>Role-Based Tools:</b> Different commands and permissions based on project
+                                        responsibilities.
+                                    </li>
+                                    <li>
+                                        <b>File Synchronization:</b> Documents shared by coordinators appear in all team
+                                        workspaces.
+                                    </li>
+                                    <li>
+                                        <b>Cross-Role Visibility:</b> See team progress (coordinator) and coordinator
+                                        insights (team).
+                                    </li>
+                                    <li>
+                                        <b>Unified Progress View:</b> Aggregates completion status from all team
+                                        members.
                                     </li>
                                 </ul>
                             </>
-                        )} */}
+                        )}
                         {getAssistants('codespace-assistant.made-exploration-team', 'default') && (
                             <>
                                 <div className={classes.assistantHeader}>
