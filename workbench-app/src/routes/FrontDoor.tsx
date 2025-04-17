@@ -1,10 +1,9 @@
 import { Button, Drawer, DrawerBody, makeStyles, mergeClasses, shorthands, tokens } from '@fluentui/react-components';
-import { PanelLeftContractRegular, PanelLeftExpandRegular } from '@fluentui/react-icons';
+import { ChatAddRegular, PanelLeftContractRegular, PanelLeftExpandRegular } from '@fluentui/react-icons';
 import React from 'react';
 import { useDispatch } from 'react-redux';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Loading } from '../components/App/Loading';
-import { NewConversationButton } from '../components/FrontDoor/Controls/NewConversationButton';
 import { SiteMenuButton } from '../components/FrontDoor/Controls/SiteMenuButton';
 import { GlobalContent } from '../components/FrontDoor/GlobalContent';
 import { MainContent } from '../components/FrontDoor/MainContent';
@@ -84,6 +83,7 @@ export const FrontDoor: React.FC = () => {
     const globalContentOpen = useAppSelector((state) => state.app.globalContentOpen);
     const dispatch = useDispatch();
     const [isInitialized, setIsInitialized] = React.useState(false);
+    const navigate = useNavigate();
 
     // set up the workbench event sources and connect to the conversation and user event streams
     // any child components can subscribe to these events using the subscription managers
@@ -118,12 +118,19 @@ export const FrontDoor: React.FC = () => {
         [dispatch, globalContentOpen],
     );
 
-    const globalContent = React.useMemo(
-        () => <GlobalContent headerBefore={sideRailLeftButton} headerAfter={<NewConversationButton />} />,
-        [sideRailLeftButton],
+    const handleNewConversation = React.useCallback(() => {
+        navigate('/');
+    }, [navigate]);
+
+    const newConversationButton = React.useMemo(
+        () => <Button title="New Conversation" icon={<ChatAddRegular />} onClick={handleNewConversation} />,
+        [handleNewConversation],
     );
 
-    const newConversationButton = React.useMemo(() => <NewConversationButton />, []);
+    const globalContent = React.useMemo(
+        () => <GlobalContent headerBefore={sideRailLeftButton} headerAfter={newConversationButton} />,
+        [sideRailLeftButton, newConversationButton],
+    );
 
     return (
         <div className={classes.root}>
