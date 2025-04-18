@@ -14,7 +14,6 @@ dependencies = [
     "markdown>=3.6",
     "openai-client>=0.1.0",
     "openai>=1.61.0",
-    "torch==2.2.2 ; platform_machine == 'x86_64' and sys_platform == 'darwin'", # the most recent version compiled for mac x86_64
 ]
 
 [tool.uv]
@@ -33,12 +32,11 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "pyright>=1.1.389",
+    "pyright>=1.1.399",
     "pytest>=8.3.4",
     "pytest-asyncio>=0.25.3",
     "pytest-httpx>=0.35.0",
     "pytest-repeat>=0.9.3",
-    "sentence-transformers>=3.4.1",
 ]
 
 [tool.pytest.ini_options]
