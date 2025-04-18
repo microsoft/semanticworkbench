@@ -6,9 +6,8 @@ by the LLM during chat completions to proactively assist users.
 """
 
 import json
-import logging
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional
 from uuid import UUID
 
 import openai_client
@@ -92,28 +91,20 @@ async def invoke_command_handler(
 class ProjectTools:
     """Tools for the Project Assistant to use during chat completions."""
 
-    def __init__(self, context: ConversationContext, role: Union[ConversationRole, str]):
+    def __init__(self, context: ConversationContext, role: ConversationRole):
         """
         Initialize the project tools with the current conversation context.
 
         Args:
             context: The conversation context
-            role: The assistant's role (ConversationRole enum or string "coordinator"/"team")
+            role: The assistant's role (ConversationRole enum)
         """
         self.context = context
-        # Convert string to enum if necessary for backward compatibility
-        if isinstance(role, str):
-            self.role = role
-            # For static type checking and IDE support
-            self._role_enum = ConversationRole.COORDINATOR if role == "coordinator" else ConversationRole.TEAM
-        else:
-            # Store both string value and enum for compatibility
-            self.role = role.value
-            self._role_enum = role
+        self.role = role
         self.tool_functions = ToolFunctions()
 
         template_id = context.assistant._template_id or "default"
-        self.config = (
+        self.config_template = (
             ConfigurationTemplate.PROJECT_ASSISTANT
             if template_id == "default"
             else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
@@ -144,7 +135,7 @@ class ProjectTools:
                 "Resolve an information request with information",
             )
 
-            if self.config == ConfigurationTemplate.PROJECT_ASSISTANT:
+            if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
                 self.tool_functions.add_function(
                     self.add_project_goal,
                     "add_project_goal",
@@ -186,7 +177,7 @@ class ProjectTools:
                 "View the Coordinator conversation messages to understand the project context and planning discussions",
             )
 
-            if self.config == ConfigurationTemplate.PROJECT_ASSISTANT:
+            if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
                 self.tool_functions.add_function(
                     self.report_project_completion, "report_project_completion", "Report that the project is complete"
                 )
@@ -339,7 +330,7 @@ class ProjectTools:
         Returns:
             A message indicating success or failure
         """
-        if self.role != "coordinator":
+        if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can create project briefs."
 
         # First, make sure we have a project associated with this conversation
@@ -380,7 +371,7 @@ class ProjectTools:
         if not config.track_progress:
             return "Progress tracking is not enabled for this template."
 
-        if self.role != "coordinator":
+        if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can add project goals."
 
         # Get project ID
@@ -424,7 +415,7 @@ class ProjectTools:
         Returns:
             A message indicating success or failure
         """
-        if self.role != "coordinator":
+        if self.role is not ConversationRole.COORDINATOR:
             # Add more detailed error message with guidance
             error_message = (
                 "ERROR: Only Coordinator can resolve information requests. As a Team member, you should use "
@@ -475,7 +466,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        if self.role != "team":
+        if self.role is not ConversationRole.TEAM:
             return "Only Team members can create information requests."
 
         # Get project ID
@@ -536,7 +527,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not config.track_progress:
             return "Progress tracking is not enabled for this template."
 
-        if self.role != "team":
+        if self.role is not ConversationRole.TEAM:
             return "Only Team members can update project status."
 
         # Get project ID
@@ -583,7 +574,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not config.track_progress:
             return "Progress tracking is not enabled for this template."
 
-        if self.role != "team":
+        if self.role is not ConversationRole.TEAM:
             return "Only Team members can mark criteria as completed."
 
         # Get project ID
@@ -717,7 +708,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not config.track_progress:
             return "Progress tracking is not enabled for this template."
 
-        if self.role != "coordinator":
+        if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can mark a project as ready for working."
 
         # Get project ID
@@ -830,7 +821,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         if not config.track_progress:
             return "Progress tracking is not enabled for this template."
 
-        if self.role != "team":
+        if self.role is not ConversationRole.TEAM:
             return "Only Team members can report project completion."
 
         # Get project ID
@@ -921,7 +912,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             Formatted string containing Coordinator conversation messages
         """
-        if self.role != "team":
+        if self.role is not ConversationRole.TEAM:
             return "This tool is only available to Team members."
 
         # Get project ID
@@ -986,7 +977,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             Message indicating success or failure
         """
-        if self.role != "team":
+        if self.role is not ConversationRole.TEAM:
             return "This tool is only available to Team members."
 
         # Get project ID
@@ -1167,7 +1158,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
     async def detect_information_request_needs(self, message: str) -> Dict[str, Any]:
         """
         Analyze a user message in context of recent chat history to detect potential information request needs.
-        Uses an LLM for sophisticated detection, with keyword fallback.
+        Uses an LLM for sophisticated detection.
 
         Args:
             message: The user message to analyze
@@ -1176,70 +1167,63 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             Dict with detection results
         """
         # This is Coordinator perspective - not used directly but helps model understanding
-        if self.role != "team":
+        if self.role is not ConversationRole.TEAM:
             return {
                 "is_information_request": False,
                 "reason": "Only Team conversations can create information requests",
             }
 
-        # Use a more sophisticated approach with a language model call
+        is_context_transfer = self.config_template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
 
-        logger = logging.getLogger(__name__)
-
-        # Check if we're in context transfer mode
-        is_context_transfer = False
-        try:
-            if hasattr(self.context, "assistant") and self.context.assistant is not None:
-                # Use the shared config instance from chat.py that has the templates registered
-                config = await assistant_config.get(self.context.assistant)
-                # In context transfer mode, track_progress is False
-                is_context_transfer = not getattr(config, "track_progress", True)
-        except Exception as e:
-            logger.warning(f"Error determining context transfer mode: {e}")
-
-        # Load appropriate detection prompt based on mode
         if is_context_transfer:
             system_prompt = load_text_include("context_transfer_information_request_detection.txt")
         else:
             system_prompt = load_text_include("project_information_request_detection.txt")
 
+        # Check if we're in a test environment (Missing parts of context)
+        if not hasattr(self.context, "assistant") or self.context.assistant is None:
+            return {
+                "is_information_request": False,
+                "reason": "Unable to perform detection in test environment - missing context",
+                "confidence": 0.0,
+            }
+
+        # Get the config
+        config = await assistant_config.get(self.context.assistant)
+
+        # Verify service_config is available
+        if not config.service_config:
+            logger.warning("No service_config available for LLM-based detection")
+            return {
+                "is_information_request": False,
+                "reason": "LLM detection unavailable - missing service configuration",
+                "confidence": 0.0,
+            }
+
+        # Get recent conversation history (up to 10 messages)
+        chat_history = []
         try:
-            # Check if we're in a test environment (Missing parts of context)
-            if not hasattr(self.context, "assistant") or self.context.assistant is None:
-                return self._simple_keyword_detection(message)
+            # Get recent messages to provide context
+            messages_response = await self.context.get_messages(limit=10)
+            if messages_response and messages_response.messages:
+                # Format messages for the LLM
+                for msg in messages_response.messages:
+                    # Format the sender name
+                    sender_name = "Team Member"
+                    if msg.sender.participant_id == self.context.assistant.id:
+                        sender_name = "Assistant"
 
-            # Create a simple client for this specific call
-            # Note: Using a basic model to keep this detection lightweight
+                    # Add to chat history
+                    role = "user" if sender_name == "Team Member" else "assistant"
+                    chat_history.append({"role": role, "content": f"{sender_name}: {msg.content}"})
 
-            config = await assistant_config.get(self.context.assistant)
+                # Reverse to get chronological order
+                chat_history.reverse()
+        except Exception as e:
+            logger.warning(f"Could not retrieve chat history: {e}")
+            # Continue without history if we can't get it
 
-            if not hasattr(config, "service_config"):
-                # Fallback to simple detection if service config not available
-                return self._simple_keyword_detection(message)
-
-            # Get recent conversation history (up to 10 messages)
-            chat_history = []
-            try:
-                # Get recent messages to provide context
-                messages_response = await self.context.get_messages(limit=10)
-                if messages_response and messages_response.messages:
-                    # Format messages for the LLM
-                    for msg in messages_response.messages:
-                        # Format the sender name
-                        sender_name = "Team Member"
-                        if msg.sender.participant_id == self.context.assistant.id:
-                            sender_name = "Assistant"
-
-                        # Add to chat history
-                        role = "user" if sender_name == "Team Member" else "assistant"
-                        chat_history.append({"role": role, "content": f"{sender_name}: {msg.content}"})
-
-                    # Reverse to get chronological order
-                    chat_history.reverse()
-            except Exception as e:
-                logger.warning(f"Could not retrieve chat history: {e}")
-                # Continue without history if we can't get it
-
+        try:
             # Create chat completion with history context
             async with openai_client.create_client(config.service_config) as client:
                 # Prepare messages array with system prompt and chat history
@@ -1271,114 +1255,18 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         return result
                     except json.JSONDecodeError:
                         logger.warning(f"Failed to parse JSON from LLM response: {response.choices[0].message.content}")
-                        return self._simple_keyword_detection(message)
+                        return {
+                            "is_information_request": False,
+                            "reason": "Failed to parse LLM response",
+                            "confidence": 0.0,
+                        }
                 else:
                     logger.warning("Empty response from LLM for information request detection")
-                    return self._simple_keyword_detection(message)
-
+                    return {"is_information_request": False, "reason": "Empty response from LLM", "confidence": 0.0}
         except Exception as e:
-            # Fallback to simple detection if LLM call fails
+            # Failed to use LLM
             logger.exception(f"Error in LLM-based information request detection: {e}")
-            return self._simple_keyword_detection(message)
-
-    def _simple_keyword_detection(self, message: str) -> Dict[str, Any]:
-        """
-        Simple fallback method for request detection using keyword matching.
-
-        Args:
-            message: The user message to analyze
-
-        Returns:
-            Dict with detection results
-        """
-        # Check if we're in context transfer mode (without using async)
-        is_context_transfer = False
-        try:
-            if hasattr(self, "context") and hasattr(self.context, "assistant") and self.context.assistant is not None:
-                # Check metadata directly if available
-                if hasattr(self.context, "get_conversation"):
-                    try:
-                        conversation = getattr(self.context, "conversation", None)
-                        if conversation and hasattr(conversation, "metadata"):
-                            metadata = conversation.metadata or {}
-                            assistant_mode = metadata.get("assistant_mode", "")
-                            # If we're in context_transfer mode, be more conservative
-                            if assistant_mode == "context_transfer":
-                                is_context_transfer = True
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
-        # Different indicators based on mode
-        if is_context_transfer:
-            # More strict indicators for context transfer mode - require clear indicators of missing information
-            request_indicators = [
-                "not in the context",
-                "additional information needed",
-                "can't find in the shared knowledge",
-                "missing from the context",
-                "need information that's not here",
-                "the context doesn't cover",
-                "knowledge gap",
-                "information gap",
-                "nothing provided about",
-                "no information about",
-                "not mentioned anywhere",
-                "critical information missing",
-            ]
-        else:
-            # Standard indicators for project mode
-            request_indicators = [
-                "need information",
-                "missing",
-                "don't know",
-                "unclear",
-                "need clarification",
-                "help me understand",
-                "confused about",
-                "what is",
-                "how do i",
-                "can you explain",
-                "request",
-                "blocked",
-                "problem",
-                "issue",
-                "question",
-                "uncertain",
-                "clarify",
-            ]
-
-        message_lower = message.lower()
-        matched_indicators = [indicator for indicator in request_indicators if indicator in message_lower]
-
-        if not matched_indicators:
-            return {"is_information_request": False, "reason": "No information request indicators found in message"}
-
-        # Guess a potential title and description based on the message
-        potential_title = ""
-        words = message.split()
-        if len(words) > 5:
-            # Use first 5-7 words as a potential title
-            potential_title = " ".join(words[: min(7, len(words))])
-            if not potential_title.endswith((".", "?", "!")):
-                potential_title += "..."
-
-        # Guess a priority based on urgency keywords
-        priority = "medium"
-        if any(word in message_lower for word in ["urgent", "critical", "asap", "immediately", "emergency"]):
-            priority = "high"
-        elif any(word in message_lower for word in ["whenever", "not urgent", "low priority"]):
-            priority = "low"
-
-        return {
-            "is_information_request": True,
-            "matched_indicators": matched_indicators,
-            "potential_title": potential_title,
-            "potential_description": message,
-            "suggested_priority": priority,
-            "confidence": 0.6,  # Medium confidence for keyword-based detection
-        }
+            return {"is_information_request": False, "reason": f"LLM detection error: {str(e)}", "confidence": 0.0}
 
     async def suggest_next_action(self) -> Dict[str, Any]:
         """
@@ -1413,7 +1301,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         # Check if project brief exists
         if not brief:
-            if self.role == "coordinator":
+            if self.role is ConversationRole.COORDINATOR:
                 return {
                     "suggestion": "create_project_brief",
                     "reason": "No project brief found. Start by creating one.",
@@ -1430,9 +1318,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 }
 
         # Check if goals exist
-        if self.config == ConfigurationTemplate.PROJECT_ASSISTANT:
+        if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
             if not brief.goals:
-                if self.role == "coordinator":
+                if self.role is ConversationRole.COORDINATOR:
                     return {
                         "suggestion": "add_project_goal",
                         "reason": "Project brief has no goals. Add at least one goal with success criteria.",
@@ -1451,9 +1339,9 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Check project info if project is ready for working
         ready_for_working = project_info.state == ProjectState.READY_FOR_WORKING
 
-        if not ready_for_working and self.role == "coordinator":
+        if not ready_for_working and self.role is ConversationRole.COORDINATOR:
             # Check if it's ready to mark as ready for working
-            if self.config == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT:
+            if self.config_template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT:
                 has_goals = True
                 has_criteria = True
             else:
@@ -1470,7 +1358,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 }
 
         # Check for unresolved information requests for Coordinator
-        if self.role == "coordinator":
+        if self.role is ConversationRole.COORDINATOR:
             active_requests = [r for r in requests if r.status == RequestStatus.NEW]
             if active_requests:
                 request = active_requests[0]  # Get the first unresolved request
@@ -1488,7 +1376,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         criteria = await ProjectManager.get_project_criteria(self.context)
         incomplete_criteria = [criterion for criterion in criteria if not criterion.completed]
 
-        if self.role == "team" and not incomplete_criteria:
+        if self.role is ConversationRole.TEAM and not incomplete_criteria:
             return {
                 "suggestion": "report_project_completion",
                 "reason": "All success criteria have been completed. Report project completion.",
@@ -1498,7 +1386,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             }
 
         # For team, suggest marking criteria as completed if any are pending
-        if self.role == "team" and incomplete_criteria:
+        if self.role is ConversationRole.TEAM and incomplete_criteria:
             # Find the first uncompleted criterion
             for goal_index, goal in enumerate(brief.goals):
                 for criterion_index, criterion in enumerate(goal.success_criteria):
@@ -1515,7 +1403,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                         }
 
         # Default suggestions based on role
-        if self.role == "coordinator":
+        if self.role is ConversationRole.COORDINATOR:
             return {
                 "suggestion": "monitor_progress",
                 "reason": "Monitor team operations and respond to any new information requests.",

@@ -105,15 +105,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
     conversation = await context.get_conversation()
     metadata = conversation.metadata or {}
 
-    # send a focus event to notify the assistant to focus on the artifacts
-    await context.send_conversation_state_event(
-        AssistantStateEvent(
-            state_id="project_status",
-            event="focus",
-            state=None,
-        )
-    )
-
     # Define variables for each conversation type
     is_shareable_template = False
     is_team_from_redemption = False
@@ -700,14 +691,14 @@ async def on_participant_joined(
             logger.debug("Skipping assistant's own join event")
             return
 
-        # Check if this is a Team conversation with a valid project
-        conversation = await context.get_conversation()
-        metadata = conversation.metadata or {}
-
-        # Skip if setup is not complete
-        if not metadata.get("setup_complete", False):
-            logger.debug("Setup not complete, skipping file sync for new participant")
-            return
+        # Open the Brief tab (state inspector).
+        await context.send_conversation_state_event(
+            AssistantStateEvent(
+                state_id="project_status",
+                event="focus",
+                state=None,
+            )
+        )
 
         # Check if this is a Team conversation
         role = await detect_assistant_role(context)
