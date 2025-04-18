@@ -10,13 +10,9 @@ import unittest.mock
 import uuid
 from typing import Any, TypeVar
 
-from assistant.conversation_clients import ProjectRole
 from assistant.project_data import ProjectBrief, ProjectGoal, SuccessCriterion
 from assistant.project_manager import ProjectManager
-from assistant.project_storage import (
-    ConversationProjectManager,
-    ProjectStorageManager,
-)
+from assistant.project_storage import ConversationProjectManager, ConversationRole, ProjectStorageManager
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.storage import read_model, write_model
 
@@ -80,7 +76,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
         # Patch get_conversation_role
         async def mock_get_conversation_role(context):
-            return ProjectRole.COORDINATOR
+            return ConversationRole.COORDINATOR
 
         patch3 = unittest.mock.patch.object(
             ConversationProjectManager, "get_conversation_role", side_effect=mock_get_conversation_role

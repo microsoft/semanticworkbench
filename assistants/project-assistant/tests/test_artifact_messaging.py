@@ -3,8 +3,8 @@ Tests for the project notification functionality with the direct storage approac
 These tests replace the previous artifact-messaging-based tests.
 """
 
-import shutil
 import pathlib
+import shutil
 import unittest
 import unittest.mock
 import uuid
@@ -20,8 +20,8 @@ from assistant.project_data import (
 from assistant.project_manager import ProjectManager
 from assistant.project_storage import (
     ConversationProjectManager,
+    ConversationRole,
     ProjectNotifier,
-    ProjectRole,
     ProjectStorage,
     ProjectStorageManager,
 )
@@ -54,7 +54,7 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
         self.project_dir = ProjectStorageManager.get_project_dir(self.project_id)
 
         # Set up directories for different conversation roles
-        self.coordinator_dir = self.project_dir / ProjectRole.COORDINATOR.value
+        self.coordinator_dir = self.project_dir / ConversationRole.COORDINATOR.value
         self.coordinator_dir.mkdir(exist_ok=True)
 
         self.team_dir = self.project_dir / f"team_{self.team_conversation_id}"
@@ -177,11 +177,13 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
 
         # Set up conversation roles
         coordinator_role_data = ConversationProjectManager.ConversationRoleInfo(
-            project_id=self.project_id, role=ProjectRole.COORDINATOR, conversation_id=self.coordinator_conversation_id
+            project_id=self.project_id,
+            role=ConversationRole.COORDINATOR,
+            conversation_id=self.coordinator_conversation_id,
         )
 
         team_role_data = ConversationProjectManager.ConversationRoleInfo(
-            project_id=self.project_id, role=ProjectRole.TEAM, conversation_id=self.team_conversation_id
+            project_id=self.project_id, role=ConversationRole.TEAM, conversation_id=self.team_conversation_id
         )
 
         # Set up conversation projects
@@ -227,8 +229,8 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
 
         # Mock the ConversationClientManager.get_conversation_client method
         patch_get_client = unittest.mock.patch(
-            "assistant.conversation_clients.ConversationClientManager.get_conversation_client", 
-            return_value=self.mock_conversation_client
+            "assistant.conversation_clients.ConversationClientManager.get_conversation_client",
+            return_value=self.mock_conversation_client,
         )
         patch_get_client.start()
         self.patches.append(patch_get_client)
@@ -238,10 +240,10 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
         mock_get_coordinator = unittest.mock.AsyncMock(
             return_value=(self.mock_conversation_client, self.coordinator_conversation_id)
         )
-            
+
         patch_get_coordinator = unittest.mock.patch(
             "assistant.conversation_clients.ConversationClientManager.get_coordinator_client_for_project",
-            mock_get_coordinator
+            mock_get_coordinator,
         )
         patch_get_coordinator.start()
         self.patches.append(patch_get_coordinator)
@@ -318,7 +320,7 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
         # Set up necessary mocks
         with (
             unittest.mock.patch.object(ProjectManager, "get_project_id", return_value=self.project_id),
-            unittest.mock.patch.object(ProjectManager, "get_project_role", return_value=ProjectRole.TEAM),
+            unittest.mock.patch.object(ProjectManager, "get_project_role", return_value=ConversationRole.TEAM),
         ):
             # Create an information request
             success, request = await ProjectManager.create_information_request(
@@ -399,7 +401,7 @@ class TestProjectNotification(unittest.IsolatedAsyncioTestCase):
         # Set up necessary mocks
         with (
             unittest.mock.patch.object(ProjectManager, "get_project_id", return_value=self.project_id),
-            unittest.mock.patch.object(ProjectManager, "get_project_role", return_value=ProjectRole.COORDINATOR),
+            unittest.mock.patch.object(ProjectManager, "get_project_role", return_value=ConversationRole.COORDINATOR),
         ):
             # First make sure the initial brief exists in the correct location
             brief_path = ProjectStorageManager.get_brief_path(self.project_id)

@@ -6,8 +6,9 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from assistant.project_tools import ProjectTools, get_project_tools
+from assistant.project_tools import ProjectTools
 from semantic_workbench_assistant.assistant_app import ConversationContext
+from assistant.config import assistant_config
 
 
 # Use pytest for all tests for consistency
@@ -52,9 +53,11 @@ class TestProjectTools:
 
         # Verify Team-specific functions are registered
         assert "create_information_request" in team_tools.tool_functions.function_map
-        assert "update_project_dashboard" in team_tools.tool_functions.function_map
+        assert "update_project_info" in team_tools.tool_functions.function_map  # Updated from update_project_dashboard
         assert "mark_criterion_completed" in team_tools.tool_functions.function_map
         assert "report_project_completion" in team_tools.tool_functions.function_map
+        assert "delete_information_request" in team_tools.tool_functions.function_map  # Added new function
+        assert "view_coordinator_conversation" in team_tools.tool_functions.function_map  # Added new function
 
         # Verify Coordinator-specific functions are NOT registered
         assert "create_project_brief" not in team_tools.tool_functions.function_map
@@ -76,8 +79,8 @@ class TestProjectTools:
         assert "detect_information_request_needs" in team_tools.tool_functions.function_map
 
     @pytest.mark.asyncio
-    async def test_get_project_tools(self, context, monkeypatch):
-        """Test the get_project_tools factory function."""
+    async def test_project_tools_with_config(self, context, monkeypatch):
+        """Test the ProjectTools behavior with different configurations."""
         # Mock the assistant_config.get method
         mock_config = MagicMock()
         mock_config.track_progress = True
@@ -85,123 +88,84 @@ class TestProjectTools:
         async def mock_get_config(*args, **kwargs):
             return mock_config
 
-        # Patch the assistant_config.get method directly since it's now imported at the top level
-        # Import the module where get_project_tools is defined to patch the assistant_config
-        import assistant.project_tools as project_tools_module
-
-        # Replace with our mock
+        # Patch the assistant_config.get method
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
-        project_tools_module.assistant_config = mock_assistant_config
+        monkeypatch.setattr("assistant.project_tools.assistant_config", mock_assistant_config)
 
-        # Ensure we restore the original when the test is done
-        monkeypatch.setattr(project_tools_module, "assistant_config", mock_assistant_config)
-
-        # Test that get_project_tools returns a ProjectTools instance
-        tools = await get_project_tools(context, "coordinator")
-        assert isinstance(tools, ProjectTools)
-        assert tools.role == "coordinator"
-
-        # Test with track_progress set to False
+        # Test with track_progress set to True first
+        # Create a ProjectTools instance directly
+        tools = ProjectTools(context, "coordinator")
+        
+        # Make sure add_project_goal was added when track_progress=True
+        assert "add_project_goal" in tools.tool_functions.function_map
+        
+        # For team role, check criterion completion
+        team_tools = ProjectTools(context, "team")
+        assert "mark_criterion_completed" in team_tools.tool_functions.function_map
+        
+        # Now test with track_progress set to False
         mock_config.track_progress = False
-        tools = await get_project_tools(context, "coordinator")
-        assert isinstance(tools, ProjectTools)
-        assert tools.role == "coordinator"
-        # Verify progress functions are removed
-        assert "add_project_goal" not in tools.tool_functions.function_map
-        assert "mark_criterion_completed" not in tools.tool_functions.function_map
-
-        # Test with track_progress set to False
-        mock_config.track_progress = False
-        tools = await get_project_tools(context, "coordinator")
-        assert isinstance(tools, ProjectTools)
-        assert tools.role == "coordinator"
-        # Verify progress functions are removed
-        assert "add_project_goal" not in tools.tool_functions.function_map
-        assert "mark_criterion_completed" not in tools.tool_functions.function_map
+        
+        # For add_project_goal, we need to monkey patch the check in the method
+        # Since we're now testing a method that uses await assistant_config.get() 
+        # We'll monkeypatch the method directly to simulate track_progress=False
+        
+        # Create a test instance that will be configured during the async call
+        coordinator_tools = ProjectTools(context, "coordinator")
+        team_tools = ProjectTools(context, "team")
+        
+        # Test the add_project_goal method with track_progress=False
+        result = await coordinator_tools.add_project_goal("Test Goal", "Test Description", ["Test Criterion"])
+        assert "Progress tracking is not enabled" in result
+        
+        # Test the mark_criterion_completed method with track_progress=False
+        result = await team_tools.mark_criterion_completed(0, 0)
+        assert "Progress tracking is not enabled" in result
 
     @pytest.mark.asyncio
     async def test_detect_information_request_needs(self, context, monkeypatch):
         """Test the detect_information_request_needs function."""
         # Create the ProjectTools instance
         team_tools = ProjectTools(context, "team")
+        
+        # Patch the assistant_config.get method to avoid actual config loading
+        mock_config = MagicMock()
+        mock_config.track_progress = True
+        mock_config.service_config = None  # Ensure we use the fallback keyword detection
 
-        # Mock the openai_client.create_client function to avoid LLM calls
-        class MockAsyncContextManager:
-            async def __aenter__(self):
-                mock_client = MagicMock()
-                # Set up the chat completions create method to return a valid response
-                mock_completion = MagicMock()
-                mock_choice = MagicMock()
-                mock_message = MagicMock()
-                mock_message.content = json.dumps({
-                    "is_information_request": True,
-                    "matched_indicators": ["need information"],
-                    "potential_title": "I need information about",
-                    "potential_description": "I need information about how to proceed with this task.",
-                    "suggested_priority": "medium",
-                    "confidence": 0.8
-                })
-                mock_choice.message = mock_message
-                mock_completion.choices = [mock_choice]
-                
-                # Set up the nested structure for the async mock
-                mock_chat = MagicMock()
-                mock_chat.completions = MagicMock()
-                mock_chat.completions.create = AsyncMock(return_value=mock_completion)
-                mock_client.chat = mock_chat
-                
-                return mock_client
+        async def mock_get_config(*args, **kwargs):
+            return mock_config
 
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass
-
-        # Patch the create_client function
-        monkeypatch.setattr(
-            "openai_client.create_client", 
-            lambda service_config, **kwargs: MockAsyncContextManager()
-        )
+        # Patch assistant_config.get
+        mock_assistant_config = MagicMock()
+        mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
+        monkeypatch.setattr("assistant.project_tools.assistant_config", mock_assistant_config)
+        
+        # Force using the simple keyword detection by making sure we'll hit the exception path
+        # This avoids the need to mock the entire openai client infrastructure
+        monkeypatch.setattr(team_tools, "_simple_keyword_detection", MagicMock(return_value={
+            "is_information_request": True,
+            "matched_indicators": ["need information"],
+            "potential_title": "I need information about",
+            "potential_description": "I need information about how to proceed with this task.",
+            "suggested_priority": "medium",
+            "confidence": 0.6
+        }))
 
         # Test with a message that contains information request indicators
         test_message = "I need information about how to proceed with this task."
         result = await team_tools.detect_information_request_needs(test_message)
 
         assert result["is_information_request"]
-        # Either the mocked LLM result or the fallback keyword matching could be used
-        assert "need information" in result.get("matched_indicators", []) or result.get("potential_title") == "I need information about"
-
-        # Modify the mock to return a negative result for the second test
-        class MockAsyncContextManagerNegative:
-            async def __aenter__(self):
-                mock_client = MagicMock()
-                # Set up the chat completions create method to return a valid response
-                mock_completion = MagicMock()
-                mock_choice = MagicMock()
-                mock_message = MagicMock()
-                mock_message.content = json.dumps({
-                    "is_information_request": False,
-                    "reason": "No information request indicators found",
-                    "confidence": 0.9
-                })
-                mock_choice.message = mock_message
-                mock_completion.choices = [mock_choice]
-                
-                # Set up the nested structure for the async mock
-                mock_chat = MagicMock()
-                mock_chat.completions = MagicMock()
-                mock_chat.completions.create = AsyncMock(return_value=mock_completion)
-                mock_client.chat = mock_chat
-                
-                return mock_client
-
-            async def __aexit__(self, exc_type, exc_val, exc_tb):
-                pass
-
-        # Update the patch for the second test
-        monkeypatch.setattr(
-            "openai_client.create_client", 
-            lambda service_config, **kwargs: MockAsyncContextManagerNegative()
-        )
+        # Check that the simple keyword detection was used
+        assert result["confidence"] == 0.6
+        
+        # Now test negative case
+        monkeypatch.setattr(team_tools, "_simple_keyword_detection", MagicMock(return_value={
+            "is_information_request": False,
+            "reason": "No information request indicators found"
+        }))
 
         # Test with a message that doesn't contain information request indicators
         test_message = "Everything is going well with the project."

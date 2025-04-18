@@ -5,16 +5,14 @@ This module provides shared functionality for team and coordinator conversation 
 helping to reduce code duplication and maintain consistency.
 """
 
-import logging
 from enum import Enum
 from typing import Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .logging import logger
 from .project_data import LogEntryType
-from .project_storage import ConversationProjectManager, ProjectStorage
-
-logger = logging.getLogger(__name__)
+from .project_storage import ConversationProjectManager, ConversationRole, ProjectStorage
 
 
 class ConfigurationTemplate(Enum):
@@ -34,19 +32,6 @@ def get_template(context: ConversationContext) -> ConfigurationTemplate:
         if template_id == "default"
         else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
     )
-
-
-class ConversationRole(str, Enum):
-    """
-    Enumeration of conversation roles in a project.
-
-    This enum represents the role that a conversation plays in a project,
-    either as a Coordinator (managing the project) or as a Team member
-    (participating in the project).
-    """
-
-    COORDINATOR = "coordinator"
-    TEAM = "team"
 
 
 async def detect_assistant_role(context: ConversationContext) -> ConversationRole:

@@ -40,8 +40,8 @@ from .project_data import (
 )
 from .project_storage import (
     ConversationProjectManager,
+    ConversationRole,
     ProjectNotifier,
-    ProjectRole,
     ProjectStorage,
     ProjectStorageManager,
 )
@@ -298,7 +298,7 @@ class ProjectManager:
     async def join_project(
         context: ConversationContext,
         project_id: str,
-        role: ProjectRole = ProjectRole.TEAM,
+        role: ConversationRole = ConversationRole.TEAM,
     ) -> bool:
         """
         Joins an existing project.
@@ -347,7 +347,7 @@ class ProjectManager:
         return await ConversationProjectManager.get_associated_project_id(context)
 
     @staticmethod
-    async def get_project_role(context: ConversationContext) -> Optional[ProjectRole]:
+    async def get_project_role(context: ConversationContext) -> Optional[ConversationRole]:
         """
         Gets the role of the current conversation in its project.
 
@@ -372,9 +372,9 @@ class ProjectManager:
             role_str = metadata.get("project_role", "coordinator")
 
             if role_str == "team":
-                return ProjectRole.TEAM
+                return ConversationRole.TEAM
             elif role_str == "coordinator":
-                return ProjectRole.COORDINATOR
+                return ConversationRole.COORDINATOR
             else:
                 return None
         except Exception as e:
@@ -1486,7 +1486,7 @@ class ProjectManager:
 
             # Get role - only Coordinator can complete a project
             role = await ProjectManager.get_project_role(context)
-            if role != ProjectRole.COORDINATOR:
+            if role != ConversationRole.COORDINATOR:
                 logger.error("Only Coordinator can complete a project")
                 return False, None
 

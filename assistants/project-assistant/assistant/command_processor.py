@@ -18,7 +18,6 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .project_common import ConversationRole
 from .project_data import (
     LogEntryType,
     ProjectGoal,
@@ -29,8 +28,8 @@ from .project_data import (
 from .project_manager import ProjectManager
 from .project_storage import (
     ConversationProjectManager,
+    ConversationRole,
     ProjectNotifier,
-    ProjectRole,
     ProjectStorage,
     ProjectStorageManager,
 )
@@ -346,7 +345,7 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
         return
 
     # Join the project directly (simplified approach)
-    success = await ProjectManager.join_project(context, project_id, ProjectRole.TEAM)
+    success = await ProjectManager.join_project(context, project_id, ConversationRole.TEAM)
 
     if not success:
         await context.send_messages(
@@ -1060,7 +1059,7 @@ async def handle_project_info_command(
         if project_id:
             # Check if Coordinator or Team
             role = await ProjectManager.get_project_role(context)
-            if role == ProjectRole.COORDINATOR:
+            if role == ConversationRole.COORDINATOR:
                 # For Coordinator, make it prominent with instructions
                 output.append(f"## Project ID: `{project_id}`")
                 output.append(f"_Share this ID with team members so they can join using_ `/join {project_id}`\n")

@@ -30,7 +30,7 @@ from .command_processor import (
 from .config import assistant_config
 from .conversation_clients import ConversationClientManager
 from .logging import logger
-from .project_common import ConfigurationTemplate, ConversationRole
+from .project_common import ConfigurationTemplate
 from .project_data import (
     LogEntryType,
     ProjectInfo,
@@ -41,8 +41,8 @@ from .project_data import (
 from .project_manager import ProjectManager
 from .project_storage import (
     ConversationProjectManager,
+    ConversationRole,
     ProjectNotifier,
-    ProjectRole,
     ProjectStorage,
     ProjectStorageManager,
 )
@@ -1132,7 +1132,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             try:
                 # Get Coordinator conversation ID
 
-                coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ProjectRole.COORDINATOR.value
+                coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR.value
                 if coordinator_dir.exists():
                     role_file = coordinator_dir / "conversation_role.json"
                     if role_file.exists():

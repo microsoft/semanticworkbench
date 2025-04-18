@@ -15,7 +15,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
 from .logging import logger
-from .project_storage import ConversationProjectManager, ProjectRole, ProjectStorageManager
+from .project_storage import ConversationProjectManager, ConversationRole, ProjectStorageManager
 
 
 class ConversationClientManager:
@@ -65,7 +65,7 @@ class ConversationClientManager:
             Tuple of (client, coordinator_conversation_id) or (None, None) if not found
         """
         # Look for the Coordinator conversation directory
-        coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ProjectRole.COORDINATOR.value
+        coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR
         if not coordinator_dir.exists():
             return None, None
 

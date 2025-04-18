@@ -32,12 +32,13 @@ from assistant.respond import respond_to_conversation
 
 from .config import assistant_config
 from .logging import logger
-from .project_common import ConversationRole, detect_assistant_role
+from .project_common import detect_assistant_role
 from .project_data import LogEntryType
 from .project_files import ProjectFileManager
 from .project_manager import ProjectManager
 from .project_storage import (
     ConversationProjectManager,
+    ConversationRole,
     ProjectNotifier,
     ProjectStorage,
 )
@@ -107,7 +108,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
     # send a focus event to notify the assistant to focus on the artifacts
     await context.send_conversation_state_event(
         AssistantStateEvent(
-            state_id="project_info",
+            state_id="project_status",
             event="focus",
             state=None,
         )

@@ -26,12 +26,10 @@ from assistant.utils import load_text_include
 
 from .config import assistant_config
 from .logging import logger
-from .project_common import ConfigurationTemplate, ConversationRole, detect_assistant_role, get_template
+from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
-from .project_storage import (
-    ProjectStorage,
-)
+from .project_storage import ConversationRole, ProjectStorage
 
 SILENCE_TOKEN = "{{SILENCE}}"
 CONTEXT_TRANSFER_ASSISTANT = ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
