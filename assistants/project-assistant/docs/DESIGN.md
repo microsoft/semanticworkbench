@@ -2,17 +2,44 @@
 
 ## Overview
 
-The Project Assistant is designed as a dual-mode context transfer system that facilitates knowledge transfer between different conversations in the Semantic Workbench. It provides a structured way for Coordinators to create project information and Team members to access it, with bidirectional updates and communication.
-
-The system features a simplified invitation system using project IDs directly, comprehensive project data integrated into LLM prompts, robust UUID handling, and a complete information request lifecycle including creation and deletion.
+The Project Assistant is designed as a dual-role context transfer system that facilitates knowledge transfer between different conversations in the Semantic Workbench. It provides a structured way for Coordinators to create project information and Team members to access it, with bidirectional updates and communication.
 
 ## System Design
 
+### Configuration Templates
+
+The Project Assistant supports two different configuration templates within a unified codebase. The templates modify the behavior of the assistants considerably, so we basically have two different assistants with this single assistant codebase.
+
+1. **Default Template (Project Assistant)**:
+   - Full project management capabilities with tracking features
+   - Includes goals, success criteria, and project state monitoring
+   - Tracks progress of project tasks and completion status
+   - Uses "Project Assistant" branding and terminology
+   - Provides comprehensive project dashboard with status tracking
+   - Focuses on project management workflow with sequential stages
+
+2. **Context Transfer Template (Context Transfer Assistant)**:
+   - Simplified knowledge sharing without project tracking features
+   - Designed for knowledge transfer without formal project structure
+   - No goals or success criteria tracking
+   - Uses "Context Transfer Assistant" branding and terminology
+   - Maintains core information request capabilities without project stages
+   - Different welcome messages and UI labels appropriate for knowledge sharing
+
+The system automatically adapts its behavior, prompts, and UI based on which template is selected during assistant instantiation, while maintaining a unified codebase and consistent architecture.
+
+Some features remain in both assistant configurations:
+
+- Both assistants maintain a "whiteboard" internally to build up context of the project (the "project" for the Context Transfer Assistant is to transfer the context well, while for the Project Assistant it is a project in a more formal sense). The whiteboard is updated by the assistant each time they reply to the user. The whiteboard is distinct from the project information dashboard which is a collaboration between the user and the assistant.
+- Both assistants syncronize project information and files between coordinators and team members.
+- Both assistants facilitate the creation of information requests by team members, and the answering of information requests by the coordinators.
+- Both assistants can speak conversationally and run their own sets of tools.
+
 ### Conversation Structure
 
-The Project Assistant manages three distinct types of conversations:
+The Project Assistant (in both configurations) manages three distinct types of conversations:
 
-1. **Coordinator Conversation**: 
+1. **Coordinator Conversation**:
    - Created when a user first interacts with the Project Assistant
    - Acts as the personal workspace for the project owner/coordinator
    - Contains private communication between the coordinator and the assistant
@@ -31,38 +58,43 @@ The Project Assistant manages three distinct types of conversations:
    - Each team member gets their own personal conversation
    - All team conversations are linked to the same project
    - Used for team members to work on the project, make information requests, etc.
-   - Automatically set up with the team role
+   - Automatically set up with the team member role
 
-### Operation Modes
+### Conversation Roles
 
-The Project Assistant is built as a dual-mode context transfer assistant:
+Within each configuration template, the Project Assistant supports two distinct conversation roles:
 
-1. **Coordinator Mode (Planning Stage)**:
-   - Project Brief Creation: Coordinator articulates the project goals and success criteria
+1. **Coordinator Role**:
    - Knowledge Base Development: Collection and organization of project-critical information
-   - Project Preparation: Ensuring the Knowledge Base is complete and ready for team use
-   - Milestone: "Ready for Working" milestone ensures project information meets quality criteria
    - Information Request Resolution: Coordinator resolves information requests from team members
+   - **In Default Template**:
+     - Project Brief Creation with goals and success criteria
+     - Project Preparation with staged milestones
+     - "Ready for Working" milestone management
+   - **In Context Transfer Template**:
+     - Knowledge organization without formal project stages
+     - Focus on information structuring without tracking progress
 
-2. **Team Mode (Working Stage)**:
-   - Team Operations: Team members interact with the Project KB to accomplish goals
-   - Request Management: Team members create and delete requests as needed
-   - Coordinator Support: Coordinator is notified of Information Requests and resolves them asynchronously
-   - Progress Tracking: Team members mark criteria as completed and update status
-   - Milestone: "Project Completion" milestone indicates all success criteria have been met
+2. **Team Member Role**:
+   - Information Access: Team members interact with the shared Knowledge Base
+   - Request Management: Team members create and delete information requests as needed
+   - **In Default Template**:
+     - Progress Tracking with criteria completion
+     - Dashboard updates with completion status
+     - Support for "Project Completion" milestone
+   - **In Context Transfer Template**:
+     - Knowledge exploration without progress tracking
+     - Information requests without formal project stages
 
-The system supports an iterative and asynchronous workflow where the Team's operations and the Coordinator's support activities can occur concurrently, with a dynamic dashboard to display the current project status.
+For both configuration templates, the system supports an iterative and asynchronous workflow where the team members' operations and the coordinator's support activities can occur concurrently. The default template provides a comprehensive project dashboard with status tracking, while the context transfer template focuses on knowledge exchange without formal project stages.
 
 ### Key Architectural Features
 
 1. **Simplified Invitation System**:
-   - Uses project ID directly as the universal invitation code
-   - No expiration or user restrictions on project access
-   - Project ID generated automatically during Coordinator initialization
-   - Team members join by simply specifying the project ID
+   - Uses Semantic Workbench features to clone new team conversations from shareable conversations. The coordinator gives the team members redeemable share links out-of-band.
 
 2. **Comprehensive LLM Context**:
-   - Project data (brief, dashboard, KB, requests) embedded directly in prompts
+   - Project data (brief, info, whiteboard, requests) embedded directly in prompts
    - Role-specific formatting to highlight relevant information
    - Dynamic listing of information requests with proper ID formatting
    - Intelligent truncation to manage context length
@@ -86,19 +118,21 @@ The system supports an iterative and asynchronous workflow where the Team's oper
 
 ## Data
 
-The Project Assistant manages several key entities:
+The Project Assistant manages several key entities that work together to provide a cohesive experience:
 
 1. **Project Brief**: A clear, concise statement of the project, including goals, success criteria, and high-level context necessary for the Team to start. Owned by Coordinator, with individual success criteria that can be marked complete by Team members.
 
-2. **Project KB (Knowledge Base)**: The curated information necessary for the Team to carry out the project, kept up-to-date by Coordinator with clear logs of updates. Owned by Coordinator, made accessible to the Team, with content formatted in Markdown.
+2. **Project Whiteboard**: A dynamic, automatically updated knowledge repository that captures key information from conversations. The whiteboard is continuously updated as the coordinator interacts with the assistant, extracting and organizing essential project context. It's formatted in Markdown and made available to all team members without requiring manual maintenance.
 
-3. **Project Dashboard**: A dynamic representation of progress toward success, updated in real time to reflect remaining tasks, active Information Requests, and Team reports. Visible to both Coordinator and Team in the dashboard, with lifecycle tracking for project milestones.
+3. **Project Info**: Core metadata and state information about the project, including its unique ID, name, current lifecycle state, conversation IDs, share URL, and status messages. This model serves as the central reference point for project identification and collaboration settings. It replaced the previous dashboard entity to eliminate duplication and provide cleaner separation between data and UI.
 
 4. **Information Requests**: A concise, prioritized list of Team needs—specifically unresolved blockers, missing information, or required resources—logged for Coordinator review and resolution. Created and deletable by Team members, resolved by Coordinator, with robust UUID-based identification.
 
-5. **Project Log**: A chronological record of all actions and interactions during the project, including updates to the Project KB, creation and deletion of Information Requests, and progress reports from the Team. Maintained by the system, visible to both Coordinator and Team.
+5. **Project Log**: A chronological record of all actions and interactions during the project, including updates to the project whiteboard, creation and deletion of information requests, and progress reports from the team. Maintained by the system, visible to both coordinator and team members.
 
 6. **Coordinator Conversation Storage**: A selective representation of key Coordinator conversation messages made accessible to Team members for context. Includes both user and assistant messages with metadata, limited to the most recent 50 messages to prevent excessive storage growth, with proper attribution of message sources.
+
+The State Inspector UI component (visible tab in the Semantic Workbench) dynamically composes information from these entities to present a unified view, rather than relying on a single "dashboard" entity. This decoupling of data from UI allows for more flexible presentation and eliminates redundancy.
 
 ## Storage Architecture
 
@@ -107,38 +141,39 @@ The Project Assistant leverages the Semantic Workbench Assistant library's stora
 ```
 projects/
 ├── project_id_1/
-│   ├── coordinator/         # Coordinator conversation data
-│   │   └── conversation_role.json  # Coordinator role information
-│   ├── team_conv_id_1/      # Team conversation 1 data
-│   │   └── conversation_role.json  # Team role information
-│   ├── team_conv_id_2/      # Team conversation 2 data
-│   │   └── conversation_role.json  # Team role information
-│   └── shared/              # Shared artifacts
-│       ├── project_brief/          # Project brief artifacts
-│       │   └── brief.json          # Project brief data
-│       ├── project_kb/             # Knowledge base content
-│       │   └── kb.json             # Knowledge base sections
-│       ├── project_dashboard/      # Project dashboard information
-│       │   └── dashboard.json      # Current project status
-│       ├── information_request/    # Information requests
-│       │   ├── request_id_1.json   # Individual request files
-│       │   └── request_id_2.json   # Each with a unique UUID
-│       ├── project_log/            # Project event log
-│       │   └── log.json            # Chronological event log
-│       └── coordinator_conversation/ # Coordinator conversation storage
-│           └── coordinator_conversation.json # Recent messages for team access
+│   ├── linked_conversations/         # Directory tracking all linked conversations
+│   │   ├── conversation_id_1         # Empty file - just presence indicates linkage
+│   │   ├── conversation_id_2         # Empty file for another linked conversation
+│   │   └── ...                       # One file per linked conversation
+│   ├── requests/                     # Information requests directory
+│   │   ├── request_id_1.json         # Individual request files
+│   │   └── request_id_2.json         # Each with a unique UUID
+│   ├── project.json                  # Core project information
+│   ├── brief.json                    # Project brief data
+│   ├── whiteboard.json               # Automatically updated knowledge content
+│   ├── log.json                      # Chronological event log
+│   └── coordinator_conversation.json # Recent coordinator messages for team access
 └── project_id_2/
     └── ...
+```
+
+Additionally, conversation-specific data is stored in the assistant library's context-specific storage. This provides the mechanism for the assistant to know which project it is a part of:
+
+```
+.data/assistants/{assistant_id}/conversations/{conversation_id}/
+├── project_role.json         # Role of this conversation (coordinator or team)
+└── project_association.json  # Project this conversation is associated with
 ```
 
 Key implementation details:
 - Using the assistant library's `storage_directory_for_context()` to generate unique storage paths
 - Storing Pydantic models via the library's `read_model()` and `write_model()` functions
-- Each project gets a unique folder with subfolders for each participant conversation
-- Role information stored in conversation-specific directories
-- Shared folder contains artifacts accessible across all conversations in the project
+- Each project gets a unique folder containing all shared project data
+- Conversation roles and project associations tracked in conversation-specific storage
+- Linked conversations tracked with empty files in a special directory
 - Information requests stored as individual files with UUID-based filenames
-- Coordinator conversation messages stored in a centralized JSON file for team access
+- Auto-updating whiteboard maintained with AI-processed conversation content
+- Coordinator conversation messages stored centrally with a maximum of 50 recent messages
 - Project log maintained as a single growing JSON file with chronological entries
 - Clean separation between conversation-specific and shared project data
 
@@ -146,29 +181,27 @@ Key implementation details:
 
 The project assistant provides a customized experience based on whether the user is in Coordinator or Team mode:
 
-### Coordinator Role (Planning Stage)
+### Coordinator Role
 
 - Creates and updates the Project Brief with goals and success criteria
-- Develops and refines the Project KB with project-critical information
-- Shares the Project ID directly with Team members for easy access
-- Has control over what information is included in the Project KB
+- Contributes to the auto-updating Project Whiteboard through conversations
+- Shares a unique project URL with team members for easy access
 - Receives and resolves Information Requests from team members
 - Sees all active requests from all team members with their priorities
-- Controls the "Ready for Working" milestone transition
+- Controls milestone transitions (in default template)
 - Receives notifications when team members delete their requests
 - Gets comprehensive project data directly in the LLM prompt context
 
-### Team Role (Working Stage)
+### Team Member Role
 
-- Works with the Project KB provided by Coordinator
+- Works with the Project Whiteboard that's automatically updated based on coordinator conversations
 - Creates Information Requests when encountering information gaps or blockers
 - Deletes Information Requests that are no longer needed
-- Joins projects directly using the project ID
+- Joins projects by redeeming the share URL provided by the coordinator
 - Views requests from other team members in read-only mode
 - Reports on progress and findings
-- Updates Project Dashboard with completed tasks
-- Marks individual success criteria as completed
-- Views recent Coordinator conversations for context
+- Marks individual success criteria as completed (in default template)
+- Views recent coordinator conversations for additional context
 - Gets comprehensive project data directly in the LLM prompt context
 
 ## Data Models
@@ -182,20 +215,24 @@ Five key entity types provide the foundation for project communication:
    - Individual criterion completion with timestamp and attribution
    - Version tracking for modifications
 
-2. **Project KB**:
-   - Structured sections with titles and content
-   - Tagging system for organization
-   - Version tracking for updates
-   - Order-based section arrangement
-   - Content formatting with Markdown support
+2. **Project Whiteboard**:
+   - Dynamically generated and auto-updated content
+   - AI-powered synthesis of conversation content
+   - Simplified Markdown formatting for readability
+   - Version tracking with timestamps
+   - Automatic organization of key information
+   - Content truncation to maintain manageable size (limited to ~2000 tokens)
+   - Updated after each assistant message in coordinator conversations
 
-3. **Project Dashboard**:
-   - Overall progress percentage tracking (0-100%)
-   - Current state (planning, ready_for_working, in_progress, completed, aborted)
-   - Next actions and blockers
-   - Success criteria count tracking
-   - Lifecycle metadata for milestone transitions
-   - Attribution of state changes
+3. **Project Info**:
+   - Unique project identifier and name
+   - Current project state tracking (planning, ready_for_working, in_progress, completed, aborted)
+   - Coordinator and team conversation IDs
+   - Shareable invitation URL for team members
+   - Status messages and custom project notes
+   - Creation and update timestamps
+   - Serves as the central reference for project metadata
+   - Replaced previous dashboard entity to decouple data from UI
 
 4. **Information Requests**:
    - Prioritized information needs (low, medium, high, critical)
@@ -210,11 +247,14 @@ Five key entity types provide the foundation for project communication:
    - Rich categorization system with specialized entry types
    - Attribution of actions to specific users
    - Metadata for event context
-   - Events for milestone transitions, request handling, and KB updates
+   - Events for milestone transitions, request handling, and whiteboard updates
    - Request deletion tracking
+   - Full history of all project activities
 
 6. **Coordinator Conversation Storage**:
-   - Shared access to Coordinator conversation for team members
+   - Shared access to coordinator conversation for team members
    - Content and sender metadata preservation
-   - Limited message history with automatic pruning
-   - Read-only access for team members
+   - Limited message history (most recent 50 messages)
+   - Automatic pruning of older messages
+   - Read-only access for team members via the `view_coordinator_conversation` tool
+   - Includes both user and assistant messages

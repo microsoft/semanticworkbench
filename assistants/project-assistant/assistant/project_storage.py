@@ -4,7 +4,6 @@ Project storage management module.
 Provides direct access to project data with a clean, simple storage approach.
 """
 
-import logging
 import pathlib
 from datetime import datetime
 from enum import Enum
@@ -16,6 +15,7 @@ from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.assistant_app.context import storage_directory_for_context
 from semantic_workbench_assistant.storage import read_model, write_model
 
+from .logging import logger
 from .project_data import (
     InformationRequest,
     LogEntry,
@@ -27,11 +27,15 @@ from .project_data import (
 )
 from .utils import get_current_user
 
-logger = logging.getLogger(__name__)
 
+class ConversationRole(str, Enum):
+    """
+    Enumeration of conversation roles in a project.
 
-class ProjectRole(str, Enum):
-    """Role of a conversation in a project."""
+    This enum represents the role that a conversation plays in a project,
+    either as a Coordinator (managing the project) or as a Team member
+    (participating in the project).
+    """
 
     COORDINATOR = "coordinator"
     TEAM = "team"
@@ -197,7 +201,6 @@ class ProjectStorage:
         path = ProjectStorageManager.get_project_log_path(project_id)
         write_model(path, log)
         return path
-
 
     @staticmethod
     def read_project_whiteboard(project_id: str) -> Optional[ProjectWhiteboard]:
@@ -564,7 +567,7 @@ class ProjectNotifier:
         Args:
             context: Current conversation context
             project_id: ID of the project
-            update_type: Type of update (e.g., 'brief', 'status', 'information_request', etc.)
+            update_type: Type of update (e.g., 'brief', 'project_info', 'information_request', etc.)
             message: Notification message to display to users
             data: Optional additional data related to the update
             send_notification: Whether to send notifications (default: True)
@@ -598,7 +601,7 @@ class ConversationProjectManager:
         """Stores a conversation's role in a project."""
 
         project_id: str
-        role: ProjectRole
+        role: ConversationRole
         conversation_id: str
 
     class ProjectAssociation(BaseModel):
@@ -648,7 +651,7 @@ class ConversationProjectManager:
             return []
 
     @staticmethod
-    async def set_conversation_role(context: ConversationContext, project_id: str, role: ProjectRole) -> None:
+    async def set_conversation_role(context: ConversationContext, project_id: str, role: ConversationRole) -> None:
         """
         Sets the role of a conversation in a project.
 
@@ -664,7 +667,7 @@ class ConversationProjectManager:
         write_model(role_path, role_data)
 
     @staticmethod
-    async def get_conversation_role(context: ConversationContext) -> Optional[ProjectRole]:
+    async def get_conversation_role(context: ConversationContext) -> Optional[ConversationRole]:
         """
         Gets the role of a conversation in a project.
 

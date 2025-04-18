@@ -1,8 +1,5 @@
-# Initialize logging first
-from .logging import logger, setup_file_logging
-
-# Import the app
 from .chat import app
+from .logging import logger, setup_file_logging
 
 # Set up file logging
 log_file = setup_file_logging()

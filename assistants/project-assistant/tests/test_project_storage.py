@@ -20,11 +20,7 @@ from assistant.project_data import (
     RequestStatus,
     SuccessCriterion,
 )
-from assistant.project_storage import (
-    ProjectRole,
-    ProjectStorage,
-    ProjectStorageManager,
-)
+from assistant.project_storage import ConversationRole, ProjectStorage, ProjectStorageManager
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.storage import write_model
 
@@ -51,7 +47,7 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         self.project_dir = ProjectStorageManager.get_project_dir(self.project_id)
 
         # Set up directories for different conversation roles
-        self.coordinator_dir = self.project_dir / ProjectRole.COORDINATOR.value
+        self.coordinator_dir = self.project_dir / ConversationRole.COORDINATOR.value
         self.coordinator_dir.mkdir(exist_ok=True)
 
         self.team_dir = self.project_dir / f"team_{self.conversation_id}"

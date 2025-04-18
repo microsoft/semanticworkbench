@@ -28,8 +28,8 @@ from .project_data import (
 from .project_manager import ProjectManager
 from .project_storage import (
     ConversationProjectManager,
+    ConversationRole,
     ProjectNotifier,
-    ProjectRole,
     ProjectStorage,
     ProjectStorageManager,
 )
@@ -345,7 +345,7 @@ async def handle_join_command(context: ConversationContext, message: Conversatio
         return
 
     # Join the project directly (simplified approach)
-    success = await ProjectManager.join_project(context, project_id, ProjectRole.TEAM)
+    success = await ProjectManager.join_project(context, project_id, ConversationRole.TEAM)
 
     if not success:
         await context.send_messages(
@@ -495,20 +495,12 @@ Type `/help` to see all available commands for your role.
         return
 
     # Normal (non-setup) help processing
-    # Then check the stored role from project storage - this is the authoritative source
-    stored_role = await ConversationProjectManager.get_conversation_role(context)
-    stored_role_value = stored_role.value if stored_role else None
+    # Use the role from metadata, which is always the authoritative source
+    # Log the role for debugging
+    logger.debug(f"Role detection in help command - Metadata role: {metadata_role}")
 
-    # Log the roles for debugging
-    logger.debug(f"Role detection in help command - Metadata role: {metadata_role}, Stored role: {stored_role_value}")
-
-    # If we have a stored role but metadata is different, use stored role (more reliable)
-    if stored_role_value and metadata_role != stored_role_value:
-        logger.warning(f"Role mismatch in help command! Metadata: {metadata_role}, Storage: {stored_role_value}")
-        role = stored_role_value
-    else:
-        # Otherwise use metadata or default to coordinator
-        role = metadata_role or "coordinator"  # Default to coordinator if not set
+    # Use the role from metadata or default to coordinator
+    role = metadata_role or "coordinator"  # Default to coordinator if not set
 
     # If a specific command is specified, show detailed help for that command
     if args:
@@ -545,7 +537,7 @@ Type `/help` to see all available commands for your role.
     available_commands = command_registry.get_commands_for_role(role)
 
     # Format help text based on role
-    if role == "coordinator":
+    if role == ConversationRole.COORDINATOR.value:
         help_text = "## Assistant Commands (Coordinator Mode)\n\n"
     else:
         help_text = "## Assistant Commands (Team Mode)\n\n"
@@ -594,7 +586,7 @@ Type `/help` to see all available commands for your role.
         help_text += "### Information\n" + "\n".join(info_commands) + "\n\n"
 
     # Add role-specific guidance
-    if role == "coordinator":
+    if role == ConversationRole.COORDINATOR.value:
         help_text += (
             "As a Coordinator, you are responsible for defining the project and responding to team member requests."
         )
@@ -1067,7 +1059,7 @@ async def handle_project_info_command(
         if project_id:
             # Check if Coordinator or Team
             role = await ProjectManager.get_project_role(context)
-            if role == ProjectRole.COORDINATOR:
+            if role == ConversationRole.COORDINATOR:
                 # For Coordinator, make it prominent with instructions
                 output.append(f"## Project ID: `{project_id}`")
                 output.append(f"_Share this ID with team members so they can join using_ `/join {project_id}`\n")
@@ -1103,8 +1095,6 @@ async def handle_project_info_command(
                                 output.append(f"   {status} {criterion.description}")
 
                         output.append("")
-                else:
-                    output.append("\n*No goals defined yet. Add goals with `/add-goal`.*")
 
         # Get project whiteboard if requested
         if info_type in ["all", "whiteboard"]:
@@ -1132,7 +1122,7 @@ async def handle_project_info_command(
             project_info = await ProjectManager.get_project_info(context)
 
             if project_info:
-                output.append("\n## Project Dashboard\n")
+                output.append("\n## Project Status\n")
                 output.append(f"**Current Status**: {project_info.state.value}")
 
                 if project_info.status_message:
@@ -1140,7 +1130,7 @@ async def handle_project_info_command(
 
                 # Success criteria status can be calculated from the brief if needed later
             elif info_type == "status":
-                output.append("\n## Project Dashboard\n")
+                output.append("\n## Project Status\n")
                 output.append("*No project status defined yet. Update status with `/update-status`.*")
 
         # Get information requests if requested
@@ -1414,149 +1404,3 @@ command_registry.register_command(
     "/sync-files",
     ["team"],  # Primarily for team members
 )
-
-
-# Main entry point for processing commands
-async def process_command(context: ConversationContext, message: ConversationMessage) -> bool:
-    """
-    Process a command message.
-
-    Args:
-        context: The conversation context
-        message: The command message
-
-    Returns:
-        True if command was processed, False otherwise
-    """
-    # Get the conversation's role
-    from .project_storage import ConversationProjectManager
-
-    # First check conversation metadata
-    conversation = await context.get_conversation()
-    metadata = conversation.metadata or {}
-
-    # Check if setup is complete
-    setup_complete = metadata.get("setup_complete", False)
-
-    # If not set in local metadata, try to get it from the state API via the state events
-    if not setup_complete:
-        try:
-            # Get state directly from conversation state
-            from .state_inspector import ProjectInspectorStateProvider
-
-            inspector = ProjectInspectorStateProvider(None)
-            state_data = await inspector.get(context)
-
-            if state_data and state_data.data and state_data.data.get("content"):
-                content = state_data.data.get("content", "")
-                # Check if content indicates we're in Coordinator or Team mode (not in setup mode)
-                if "Role: Coordinator" in content or "Role: Team" in content:
-                    setup_complete = True
-                    # Extract role from content
-                    if "Role: Coordinator" in content:
-                        metadata["project_role"] = "coordinator"
-                        metadata["assistant_mode"] = "coordinator"
-                    else:
-                        metadata["project_role"] = "team"
-                        metadata["assistant_mode"] = "team"
-                    metadata["setup_complete"] = True
-
-                    logger.info(f"Found role in state inspector: {metadata['project_role']}")
-        except Exception as e:
-            logger.exception(f"Error getting role from state inspector: {e}")
-
-    assistant_mode = metadata.get("assistant_mode", "setup")
-
-    # Get the command name and arguments
-    if message.message_type != MessageType.command:
-        return False
-
-    command_name = message.command_name
-    if command_name.startswith("/"):
-        command_name = command_name[1:]  # Remove the '/' prefix
-    args = message.command_args.split() if message.command_args else []
-
-    # Special handling for setup mode
-    if not setup_complete and assistant_mode == "setup":
-        # First check if project ID exists - if it does, setup should be complete regardless
-        project_id = await ProjectManager.get_project_id(context)
-        if project_id:
-            logger.info(f"Found project ID {project_id}, but setup_complete is False. This is inconsistent.")
-            # We have a project ID but setup_complete is False - this is inconsistent
-            # Force setup to be considered complete since we have a project
-            setup_complete = True
-            metadata["setup_complete"] = True
-            # Try to get role - default to team if we can't determine
-            role = await ConversationProjectManager.get_conversation_role(context)
-            if role:
-                metadata["project_role"] = role.value
-                metadata["assistant_mode"] = role.value
-                logger.info(f"Fixed role based on storage: {role.value}")
-            else:
-                # Default to team mode if we can't determine
-                metadata["project_role"] = "team"
-                metadata["assistant_mode"] = "team"
-                logger.info("Could not determine role, defaulting to team mode")
-
-            # Update conversation metadata to fix this inconsistency for future commands
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
-            )
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="project_role", event="updated", state=None)
-            )
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
-            )
-
-            # Continue to normal command processing below
-            logger.info(f"Fixed inconsistent state, processing command {command_name} normally")
-        else:
-            # Only truly in setup mode if we don't have a project ID
-            # Always allow these commands in setup mode
-            setup_commands = ["start", "join", "help"]
-
-            if command_name in setup_commands:
-                # If the command is a setup command, process it
-                if command_name == "help":
-                    await handle_help_command(context, message, args)
-                    return True
-                elif command_name in command_registry.commands:
-                    await command_registry.commands[command_name]["handler"](context, message, args)
-                    return True
-            else:
-                # Show message for commands that require an active project
-                await context.send_messages(
-                    NewConversationMessage(
-                        content=(
-                            "**Project not detected**\n\n"
-                            "Your project is still being set up. Please wait a moment and try again.\n\n"
-                            "If this persists, please report this issue - this should happen automatically."
-                        ),
-                        message_type=MessageType.notice,
-                    )
-                )
-                return True
-
-    # Standard command processing for non-setup mode
-    metadata_role = metadata.get("project_role")
-
-    # Then check the stored role from project storage - this is the authoritative source
-    stored_role = await ConversationProjectManager.get_conversation_role(context)
-    stored_role_value = stored_role.value if stored_role else None
-
-    # Log the roles for debugging
-    logger.debug(
-        f"Role detection in process_command - Metadata role: {metadata_role}, Stored role: {stored_role_value}"
-    )
-
-    # If we have a stored role but metadata is different, use stored role (more reliable)
-    if stored_role_value and metadata_role != stored_role_value:
-        logger.warning(f"Role mismatch in process_command! Metadata: {metadata_role}, Storage: {stored_role_value}")
-        role = stored_role_value
-    else:
-        # Otherwise use metadata or default to coordinator
-        role = metadata_role or "coordinator"  # Default to coordinator if not set
-
-    # Process the command through the registry
-    return await command_registry.process_command(context, message, role)

@@ -34,9 +34,13 @@
       "name": "workbench-service",
       "path": "../../workbench-service"
     },
+    {
+      "name": "assistants:codespace-assistant",
+      "path": "../../assistants/codespace-assistant"
+    },
     // {
-    //   "name": "assistants:codespace-assistant",
-    //   "path": "../../assistants/codespace-assistant"
+    //   "name": "assistants:skill-assistant",
+    //   "path": "../../assistants/skill-assistant"
     // },
     {
       "name": "assistants:project-assistant",
@@ -83,16 +87,6 @@
       "path": "../../.multi-root-tools"
     }
   ],
-  "settings": {
-    "markdown.validate.enabled": true,
-    "ruff.configuration": "${workspaceFolder:.multi-root-tools}/../ruff.toml",
-    "ruff.interpreter": ["${workspaceFolder:.multi-root-tools}/.venv"],
-    "ruff.importStrategy": "useBundled",
-    "ruff.nativeServer": "on",
-    "[python]": {
-      "editor.defaultFormatter": "charliermarsh.ruff"
-    }
-  },
   "extensions": {
     "recommendations": [
       "charliermarsh.ruff",

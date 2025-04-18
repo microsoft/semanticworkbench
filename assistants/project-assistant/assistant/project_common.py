@@ -5,15 +5,62 @@ This module provides shared functionality for team and coordinator conversation 
 helping to reduce code duplication and maintain consistency.
 """
 
-import logging
-from typing import Any, Dict, Optional
+from enum import Enum
+from typing import Dict, Optional
 
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .logging import logger
 from .project_data import LogEntryType
-from .project_storage import ConversationProjectManager, ProjectRole, ProjectStorage
+from .project_storage import ConversationProjectManager, ConversationRole, ProjectStorage
 
-logger = logging.getLogger(__name__)
+
+class ConfigurationTemplate(Enum):
+    """
+    This assistant can be in one of two different template configurations. It
+    behaves quite differently based on which configuration it it in.
+    """
+
+    PROJECT_ASSISTANT = "project_assistant"
+    CONTEXT_TRANSFER_ASSISTANT = "context_transfer_assistant"
+
+
+def get_template(context: ConversationContext) -> ConfigurationTemplate:
+    template_id = context.assistant._template_id or "default"
+    return (
+        ConfigurationTemplate.PROJECT_ASSISTANT
+        if template_id == "default"
+        else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
+    )
+
+
+async def detect_assistant_role(context: ConversationContext) -> ConversationRole:
+    """
+    Detects whether this conversation is in Coordinator or Team mode.
+
+    This method examines the conversation metadata to determine the role
+    of the current conversation in the project. The role is always stored
+    in the conversation metadata as "project_role".
+
+    Args:
+        context: The conversation context to examine
+
+    Returns:
+        ConversationRole.COORDINATOR or ConversationRole.TEAM
+    """
+    try:
+        conversation = await context.get_conversation()
+        metadata = conversation.metadata or {}
+        role_str = metadata.get("project_role", "coordinator")
+
+        if role_str == "team":
+            return ConversationRole.TEAM
+        else:
+            return ConversationRole.COORDINATOR
+    except Exception as e:
+        logger.exception(f"Error detecting assistant role: {e}")
+        # Default to coordinator role if we can't determine
+        return ConversationRole.COORDINATOR
 
 
 async def log_project_action(
@@ -51,47 +98,5 @@ async def log_project_action(
     )
 
 
-async def handle_project_update(
-    context: ConversationContext,
-    update_type: str,
-    message: str,
-    data: Optional[Dict[str, Any]] = None,
-) -> bool:
-    """
-    Process a project update notification based on the current role.
-
-    This utility function determines the current role and routes the update
-    to the appropriate handler (Coordinator or Team).
-
-    Args:
-        context: The conversation context
-        update_type: Type of update (e.g., 'file_created', 'file_updated', etc.)
-        message: Human-readable notification message
-        data: Optional additional data about the update
-
-    Returns:
-        True if the update was handled, False otherwise
-    """
-    # Get the current role
-    role = await ConversationProjectManager.get_conversation_role(context)
-    if not role:
-        return False
-
-    # Handle based on role
-    if role == ProjectRole.COORDINATOR:
-        # Import coordinator handler
-        from .coordinator_mode import CoordinatorConversationHandler
-
-        # Create handler and process update
-        handler = CoordinatorConversationHandler(context)
-        return await handler.handle_project_update(update_type, message, data)
-
-    elif role == ProjectRole.TEAM:
-        # Import team handler
-        from .team_mode import TeamConversationHandler
-
-        # Create handler and process update
-        handler = TeamConversationHandler(context)
-        return await handler.handle_project_update(update_type, message, data)
-
-    return False  # Unknown role
+# handle_project_update function has been removed as part of the refactoring
+# to simplify project organization

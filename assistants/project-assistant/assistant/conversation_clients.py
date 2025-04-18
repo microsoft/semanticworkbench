@@ -6,28 +6,16 @@ communication between conversations. It provides utilities for creating temporar
 contexts and accessing other conversations.
 """
 
-import logging
 from typing import Any, Optional, Tuple
 
 import semantic_workbench_api_model.workbench_service_client as wsc
-from pydantic import BaseModel
 from semantic_workbench_api_model.workbench_service_client import ConversationAPIClient
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
-from .project_storage import ConversationProjectManager, ProjectRole, ProjectStorageManager
-
-
-# Define models for project role data
-class ProjectRoleData(BaseModel):
-    """Data model for storing a conversation's role in a project."""
-
-    conversation_id: str
-    role: ProjectRole
-
-
-logger = logging.getLogger(__name__)
+from .logging import logger
+from .project_storage import ConversationProjectManager, ConversationRole, ProjectStorageManager
 
 
 class ConversationClientManager:
@@ -77,7 +65,7 @@ class ConversationClientManager:
             Tuple of (client, coordinator_conversation_id) or (None, None) if not found
         """
         # Look for the Coordinator conversation directory
-        coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ProjectRole.COORDINATOR.value
+        coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR
         if not coordinator_dir.exists():
             return None, None
 
@@ -124,6 +112,7 @@ class ConversationClientManager:
 
             # Create a temporary context with the same properties as the original
             # but pointing to a different conversation
+
             temp_context = ConversationContext(
                 assistant=assistant,
                 id=target_conversation_id,
@@ -135,3 +124,5 @@ class ConversationClientManager:
         except Exception as e:
             logger.error(f"Error creating temporary context: {e}")
             return None
+
+    # detect_assistant_role moved to project_common.py

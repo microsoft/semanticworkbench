@@ -13,10 +13,10 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from .project_common import ConfigurationTemplate, detect_assistant_role, get_template
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
-from .project_storage import ConversationProjectManager, ProjectRole
-from .utils import is_context_transfer_assistant
+from .project_storage import ConversationProjectManager, ConversationRole
 
 logger = logging.getLogger(__name__)
 
@@ -34,93 +34,28 @@ class ProjectInspectorStateProvider:
     - Context Transfer: Focuses on knowledge context without goals or progress tracking
     """
 
-    display_name = "Project Status"
-    # Default description - will be updated based on template
-    description = "Current project information including brief, goals, and request status."
+    # Default display name and description
+    display_name = "Status"
+    description = ""
 
     def __init__(self, config_provider) -> None:
         self.config_provider = config_provider
-        self.is_context_transfer = False
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
         Get project information for display in the inspector panel.
-
-        Returns different information based on the conversation's role (Coordinator or Team).
         """
-        # First check conversation metadata for setup status
-        conversation = await context.get_conversation()
-        metadata = conversation.metadata or {}
 
-        # Check if metadata has setup info
-        setup_complete = metadata.get("setup_complete", False)
-        assistant_mode = metadata.get("assistant_mode", "setup")
+        # State variables that will determine the content to display.
+        conversation_role = await detect_assistant_role(context)
 
-        # Determine if this is a context transfer assistant based on template_id
-        self.is_context_transfer = is_context_transfer_assistant(context)
-        
-        if self.is_context_transfer:
-            self.description = "Context transfer information including knowledge resources and shared content."
+        template = get_template(context)
+        is_context_transfer = template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
+
+        if is_context_transfer:
             self.display_name = "Knowledge Context"
-        else:
-            self.description = "Current project information including brief, goals, and request status."
-            self.display_name = "Project Status"
-            
-        # We still need the track_progress value for some operations
-        track_progress = True
-        if self.config_provider:
-            config = await self.config_provider.get(context.assistant)
-            track_progress = config.track_progress
+            self.description = "Context transfer information."
 
-        # Double-check with project storage/manager state
-        if not setup_complete:
-            # Check if we have a project role in storage
-            role = await ConversationProjectManager.get_conversation_role(context)
-            if role:
-                # If we have a role in storage, consider setup complete
-                setup_complete = True
-                assistant_mode = role.value
-
-                # Update local metadata too
-                metadata["setup_complete"] = True
-                metadata["assistant_mode"] = role.value
-                metadata["project_role"] = role.value
-
-                # Send conversation state event to save the metadata - using None for state values
-                try:
-                    from semantic_workbench_api_model.workbench_model import AssistantStateEvent
-
-                    await context.send_conversation_state_event(
-                        AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
-                    )
-                    await context.send_conversation_state_event(
-                        AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
-                    )
-                    await context.send_conversation_state_event(
-                        AssistantStateEvent(state_id="project_role", event="updated", state=None)
-                    )
-                    logger.info(f"Updated metadata based on project role detection: {role.value}")
-                except Exception as e:
-                    logger.exception(f"Failed to update metadata: {e}")
-
-        # If setup isn't complete, show setup instructions
-        if not setup_complete and assistant_mode == "setup":
-            setup_markdown = """# Project Assistant Setup
-
-**Role Selection Required**
-
-Before you can access project features, please specify your role:
-
-- Use `/start` to create a new project as Coordinator
-- Use `/join <project_id>` to join an existing project as Team member
-
-Type `/help` for more information on available commands.
-
-⚠️ **Note:** Setup is required before you can access any project features.
-"""
-            return AssistantConversationInspectorStateDataModel(data={"content": setup_markdown})
-
-        # Continue with normal inspector display for already set up conversations
         # Determine the conversation's role and project
         project_id = await ConversationProjectManager.get_associated_project_id(context)
         if not project_id:
@@ -128,92 +63,74 @@ Type `/help` for more information on available commands.
                 data={"content": "No active project. Start a conversation to create one."}
             )
 
-        role = await ConversationProjectManager.get_conversation_role(context)
-        if not role:
-            return AssistantConversationInspectorStateDataModel(
-                data={"content": "Role not assigned. Please restart the conversation."}
-            )
-
         # Get project information
         brief = await ProjectManager.get_project_brief(context)
         project_info = await ProjectManager.get_project_info(context)
 
-        # Generate nicely formatted markdown for the state panel
-        if role == ProjectRole.COORDINATOR:
-            # Format for Coordinator role
+        if conversation_role == ConversationRole.COORDINATOR:
             markdown = await self._format_coordinator_markdown(
-                project_id, role, brief, project_info, context, track_progress
+                project_id, conversation_role, brief, project_info, context, is_context_transfer
             )
         else:
-            # Format for Team role
-            markdown = await self._format_team_markdown(project_id, role, brief, project_info, context, track_progress)
+            markdown = await self._format_team_markdown(
+                project_id, conversation_role, brief, project_info, context, is_context_transfer
+            )
 
         return AssistantConversationInspectorStateDataModel(data={"content": markdown})
 
     async def _format_coordinator_markdown(
         self,
         project_id: str,
-        role: ProjectRole,
+        role: ConversationRole,
         brief: Any,
         project_info: Any,
         context: ConversationContext,
-        track_progress: bool,
+        is_context_transfer: bool,
     ) -> str:
         """Format project information as markdown for Coordinator role"""
-        project_name = brief.project_name if brief else "Unnamed Project"
 
-        # Build the markdown content
         lines: List[str] = []
-        lines.append(f"# {project_name}")
-        lines.append("")
-
-        # Determine stage based on project status
-        stage_label = "Planning Stage"
-        if project_info and project_info.state:
-            if project_info.state.value == "planning":
-                stage_label = "Planning Stage"
-            elif project_info.state.value == "ready_for_working":
-                stage_label = "Ready for Working"
-            elif project_info.state.value == "in_progress":
-                stage_label = "Working Stage"
-            elif project_info.state.value == "completed":
-                stage_label = "Completed Stage"
-            elif project_info.state.value == "aborted":
-                stage_label = "Aborted Stage"
 
         lines.append("**Role:** Coordinator")
-        lines.append(f"**Status:** {stage_label}")
 
-        # Add status message if available
+        if not is_context_transfer:
+            stage_label = "Planning Stage"
+            if project_info and project_info.state:
+                if project_info.state.value == "planning":
+                    stage_label = "Planning Stage"
+                elif project_info.state.value == "ready_for_working":
+                    stage_label = "Ready for Working"
+                elif project_info.state.value == "in_progress":
+                    stage_label = "Working Stage"
+                elif project_info.state.value == "completed":
+                    stage_label = "Completed Stage"
+                elif project_info.state.value == "aborted":
+                    stage_label = "Aborted Stage"
+            lines.append(f"**Status:** {stage_label}")
+
         if project_info and project_info.status_message:
             lines.append(f"**Status Message:** {project_info.status_message}")
 
         lines.append("")
 
-        # Add project description and additional context if available
-        if brief and brief.project_description:
-            if self.is_context_transfer:
-                lines.append("## Knowledge Context")
-            else:
-                lines.append("## Description")
+        lines.append("## Brief")
 
+        project_name = brief.project_name if brief else "Unnamed Project"
+        lines.append(f"### {project_name}")
+        lines.append("")
+
+        if brief and brief.project_description:
             lines.append(brief.project_description)
             lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
-            if self.is_context_transfer and brief.additional_context:
-                lines.append("## Additional Context")
-                lines.append(brief.additional_context)
-                lines.append("")
-
-            # In context transfer mode, show additional context in a dedicated section
-            if self.is_context_transfer and brief.additional_context:
+            if is_context_transfer and brief.additional_context:
                 lines.append("## Additional Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
         # Add goals section if available and progress tracking is enabled
-        if track_progress and brief and brief.goals:
+        if not is_context_transfer and brief and brief.goals:
             lines.append("## Goals")
             for goal in brief.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
@@ -263,85 +180,51 @@ Type `/help` for more information on available commands.
             lines.append("No open information requests.")
             lines.append("")
 
-        # Display share URL as invitation information
-        if self.is_context_transfer:
-            lines.append("## Share Knowledge Context")
-        else:
-            lines.append("## Project Invitation")
-
-        lines.append("")
-
-        # Get share URL from the project info
-        share_url = None
-        try:
-            # Get project info which contains the share URL
-            project_info = await ProjectManager.get_project_info(context, project_id)
-            if project_info and project_info.share_url:
-                share_url = project_info.share_url
-                logger.info(f"Retrieved share URL from project info: {share_url}")
-        except Exception as e:
-            logger.warning(f"Error retrieving share URL from project info: {e}")
-
-        # Fallback to metadata if needed
-        if not share_url:
-            conversation = await context.get_conversation()
-            metadata = conversation.metadata or {}
-            share_url = metadata.get("team_conversation_share_url")
-            if share_url:
-                logger.info(f"Retrieved share URL from metadata: {share_url}")
-
+        # Share URL section
+        project_info = await ProjectManager.get_project_info(context, project_id)
+        share_url = project_info.share_url if project_info else None
         if share_url:
+            lines.append("## Share")
+            lines.append("")
             # Display the share URL as a properly formatted link
-            lines.append("### Team Conversation Invitation Link")
             lines.append("**Share this link with your team members:**")
             lines.append(f"[Join Team Conversation]({share_url})")
             lines.append("")
             lines.append("The link never expires and can be used by multiple team members.")
-        else:
-            # Display that share URL is not available yet
-            lines.append("### Team Conversation Share Link")
-            lines.append("🔄 **Creating team conversation...**")
             lines.append("")
-            lines.append("A shareable link for inviting team members will appear here soon.")
-            lines.append("This link will appear after the project setup is complete.")
-
-        lines.append("")
 
         return "\n".join(lines)
 
     async def _format_team_markdown(
         self,
         project_id: str,
-        role: ProjectRole,
+        role: ConversationRole,
         brief: Any,
         project_info: Any,
         context: ConversationContext,
-        track_progress: bool,
+        is_context_transfer: bool,
     ) -> str:
         """Format project information as markdown for Team role"""
-        project_name = brief.project_name if brief else "Unnamed Project"
 
-        # Build the markdown content
         lines: List[str] = []
-        lines.append(f"# {project_name}")
-        lines.append("")
+
+        lines.append("**Role:** Team")
 
         # Determine stage based on project status
-        stage_label = "Working Stage"
-        if project_info and project_info.state:
-            if project_info.state.value == "planning":
-                stage_label = "Planning Stage"
-            elif project_info.state.value == "ready_for_working":
-                stage_label = "Working Stage"
-            elif project_info.state.value == "in_progress":
-                stage_label = "Working Stage"
-            elif project_info.state.value == "completed":
-                stage_label = "Completed Stage"
-            elif project_info.state.value == "aborted":
-                stage_label = "Aborted Stage"
-
-        lines.append(f"**Role:** Team ({stage_label})")
-        lines.append(f"**Status:** {stage_label}")
+        if not is_context_transfer:
+            stage_label = "Working Stage"
+            if project_info and project_info.state:
+                if project_info.state.value == "planning":
+                    stage_label = "Planning Stage"
+                elif project_info.state.value == "ready_for_working":
+                    stage_label = "Working Stage"
+                elif project_info.state.value == "in_progress":
+                    stage_label = "Working Stage"
+                elif project_info.state.value == "completed":
+                    stage_label = "Completed Stage"
+                elif project_info.state.value == "aborted":
+                    stage_label = "Aborted Stage"
+            lines.append(f"**Status:** {stage_label}")
 
         # Add status message if available
         if project_info and project_info.status_message:
@@ -350,29 +233,24 @@ Type `/help` for more information on available commands.
         lines.append("")
 
         # Add project description and additional context if available
-        if brief and brief.project_description:
-            if self.is_context_transfer:
-                lines.append("## Knowledge Context")
-            else:
-                lines.append("## Project Brief")
+        lines.append("## Brief")
 
+        project_name = brief.project_name if brief else "Unnamed Project"
+        lines.append(f"### {project_name}")
+        lines.append("")
+
+        if brief and brief.project_description:
             lines.append(brief.project_description)
             lines.append("")
 
             # In context transfer mode, show additional context in a dedicated section
-            if self.is_context_transfer and brief.additional_context:
-                lines.append("## Additional Context")
-                lines.append(brief.additional_context)
-                lines.append("")
-
-            # In context transfer mode, show additional context in a dedicated section
-            if self.is_context_transfer and brief.additional_context:
+            if is_context_transfer and brief.additional_context:
                 lines.append("## Additional Context")
                 lines.append(brief.additional_context)
                 lines.append("")
 
         # Add goals section with checkable criteria if progress tracking is enabled
-        if track_progress and brief and brief.goals:
+        if not is_context_transfer and brief and brief.goals:
             lines.append("## Objectives")
             for goal in brief.goals:
                 criteria_complete = sum(1 for c in goal.success_criteria if c.completed)
@@ -395,7 +273,6 @@ Type `/help` for more information on available commands.
         # Add my information requests section
         requests = await ProjectManager.get_information_requests(context)
         my_requests = [r for r in requests if r.conversation_id == str(context.id)]
-
         if my_requests:
             lines.append("## My Information Requests")
             pending = [r for r in my_requests if r.status != "resolved"]

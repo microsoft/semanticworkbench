@@ -206,11 +206,6 @@ class ProjectWhiteboard(BaseEntity):
     is_auto_generated: bool = True  # Whether the content was auto-generated or manually edited
 
 
-# ProjectDashboard has been removed as it was redundant. 
-# Project state is tracked in ProjectInfo, project progress is calculated from goals/criteria.
-# The state inspector dynamically builds the dashboard view from primary data (brief, requests, etc.)
-
-
 class InformationRequest(BaseEntity):
     """
     A specific information need or blocker submitted by team members
@@ -304,18 +299,24 @@ class ProjectLog(BaseEntity):
 class ProjectInfo(BaseModel):
     """
     Core information about a project including its ID, name, state, and sharing details.
-    
+
     This model stores essential project metadata that doesn't fit into other
     specific models like brief or whiteboard. It's the central reference point
     for project identification, state, and team collaboration settings.
     """
-    
+
     project_id: str  # Unique identifier for the project
-    project_name: str = "New Project"  # Name of the project
     state: ProjectState = ProjectState.PLANNING  # Current project lifecycle state
     coordinator_conversation_id: Optional[str] = None  # ID of the coordinator's conversation
     team_conversation_id: Optional[str] = None  # ID of the team conversation
     share_url: Optional[str] = None  # Shareable URL for inviting users to the team conversation
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: Optional[str] = None  # User ID who last updated the project info
     status_message: Optional[str] = None  # Custom status message about the project
+    progress_percentage: Optional[int] = None  # Current progress percentage (0-100)
+    next_actions: List[str] = Field(default_factory=list)  # List of next actions planned
+    version: int = 1  # Version counter for tracking changes
+    completed_criteria: int = 0  # Count of completed success criteria
+    total_criteria: int = 0  # Total count of success criteria
+    lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Lifecycle metadata

@@ -2,15 +2,27 @@
 Project management logic for working with project data.
 
 This module provides the core business logic for working with project data
-without relying on the artifact abstraction.
 """
 
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+import openai_client
+from semantic_workbench_api_model.workbench_model import (
+    AssistantStateEvent,
+    ConversationPermission,
+    MessageType,
+    NewConversation,
+    NewConversationMessage,
+    NewConversationShare,
+    ParticipantRole,
+)
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .config import assistant_config
+from .conversation_clients import ConversationClientManager
 from .logging import logger
 from .project_data import (
     InformationRequest,
@@ -28,12 +40,12 @@ from .project_data import (
 )
 from .project_storage import (
     ConversationProjectManager,
+    ConversationRole,
     ProjectNotifier,
-    ProjectRole,
     ProjectStorage,
     ProjectStorageManager,
 )
-from .utils import get_current_user, require_current_user
+from .utils import get_current_user, load_text_include, require_current_user
 
 
 class ProjectManager:
@@ -87,8 +99,6 @@ class ProjectManager:
                 return False, None, None
 
             # Create a new conversation using the client
-            from semantic_workbench_api_model.workbench_model import NewConversation
-
             # Create the new conversation with appropriate metadata
             new_conversation = NewConversation(
                 title=f"{project_name}",
@@ -146,10 +156,7 @@ class ProjectManager:
                 logger.warning(f"Failed to update project info with team conversation: {e}")
 
             # Store the share URL in the conversation's metadata
-            from semantic_workbench_api_model.workbench_model import AssistantStateEvent
-
             # Create a temporary context for the team conversation to update its metadata
-            from .conversation_clients import ConversationClientManager
 
             team_context = await ConversationClientManager.create_temporary_context_for_conversation(
                 source_context=context, target_conversation_id=str(conversation.id)
@@ -199,11 +206,6 @@ class ProjectManager:
                     return False, None
 
             # Create the share using the client
-            from semantic_workbench_api_model.workbench_model import (
-                ConversationPermission,
-                NewConversationShare,
-            )
-
             new_share = NewConversationShare(
                 conversation_id=conversation_id,
                 label=f"{project_name}",
@@ -268,11 +270,7 @@ class ProjectManager:
             logger.info(f"Created project directory: {project_dir}")
 
             # Create and save the initial project info
-            from .project_data import ProjectInfo
-
-            project_info = ProjectInfo(
-                project_id=project_id, project_name="New Project", coordinator_conversation_id=str(context.id)
-            )
+            project_info = ProjectInfo(project_id=project_id, coordinator_conversation_id=str(context.id))
 
             # Save the project info
             ProjectStorage.write_project_info(project_id, project_info)
@@ -282,9 +280,8 @@ class ProjectManager:
             logger.info(f"Associating conversation {context.id} with project {project_id}")
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
-            # Set this conversation as the Coordinator
-            logger.info(f"Setting conversation {context.id} as Coordinator for project {project_id}")
-            await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.COORDINATOR)
+            # No need to set conversation role in project storage, as we use metadata
+            logger.info(f"Conversation {context.id} is Coordinator for project {project_id}")
 
             # Ensure linked_conversations directory exists
             linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
@@ -301,7 +298,7 @@ class ProjectManager:
     async def join_project(
         context: ConversationContext,
         project_id: str,
-        role: ProjectRole = ProjectRole.TEAM,
+        role: ConversationRole = ConversationRole.TEAM,
     ) -> bool:
         """
         Joins an existing project.
@@ -323,8 +320,7 @@ class ProjectManager:
             # Associate the conversation with the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
-            # Set the conversation role
-            await ConversationProjectManager.set_conversation_role(context, project_id, role)
+            # Role is set in metadata, not in storage
 
             logger.info(f"Joined project {project_id} as {role.value}")
             return True
@@ -351,13 +347,17 @@ class ProjectManager:
         return await ConversationProjectManager.get_associated_project_id(context)
 
     @staticmethod
-    async def get_project_role(context: ConversationContext) -> Optional[ProjectRole]:
+    async def get_project_role(context: ConversationContext) -> Optional[ConversationRole]:
         """
         Gets the role of the current conversation in its project.
 
         Each conversation participating in a project has a specific role:
         - COORDINATOR: The primary conversation that created and manages the project
         - TEAM: Conversations where team members are carrying out the project tasks
+
+        This method examines the conversation metadata to determine the role
+        of the current conversation in the project. The role is stored in the
+        conversation metadata as "project_role".
 
         Args:
             context: Current conversation context
@@ -366,7 +366,21 @@ class ProjectManager:
             The role (ProjectRole.COORDINATOR or ProjectRole.TEAM) if the conversation
             is part of a project, None otherwise
         """
-        return await ConversationProjectManager.get_conversation_role(context)
+        try:
+            conversation = await context.get_conversation()
+            metadata = conversation.metadata or {}
+            role_str = metadata.get("project_role", "coordinator")
+
+            if role_str == "team":
+                return ConversationRole.TEAM
+            elif role_str == "coordinator":
+                return ConversationRole.COORDINATOR
+            else:
+                return None
+        except Exception as e:
+            logger.exception(f"Error detecting project role: {e}")
+            # Default to None if we can't determine
+            return None
 
     @staticmethod
     async def get_project_brief(context: ConversationContext) -> Optional[ProjectBrief]:
@@ -403,12 +417,9 @@ class ProjectManager:
         """
         Creates a new project brief for the current project.
 
-        The project brief is the primary document that defines the project's
-        purpose, goals, and success criteria. Creating a brief is typically
-        done by the Coordinator during the planning phase, and it should be completed before
-        team members are invited to join the project.
+        The project brief is the primary document that defines the project for team members.
 
-        If goals are provided, they should be a list of dictionaries with the format:
+        Goals are not required in Context Transfer configuration. But if we are in Project configuration and goals are provided, they should be a list of dictionaries with the format:
         [
             {
                 "name": "Goal name",
@@ -604,6 +615,132 @@ class ProjectManager:
             return None
 
         return project_info.state
+
+    @staticmethod
+    async def get_project_criteria(context: ConversationContext) -> List[SuccessCriterion]:
+        """
+        Gets the success criteria for the current conversation's project.
+
+        Args:
+            context: Current conversation context
+            completed_only: If True, only return completed criteria
+
+        Returns:
+            List of SuccessCriterion objects
+        """
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            return []
+
+        # Get the project brief which contains success criteria
+        brief = ProjectStorage.read_project_brief(project_id)
+        if not brief:
+            return []
+
+        goals = brief.goals
+        criteria = []
+        for goal in goals:
+            # Add success criteria from each goal
+            criteria.extend(goal.success_criteria)
+
+        return criteria
+
+    @staticmethod
+    async def update_project_info(
+        context: ConversationContext,
+        state: Optional[str] = None,
+        progress: Optional[int] = None,
+        status_message: Optional[str] = None,
+        next_actions: Optional[List[str]] = None,
+    ) -> Tuple[bool, Optional[ProjectInfo]]:
+        """
+        Updates the project info with state, progress, status message, and next actions.
+
+        Args:
+            context: Current conversation context
+            state: Optional project state
+            progress: Optional progress percentage (0-100)
+            status_message: Optional status message
+            next_actions: Optional list of next actions
+
+        Returns:
+            Tuple of (success, project_info)
+        """
+        try:
+            # Get project ID
+            project_id = await ProjectManager.get_project_id(context)
+            if not project_id:
+                logger.error("Cannot update project info: no project associated with this conversation")
+                return False, None
+
+            # Get user information
+            current_user_id = await require_current_user(context, "update project info")
+            if not current_user_id:
+                return False, None
+
+            # Get existing project info
+            project_info = ProjectStorage.read_project_info(project_id)
+            if not project_info:
+                logger.error(f"Cannot update project info: no project info found for {project_id}")
+                return False, None
+
+            # Apply updates
+            if state:
+                project_info.state = ProjectState(state)
+
+            if status_message:
+                project_info.status_message = status_message
+
+            if progress is not None:
+                project_info.progress_percentage = progress
+
+            if next_actions:
+                if not hasattr(project_info, "next_actions"):
+                    project_info.next_actions = []
+                project_info.next_actions = next_actions
+
+            # Update metadata
+            project_info.updated_at = datetime.utcnow()
+            project_info.updated_by = current_user_id
+
+            # Increment version if it exists
+            if hasattr(project_info, "version"):
+                project_info.version += 1
+
+            # Save the project info
+            ProjectStorage.write_project_info(project_id, project_info)
+
+            # Log the update
+            event_type = LogEntryType.STATUS_CHANGED
+            message = f"Updated project status to {project_info.state.value}"
+            if progress is not None:
+                message += f" ({progress}% complete)"
+
+            await ProjectStorage.log_project_event(
+                context=context,
+                project_id=project_id,
+                entry_type=event_type.value,
+                message=message,
+                metadata={
+                    "state": project_info.state.value,
+                    "status_message": status_message,
+                    "progress": progress,
+                },
+            )
+
+            # Notify linked conversations
+            await ProjectNotifier.notify_project_update(
+                context=context,
+                project_id=project_id,
+                update_type="project_info",
+                message=f"Project status updated: {project_info.state.value}",
+            )
+
+            return True, project_info
+
+        except Exception as e:
+            logger.exception(f"Error updating project info: {e}")
+            return False, None
 
     @staticmethod
     async def update_project_state(
@@ -967,13 +1104,6 @@ class ProjectManager:
 
             # Send direct notification to requestor's conversation
             if information_request.conversation_id != str(context.id):
-                from semantic_workbench_api_model.workbench_model import (
-                    MessageType,
-                    NewConversationMessage,
-                )
-
-                from .conversation_clients import ConversationClientManager
-
                 try:
                     # Get client for requestor's conversation
                     client = ConversationClientManager.get_conversation_client(
@@ -1263,9 +1393,6 @@ class ProjectManager:
                 logger.info("No chat history to analyze for whiteboard update")
                 return False, None
 
-            # Import necessary model types
-            from semantic_workbench_api_model.workbench_model import ParticipantRole
-
             # Format the chat history for the prompt
             chat_history_text = ""
             for msg in chat_history:
@@ -1275,13 +1402,9 @@ class ProjectManager:
                 chat_history_text += f"{sender_type}: {msg.content}\n\n"
 
             # Get config for the LLM call
-            from .chat import assistant_config
-
             config = await assistant_config.get(context.assistant)
 
             # Load the whiteboard prompt from text includes
-            from .utils import load_text_include
-
             template_id = context.assistant._template_id
 
             # Use the appropriate prompt based on the template
@@ -1299,9 +1422,6 @@ class ProjectManager:
             </CHAT_HISTORY>
             """
 
-            # Import necessary modules for the LLM call
-            import openai_client
-
             # Create a completion with the whiteboard prompt
             async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
                 completion = await client.chat.completions.create(
@@ -1314,8 +1434,6 @@ class ProjectManager:
                 content = completion.choices[0].message.content or ""
 
                 # Extract just the whiteboard content
-                import re
-
                 whiteboard_content = ""
 
                 # Look for content between <WHITEBOARD> tags
@@ -1368,7 +1486,7 @@ class ProjectManager:
 
             # Get role - only Coordinator can complete a project
             role = await ProjectManager.get_project_role(context)
-            if role != ProjectRole.COORDINATOR:
+            if role != ConversationRole.COORDINATOR:
                 logger.error("Only Coordinator can complete a project")
                 return False, None
 

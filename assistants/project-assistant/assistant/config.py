@@ -1,10 +1,20 @@
-# Export the configuration models from the configs package
+from semantic_workbench_assistant.assistant_app import (
+    BaseModelAssistantConfig,
+)
+
 from .configs import (
     AssistantConfigModel,
     ContextTransferConfigModel,
     CoordinatorConfig,
     RequestConfig,
     TeamConfig,
+)
+
+assistant_config = BaseModelAssistantConfig(
+    AssistantConfigModel,
+    additional_templates={
+        "context_transfer": ContextTransferConfigModel,
+    },
 )
 
 __all__ = [
