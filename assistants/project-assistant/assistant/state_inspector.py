@@ -13,6 +13,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
+from .project_common import ConversationRole, detect_assistant_role
 from .project_data import RequestStatus
 from .project_manager import ProjectManager
 from .project_storage import ConversationProjectManager, ProjectRole
@@ -69,19 +70,21 @@ class ProjectInspectorStateProvider:
                 self.description = "Current project information including brief, goals, and request status."
                 self.display_name = "Project Status"
 
-        # Double-check with project storage/manager state
+        # Double-check with conversation metadata
         if not setup_complete:
-            # Check if we have a project role in storage
-            role = await ConversationProjectManager.get_conversation_role(context)
-            if role:
-                # If we have a role in storage, consider setup complete
+            # Check if metadata has information about the role
+            conversation_role = await detect_assistant_role(context)
+            role_value = conversation_role.value
+            
+            if role_value:
+                # If we have a role in metadata, consider setup complete
                 setup_complete = True
-                assistant_mode = role.value
+                assistant_mode = role_value
 
                 # Update local metadata too
                 metadata["setup_complete"] = True
-                metadata["assistant_mode"] = role.value
-                metadata["project_role"] = role.value
+                metadata["assistant_mode"] = role_value
+                metadata["project_role"] = role_value
 
                 # Send conversation state event to save the metadata - using None for state values
                 try:
@@ -96,7 +99,7 @@ class ProjectInspectorStateProvider:
                     await context.send_conversation_state_event(
                         AssistantStateEvent(state_id="project_role", event="updated", state=None)
                     )
-                    logger.info(f"Updated metadata based on project role detection: {role.value}")
+                    logger.info(f"Updated metadata based on project role detection: {role_value}")
                 except Exception as e:
                     logger.exception(f"Failed to update metadata: {e}")
 
@@ -125,11 +128,11 @@ Type `/help` for more information on available commands.
                 data={"content": "No active project. Start a conversation to create one."}
             )
 
-        role = await ConversationProjectManager.get_conversation_role(context)
-        if not role:
-            return AssistantConversationInspectorStateDataModel(
-                data={"content": "Role not assigned. Please restart the conversation."}
-            )
+        # Get role using the detect_assistant_role function
+        conversation_role = await detect_assistant_role(context)
+        
+        # Convert ConversationRole enum to ProjectRole enum for compatibility with existing code
+        role = ProjectRole.COORDINATOR if conversation_role == ConversationRole.COORDINATOR else ProjectRole.TEAM
 
         # Get project information
         brief = await ProjectManager.get_project_brief(context)

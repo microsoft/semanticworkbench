@@ -41,13 +41,13 @@ from assistant.project_tools import ProjectTools
 from assistant.utils import load_text_include
 
 from .config import assistant_config
+from .project_common import ConversationRole, detect_assistant_role
 from .project_data import RequestStatus
 from .project_files import ProjectFileManager
 from .project_manager import ProjectManager
 from .project_storage import (
     ConversationProjectManager,
     ProjectNotifier,
-    ProjectRole,
     ProjectStorage,
 )
 from .state_inspector import ProjectInspectorStateProvider
@@ -117,7 +117,7 @@ async def on_message_created(
 
         # If this is a Coordinator conversation, store the message for Team access
         role = await detect_assistant_role(context)
-        if role == "coordinator" and message.message_type == MessageType.chat:
+        if role == ConversationRole.COORDINATOR and message.message_type == MessageType.chat:
             try:
                 if project_id:
                     # Get the sender's name
@@ -170,7 +170,7 @@ async def on_command_created(
         # Process the command using the command processor
         role = await detect_assistant_role(context)
         command_registry = CommandRegistry()
-        command_processed = await command_registry.process_command(context, message, role)
+        command_processed = await command_registry.process_command(context, message, role.value)
 
         # If the command wasn't recognized or processed, respond normally
         if not command_processed:
@@ -215,19 +215,15 @@ async def on_file_created(
             return
 
         # Get the conversation's role
-        role = await ConversationProjectManager.get_conversation_role(context)
+        role = await detect_assistant_role(context)
 
-        # If role couldn't be determined, skip processing
-        if not role:
-            logger.warning(f"Could not determine conversation role for file handling: {file.filename}")
-            return
-
-        logger.info(f"Processing file {file.filename} with role: {role.value}, project: {project_id}")
+        # Log file processing
+        logger.info(f"Processing file {file.filename} with role: {role}, project: {project_id}")
 
         # Use ProjectFileManager for file operations
 
         # Process based on role
-        if role.value == "coordinator":
+        if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Store in project storage (marked as coordinator file)
             logger.info(f"Copying Coordinator file to project storage: {file.filename}")
@@ -338,17 +334,12 @@ async def on_file_updated(
             return
 
         # Get the conversation's role
-        role = await ConversationProjectManager.get_conversation_role(context)
-
-        # If role couldn't be determined, skip processing
-        if not role:
-            logger.warning(f"Could not determine conversation role for file update: {file.filename}")
-            return
+        role = await detect_assistant_role(context)
 
         # Use ProjectFileManager for file operations
 
         # Process based on role
-        if role.value == "coordinator":
+        if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Update in project storage
             logger.info(f"Updating Coordinator file in project storage: {file.filename}")
@@ -431,17 +422,12 @@ async def on_file_deleted(
             return
 
         # Get the conversation's role
-        role = await ConversationProjectManager.get_conversation_role(context)
-
-        # If role couldn't be determined, skip processing
-        if not role:
-            logger.warning(f"Could not determine conversation role for file deletion: {file.filename}")
-            return
+        role = await detect_assistant_role(context)
 
         # Use ProjectFileManager for file operations
 
         # Process based on role
-        if role.value == "coordinator":
+        if role == ConversationRole.COORDINATOR:
             # For Coordinator files:
             # 1. Delete from project storage
             logger.info(f"Deleting Coordinator file from project storage: {file.filename}")
@@ -483,22 +469,7 @@ async def on_file_deleted(
         logger.exception(f"Error handling file deletion: {e}")
 
 
-# Role detection for the project assistant
-async def detect_assistant_role(context: ConversationContext) -> str:
-    """
-    Detects whether this conversation is in Coordinator Mode or Team Mode.
-
-    Returns:
-        "coordinator" if in Coordinator Mode, "team" if in Team Mode
-    """
-    try:
-        conversation = await context.get_conversation()
-        metadata = conversation.metadata or {}
-        return metadata.get("project_role", "coordinator")
-
-    except Exception as e:
-        logger.exception(f"Error detecting assistant role: {e}")
-        return "coordinator"
+# Role detection moved to ConversationClientManager.detect_assistant_role
 
 
 # Handle the event triggered when the assistant is added to a conversation.
@@ -525,7 +496,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
     # send a focus event to notify the assistant to focus on the artifacts
     await context.send_conversation_state_event(
         AssistantStateEvent(
-            state_id="project_dashboard",
+            state_id="project_info",
             event="focus",
             state=None,
         )
@@ -577,7 +548,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
         if project_id:
             # Set this conversation as a team member for the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
-            await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
 
         # Update conversation metadata
         await context.send_conversation_state_event(
@@ -606,7 +576,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
         if project_id:
             # Set this conversation as a team member for the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
-            await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.TEAM)
 
             # Update conversation metadata
             metadata["setup_complete"] = True
@@ -667,7 +636,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             await ProjectManager.create_project_brief(
                 context=context,
                 project_name="New Project",
-                project_description="This project was automatically created. Please update the project brief with your project details.",
+                project_description="This project was automatically created. The project brief is a place for you to craft some information to be shared with others. Ask your assistant to update the project brief with whatever project details you'd like.",
             )
 
             # Create a team conversation and share URL
@@ -756,8 +725,8 @@ async def on_participant_joined(
             return
 
         # Check if this is a Team conversation
-        role = await ConversationProjectManager.get_conversation_role(context)
-        if not role or role != ProjectRole.TEAM:
+        role = await detect_assistant_role(context)
+        if role != ConversationRole.TEAM:
             logger.debug(f"Not a Team conversation (role={role}), skipping file sync for participant")
             return
 
@@ -825,9 +794,8 @@ async def respond_to_conversation(
     system_message_content = f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
 
     # Add role-specific instructions
-    role = await detect_assistant_role(context)
     role_specific_prompt = ""
-    if role == "coordinator":
+    if role == ConversationRole.COORDINATOR:
         role_specific_prompt = load_text_include("coordinator_prompt.txt")
     else:
         role_specific_prompt = load_text_include("team_prompt.txt")
@@ -1351,13 +1319,11 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 
     # Manually capture assistant's message for Coordinator conversation storage
     # This ensures that both user and assistant messages are stored
-    from .project_storage import ConversationProjectManager
+    
+    # Get the role from the current context
+    role = await detect_assistant_role(context)
 
-    # Get the authoritative role directly from storage, not from metadata
-    role = await ConversationProjectManager.get_conversation_role(context)
-    role = role.value if role else None
-
-    if role == "coordinator" and message_type == MessageType.chat and response_message and response_message.messages:
+    if role == ConversationRole.COORDINATOR and message_type == MessageType.chat and response_message and response_message.messages:
         try:
             project_id = await ProjectManager.get_project_id(context)
 

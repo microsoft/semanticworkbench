@@ -16,6 +16,7 @@ from semantic_workbench_api_model.workbench_model import MessageType, NewConvers
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .logging import logger
+from .project_common import ConversationRole, detect_assistant_role
 from .project_data import BaseEntity, LogEntryType
 from .project_storage import (
     ConversationProjectManager,
@@ -755,8 +756,9 @@ class ProjectFileManager:
         """
         try:
             # First verify that this is a Team conversation
-            role = await ConversationProjectManager.get_conversation_role(context)
-            if role != ProjectRole.TEAM:
+            role = await detect_assistant_role(context)
+            
+            if role != ConversationRole.TEAM:
                 logger.warning("Only Team conversations should process file update notifications")
                 return False
 

@@ -563,7 +563,7 @@ class ProjectNotifier:
         Args:
             context: Current conversation context
             project_id: ID of the project
-            update_type: Type of update (e.g., 'brief', 'dashboard', 'information_request', etc.)
+            update_type: Type of update (e.g., 'brief', 'project_info', 'information_request', etc.)
             message: Notification message to display to users
             data: Optional additional data related to the update
             send_notification: Whether to send notifications (default: True)

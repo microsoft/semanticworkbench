@@ -11,7 +11,7 @@ from semantic_workbench_api_model.workbench_model import MessageType, NewConvers
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 from .logging import logger
-from .project_common import log_project_action
+from .project_common import ConversationRole, detect_assistant_role, log_project_action
 from .project_data import (
     InformationRequest,
     LogEntryType,
@@ -23,7 +23,6 @@ from .project_data import (
 from .project_manager import ProjectManager
 from .project_storage import (
     ConversationProjectManager,
-    ProjectRole,
     ProjectStorage,
 )
 
@@ -64,8 +63,9 @@ class TeamConversationHandler:
             return False
 
         # First verify this is a Team conversation
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.TEAM:
+        role = await detect_assistant_role(self.context)
+        
+        if role != ConversationRole.TEAM:
             logger.warning(f"Not a Team conversation (role={role}), skipping update handling")
             return False  # Not a Team conversation, skip handling
 
@@ -149,8 +149,9 @@ class TeamConversationHandler:
             Tuple of (success, message, request)
         """
         # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.TEAM:
+        role = await detect_assistant_role(self.context)
+        
+        if role != ConversationRole.TEAM:
             return False, "Only Team conversations can create information requests", None
 
         # Get project ID
@@ -218,8 +219,9 @@ class TeamConversationHandler:
             Tuple of (success, message, updated_project_info)
         """
         # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.TEAM:
+        role = await detect_assistant_role(self.context)
+        
+        if role != ConversationRole.TEAM:
             return False, "Only Team conversations can update project state", None
 
         # Get project ID
@@ -312,8 +314,9 @@ class TeamConversationHandler:
             Tuple of (success, message, updated_project_info)
         """
         # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.TEAM:
+        role = await detect_assistant_role(self.context)
+        
+        if role != ConversationRole.TEAM:
             return False, "Only Team conversations can mark criteria as completed", None
 
         # Get project ID
@@ -450,8 +453,9 @@ class TeamConversationHandler:
             Tuple of (success, message, updated_project_info)
         """
         # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.TEAM:
+        role = await detect_assistant_role(self.context)
+        
+        if role != ConversationRole.TEAM:
             return False, "Only Team conversations can report project completion", None
 
         # Get project ID
@@ -559,7 +563,7 @@ class TeamConversationHandler:
                 "message": "This conversation is not associated with a project",
             }
 
-        role = await ConversationProjectManager.get_conversation_role(self.context)
+        role = await detect_assistant_role(self.context)
 
         brief = await ProjectManager.get_project_brief(self.context)
         project_info = await ProjectManager.get_project_info(self.context)

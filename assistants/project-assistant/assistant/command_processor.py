@@ -18,6 +18,7 @@ from semantic_workbench_api_model.workbench_model import (
 )
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .project_common import ConversationRole
 from .project_data import (
     LogEntryType,
     ProjectGoal,
@@ -495,20 +496,12 @@ Type `/help` to see all available commands for your role.
         return
 
     # Normal (non-setup) help processing
-    # Then check the stored role from project storage - this is the authoritative source
-    stored_role = await ConversationProjectManager.get_conversation_role(context)
-    stored_role_value = stored_role.value if stored_role else None
+    # Use the role from metadata, which is always the authoritative source
+    # Log the role for debugging
+    logger.debug(f"Role detection in help command - Metadata role: {metadata_role}")
 
-    # Log the roles for debugging
-    logger.debug(f"Role detection in help command - Metadata role: {metadata_role}, Stored role: {stored_role_value}")
-
-    # If we have a stored role but metadata is different, use stored role (more reliable)
-    if stored_role_value and metadata_role != stored_role_value:
-        logger.warning(f"Role mismatch in help command! Metadata: {metadata_role}, Storage: {stored_role_value}")
-        role = stored_role_value
-    else:
-        # Otherwise use metadata or default to coordinator
-        role = metadata_role or "coordinator"  # Default to coordinator if not set
+    # Use the role from metadata or default to coordinator
+    role = metadata_role or "coordinator"  # Default to coordinator if not set
 
     # If a specific command is specified, show detailed help for that command
     if args:
@@ -545,7 +538,7 @@ Type `/help` to see all available commands for your role.
     available_commands = command_registry.get_commands_for_role(role)
 
     # Format help text based on role
-    if role == "coordinator":
+    if role == ConversationRole.COORDINATOR.value:
         help_text = "## Assistant Commands (Coordinator Mode)\n\n"
     else:
         help_text = "## Assistant Commands (Team Mode)\n\n"
@@ -594,7 +587,7 @@ Type `/help` to see all available commands for your role.
         help_text += "### Information\n" + "\n".join(info_commands) + "\n\n"
 
     # Add role-specific guidance
-    if role == "coordinator":
+    if role == ConversationRole.COORDINATOR.value:
         help_text += (
             "As a Coordinator, you are responsible for defining the project and responding to team member requests."
         )
@@ -1130,7 +1123,7 @@ async def handle_project_info_command(
             project_info = await ProjectManager.get_project_info(context)
 
             if project_info:
-                output.append("\n## Project Dashboard\n")
+                output.append("\n## Project Status\n")
                 output.append(f"**Current Status**: {project_info.state.value}")
 
                 if project_info.status_message:
@@ -1138,7 +1131,7 @@ async def handle_project_info_command(
 
                 # Success criteria status can be calculated from the brief if needed later
             elif info_type == "status":
-                output.append("\n## Project Dashboard\n")
+                output.append("\n## Project Status\n")
                 output.append("*No project status defined yet. Update status with `/update-status`.*")
 
         # Get information requests if requested

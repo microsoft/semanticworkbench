@@ -6,28 +6,16 @@ communication between conversations. It provides utilities for creating temporar
 contexts and accessing other conversations.
 """
 
-import logging
 from typing import Any, Optional, Tuple
 
 import semantic_workbench_api_model.workbench_service_client as wsc
-from pydantic import BaseModel
 from semantic_workbench_api_model.workbench_service_client import ConversationAPIClient
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
+from .logging import logger
 from .project_storage import ConversationProjectManager, ProjectRole, ProjectStorageManager
-
-
-# Define models for project role data
-class ProjectRoleData(BaseModel):
-    """Data model for storing a conversation's role in a project."""
-
-    conversation_id: str
-    role: ProjectRole
-
-
-logger = logging.getLogger(__name__)
 
 
 class ConversationClientManager:
@@ -147,3 +135,5 @@ class ConversationClientManager:
         except Exception as e:
             logger.error(f"Error creating temporary context: {e}")
             return None
+
+    # detect_assistant_role moved to project_common.py

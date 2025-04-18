@@ -271,7 +271,7 @@ class ProjectManager:
             from .project_data import ProjectInfo
 
             project_info = ProjectInfo(
-                project_id=project_id, project_name="New Project", coordinator_conversation_id=str(context.id)
+                project_id=project_id, coordinator_conversation_id=str(context.id)
             )
 
             # Save the project info
@@ -282,9 +282,8 @@ class ProjectManager:
             logger.info(f"Associating conversation {context.id} with project {project_id}")
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
-            # Set this conversation as the Coordinator
-            logger.info(f"Setting conversation {context.id} as Coordinator for project {project_id}")
-            await ConversationProjectManager.set_conversation_role(context, project_id, ProjectRole.COORDINATOR)
+            # No need to set conversation role in project storage, as we use metadata
+            logger.info(f"Conversation {context.id} is Coordinator for project {project_id}")
 
             # Ensure linked_conversations directory exists
             linked_dir = ProjectStorageManager.get_linked_conversations_dir(project_id)
@@ -323,8 +322,7 @@ class ProjectManager:
             # Associate the conversation with the project
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
-            # Set the conversation role
-            await ConversationProjectManager.set_conversation_role(context, project_id, role)
+            # Role is set in metadata, not in storage
 
             logger.info(f"Joined project {project_id} as {role.value}")
             return True
@@ -359,6 +357,10 @@ class ProjectManager:
         - COORDINATOR: The primary conversation that created and manages the project
         - TEAM: Conversations where team members are carrying out the project tasks
 
+        This method examines the conversation metadata to determine the role
+        of the current conversation in the project. The role is stored in the 
+        conversation metadata as "project_role".
+
         Args:
             context: Current conversation context
 
@@ -366,7 +368,21 @@ class ProjectManager:
             The role (ProjectRole.COORDINATOR or ProjectRole.TEAM) if the conversation
             is part of a project, None otherwise
         """
-        return await ConversationProjectManager.get_conversation_role(context)
+        try:
+            conversation = await context.get_conversation()
+            metadata = conversation.metadata or {}
+            role_str = metadata.get("project_role", "coordinator")
+            
+            if role_str == "team":
+                return ProjectRole.TEAM
+            elif role_str == "coordinator":
+                return ProjectRole.COORDINATOR
+            else:
+                return None
+        except Exception as e:
+            logger.exception(f"Error detecting project role: {e}")
+            # Default to None if we can't determine
+            return None
 
     @staticmethod
     async def get_project_brief(context: ConversationContext) -> Optional[ProjectBrief]:
@@ -630,6 +646,103 @@ class ProjectManager:
             criteria.extend(goal.success_criteria)
 
         return criteria
+
+    @staticmethod
+    async def update_project_info(
+        context: ConversationContext,
+        state: Optional[str] = None,
+        progress: Optional[int] = None,
+        status_message: Optional[str] = None,
+        next_actions: Optional[List[str]] = None,
+    ) -> Tuple[bool, Optional[ProjectInfo]]:
+        """
+        Updates the project info with state, progress, status message, and next actions.
+
+        Args:
+            context: Current conversation context
+            state: Optional project state
+            progress: Optional progress percentage (0-100)
+            status_message: Optional status message
+            next_actions: Optional list of next actions
+
+        Returns:
+            Tuple of (success, project_info)
+        """
+        try:
+            # Get project ID
+            project_id = await ProjectManager.get_project_id(context)
+            if not project_id:
+                logger.error("Cannot update project info: no project associated with this conversation")
+                return False, None
+
+            # Get user information
+            current_user_id = await require_current_user(context, "update project info")
+            if not current_user_id:
+                return False, None
+
+            # Get existing project info
+            project_info = ProjectStorage.read_project_info(project_id)
+            if not project_info:
+                logger.error(f"Cannot update project info: no project info found for {project_id}")
+                return False, None
+
+            # Apply updates
+            if state:
+                project_info.state = ProjectState(state)
+
+            if status_message:
+                project_info.status_message = status_message
+
+            if progress is not None:
+                project_info.progress_percentage = progress
+
+            if next_actions:
+                if not hasattr(project_info, "next_actions"):
+                    project_info.next_actions = []
+                project_info.next_actions = next_actions
+
+            # Update metadata
+            project_info.updated_at = datetime.utcnow()
+            project_info.updated_by = current_user_id
+            
+            # Increment version if it exists
+            if hasattr(project_info, "version"):
+                project_info.version += 1
+
+            # Save the project info
+            ProjectStorage.write_project_info(project_id, project_info)
+
+            # Log the update
+            event_type = LogEntryType.STATUS_CHANGED
+            message = f"Updated project status to {project_info.state.value}"
+            if progress is not None:
+                message += f" ({progress}% complete)"
+
+            await ProjectStorage.log_project_event(
+                context=context,
+                project_id=project_id,
+                entry_type=event_type.value,
+                message=message,
+                metadata={
+                    "state": project_info.state.value,
+                    "status_message": status_message,
+                    "progress": progress,
+                },
+            )
+
+            # Notify linked conversations
+            await ProjectNotifier.notify_project_update(
+                context=context,
+                project_id=project_id,
+                update_type="project_info",
+                message=f"Project status updated: {project_info.state.value}",
+            )
+
+            return True, project_info
+
+        except Exception as e:
+            logger.exception(f"Error updating project info: {e}")
+            return False, None
 
     @staticmethod
     async def update_project_state(

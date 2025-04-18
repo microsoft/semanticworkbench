@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
-from .project_common import log_project_action
+from .project_common import ConversationRole, detect_assistant_role, log_project_action
 from .project_data import (
     InformationRequest,
     LogEntryType,
@@ -62,8 +62,9 @@ class CoordinatorConversationHandler:
             return False
 
         # First verify this is a Coordinator conversation
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.COORDINATOR:
+        role = await detect_assistant_role(self.context)
+        
+        if role != ConversationRole.COORDINATOR:
             return False  # Not a Coordinator conversation, skip handling
 
         # Currently no specific handling needed for Coordinator, but this method
@@ -92,8 +93,7 @@ class CoordinatorConversationHandler:
         if not success or not project_id:
             return False, "Failed to create project"
 
-        # Set this conversation as Coordinator
-        await ConversationProjectManager.set_conversation_role(self.context, project_id, ProjectRole.COORDINATOR)
+        # Role is already set in metadata
 
         # Create initial project brief
         success, brief = await ProjectManager.create_project_brief(self.context, project_name, project_description)
@@ -118,8 +118,8 @@ class CoordinatorConversationHandler:
             Tuple of (success, message, brief)
         """
         # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.COORDINATOR:
+        role = await detect_assistant_role(self.context)
+        if role != ConversationRole.COORDINATOR:
             return False, "Only Coordinator conversations can create project briefs", None
 
         # Create project brief
@@ -156,8 +156,8 @@ class CoordinatorConversationHandler:
             Tuple of (success, message, updated_brief)
         """
         # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.COORDINATOR:
+        role = await detect_assistant_role(self.context)
+        if role != ConversationRole.COORDINATOR:
             return False, "Only Coordinator conversations can add project goals", None
 
         # Get current project brief
@@ -233,8 +233,8 @@ class CoordinatorConversationHandler:
             Tuple of (success, message, resolved_request)
         """
         # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.COORDINATOR:
+        role = await detect_assistant_role(self.context)
+        if role != ConversationRole.COORDINATOR:
             return False, "Only Coordinator conversations can resolve information requests", None
 
         # Get project ID
@@ -304,8 +304,8 @@ class CoordinatorConversationHandler:
             Tuple of (success, message, updated_project_info)
         """
         # Check role
-        role = await ConversationProjectManager.get_conversation_role(self.context)
-        if role != ProjectRole.COORDINATOR:
+        role = await detect_assistant_role(self.context)
+        if role != ConversationRole.COORDINATOR:
             return False, "Only Coordinator conversations can mark projects as ready for team work", None
 
         # Get project ID and project info
