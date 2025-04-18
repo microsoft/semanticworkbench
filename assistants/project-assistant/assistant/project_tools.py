@@ -8,6 +8,7 @@ by the LLM during chat completions to proactively assist users.
 import json
 import logging
 from datetime import datetime
+from enum import Enum
 from typing import Any, Callable, Dict, List, Literal, Optional
 from uuid import UUID
 
@@ -24,10 +25,10 @@ from semantic_workbench_api_model.workbench_model import (
 from semantic_workbench_assistant.assistant_app import ConversationContext
 from semantic_workbench_assistant.storage import read_model
 
-from .chat import assistant_config
 from .command_processor import (
     handle_add_goal_command,
 )
+from .config import assistant_config
 from .conversation_clients import ConversationClientManager
 from .project_data import (
     LogEntryType,
@@ -89,6 +90,11 @@ async def invoke_command_handler(
         return f"{error_prefix}: {str(e)}"
 
 
+class Configuration(Enum):
+    PROJECT_ASSISTANT = "project_assistant"
+    CONTEXT_TRANSFER_ASSISTANT = "context_transfer_assistant"
+
+
 class ProjectTools:
     """Tools for the Project Assistant to use during chat completions."""
 
@@ -104,9 +110,20 @@ class ProjectTools:
         self.role = role
         self.tool_functions = ToolFunctions()
 
-        # Register common tools for both roles
+        template_id = context.assistant._template_id or "default"
+        self.config = (
+            Configuration.PROJECT_ASSISTANT if template_id == "default" else Configuration.CONTEXT_TRANSFER_ASSISTANT
+        )
+
+        # Register common tools for both roles in both configs
         self.tool_functions.add_function(
             self.get_project_info, "get_project_info", "Get information about the current project state"
+        )
+        # Common detection tool for both roles
+        self.tool_functions.add_function(
+            self.suggest_next_action,
+            "suggest_next_action",
+            "Suggest the next action the user should take based on project state",
         )
 
         # Register role-specific tools
@@ -118,21 +135,22 @@ class ProjectTools:
                 "Create a project brief with a name and description",
             )
             self.tool_functions.add_function(
-                self.add_project_goal,
-                "add_project_goal",
-                "Add a goal to the project brief with optional success criteria",
-            )
-            # Whiteboard content is auto-updated
-            self.tool_functions.add_function(
                 self.resolve_information_request,
                 "resolve_information_request",
                 "Resolve an information request with information",
             )
-            self.tool_functions.add_function(
-                self.mark_project_ready_for_working,
-                "mark_project_ready_for_working",
-                "Mark the project as ready for working",
-            )
+
+            if self.config == Configuration.PROJECT_ASSISTANT:
+                self.tool_functions.add_function(
+                    self.add_project_goal,
+                    "add_project_goal",
+                    "Add a goal to the project brief with optional success criteria",
+                )
+                self.tool_functions.add_function(
+                    self.mark_project_ready_for_working,
+                    "mark_project_ready_for_working",
+                    "Mark the project as ready for working",
+                )
         else:
             # Team-specific tools
             self.tool_functions.add_function(
@@ -147,9 +165,6 @@ class ProjectTools:
             )
             self.tool_functions.add_function(
                 self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
-            )
-            self.tool_functions.add_function(
-                self.report_project_completion, "report_project_completion", "Report that the project is complete"
             )
             self.tool_functions.add_function(
                 self.delete_information_request,
@@ -167,12 +182,19 @@ class ProjectTools:
                 "View the Coordinator conversation messages to understand the project context and planning discussions",
             )
 
-        # Common detection tool for both roles
-        self.tool_functions.add_function(
-            self.suggest_next_action,
-            "suggest_next_action",
-            "Suggest the next action the user should take based on project state",
-        )
+            if self.config == Configuration.PROJECT_ASSISTANT:
+                self.tool_functions.add_function(
+                    self.report_project_completion, "report_project_completion", "Report that the project is complete"
+                )
+
+    def get_available_tools(self) -> List[str]:
+        """
+        Get a list of available tools for the current role.
+
+        Returns:
+            List of tool names
+        """
+        return [name for name in self.tool_functions.function_map.keys()]
 
     async def get_project_info(self, info_type: Literal["all", "brief", "whiteboard", "dashboard", "requests"]) -> str:
         """
@@ -223,7 +245,8 @@ class ProjectTools:
 
                         output.append("")
                 else:
-                    output.append("\n*No goals defined yet.*")
+                    # output.append("\n*No goals defined yet.*")
+                    pass
 
         # Get project whiteboard if requested
         if info_type in ["all", "whiteboard"]:
@@ -243,33 +266,6 @@ class ProjectTools:
             elif info_type == "whiteboard":
                 output.append("\n## Project Whiteboard\n")
                 output.append("*No whiteboard content available yet.*")
-
-        # Get project dashboard if requested
-        if info_type in ["all", "dashboard"]:
-            dashboard = ProjectStorage.read_project_dashboard(project_id)
-
-            if dashboard:
-                output.append("\n## Project Dashboard\n")
-                output.append(f"**Current Status**: {dashboard.state.value}")
-
-                if dashboard.progress_percentage is not None:
-                    output.append(f"**Overall Progress**: {dashboard.progress_percentage}%")
-
-                if dashboard.status_message:
-                    output.append(f"**Status Message**: {dashboard.status_message}")
-
-                if dashboard.completed_criteria > 0:
-                    output.append(
-                        f"**Success Criteria**: {dashboard.completed_criteria}/{dashboard.total_criteria} complete"
-                    )
-
-                if dashboard.next_actions:
-                    output.append("\n**Next Actions**:")
-                    for action in dashboard.next_actions:
-                        output.append(f"- {action}")
-            elif info_type == "dashboard":
-                output.append("\n## Project Dashboard\n")
-                output.append("*No project dashboard defined yet.*")
 
         # Get information requests if requested
         if info_type in ["all", "requests"]:
@@ -345,14 +341,7 @@ class ProjectTools:
         # First, make sure we have a project associated with this conversation
         project_id = await ProjectManager.get_project_id(self.context)
         if not project_id:
-            # Create a new project if one doesn't exist
-            success, new_project_id = await ProjectManager.create_project(self.context)
-            if not success or not new_project_id:
-                return "Failed to create project. Please try again."
-            project_id = new_project_id
-
-            # Set the conversation role as Coordinator
-            await ConversationProjectManager.set_conversation_role(self.context, project_id, ProjectRole.COORDINATOR)
+            return "No project associated with this conversation. Please create a project first."
 
         # Create a new project brief using ProjectManager
         success, brief = await ProjectManager.create_project_brief(
@@ -782,7 +771,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 updated_at=datetime.utcnow(),
             )
             ProjectStorage.write_project_info(project_id, project_info)
-            
+
             # Use project_info directly instead of dashboard
             dashboard = project_info
 
@@ -1132,15 +1121,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 },
             )
 
-            # Update project dashboard if this was a blocker
-            dashboard = ProjectStorage.read_project_dashboard(project_id)
-            if dashboard and hasattr(dashboard, "active_requests") and actual_request_id in dashboard.active_requests:
-                dashboard.active_requests.remove(actual_request_id)
-                dashboard.updated_at = datetime.utcnow()
-                dashboard.updated_by = current_user_id
-                dashboard.version += 1
-                ProjectStorage.write_project_dashboard(project_id, dashboard)
-
             # Delete the information request - implementing deletion logic by removing the file
             # Using ProjectStorage instead of direct path access
             # Create information requests directory path and remove the specific file
@@ -1411,27 +1391,25 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         # Get project ID
         project_id = await ProjectManager.get_project_id(self.context)
         if not project_id:
-            # No project associated with this conversation
-            if self.role == "coordinator":
-                return {
-                    "suggestion": "create_project_brief",
-                    "reason": "No project associated with this conversation. Start by creating a project brief.",
-                    "priority": "high",
-                    "function": "create_project_brief",
-                    "parameters": {"project_name": "", "project_description": ""},
-                }
-            else:
-                return {
-                    "suggestion": "wait_for_invitation",
-                    "reason": "No project associated with this conversation. Wait for an invitation from the Coordinator.",
-                    "priority": "medium",
-                    "function": None,
-                }
+            logger.warning("No project ID found for this conversation")
+            return {
+                "suggestion": "no_project",
+                "reason": "No project associated with this conversation. Unable to suggest next action.",
+                "priority": "low",
+                "function": None,
+            }
+
+        project_info = ProjectStorage.read_project_info(project_id)
+        if not project_info:
+            return {
+                "suggestion": "no_project_info",
+                "reason": "No project information found. Unable to suggest next action.",
+                "priority": "low",
+                "function": None,
+            }
 
         # Get project state information
         brief = ProjectStorage.read_project_brief(project_id)
-        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
-        dashboard = ProjectStorage.read_project_dashboard(project_id)
         requests = ProjectStorage.get_all_information_requests(project_id)
 
         # Check if project brief exists
@@ -1453,109 +1431,89 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 }
 
         # Check if goals exist
-        if not brief.goals:
-            if self.role == "coordinator":
-                return {
-                    "suggestion": "add_project_goal",
-                    "reason": "Project brief has no goals. Add at least one goal with success criteria.",
-                    "priority": "high",
-                    "function": "add_project_goal",
-                    "parameters": {"goal_name": "", "goal_description": "", "success_criteria": []},
-                }
+        if self.config == Configuration.PROJECT_ASSISTANT:
+            if not brief.goals:
+                if self.role == "coordinator":
+                    return {
+                        "suggestion": "add_project_goal",
+                        "reason": "Project brief has no goals. Add at least one goal with success criteria.",
+                        "priority": "high",
+                        "function": "add_project_goal",
+                        "parameters": {"goal_name": "", "goal_description": "", "success_criteria": []},
+                    }
+                else:
+                    return {
+                        "suggestion": "wait_for_goals",
+                        "reason": "Project brief has no goals. The Coordinator needs to add goals before you can proceed.",
+                        "priority": "medium",
+                        "function": None,
+                    }
+
+        # Check project info if project is ready for working
+        ready_for_working = project_info.state == ProjectState.READY_FOR_WORKING
+
+        if not ready_for_working and self.role == "coordinator":
+            # Check if it's ready to mark as ready for working
+            if self.config == Configuration.CONTEXT_TRANSFER_ASSISTANT:
+                has_goals = True
+                has_criteria = True
             else:
-                return {
-                    "suggestion": "wait_for_goals",
-                    "reason": "Project brief has no goals. The Coordinator needs to add goals before you can proceed.",
-                    "priority": "medium",
-                    "function": None,
-                }
-
-        # No need to check for whiteboard content as it's automatically generated
-        # Project whiteboard content is now completely auto-generated by the Coordinator assistant
-
-        # Check project dashboard
-        if not dashboard:
-            if self.role == "team":
-                return {
-                    "suggestion": "update_project_dashboard",
-                    "reason": "No project dashboard found. Create an initial status update.",
-                    "priority": "medium",
-                    "function": "update_project_dashboard",
-                    "parameters": {
-                        "status": "in_progress",
-                        "progress": 0,
-                        "status_message": "Starting project operations",
-                        "next_actions": [],
-                    },
-                }
-        else:
-            # Check if project is ready for working
-            ready_for_working = (
-                hasattr(dashboard, "lifecycle")
-                and dashboard.lifecycle
-                and dashboard.lifecycle.get("ready_for_working", False)
-            )
-
-            if not ready_for_working and self.role == "coordinator":
-                # Check if it's ready to mark as ready for working
                 has_goals = bool(brief.goals)
                 has_criteria = any(bool(goal.success_criteria) for goal in brief.goals)
-                has_kb = bool(whiteboard and whiteboard.content)
 
-                if has_goals and has_criteria and has_kb:
-                    return {
-                        "suggestion": "mark_ready_for_working",
-                        "reason": "Project information is complete. Mark it as ready for team operations.",
-                        "priority": "medium",
-                        "function": "mark_project_ready_for_working",
-                        "parameters": {},
-                    }
-
-            # Check for unresolved information requests for Coordinator
-            if self.role == "coordinator":
-                active_requests = [r for r in requests if r.status == RequestStatus.NEW]
-                if active_requests:
-                    request = active_requests[0]  # Get the first unresolved request
-                    return {
-                        "suggestion": "resolve_information_request",
-                        "reason": f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'.",
-                        "priority": "high"
-                        if request.priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]
-                        else "medium",
-                        "function": "resolve_information_request",
-                        "parameters": {"request_id": request.request_id, "resolution": ""},
-                    }
-
-            # For team, check if all criteria are completed for project completion
-            if (
-                self.role == "team"
-                and dashboard.completed_criteria == dashboard.total_criteria
-                and dashboard.total_criteria > 0
-            ):
+            if has_goals and has_criteria:
                 return {
-                    "suggestion": "report_project_completion",
-                    "reason": "All success criteria have been completed. Report project completion.",
+                    "suggestion": "mark_ready_for_working",
+                    "reason": "Project information is complete. Mark it as ready for team operations.",
                     "priority": "medium",
-                    "function": "report_project_completion",
+                    "function": "mark_project_ready_for_working",
                     "parameters": {},
                 }
 
-            # For team, suggest marking criteria as completed if any are pending
-            if self.role == "team" and dashboard.completed_criteria < dashboard.total_criteria:
-                # Find the first uncompleted criterion
-                for goal_index, goal in enumerate(brief.goals):
-                    for criterion_index, criterion in enumerate(goal.success_criteria):
-                        if not criterion.completed:
-                            return {
-                                "suggestion": "mark_criterion_completed",
-                                "reason": "Update progress by marking completed success criteria.",
-                                "priority": "low",
-                                "function": "mark_criterion_completed",
-                                "parameters": {
-                                    "goal_index": goal_index,  # 0-based indexing
-                                    "criterion_index": criterion_index,  # 0-based indexing
-                                },
-                            }
+        # Check for unresolved information requests for Coordinator
+        if self.role == "coordinator":
+            active_requests = [r for r in requests if r.status == RequestStatus.NEW]
+            if active_requests:
+                request = active_requests[0]  # Get the first unresolved request
+                return {
+                    "suggestion": "resolve_information_request",
+                    "reason": f"There are {len(active_requests)} unresolved information requests. Consider resolving '{request.title}'.",
+                    "priority": "high"
+                    if request.priority in [RequestPriority.HIGH, RequestPriority.CRITICAL]
+                    else "medium",
+                    "function": "resolve_information_request",
+                    "parameters": {"request_id": request.request_id, "resolution": ""},
+                }
+
+        # For team, check if all criteria are completed for project completion
+        criteria = await ProjectManager.get_project_criteria(self.context)
+        incomplete_criteria = [criterion for criterion in criteria if not criterion.completed]
+
+        if self.role == "team" and not incomplete_criteria:
+            return {
+                "suggestion": "report_project_completion",
+                "reason": "All success criteria have been completed. Report project completion.",
+                "priority": "medium",
+                "function": "report_project_completion",
+                "parameters": {},
+            }
+
+        # For team, suggest marking criteria as completed if any are pending
+        if self.role == "team" and incomplete_criteria:
+            # Find the first uncompleted criterion
+            for goal_index, goal in enumerate(brief.goals):
+                for criterion_index, criterion in enumerate(goal.success_criteria):
+                    if not criterion.completed:
+                        return {
+                            "suggestion": "mark_criterion_completed",
+                            "reason": "Update progress by marking completed success criteria.",
+                            "priority": "low",
+                            "function": "mark_criterion_completed",
+                            "parameters": {
+                                "goal_index": goal_index,  # 0-based indexing
+                                "criterion_index": criterion_index,  # 0-based indexing
+                            },
+                        }
 
         # Default suggestions based on role
         if self.role == "coordinator":
@@ -1573,47 +1531,3 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 "function": "update_project_dashboard",
                 "parameters": {"status": "in_progress"},
             }
-
-
-# Factory function to create a role-specific ProjectTools instance
-async def get_project_tools(context: ConversationContext, role: str) -> ProjectTools:
-    """
-    Get an instance of ProjectTools for a given context and role.
-
-    Args:
-        context: The conversation context
-        role: The assistant's role ("coordinator" or "team")
-
-    Returns:
-        An instance of ProjectTools
-    """
-    # Create the ProjectTools instance
-    project_tools = ProjectTools(context, role)
-
-    config = await assistant_config.get(context.assistant)
-
-    # If progress tracking is disabled, remove progress-related tools
-    if not config.track_progress:
-        # Get original tool functions
-        tool_functions = project_tools.tool_functions
-
-        # List of progress-related functions to remove
-        progress_functions = [
-            "add_project_goal",
-            "mark_criterion_completed",
-            "mark_project_ready_for_working",
-            "report_project_completion",
-            "update_project_dashboard",
-        ]
-
-        # Remove progress-related functions
-        for func_name in progress_functions:
-            if func_name in tool_functions.function_map:
-                del tool_functions.function_map[func_name]
-
-        # Log the modifications for debugging
-        # Access the template_id using the correct property name (_template_id)
-        template_id = context.assistant._template_id
-        logger.info(f"Progress tracking disabled for template {template_id}, removed progress tools")
-
-    return project_tools

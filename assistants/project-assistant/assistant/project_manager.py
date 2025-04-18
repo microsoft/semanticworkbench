@@ -403,12 +403,9 @@ class ProjectManager:
         """
         Creates a new project brief for the current project.
 
-        The project brief is the primary document that defines the project's
-        purpose, goals, and success criteria. Creating a brief is typically
-        done by the Coordinator during the planning phase, and it should be completed before
-        team members are invited to join the project.
+        The project brief is the primary document that defines the project for team members.
 
-        If goals are provided, they should be a list of dictionaries with the format:
+        Goals are not required in Context Transfer configuration. But if we are in Project configuration and goals are provided, they should be a list of dictionaries with the format:
         [
             {
                 "name": "Goal name",
@@ -606,34 +603,33 @@ class ProjectManager:
         return project_info.state
 
     @staticmethod
-    async def get_project_dashboard(
-        context: ConversationContext,
-    ) -> Optional[Any]:
+    async def get_project_criteria(context: ConversationContext) -> List[SuccessCriterion]:
         """
-        DEPRECATED: This method is kept for backward compatibility.
-        Please use get_project_info instead.
-        """
-        import logging
+        Gets the success criteria for the current conversation's project.
 
-        logging.warning("DEPRECATED: get_project_dashboard is deprecated, use get_project_info instead")
-        return await ProjectManager.get_project_info(context)
+        Args:
+            context: Current conversation context
+            completed_only: If True, only return completed criteria
 
-    @staticmethod
-    async def update_project_dashboard(
-        context: ConversationContext,
-        state: Optional[str] = None,
-        progress: Optional[int] = None,
-        status_message: Optional[str] = None,
-        next_actions: Optional[List[str]] = None,
-    ) -> Tuple[bool, Optional[Any]]:
+        Returns:
+            List of SuccessCriterion objects
         """
-        DEPRECATED: This method is kept for backward compatibility.
-        Please use update_project_state instead.
-        """
-        import logging
+        project_id = await ProjectManager.get_project_id(context)
+        if not project_id:
+            return []
 
-        logging.warning("DEPRECATED: update_project_dashboard is deprecated, use update_project_state instead")
-        return await ProjectManager.update_project_state(context, state, status_message)
+        # Get the project brief which contains success criteria
+        brief = ProjectStorage.read_project_brief(project_id)
+        if not brief:
+            return []
+
+        goals = brief.goals
+        criteria = []
+        for goal in goals:
+            # Add success criteria from each goal
+            criteria.extend(goal.success_criteria)
+
+        return criteria
 
     @staticmethod
     async def update_project_state(

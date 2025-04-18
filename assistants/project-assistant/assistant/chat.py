@@ -8,13 +8,15 @@
 
 import logging
 import re
-from typing import Any, List
+from typing import Any, Dict, List
 
 import deepmerge
 import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
 from content_safety.evaluators import CombinedContentSafetyEvaluator
 from openai.types.chat import ChatCompletionMessageParam
+from openai_client.completion import message_content_from_completion
+from openai_client.tools import complete_with_tool_calls
 from semantic_workbench_api_model import workbench_model
 from semantic_workbench_api_model.workbench_model import (
     AssistantStateEvent,
@@ -29,13 +31,17 @@ from semantic_workbench_assistant.assistant_app import (
     AssistantApp,
     AssistantCapability,
     AssistantTemplate,
-    BaseModelAssistantConfig,
     ContentSafety,
     ContentSafetyEvaluator,
     ConversationContext,
 )
 
-from .config import AssistantConfigModel, ContextTransferConfigModel
+from assistant.command_processor import CommandRegistry
+from assistant.project_tools import ProjectTools
+from assistant.utils import load_text_include
+
+from .config import assistant_config
+from .project_data import RequestStatus
 from .project_files import ProjectFileManager
 from .project_manager import ProjectManager
 from .project_storage import (
@@ -51,14 +57,6 @@ logger = logging.getLogger(__name__)
 service_id = "project-assistant.made-exploration"
 service_name = "Project Assistant"
 service_description = "A mediator assistant that facilitates file sharing between conversations."
-
-# Config.
-assistant_config = BaseModelAssistantConfig(
-    AssistantConfigModel,
-    additional_templates={
-        "context_transfer": ContextTransferConfigModel,
-    },
-)
 
 
 # Content safety.
@@ -109,63 +107,18 @@ async def on_message_created(
 
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
+
     try:
-        # Get conversation to access metadata
-        conversation = await context.get_conversation()
-        metadata = conversation.metadata or {}
-
-        # First check if project ID exists - if it does, setup should always be considered complete
-        from .project_manager import ProjectManager
-
         project_id = await ProjectManager.get_project_id(context)
-        if project_id:
-            # If metadata doesn't reflect this, try to get actual role
-            from .project_storage import ConversationProjectManager
-
-            role = await ConversationProjectManager.get_conversation_role(context)
-            if role:
-                metadata["project_role"] = role.value
-                metadata["assistant_mode"] = role.value
-                metadata["setup_complete"] = True
-                logger.info(f"Found project role in storage: {role.value}")
-
-                # Update conversation metadata to fix this inconsistency
-                await context.send_conversation_state_event(
-                    AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
-                )
-                await context.send_conversation_state_event(
-                    AssistantStateEvent(state_id="project_role", event="updated", state=None)
-                )
-                await context.send_conversation_state_event(
-                    AssistantStateEvent(state_id="assistant_mode", event="updated", state=None)
-                )
-            else:
-                # Default to team if we can't determine
-                metadata["project_role"] = "team"
-                metadata["assistant_mode"] = "team"
-                metadata["setup_complete"] = True
-                logger.info("Could not determine role from storage, defaulting to team mode")
-
-        # Get the conversation's role (Coordinator or Team)
-        role = metadata.get("project_role")
-
-        # If role isn't set yet, detect it now
-        if not role:
-            role = await detect_assistant_role(context)
-            metadata["project_role"] = role
-            # Update conversation metadata through appropriate method
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="project_role", event="updated", state=None)
-            )
+        debug_metadata = {
+            "content_safety": event.data.get(content_safety.metadata_key, {}),
+            "project_id": project_id,
+        }
 
         # If this is a Coordinator conversation, store the message for Team access
+        role = await detect_assistant_role(context)
         if role == "coordinator" and message.message_type == MessageType.chat:
             try:
-                # Get the project ID
-                from .project_manager import ProjectManager
-
-                project_id = await ProjectManager.get_project_id(context)
-
                 if project_id:
                     # Get the sender's name
                     sender_name = "Coordinator"
@@ -177,8 +130,6 @@ async def on_message_created(
                                 break
 
                     # Store the message for Team access
-                    from .project_storage import ProjectStorage
-
                     ProjectStorage.append_coordinator_message(
                         project_id=project_id,
                         message_id=str(message.id),
@@ -192,37 +143,13 @@ async def on_message_created(
                 # Don't fail message handling if storage fails
                 logger.exception(f"Error storing Coordinator message for Team access: {e}")
 
-        # Prepare custom system message based on role
-        from .utils import load_text_include
-
-        role_specific_prompt = ""
-
-        if role == "coordinator":
-            # Coordinator-specific instructions
-            role_specific_prompt = load_text_include("coordinator_prompt.txt")
-        else:
-            # Team-specific instructions
-            role_specific_prompt = load_text_include("team_prompt.txt")
-
-        # Add role-specific metadata to pass to the LLM
-        role_metadata = {
-            "project_role": role,
-            "role_description": "Coordinator Mode (Planning Stage)"
-            if role == "coordinator"
-            else "Team Mode (Working Stage)",
-            "debug": {"content_safety": event.data.get(content_safety.metadata_key, {})},
-        }
-
-        # respond to the message with role-specific context
         await respond_to_conversation(
             context,
             message=message,
             attachments_extension=attachments_extension,
-            metadata=role_metadata,
-            role_specific_prompt=role_specific_prompt,
+            debug_metadata=debug_metadata,
         )
     finally:
-        # update the participant status to indicate the assistant is done thinking
         await context.update_participant_me(UpdateParticipant(status=None))
 
 
@@ -233,26 +160,17 @@ async def on_command_created(
     """
     Handle command messages using the centralized command processor.
     """
-    # update the participant status to indicate the assistant is thinking
+    if message.message_type != MessageType.command:
+        return
+
     await context.update_participant_me(UpdateParticipant(status="processing command..."))
     try:
-        # Get the conversation's role (Coordinator or Team)
-        conversation = await context.get_conversation()
-        metadata = conversation.metadata or {}
-        role = metadata.get("project_role")
-
-        # If role isn't set yet, detect it now
-        if not role:
-            role = await detect_assistant_role(context)
-            metadata["project_role"] = role
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="project_role", event="updated", state=None)
-            )
+        debug_metadata = {"content_safety": event.data.get(content_safety.metadata_key, {})}
 
         # Process the command using the command processor
-        from .command_processor import process_command
-
-        command_processed = await process_command(context, message)
+        role = await detect_assistant_role(context)
+        command_registry = CommandRegistry()
+        command_processed = await command_registry.process_command(context, message, role)
 
         # If the command wasn't recognized or processed, respond normally
         if not command_processed:
@@ -260,7 +178,7 @@ async def on_command_created(
                 context,
                 message=message,
                 attachments_extension=attachments_extension,
-                metadata={"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}},
+                debug_metadata=debug_metadata,
             )
     finally:
         # update the participant status to indicate the assistant is done thinking
@@ -574,57 +492,12 @@ async def detect_assistant_role(context: ConversationContext) -> str:
         "coordinator" if in Coordinator Mode, "team" if in Team Mode
     """
     try:
-        # First check conversation metadata for role indicators
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
-
-        # Check if this is explicitly marked as a team conversation
-        if metadata.get("is_team_conversation", False) or metadata.get("is_team_workspace", False):
-            logger.info("Detected role from metadata: team conversation")
-            return "team"
-
-        # Check if this was created through a share redemption
-        share_redemption = metadata.get("share_redemption", {})
-        if share_redemption and share_redemption.get("conversation_share_id"):
-            # Check if the share metadata has project information
-            share_metadata = share_redemption.get("metadata", {})
-            if (
-                share_metadata.get("is_team_conversation", False)
-                or share_metadata.get("is_team_workspace", False)
-                or share_metadata.get("project_id")
-            ):
-                logger.info("Detected role from share redemption: team")
-                return "team"
-
-        # Next check if there's already a role set in project storage
-        role = await ConversationProjectManager.get_conversation_role(context)
-        if role:
-            logger.info(f"Detected role from storage: {role.value}")
-            return role.value
-
-        # Get project ID
-        project_id = await ProjectManager.get_project_id(context)
-        if not project_id:
-            # No project association yet, default to Coordinator
-            logger.info("No project association, defaulting to coordinator")
-            return "coordinator"
-
-        # Check if this conversation created a project brief
-        briefing = ProjectStorage.read_project_brief(project_id)
-
-        # If the briefing was created by this conversation, we're in Coordinator Mode
-        if briefing and briefing.conversation_id == str(context.id):
-            logger.info("Detected role from briefing creation: coordinator")
-            return "coordinator"
-
-        # Otherwise, if we have a project association but didn't create the briefing,
-        # we're likely in Team Mode
-        logger.info("Detected role from project association: team")
-        return "team"
+        return metadata.get("project_role", "coordinator")
 
     except Exception as e:
         logger.exception(f"Error detecting assistant role: {e}")
-        # Default to Coordinator Mode if detection fails
         return "coordinator"
 
 
@@ -932,42 +805,53 @@ async def on_participant_joined(
 # OpenAI integration for message responses
 #
 
+SILENCE_TOKEN = "{{SILENCE}}"
+
 
 async def respond_to_conversation(
     context: ConversationContext,
     message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
-    metadata: dict[str, Any] = {},
-    role_specific_prompt: str = "",
+    debug_metadata: Dict[str, Any],
 ) -> None:
     """
     Respond to a conversation message.
     """
+    role = await detect_assistant_role(context)
+    debug_metadata["role"] = role
 
-    method_metadata_key = "respond_to_conversation"
+    # Start prompt with system message
     config = await assistant_config.get(context.assistant)
-    participants_response = await context.get_participants(include_inactive=True)
-    silence_token = "{{SILENCE}}"
-    system_message_content = config.guardrails_prompt
-    system_message_content += f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+    system_message_content = f'\n\n{config.instruction_prompt}\n\nYour name is "{context.assistant.name}".'
+
+    # Add role-specific instructions
+    role = await detect_assistant_role(context)
+    role_specific_prompt = ""
+    if role == "coordinator":
+        role_specific_prompt = load_text_include("coordinator_prompt.txt")
+    else:
+        role_specific_prompt = load_text_include("team_prompt.txt")
+
     if role_specific_prompt:
         system_message_content += f"\n\n{role_specific_prompt}"
 
-    if len(participants_response.participants) > 2:
+    # Add group instructions if applicable
+    participants = await context.get_participants(include_inactive=True)
+    if len(participants.participants) > 2:
         system_message_content += (
             "\n\n"
-            f"There are {len(participants_response.participants)} participants in the conversation,"
+            f"There are {len(participants.participants)} participants in the conversation,"
             " including you as the assistant and the following users:"
             + ",".join([
                 f' "{participant.name}"'
-                for participant in participants_response.participants
+                for participant in participants.participants
                 if participant.id != context.assistant.id
             ])
             + "\n\nYou do not need to respond to every message. Do not respond if the last thing said was a closing"
             " statement such as 'bye' or 'goodbye', or just a general acknowledgement like 'ok' or 'thanks'. Do not"
             f' respond as another user in the conversation, only as "{context.assistant.name}".'
             " Sometimes the other users need to talk amongst themselves and that is ok. If the conversation seems to"
-            f' be directed at you or the general audience, go ahead and respond.\n\nSay "{silence_token}" to skip'
+            f' be directed at you or the general audience, go ahead and respond.\n\nSay "{SILENCE_TOKEN}" to skip'
             " your turn."
         )
 
@@ -991,7 +875,7 @@ async def respond_to_conversation(
         conversation_participant = next(
             (
                 participant
-                for participant in participants_response.participants
+                for participant in participants.participants
                 if participant.id == message.sender.participant_id
             ),
             None,
@@ -1088,9 +972,6 @@ async def respond_to_conversation(
         if token_overage > 0:
             break
 
-    # Log the token usage
-    logger.debug(f"Token usage: {token_count}/{available_tokens} tokens used, {token_overage} tokens skipped")
-
     # Add history messages to completion messages
     completion_messages.extend(history_messages)
 
@@ -1100,47 +981,14 @@ async def respond_to_conversation(
         messages=completion_messages,
     )
 
+    # Log the token usage
+    debug_metadata["token_usage"] = {"total_tokens": total_token_count}
+
     if total_token_count > available_tokens:
-        logger.warning(
-            f"Token limit exceeded: {total_token_count} > {available_tokens}. "
-            f"Some conversation history has been truncated."
-        )
-
-    # Get the conversation's role
-    from .project_storage import ConversationProjectManager
-    from .project_tools import ProjectTools, get_project_tools
-
-    # First check conversation metadata
-    conversation = await context.get_conversation()
-    metadata = conversation.metadata or {}
-    metadata_role = metadata.get("project_role")
-
-    # Then check the stored role from project storage - this is the authoritative source
-    stored_role = await ConversationProjectManager.get_conversation_role(context)
-    stored_role_value = stored_role.value if stored_role else None
-
-    # Log the roles we find for debugging
-    logger.info(f"Role detection - Metadata role: {metadata_role}, Stored role: {stored_role_value}")
-
-    # If we have a stored role but metadata is different or missing, update metadata
-    if stored_role_value and metadata_role != stored_role_value:
-        logger.warning(f"Role mismatch detected! Metadata: {metadata_role}, Storage: {stored_role_value}")
-        metadata["project_role"] = stored_role_value
-        # Update state to ensure UI is refreshed
-        await context.send_conversation_state_event(
-            AssistantStateEvent(state_id="project_role", event="updated", state=None)
-        )
-        # Force use of stored role
-        role = stored_role_value
-    else:
-        # If no mismatch or no stored role, use metadata role (defaulting to Coordinator)
-        role = metadata_role or "coordinator"  # Default to Coordinator if not set
-
-    logger.info(f"Using role: {role} for tool selection")
+        logger.warning(f"Token limit exceeded: {total_token_count} > {available_tokens}. ")
 
     # For team role, analyze message for possible information request needs
     if role == "team" and message.message_type == MessageType.chat:
-        # Create a project tools instance for team role
         project_tools_instance = ProjectTools(context, role)
 
         # Check if the message indicates a potential information request
@@ -1173,32 +1021,10 @@ async def respond_to_conversation(
             )
 
     # Create tool instance for the current role
-    project_tools = await get_project_tools(context, role)
-
-    # Define explicit lists of available tools for each role
-    coordinator_available_tools = [
-        "get_project_info",
-        "create_project_brief",
-        "add_project_goal",
-        "resolve_information_request",
-        "mark_project_ready_for_working",
-        "suggest_next_action",
-    ]
-
-    team_available_tools = [
-        "get_project_info",
-        "create_information_request",
-        "delete_information_request",
-        "update_project_dashboard",
-        "mark_criterion_completed",
-        "report_project_completion",
-        "detect_information_request_needs",
-        "suggest_next_action",
-        "view_coordinator_conversation",
-    ]
+    project_tools = ProjectTools(context, role)
 
     # Get the available tools for the current role
-    available_tools = coordinator_available_tools if role == "coordinator" else team_available_tools
+    available_tools = project_tools.get_available_tools()
 
     # Create a string listing available tools for the current role
     available_tools_str = ", ".join([f"`{tool}`" for tool in available_tools])
@@ -1216,8 +1042,6 @@ async def respond_to_conversation(
 
             # If the messaging API version supports tool functions, use them
             try:
-                from openai_client.tools import complete_with_tool_calls
-
                 # Call the completion API with tool functions
                 logger.info(f"Using tool functions for completions (role: {role})")
 
@@ -1225,94 +1049,87 @@ async def respond_to_conversation(
                 available_tool_names = set(project_tools.tool_functions.function_map.keys())
                 logger.info(f"Available tools for {role}: {available_tool_names}")
 
-                # Import required modules at the beginning to avoid scope issues
-                from .project_data import RequestStatus
-                from .project_manager import ProjectManager
-                from .project_storage import ProjectStorage
+                project_id = await ProjectManager.get_project_id(context)
+                if not project_id:
+                    raise ValueError("Project ID not found in context")
 
-                # Get the project ID and data for both role types
-                project_id = None
                 project_data = {}
-                all_requests = []  # Initialize empty list to avoid "possibly unbound" errors
+                all_requests = []
 
                 try:
-                    # Get project ID
-                    project_id = await ProjectManager.get_project_id(context)
-                    if project_id:
-                        # Get comprehensive project data for prompt
-                        briefing = ProjectStorage.read_project_brief(project_id)
-                        project_info = ProjectStorage.read_project_info(project_id)
-                        whiteboard = ProjectStorage.read_project_whiteboard(project_id)
-                        all_requests = ProjectStorage.get_all_information_requests(project_id)
+                    # Get comprehensive project data for prompt
+                    briefing = ProjectStorage.read_project_brief(project_id)
+                    project_info = ProjectStorage.read_project_info(project_id)
+                    whiteboard = ProjectStorage.read_project_whiteboard(project_id)
+                    all_requests = ProjectStorage.get_all_information_requests(project_id)
 
-                        # Format project brief
-                        project_brief_text = ""
-                        if briefing:
-                            # Basic project brief without goals
-                            project_brief_text = f"""
+                    # Format project brief
+                    project_brief_text = ""
+                    if briefing:
+                        # Basic project brief without goals
+                        project_brief_text = f"""
 ### PROJECT BRIEF
 **Name:** {briefing.project_name}
 **Description:** {briefing.project_description}
 """
-                            # Only include goals and progress tracking if track_progress is enabled
-                            if config.track_progress and briefing.goals:
-                                project_brief_text += """
+                        # Only include goals and progress tracking if track_progress is enabled
+                        if config.track_progress and briefing.goals:
+                            project_brief_text += """
 #### PROJECT GOALS:
 """
-                                for i, goal in enumerate(briefing.goals):
-                                    # Count completed criteria
-                                    completed = sum(1 for c in goal.success_criteria if c.completed)
-                                    total = len(goal.success_criteria)
+                            for i, goal in enumerate(briefing.goals):
+                                # Count completed criteria
+                                completed = sum(1 for c in goal.success_criteria if c.completed)
+                                total = len(goal.success_criteria)
 
-                                    project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
-                                    if goal.success_criteria:
-                                        project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
-                                        for j, criterion in enumerate(goal.success_criteria):
-                                            check = "✅" if criterion.completed else "⬜"
-                                            project_brief_text += f"   {check} {criterion.description}\n"
-                                    project_brief_text += "\n"
+                                project_brief_text += f"{i + 1}. **{goal.name}** - {goal.description}\n"
+                                if goal.success_criteria:
+                                    project_brief_text += f"   Progress: {completed}/{total} criteria complete\n"
+                                    for j, criterion in enumerate(goal.success_criteria):
+                                        check = "✅" if criterion.completed else "⬜"
+                                        project_brief_text += f"   {check} {criterion.description}\n"
+                                project_brief_text += "\n"
 
-                        # Format project info
-                        project_dashboard_text = ""
-                        if project_info:
-                            project_dashboard_text = f"""
+                    # Format project info
+                    project_info_text = ""
+                    if project_info:
+                        project_info_text = f"""
 ### PROJECT INFO
 **Current State:** {project_info.state.value}
 """
-                            if project_info.status_message:
-                                project_dashboard_text += f"**Status Message:** {project_info.status_message}\n"
+                        if project_info.status_message:
+                            project_info_text += f"**Status Message:** {project_info.status_message}\n"
 
-                        # Format whiteboard content
-                        whiteboard_text = ""
-                        if whiteboard and whiteboard.content:
-                            whiteboard_text = "\n### PROJECT WHITEBOARD\n"
+                    # Format whiteboard content
+                    whiteboard_text = ""
+                    if whiteboard and whiteboard.content:
+                        whiteboard_text = "\n### PROJECT WHITEBOARD\n"
 
-                            # Truncate content if too long
-                            content = whiteboard.content
-                            max_length = 1500  # Arbitrary limit for context
-                            if len(content) > max_length:
-                                content = content[:max_length] + "... (content truncated for brevity)"
-                            whiteboard_text += f"{content}\n\n"
+                        # Truncate content if too long
+                        content = whiteboard.content
+                        max_length = 1500  # Arbitrary limit for context
+                        if len(content) > max_length:
+                            content = content[:max_length] + "... (content truncated for brevity)"
+                        whiteboard_text += f"{content}\n\n"
 
-                            whiteboard_text += (
-                                '*Use get_project_info(info_type="whiteboard") to see the full whiteboard content.*\n'
-                            )
+                        whiteboard_text += (
+                            '*Use get_project_info(info_type="whiteboard") to see the full whiteboard content.*\n'
+                        )
 
-                        # Store the formatted data
-                        project_data = {
-                            "briefing": project_brief_text,
-                            "status": project_dashboard_text,
-                            "whiteboard": whiteboard_text,
-                        }
+                    # Store the formatted data
+                    project_data = {
+                        "briefing": project_brief_text,
+                        "status": project_info_text,
+                        "whiteboard": whiteboard_text,
+                    }
 
                 except Exception as e:
                     logger.warning(f"Failed to fetch project data for prompt: {e}")
 
                 # Construct role-specific messages with comprehensive project data
                 if role == "coordinator":
-                    # Format requests for Coordinator view
                     information_requests_text = ""
-                    if project_id and all_requests:
+                    if all_requests:
                         active_requests = [r for r in all_requests if r.status != RequestStatus.RESOLVED]
 
                         if active_requests:
@@ -1347,10 +1164,10 @@ async def respond_to_conversation(
 {project_data.get("whiteboard", "")}
 """
 
-                    role_enforcement = f"""
+                    tools_info = f"""
 \n\n⚠️ TOOL ACCESS ⚠️
 
-As a Coordinator, you can use these tools: {available_tools_str}
+As a coordinator assistant, you can use these tools: {available_tools_str}
 {project_data_text}
 """
                 else:  # team role
@@ -1358,7 +1175,7 @@ As a Coordinator, you can use these tools: {available_tools_str}
                     information_requests_info = ""
                     my_requests = []
 
-                    if project_id and all_requests:
+                    if all_requests:
                         # Filter for requests from this conversation that aren't resolved
                         my_requests = [
                             r
@@ -1374,36 +1191,6 @@ As a Coordinator, you can use these tools: {available_tools_str}
                                 )
                             information_requests_info += '\nYou can delete any of these requests using `delete_information_request(request_id="the_id")`\n'
 
-                    # Format requests from all conversations for team view
-                    all_information_requests_text = ""
-                    if project_id and all_requests:
-                        # Show all active requests including those from other team members
-                        other_active_requests = [
-                            r
-                            for r in all_requests
-                            if r.conversation_id != str(context.id) and r.status != RequestStatus.RESOLVED
-                        ]
-
-                        if other_active_requests:
-                            all_information_requests_text = "\n\n### OTHER ACTIVE INFORMATION REQUESTS:\n"
-                            all_information_requests_text += "> These are requests from other team members\n\n"
-
-                            for req in other_active_requests[:5]:  # Limit to 5 for brevity
-                                status_marker = {
-                                    "new": "🆕",
-                                    "acknowledged": "👁️",
-                                    "in_progress": "⏳",
-                                    "deferred": "⏱️",
-                                }.get(req.status.value, "📋")
-
-                                all_information_requests_text += (
-                                    f"{status_marker} **{req.title}** (Status: {req.status.value})\n"
-                                )
-                                all_information_requests_text += f"   **Description:** {req.description}\n\n"
-
-                            if len(other_active_requests) > 5:
-                                all_information_requests_text += f'*...and {len(other_active_requests) - 5} more requests. Use get_project_info(info_type="requests") to see all.*\n'
-
                     # Combine all project data for team
                     project_data_text = ""
                     if project_data:
@@ -1412,14 +1199,13 @@ As a Coordinator, you can use these tools: {available_tools_str}
 {project_data.get("briefing", "")}
 {project_data.get("status", "")}
 {information_requests_info}
-{all_information_requests_text}
 {project_data.get("whiteboard", "")}
 """
 
-                    role_enforcement = f"""
+                    tools_info = f"""
 \n\n⚠️ TOOL ACCESS ⚠️
 
-As a TEAM member, you can use these tools: {available_tools_str}
+As a TEAM member assistant, you can use these tools: {available_tools_str}
 
 When working with information requests:
 1. Use the `create_information_request` tool to send requests for information to the Coordinator
@@ -1429,32 +1215,56 @@ If you need information from the Coordinator, first try viewing recent Coordinat
 {project_data_text}
 """
 
-                # Append the enforcement text to the role_specific_prompt
-                role_specific_prompt += role_enforcement
+                # Append the tool text to the role_specific_prompt
+                role_specific_prompt += tools_info
 
                 # Update the system message to include the enhanced role_specific_prompt
-                system_message_content += f"\n\n{role_enforcement}"
+                system_message_content += f"\n\n{tools_info}"
 
                 # Update the system message in completion_args with the new content
                 completion_args["messages"][0]["content"] = system_message_content
 
                 # Make the API call
-                tool_completion, tool_messages = await complete_with_tool_calls(
+                completion_response, additional_messages = await complete_with_tool_calls(
                     async_client=client,
                     completion_args=completion_args,
                     tool_functions=project_tools.tool_functions,
                     metadata=llm_call_metadata,
                 )
 
-                # Get the final assistant message content
-                content = None
-                for msg in tool_messages:
-                    if msg["role"] == "assistant" and "content" in msg and msg["content"]:
-                        content = msg["content"]
+                # Process tool function calls and add intermediate messages to the conversation
+                for tool_message in additional_messages:
+                    if tool_message.get("role") == "function" and tool_message.get("content"):
+                        # Send function call result messages as notice type
+                        # Ensure content is a string
+                        content_str = str(tool_message.get("content", "") or "")
+                        await context.send_messages(
+                            NewConversationMessage(
+                                content=content_str,
+                                message_type=MessageType.notice,
+                                metadata={"function_result": True, "name": tool_message.get("name", "tool_call")},
+                            )
+                        )
+                    elif tool_message.get("role") == "assistant" and tool_message.get("function_call"):
+                        # Send function call messages as notice type
+                        function_call = tool_message.get("function_call", {}) or {}
+                        function_name = function_call.get("name", "unknown")
+                        await context.send_messages(
+                            NewConversationMessage(
+                                content=f"Calling function: {function_name}",
+                                message_type=MessageType.notice,
+                                metadata={"function_call": True, "name": function_name},
+                            )
+                        )
 
+                # Get the final content from the completion response
+                content = message_content_from_completion(completion_response)
                 if not content:
                     # Fallback if no final message was generated
                     content = "I've processed your request, but couldn't generate a proper response."
+
+                # Record all messages in debug metadata
+                llm_call_metadata["tool_messages"] = additional_messages
 
             except (ImportError, AttributeError):
                 # Fallback to standard completions if tool calls aren't supported
@@ -1470,10 +1280,8 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                 deepmerge.always_merger.merge(
                     llm_call_metadata,
                     {
-                        f"{method_metadata_key}": {
-                            "request": completion_args,
-                            "response": completion.model_dump() if completion else "[no response from openai]",
-                        },
+                        "request": completion_args,
+                        "response": completion.model_dump() if completion else "[no response from openai]",
                     },
                 )
 
@@ -1486,13 +1294,11 @@ If you need information from the Coordinator, first try viewing recent Coordinat
             deepmerge.always_merger.merge(
                 llm_call_metadata,
                 {
-                    f"{method_metadata_key}": {
-                        "request": {
-                            "model": config.request_config.openai_model,
-                            "messages": completion_messages,
-                        },
-                        "error": str(e),
+                    "request": {
+                        "model": config.request_config.openai_model,
+                        "messages": completion_messages,
                     },
+                    "error": str(e),
                 },
             )
 
@@ -1508,7 +1314,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
         # check for the silence token, in case the model chooses not to respond
         # model sometimes puts extra spaces in the response, so remove them
         # when checking for the silence token
-        if isinstance(content, str) and content.replace(" ", "") == silence_token:
+        if isinstance(content, str) and content.replace(" ", "") == SILENCE_TOKEN:
             # normal behavior is to not respond if the model chooses to remain silent
             # but we can override this behavior for debugging purposes via the assistant config
             if config.enable_debug_output:
@@ -1516,9 +1322,7 @@ If you need information from the Coordinator, first try viewing recent Coordinat
                 deepmerge.always_merger.merge(
                     llm_call_metadata,
                     {
-                        f"{method_metadata_key}": {
-                            "silence_token": True,
-                        },
+                        "silence_token": True,
                         "generated_content": False,
                     },
                 )
@@ -1550,20 +1354,16 @@ If you need information from the Coordinator, first try viewing recent Coordinat
     from .project_storage import ConversationProjectManager
 
     # Get the authoritative role directly from storage, not from metadata
-    stored_role = await ConversationProjectManager.get_conversation_role(context)
-    role = stored_role.value if stored_role else None
+    role = await ConversationProjectManager.get_conversation_role(context)
+    role = role.value if role else None
 
     if role == "coordinator" and message_type == MessageType.chat and response_message and response_message.messages:
         try:
-            # Get the project ID
-            from .project_manager import ProjectManager
-
             project_id = await ProjectManager.get_project_id(context)
 
             if project_id:
                 for msg in response_message.messages:
                     # Store the assistant's message for Team access
-                    from .project_storage import ProjectStorage
 
                     ProjectStorage.append_coordinator_message(
                         project_id=project_id,

@@ -206,11 +206,6 @@ class ProjectWhiteboard(BaseEntity):
     is_auto_generated: bool = True  # Whether the content was auto-generated or manually edited
 
 
-# ProjectDashboard has been removed as it was redundant. 
-# Project state is tracked in ProjectInfo, project progress is calculated from goals/criteria.
-# The state inspector dynamically builds the dashboard view from primary data (brief, requests, etc.)
-
-
 class InformationRequest(BaseEntity):
     """
     A specific information need or blocker submitted by team members
@@ -304,12 +299,12 @@ class ProjectLog(BaseEntity):
 class ProjectInfo(BaseModel):
     """
     Core information about a project including its ID, name, state, and sharing details.
-    
+
     This model stores essential project metadata that doesn't fit into other
     specific models like brief or whiteboard. It's the central reference point
     for project identification, state, and team collaboration settings.
     """
-    
+
     project_id: str  # Unique identifier for the project
     project_name: str = "New Project"  # Name of the project
     state: ProjectState = ProjectState.PLANNING  # Current project lifecycle state
