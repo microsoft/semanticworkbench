@@ -122,7 +122,6 @@ class ConversationClientManager:
 
             # Create a temporary context with the same properties as the original
             # but pointing to a different conversation
-            from semantic_workbench_assistant.assistant_app.context import ConversationContext
 
             temp_context = ConversationContext(
                 assistant=assistant,
