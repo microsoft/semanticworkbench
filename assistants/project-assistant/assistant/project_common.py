@@ -17,14 +17,34 @@ from .project_storage import ConversationProjectManager, ProjectStorage
 logger = logging.getLogger(__name__)
 
 
+class ConfigurationTemplate(Enum):
+    """
+    This assistant can be in one of two different template configurations. It
+    behaves quite differently based on which configuration it it in.
+    """
+
+    PROJECT_ASSISTANT = "project_assistant"
+    CONTEXT_TRANSFER_ASSISTANT = "context_transfer_assistant"
+
+
+def get_template(context: ConversationContext) -> ConfigurationTemplate:
+    template_id = context.assistant._template_id or "default"
+    return (
+        ConfigurationTemplate.PROJECT_ASSISTANT
+        if template_id == "default"
+        else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
+    )
+
+
 class ConversationRole(str, Enum):
     """
     Enumeration of conversation roles in a project.
-    
+
     This enum represents the role that a conversation plays in a project,
     either as a Coordinator (managing the project) or as a Team member
     (participating in the project).
     """
+
     COORDINATOR = "coordinator"
     TEAM = "team"
 
@@ -32,14 +52,14 @@ class ConversationRole(str, Enum):
 async def detect_assistant_role(context: ConversationContext) -> ConversationRole:
     """
     Detects whether this conversation is in Coordinator or Team mode.
-    
+
     This method examines the conversation metadata to determine the role
     of the current conversation in the project. The role is always stored
     in the conversation metadata as "project_role".
-    
+
     Args:
         context: The conversation context to examine
-        
+
     Returns:
         ConversationRole.COORDINATOR or ConversationRole.TEAM
     """
@@ -47,7 +67,7 @@ async def detect_assistant_role(context: ConversationContext) -> ConversationRol
         conversation = await context.get_conversation()
         metadata = conversation.metadata or {}
         role_str = metadata.get("project_role", "coordinator")
-        
+
         if role_str == "team":
             return ConversationRole.TEAM
         else:

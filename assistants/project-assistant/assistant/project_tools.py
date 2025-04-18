@@ -8,12 +8,10 @@ by the LLM during chat completions to proactively assist users.
 import json
 import logging
 from datetime import datetime
-from enum import Enum
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
 import openai_client
-from .project_common import ConversationRole
 from openai.types.chat import ChatCompletionMessageParam
 from openai_client.tools import ToolFunctions
 from semantic_workbench_api_model.workbench_model import (
@@ -31,6 +29,8 @@ from .command_processor import (
 )
 from .config import assistant_config
 from .conversation_clients import ConversationClientManager
+from .logging import logger
+from .project_common import ConfigurationTemplate, ConversationRole
 from .project_data import (
     LogEntryType,
     ProjectInfo,
@@ -47,8 +47,6 @@ from .project_storage import (
     ProjectStorageManager,
 )
 from .utils import load_text_include
-
-logger = logging.getLogger(__name__)
 
 
 async def invoke_command_handler(
@@ -91,11 +89,6 @@ async def invoke_command_handler(
         return f"{error_prefix}: {str(e)}"
 
 
-class Configuration(Enum):
-    PROJECT_ASSISTANT = "project_assistant"
-    CONTEXT_TRANSFER_ASSISTANT = "context_transfer_assistant"
-
-
 class ProjectTools:
     """Tools for the Project Assistant to use during chat completions."""
 
@@ -121,7 +114,9 @@ class ProjectTools:
 
         template_id = context.assistant._template_id or "default"
         self.config = (
-            Configuration.PROJECT_ASSISTANT if template_id == "default" else Configuration.CONTEXT_TRANSFER_ASSISTANT
+            ConfigurationTemplate.PROJECT_ASSISTANT
+            if template_id == "default"
+            else ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
         )
 
         # Register common tools for both roles in both configs
@@ -149,7 +144,7 @@ class ProjectTools:
                 "Resolve an information request with information",
             )
 
-            if self.config == Configuration.PROJECT_ASSISTANT:
+            if self.config == ConfigurationTemplate.PROJECT_ASSISTANT:
                 self.tool_functions.add_function(
                     self.add_project_goal,
                     "add_project_goal",
@@ -191,7 +186,7 @@ class ProjectTools:
                 "View the Coordinator conversation messages to understand the project context and planning discussions",
             )
 
-            if self.config == Configuration.PROJECT_ASSISTANT:
+            if self.config == ConfigurationTemplate.PROJECT_ASSISTANT:
                 self.tool_functions.add_function(
                     self.report_project_completion, "report_project_completion", "Report that the project is complete"
                 )
@@ -1435,7 +1430,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
                 }
 
         # Check if goals exist
-        if self.config == Configuration.PROJECT_ASSISTANT:
+        if self.config == ConfigurationTemplate.PROJECT_ASSISTANT:
             if not brief.goals:
                 if self.role == "coordinator":
                     return {
@@ -1458,7 +1453,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
 
         if not ready_for_working and self.role == "coordinator":
             # Check if it's ready to mark as ready for working
-            if self.config == Configuration.CONTEXT_TRANSFER_ASSISTANT:
+            if self.config == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT:
                 has_goals = True
                 has_criteria = True
             else:

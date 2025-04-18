@@ -2,15 +2,27 @@
 Project management logic for working with project data.
 
 This module provides the core business logic for working with project data
-without relying on the artifact abstraction.
 """
 
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+import openai_client
+from semantic_workbench_api_model.workbench_model import (
+    AssistantStateEvent,
+    ConversationPermission,
+    MessageType,
+    NewConversation,
+    NewConversationMessage,
+    NewConversationShare,
+    ParticipantRole,
+)
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
+from .config import assistant_config
+from .conversation_clients import ConversationClientManager
 from .logging import logger
 from .project_data import (
     InformationRequest,
@@ -33,7 +45,7 @@ from .project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
-from .utils import get_current_user, require_current_user
+from .utils import get_current_user, load_text_include, require_current_user
 
 
 class ProjectManager:
@@ -87,8 +99,6 @@ class ProjectManager:
                 return False, None, None
 
             # Create a new conversation using the client
-            from semantic_workbench_api_model.workbench_model import NewConversation
-
             # Create the new conversation with appropriate metadata
             new_conversation = NewConversation(
                 title=f"{project_name}",
@@ -146,10 +156,7 @@ class ProjectManager:
                 logger.warning(f"Failed to update project info with team conversation: {e}")
 
             # Store the share URL in the conversation's metadata
-            from semantic_workbench_api_model.workbench_model import AssistantStateEvent
-
             # Create a temporary context for the team conversation to update its metadata
-            from .conversation_clients import ConversationClientManager
 
             team_context = await ConversationClientManager.create_temporary_context_for_conversation(
                 source_context=context, target_conversation_id=str(conversation.id)
@@ -199,11 +206,6 @@ class ProjectManager:
                     return False, None
 
             # Create the share using the client
-            from semantic_workbench_api_model.workbench_model import (
-                ConversationPermission,
-                NewConversationShare,
-            )
-
             new_share = NewConversationShare(
                 conversation_id=conversation_id,
                 label=f"{project_name}",
@@ -268,11 +270,7 @@ class ProjectManager:
             logger.info(f"Created project directory: {project_dir}")
 
             # Create and save the initial project info
-            from .project_data import ProjectInfo
-
-            project_info = ProjectInfo(
-                project_id=project_id, coordinator_conversation_id=str(context.id)
-            )
+            project_info = ProjectInfo(project_id=project_id, coordinator_conversation_id=str(context.id))
 
             # Save the project info
             ProjectStorage.write_project_info(project_id, project_info)
@@ -358,7 +356,7 @@ class ProjectManager:
         - TEAM: Conversations where team members are carrying out the project tasks
 
         This method examines the conversation metadata to determine the role
-        of the current conversation in the project. The role is stored in the 
+        of the current conversation in the project. The role is stored in the
         conversation metadata as "project_role".
 
         Args:
@@ -372,7 +370,7 @@ class ProjectManager:
             conversation = await context.get_conversation()
             metadata = conversation.metadata or {}
             role_str = metadata.get("project_role", "coordinator")
-            
+
             if role_str == "team":
                 return ProjectRole.TEAM
             elif role_str == "coordinator":
@@ -704,7 +702,7 @@ class ProjectManager:
             # Update metadata
             project_info.updated_at = datetime.utcnow()
             project_info.updated_by = current_user_id
-            
+
             # Increment version if it exists
             if hasattr(project_info, "version"):
                 project_info.version += 1
@@ -1106,13 +1104,6 @@ class ProjectManager:
 
             # Send direct notification to requestor's conversation
             if information_request.conversation_id != str(context.id):
-                from semantic_workbench_api_model.workbench_model import (
-                    MessageType,
-                    NewConversationMessage,
-                )
-
-                from .conversation_clients import ConversationClientManager
-
                 try:
                     # Get client for requestor's conversation
                     client = ConversationClientManager.get_conversation_client(
@@ -1402,9 +1393,6 @@ class ProjectManager:
                 logger.info("No chat history to analyze for whiteboard update")
                 return False, None
 
-            # Import necessary model types
-            from semantic_workbench_api_model.workbench_model import ParticipantRole
-
             # Format the chat history for the prompt
             chat_history_text = ""
             for msg in chat_history:
@@ -1414,13 +1402,9 @@ class ProjectManager:
                 chat_history_text += f"{sender_type}: {msg.content}\n\n"
 
             # Get config for the LLM call
-            from .chat import assistant_config
-
             config = await assistant_config.get(context.assistant)
 
             # Load the whiteboard prompt from text includes
-            from .utils import load_text_include
-
             template_id = context.assistant._template_id
 
             # Use the appropriate prompt based on the template
@@ -1438,9 +1422,6 @@ class ProjectManager:
             </CHAT_HISTORY>
             """
 
-            # Import necessary modules for the LLM call
-            import openai_client
-
             # Create a completion with the whiteboard prompt
             async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
                 completion = await client.chat.completions.create(
@@ -1453,8 +1434,6 @@ class ProjectManager:
                 content = completion.choices[0].message.content or ""
 
                 # Extract just the whiteboard content
-                import re
-
                 whiteboard_content = ""
 
                 # Look for content between <WHITEBOARD> tags
