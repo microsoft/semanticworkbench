@@ -45,7 +45,7 @@ from .project_storage import (
     ProjectStorage,
     ProjectStorageManager,
 )
-from .utils import load_text_include
+from .utils import is_context_transfer_assistant, load_text_include
 
 
 async def invoke_command_handler(
@@ -102,6 +102,7 @@ class ProjectTools:
         self.context = context
         self.role = role
         self.tool_functions = ToolFunctions()
+        self.is_context_transfer = is_context_transfer_assistant(context)
 
         template_id = context.assistant._template_id or "default"
         self.config_template = (
@@ -367,9 +368,6 @@ class ProjectTools:
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
 
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can add project goals."
@@ -523,9 +521,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
 
         if self.role is not ConversationRole.TEAM:
             return "Only Team members can update project status."
@@ -539,9 +534,7 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         success, project_info = await ProjectManager.update_project_info(
             context=self.context,
             state=status,
-            progress=progress,
             status_message=status_message,
-            next_actions=next_actions,
         )
 
         if success and project_info:
@@ -570,9 +563,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
 
         if self.role is not ConversationRole.TEAM:
             return "Only Team members can mark criteria as completed."
@@ -679,7 +669,15 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
             await ProjectStorage.refresh_all_project_uis(self.context, project_id)
 
             # Check if all criteria are completed for project completion
-            if completed_criteria == total_criteria and total_criteria > 0:
+            # Count all completed criteria again to check for completion
+            completed = 0
+            total = 0
+
+            for g in brief.goals:
+                total += len(g.success_criteria)
+                completed += sum(1 for c in g.success_criteria if c.completed)
+
+            if completed == total and total > 0:
                 await self.context.send_messages(
                     NewConversationMessage(
                         content="🎉 All success criteria have been completed! Consider using the report_project_completion function to formally complete the project.",
@@ -704,9 +702,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
 
         if self.role is not ConversationRole.COORDINATOR:
             return "Only Coordinator can mark a project as ready for working."
@@ -817,9 +812,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             A message indicating success or failure
         """
-        config = await assistant_config.get(self.context.assistant)
-        if not config.track_progress:
-            return "Progress tracking is not enabled for this template."
 
         if self.role is not ConversationRole.TEAM:
             return "Only Team members can report project completion."

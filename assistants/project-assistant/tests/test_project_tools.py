@@ -3,15 +3,13 @@ Tests for the ProjectTools functionality.
 """
 
 import contextlib
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 import openai_client
-from assistant.project_tools import ProjectTools
+import pytest
 from assistant.project_storage import ConversationRole
+from assistant.project_tools import ProjectTools
 from semantic_workbench_assistant.assistant_app import ConversationContext
-from assistant.config import assistant_config
 
 
 # Use pytest for all tests for consistency
@@ -45,7 +43,7 @@ class TestProjectTools:
 
         # Verify Team-specific functions are NOT registered
         assert "create_information_request" not in coordinator_tools.tool_functions.function_map
-        assert "update_project_dashboard" not in coordinator_tools.tool_functions.function_map
+        assert "update_project_status" not in coordinator_tools.tool_functions.function_map
         assert "mark_criterion_completed" not in coordinator_tools.tool_functions.function_map
         assert "report_project_completion" not in coordinator_tools.tool_functions.function_map
 
@@ -99,29 +97,29 @@ class TestProjectTools:
         # Test with track_progress set to True first
         # Create a ProjectTools instance directly
         tools = ProjectTools(context, ConversationRole.COORDINATOR)
-        
+
         # Make sure add_project_goal was added when track_progress=True
         assert "add_project_goal" in tools.tool_functions.function_map
-        
+
         # For team role, check criterion completion
         team_tools = ProjectTools(context, ConversationRole.TEAM)
         assert "mark_criterion_completed" in team_tools.tool_functions.function_map
-        
+
         # Now test with track_progress set to False
         mock_config.track_progress = False
-        
+
         # For add_project_goal, we need to monkey patch the check in the method
-        # Since we're now testing a method that uses await assistant_config.get() 
+        # Since we're now testing a method that uses await assistant_config.get()
         # We'll monkeypatch the method directly to simulate track_progress=False
-        
+
         # Create a test instance that will be configured during the async call
         coordinator_tools = ProjectTools(context, ConversationRole.COORDINATOR)
         team_tools = ProjectTools(context, ConversationRole.TEAM)
-        
+
         # Test the add_project_goal method with track_progress=False
         result = await coordinator_tools.add_project_goal("Test Goal", "Test Description", ["Test Criterion"])
         assert "Progress tracking is not enabled" in result
-        
+
         # Test the mark_criterion_completed method with track_progress=False
         result = await team_tools.mark_criterion_completed(0, 0)
         assert "Progress tracking is not enabled" in result
@@ -133,13 +131,13 @@ class TestProjectTools:
         context.assistant = MagicMock()
         context.assistant._template_id = "default"
         context.assistant.id = "test-assistant-id"
-        
+
         # Create the ProjectTools instance using the enum
         team_tools = ProjectTools(context, ConversationRole.TEAM)
-        
+
         # Test message
         test_message = "I need information about how to proceed with this task."
-        
+
         # Setup mock config to be returned from assistant_config.get
         mock_config = MagicMock()
         mock_config.track_progress = True
@@ -152,18 +150,18 @@ class TestProjectTools:
         mock_assistant_config = MagicMock()
         mock_assistant_config.get = AsyncMock(side_effect=mock_get_config)
         monkeypatch.setattr("assistant.project_tools.assistant_config", mock_assistant_config)
-        
+
         # Create a mock message for the message history
         mock_msg = MagicMock()
         mock_msg.sender = MagicMock()
         mock_msg.sender.participant_id = "test-user-id"  # Not the assistant ID
         mock_msg.content = "Test message content"
-        
+
         # Mock get_messages response
         mock_messages_response = MagicMock()
         mock_messages_response.messages = [mock_msg]
         context.get_messages = AsyncMock(return_value=mock_messages_response)
-        
+
         # Test with the message - should return early with missing service_config
         result = await team_tools.detect_information_request_needs(test_message)
 
@@ -171,10 +169,10 @@ class TestProjectTools:
         assert not result["is_information_request"]
         assert "LLM detection unavailable" in result["reason"]
         assert result["confidence"] == 0.0
-        
+
         # Now update mock config with a service_config and simulate a successful LLM response
         mock_config.service_config = {"type": "openai"}
-        
+
         # Create mock client that returns expected response
         mock_client = AsyncMock()
         mock_response = MagicMock()
@@ -184,7 +182,7 @@ class TestProjectTools:
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
-        
+
         # Mock the client creation context manager
         @contextlib.asynccontextmanager
         async def mock_create_client(*args, **kwargs):
@@ -192,13 +190,13 @@ class TestProjectTools:
                 yield mock_client
             finally:
                 pass
-                
+
         # Patch the openai_client.create_client context manager
         monkeypatch.setattr(openai_client, "create_client", mock_create_client)
-        
+
         # Test with message that should return mocked success response
         result = await team_tools.detect_information_request_needs(test_message)
-        
+
         # Verify successful path results
         assert result["is_information_request"] is True
         assert result["confidence"] == 0.9

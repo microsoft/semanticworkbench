@@ -15,12 +15,16 @@ from mcp_server_filesystem_edit import settings
 from mcp_server_filesystem_edit.app_handling.excel import get_worksheet_content_as_md_table
 from mcp_server_filesystem_edit.app_handling.miktex import compile_tex_to_pdf
 from mcp_server_filesystem_edit.app_handling.office_common import OfficeAppType, open_document_in_office
+from mcp_server_filesystem_edit.app_handling.powerpoint import (
+    get_markdown_representation as powerpoint_get_markdown_representation,
+)
+from mcp_server_filesystem_edit.app_handling.powerpoint import write_markdown as powerpoint_write_markdown
 from mcp_server_filesystem_edit.app_handling.word import (
     get_markdown_representation,
     write_markdown,
 )
 from mcp_server_filesystem_edit.tools.add_comments import CommonComments
-from mcp_server_filesystem_edit.tools.edit import CommonEdit
+from mcp_server_filesystem_edit.tools.edit import CommonEdit, PowerpointEdit
 from mcp_server_filesystem_edit.types import FileOpRequest
 
 # Set the name of the MCP server
@@ -30,10 +34,10 @@ logger = logging.getLogger("mcp_server_filesystem")
 
 
 VIEW_BY_FILE_EXTENSIONS = [".md", ".tex", ".csv"]
-VIEW_CUSTOM_EXTENSIONS = [".docx", ".xlsx", ".csv"]
+VIEW_CUSTOM_EXTENSIONS = [".docx", ".xlsx", ".csv", ".pptx"]
 
 EDIT_BY_FILE_EXTENSIONS = [".md", ".tex"]
-EDIT_BY_APP_EXTENSIONS = [".docx"]
+EDIT_BY_APP_EXTENSIONS = [".docx", ".pptx"]
 
 
 async def check_for_client_working_dir(ctx: Context) -> bool:
@@ -382,22 +386,40 @@ def create_mcp_server() -> FastMCP:
                 else:
                     tool_output += "\n\nLaTeX compiled successfully to PDF."
         elif file_extension in EDIT_BY_APP_EXTENSIONS and settings.office_support_enabled:
-            # Word (.docx) is currently the only supported app for editing
-            _, document = open_document_in_office(validated_path, OfficeAppType.WORD)
-            file_content = get_markdown_representation(document)
-            request = FileOpRequest(
-                context=ctx,
-                request_type="mcp",
-                file_content=file_content,
-                task=task,
-                file_type="word",
-            )
-            editor = CommonEdit()
-            output = await editor.run(request)
-            tool_output: str = output.change_summary + "\n" + output.output_message
-            write_markdown(document, output.new_content)
+            match file_extension:
+                case ".docx":
+                    _, document = open_document_in_office(validated_path, OfficeAppType.WORD)
+                    file_content = get_markdown_representation(document)
+                    request = FileOpRequest(
+                        context=ctx,
+                        request_type="mcp",
+                        file_content=file_content,
+                        task=task,
+                        file_type="word",
+                    )
+                    editor = CommonEdit()
+                    output = await editor.run(request)
+                    tool_output: str = output.change_summary + "\n" + output.output_message
+                    write_markdown(document, output.new_content)
+                case ".pptx":
+                    _, document = open_document_in_office(validated_path, OfficeAppType.POWERPOINT)
+                    file_content = powerpoint_get_markdown_representation(document)
+                    request = FileOpRequest(
+                        context=ctx,
+                        request_type="mcp",
+                        file_content=file_content,
+                        task=task,
+                        file_type="powerpoint",
+                    )
+                    editor = PowerpointEdit()
+                    output = await editor.run(request)
+                    tool_output: str = output.change_summary + "\n" + output.output_message
+                    powerpoint_write_markdown(document, output.new_content)
+                case _:
+                    tool_output = f"{settings.file_tool_prefix}File type not supported for editing: {validated_path}\nOnly {', '.join(EDIT_BY_FILE_EXTENSIONS + EDIT_BY_APP_EXTENSIONS)} files are supported."
         else:
             tool_output = f"{settings.file_tool_prefix}File type not supported for editing: {validated_path}\nOnly {', '.join(EDIT_BY_FILE_EXTENSIONS + EDIT_BY_APP_EXTENSIONS)} files are supported."
+
         return tool_output
 
     @mcp.tool()

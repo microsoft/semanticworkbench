@@ -107,16 +107,6 @@ class ConversationClientManager:
             A temporary conversation context for the target conversation, or None if creation failed
         """
         try:
-            # Get client for the target conversation
-            target_client = ConversationClientManager.get_conversation_client(source_context, target_conversation_id)
-
-            # To create a temporary context, we need:
-            # 1. The conversation details
-            # 2. The assistant details
-            conversation = await target_client.get_conversation()
-            if not conversation:
-                return None
-
             # We'll use the same assistant as in the source context
             assistant = source_context.assistant
 

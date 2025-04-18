@@ -15,6 +15,7 @@ from .mcp_tools import (
     FusionSketchTools,
 )
 
+
 class FusionMCPServer:
     def __init__(self, port: int):
         self.port = port
@@ -23,11 +24,11 @@ class FusionMCPServer:
         self.shutdown_event = threading.Event()
         self.server_task: Optional[asyncio.Task] = None
         self.logger = logging.getLogger(__name__)
-        
+
         # Initialize MCP server
         self.mcp = FastMCP(name="Fusion MCP Server", log_level="DEBUG")
         self.mcp.settings.port = port
-        
+
         # Register tools
         self._register_tools()
 
@@ -38,7 +39,7 @@ class FusionMCPServer:
             try:
                 # Try to bind to the port
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.bind(('0.0.0.0', self.port))
+                    s.bind(("127.0.0.1", self.port))
                     return True
             except OSError:
                 time.sleep(0.5)
@@ -64,23 +65,20 @@ class FusionMCPServer:
         """Run the server"""
         try:
             self.running = True
-            
+
             # Create task for server
             server_task = asyncio.create_task(self.mcp.run_sse_async())
             keep_alive_task = asyncio.create_task(self._keep_loop_running())
-            
+
             # Wait for either task to complete
-            done, pending = await asyncio.wait(
-                [server_task, keep_alive_task],
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            
+            done, pending = await asyncio.wait([server_task, keep_alive_task], return_when=asyncio.FIRST_COMPLETED)
+
             # Cancel remaining tasks
             for task in pending:
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task
-            
+
         except asyncio.CancelledError:
             self.logger.info("Server cancelled, shutting down...")
         except Exception as e:
@@ -102,18 +100,18 @@ class FusionMCPServer:
             # Create new event loop
             self.loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.loop)
-            
+
             # Set up exception handler
             def handle_exception(loop, context):
-                exception = context.get('exception')
+                exception = context.get("exception")
                 if isinstance(exception, (asyncio.CancelledError, GeneratorExit)):
                     return
                 self.logger.error(f"Caught unhandled exception: {context}")
                 if not self.shutdown_event.is_set():
                     self.shutdown()
-            
+
             self.loop.set_exception_handler(handle_exception)
-            
+
             # Run the server
             try:
                 self.running = True
@@ -128,7 +126,7 @@ class FusionMCPServer:
                     self.logger.error(f"Error in server loop: {e}")
             finally:
                 self._cleanup()
-                
+
         except Exception as e:
             self.logger.error(f"Error starting server: {e}")
             raise
@@ -139,35 +137,33 @@ class FusionMCPServer:
             if self.loop and self.loop.is_running():
                 # Cancel all tasks
                 tasks = [t for t in asyncio.all_tasks(self.loop) if not t.done()]
-                
+
                 if tasks:
                     # Cancel tasks
                     for task in tasks:
                         task.cancel()
-                    
+
                     # Wait for tasks to finish with timeout
                     try:
-                        self.loop.run_until_complete(
-                            asyncio.wait(tasks, timeout=5)
-                        )
+                        self.loop.run_until_complete(asyncio.wait(tasks, timeout=5))
                     except Exception:
                         pass
-            
+
             # Close the loop
             if self.loop and not self.loop.is_closed():
                 self.loop.close()
-            
+
             # Ensure socket is closed properly
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.settimeout(1)
-                    s.connect(('127.0.0.1', self.port))
+                    s.connect(("127.0.0.1", self.port))
                     s.close()
             except Exception:
                 pass
-            
+
             self.running = False
-            
+
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
 
@@ -180,17 +176,18 @@ class FusionMCPServer:
             self.logger.info("Shutting down server...")
             self.shutdown_event.set()
             self.running = False
-            
+
             if self.loop and self.loop.is_running():
+
                 def stop_loop():
                     # Stop the loop
                     self.loop.stop()
                     # Cancel any pending tasks
                     for task in asyncio.all_tasks(self.loop):
                         task.cancel()
-                
+
                 self.loop.call_soon_threadsafe(stop_loop)
-            
+
         except Exception as e:
             self.logger.error(f"Error during shutdown: {e}")
             raise
