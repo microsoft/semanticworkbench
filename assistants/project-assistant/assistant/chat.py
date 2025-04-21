@@ -27,7 +27,7 @@ from semantic_workbench_assistant.assistant_app import (
     ConversationContext,
 )
 
-from assistant.command_processor import CommandRegistry
+from assistant.command_processor import command_registry
 from assistant.respond import respond_to_conversation
 
 from .config import assistant_config
@@ -181,13 +181,9 @@ async def on_conversation_created(context: ConversationContext) -> None:
             await ConversationProjectManager.associate_conversation_with_project(context, project_id)
 
             # Update conversation metadata
-            metadata["setup_complete"] = True
             metadata["assistant_mode"] = "team"
             metadata["project_role"] = "team"
 
-            await context.send_conversation_state_event(
-                AssistantStateEvent(state_id="setup_complete", event="updated", state=None)
-            )
             await context.send_conversation_state_event(
                 AssistantStateEvent(state_id="project_role", event="updated", state=None)
             )
@@ -210,6 +206,16 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
             except Exception as e:
                 logger.error(f"Error sending team welcome message: {e}", exc_info=True)
+
+            # Automatically synchronize files from project storage to this conversation
+            success = await ProjectFileManager.synchronize_files_to_team_conversation(
+                context=context, project_id=project_id
+            )
+            if success:
+                logger.info("Successfully synchronized files for new team conversation.")
+            else:
+                logger.warning("File synchronization failed for new team conversation.")
+
             return
         else:
             logger.debug("Team conversation missing project_id in share metadata")
@@ -281,9 +287,6 @@ async def on_conversation_created(context: ConversationContext) -> None:
                 )
         else:
             # Failed to create project - use fallback mode
-            metadata["setup_complete"] = False
-            metadata["assistant_mode"] = "setup"
-
             # Use a simple fallback welcome message
             welcome_message = """# Welcome to the Project Assistant
 
@@ -374,7 +377,6 @@ async def on_command_created(
 
         # Process the command using the command processor
         role = await detect_assistant_role(context)
-        command_registry = CommandRegistry()
         command_processed = await command_registry.process_command(context, message, role.value)
 
         # If the command wasn't recognized or processed, respond normally
@@ -680,7 +682,7 @@ async def on_participant_joined(
     participant: workbench_model.ConversationParticipant,
 ) -> None:
     """
-    Handle the event triggered when a participant joins or returns to a conversation.
+    Handle the event triggered when a participant joins a conversation.
 
     This handler is used to detect when a team member returns to a conversation
     and automatically synchronize project files.
@@ -718,7 +720,6 @@ async def on_participant_joined(
         success = await ProjectFileManager.synchronize_files_to_team_conversation(
             context=context, project_id=project_id
         )
-
         if success:
             logger.info(f"Successfully synchronized files for returning team member: {participant.name}")
         else:
