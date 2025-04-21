@@ -6,7 +6,7 @@ that isn't available in the existing knowledge context. You are part of a knowle
 3. Only create information requests when the question clearly can't be answered with available context
 4. Your job is to be VERY conservative about flagging information requests
 
-Analyze the chat history and latest message to determine:
+Analyze the chat history, brief, attachments, and latest message to determine:
 
 1. If the latest message asks for information that is likely NOT available in the shared context
 2. What specific information is being requested that would require the knowledge creator's input
@@ -16,7 +16,7 @@ Analyze the chat history and latest message to determine:
 Respond with JSON only:
 {
     "is_information_request": boolean,  // true ONLY if message requires information beyond available context
-    "reason": string,  // detailed explanation of your determination 
+    "reason": string,  // detailed explanation of your determination
     "potential_title": string,  // a short title for the request (3-8 words)
     "potential_description": string,  // summarized description of the information needed
     "suggested_priority": string,  // "low", "medium", "high", or "critical"
@@ -29,8 +29,10 @@ When determining priority:
 - high: important information missing that affects comprehension
 - critical: critical information missing that's essential for understanding
 
-Be EXTREMELY conservative - only return is_information_request=true if you're highly confident
+Be EXTREMELY conservative - only return is_information_request=true if you're HIGHLY confident
 that the question cannot be answered with the existing knowledge context and truly requires
 additional information from the knowledge creator.
+
+You might want to use the `view_coordinator_conversation` as an additional check for information that can be used to answer the recipient's query without needing to create an information request.
 
 In context transfer mode, most questions should be answered directly without creating information requests.
