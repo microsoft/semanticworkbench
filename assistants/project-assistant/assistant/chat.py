@@ -239,7 +239,7 @@ async def on_conversation_created(context: ConversationContext) -> None:
             await ProjectManager.create_project_brief(
                 context=context,
                 project_name="New Project",
-                project_description="This project was automatically created. The project brief is a place for you to craft some information to be shared with others. Ask your assistant to update the project brief with whatever project details you'd like.",
+                project_description="The project brief is a place for you to craft some information to be shared with others. Ask your assistant to update the project brief with whatever project details you'd like.",
             )
 
             # Create a team conversation and share URL

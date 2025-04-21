@@ -341,7 +341,10 @@ class ProjectTools:
 
         # Create a new project brief using ProjectManager
         success, brief = await ProjectManager.create_project_brief(
-            context=self.context, project_name=project_name, project_description=project_description
+            context=self.context,
+            project_name=project_name,
+            project_description=project_description,
+            send_notification=False,
         )
 
         if success and brief:
@@ -1158,7 +1161,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         Returns:
             Dict with detection results
         """
-        # This is Coordinator perspective - not used directly but helps model understanding
         if self.role is not ConversationRole.TEAM:
             return {
                 "is_information_request": False,
