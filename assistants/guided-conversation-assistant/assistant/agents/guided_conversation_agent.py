@@ -121,6 +121,9 @@ class GuidedConversationConversationInspectorStateProvider:
     ) -> None:
         self.config_provider = config_provider
 
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        return True
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
         Get the state for the conversation.

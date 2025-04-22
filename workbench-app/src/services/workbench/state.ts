@@ -16,7 +16,7 @@ const stateApi = workbenchApi.injectEndpoints({
                 method: 'PUT',
                 body: transformConfigForRequest(body.config),
             }),
-            invalidatesTags: ['Config'],
+            invalidatesTags: ['Config', 'State'],
             transformResponse: (response: any) => transformResponseToConfig(response),
         }),
         getConversationStateDescriptions: builder.query<
@@ -31,6 +31,7 @@ const stateApi = workbenchApi.injectEndpoints({
                     id: stateDescription.id,
                     displayName: stateDescription.display_name,
                     description: stateDescription.description,
+                    enabled: stateDescription.enabled,
                 })),
         }),
         getConversationState: builder.query<

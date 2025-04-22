@@ -48,9 +48,11 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
         return <Loading />;
     }
 
+    const enabledStateDescriptions = stateDescriptions?.filter((stateDescription) => stateDescription.enabled) || [];
+
     return (
         <div className={classes.inspectors}>
-            {!stateDescriptions || stateDescriptions.length === 0 ? (
+            {enabledStateDescriptions.length === 0 ? (
                 stateDescriptionsErrorMessage ? (
                     <ErrorMessageBar title="Failed to load assistant states" error={stateDescriptionsErrorMessage} />
                 ) : (
@@ -60,7 +62,7 @@ export const AssistantCanvas: React.FC<AssistantCanvasProps> = (props) => {
                 <AssistantInspectorList
                     conversationId={conversationId}
                     assistant={assistant}
-                    stateDescriptions={stateDescriptions}
+                    stateDescriptions={enabledStateDescriptions}
                 />
             )}
         </div>

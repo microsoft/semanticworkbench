@@ -80,6 +80,9 @@ class SimpleStateInspector:
             "message": "simple state message",
         }
 
+    async def is_enabled(self, context: assistant_app.ConversationContext) -> bool:
+        return True
+
     async def get(
         self, context: assistant_app.ConversationContext
     ) -> assistant_app.AssistantConversationInspectorStateDataModel:

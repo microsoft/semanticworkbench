@@ -1,14 +1,10 @@
-from typing import Annotated, Protocol
+from typing import Protocol
 
-from pydantic import BaseModel, Field
 from semantic_workbench_assistant.assistant_app import ConversationContext
 
 
-class DocumentEditorConfigModel(BaseModel):
-    enabled: Annotated[
-        bool,
-        Field(title="Enable Document Editor extension"),
-    ] = True
+class DocumentEditorConfigModel(Protocol):
+    enabled: bool
 
 
 class DocumentEditorConfigProvider(Protocol):

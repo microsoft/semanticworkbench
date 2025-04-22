@@ -262,6 +262,10 @@ class ArtifactConversationInspectorStateProvider:
     ) -> None:
         self.config_provider = config_provider
 
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        config = await self.config_provider.get(context.assistant)
+        return config.agents_config.artifact_agent.enabled
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
         Get the artifacts for the conversation.
