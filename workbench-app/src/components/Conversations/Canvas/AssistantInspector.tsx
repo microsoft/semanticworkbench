@@ -7,8 +7,8 @@ import Form from '@rjsf/fluentui-rc';
 import { RegistryWidgetsType } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import React from 'react';
-import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
 import { ConversationState } from '../../../models/ConversationState';
+import { ConversationStateDescription } from '../../../models/ConversationStateDescription';
 import { useUpdateConversationStateMutation } from '../../../services/workbench';
 import { CustomizedArrayFieldTemplate } from '../../App/FormWidgets/CustomizedArrayFieldTemplate';
 import { CustomizedObjectFieldTemplate } from '../../App/FormWidgets/CustomizedObjectFieldTemplate';
@@ -54,7 +54,7 @@ interface Attachment {
 interface AssistantInspectorProps {
     assistantId: string;
     conversationId: string;
-    stateDescription: AssistantStateDescription;
+    stateDescription: ConversationStateDescription;
     state: ConversationState;
 }
 
