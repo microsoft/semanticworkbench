@@ -113,6 +113,9 @@ class EditableDocumentFileStateInspector:
     def description(self) -> str:
         return self._description
 
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        return await self._controller.is_enabled(context)
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):
             return AssistantConversationInspectorStateDataModel(
@@ -229,6 +232,9 @@ class DocumentListInspector:
     @property
     def description(self) -> str:
         return self._description
+
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        return await self._controller.is_enabled(context)
 
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         if not await self._controller.is_enabled(context):

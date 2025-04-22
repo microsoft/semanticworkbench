@@ -28,6 +28,13 @@ class ArtifactConversationInspectorStateProvider:
         self.config_provider = config_provider
         self.artifacts_extension = artifacts_extension
 
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        """
+        Check if the artifacts extension is enabled in the assistant configuration.
+        """
+        config = await self.config_provider(context.assistant)
+        return config.enabled
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
         Get the artifacts for the conversation.

@@ -3,7 +3,6 @@ from typing import Annotated
 
 from assistant_extensions.ai_clients.config import AzureOpenAIClientConfigModel, OpenAIClientConfigModel
 from assistant_extensions.attachments import AttachmentsConfigModel
-from assistant_extensions.document_editor import DocumentEditorConfigModel
 from assistant_extensions.mcp import HostedMCPServerConfig, MCPClientRoot, MCPServerConfig
 from content_safety.evaluators import CombinedContentSafetyEvaluatorConfig
 from openai_client import (
@@ -39,14 +38,6 @@ class ExtensionsConfigModel(BaseModel):
             description="Configuration for the attachments extension.",
         ),
     ] = AttachmentsConfigModel()
-
-    document_editor: Annotated[
-        DocumentEditorConfigModel,
-        Field(
-            title="Document Editor Extension",
-            description="Configuration for the document editor extension.",
-        ),
-    ] = DocumentEditorConfigModel()
 
 
 class PromptsConfigModel(BaseModel):

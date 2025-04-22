@@ -41,6 +41,9 @@ class ProjectInspectorStateProvider:
     def __init__(self, config_provider) -> None:
         self.config_provider = config_provider
 
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        return True
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         """
         Get project information for display in the inspector panel.

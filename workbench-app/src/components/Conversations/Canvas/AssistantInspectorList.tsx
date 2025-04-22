@@ -5,7 +5,7 @@ import { EventSourceMessage } from '@microsoft/fetch-event-source';
 import React from 'react';
 import { useChatCanvasController } from '../../../libs/useChatCanvasController';
 import { Assistant } from '../../../models/Assistant';
-import { AssistantStateDescription } from '../../../models/AssistantStateDescription';
+import { ConversationStateDescription } from '../../../models/ConversationStateDescription';
 import { useAppSelector } from '../../../redux/app/hooks';
 import { workbenchConversationEvents } from '../../../routes/FrontDoor';
 import { useGetConversationStateQuery } from '../../../services/workbench';
@@ -35,7 +35,7 @@ const useClasses = makeStyles({
 interface AssistantInspectorListProps {
     conversationId: string;
     assistant: Assistant;
-    stateDescriptions: AssistantStateDescription[];
+    stateDescriptions: ConversationStateDescription[];
 }
 
 export const AssistantInspectorList: React.FC<AssistantInspectorListProps> = (props) => {

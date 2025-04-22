@@ -641,13 +641,14 @@ class AssistantService(FastAPIAssistantService):
     async def get_conversation_state_descriptions(
         self, assistant_id: str, conversation_id: str
     ) -> assistant_model.StateDescriptionListResponseModel:
-        require_found(self.get_conversation_context(assistant_id, conversation_id))
+        context = require_found(self.get_conversation_context(assistant_id, conversation_id))
         return assistant_model.StateDescriptionListResponseModel(
             states=[
                 assistant_model.StateDescriptionResponseModel(
                     id=id,
                     display_name=provider.display_name,
                     description=provider.description,
+                    enabled=await provider.is_enabled(context),
                 )
                 for id, provider in self.assistant_app.inspector_state_providers.items()
             ]

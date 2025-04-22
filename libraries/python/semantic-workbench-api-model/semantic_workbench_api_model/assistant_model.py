@@ -18,6 +18,7 @@ class StateDescriptionResponseModel(BaseModel):
     id: str
     display_name: str
     description: str
+    enabled: bool = True
 
 
 class StateDescriptionListResponseModel(BaseModel):

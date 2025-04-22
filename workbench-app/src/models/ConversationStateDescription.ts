@@ -4,4 +4,5 @@ export interface ConversationStateDescription {
     id: string;
     displayName: string;
     description: string;
+    enabled: boolean;
 }

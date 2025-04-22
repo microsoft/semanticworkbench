@@ -236,6 +236,9 @@ async def test_assistant_with_inspector(
         display_name = "Test"
         description = "Test inspector"
 
+        async def is_enabled(self, context: ConversationContext) -> bool:
+            return True
+
         async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
             return AssistantConversationInspectorStateDataModel(
                 data={"test": "data"},
@@ -283,6 +286,7 @@ async def test_assistant_with_inspector(
                     id="test",
                     display_name="Test",
                     description="Test inspector",
+                    enabled=True,
                 )
             ]
         )

@@ -52,6 +52,9 @@ class FileStateInspector(ReadOnlyAssistantConversationInspectorStateProvider):
     def description(self) -> str:
         return self._description
 
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        return True
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         def read_state(path: Path) -> dict:
             with contextlib.suppress(FileNotFoundError):

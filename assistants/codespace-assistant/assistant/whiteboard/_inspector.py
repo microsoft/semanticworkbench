@@ -79,6 +79,10 @@ class WhiteboardInspector:
     def description(self) -> str:
         return self._description
 
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        server_config = await self._server_config_provider(context)
+        return server_config.enabled
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         server_config = await self._server_config_provider(context)
         if not server_config.enabled:

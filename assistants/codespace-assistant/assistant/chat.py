@@ -89,7 +89,7 @@ assistant = AssistantApp(
 
 async def document_editor_config_provider(ctx: ConversationContext) -> DocumentEditorConfigModel:
     config = await assistant_config.get(ctx.assistant)
-    return config.extensions_config.document_editor
+    return config.tools.hosted_mcp_servers.filesystem_edit
 
 
 document_editor_extension = DocumentEditorExtension(

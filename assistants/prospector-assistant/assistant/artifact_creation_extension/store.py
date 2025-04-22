@@ -91,6 +91,9 @@ class AllDocumentsInspector(ReadOnlyAssistantConversationInspectorStateProvider)
     def description(self) -> str:
         return "All documents."
 
+    async def is_enabled(self, context: ConversationContext) -> bool:
+        return True
+
     async def get(self, context: ConversationContext) -> AssistantConversationInspectorStateDataModel:
         store = for_context(context)
         headers = store.list_documents()
