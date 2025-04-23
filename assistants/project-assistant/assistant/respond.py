@@ -387,7 +387,7 @@ async def respond_to_conversation(
         detection_result = await project_tools.detect_information_request_needs(message.content)
 
         # If an information request is detected with reasonable confidence
-        if detection_result.get("is_information_request", False) and detection_result.get("confidence", 0) > 0.5:
+        if detection_result.get("is_information_request", False) and detection_result.get("confidence", 0) > 0.8:
             # Get detailed information from detection
             suggested_title = detection_result.get("potential_title", "")
             suggested_priority = detection_result.get("suggested_priority", "medium")

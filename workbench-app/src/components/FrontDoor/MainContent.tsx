@@ -280,10 +280,10 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                 </ul>
                             </>
                         )}
-                        {getAssistants('project-assistant.made-exploration', 'context_transfer') && (
+                        {/* {getAssistants('project-assistant.made-exploration', 'context_transfer') && (
                             <>
                                 <div className={classes.assistantHeader}>
-                                    <Title3>Context Transfer Assistant</Title3>
+                                    <Title3>Context Transfer Assistant (experimental)</Title3>
                                     {quickAssistantCreateButton(
                                         getAssistants('project-assistant.made-exploration', 'context_transfer'),
                                     )}
@@ -315,8 +315,37 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                         context
                                     </li>
                                     <li>
-                                        <b>Simplified Interface:</b> Tools focused on knowledge transfer rather than
-                                        project tracking
+                                        <b>Learning-Optimized Design:</b> Removes management overhead to focus on
+                                        understanding
+                                    </li>
+                                </ul>
+                            </>
+                        )} */}
+                        {getAssistants('codespace-assistant.made-exploration-team', 'context_transfer') && (
+                            <>
+                                <div className={classes.assistantHeader}>
+                                    <Title3>Context Transfer Assistant</Title3>
+                                    {quickAssistantCreateButton(
+                                        getAssistants('codespace-assistant.made-exploration-team', 'context_transfer'),
+                                    )}
+                                </div>
+                                Context Transfer Assistant bridges knowledge gaps between experts and learners through
+                                dedicated roles that optimize information exchange.
+                                <ul>
+                                    <li>
+                                        <b>Knowledge Owner Space:</b> Where experts organize and share complex
+                                        information
+                                    </li>
+                                    <li>
+                                        <b>Recipient Workspaces:</b> Where learners explore content and ask questions
+                                    </li>
+                                    <li>
+                                        <b>Auto-Organized Knowledge:</b> Extracts and structures information from expert
+                                        conversations
+                                    </li>
+                                    <li>
+                                        <b>Resource Sharing:</b> Documents from experts instantly appear for all
+                                        recipients
                                     </li>
                                     <li>
                                         <b>Learning-Optimized Design:</b> Removes management overhead to focus on
@@ -325,7 +354,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                 </ul>
                             </>
                         )}
-                        {getAssistants('project-assistant.made-exploration', 'default') && (
+                        {/* {getAssistants('project-assistant.made-exploration', 'default') && (
                             <>
                                 <div className={classes.assistantHeader}>
                                     <Title3>Project Assistant</Title3>
@@ -370,7 +399,7 @@ export const MainContent: React.FC<MainContentProps> = (props) => {
                                     </li>
                                 </ul>
                             </>
-                        )}
+                        )} */}
                         {getAssistants('codespace-assistant.made-exploration-team', 'default') && (
                             <>
                                 <div className={classes.assistantHeader}>

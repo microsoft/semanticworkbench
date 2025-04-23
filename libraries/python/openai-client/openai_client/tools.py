@@ -457,11 +457,12 @@ async def complete_with_tool_calls(
         validate_completion(completion)
         logger.debug("Completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
         metadata["completion"] = completion.model_dump()
-    except CompletionError as e:
+    except Exception as e:
         completion_error = CompletionError(e)
         metadata["completion_error"] = completion_error.message
         logger.error(
-            e.message, extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata})
+            completion_error.message,
+            extra=add_serializable_data({"completion_error": completion_error.body, "metadata": metadata}),
         )
         raise completion_error from e
 

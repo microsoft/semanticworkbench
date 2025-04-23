@@ -316,6 +316,15 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
 
+    # Open the Brief tab (state inspector).
+    await context.send_conversation_state_event(
+        AssistantStateEvent(
+            state_id="project_status",
+            event="focus",
+            state=None,
+        )
+    )
+
     try:
         project_id = await ProjectManager.get_project_id(context)
         debug_metadata = {
