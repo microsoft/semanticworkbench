@@ -317,19 +317,21 @@ async def on_message_created(
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
 
     # Open the Brief tab (state inspector).
-    await context.send_conversation_state_event(
-        AssistantStateEvent(
-            state_id="project_status",
-            event="focus",
-            state=None,
-        )
-    )
+    # await context.send_conversation_state_event(
+    #     AssistantStateEvent(
+    #         state_id="project_status",
+    #         event="focus",
+    #         state=None,
+    #     )
+    # )
 
     try:
         project_id = await ProjectManager.get_project_id(context)
-        debug_metadata = {
-            "content_safety": event.data.get(content_safety.metadata_key, {}),
-            "project_id": project_id,
+        metadata = {
+            "debug": {
+                "content_safety": event.data.get(content_safety.metadata_key, {}),
+                "project_id": project_id,
+            }
         }
 
         # If this is a Coordinator conversation, store the message for Team access
@@ -364,7 +366,17 @@ async def on_message_created(
             context,
             message=message,
             attachments_extension=attachments_extension,
-            debug_metadata=debug_metadata,
+            metadata=metadata,
+        )
+    except Exception as e:
+        # Log the error and send a notice to the conversation
+        logger.exception(f"Error handling message: {e}")
+        await context.send_messages(
+            NewConversationMessage(
+                content=f"Error: {str(e)}",
+                message_type=MessageType.notice,
+                metadata={"generated_content": False},
+            )
         )
     finally:
         await context.update_participant_me(UpdateParticipant(status=None))
@@ -382,7 +394,7 @@ async def on_command_created(
 
     await context.update_participant_me(UpdateParticipant(status="processing command..."))
     try:
-        debug_metadata = {"content_safety": event.data.get(content_safety.metadata_key, {})}
+        metadata = {"debug": {"content_safety": event.data.get(content_safety.metadata_key, {})}}
 
         # Process the command using the command processor
         role = await detect_assistant_role(context)
@@ -394,7 +406,7 @@ async def on_command_created(
                 context,
                 message=message,
                 attachments_extension=attachments_extension,
-                debug_metadata=debug_metadata,
+                metadata=metadata,
             )
     finally:
         # update the participant status to indicate the assistant is done thinking

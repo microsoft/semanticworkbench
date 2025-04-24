@@ -26,7 +26,7 @@ class RequestConfig(BaseModel):
                 " is 128k tokens, but varies by model (https://platform.openai.com/docs/models)"
             ),
         ),
-    ] = 50_000
+    ] = 64_000
 
     response_tokens: Annotated[
         int,
@@ -37,7 +37,7 @@ class RequestConfig(BaseModel):
                 " prompt. Current max supported by OpenAI is 4096 tokens (https://platform.openai.com/docs/models)"
             ),
         ),
-    ] = 4_048
+    ] = 8_000
 
     openai_model: Annotated[
         str,
