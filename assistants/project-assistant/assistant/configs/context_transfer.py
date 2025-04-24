@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import Field
 
-from .default import AssistantConfigModel, CoordinatorConfig, RequestConfig, TeamConfig
+from .default import AssistantConfigModel, CoordinatorConfig, TeamConfig
 
 
 class ContextTransferCoordinatorConfig(CoordinatorConfig):
@@ -62,17 +62,6 @@ class ContextTransferConfigModel(AssistantConfigModel):
 
         You should focus on helping users clarify their thoughts and structure information effectively. Ask questions to understand what aspects of their knowledge are most important to convey.
         """).strip()
-
-    request_config: Annotated[
-        RequestConfig,
-        Field(
-            title="Request Configuration",
-        ),
-    ] = RequestConfig(
-        openai_model="gpt-4o",
-        max_tokens=128_000,
-        response_tokens=16_384,
-    )
 
     # Project configuration attributes directly in config model
     proactive_guidance: Annotated[

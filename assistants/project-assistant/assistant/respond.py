@@ -1,4 +1,6 @@
 import re
+import time
+from textwrap import dedent
 from typing import Any, Dict, List
 
 import deepmerge
@@ -60,12 +62,13 @@ async def respond_to_conversation(
     context: ConversationContext,
     message: ConversationMessage,
     attachments_extension: AttachmentsExtension,
-    debug_metadata: Dict[str, Any],
+    metadata: Dict[str, Any],
 ) -> None:
     """
     Respond to a conversation message.
     """
     config = await assistant_config.get(context.assistant)
+    debug_metadata = metadata["debug"]
 
     # Get the conversation Role.
     role = await detect_assistant_role(context)
@@ -370,9 +373,22 @@ async def respond_to_conversation(
     completion_messages.extend(history_messages)
     completion_messages.append(user_message)
 
-    # Log the token usage
+    ##
+    ## TOKEN COUNT HANDLING
+    ##
     total_tokens = max_tokens - available_tokens
     debug_metadata["token_usage"] = {"total_tokens": total_tokens}
+    metadata = {
+        "token_counts": {
+            "total": total_tokens,
+            "max": config.request_config.max_tokens,
+        }
+    }
+    if available_tokens < 0:
+        raise ValueError(
+            f"You've exceeded the token limit of {config.request_config.max_tokens} in this conversation "
+            f"({total_tokens}). Try removing some attachments."
+        )
 
     if available_tokens <= 0:
         logger.warning(f"Token limit exceeded: {total_tokens} > {max_tokens}. ")
@@ -435,12 +451,41 @@ async def respond_to_conversation(
                 logger.info(f"Available tools for {role}: {available_tool_names}")
 
                 # Make the API call
+                response_start_time = time.time()
                 completion_response, additional_messages = await complete_with_tool_calls(
                     async_client=client,
                     completion_args=completion_args,
                     tool_functions=project_tools.tool_functions,
                     metadata=debug_metadata,
                 )
+                response_end_time = time.time()
+
+                footer_items = []
+
+                # Add the token usage message to the footer items
+                if completion_response and total_tokens > 0:
+                    completion_tokens = completion_response.usage.completion_tokens if completion_response.usage else 0
+                    request_tokens = total_tokens - completion_tokens
+                    footer_items.append(
+                        get_token_usage_message(
+                            max_tokens=config.request_config.max_tokens,
+                            total_tokens=total_tokens,
+                            request_tokens=request_tokens,
+                            completion_tokens=completion_tokens,
+                        )
+                    )
+
+                    await context.update_conversation(
+                        metadata={
+                            "token_counts": {
+                                "total": total_tokens,
+                                "max": config.request_config.max_tokens,
+                            }
+                        }
+                    )
+
+                footer_items.append(get_response_duration_message(response_end_time - response_start_time))
+                metadata["footer_items"] = footer_items
 
                 # Process tool function calls and add intermediate messages to the conversation.
                 # This would be better if complete_with_tool_calls returned an iterator.
@@ -554,6 +599,46 @@ async def respond_to_conversation(
         NewConversationMessage(
             content=str(content) if content is not None else "[no response from openai]",
             message_type=message_type,
-            metadata={"debug": debug_metadata},
+            metadata=metadata,
         )
     )
+
+
+def get_formatted_token_count(tokens: int) -> str:
+    # if less than 1k, return the number of tokens
+    # if greater than or equal to 1k, return the number of tokens in k
+    # use 1 decimal place for k
+    # drop the decimal place if the number of tokens in k is a whole number
+    if tokens < 1000:
+        return str(tokens)
+    else:
+        tokens_in_k = tokens / 1000
+        if tokens_in_k.is_integer():
+            return f"{int(tokens_in_k)}k"
+        else:
+            return f"{tokens_in_k:.1f}k"
+
+
+def get_token_usage_message(
+    max_tokens: int,
+    total_tokens: int,
+    request_tokens: int,
+    completion_tokens: int,
+) -> str:
+    """
+    Generate a display friendly message for the token usage, to be added to the footer items.
+    """
+
+    return dedent(f"""
+        Tokens used: {get_formatted_token_count(total_tokens)}
+        ({get_formatted_token_count(request_tokens)} in / {get_formatted_token_count(completion_tokens)} out)
+        of {get_formatted_token_count(max_tokens)} ({int(total_tokens / max_tokens * 100)}%)
+    """).strip()
+
+
+def get_response_duration_message(response_duration: float) -> str:
+    """
+    Generate a display friendly message for the response duration, to be added to the footer items.
+    """
+
+    return f"Response time: {response_duration:.2f} seconds"

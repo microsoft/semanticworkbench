@@ -344,7 +344,7 @@ class ProjectTools:
             context=self.context,
             project_name=project_name,
             project_description=project_description,
-            send_notification=False,
+            send_notification=True,
         )
 
         if success and brief:
