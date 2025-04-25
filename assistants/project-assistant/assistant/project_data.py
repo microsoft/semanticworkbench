@@ -274,7 +274,7 @@ class LogEntry(BaseModel):
     metadata: Optional[Dict] = None  # Additional structured data about the event
 
 
-class ProjectLog(BaseEntity):
+class ProjectLog(BaseModel):
     """
     A chronological record of all actions and interactions during the project,
     including updates and progress reports.
@@ -320,3 +320,20 @@ class ProjectInfo(BaseModel):
     completed_criteria: int = 0  # Count of completed success criteria
     total_criteria: int = 0  # Total count of success criteria
     lifecycle: Dict[str, Any] = Field(default_factory=dict)  # Lifecycle metadata
+
+
+class Project(BaseModel):
+    """
+    A comprehensive representation of a project, including its brief, whiteboard,
+    information requests, logs, and other related entities.
+
+    This model encapsulates all the components that make up a project,
+    providing a single point of access to all relevant information.
+    It serves as the main interface for interacting with the project data.
+    """
+
+    info: Optional[ProjectInfo]
+    brief: Optional[ProjectBrief]
+    whiteboard: Optional[ProjectWhiteboard]
+    requests: List[InformationRequest] = Field(default_factory=list)
+    log: Optional[ProjectLog] = Field(default_factory=lambda: ProjectLog())

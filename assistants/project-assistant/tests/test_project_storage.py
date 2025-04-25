@@ -15,14 +15,24 @@ from assistant.project_data import (
     LogEntryType,
     ProjectBrief,
     ProjectGoal,
+    ProjectInfo,
     ProjectLog,
+    ProjectWhiteboard,
     RequestPriority,
     RequestStatus,
     SuccessCriterion,
 )
-from assistant.project_storage import ConversationRole, ProjectStorage, ProjectStorageManager
+from assistant.project_storage import (
+    ConversationProjectManager,
+    ConversationRole,
+    CoordinatorConversationMessage,
+    CoordinatorConversationStorage,
+    ProjectStorage,
+    ProjectStorageManager,
+)
 from semantic_workbench_assistant import settings
 from semantic_workbench_assistant.storage import write_model
+from semantic_workbench_api_model.workbench_model import AssistantStateEvent
 
 
 class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
@@ -64,6 +74,9 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         mock_assistant = unittest.mock.MagicMock()
         mock_assistant.id = "test-assistant-id"
         self.context.assistant = mock_assistant
+
+        # Mock send_conversation_state_event
+        self.context.send_conversation_state_event = unittest.mock.AsyncMock()
 
         # Patch storage_directory_for_context
         def mock_storage_directory_for_context(context, *args, **kwargs):
@@ -113,6 +126,14 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
         brief_path = ProjectStorageManager.get_brief_path(self.project_id)
         brief_path.parent.mkdir(parents=True, exist_ok=True)
         write_model(brief_path, brief)
+
+        # Create project info
+        project_info = ProjectInfo(
+            project_id=self.project_id,
+            coordinator_conversation_id=self.conversation_id,
+        )
+        project_info_path = ProjectStorageManager.get_project_info_path(self.project_id)
+        write_model(project_info_path, project_info)
 
         # Create an information request
         request = InformationRequest(
@@ -179,9 +200,6 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
                     user_name="Test User",
                 )
             ],
-            created_by=self.user_id,
-            updated_by=self.user_id,
-            conversation_id=self.conversation_id,
         )
 
         # Write the log
@@ -207,6 +225,231 @@ class TestProjectStorage(unittest.IsolatedAsyncioTestCase):
 
         # Verify team directory exists
         self.assertTrue(self.team_dir.exists(), "Team directory should exist")
+
+    async def test_coordinator_conversation_storage(self):
+        """Test the coordinator conversation storage functionality."""
+        # Create coordinator conversation storage
+        messages = [
+            CoordinatorConversationMessage(
+                message_id=str(uuid.uuid4()),
+                content="Test message 1",
+                sender_name="Test User",
+                is_assistant=False,
+            ),
+            CoordinatorConversationMessage(
+                message_id=str(uuid.uuid4()),
+                content="Test message 2",
+                sender_name="Test Assistant",
+                is_assistant=True,
+            ),
+        ]
+        
+        conv_storage = CoordinatorConversationStorage(
+            project_id=self.project_id,
+            messages=messages,
+        )
+        
+        # Write to storage
+        ProjectStorage.write_coordinator_conversation(self.project_id, conv_storage)
+        
+        # Read back
+        read_storage = ProjectStorage.read_coordinator_conversation(self.project_id)
+        
+        # Verify data was saved correctly
+        self.assertIsNotNone(read_storage, "Should load the coordinator conversation")
+        if read_storage:
+            self.assertEqual(read_storage.project_id, self.project_id)
+            self.assertEqual(len(read_storage.messages), 2)
+            self.assertEqual(read_storage.messages[0].content, "Test message 1")
+            self.assertEqual(read_storage.messages[1].content, "Test message 2")
+            self.assertFalse(read_storage.messages[0].is_assistant)
+            self.assertTrue(read_storage.messages[1].is_assistant)
+
+    async def test_append_coordinator_message(self):
+        """Test appending a message to coordinator conversation storage."""
+        # Start with empty storage
+        ProjectStorage.append_coordinator_message(
+            project_id=self.project_id,
+            message_id=str(uuid.uuid4()),
+            content="First message",
+            sender_name="Test User",
+        )
+        
+        # Append another message
+        ProjectStorage.append_coordinator_message(
+            project_id=self.project_id,
+            message_id=str(uuid.uuid4()),
+            content="Second message",
+            sender_name="Test Assistant",
+            is_assistant=True,
+        )
+        
+        # Read back
+        storage = ProjectStorage.read_coordinator_conversation(self.project_id)
+        
+        # Verify messages were added
+        self.assertIsNotNone(storage, "Should create and load the coordinator conversation")
+        if storage:
+            self.assertEqual(len(storage.messages), 2)
+            self.assertEqual(storage.messages[0].content, "First message")
+            self.assertEqual(storage.messages[1].content, "Second message")
+            self.assertFalse(storage.messages[0].is_assistant)
+            self.assertTrue(storage.messages[1].is_assistant)
+
+    async def test_message_limit_in_coordinator_conversation(self):
+        """Test that coordinator conversation storage limits to the most recent messages."""
+        # Add more than 50 messages
+        for i in range(60):
+            ProjectStorage.append_coordinator_message(
+                project_id=self.project_id,
+                message_id=str(uuid.uuid4()),
+                content=f"Message {i+1}",
+                sender_name="Test User",
+            )
+        
+        # Read back
+        storage = ProjectStorage.read_coordinator_conversation(self.project_id)
+        
+        # Verify only the most recent 50 messages are kept
+        self.assertIsNotNone(storage, "Should load the coordinator conversation")
+        if storage:
+            self.assertEqual(len(storage.messages), 50, "Should limit to 50 messages")
+            # First message should be the 11th message (since we keep the last 50 of 60)
+            self.assertEqual(storage.messages[0].content, "Message 11")
+            # Last message should be the 60th message
+            self.assertEqual(storage.messages[49].content, "Message 60")
+
+    async def test_project_whiteboard(self):
+        """Test reading and writing project whiteboard."""
+        # Create whiteboard
+        whiteboard = ProjectWhiteboard(
+            content="# Test Whiteboard\n\nThis is a test whiteboard.",
+            is_auto_generated=True,
+            created_by=self.user_id,
+            updated_by=self.user_id,
+            conversation_id=self.conversation_id,
+        )
+        
+        # Write whiteboard
+        ProjectStorage.write_project_whiteboard(self.project_id, whiteboard)
+        
+        # Read whiteboard
+        read_whiteboard = ProjectStorage.read_project_whiteboard(self.project_id)
+        
+        # Verify whiteboard was saved correctly
+        self.assertIsNotNone(read_whiteboard, "Should load the whiteboard")
+        if read_whiteboard:
+            self.assertEqual(read_whiteboard.content, "# Test Whiteboard\n\nThis is a test whiteboard.")
+            self.assertTrue(read_whiteboard.is_auto_generated)
+
+    async def test_refresh_current_ui(self):
+        """Test refreshing the current UI inspector."""
+        # Call refresh_current_ui
+        await ProjectStorage.refresh_current_ui(self.context)
+        
+        # Verify that send_conversation_state_event was called with correct parameters
+        self.context.send_conversation_state_event.assert_called_once()
+        called_event = self.context.send_conversation_state_event.call_args[0][0]
+        self.assertIsInstance(called_event, AssistantStateEvent)
+        self.assertEqual(called_event.state_id, "project_status")
+        self.assertEqual(called_event.event, "updated")
+        self.assertIsNone(called_event.state)
+
+    async def test_project_info(self):
+        """Test reading and writing project info."""
+        # Read existing project info
+        project_info = ProjectStorage.read_project_info(self.project_id)
+        
+        # Verify it was loaded correctly
+        self.assertIsNotNone(project_info, "Should load project info")
+        if project_info:
+            self.assertEqual(project_info.project_id, self.project_id)
+            self.assertEqual(project_info.coordinator_conversation_id, self.conversation_id)
+            
+        # Update project info
+        if project_info:
+            project_info.status_message = "Test status message"
+            project_info.progress_percentage = 50
+            project_info.next_actions = ["Action 1", "Action 2"]
+            
+            # Write updated project info
+            ProjectStorage.write_project_info(self.project_id, project_info)
+            
+            # Read updated project info
+            updated_info = ProjectStorage.read_project_info(self.project_id)
+            
+            # Verify updates were saved
+            self.assertIsNotNone(updated_info, "Should load updated project info")
+            if updated_info:
+                self.assertEqual(updated_info.status_message, "Test status message")
+                self.assertEqual(updated_info.progress_percentage, 50)
+                self.assertEqual(updated_info.next_actions, ["Action 1", "Action 2"])
+
+    async def test_get_linked_conversations_dir(self):
+        """Test getting linked conversations directory."""
+        # Get linked conversations directory
+        linked_dir = ProjectStorageManager.get_linked_conversations_dir(self.project_id)
+        
+        # Verify directory exists
+        self.assertTrue(linked_dir.exists(), "Linked conversations directory should exist")
+        self.assertEqual(linked_dir.name, "linked_conversations")
+
+    async def test_conversation_association(self):
+        """Test conversation association with project."""
+        # Mock ConversationProjectManager.associate_conversation_with_project
+        with unittest.mock.patch("assistant.project_storage.write_model") as mock_write_model:
+            # Mock conversation project path
+            conversation_project_file = ProjectStorageManager.get_conversation_project_file_path(self.context)
+            
+            # Call associate_conversation_with_project
+            await ConversationProjectManager.associate_conversation_with_project(self.context, self.project_id)
+            
+            # Verify write_model was called
+            mock_write_model.assert_called_once()
+            
+            # Verify the file path in the call
+            call_args = mock_write_model.call_args[0]
+            self.assertEqual(call_args[0], conversation_project_file)
+            
+            # Verify the ProjectAssociation object created
+            self.assertEqual(call_args[1].project_id, self.project_id)
+
+    async def test_log_project_event(self):
+        """Test logging a project event."""
+        # Create mock for get_current_user
+        async def mock_get_current_user_impl(*args, **kwargs):
+            return "test-user", "Test User"
+            
+        # Patch get_current_user with our async mock implementation
+        with unittest.mock.patch("assistant.project_storage.get_current_user", side_effect=mock_get_current_user_impl):
+            # Call log_project_event
+            success = await ProjectStorage.log_project_event(
+                context=self.context,
+                project_id=self.project_id,
+                entry_type=LogEntryType.INFORMATION_UPDATE.value,
+                message="Test event log",
+                related_entity_id="test-entity-id",
+                metadata={"test": "metadata"},
+            )
+            
+            # Verify success
+            self.assertTrue(success, "Should log event successfully")
+            
+            # Read log to verify entry was added
+            log = ProjectStorage.read_project_log(self.project_id)
+            self.assertIsNotNone(log, "Should create and load log")
+            if log:
+                # If log already had entries from setup, this should find the new one
+                found_entry = False
+                for entry in log.entries:
+                    if entry.message == "Test event log":
+                        found_entry = True
+                        self.assertEqual(entry.entry_type, LogEntryType.INFORMATION_UPDATE)
+                        self.assertEqual(entry.user_id, "test-user")
+                        self.assertEqual(entry.user_name, "Test User")
+                        self.assertEqual(entry.related_entity_id, "test-entity-id")
+                        self.assertEqual(entry.metadata, {"test": "metadata"})
+                self.assertTrue(found_entry, "Should find the added log entry")
 
 
 if __name__ == "__main__":

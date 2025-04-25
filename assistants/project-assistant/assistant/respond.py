@@ -3,7 +3,6 @@ import time
 from textwrap import dedent
 from typing import Any, Dict, List
 
-import deepmerge
 import openai_client
 from assistant_extensions.attachments import AttachmentsExtension
 from openai.types.chat import (
@@ -67,16 +66,15 @@ async def respond_to_conversation(
     """
     Respond to a conversation message.
     """
+    if "debug" not in metadata:
+        metadata["debug"] = {}
+
     config = await assistant_config.get(context.assistant)
-    debug_metadata = metadata["debug"]
 
-    # Get the conversation Role.
     role = await detect_assistant_role(context)
-    debug_metadata["role"] = role
-
-    # Get the assistant's configuration template (Is this is context transfer or project assistant?)
+    metadata["debug"]["role"] = role
     template = get_template(context)
-    debug_metadata["template"] = template
+    metadata["debug"]["template"] = template
 
     max_tokens = config.request_config.max_tokens
     available_tokens = max_tokens
@@ -377,21 +375,17 @@ async def respond_to_conversation(
     ## TOKEN COUNT HANDLING
     ##
     total_tokens = max_tokens - available_tokens
-    debug_metadata["token_usage"] = {"total_tokens": total_tokens}
-    metadata = {
-        "token_counts": {
-            "total": total_tokens,
-            "max": config.request_config.max_tokens,
-        }
+    metadata["debug"]["token_usage"] = {"total": total_tokens, "max": max_tokens}
+    metadata["token_counts"] = {
+        "total": total_tokens,
+        "max": config.request_config.max_tokens,
     }
+
     if available_tokens < 0:
         raise ValueError(
             f"You've exceeded the token limit of {config.request_config.max_tokens} in this conversation "
             f"({total_tokens}). Try removing some attachments."
         )
-
-    if available_tokens <= 0:
-        logger.warning(f"Token limit exceeded: {total_tokens} > {max_tokens}. ")
 
     # These are the tools that are available to the assistant.
     project_tools = ProjectTools(context, role)
@@ -399,18 +393,14 @@ async def respond_to_conversation(
     # For team role, analyze message for possible information request needs.
     # Send a notification if we think it might be one.
     if role is ConversationRole.TEAM:
-        # Check if the message indicates a potential information request
         detection_result = await project_tools.detect_information_request_needs(message.content)
 
-        # If an information request is detected with reasonable confidence
         if detection_result.get("is_information_request", False) and detection_result.get("confidence", 0) > 0.8:
-            # Get detailed information from detection
             suggested_title = detection_result.get("potential_title", "")
             suggested_priority = detection_result.get("suggested_priority", "medium")
             potential_description = detection_result.get("potential_description", "")
             reason = detection_result.get("reason", "")
 
-            # Create a better-formatted suggestion using the detailed analysis
             suggestion = (
                 f"**Information Request Detected**\n\n"
                 f"It appears that you might need information from the Coordinator. {reason}\n\n"
@@ -418,21 +408,22 @@ async def respond_to_conversation(
                 f"**Title:** {suggested_title}\n"
                 f"**Description:** {potential_description}\n"
                 f"**Priority:** {suggested_priority}\n\n"
-                f"I can create this request for you, or you can use `/request-info` to create it yourself with custom details."
             )
 
             await context.send_messages(
                 NewConversationMessage(
                     content=suggestion,
                     message_type=MessageType.notice,
+                    metadata={"debug": detection_result},
                 )
             )
+        metadata["debug"]["detection_result"] = detection_result
 
     ##
     ## MAKE THE LLM CALL
     ##
 
-    async with openai_client.create_client(config.service_config, api_version="2024-06-01") as client:
+    async with openai_client.create_client(config.service_config) as client:
         try:
             # Create a completion dictionary for tool call handling
             completion_args = {
@@ -441,125 +432,73 @@ async def respond_to_conversation(
                 "max_tokens": config.request_config.response_tokens,
             }
 
-            # If the messaging API version supports tool functions, use them
-            try:
-                # Call the completion API with tool functions
-                logger.info(f"Using tool functions for completions (role: {role})")
+            # Call the completion API with tool functions
+            logger.info(f"Using tool functions for completions (role: {role})")
 
-                # Record the tool names available for this role for validation
-                available_tool_names = set(project_tools.tool_functions.function_map.keys())
-                logger.info(f"Available tools for {role}: {available_tool_names}")
+            # Record the tool names available for this role for validation
+            available_tool_names = set(project_tools.tool_functions.function_map.keys())
+            logger.info(f"Available tools for {role}: {available_tool_names}")
 
-                # Make the API call
-                response_start_time = time.time()
-                completion_response, additional_messages = await complete_with_tool_calls(
-                    async_client=client,
-                    completion_args=completion_args,
-                    tool_functions=project_tools.tool_functions,
-                    metadata=debug_metadata,
-                )
-                response_end_time = time.time()
+            # Make the API call
+            response_start_time = time.time()
+            completion_response, additional_messages = await complete_with_tool_calls(
+                async_client=client,
+                completion_args=completion_args,
+                tool_functions=project_tools.tool_functions,
+                metadata=metadata["debug"],
+            )
+            response_end_time = time.time()
+            footer_items = []
 
-                footer_items = []
-
-                # Add the token usage message to the footer items
-                if completion_response and total_tokens > 0:
-                    completion_tokens = completion_response.usage.completion_tokens if completion_response.usage else 0
-                    request_tokens = total_tokens - completion_tokens
-                    footer_items.append(
-                        get_token_usage_message(
-                            max_tokens=config.request_config.max_tokens,
-                            total_tokens=total_tokens,
-                            request_tokens=request_tokens,
-                            completion_tokens=completion_tokens,
-                        )
+            # Add the token usage message to the footer items
+            if completion_response and total_tokens > 0:
+                completion_tokens = completion_response.usage.completion_tokens if completion_response.usage else 0
+                request_tokens = total_tokens - completion_tokens
+                footer_items.append(
+                    get_token_usage_message(
+                        max_tokens=config.request_config.max_tokens,
+                        total_tokens=total_tokens,
+                        request_tokens=request_tokens,
+                        completion_tokens=completion_tokens,
                     )
+                )
 
-                    await context.update_conversation(
-                        metadata={
-                            "token_counts": {
-                                "total": total_tokens,
-                                "max": config.request_config.max_tokens,
-                            }
+                await context.update_conversation(
+                    metadata={
+                        "token_counts": {
+                            "total": total_tokens,
+                            "max": config.request_config.max_tokens,
                         }
-                    )
-
-                footer_items.append(get_response_duration_message(response_end_time - response_start_time))
-                metadata["footer_items"] = footer_items
-
-                # Process tool function calls and add intermediate messages to the conversation.
-                # This would be better if complete_with_tool_calls returned an iterator.
-                for additional_message in additional_messages:
-                    if additional_message.get("role") == "function" and additional_message.get("content"):
-                        # Send function call result messages as notice type
-                        # Ensure content is a string
-                        content_str = str(additional_message.get("content", "") or "")
-                        await context.send_messages(
-                            NewConversationMessage(
-                                content=content_str,
-                                message_type=MessageType.notice,
-                                metadata={"function_result": True, "name": additional_message.get("name", "tool_call")},
-                            )
-                        )
-                    elif additional_message.get("role") == "assistant" and additional_message.get("function_call"):
-                        # Send function call messages as notice type
-                        function_call = additional_message.get("function_call", {}) or {}
-                        function_name = function_call.get("name", "unknown")
-                        await context.send_messages(
-                            NewConversationMessage(
-                                content=f"Calling function: {function_name}",
-                                message_type=MessageType.notice,
-                                metadata={"function_call": True, "name": function_name},
-                            )
-                        )
-
-                debug_metadata["additional_messages"] = additional_messages
-
-                # Get the final content from the completion response
-                content = message_content_from_completion(completion_response)
-                if not content:
-                    content = "I've processed your request, but couldn't generate a proper response."
-
-            except (ImportError, AttributeError):
-                # Fallback to standard completions if tool calls aren't supported
-                logger.info("Tool functions not supported, falling back to standard completion")
-
-                # Call the OpenAI chat completion endpoint to get a response
-                completion = await client.chat.completions.create(**completion_args)
-
-                # Get the content from the completion response
-                content = completion.choices[0].message.content
-
-                # Merge the completion response into the passed in metadata
-                deepmerge.always_merger.merge(
-                    debug_metadata,
-                    {
-                        "request": completion_args,
-                        "response": completion.model_dump() if completion else "[no response from openai]",
-                    },
+                    }
                 )
+
+            footer_items.append(get_response_duration_message(response_end_time - response_start_time))
+            metadata["footer_items"] = footer_items
+
+            # Add intermediate messages to the conversation.
+            # for additional_message in additional_messages:
+            #     if additional_message.get("role") == "tool" and additional_message.get("content"):
+            #         content_str = str(additional_message.get("content", ""))
+            #         await context.send_messages(
+            #             NewConversationMessage(
+            #                 content=content_str,
+            #                 message_type=MessageType.notice,
+            #                 metadata={
+            #                     "debug": additional_message,
+            #                 },
+            #             )
+            #         )
+
+            content = message_content_from_completion(completion_response)
+            if not content:
+                content = "I've processed your request, but couldn't generate a proper response."
 
         except Exception as e:
             logger.exception(f"exception occurred calling openai chat completion: {e}")
-            # if there is an error, set the content to an error message
             content = "An error occurred while calling the OpenAI API. Is it configured correctly?"
+            metadata["debug"]["error"] = str(e)
 
-            # merge the error into the passed in metadata
-            deepmerge.always_merger.merge(
-                debug_metadata,
-                {
-                    "request": {
-                        "model": config.request_config.openai_model,
-                        "messages": completion_messages,
-                    },
-                    "error": str(e),
-                },
-            )
-
-    # set the message type based on the content
     message_type = MessageType.chat
-
-    # various behaviors based on the content
     if content:
         # strip out the username from the response
         if isinstance(content, str) and content.startswith("["):
@@ -573,28 +512,18 @@ async def respond_to_conversation(
             # but we can override this behavior for debugging purposes via the assistant config
             if config.enable_debug_output:
                 # update the metadata to indicate the assistant chose to remain silent
-                deepmerge.always_merger.merge(
-                    debug_metadata,
-                    {
-                        "silence_token": True,
-                        "generated_content": False,
-                    },
-                )
+                metadata["debug"]["silence_token"] = True
+                metadata["debug"]["silence_token_response"] = (content,)
                 # send a notice to the user that the assistant chose to remain silent
                 await context.send_messages(
                     NewConversationMessage(
                         message_type=MessageType.notice,
                         content="[assistant chose to remain silent]",
-                        metadata={"debug": debug_metadata},
+                        metadata=metadata,
                     )
                 )
             return
 
-        # override message type if content starts with "/", indicating a command response
-        if isinstance(content, str) and content.startswith("/"):
-            message_type = MessageType.command_response
-
-    # send the response to the conversation
     await context.send_messages(
         NewConversationMessage(
             content=str(content) if content is not None else "[no response from openai]",

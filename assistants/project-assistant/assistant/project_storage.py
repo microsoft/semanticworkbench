@@ -460,19 +460,12 @@ class ProjectStorage:
         # Get existing log or create a new one
         log = ProjectStorage.read_project_log(project_id)
         if not log:
-            # Create a new project log
             log = ProjectLog(
-                created_by=user_id,
-                updated_by=user_id,
-                conversation_id=str(context.id),
                 entries=[],
             )
 
         # Add the entry and update metadata
         log.entries.append(entry)
-        log.updated_at = datetime.utcnow()
-        log.updated_by = user_id
-        log.version += 1
 
         # Save the updated log
         ProjectStorage.write_project_log(project_id, log)
@@ -533,6 +526,13 @@ class ProjectNotifier:
                         NewConversationMessage(
                             content=message,
                             message_type=MessageType.notice,
+                            metadata={
+                                "debug": {
+                                    "project_id": project_id,
+                                    "message": message,
+                                    "sender": str(context.id),
+                                }
+                            },
                         )
                     )
                     logger.info(f"Sent notification to conversation {conv_id}")
@@ -572,17 +572,17 @@ class ProjectNotifier:
             data: Optional additional data related to the update
             send_notification: Whether to send notifications (default: True)
         """
-        from semantic_workbench_api_model.workbench_model import MessageType, NewConversationMessage
 
         # Only send notifications if explicitly requested
         if send_notification:
             # Notify the current conversation with a message
-            await context.send_messages(
-                NewConversationMessage(
-                    content=message,
-                    message_type=MessageType.notice,
-                )
-            )
+            # await context.send_messages(
+            #     NewConversationMessage(
+            #         content=message,
+            #         message_type=MessageType.notice,
+            #         metadata={"debug": {"project_id": project_id, "update_type": update_type, "data": data}},
+            #     )
+            # )
 
             # Notify all linked conversations with the same message
             await ProjectNotifier.send_notice_to_linked_conversations(context, project_id, message)

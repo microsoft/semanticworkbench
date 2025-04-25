@@ -32,6 +32,7 @@ from .logging import logger
 from .project_common import ConfigurationTemplate
 from .project_data import (
     LogEntryType,
+    Project,
     ProjectInfo,
     ProjectState,
     RequestPriority,
@@ -115,7 +116,7 @@ class ProjectTools:
         self.tool_functions.add_function(
             self.get_project_info, "get_project_info", "Get information about the current project state"
         )
-        # Common detection tool for both roles
+
         self.tool_functions.add_function(
             self.suggest_next_action,
             "suggest_next_action",
@@ -150,22 +151,9 @@ class ProjectTools:
         else:
             # Team-specific tools
             self.tool_functions.add_function(
-                self.create_information_request,
-                "create_information_request",
-                "Create an information request for information or to report a blocker",
-            )
-            self.tool_functions.add_function(
-                self.update_project_info,
-                "update_project_info",
+                self.update_project_status,
+                "update_project_status",
                 "Update the status and progress of the project",
-            )
-            self.tool_functions.add_function(
-                self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
-            )
-            self.tool_functions.add_function(
-                self.delete_information_request,
-                "delete_information_request",
-                "Delete an information request that is no longer needed",
             )
             self.tool_functions.add_function(
                 self.detect_information_request_needs,
@@ -173,9 +161,22 @@ class ProjectTools:
                 "Analyze user message to detect potential information request needs",
             )
             self.tool_functions.add_function(
+                self.create_information_request,
+                "create_information_request",
+                "Create an information request for information or to report a blocker",
+            )
+            self.tool_functions.add_function(
+                self.delete_information_request,
+                "delete_information_request",
+                "Delete an information request that is no longer needed",
+            )
+            self.tool_functions.add_function(
                 self.view_coordinator_conversation,
                 "view_coordinator_conversation",
                 "View the Coordinator conversation messages to understand the project context and planning discussions",
+            )
+            self.tool_functions.add_function(
+                self.mark_criterion_completed, "mark_criterion_completed", "Mark a success criterion as completed"
             )
 
             if self.config_template == ConfigurationTemplate.PROJECT_ASSISTANT:
@@ -192,133 +193,75 @@ class ProjectTools:
         """
         return [name for name in self.tool_functions.function_map.keys()]
 
-    async def get_project_info(self, info_type: Literal["all", "brief", "whiteboard", "status", "requests"]) -> str:
+    async def get_project_info(self) -> Project | None:
         """
         Get information about the current project.
 
         Args:
-            info_type: Type of information to retrieve. Must be one of: all, brief, whiteboard, status, requests.
+            none
 
         Returns:
             Information about the project in a formatted string
         """
-        if info_type not in ["all", "brief", "whiteboard", "status", "requests"]:
-            return f"Invalid info_type: {info_type}. Must be one of: all, brief, whiteboard, status, requests. Use 'all' to get all information types."
 
-        # Get the project ID for the current conversation
         project_id = await ProjectManager.get_project_id(self.context)
         if not project_id:
-            return "No project associated with this conversation. Start by creating a project brief."
+            return None
 
-        output = []
+        project = await ProjectManager.get_project(self.context)
+        if not project:
+            return None
 
-        # Get project brief if requested
-        if info_type in ["all", "brief"]:
-            brief = await ProjectManager.get_project_brief(self.context)
+        return project
 
-            if brief:
-                # Format brief information
-                output.append(f"## Project Brief: {brief.project_name}")
-                output.append(f"\n{brief.project_description}\n")
+    async def update_project_status(
+        self,
+        status: Literal["planning", "in_progress", "blocked", "completed", "aborted"],
+        progress: Optional[int],
+        status_message: Optional[str],
+    ) -> str:
+        """
+        Update the status and progress of the project.
 
-                if brief.goals:
-                    output.append("\n### Goals:\n")
+        Args:
+            status: The project status. Must be one of: planning, in_progress, blocked, completed, aborted.
+            progress: The progress percentage (0-100). If not provided, no progress will be updated.
+            status_message: A custom status message. If not provided, no status message will be updated.
+            next_actions: A list of next actions. If not provided, no next actions will be updated.
 
-                    for i, goal in enumerate(brief.goals):
-                        # Count completed criteria
-                        completed = sum(1 for c in goal.success_criteria if c.completed)
-                        total = len(goal.success_criteria)
+        Returns:
+            A message indicating success or failure
+        """
 
-                        output.append(f"{i + 1}. **{goal.name}** - {goal.description}")
+        if self.role is not ConversationRole.TEAM:
+            return "Only Team members can update project status."
 
-                        if goal.success_criteria:
-                            output.append(f"   Progress: {completed}/{total} criteria complete")
-                            output.append("   Success Criteria:")
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(self.context)
+        if not project_id:
+            return "No project associated with this conversation. Unable to update project status."
 
-                            for j, criterion in enumerate(goal.success_criteria):
-                                status = "✅" if criterion.completed else "⬜"
-                                output.append(f"   {status} {criterion.description}")
+        # Update the project info using ProjectManager
+        project_info = await ProjectManager.update_project_info(
+            context=self.context,
+            state=status,
+            status_message=status_message,
+        )
 
-                        output.append("")
-                else:
-                    # output.append("\n*No goals defined yet.*")
-                    pass
+        if project_info:
+            # Format progress as percentage if available
+            progress_text = f" ({progress}% complete)" if progress is not None else ""
 
-        # Get project whiteboard if requested
-        if info_type in ["all", "whiteboard"]:
-            whiteboard = ProjectStorage.read_project_whiteboard(project_id)
-
-            if whiteboard and whiteboard.content:
-                output.append("\n## Project Whiteboard\n")
-                output.append(whiteboard.content)
-                output.append("")
-
-                if whiteboard.is_auto_generated:
-                    output.append("*This whiteboard content is automatically updated by the assistant.*")
-                else:
-                    output.append("*This whiteboard content has been manually edited.*")
-
-                output.append("")
-            elif info_type == "whiteboard":
-                output.append("\n## Project Whiteboard\n")
-                output.append("*No whiteboard content available yet.*")
-
-        # Get information requests if requested
-        if info_type in ["all", "requests"]:
-            requests = ProjectStorage.get_all_information_requests(project_id)
-
-            if requests:
-                output.append("\n## Information Requests\n")
-
-                # Group requests by status
-                active_requests = [r for r in requests if r.status != RequestStatus.RESOLVED]
-                resolved_requests = [r for r in requests if r.status == RequestStatus.RESOLVED]
-
-                if active_requests:
-                    output.append("### Active Requests")
-                    output.append(
-                        '\n> 📋 **FOR COORDINATOR AGENTS:** To resolve a request, first get the Request ID below, then use `resolve_information_request(request_id="exact-id-here", resolution="your solution")`. Do NOT use the request title as the ID.\n'
-                    )
-
-                    for request in active_requests:
-                        priority_marker = {
-                            RequestPriority.LOW: "🔹",
-                            RequestPriority.MEDIUM: "🔶",
-                            RequestPriority.HIGH: "🔴",
-                            RequestPriority.CRITICAL: "⚠️",
-                        }.get(request.priority, "🔹")
-
-                        # Make the request ID super obvious for resolving requests
-                        output.append(f"{priority_marker} **{request.title}** ({request.status.value})")
-                        output.append(f"  **Request ID for resolution:** `{request.request_id}`")
-                        output.append(f"  Description: {request.description}")
-
-                        if request.updates:
-                            last_update = request.updates[-1]
-                            output.append(f"  *Last update: {last_update.get('message', '')}*")
-
-                        output.append("")
-
-                if resolved_requests and info_type == "requests":
-                    output.append("### Resolved Requests\n")
-
-                    for request in resolved_requests[:5]:  # Show only the 5 most recent
-                        output.append(f"✅ **{request.title}** ({request.status.value})")
-                        output.append(f"  **Request ID:** `{request.request_id}`")
-
-                        if request.resolution:
-                            output.append(f"  Resolution: {request.resolution}")
-
-                        output.append("")
-            elif info_type == "requests":
-                output.append("\n## Information Requests\n")
-                output.append("*No information requests created yet.*")
-
-        # If no data was found for any category
-        if not output:
-            return "No project information found. Start by creating a project brief."
-
-        return "\n".join(output)
+            await self.context.send_messages(
+                NewConversationMessage(
+                    content=f"Project status updated to '{status}'{progress_text}. All project participants will see this update.",
+                    message_type=MessageType.notice,
+                    metadata={},  # Add empty metadata
+                )
+            )
+            return f"Project status updated to '{status}'{progress_text}."
+        else:
+            return "Failed to update project status. Please try again."
 
     async def create_project_brief(self, project_name: str, project_description: str) -> str:
         """
@@ -340,67 +283,169 @@ class ProjectTools:
             return "No project associated with this conversation. Please create a project first."
 
         # Create a new project brief using ProjectManager
-        success, brief = await ProjectManager.create_project_brief(
+        brief = await ProjectManager.create_project_brief(
             context=self.context,
             project_name=project_name,
             project_description=project_description,
             send_notification=True,
         )
 
-        if success and brief:
+        if brief:
             await self.context.send_messages(
                 NewConversationMessage(
                     content=f"Project brief '{project_name}' created successfully.",
                     message_type=MessageType.notice,
-                    metadata={},  # Add empty metadata
+                    metadata={"debug": brief.model_dump()},
                 )
             )
             return f"Project brief '{project_name}' created successfully."
         else:
             return "Failed to create project brief. Please try again."
 
-    async def add_project_goal(self, goal_name: str, goal_description: str, success_criteria: List[str]) -> str:
+    async def detect_information_request_needs(self, message: str) -> Dict[str, Any]:
         """
-        Add a goal to the project brief.
+        Analyze a user message in context of recent chat history to detect potential information request needs.
+        Uses an LLM for sophisticated detection.
 
         Args:
-            goal_name: The name of the goal
-            goal_description: A description of the goal
-            success_criteria: Optional list of success criteria. If not provided, an empty list will be used.
+            message: The user message to analyze
 
         Returns:
-            A message indicating success or failure
+            Dict with detection results
         """
 
-        if self.role is not ConversationRole.COORDINATOR:
-            return "Only Coordinator can add project goals."
+        debug: Dict[str, Any] = {
+            "message": message,
+            "context": self.context,
+            "role": self.role,
+            "config_template": self.config_template,
+        }
 
-        # Get project ID
-        project_id = await ProjectManager.get_project_id(self.context)
-        if not project_id:
-            return "No project associated with this conversation. Please create a project brief first."
+        if self.role is not ConversationRole.TEAM:
+            return {
+                "is_information_request": False,
+                "reason": "Only Team conversations can create information requests",
+                "debug": debug,
+            }
 
-        # Get existing project brief
-        brief = await ProjectManager.get_project_brief(self.context)
-        if not brief:
-            return "No project brief found. Please create one first with create_project_brief."
+        is_context_transfer = self.config_template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
 
-        # Use the formatted command processor from chat.py to leverage existing functionality
-        criteria_str = ""
-        if len(success_criteria) > 0:
-            criteria_str = "|" + ";".join(success_criteria)
+        if is_context_transfer:
+            system_prompt = load_text_include("context_transfer_information_request_detection.txt")
+        else:
+            system_prompt = load_text_include("project_information_request_detection.txt")
 
-        command_content = f"/add-goal {goal_name}|{goal_description}{criteria_str}"
+        # Check if we're in a test environment (Missing parts of context)
+        if not hasattr(self.context, "assistant") or self.context.assistant is None:
+            return {
+                "is_information_request": False,
+                "reason": "Unable to perform detection in test environment - missing context",
+                "confidence": 0.0,
+                "debug": debug,
+            }
 
-        return await invoke_command_handler(
-            context=self.context,
-            command_content=command_content,
-            handler_func=handle_add_goal_command,
-            success_message=f"Goal '{goal_name}' added to project brief successfully.",
-            error_prefix="Error adding goal",
-        )
+        # Get the config
+        config = await assistant_config.get(self.context.assistant)
 
-    # Whiteboard methods removed - content is auto-generated
+        # Verify service_config is available
+        if not config.service_config:
+            logger.warning("No service_config available for LLM-based detection")
+            return {
+                "is_information_request": False,
+                "reason": "LLM detection unavailable - missing service configuration",
+                "confidence": 0.0,
+                "debug": debug,
+            }
+
+        # Get recent conversation history (up to 10 messages)
+        chat_history = []
+        try:
+            # Get recent messages to provide context
+            messages_response = await self.context.get_messages(limit=10)
+            if messages_response and messages_response.messages:
+                # Format messages for the LLM
+                for msg in messages_response.messages:
+                    # Format the sender name
+                    sender_name = "Team Member"
+                    if msg.sender.participant_id == self.context.assistant.id:
+                        sender_name = "Assistant"
+
+                    # Add to chat history
+                    role = "user" if sender_name == "Team Member" else "assistant"
+                    chat_history.append({"role": role, "content": f"{sender_name}: {msg.content}"})
+
+                # Reverse to get chronological order
+                chat_history.reverse()
+        except Exception as e:
+            logger.warning(f"Could not retrieve chat history: {e}")
+            # Continue without history if we can't get it
+
+        try:
+            # Create chat completion with history context
+            async with openai_client.create_client(config.service_config) as client:
+                # Prepare messages array with system prompt and chat history
+                messages: List[ChatCompletionMessageParam] = [{"role": "system", "content": system_prompt}]
+
+                # Add chat history if available
+                if chat_history:
+                    for history_msg in chat_history:
+                        messages.append({"role": history_msg["role"], "content": history_msg["content"]})
+
+                # Add the current message for analysis - explicitly mark as the latest message
+                messages.append({"role": "user", "content": f"Latest message from Team Member: {message}"})
+
+                completion_args = {
+                    "model": "gpt-3.5-turbo",
+                    "messages": messages,
+                    "response_format": {"type": "json_object"},
+                    "max_tokens": 500,
+                    "temperature": 0.2,  # Low temperature for more consistent analysis
+                }
+                debug["completion_args"] = openai_client.make_completion_args_serializable(completion_args)
+
+                # Log the request for debugging
+
+                # Make the API call
+                response = await client.chat.completions.create(
+                    model="gpt-3.5-turbo",  # Using a smaller, faster model for this analysis
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                    max_tokens=500,
+                    temperature=0.2,  # Low temperature for more consistent analysis
+                )
+                debug["completion_response"] = response.model_dump()
+
+                # Extract and parse the response
+                if response.choices and response.choices[0].message.content:
+                    try:
+                        result = json.loads(response.choices[0].message.content)
+                        # Add the original message for reference
+                        result["original_message"] = message
+                        return result
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse JSON from LLM response: {response.choices[0].message.content}")
+                        return {
+                            "is_information_request": False,
+                            "reason": "Failed to parse LLM response",
+                            "confidence": 0.0,
+                        }
+                else:
+                    logger.warning("Empty response from LLM for information request detection")
+                    return {
+                        "is_information_request": False,
+                        "reason": "Empty response from LLM",
+                        "confidence": 0.0,
+                        "debug": debug,
+                    }
+        except Exception as e:
+            # Failed to use LLM
+            logger.exception(f"Error in LLM-based information request detection: {e}")
+            return {
+                "is_information_request": False,
+                "reason": f"LLM detection error: {str(e)}",
+                "confidence": 0.0,
+                "debug": debug,
+            }
 
     async def resolve_information_request(self, request_id: str, resolution: str) -> str:
         """
@@ -437,7 +482,6 @@ class ProjectTools:
         )
 
         if success and information_request:
-            # Notification is handled by ProjectManager.resolve_information_request
             return f"Information request '{information_request.title}' has been resolved."
         else:
             logger.warning(f"Failed to resolve information request. Invalid ID provided: '{request_id}'")
@@ -505,55 +549,235 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         else:
             return "Failed to create information request. Please try again."
 
-    async def update_project_info(
-        self,
-        status: Literal["planning", "in_progress", "blocked", "completed", "aborted"],
-        progress: Optional[int],
-        status_message: Optional[str],
-        next_actions: Optional[List[str]],
-    ) -> str:
+    async def delete_information_request(self, request_id: str) -> str:
         """
-        Update the status and progress of the project.
+        Delete an information request that is no longer needed.
+        This completely removes the request from the system.
 
         Args:
-            status: The project status. Must be one of: planning, in_progress, blocked, completed, aborted.
-            progress: The progress percentage (0-100). If not provided, no progress will be updated.
-            status_message: A custom status message. If not provided, no status message will be updated.
-            next_actions: A list of next actions. If not provided, no next actions will be updated.
+            request_id: ID of the request to delete
+
+        Returns:
+            Message indicating success or failure
+        """
+        if self.role is not ConversationRole.TEAM:
+            return "This tool is only available to Team members."
+
+        # Get project ID
+        project_id = await ProjectManager.get_project_id(self.context)
+        if not project_id:
+            logger.warning("No project ID found for this conversation")
+            return "No project associated with this conversation. Unable to delete information request."
+
+        try:
+            # Clean the request_id to handle common formatting issues
+            cleaned_request_id = request_id.strip().lower()
+            # Remove any quotes that might have been added
+            cleaned_request_id = cleaned_request_id.replace('"', "").replace("'", "")
+
+            logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
+
+            # Read the information request
+
+            information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
+
+            if not information_request:
+                # Try to find it in all requests with improved matching algorithm
+                all_requests = ProjectStorage.get_all_information_requests(project_id)
+                matching_request = None
+
+                # Log available request IDs for debug purposes
+                available_ids = [req.request_id for req in all_requests if req.conversation_id == str(self.context.id)]
+                logger.info(f"Available request IDs for this conversation: {available_ids}")
+                logger.info(f"Looking for request ID: '{cleaned_request_id}'")
+
+                # Try to normalize the request ID to a UUID format
+                normalized_id = cleaned_request_id
+                # Remove any "uuid:" prefix if present
+                if normalized_id.startswith("uuid:"):
+                    normalized_id = normalized_id[5:]
+
+                # Check if the ID contains hyphens already, if not try to format it
+                if "-" not in normalized_id and len(normalized_id) >= 32:
+                    # Try to format in standard UUID format (8-4-4-4-12)
+                    try:
+                        formatted_id = f"{normalized_id[0:8]}-{normalized_id[8:12]}-{normalized_id[12:16]}-{normalized_id[16:20]}-{normalized_id[20:32]}"
+                        logger.info(f"Reformatted ID without hyphens to: {formatted_id}")
+                        normalized_id = formatted_id
+                    except Exception as e:
+                        logger.warning(f"Failed to reformat ID: {e}")
+
+                # For each request, try multiple matching strategies
+                for req in all_requests:
+                    # Only consider requests from this conversation
+                    if req.conversation_id != str(self.context.id):
+                        continue
+
+                    # Get string representations of request_id to compare
+                    req_id_str = str(req.request_id).lower()
+                    req_id_clean = req_id_str.replace("-", "")
+                    normalized_id_clean = normalized_id.replace("-", "")
+
+                    logger.debug(f"Comparing against request: {req_id_str}")
+
+                    # Multiple matching strategies, from most specific to least
+                    if any([
+                        # Exact match
+                        req_id_str == normalized_id,
+                        # Match ignoring hyphens
+                        req_id_clean == normalized_id_clean,
+                        # Check for UUID format variations
+                        req_id_str == normalized_id.lower(),
+                        # Partial match (if one is substring of the other)
+                        len(normalized_id) >= 6 and normalized_id in req_id_str,
+                        len(req_id_str) >= 6 and req_id_str in normalized_id,
+                        # Match on first part of UUID (at least 8 chars)
+                        len(normalized_id) >= 8 and normalized_id[:8] == req_id_str[:8] and len(req_id_clean) >= 30,
+                    ]):
+                        matching_request = req
+                        logger.info(f"Found matching request: {req.request_id}, title: {req.title}")
+                        break
+
+                if matching_request:
+                    information_request = matching_request
+                    # Use the actual request_id for future operations
+                    request_id = matching_request.request_id
+                    logger.info(f"Using matched request ID: {request_id}")
+                else:
+                    # Log the attempted deletion for debugging
+                    logger.warning(
+                        f"Failed deletion attempt - request ID '{request_id}' not found in project {project_id}"
+                    )
+                    # Provide a more helpful error message with available IDs
+                    if available_ids:
+                        id_examples = ", ".join([f"`{id[:8]}...`" for id in available_ids[:3]])
+                        return f"Information request with ID '{request_id}' not found. Your available requests have IDs like: {id_examples}. Please check and try again with the exact ID."
+                    else:
+                        return f"Information request with ID '{request_id}' not found. You don't have any active requests to delete."
+
+            # Verify ownership - team member can only delete their own requests
+            if information_request.conversation_id != str(self.context.id):
+                return "You can only delete information requests that you created. This request was created by another conversation."
+
+            # Get current user info for logging
+            participants = await self.context.get_participants()
+            current_user_id = None
+            current_username = None
+
+            for participant in participants.participants:
+                if participant.role == "user":
+                    current_user_id = participant.id
+                    current_username = participant.name
+                    break
+
+            if not current_user_id:
+                current_user_id = "team-system"
+                current_username = "Team Member"
+
+            # Log the deletion before removing the request
+            request_title = information_request.title
+
+            # Store the actual request ID from the information_request object for reliable operations
+            actual_request_id = information_request.request_id
+
+            # Log the deletion in the project log
+            await ProjectStorage.log_project_event(
+                context=self.context,
+                project_id=project_id,
+                entry_type=LogEntryType.REQUEST_DELETED.value,
+                message=f"Information request '{request_title}' was deleted by {current_username}",
+                related_entity_id=actual_request_id,
+                metadata={
+                    "request_title": request_title,
+                    "deleted_by": current_user_id,
+                    "deleted_by_name": current_username,
+                },
+            )
+
+            # Delete the information request - implementing deletion logic by removing the file
+            # Using ProjectStorage instead of direct path access
+            # Create information requests directory path and remove the specific file
+
+            request_path = ProjectStorageManager.get_information_request_path(project_id, actual_request_id)
+            if request_path.exists():
+                request_path.unlink()  # Delete the file
+
+            # Notify Coordinator about the deletion
+            try:
+                # Get Coordinator conversation ID
+
+                coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR.value
+                if coordinator_dir.exists():
+                    role_file = coordinator_dir / "conversation_role.json"
+                    if role_file.exists():
+                        role_data = read_model(role_file, ConversationProjectManager.ConversationRoleInfo)
+                        if role_data:
+                            coordinator_conversation_id = role_data.conversation_id
+
+                            # Notify Coordinator
+
+                            client = ConversationClientManager.get_conversation_client(
+                                self.context, coordinator_conversation_id
+                            )
+                            await client.send_messages(
+                                NewConversationMessage(
+                                    content=f"Team member ({current_username}) has deleted their request: '{request_title}'",
+                                    message_type=MessageType.notice,
+                                )
+                            )
+            except Exception as e:
+                logger.warning(f"Could not notify Coordinator about deleted request: {e}")
+                # Not critical, so we continue
+
+            # Update all project UI inspectors
+            await ProjectStorage.refresh_all_project_uis(self.context, project_id)
+
+            return f"Information request '{request_title}' has been successfully deleted."
+
+        except Exception as e:
+            logger.exception(f"Error deleting information request: {e}")
+            return f"Error deleting information request: {str(e)}. Please try again later."
+
+    async def add_project_goal(self, goal_name: str, goal_description: str, success_criteria: List[str]) -> str:
+        """
+        Add a goal to the project brief.
+
+        Args:
+            goal_name: The name of the goal
+            goal_description: A description of the goal
+            success_criteria: Optional list of success criteria. If not provided, an empty list will be used.
 
         Returns:
             A message indicating success or failure
         """
 
-        if self.role is not ConversationRole.TEAM:
-            return "Only Team members can update project status."
+        if self.role is not ConversationRole.COORDINATOR:
+            return "Only Coordinator can add project goals."
 
         # Get project ID
         project_id = await ProjectManager.get_project_id(self.context)
         if not project_id:
-            return "No project associated with this conversation. Unable to update project status."
+            return "No project associated with this conversation. Please create a project brief first."
 
-        # Update the project info using ProjectManager
-        success, project_info = await ProjectManager.update_project_info(
+        # Get existing project brief
+        brief = await ProjectManager.get_project_brief(self.context)
+        if not brief:
+            return "No project brief found. Please create one first with create_project_brief."
+
+        # Use the formatted command processor from chat.py to leverage existing functionality
+        criteria_str = ""
+        if len(success_criteria) > 0:
+            criteria_str = "|" + ";".join(success_criteria)
+
+        command_content = f"/add-goal {goal_name}|{goal_description}{criteria_str}"
+
+        return await invoke_command_handler(
             context=self.context,
-            state=status,
-            status_message=status_message,
+            command_content=command_content,
+            handler_func=handle_add_goal_command,
+            success_message=f"Goal '{goal_name}' added to project brief successfully.",
+            error_prefix="Error adding goal",
         )
-
-        if success and project_info:
-            # Format progress as percentage if available
-            progress_text = f" ({progress}% complete)" if progress is not None else ""
-
-            await self.context.send_messages(
-                NewConversationMessage(
-                    content=f"Project status updated to '{status}'{progress_text}. All project participants will see this update.",
-                    message_type=MessageType.notice,
-                    metadata={},  # Add empty metadata
-                )
-            )
-            return f"Project status updated to '{status}'{progress_text}."
-        else:
-            return "Failed to update project status. Please try again."
 
     async def mark_criterion_completed(self, goal_index: int, criterion_index: int) -> str:
         """
@@ -960,307 +1184,6 @@ Example: resolve_information_request(request_id="abc123-def-456", resolution="Yo
         except Exception as e:
             logger.exception(f"Error retrieving Coordinator conversation from shared storage: {e}")
             return f"Error retrieving Coordinator conversation: {str(e)}. Please try again later."
-
-    async def delete_information_request(self, request_id: str) -> str:
-        """
-        Delete an information request that is no longer needed.
-        This completely removes the request from the system.
-
-        Args:
-            request_id: ID of the request to delete
-
-        Returns:
-            Message indicating success or failure
-        """
-        if self.role is not ConversationRole.TEAM:
-            return "This tool is only available to Team members."
-
-        # Get project ID
-        project_id = await ProjectManager.get_project_id(self.context)
-        if not project_id:
-            logger.warning("No project ID found for this conversation")
-            return "No project associated with this conversation. Unable to delete information request."
-
-        try:
-            # Clean the request_id to handle common formatting issues
-            cleaned_request_id = request_id.strip().lower()
-            # Remove any quotes that might have been added
-            cleaned_request_id = cleaned_request_id.replace('"', "").replace("'", "")
-
-            logger.info(f"Original request_id: '{request_id}', Cleaned ID: '{cleaned_request_id}'")
-
-            # Read the information request
-
-            information_request = ProjectStorage.read_information_request(project_id, cleaned_request_id)
-
-            if not information_request:
-                # Try to find it in all requests with improved matching algorithm
-                all_requests = ProjectStorage.get_all_information_requests(project_id)
-                matching_request = None
-
-                # Log available request IDs for debug purposes
-                available_ids = [req.request_id for req in all_requests if req.conversation_id == str(self.context.id)]
-                logger.info(f"Available request IDs for this conversation: {available_ids}")
-                logger.info(f"Looking for request ID: '{cleaned_request_id}'")
-
-                # Try to normalize the request ID to a UUID format
-                normalized_id = cleaned_request_id
-                # Remove any "uuid:" prefix if present
-                if normalized_id.startswith("uuid:"):
-                    normalized_id = normalized_id[5:]
-
-                # Check if the ID contains hyphens already, if not try to format it
-                if "-" not in normalized_id and len(normalized_id) >= 32:
-                    # Try to format in standard UUID format (8-4-4-4-12)
-                    try:
-                        formatted_id = f"{normalized_id[0:8]}-{normalized_id[8:12]}-{normalized_id[12:16]}-{normalized_id[16:20]}-{normalized_id[20:32]}"
-                        logger.info(f"Reformatted ID without hyphens to: {formatted_id}")
-                        normalized_id = formatted_id
-                    except Exception as e:
-                        logger.warning(f"Failed to reformat ID: {e}")
-
-                # For each request, try multiple matching strategies
-                for req in all_requests:
-                    # Only consider requests from this conversation
-                    if req.conversation_id != str(self.context.id):
-                        continue
-
-                    # Get string representations of request_id to compare
-                    req_id_str = str(req.request_id).lower()
-                    req_id_clean = req_id_str.replace("-", "")
-                    normalized_id_clean = normalized_id.replace("-", "")
-
-                    logger.debug(f"Comparing against request: {req_id_str}")
-
-                    # Multiple matching strategies, from most specific to least
-                    if any([
-                        # Exact match
-                        req_id_str == normalized_id,
-                        # Match ignoring hyphens
-                        req_id_clean == normalized_id_clean,
-                        # Check for UUID format variations
-                        req_id_str == normalized_id.lower(),
-                        # Partial match (if one is substring of the other)
-                        len(normalized_id) >= 6 and normalized_id in req_id_str,
-                        len(req_id_str) >= 6 and req_id_str in normalized_id,
-                        # Match on first part of UUID (at least 8 chars)
-                        len(normalized_id) >= 8 and normalized_id[:8] == req_id_str[:8] and len(req_id_clean) >= 30,
-                    ]):
-                        matching_request = req
-                        logger.info(f"Found matching request: {req.request_id}, title: {req.title}")
-                        break
-
-                if matching_request:
-                    information_request = matching_request
-                    # Use the actual request_id for future operations
-                    request_id = matching_request.request_id
-                    logger.info(f"Using matched request ID: {request_id}")
-                else:
-                    # Log the attempted deletion for debugging
-                    logger.warning(
-                        f"Failed deletion attempt - request ID '{request_id}' not found in project {project_id}"
-                    )
-                    # Provide a more helpful error message with available IDs
-                    if available_ids:
-                        id_examples = ", ".join([f"`{id[:8]}...`" for id in available_ids[:3]])
-                        return f"Information request with ID '{request_id}' not found. Your available requests have IDs like: {id_examples}. Please check and try again with the exact ID."
-                    else:
-                        return f"Information request with ID '{request_id}' not found. You don't have any active requests to delete."
-
-            # Verify ownership - team member can only delete their own requests
-            if information_request.conversation_id != str(self.context.id):
-                return "You can only delete information requests that you created. This request was created by another conversation."
-
-            # Get current user info for logging
-            participants = await self.context.get_participants()
-            current_user_id = None
-            current_username = None
-
-            for participant in participants.participants:
-                if participant.role == "user":
-                    current_user_id = participant.id
-                    current_username = participant.name
-                    break
-
-            if not current_user_id:
-                current_user_id = "team-system"
-                current_username = "Team Member"
-
-            # Log the deletion before removing the request
-            request_title = information_request.title
-
-            # Store the actual request ID from the information_request object for reliable operations
-            actual_request_id = information_request.request_id
-
-            # Log the deletion in the project log
-            await ProjectStorage.log_project_event(
-                context=self.context,
-                project_id=project_id,
-                entry_type=LogEntryType.REQUEST_DELETED.value,
-                message=f"Information request '{request_title}' was deleted by {current_username}",
-                related_entity_id=actual_request_id,
-                metadata={
-                    "request_title": request_title,
-                    "deleted_by": current_user_id,
-                    "deleted_by_name": current_username,
-                },
-            )
-
-            # Delete the information request - implementing deletion logic by removing the file
-            # Using ProjectStorage instead of direct path access
-            # Create information requests directory path and remove the specific file
-
-            request_path = ProjectStorageManager.get_information_request_path(project_id, actual_request_id)
-            if request_path.exists():
-                request_path.unlink()  # Delete the file
-
-            # Notify Coordinator about the deletion
-            try:
-                # Get Coordinator conversation ID
-
-                coordinator_dir = ProjectStorageManager.get_project_dir(project_id) / ConversationRole.COORDINATOR.value
-                if coordinator_dir.exists():
-                    role_file = coordinator_dir / "conversation_role.json"
-                    if role_file.exists():
-                        role_data = read_model(role_file, ConversationProjectManager.ConversationRoleInfo)
-                        if role_data:
-                            coordinator_conversation_id = role_data.conversation_id
-
-                            # Notify Coordinator
-
-                            client = ConversationClientManager.get_conversation_client(
-                                self.context, coordinator_conversation_id
-                            )
-                            await client.send_messages(
-                                NewConversationMessage(
-                                    content=f"Team member ({current_username}) has deleted their request: '{request_title}'",
-                                    message_type=MessageType.notice,
-                                )
-                            )
-            except Exception as e:
-                logger.warning(f"Could not notify Coordinator about deleted request: {e}")
-                # Not critical, so we continue
-
-            # Update all project UI inspectors
-            await ProjectStorage.refresh_all_project_uis(self.context, project_id)
-
-            return f"Information request '{request_title}' has been successfully deleted."
-
-        except Exception as e:
-            logger.exception(f"Error deleting information request: {e}")
-            return f"Error deleting information request: {str(e)}. Please try again later."
-
-    async def detect_information_request_needs(self, message: str) -> Dict[str, Any]:
-        """
-        Analyze a user message in context of recent chat history to detect potential information request needs.
-        Uses an LLM for sophisticated detection.
-
-        Args:
-            message: The user message to analyze
-
-        Returns:
-            Dict with detection results
-        """
-        if self.role is not ConversationRole.TEAM:
-            return {
-                "is_information_request": False,
-                "reason": "Only Team conversations can create information requests",
-            }
-
-        is_context_transfer = self.config_template == ConfigurationTemplate.CONTEXT_TRANSFER_ASSISTANT
-
-        if is_context_transfer:
-            system_prompt = load_text_include("context_transfer_information_request_detection.txt")
-        else:
-            system_prompt = load_text_include("project_information_request_detection.txt")
-
-        # Check if we're in a test environment (Missing parts of context)
-        if not hasattr(self.context, "assistant") or self.context.assistant is None:
-            return {
-                "is_information_request": False,
-                "reason": "Unable to perform detection in test environment - missing context",
-                "confidence": 0.0,
-            }
-
-        # Get the config
-        config = await assistant_config.get(self.context.assistant)
-
-        # Verify service_config is available
-        if not config.service_config:
-            logger.warning("No service_config available for LLM-based detection")
-            return {
-                "is_information_request": False,
-                "reason": "LLM detection unavailable - missing service configuration",
-                "confidence": 0.0,
-            }
-
-        # Get recent conversation history (up to 10 messages)
-        chat_history = []
-        try:
-            # Get recent messages to provide context
-            messages_response = await self.context.get_messages(limit=10)
-            if messages_response and messages_response.messages:
-                # Format messages for the LLM
-                for msg in messages_response.messages:
-                    # Format the sender name
-                    sender_name = "Team Member"
-                    if msg.sender.participant_id == self.context.assistant.id:
-                        sender_name = "Assistant"
-
-                    # Add to chat history
-                    role = "user" if sender_name == "Team Member" else "assistant"
-                    chat_history.append({"role": role, "content": f"{sender_name}: {msg.content}"})
-
-                # Reverse to get chronological order
-                chat_history.reverse()
-        except Exception as e:
-            logger.warning(f"Could not retrieve chat history: {e}")
-            # Continue without history if we can't get it
-
-        try:
-            # Create chat completion with history context
-            async with openai_client.create_client(config.service_config) as client:
-                # Prepare messages array with system prompt and chat history
-                messages: List[ChatCompletionMessageParam] = [{"role": "system", "content": system_prompt}]
-
-                # Add chat history if available
-                if chat_history:
-                    for history_msg in chat_history:
-                        messages.append({"role": history_msg["role"], "content": history_msg["content"]})
-
-                # Add the current message for analysis - explicitly mark as the latest message
-                messages.append({"role": "user", "content": f"Latest message from Team Member: {message}"})
-
-                # Make the API call
-                response = await client.chat.completions.create(
-                    model="gpt-3.5-turbo",  # Using a smaller, faster model for this analysis
-                    messages=messages,
-                    response_format={"type": "json_object"},
-                    max_tokens=500,
-                    temperature=0.2,  # Low temperature for more consistent analysis
-                )
-
-                # Extract and parse the response
-                if response.choices and response.choices[0].message.content:
-                    try:
-                        result = json.loads(response.choices[0].message.content)
-                        # Add the original message for reference
-                        result["original_message"] = message
-                        return result
-                    except json.JSONDecodeError:
-                        logger.warning(f"Failed to parse JSON from LLM response: {response.choices[0].message.content}")
-                        return {
-                            "is_information_request": False,
-                            "reason": "Failed to parse LLM response",
-                            "confidence": 0.0,
-                        }
-                else:
-                    logger.warning("Empty response from LLM for information request detection")
-                    return {"is_information_request": False, "reason": "Empty response from LLM", "confidence": 0.0}
-        except Exception as e:
-            # Failed to use LLM
-            logger.exception(f"Error in LLM-based information request detection: {e}")
-            return {"is_information_request": False, "reason": f"LLM detection error: {str(e)}", "confidence": 0.0}
 
     async def suggest_next_action(self) -> Dict[str, Any]:
         """
