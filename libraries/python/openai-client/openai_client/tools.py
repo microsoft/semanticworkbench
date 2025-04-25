@@ -10,6 +10,7 @@ from openai import (
     NotGiven,
 )
 from openai.types.chat import (
+    ChatCompletionAssistantMessageParam,
     ChatCompletionMessageParam,
     ChatCompletionToolParam,
     ParsedChatCompletion,
@@ -438,9 +439,7 @@ async def complete_with_tool_calls(
       be available to be called.
     - metadata: Metadata to be added to the completion response.
     """
-    # Pull out a reference to the completion args messages.
     messages: list[ChatCompletionMessageParam] = completion_args.get("messages", [])
-    new_messages: list[ChatCompletionMessageParam] = []
 
     # Set up the tools if tool_functions exists.
     if tool_functions:
@@ -448,15 +447,17 @@ async def complete_with_tool_calls(
         completion_args["tools"] = tool_functions.chat_completion_tools()
 
     # Completion call.
-    logger.debug("Completion call.", extra=add_serializable_data(make_completion_args_serializable(completion_args)))
-    metadata["completion_args"] = make_completion_args_serializable(completion_args)
+    logger.debug(
+        "Completion call (pre-tool).", extra=add_serializable_data(make_completion_args_serializable(completion_args))
+    )
+    metadata["completion_request"] = make_completion_args_serializable(completion_args)
     try:
         completion = await async_client.beta.chat.completions.parse(
             **completion_args,
         )
         validate_completion(completion)
         logger.debug("Completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
-        metadata["completion"] = completion.model_dump()
+        metadata["completion_response"] = completion.model_dump()
     except Exception as e:
         completion_error = CompletionError(e)
         metadata["completion_error"] = completion_error.message
@@ -467,6 +468,8 @@ async def complete_with_tool_calls(
         raise completion_error from e
 
     # Extract response and add to messages.
+    new_messages: list[ChatCompletionMessageParam] = []
+
     assistant_message = assistant_message_from_completion(completion)
     if assistant_message:
         new_messages.append(assistant_message)
@@ -482,33 +485,37 @@ async def complete_with_tool_calls(
         if function_call_result_message:
             new_messages.append(function_call_result_message)
 
-    # Completion call for final response.
+    # Now, pass all messages back to the API to get a final response.
     final_args = {**completion_args, "messages": [*messages, *new_messages]}
-    if "tools" in final_args:
-        # TODO: We *could* allow a while "tools" loop and let the agent keep going?
-        del final_args["tools"]
-    if "tool_choice" in final_args:
-        del final_args["tool_choice"]
-    logger.debug("Tool completion call.", extra=add_serializable_data(make_completion_args_serializable(final_args)))
-    metadata["tool_completion_args"] = make_completion_args_serializable(final_args)
+    logger.debug(
+        "Tool completion call (final).", extra=add_serializable_data(make_completion_args_serializable(final_args))
+    )
+    metadata["completion_request (post-tool)"] = make_completion_args_serializable(final_args)
     try:
         tool_completion: ParsedChatCompletion = await async_client.beta.chat.completions.parse(
             **final_args,
         )
         validate_completion(tool_completion)
-        logger.debug("Tool completion response.", extra=add_serializable_data({"completion": completion.model_dump()}))
-        metadata["tool_completion"] = completion.model_dump()
+        logger.debug(
+            "Tool completion response.", extra=add_serializable_data({"completion": tool_completion.model_dump()})
+        )
+        metadata["completion_response (post-tool)"] = tool_completion.model_dump()
     except Exception as e:
         tool_completion_error = CompletionError(e)
-        metadata["tool_completion_error"] = tool_completion_error.message
+        metadata["completion_error (post-tool)"] = tool_completion_error.message
         logger.error(
             tool_completion_error.message,
-            extra=add_serializable_data({"completion_error": tool_completion_error.body, "metadata": metadata}),
+            extra=add_serializable_data({
+                "completion_error (post-tool)": tool_completion_error.body,
+                "metadata": metadata,
+            }),
         )
         raise tool_completion_error from e
 
     # Add assistant response to messages.
-    tool_completion_assistant_message = assistant_message_from_completion(tool_completion)
+    tool_completion_assistant_message: ChatCompletionAssistantMessageParam = assistant_message_from_completion(
+        tool_completion
+    )
     if tool_completion_assistant_message:
         new_messages.append(tool_completion_assistant_message)
 

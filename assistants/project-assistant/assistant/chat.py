@@ -316,23 +316,26 @@ async def on_message_created(
     # update the participant status to indicate the assistant is thinking
     await context.update_participant_me(UpdateParticipant(status="thinking..."))
 
-    # Open the Brief tab (state inspector).
-    # await context.send_conversation_state_event(
-    #     AssistantStateEvent(
-    #         state_id="project_status",
-    #         event="focus",
-    #         state=None,
-    #     )
-    # )
+    # If this is the first message, let's focus on the the project_status state inspector
+    messages = await context.get_messages()
+    if len(messages.messages) == 1:
+        await context.send_conversation_state_event(
+            AssistantStateEvent(
+                state_id="project_status",
+                event="focus",
+                state=None,
+            )
+        )
+
+    metadata = {
+        "debug": {
+            "content_safety": event.data.get(content_safety.metadata_key, {}),
+        }
+    }
 
     try:
         project_id = await ProjectManager.get_project_id(context)
-        metadata = {
-            "debug": {
-                "content_safety": event.data.get(content_safety.metadata_key, {}),
-                "project_id": project_id,
-            }
-        }
+        metadata["debug"]["project_id"] = project_id
 
         # If this is a Coordinator conversation, store the message for Team access
         role = await detect_assistant_role(context)
@@ -375,7 +378,7 @@ async def on_message_created(
             NewConversationMessage(
                 content=f"Error: {str(e)}",
                 message_type=MessageType.notice,
-                metadata={"generated_content": False},
+                metadata={"generated_content": False, **metadata},
             )
         )
     finally:
