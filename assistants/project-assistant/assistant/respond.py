@@ -89,7 +89,10 @@ async def respond_to_conversation(
     # Add role-specific instructions
     role_specific_prompt = ""
     if role == ConversationRole.COORDINATOR:
-        role_specific_prompt = load_text_include("coordinator_prompt.txt")
+        if template == CONTEXT_TRANSFER_ASSISTANT:
+            role_specific_prompt = load_text_include("context_transfer_coordinator_prompt.txt")
+        else:
+            role_specific_prompt = load_text_include("coordinator_prompt.txt")
     else:
         role_specific_prompt = load_text_include("team_prompt.txt")
 

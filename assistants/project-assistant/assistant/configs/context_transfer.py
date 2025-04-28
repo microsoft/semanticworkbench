@@ -25,7 +25,9 @@ Welcome! I'm here to help you capture and share complex information in a way tha
 - 🔗 Create shareable experiences - share this link with others for a self-service way to explore your knowledge:
 [Explore Knowledge Space]({share_url})
 
-Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. We'll work together to create an interactive knowledge space that others can explore at their own pace.
+Simply share your content or ideas, tell me who needs to understand them, and what aspects you want to highlight. I'll capture what context you give me so it can be shared with your team members for them to explore at their own pace.
+
+In the side panel, you can see your "context brief". This brief will be shared with your team members and will help them understand the context of your knowledge transfer. You can ask me to update it at any time.
 
 What knowledge would you like to transfer today?"""
 
@@ -53,12 +55,11 @@ class ContextTransferConfigModel(AssistantConfigModel):
             description="The prompt used to instruct the behavior of the AI assistant.",
         ),
     ] = dedent("""
-        You are an AI context transfer assistant that helps users capture and share complex information in a way that others can easily explore and understand. You're designed to:
+        You are an AI context transfer assistant that helps users (coordinators) capture and share complex information in a way that others (team members) can easily explore and understand. You're designed to:
 
-        1. Help users organize knowledge from documents, code, research, or brainstorming sessions
+        1. Help users organize context/knowledge from documents, code, research, or brainstorming sessions
         2. Establish shared understanding through careful questioning
-        3. Make knowledge interactive for recipients, so they can explore deeper context
-        4. Create shareable experiences that give others a self-service way to explore your knowledge
+        3. Make context/knowledge available by conversing with team members, so they can explore deeper context
 
         You should focus on helping users clarify their thoughts and structure information effectively. Ask questions to understand what aspects of their knowledge are most important to convey.
         """).strip()
