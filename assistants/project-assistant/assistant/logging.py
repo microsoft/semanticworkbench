@@ -154,16 +154,16 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
             if isinstance(handler, logging.FileHandler):
                 logger.removeHandler(handler)
 
-        # Set up JSON file handler 
+        # Set up JSON file handler
         json_file_handler = logging.FileHandler(log_file)
         json_file_handler.setLevel(logging.DEBUG)
         json_file_handler.setFormatter(JsonFormatter())
         logger.addHandler(json_file_handler)
-        
+
         # Also set up a regular text file handler for easier debugging
         text_file_handler = logging.FileHandler(line_log_file)
         text_file_handler.setLevel(logging.DEBUG)
-        text_file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] %(message)s'))
+        text_file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - [%(levelname)s] %(message)s"))
         logger.addHandler(text_file_handler)
 
         # Create an initial log entry with system info
@@ -181,12 +181,13 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
 
         # Also force a flush to ensure the log is written immediately
         for handler in logger.handlers:
-            if hasattr(handler, 'flush'):
+            if hasattr(handler, "flush"):
                 handler.flush()
 
         # Set permissions to ensure files are readable (for debugging)
         try:
             import stat
+
             os.chmod(log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
             os.chmod(line_log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
         except Exception as e:
@@ -211,12 +212,12 @@ def setup_file_logging(log_dir: Optional[str] = None) -> Path:
             json_file_handler.setLevel(logging.DEBUG)
             json_file_handler.setFormatter(JsonFormatter())
             logger.addHandler(json_file_handler)
-            
+
             text_file_handler = logging.FileHandler(line_log_file)
             text_file_handler.setLevel(logging.DEBUG)
-            text_file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - [%(levelname)s] %(message)s'))
+            text_file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - [%(levelname)s] %(message)s"))
             logger.addHandler(text_file_handler)
-            
+
             logger.warning(f"Using fallback log location: {log_file}")
             print(f"Fallback logging to: {log_file} and {line_log_file}")
 
